@@ -43,6 +43,25 @@ const translateKey = (
   return key;
 };
 
+const expectSafeRetentionAnalyticsPayload = (payload: unknown) => {
+  const record = payload as Record<string, unknown>;
+  expect(Object.keys(record).sort()).toEqual([
+    'phase',
+    'presentation',
+    'source',
+  ]);
+  for (const prohibitedField of [
+    'dialog_session_id',
+    'learner_profile',
+    'nickname',
+    'question',
+    'session_id',
+    'slide_body',
+  ]) {
+    expect(record).not.toHaveProperty(prohibitedField);
+  }
+};
+
 type ConversationControl = {
   deliverDraft: (draft?: string, nickname?: string) => void;
   deliverError: (error?: Error) => void;
@@ -545,6 +564,100 @@ describe('LearnerProfileDialog', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('shows retention instead of a second-step footer while profile data is loading', async () => {
+    const profileRequest = deferred<typeof emptyProfile>();
+    const statusRequest = deferred<ReturnType<typeof onboardingStatus>>();
+    const onDefer = jest.fn().mockResolvedValue(true);
+    mockGetLearnerProfile.mockReturnValue(profileRequest.promise);
+    mockGetProfileOnboardingStatus.mockReturnValue(statusRequest.promise);
+
+    renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onDefer,
+    });
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.loading'),
+    ).toBeInTheDocument();
+
+    const initialSkipButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.skip',
+    });
+    fireEvent.click(initialSkipButton);
+    fireEvent.click(initialSkipButton);
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.dialog.retention.title',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.loading'),
+    ).not.toBeInTheDocument();
+    expect(onDefer).not.toHaveBeenCalled();
+
+    await act(async () => {
+      statusRequest.resolve(onboardingStatus());
+      profileRequest.resolve(emptyProfile);
+    });
+    await waitForCollectionSession();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.continueSetup',
+      }),
+    );
+    expect(
+      screen.getByTestId('mock-profile-onboarding-conversation'),
+    ).toBeVisible();
+  });
+
+  test('keeps a load failure retry available after returning from retention', async () => {
+    const onDefer = jest.fn().mockResolvedValue(true);
+    mockGetLearnerProfile
+      .mockRejectedValueOnce(new Error('Profile unavailable'))
+      .mockResolvedValueOnce(existingProfile);
+
+    renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onDefer,
+    });
+
+    expect(await screen.findByText('Profile unavailable')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retry',
+      }),
+    ).toBeEnabled();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.dialog.retention.title',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Profile unavailable')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.continueSetup',
+      }),
+    );
+    expect(await screen.findByText('Profile unavailable')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retry',
+      }),
+    );
+    expect(
+      await screen.findByDisplayValue(existingProfile.learner_profile),
+    ).toBeInTheDocument();
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
+    expect(onDefer).not.toHaveBeenCalled();
+  });
+
   test('measures dialog chrome after a closed dialog opens even when loading fails', async () => {
     const originalResizeObserver = globalThis.ResizeObserver;
     const observe = jest.fn();
@@ -1034,6 +1147,10 @@ describe('LearnerProfileDialog', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
     expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      expect.anything(),
+    );
   });
 
   test('preserves the paste on ordinary settings close and restores it on same-account reopen', async () => {
@@ -1828,7 +1945,7 @@ describe('LearnerProfileDialog', () => {
     expect(saveButton()).toBeEnabled();
   });
 
-  test('blocks implicit dismissal during onboarding and defers only through the explicit action', async () => {
+  test('opens retention first and defers only after final confirmation', async () => {
     const onClose = jest.fn();
     const onDefer = jest.fn().mockResolvedValue(true);
     renderDialog({
@@ -1863,8 +1980,99 @@ describe('LearnerProfileDialog', () => {
     fireEvent.click(document.body);
     expect(onClose).not.toHaveBeenCalled();
 
+    const originalProfileInput = profileInput();
+    const originalNicknameInput = nicknameInput();
+    const dialogContent = screen.getByTestId('learner-profile-dialog-content');
+    fireEvent.change(originalProfileInput, {
+      target: { value: 'Draft kept through retention' },
+    });
+    fireEvent.change(originalNicknameInput, {
+      target: { value: 'Taylor' },
+    });
     fireEvent.click(
       screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+
+    const retentionHeading = await screen.findByText(
+      'module.profileOnboarding.dialog.retention.title',
+    );
+    await waitFor(() => expect(retentionHeading).toHaveFocus());
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(screen.getByTestId('learner-profile-dialog-content')).toBe(
+      dialogContent,
+    );
+    expect(dialogContent).toHaveClass(
+      'sm:h-[min(88dvh,760px)]',
+      'sm:max-w-[900px]',
+    );
+    expect(dialogContent).not.toHaveClass('sm:!h-[min(94dvh,1072px)]');
+    expect(dialogContent).not.toHaveClass('sm:!max-w-[1344px]');
+    expect(onDefer).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.SKIPPED,
+      expect.anything(),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'save',
+      },
+    );
+    const retentionShownPayload = mockTrackEvent.mock.calls.find(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+    )?.[1];
+    expectSafeRetentionAnalyticsPayload(retentionShownPayload);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      ),
+    ).toHaveLength(1);
+
+    const continueSetupButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.retention.continueSetup',
+    });
+    fireEvent.click(continueSetupButton);
+    fireEvent.click(continueSetupButton);
+    expect(profileInput()).toBe(originalProfileInput);
+    expect(nicknameInput()).toBe(originalNicknameInput);
+    expect(screen.getByTestId('learner-profile-dialog-content')).toBe(
+      dialogContent,
+    );
+    expect(profileInput()).toHaveValue('Draft kept through retention');
+    expect(nicknameInput()).toHaveValue('Taylor');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'save',
+      },
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
+      ),
+    ).toHaveLength(1);
+    const retentionContinuedPayload = mockTrackEvent.mock.calls.find(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
+    )?.[1];
+    expectSafeRetentionAnalyticsPayload(retentionContinuedPayload);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      ),
+    ).toHaveLength(2);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.defer',
+      }),
     );
     await waitFor(() => expect(onDefer).toHaveBeenCalledWith(undefined));
     const skippedCall = mockTrackEvent.mock.calls.findIndex(
@@ -1876,25 +2084,180 @@ describe('LearnerProfileDialog', () => {
     expect(onClose).toHaveBeenCalledWith('dismiss');
   });
 
-  test('keeps research usable when explicit defer fails', async () => {
-    const onClose = jest.fn();
-    const onDefer = jest.fn().mockResolvedValue(false);
-    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+  test('keeps retention available when analytics throws or rejects', async () => {
     renderDialog({
       exitPolicy: 'blocking',
       presentation: 'blocking',
-      externalErrorMessage: 'Skip unavailable',
-      onClose,
-      onDefer,
+      onDefer: jest.fn().mockResolvedValue(true),
     });
-    await waitForCollectionSession();
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    mockTrackEvent
+      .mockImplementationOnce(() => {
+        throw new Error('analytics unavailable');
+      })
+      .mockRejectedValueOnce(new Error('analytics rejected'));
 
     fireEvent.click(
       screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
     );
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.dialog.retention.title',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.continueSetup',
+      }),
+    );
+    expect(profileInput()).toHaveValue(existingProfile.learner_profile);
+  });
+
+  test.each([
+    [
+      'throws synchronously',
+      () => {
+        throw new Error('analytics unavailable');
+      },
+    ],
+    [
+      'rejects asynchronously',
+      () => Promise.reject(new Error('analytics rejected')),
+    ],
+  ])(
+    'completes a successful final defer when skipped analytics %s',
+    async (_analyticsFailure, failTracking) => {
+      const onClose = jest.fn();
+      const onDefer = jest.fn().mockResolvedValue(true);
+      window.sessionStorage.setItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+        'Clear after final defer',
+      );
+      renderDialog({
+        exitPolicy: 'blocking',
+        presentation: 'blocking',
+        onClose,
+        onDefer,
+      });
+      await screen.findByDisplayValue(existingProfile.learner_profile);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+      );
+      await screen.findByText(
+        'module.profileOnboarding.dialog.retention.title',
+      );
+      mockTrackEvent.mockImplementationOnce(failTracking);
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.dialog.retention.defer',
+        }),
+      );
+
+      await waitFor(() => expect(onDefer).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([event]) => event === PROFILE_ONBOARDING_EVENTS.SKIPPED,
+        ),
+      ).toHaveLength(1);
+      expect(
+        window.sessionStorage.getItem(
+          'profile-onboarding-paste-draft:profile-v2:user-a',
+        ),
+      ).toBeNull();
+    },
+  );
+
+  test('keeps retention retryable and preserves research when final defer fails', async () => {
+    const onClose = jest.fn();
+    const deferRequest = deferred<boolean>();
+    const onDefer = jest
+      .fn()
+      .mockReturnValueOnce(deferRequest.promise)
+      .mockResolvedValue(false);
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    const { props, rerender } = renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onClose,
+      onDefer,
+    });
+    await waitForCollectionSession();
+    const conversation = mockConversationControls.at(-1)!;
+    act(() => conversation.changeAssistantDraft('Unsubmitted answer'));
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    await screen.findByText('module.profileOnboarding.dialog.retention.title');
+    expect(onDefer).not.toHaveBeenCalled();
+    expect(mockCreateProfileOnboardingSession).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'collect',
+      },
+    );
+    expect(
+      screen.getByRole('button', {
+        name: FINISH_COLLECTION_LABEL,
+        hidden: true,
+      }),
+    ).toBeDisabled();
+
+    const finalSkipButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.retention.defer',
+    });
+    const continueButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.retention.continueSetup',
+    });
+    fireEvent.click(finalSkipButton);
     await waitFor(() => expect(onDefer).toHaveBeenCalledWith(SESSION_ID));
+    expect(finalSkipButton).toBeDisabled();
+    expect(continueButton).toBeDisabled();
+    fireEvent.click(finalSkipButton);
+    fireEvent.click(continueButton);
+    expect(onDefer).toHaveBeenCalledTimes(1);
+
+    await act(async () => deferRequest.resolve(false));
     expect(onClose).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.retention.title'),
+    ).toBeInTheDocument();
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        externalErrorMessage='Skip unavailable'
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Skip unavailable');
+    await waitFor(() => expect(finalSkipButton).toBeEnabled());
+    fireEvent.click(finalSkipButton);
+    await waitFor(() => expect(onDefer).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(continueButton).toBeEnabled());
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.SKIPPED,
+      expect.anything(),
+    );
+
+    fireEvent.click(continueButton);
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText('module.profileOnboarding.title'),
+      ).toHaveFocus(),
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Skip unavailable')).not.toBeInTheDocument();
+    expect(mockCreateProfileOnboardingSession).toHaveBeenCalledTimes(1);
+    expect(mockConversationControls.at(-1)).toBe(conversation);
+    expect(conversation.assistantDraft()).toBe('Unsubmitted answer');
 
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
     await continueCollectionToSave();
@@ -1904,7 +2267,71 @@ describe('LearnerProfileDialog', () => {
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
   });
 
-  test('does not defer blocking onboarding during an active collection run', async () => {
+  test('succeeds on retry after a final defer failure', async () => {
+    const onClose = jest.fn();
+    const onDefer = jest
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    const { props, rerender } = renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onClose,
+      onDefer,
+    });
+    await waitForCollectionSession();
+    act(() =>
+      mockConversationControls
+        .at(-1)
+        ?.changeAssistantDraft('Clear after retry succeeds'),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.defer',
+      }),
+    );
+    await waitFor(() => expect(onDefer).toHaveBeenCalledTimes(1));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBe('Clear after retry succeeds');
+
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        externalErrorMessage='Skip unavailable'
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Skip unavailable');
+    const retryButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.retention.defer',
+    });
+    await waitFor(() => expect(retryButton).toBeEnabled());
+    fireEvent.click(retryButton);
+
+    await waitFor(() => expect(onDefer).toHaveBeenCalledTimes(2));
+    expect(onClose).toHaveBeenCalledWith('dismiss');
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.SKIPPED,
+      ),
+    ).toHaveLength(1);
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBeNull();
+  });
+
+  test('does not open retention during an active collection run', async () => {
     const onClose = jest.fn();
     const onDefer = jest.fn().mockResolvedValue(true);
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
@@ -1921,6 +2348,7 @@ describe('LearnerProfileDialog', () => {
       name: 'module.profileOnboarding.skip',
     });
     const conversation = mockConversationControls.at(-1)!;
+    act(() => conversation.changeAssistantDraft('Clear only after success'));
     act(() => conversation.setRunInFlight(true));
 
     expect(skipButton).toBeDisabled();
@@ -1931,8 +2359,26 @@ describe('LearnerProfileDialog', () => {
     expect(skipButton).toBeEnabled();
     fireEvent.click(skipButton);
 
+    await screen.findByText('module.profileOnboarding.dialog.retention.title');
+    expect(onDefer).not.toHaveBeenCalled();
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBe('Clear only after success');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.defer',
+      }),
+    );
+
     await waitFor(() => expect(onDefer).toHaveBeenCalledWith(SESSION_ID));
     expect(onClose).toHaveBeenCalledWith('dismiss');
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBeNull();
   });
 
   test('confirms before discarding dirty settings edits', async () => {

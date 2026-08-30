@@ -25,6 +25,7 @@ import {
   initialLearnerProfileDialogState,
   learnerProfileDialogReducer,
   selectLearnerProfileDialog,
+  type LearnerProfileDialogConfirmation,
   type LearnerProfileDialogProps,
   type ProfileCollectionResult,
 } from './learnerProfileDialogModel';
@@ -149,6 +150,10 @@ export const useLearnerProfileDialogController = ({
     dispatch({ type: 'patch', patch: { error } });
   }, []);
 
+  const setDeferError = React.useCallback((deferError: string) => {
+    dispatch({ type: 'patch', patch: { deferError } });
+  }, []);
+
   const setProfile = React.useCallback((profile: string) => {
     dispatch({ type: 'patch_form', patch: { profile } });
   }, []);
@@ -158,7 +163,9 @@ export const useLearnerProfileDialogController = ({
   }, []);
 
   const setConfirmation = React.useCallback(
-    (confirmation: 'discard' | 'replace-collection' | null) => {
+    (
+      confirmation: Exclude<LearnerProfileDialogConfirmation, 'none'> | null,
+    ) => {
       dispatch({
         type: 'patch',
         patch: { confirmation: confirmation ?? 'none' },
@@ -956,11 +963,88 @@ export const useLearnerProfileDialogController = ({
     beginCollection(current.preferredCollectionIntent, true);
   }, [beginCollection, exitPolicy, externalSubmitting, setConfirmation]);
 
+  const retentionSource = React.useCallback(() => {
+    const current = stateRef.current;
+    return (
+      current.collectionResult?.completion.triggerSource ??
+      (current.collectionIntent === 'settings' ? 'settings' : 'guided')
+    );
+  }, []);
+
+  const trackOnboardingEventSafely = React.useCallback(
+    (eventName: string, payload: Record<string, unknown>) => {
+      try {
+        void Promise.resolve(trackEvent(eventName, payload)).catch(() => {});
+      } catch {
+        // Onboarding choices must remain available when analytics is unavailable.
+      }
+    },
+    [trackEvent],
+  );
+
+  const requestDeferRetention = React.useCallback(() => {
+    const current = stateRef.current;
+    if (
+      exitPolicy !== 'blocking' ||
+      !onDefer ||
+      current.confirmation !== 'none' ||
+      current.submissionStatus !== 'idle' ||
+      current.collectionRunInFlight ||
+      externalSubmitting
+    ) {
+      return;
+    }
+
+    setDeferError('');
+    setConfirmation('defer-retention');
+    trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN, {
+      source: retentionSource(),
+      presentation,
+      phase: current.phase,
+    });
+  }, [
+    exitPolicy,
+    externalSubmitting,
+    onDefer,
+    presentation,
+    retentionSource,
+    setConfirmation,
+    setDeferError,
+    trackOnboardingEventSafely,
+  ]);
+
+  const continueFromRetention = React.useCallback(() => {
+    const current = stateRef.current;
+    if (
+      current.confirmation !== 'defer-retention' ||
+      current.submissionStatus !== 'idle' ||
+      externalSubmitting
+    ) {
+      return;
+    }
+
+    trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED, {
+      source: retentionSource(),
+      presentation,
+      phase: current.phase,
+    });
+    setDeferError('');
+    setConfirmation(null);
+  }, [
+    externalSubmitting,
+    presentation,
+    retentionSource,
+    setConfirmation,
+    setDeferError,
+    trackOnboardingEventSafely,
+  ]);
+
   const deferOnboarding = React.useCallback(async () => {
     const current = stateRef.current;
     if (
       exitPolicy !== 'blocking' ||
       !onDefer ||
+      current.confirmation !== 'defer-retention' ||
       current.submissionStatus !== 'idle' ||
       current.collectionRunInFlight ||
       externalSubmitting
@@ -971,7 +1055,7 @@ export const useLearnerProfileDialogController = ({
     const scope = draftStorageScope;
     dispatch({
       type: 'patch',
-      patch: { submissionStatus: 'deferring', error: '' },
+      patch: { submissionStatus: 'deferring', deferError: '' },
     });
     try {
       const result = await onDefer(
@@ -982,7 +1066,7 @@ export const useLearnerProfileDialogController = ({
       }
       bumpEpoch('optimize');
       bumpEpoch('collection');
-      void trackEvent(PROFILE_ONBOARDING_EVENTS.SKIPPED, {
+      trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.SKIPPED, {
         source:
           current.collectionResult?.completion.triggerSource ??
           (current.collectionIntent === 'settings' ? 'settings' : 'guided'),
@@ -992,7 +1076,7 @@ export const useLearnerProfileDialogController = ({
       await onClose('dismiss');
     } catch (caughtError) {
       if (isCurrent(dialog, scope)) {
-        setError(
+        setDeferError(
           errorMessage(
             caughtError,
             t('module.profileOnboarding.dialog.dismissFailed'),
@@ -1014,9 +1098,9 @@ export const useLearnerProfileDialogController = ({
     onDefer,
     clearAssistantDraft,
     presentation,
-    setError,
+    setDeferError,
     t,
-    trackEvent,
+    trackOnboardingEventSafely,
   ]);
 
   const confirmPendingAction = React.useCallback(() => {
@@ -1043,9 +1127,16 @@ export const useLearnerProfileDialogController = ({
       : state.optimizationStatus === 'success'
         ? t('module.profileOnboarding.dialog.optimizeSuccess')
         : t('module.profileOnboarding.dialog.optimizeHint');
-  const combinedCollectionError = state.collectionError || externalErrorMessage;
+  const combinedCollectionError =
+    state.collectionError ||
+    (exitPolicy === 'dismissible' ? externalErrorMessage : '');
   const combinedDialogError =
-    state.error || (state.phase === 'collect' ? '' : externalErrorMessage);
+    state.confirmation === 'defer-retention'
+      ? state.deferError || externalErrorMessage
+      : state.error ||
+        (exitPolicy === 'dismissible' && state.phase !== 'collect'
+          ? externalErrorMessage
+          : '');
   const primaryLabel =
     state.hasCanonicalProfile && !state.collectionResult
       ? t('module.profileOnboarding.dialog.saveChanges')
@@ -1069,7 +1160,7 @@ export const useLearnerProfileDialogController = ({
       assistantDraft,
       onAssistantDraftChange: changeAssistantDraft,
       onAssistantDraftReady: handleAssistantDraftReady,
-      disabled: derived.busy,
+      disabled: derived.busy || state.confirmation === 'defer-retention',
       errorMessage: combinedCollectionError,
       onSessionStarted: handleSessionStarted,
       onRunInFlightChange: handleCollectionRunInFlightChange,
@@ -1091,6 +1182,8 @@ export const useLearnerProfileDialogController = ({
     requestCollection,
     continueToSave,
     cancelCollection,
+    requestDeferRetention,
+    continueFromRetention,
     deferOnboarding,
     confirmPendingAction,
   };

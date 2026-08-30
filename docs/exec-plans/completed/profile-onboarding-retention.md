@@ -1,0 +1,239 @@
+# Explain personalization before deferring profile setup
+
+## Purpose / Big Picture
+
+Learners in the first-course blocking onboarding flow should understand the
+concrete benefit of finishing personalization before they postpone it. The
+first click on “以后再说” opens a retention view inside the existing learner
+profile dialog. That view proves the benefit with four pure-text examples in
+which the underlying fact stays fixed while the explanation changes for three
+audiences. Only the explicit second defer action calls the existing skip API.
+
+The settings entry remains dismissible and unchanged. No learner identity is
+read to build the examples, and no model call, backend contract, database
+change, or new storage is introduced.
+
+## Progress
+
+- [x] 2026-08-29 18:00 CST: Mapped the blocking defer path, dialog state,
+      existing analytics, localization, and draft/session preservation rules.
+- [x] 2026-08-29 22:00 CST: Added the single-dialog retention state, final
+      defer boundary, localized text carousel, accessibility behavior, and
+      focused state-machine tests.
+- [x] 2026-08-30 10:30 CST: Kept the standard 900 x 760 desktop dialog frame
+      and compacted typography so every Chinese slide shows all three
+      explanations and controls without scrolling.
+- [x] 2026-08-30 11:10 CST: Rebased onto current `origin/main`, removed the
+      local-only forced-popup preview, and added the newly required analytics
+      contract, privacy assertions, and failure-isolation coverage.
+- [x] 2026-08-30 11:30 CST: Passed focused and caller tests, translations,
+      TypeScript, ESLint, the repository harness, dev-tool verification, and
+      the complete pre-commit gate; archive this plan for publication.
+
+## Surprises & Discoveries
+
+The dialog shell already owns the session, assistant draft, nickname, and
+profile draft. Keeping the underlying collect/save subtree mounted but hidden
+while retention is visible preserves all of that state without a second dialog
+or a new store.
+
+The initial visual treatment fit an expanded frame but not the established
+900 x 760 dialog. Large-screen Tailwind breakpoints were reacting to viewport
+width rather than dialog width. A 30 / 20 / 18 / 16 px desktop hierarchy plus
+tighter internal spacing makes all four Chinese slides fit, while the existing
+middle-content scrolling remains available for longer locales.
+
+The latest `main` added the contract in
+`docs/references/frontend-product-analytics.md`. The two new retention events
+therefore require a versioned metric, payload, privacy, deduplication, and
+failure-isolation contract in this plan. Final review also found that retention
+must take precedence over the loading body and that a failed final defer must
+not leak its error into the restored collect/save view.
+
+## Decision Log
+
+- Add `defer-retention` to the internal confirmation state. Do not create a
+  nested dialog or change the public backend API.
+- Apply retention only when `exitPolicy` is `blocking` and `onDefer` exists.
+  Dismissible settings cancellation and close behavior stay unchanged.
+- The first accepted defer click changes only local dialog state and emits the
+  retention exposure event. It does not call the skip API, close the dialog,
+  clear browser drafts, or emit `profile_onboarding_skipped`.
+- “继续完成设置” restores the prior collect or save phase and preserves the
+  mounted conversation, session, assistant draft, nickname, and profile draft.
+- “仍然以后再说” reuses the existing single-flight skip path. Both actions and
+  the carousel freeze while that request is pending. Failure stays on the
+  retention view; success emits the existing skipped event, clears the draft,
+  and releases the blocking gate.
+- Use four localized static slides. Each keeps one question and three
+  simultaneous audience-specific text explanations. Do not infer or display
+  the current learner's real identity.
+- Autoplay advances every eight seconds without a visible play/pause control.
+  Hover and page hiding pause temporarily; touch, scrolling, focus, or manual
+  navigation hands control to the reader. Reduced-motion disables autoplay and
+  transition animation.
+- Keep the standard dialog frame and existing header/footer. Desktop lays out
+  audience labels beside explanations; mobile stacks them and lets the dialog
+  body own scrolling.
+
+## Outcomes & Retrospective
+
+Implementation is complete. The retention step is a reversible local view,
+not a persistence boundary, and the final skip remains the only operation that
+changes onboarding state. The compact text hierarchy communicates the benefit
+before the examples while keeping the complete proof visible in the existing
+dialog frame.
+
+Final verification passed five Jest suites with 131 tests across the retention
+view, shared dialog/model, course blocking gate, and admin settings caller.
+TypeScript, ESLint (existing warnings only), five-locale parity and usage,
+generated i18n types, repository knowledge generation, the repository harness,
+architecture checks, dev-tool verification, Prettier, Ruff, and the complete
+Lefthook pre-commit gate passed. Browser QA covered the standard 900 x 760
+desktop frame, mobile, short-height, Arabic RTL, reduced motion, and all four
+Chinese slides; each Chinese slide displayed its question, three explanations,
+and controls without internal overflow. Pull-request CI and review status are
+tracked on the PR rather than as unchecked implementation milestones here.
+
+## Context and Orientation
+
+- `src/cook-web/src/components/profile-onboarding/LearnerProfileDialog.tsx`
+  owns the shared dialog shell, content switching, fixed chrome, and actions.
+- `useLearnerProfileDialogController.ts` owns defer guards, draft/session
+  preservation, API submission, and analytics producers.
+- `learnerProfileDialogModel.ts` owns the internal confirmation state.
+- `LearnerProfileRetentionView.tsx` owns the static slides, responsive layout,
+  autoplay, manual navigation, and screen-reader announcements.
+- `src/i18n/*/modules/profile-onboarding.json` owns all visible and accessible
+  retention text for the five supported locales.
+- `events.ts` owns the profile-onboarding event-name constants.
+
+## Plan of Work
+
+Extend the existing dialog state machine with a reversible retention state,
+route only the blocking defer action through it, and keep the original phase
+mounted so returning is lossless. Add the localized pure-text proof carousel
+and its motion, input, and accessibility behavior. Preserve the existing final
+skip API path and document the two additive analytics signals. Verify behavior,
+privacy, localization, standard-frame layout, and repository gates.
+
+## Concrete Steps
+
+1. Add the `defer-retention` internal state and guarded enter/continue handlers.
+2. Render the retention view and actions inside the current dialog, preserving
+   the collect/save subtree and focus restoration.
+3. Keep final defer single-flight and show its failure only in retention.
+4. Add four localized text slides, eight-second autoplay, reader-control
+   handoff, reduced-motion behavior, RTL controls, and responsive scrolling.
+5. Add safe additive analytics producers and the contract below.
+6. Regenerate i18n key types and add focused component/controller tests.
+7. Run focused tests, translations, type checking, lint, repository harness,
+   pre-commit hooks, and visual QA before creating a ready PR.
+
+## Validation and Acceptance
+
+- The first blocking “以后再说” click displays retention in the same dialog and
+  does not call the skip API or emit the skipped event.
+- Continue restores the exact prior phase, DOM-backed conversation, session,
+  nickname, profile draft, and assistant draft.
+- Final defer is single-flight. Failure keeps both actions retryable in
+  retention; success alone clears the draft and closes/releases the gate.
+- Settings cancellation, Escape/outside-click rules, close behavior, backend
+  state, and onboarding status semantics remain unchanged.
+- Autoplay loops every eight seconds; manual/touch/scroll/focus behavior,
+  visibility pause, reduced motion, silent automatic changes, polite manual
+  announcements, and RTL arrows are covered.
+- All five locales contain the same key structure, and generated key types are
+  current.
+- At desktop the dialog remains 900 x 760 and all three Chinese explanations
+  plus controls fit on every slide. Mobile, short-height, long-language, and RTL
+  layouts retain a reachable single-scroll experience.
+- Analytics tests prove exact safe payloads, accepted-trigger deduplication,
+  final-success timing, prohibited-field absence, and fail-open behavior.
+
+## Idempotence and Recovery
+
+The retention view is local component state. Re-entering it after returning to
+setup intentionally starts a new decision cycle; closing or changing account
+uses the existing dialog reset. Autoplay timers and listeners clean up on
+unmount. A failed skip preserves all local and durable state and can be retried.
+Generators and tests are safe to rerun. No migration or backfill exists.
+
+## Interfaces and Dependencies
+
+`LearnerProfileDialogConfirmation` gains the internal value
+`defer-retention`. No backend route, DTO, database schema, public provider, or
+package dependency changes. The existing `onDefer(sessionId?)` callback remains
+the sole skip boundary.
+
+### Profile onboarding retention decision events
+
+- Business question: when an eligible learner is about to postpone blocking
+  profile setup, how often does the benefit explanation lead them back to
+  setup, and how does that vary by the phase they came from?
+- Metric definition: for each rolling seven-day window, divide raw accepted
+  `profile_onboarding_retention_continued` events by raw accepted
+  `profile_onboarding_retention_shown` events, segmented by `source` and
+  `phase`. The count unit is a retention decision cycle, not a distinct user.
+  Re-entering after an earlier continue starts a new cycle and counts again.
+  Existing `profile_onboarding_skipped` events provide aggregate terminal
+  context, but without a correlation ID they must not be presented as an exact
+  per-cycle join or exact complement to continued events.
+- Event names: `profile_onboarding_retention_shown` and
+  `profile_onboarding_retention_continued`.
+- Actor and surface: authenticated learners in the fixed
+  `course_blocking_profile_onboarding` surface. The surface is fixed by the
+  guarded dialog path and is not duplicated in the payload.
+- Trigger: `shown` fires after the first defer handler passes all guards and
+  accepts the transition into retention. `continued` fires after the primary
+  retention action passes its guards and before the dialog restores the prior
+  phase. Automatic slide changes and carousel controls do not emit either
+  event. The existing skipped event still fires only after the skip API
+  confirms success.
+- Population: include authenticated learners for whom the course gate renders
+  blocking onboarding. Exclude guests, preview mode, hidden onboarding,
+  dismissible settings entry, ordinary close/cancel, render-only states, and
+  clicks rejected while collection or submission is in flight.
+- Count unit: one accepted retention entry for `shown` and one accepted return
+  action for `continued`.
+- Deduplication: React state and single-flight guards allow at most one event
+  per accepted state transition. Re-render, detached duplicate clicks, and
+  disabled clicks do not count. There is no persisted user/session
+  deduplication; a deliberate later re-entry is a new cycle.
+- Correlation: no feature-owned identifier is collected. Events can be
+  compared only in aggregate by ingestion window and bounded enums. The shared
+  helper's inherited user ID is not approved as a new consumer dependency.
+- Consumers: weekly aggregate onboarding-retention analysis owned by the
+  product team. No production dashboard, experiment, or correctness-sensitive
+  workflow is changed in this PR.
+- Compatibility: additive event names with no historical backfill or rename.
+  The existing `profile_onboarding_skipped` name and payload are unchanged.
+- Verification: focused dialog tests assert exact triggers and payloads,
+  repeat-entry behavior, double-click/single-flight guards, final-success
+  timing, failure/retry, prohibited-field absence, and synchronous/asynchronous
+  analytics failure isolation.
+
+| Event                                    | Trigger                                                       | Feature-owned fields              |
+| ---------------------------------------- | ------------------------------------------------------------- | --------------------------------- |
+| `profile_onboarding_retention_shown`     | Accepted transition from blocking collect/save into retention | `source`, `presentation`, `phase` |
+| `profile_onboarding_retention_continued` | Accepted primary action that restores collect/save            | `source`, `presentation`, `phase` |
+
+| Field          | Type   | Allowed values       | Cardinality | Privacy class     | Why required                                                   |
+| -------------- | ------ | -------------------- | ----------- | ----------------- | -------------------------------------------------------------- |
+| `source`       | string | `guided`, `settings` | low         | non-personal enum | distinguish the collection intent that owns the retained draft |
+| `presentation` | string | `blocking`           | low         | non-personal enum | protect the retention population boundary                      |
+| `phase`        | string | `collect`, `save`    | low         | non-personal enum | compare whether learners return to questions or profile review |
+
+The feature-owned payload explicitly excludes nickname, learner profile,
+answers, question or slide text, session/dialog IDs, course or lesson IDs,
+errors, URLs, and timestamps. The shared `useTracking` helper currently adds
+the inherited fields below. They are recorded for complete delivered-schema
+review, not copied into feature code and not approved as dependencies for new
+consumers.
+
+| Inherited field | Type / values                     | Cardinality | Privacy class             | Compatibility note                                             |
+| --------------- | --------------------------------- | ----------- | ------------------------- | -------------------------------------------------------------- |
+| `user_type`     | string: `guest`, `user`, `member` | low         | non-personal enum         | helper-owned; eligible events should be `user` or `member`     |
+| `user_id`       | stable numeric account ID         | high        | pseudonymous machine ID   | grandfathered helper field; not required by this metric        |
+| `device`        | string: `H5`, `Web`               | low         | non-personal enum         | helper-owned presentation context                              |
+| `timeStamp`     | localized string                  | high        | non-personal legacy value | grandfathered debt; consumers use Umami ingestion time instead |

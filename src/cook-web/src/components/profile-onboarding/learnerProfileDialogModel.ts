@@ -33,7 +33,8 @@ export type LearnerProfileSubmissionStatus =
 export type LearnerProfileDialogConfirmation =
   | 'none'
   | 'discard'
-  | 'replace-collection';
+  | 'replace-collection'
+  | 'defer-retention';
 export type CollectionTriggerSource = 'guided' | 'settings';
 
 export type ProfileCollectionResult = {
@@ -92,6 +93,7 @@ export type LearnerProfileDialogState = {
   submissionStatus: LearnerProfileSubmissionStatus;
   confirmation: LearnerProfileDialogConfirmation;
   error: string;
+  deferError: string;
 };
 
 export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
@@ -125,6 +127,7 @@ export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
   submissionStatus: 'idle',
   confirmation: 'none',
   error: '',
+  deferError: '',
 };
 
 export type LearnerProfileDialogAction =
