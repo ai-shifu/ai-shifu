@@ -51,6 +51,10 @@ truth.
       while keeping course-visit data entirely first-party; passed 106 focused
       frontend tests, TypeScript, lint, formatting, repository-harness, and
       architecture checks.
+- [x] 2026-08-30 20:03 CST: Updated the Swagger docstring discovery baseline
+      for the new first-party visit route after hosted backend CI exposed the
+      missing contract-count update; passed the Swagger, course-visit, and
+      operator-detail suites with 79 tests.
 
 ## Surprises & Discoveries
 
