@@ -236,7 +236,10 @@ string, user identity, and raw errors are excluded.
   order-level observation has no provider-confirmed channel, one distinct
   unresolved attempted channel keeps that channel and multiple distinct
   unresolved attempted channels use `channel=other`; the latest selected
-  channel is never treated as proof.
+  channel is never treated as proof. A direct Stripe PaymentElement or WeChat
+  JSAPI confirmation followed by a product-confirmed paid state uses that
+  confirmed attempted channel; only observations without provider-channel
+  evidence use the single-channel/`other` resolution above.
 - Consumer: learner checkout conversion and provider reliability dashboard.
 - Replacement: delete the `learner_pay_cancel` producer and consumers. Modal
   abandonment uses `learner_pay_modal_dismiss`; cancellation of an accepted

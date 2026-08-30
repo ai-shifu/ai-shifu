@@ -269,9 +269,70 @@ describe('usePaymentFlow polling timeout', () => {
     });
 
     expect(onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(onOrderPaid.mock.calls[0]).toEqual([]);
     expect(onPollingTimeout).not.toHaveBeenCalled();
     expect(hook.result.current.isCompleted).toBe(true);
     expect(hook.result.current.isTimeout).toBe(false);
+  });
+
+  it('forwards the confirmed attempt channel for a direct status sync', async () => {
+    const onOrderPaid = jest.fn();
+    const onPollingTimeout = jest.fn();
+    const hook = await startPendingPayment({ onOrderPaid, onPollingTimeout });
+    mockedQueryOrder.mockResolvedValueOnce(paidOrder);
+
+    await act(async () => {
+      await hook.result.current.syncOrderStatus({
+        confirmedAttemptChannel: 'stripe:checkout_session',
+      });
+    });
+
+    expect(onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(onOrderPaid).toHaveBeenCalledWith({
+      confirmedAttemptChannel: 'stripe:checkout_session',
+    });
+    expect(onPollingTimeout).not.toHaveBeenCalled();
+    expect(hook.result.current.isCompleted).toBe(true);
+  });
+
+  it('isolates confirmed channels across overlapping direct status syncs', async () => {
+    const onOrderPaid = jest.fn();
+    const onPollingTimeout = jest.fn();
+    const hook = await startPendingPayment({ onOrderPaid, onPollingTimeout });
+    const stripeQuery = createDeferred<typeof paidOrder>();
+    const wechatQuery = createDeferred<typeof paidOrder>();
+    mockedQueryOrder
+      .mockReturnValueOnce(stripeQuery.promise)
+      .mockReturnValueOnce(wechatQuery.promise);
+    let stripeSync: Promise<unknown> | undefined;
+    let wechatSync: Promise<unknown> | undefined;
+
+    await act(async () => {
+      stripeSync = hook.result.current.syncOrderStatus({
+        confirmedAttemptChannel: 'stripe:checkout_session',
+      });
+      wechatSync = hook.result.current.syncOrderStatus({
+        confirmedAttemptChannel: 'wx_pub',
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      wechatQuery.resolve(paidOrder);
+      await wechatSync;
+    });
+    expect(onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(onOrderPaid).toHaveBeenCalledWith({
+      confirmedAttemptChannel: 'wx_pub',
+    });
+
+    await act(async () => {
+      stripeQuery.resolve(paidOrder);
+      await stripeSync;
+    });
+    expect(onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(onPollingTimeout).not.toHaveBeenCalled();
+    expect(hook.result.current.isCompleted).toBe(true);
   });
 
   it('does not restart polling when a late paid result wins during a retry', async () => {

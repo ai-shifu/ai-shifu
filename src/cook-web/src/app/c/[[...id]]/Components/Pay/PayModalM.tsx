@@ -244,8 +244,12 @@ export const PayModalM = ({
     payload,
     courseId,
     isLoggedIn,
-    onOrderPaid: () => {
-      trackPaymentResult('success');
+    onOrderPaid: context => {
+      trackPaymentResult(
+        'success',
+        undefined,
+        context?.confirmedAttemptChannel,
+      );
       onOk?.();
     },
     onPollingTimeout: () => {
@@ -525,7 +529,12 @@ export const PayModalM = ({
         const syncPaymentChannel = payload.payment_channel || paymentChannel;
         try {
           const snapshot = await syncOrderStatus(
-            syncPaymentChannel ? { paymentChannel: syncPaymentChannel } : {},
+            syncPaymentChannel
+              ? {
+                  paymentChannel: syncPaymentChannel,
+                  confirmedAttemptChannel: effectiveAttemptChannel,
+                }
+              : { confirmedAttemptChannel: effectiveAttemptChannel },
           );
           if (snapshot?.status !== ORDER_STATUS.BUY_STATUS_SUCCESS) {
             trackPaymentPending(effectiveAttemptChannel);
@@ -628,7 +637,9 @@ export const PayModalM = ({
 
   const handleStripeSuccess = useCallback(async () => {
     try {
-      const snapshot = await syncOrderStatus();
+      const snapshot = await syncOrderStatus({
+        confirmedAttemptChannel: PAY_CHANNEL_STRIPE,
+      });
       if (snapshot?.status !== ORDER_STATUS.BUY_STATUS_SUCCESS) {
         trackPaymentPending(PAY_CHANNEL_STRIPE);
         toast({

@@ -42,12 +42,16 @@ export interface PaymentInfoState {
   paymentPayload?: Record<string, any>;
 }
 
+export interface PaymentPaidContext {
+  confirmedAttemptChannel: string;
+}
+
 interface UsePaymentFlowOptions {
   type?: string;
   payload?: Record<string, any>;
   courseId: string;
   isLoggedIn: boolean;
-  onOrderPaid?: () => void;
+  onOrderPaid?: (context?: PaymentPaidContext) => void;
   onPollingTimeout?: () => void;
 }
 
@@ -82,6 +86,7 @@ export interface PaymentCouponParams extends PaymentActionParams {
 
 export interface PaymentSyncParams {
   paymentChannel?: PaymentChannel;
+  confirmedAttemptChannel?: string;
 }
 
 const defaultPaymentInfo: PaymentInfoState = {
@@ -149,7 +154,7 @@ export const usePaymentFlow = ({
   }, [isLoggedIn]);
 
   const updateFromOrder = useCallback(
-    (snapshot?: OrderSnapshot | null) => {
+    (snapshot?: OrderSnapshot | null, paidContext?: PaymentPaidContext) => {
       if (!snapshot) return;
       setPrice(snapshot.value_to_pay);
       setOriginalPrice(snapshot.price);
@@ -163,7 +168,11 @@ export const usePaymentFlow = ({
         setIsTimeout(false);
         setPollingActive(false);
         if (!wasCompleted) {
-          onOrderPaid?.();
+          if (paidContext) {
+            onOrderPaid?.(paidContext);
+          } else {
+            onOrderPaid?.();
+          }
         }
       }
     },
@@ -439,7 +448,10 @@ export const usePaymentFlow = ({
       if (!mountedRef.current || !resp) {
         return resp;
       }
-      updateFromOrder(resp as OrderSnapshot);
+      const paidContext = params.confirmedAttemptChannel
+        ? { confirmedAttemptChannel: params.confirmedAttemptChannel }
+        : undefined;
+      updateFromOrder(resp as OrderSnapshot, paidContext);
       return resp;
     },
     [paymentInfo.paymentChannel, updateFromOrder],
