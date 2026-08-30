@@ -51,6 +51,10 @@ their consumers are deleted instead of dual-written.
       Jest suites / 1,880 tests.
 - [x] 2026-08-30 22:29 CST: Moved this plan to
       `docs/exec-plans/completed/` after all acceptance checks passed.
+- [x] 2026-08-30 23:54 CST: Addressed billing review feedback by keeping
+      recoverable synchronization states non-terminal. Focused billing checks
+      passed 2 Jest suites / 36 tests, followed by the full frontend suite at
+      212 Jest suites / 1,882 tests, TypeScript, focused lint, and Prettier.
 
 ## Surprises & Discoveries
 
@@ -154,10 +158,12 @@ card-confirmation failures remain visible, and duplicate course-creation
 submissions are rejected while one request is active. Learner payment attempts
 retain their distinct unresolved channels, explicit provider results close only
 their matching channel, and a generic order-level result uses `channel=other`
-instead of guessing when multiple channels remain unresolved.
+instead of guessing when multiple channels remain unresolved. Creator billing
+sync observations keep recoverable failed, canceled, and timeout states
+non-terminal so a later paid observation can emit the one terminal success.
 
 Validation completed with focused frontend checks and the final full 212 Jest
-suites / 1,880 tests, TypeScript, frontend lint (no errors; existing repository
+suites / 1,882 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.

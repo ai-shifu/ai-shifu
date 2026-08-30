@@ -44,6 +44,7 @@ import {
   buildCreatorBillingResultAnalytics,
   buildCreatorBillingStatusAnalytics,
   CREATOR_BILLING_ANALYTICS_EVENTS,
+  resolveCreatorBillingSyncObservation,
   trackCreatorBillingEventSafely,
   type CreatorBillingAnalyticsBaseInput,
   type CreatorBillingFailureCategory,
@@ -298,6 +299,23 @@ export function BillingOverviewTab({
     );
   }
 
+  function reportCheckoutSyncObservation(
+    analyticsBase: CreatorBillingAnalyticsBaseInput,
+    status: string,
+  ) {
+    const observation = resolveCreatorBillingSyncObservation(status);
+    if (observation.event === 'result') {
+      reportCheckoutResult(
+        analyticsBase,
+        observation.outcome,
+        observation.failureCategory,
+      );
+      return true;
+    }
+    reportCheckoutStatus(analyticsBase, observation.status);
+    return false;
+  }
+
   useBillingPingxxPolling({
     open: Boolean(pingxxCheckout),
     billingOrderBid: pingxxCheckout?.billingOrderBid || '',
@@ -307,17 +325,7 @@ export function BillingOverviewTab({
           ...pingxxCheckout.analyticsBase,
           billOrderBid: result.bill_order_bid,
         };
-        if (result.status === 'paid') {
-          reportCheckoutResult(resolvedAnalyticsBase, 'success');
-        } else if (result.status === 'canceled') {
-          reportCheckoutResult(resolvedAnalyticsBase, 'cancelled');
-        } else {
-          reportCheckoutResult(
-            resolvedAnalyticsBase,
-            'failed',
-            'payment_failed',
-          );
-        }
+        reportCheckoutSyncObservation(resolvedAnalyticsBase, result.status);
       }
       await refreshBillingData();
       if (result.status !== 'pending') {
@@ -638,18 +646,10 @@ export function BillingOverviewTab({
           ...pingxxCheckout.analyticsBase,
           billOrderBid: syncResult.bill_order_bid,
         };
-        if (syncResult.status === 'paid') {
-          reportCheckoutResult(resolvedAnalyticsBase, 'success');
-        } else if (syncResult.status === 'canceled') {
-          reportCheckoutResult(resolvedAnalyticsBase, 'cancelled');
-        } else {
-          reportCheckoutResult(
-            resolvedAnalyticsBase,
-            'failed',
-            'payment_failed',
-          );
-        }
-        terminalResultReported = true;
+        terminalResultReported = reportCheckoutSyncObservation(
+          resolvedAnalyticsBase,
+          syncResult.status,
+        );
         await refreshBillingData();
         if (syncResult.status === 'paid') {
           toast({

@@ -44,6 +44,14 @@ export type CreatorBillingFailureCategory =
 
 export type CreatorBillingStatus = 'pending' | 'confirmation_failed';
 
+export type CreatorBillingSyncObservation =
+  | {
+      event: 'result';
+      outcome: 'success' | 'failed';
+      failureCategory?: CreatorBillingFailureCategory;
+    }
+  | { event: 'status'; status: CreatorBillingStatus };
+
 export type CreatorBillingAnalyticsBaseInput = {
   billingMarket?: CreatorBillingMarket;
   productType?: CreatorBillingProductType;
@@ -105,6 +113,25 @@ export function normalizeCreatorBillingProvider(
     return normalized;
   }
   return 'other';
+}
+
+export function resolveCreatorBillingSyncObservation(
+  status: string,
+): CreatorBillingSyncObservation {
+  if (status === 'paid') {
+    return { event: 'result', outcome: 'success' };
+  }
+  if (status === 'refunded') {
+    return {
+      event: 'result',
+      outcome: 'failed',
+      failureCategory: 'payment_failed',
+    };
+  }
+  if (status === 'pending') {
+    return { event: 'status', status: 'pending' };
+  }
+  return { event: 'status', status: 'confirmation_failed' };
 }
 
 function normalizeCreatorBillingChannel(

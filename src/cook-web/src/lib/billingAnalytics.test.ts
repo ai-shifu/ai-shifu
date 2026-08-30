@@ -2,6 +2,7 @@ import {
   buildCreatorBillingAttemptAnalytics,
   buildCreatorBillingResultAnalytics,
   buildCreatorBillingStatusAnalytics,
+  resolveCreatorBillingSyncObservation,
   trackCreatorBillingEventSafely,
 } from './billingAnalytics';
 
@@ -94,6 +95,34 @@ describe('billingAnalytics', () => {
       bill_order_bid: 'billing-order-1',
       status: 'confirmation_failed',
     });
+  });
+
+  test('classifies only paid and refunded billing sync states as terminal', () => {
+    expect(resolveCreatorBillingSyncObservation('paid')).toEqual({
+      event: 'result',
+      outcome: 'success',
+    });
+    expect(resolveCreatorBillingSyncObservation('refunded')).toEqual({
+      event: 'result',
+      outcome: 'failed',
+      failureCategory: 'payment_failed',
+    });
+    expect(resolveCreatorBillingSyncObservation('pending')).toEqual({
+      event: 'status',
+      status: 'pending',
+    });
+    for (const status of [
+      'init',
+      'failed',
+      'canceled',
+      'timeout',
+      'private-provider-state',
+    ]) {
+      expect(resolveCreatorBillingSyncObservation(status)).toEqual({
+        event: 'status',
+        status: 'confirmation_failed',
+      });
+    }
   });
 
   test('swallows synchronous throws and asynchronous rejections from tracking', async () => {

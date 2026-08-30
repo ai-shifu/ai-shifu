@@ -2310,7 +2310,7 @@ describe('BillingOverviewTab', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('reports a QR checkout as cancelled only after backend confirmation', async () => {
+  test('keeps a backend-canceled QR checkout non-terminal before a paid retry', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
@@ -2354,10 +2354,15 @@ describe('BillingOverviewTab', () => {
       expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
     });
 
-    mockSyncBillingOrder.mockResolvedValueOnce({
-      bill_order_bid: 'order-topup-cancelled-1',
-      status: 'canceled',
-    });
+    mockSyncBillingOrder
+      .mockResolvedValueOnce({
+        bill_order_bid: 'order-topup-cancelled-1',
+        status: 'canceled',
+      })
+      .mockResolvedValueOnce({
+        bill_order_bid: 'order-topup-cancelled-1',
+        status: 'paid',
+      });
     await act(async () => {
       await user.click(
         screen.getByRole('button', {
@@ -2375,21 +2380,67 @@ describe('BillingOverviewTab', () => {
         screen.queryByTestId('billing-pingxx-qr-code'),
       ).not.toBeInTheDocument();
     });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      expect.objectContaining({
+        bill_order_bid: 'order-topup-cancelled-1',
+        status: 'confirmation_failed',
+      }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(0);
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-topup-card-bill-product-topup-small-action',
+        ),
+      );
+    });
+    await acceptBillingAgreement(user);
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.pay.clickRefresh',
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledTimes(2);
+      expect(
+        screen.queryByTestId('billing-pingxx-qr-code'),
+      ).not.toBeInTheDocument();
+    });
     const resultCalls = mockTrackEvent.mock.calls.filter(
       ([eventName]) => eventName === 'creator_billing_checkout_result',
     );
-    expect(resultCalls).toHaveLength(1);
-    expect(resultCalls[0]).toEqual([
-      'creator_billing_checkout_result',
-      expect.objectContaining({
-        bill_order_bid: 'order-topup-cancelled-1',
-        outcome: 'cancelled',
-      }),
+    expect(resultCalls).toEqual([
+      [
+        'creator_billing_checkout_result',
+        expect.objectContaining({
+          bill_order_bid: 'order-topup-cancelled-1',
+          outcome: 'success',
+        }),
+      ],
     ]);
     expect(
       resultCalls.some(
         ([, payload]) =>
-          payload?.outcome === 'success' || payload?.outcome === 'failed',
+          payload?.outcome === 'cancelled' || payload?.outcome === 'failed',
       ),
     ).toBe(false);
   });
@@ -2492,6 +2543,107 @@ describe('BillingOverviewTab', () => {
         outcome: 'success',
       }),
     );
+  });
+
+  test('keeps a recoverable Pingxx polling result non-terminal', async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-plan-pingxx-recoverable-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+        },
+      },
+    });
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      bill_order_bid: 'order-plan-pingxx-recoverable-1',
+      status: 'canceled',
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
+      );
+    });
+    await acceptBillingAgreement(user);
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledWith({
+        bill_order_bid: 'order-plan-pingxx-recoverable-1',
+      });
+      expect(mockMutateOverview).toHaveBeenCalled();
+      expect(mockMutateSWRCache).toHaveBeenCalledWith([
+        'billing-wallet-buckets',
+      ]);
+      expect(
+        screen.queryByTestId('billing-pingxx-qr-code'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      expect.objectContaining({
+        bill_order_bid: 'order-plan-pingxx-recoverable-1',
+        status: 'confirmation_failed',
+      }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(0);
   });
 
   test('keeps a missing QR response non-terminal before the same order is paid', async () => {
