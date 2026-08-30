@@ -432,10 +432,6 @@ jest.mock('./hooks/useLessonTree', () => ({
   }),
 }));
 
-jest.mock('./courseVisitTracking', () => ({
-  trackCourseVisitIfNeeded: jest.fn().mockResolvedValue(false),
-}));
-
 jest.mock('./Components/NavDrawer/NavDrawer', () => ({
   __esModule: true,
   default: (props: MockNavDrawerProps) => mockNavDrawer(props),

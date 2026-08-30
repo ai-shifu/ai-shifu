@@ -1542,7 +1542,6 @@ export type I18nKey =
   | 'module.operationsCourse.detail.metricsLabels.orderAmount'
   | 'module.operationsCourse.detail.metricsLabels.orderCount'
   | 'module.operationsCourse.detail.metricsLabels.ratingScore'
-  | 'module.operationsCourse.detail.metricsLabels.visitCount30d'
   | 'module.operationsCourse.detail.metricsTooltips.completedUserAvgCredits'
   | 'module.operationsCourse.detail.metricsTooltips.creditConsumedTotal'
   | 'module.operationsCourse.detail.metricsTooltips.creditUsageCount'
