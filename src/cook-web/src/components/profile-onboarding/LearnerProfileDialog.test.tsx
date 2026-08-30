@@ -2090,6 +2090,9 @@ describe('LearnerProfileDialog', () => {
       'module.profileOnboarding.dialog.retention.title',
     );
     await waitFor(() => expect(retentionHeading).toHaveFocus());
+    expect(
+      screen.getByTestId('learner-profile-retention-carousel'),
+    ).toHaveAttribute('data-autoplay', 'running');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(screen.getByTestId('learner-profile-dialog-content')).toBe(
       dialogContent,
