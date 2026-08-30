@@ -723,7 +723,11 @@ def test_compiler_receives_delimited_source_without_user_or_ui_language(
     assert "Discard the source wording, structure, flow" in system_prompt
     assert "Do not quote or closely paraphrase source sentences" in system_prompt
     assert "Do not infer, expand, or elaborate an intent" in system_prompt
-    assert "Write the finished prompt from scratch" in system_prompt
+    assert (
+        "Write the finished prompt from scratch in the source document's language"
+        in system_prompt
+    )
+    assert "learner-facing language" not in system_prompt
     assert "introduce myself as a student to my teacher" in system_prompt
     assert "teacher can teach me better" in system_prompt
     assert "first-person message from me to my AI assistant" in system_prompt
