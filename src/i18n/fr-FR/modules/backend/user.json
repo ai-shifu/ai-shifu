@@ -3,6 +3,8 @@
   "__flat__": {
     "checkCodeError": "Le captcha d'image est incorrect",
     "checkCodeExpired": "Le captcha d'image a expiré",
+    "deviceAuthAlreadyHandled": "Cette demande d'autorisation a déjà été traitée.",
+    "deviceCodeInvalid": "Le code d'appairage est invalide ou a expiré. Relancez l'autorisation depuis la ligne de commande.",
     "emailSendFailed": "Échec de l'envoi de l'e-mail",
     "emailSendTooFrequent": "E-mails envoyés trop fréquemment",
     "emailVerificationExpiry": "Ce code expire dans {expiry_duration}.",

@@ -32,6 +32,13 @@ from flaskr.service.user.captcha import (
 )
 from flaskr.service.user.common import update_user_info, validate_user
 from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
+from flaskr.service.user.device_auth import (
+    approve_device_authorization,
+    create_device_authorization,
+    deny_device_authorization,
+    get_device_authorization,
+    poll_device_authorization,
+)
 from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.service.user.onboarding import (
     ONBOARDING_VERSION,
@@ -688,6 +695,102 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
            - user
         """
         return _handle_sms_login()
+
+    @app.route(path_prefix + "/device/authorize", methods=["POST"])
+    @bypass_token_validation
+    def device_authorize_api() -> str:
+        """Start a device authorization request for a command-line client.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            create_device_authorization(
+                app,
+                device_name=payload.get("device_name"),
+                device_os=payload.get("device_os"),
+                client_version=payload.get("client_version"),
+                client_ip=_request_client_ip(),
+            )
+        )
+
+    @app.route(path_prefix + "/device/token", methods=["POST"])
+    @bypass_token_validation
+    def device_token_api() -> str:
+        """Poll a pending device authorization until it is resolved.
+
+        Returns the current status instead of an error while the request is
+        still pending, so the polling client does not have to treat the normal
+        waiting state as a failure.
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            poll_device_authorization(app, device_code=payload.get("device_code"))
+        )
+
+    @app.route(path_prefix + "/device/pending", methods=["GET"])
+    def device_pending_api() -> str:
+        """Describe the pending authorization behind a pairing code.
+
+        ---
+        tags:
+           - user
+        """
+        return make_common_response(
+            get_device_authorization(
+                app,
+                user_code=request.args.get("user_code"),
+                client_ip=_request_client_ip(),
+            )
+        )
+
+    @app.route(path_prefix + "/device/approve", methods=["POST"])
+    def device_approve_api() -> str:
+        """Approve a pending device authorization for the signed-in user.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            approve_device_authorization(
+                app,
+                user_code=payload.get("user_code"),
+                user_id=request.user.user_id,
+                client_ip=_request_client_ip(),
+            )
+        )
+
+    @app.route(path_prefix + "/device/deny", methods=["POST"])
+    def device_deny_api() -> str:
+        """Reject a pending device authorization.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            deny_device_authorization(
+                app,
+                user_code=payload.get("user_code"),
+                client_ip=_request_client_ip(),
+            )
+        )
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile() -> str:
