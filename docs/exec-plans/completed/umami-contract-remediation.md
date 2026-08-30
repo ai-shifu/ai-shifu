@@ -48,7 +48,7 @@ their consumers are deleted instead of dual-written.
 - [x] 2026-08-30 22:29 CST: Rebased the final two-commit change onto
       `origin/main` commit `e9b57d20d`, preserving the newly merged account
       session analytics contracts. The final full frontend suite passed: 212
-      Jest suites / 1,867 tests.
+      Jest suites / 1,872 tests.
 - [x] 2026-08-30 22:29 CST: Moved this plan to
       `docs/exec-plans/completed/` after all acceptance checks passed.
 
@@ -152,7 +152,7 @@ shown as completed, synchronous card-confirmation failures remain visible, and
 duplicate course-creation submissions are rejected while one request is active.
 
 Validation completed with focused frontend checks and the final full 212 Jest
-suites / 1,867 tests, TypeScript, frontend lint (no errors; existing repository
+suites / 1,872 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.
@@ -198,11 +198,12 @@ IDs, finite numbers, booleans, and documented low-cardinality enums.
 
 Third, define and implement event families for the workflows that require both
 intent and outcome measurement. Each accepted attempt emits before the business
-request; each accepted attempt receives at most one terminal result with a
-bounded outcome and failure stage/category. Tracking failures are isolated from
-the workflow. Existing consumed event names remain only when their meaning is
-unchanged; otherwise delete their producers and consumers and use the new event
-family from deployment forward.
+request; its producer invokes at most one terminal-result event, exactly once
+when the application observes a terminal state, with a bounded outcome and
+failure stage/category. Tracking failures are isolated from the workflow.
+Existing consumed event names remain only when their meaning is unchanged;
+otherwise delete their producers and consumers and use the new event family
+from deployment forward.
 
 Finally, update canonical documentation, consumer replacement notes, and focused
 tests. Re-run the narrow suites first, then type checking, lint, architecture
@@ -236,9 +237,9 @@ The change is accepted when all of the following are observable:
   the newest pending identity.
 - Pageview and business-event context contains no query, fragment, credentials,
   full referrer, invite code, or other sensitive dynamic path value.
-- Every migrated asynchronous attempt has exactly one documented terminal
-  outcome, including failure and cancellation semantics where the application
-  can truly observe them.
+- Every migrated asynchronous attempt can invoke at most one terminal-result
+  event, exactly once when the application observes a terminal state, including
+  failure and cancellation semantics where applicable.
 - Tracking failures do not change any user-visible success, failure,
   navigation, or API result.
 - The legacy generic `visit` producer is deleted without a replacement course

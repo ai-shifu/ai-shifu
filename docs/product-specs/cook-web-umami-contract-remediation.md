@@ -64,7 +64,8 @@ Umami retains its standard tracker envelope (`website`, `hostname`, browser
 data. Arrays, objects, dates, `null`, and non-finite numbers are dropped.
 
 `UmamiLoader` is the only pageview producer. One normalized pageview is emitted
-per SPA pathname transition; business events never synthesize pageviews.
+on the first eligible render and after each SPA pathname transition. Query-only
+changes are deduplicated; business events never synthesize pageviews.
 Calls queued for a pending identity are discarded if the account changes, and
 the queue is not drained until the tracker can complete `identify`; this avoids
 cross-account attribution at the cost of dropping best-effort telemetry during
@@ -101,8 +102,9 @@ are not backfilled under another name.
 | `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                    |
 | `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                     |
 
-Allowed enums are `save_type=auto|manual`, `variant=chapter|lesson`, the existing
-machine `learning_permission` values. Course/chapter/lesson names, descriptions,
+Allowed enums are `save_type=auto|manual`, `variant=chapter|lesson`, and
+`learning_permission=normal|trial|guest`, as defined by `LEARNING_PERMISSION` in
+`src/cook-web/src/c-api/studyV2.ts`. Course/chapter/lesson names, descriptions,
 system prompts, provider configuration, URLs, and route text were removed from
 these contracts.
 
@@ -195,11 +197,11 @@ backend messages are excluded.
   decisions emit a terminal event.
 - Consumer: device-authorization adoption and completion analysis.
 
-| Event                      | Complete reviewed field set                         |
-| -------------------------- | --------------------------------------------------- |
-| `device_auth_prompt_shown` | `device_os`, `from_link`                            |
-| `device_auth_approved`     | `device_os`                                         |
-| `device_auth_denied`       | `device_os`                                         |
+| Event                      | Complete reviewed field set |
+| -------------------------- | --------------------------- |
+| `device_auth_prompt_shown` | `device_os`, `from_link`    |
+| `device_auth_approved`     | `device_os`                 |
+| `device_auth_denied`       | `device_os`                 |
 
 `device_os` is exactly one of `android|chromeos|ios|linux|macos|other|unknown|windows`.
 The pairing code, device name, client version, IP address, raw operating-system
@@ -231,14 +233,14 @@ string, user identity, and raw errors are excluded.
   abandonment uses `learner_pay_modal_dismiss`; cancellation of an accepted
   payment attempt uses `learner_payment_result` with `outcome=cancelled`.
 
-| Event                       | Fields and allowed values                                                                                                                                                                |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `learner_pay_modal_view`    | `shifu_bid`, finite `price_amount`, `currency` as `CNY`, `USD`, or `other`                                                                                                                |
-| `learner_pay_modal_dismiss` | `shifu_bid`, optional `order_id`, `dismiss_surface` is `modal` or `payment_page`, `had_payment_attempt`                                                                                  |
-| `learner_payment_attempt`   | `shifu_bid`, optional `order_id`, `channel` is `wechat_jsapi`, `wechat_qr`, `alipay_qr`, `stripe`, or `other`; `surface` is `desktop`, `mobile`, or `stripe_return`                      |
-| `learner_payment_result`    | attempt fields; `outcome` is `success`, `failed`, or `cancelled`; failed only: `failure_category` is `provider_failed`, `missing_order`, or `status_lookup_failed`                       |
-| `learner_payment_status`    | attempt fields; `status=pending`                                                                                                                                                         |
-| `learner_coupon_apply`      | `shifu_bid`, `outcome=success`                                                                                                                                                           |
+| Event                       | Fields and allowed values                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `learner_pay_modal_view`    | `shifu_bid`, finite `price_amount`, `currency` as `CNY`, `USD`, or `other`                                                                                          |
+| `learner_pay_modal_dismiss` | `shifu_bid`, optional `order_id`, `dismiss_surface` is `modal` or `payment_page`, `had_payment_attempt`                                                             |
+| `learner_payment_attempt`   | `shifu_bid`, optional `order_id`, `channel` is `wechat_jsapi`, `wechat_qr`, `alipay_qr`, `stripe`, or `other`; `surface` is `desktop`, `mobile`, or `stripe_return` |
+| `learner_payment_result`    | attempt fields; `outcome` is `success`, `failed`, or `cancelled`; failed only: `failure_category` is `provider_failed`, `missing_order`, or `status_lookup_failed`  |
+| `learner_payment_status`    | attempt fields; `status=pending`                                                                                                                                    |
+| `learner_coupon_apply`      | `shifu_bid`, `outcome=success`                                                                                                                                      |
 
 The coupon value, checkout URL, client secret, provider payload, payment method,
 receipt, and raw failure are excluded.
@@ -248,16 +250,19 @@ receipt, and raw failure are excluded.
 - Business question: which billing products and providers reach checkout and a
   terminal payment state in domestic and global markets?
 - Metric definition: distinct billing-order outcomes over attempts by market,
-  product type, provider, and source surface. Pending status is reported
-  separately and is never counted as failure.
+  product type, provider, and source surface. Pending and recoverable
+  confirmation states are reported separately and are never counted as terminal
+  failures.
 - Trigger: attempt immediately before an accepted checkout request; result once
-  when the response is paid, explicitly cancelled, or terminally fails; status
-  when a redirect/QR handoff is established or the Stripe return page remains
-  pending.
+  when the producer observes paid, an explicit checkout cancellation, or a state
+  the billing state machine cannot later correct; status before a redirect/QR
+  handoff, while a Stripe return remains pending, or when its confirmation is
+  still recoverable.
 - Population: authenticated teachers eligible for billing. Disabled,
   validation-only, and coming-soon controls are excluded.
 - Deduplication: existing checkout in-flight guards prevent concurrent duplicate
-  requests. Return-page status is deduped per billing order and rendered state.
+  requests. Return-page status is deduped per billing order and rendered state;
+  each mounted return flow invokes at most one terminal result for an order.
 - Correlation: `bill_order_bid` is the pseudonymous product-owned order key. A
   Stripe return-page value is eligible only after the billing API has confirmed
   it; cancellation and confirmation-failure events omit an unverified query
@@ -282,10 +287,15 @@ surfaces `global_pricing|billing_overview|stripe_return`; providers
 `payment_failed`, `redirect_failed`, `unexpected_status`, or `unsupported`.
 Localized plan names, checkout URLs, and raw provider errors are excluded.
 
-`confirmation_failed` is non-terminal: it means a status-sync request failed
-while the underlying order could still resolve. A later retry may therefore
-emit one terminal result for that order; it must not emit an early failed
-result and a later successful result for the same checkout.
+`confirmation_failed` is non-terminal: it means either the status-sync request
+failed, the API observed `failed`, `canceled`, or `timeout` that the billing
+state machine can still correct to `paid`, or the API returned an unrecognized
+state that is not proven terminal. A later retry may therefore emit the one
+terminal success for that order; it must not emit an early failed result and a
+later successful result for the same checkout.
+`refunded` cannot transition back to `paid`, so the return page reports it as a
+terminal failed result. An explicit `canceled=1` return is a terminal user
+cancellation and omits the unverified query order from analytics.
 
 ## Course creation
 
@@ -346,8 +356,8 @@ IDs, and raw errors are excluded.
   which switch surface?
 - Metric definition: raw accepted transitions grouped by from/to/source over a
   named period.
-- Trigger: immediately after the control rejects same-mode selection and before
-  URL/store mutation.
+- Trigger: immediately after the control accepts a different-mode selection and
+  before URL/store mutation.
 - Population: learners shown an enabled read/listen/classroom option; preview,
   unavailable modes, and initial local-storage restoration are excluded.
 - Deduplication: selecting the already-active mode emits nothing; each real
