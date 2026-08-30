@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { Check, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
@@ -14,7 +14,10 @@ import { TopupCard } from '@/components/billing/BillingOverviewCards';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/hooks/useToast';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import {
+  BILLING_WALLET_BUCKETS_SWR_KEY,
+  useBillingOverview,
+} from '@/hooks/useBillingData';
 import {
   Card,
   CardContent,
@@ -284,7 +287,7 @@ export function GlobalBillingPricing() {
       )) as BillingCatalogResponse,
     { revalidateOnFocus: false },
   );
-  const { data: overview } = useBillingOverview();
+  const { data: overview, mutate: mutateOverview } = useBillingOverview();
   const hasResolvedOverview = overview !== undefined;
   const globalProducts = React.useMemo(
     () => resolveGlobalProducts(data),
@@ -378,6 +381,10 @@ export function GlobalBillingPricing() {
             }),
           );
           terminalResultReported = true;
+          await Promise.allSettled([
+            mutateOverview(),
+            mutateSWRCache(buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY)),
+          ]);
           setStripeRedirect(null);
           toast({ title: t('module.billing.checkout.completed') });
           return;
@@ -458,7 +465,7 @@ export function GlobalBillingPricing() {
         setCheckoutLoadingKey('');
       }
     },
-    [hasResolvedOverview, t, trackEvent],
+    [hasResolvedOverview, mutateOverview, t, trackEvent],
   );
 
   return (

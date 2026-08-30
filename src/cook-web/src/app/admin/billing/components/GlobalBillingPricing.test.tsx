@@ -16,11 +16,22 @@ import {
 
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
+const mockMutateOverview = jest.fn();
+const mockMutateSWRCache = jest.fn();
 let mockBillingSubscription: BillingSubscription | null = null;
 let mockBillingOverview:
   | { subscription: BillingSubscription | null }
   | undefined;
 let mockResolvedLanguage = 'zh-CN';
+
+jest.mock('swr', () => {
+  const actual = jest.requireActual('swr');
+  return {
+    __esModule: true,
+    ...actual,
+    mutate: (...args: unknown[]) => mockMutateSWRCache(...args),
+  };
+});
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
@@ -31,8 +42,10 @@ jest.mock('@/hooks/useToast', () => ({
 }));
 
 jest.mock('@/hooks/useBillingData', () => ({
+  BILLING_WALLET_BUCKETS_SWR_KEY: 'billing-wallet-buckets',
   useBillingOverview: () => ({
     data: mockBillingOverview,
+    mutate: mockMutateOverview,
   }),
 }));
 
@@ -290,6 +303,8 @@ describe('GlobalBillingPricing', () => {
     mockCheckoutTopup.mockReset();
     mockTrackEvent.mockReset();
     mockToast.mockReset();
+    mockMutateOverview.mockReset().mockResolvedValue(undefined);
+    mockMutateSWRCache.mockReset().mockResolvedValue(undefined);
     mockOpenBillingCheckoutUrl.mockReset();
     mockBillingSubscription = null;
     mockBillingOverview = {
@@ -755,6 +770,65 @@ describe('GlobalBillingPricing', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/upgrade',
     );
+  });
+
+  test('refreshes billing state after an immediate paid upgrade', async () => {
+    const user = userEvent.setup();
+    mockBillingSubscription = {
+      subscription_bid: 'sub-growth-monthly',
+      product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.growthMonthly}`,
+      product_code: GLOBAL_BILLING_PRODUCT_CODES.growthMonthly,
+      status: 'active',
+      billing_provider: 'stripe',
+      current_period_start_at: null,
+      current_period_end_at: null,
+      grace_period_end_at: null,
+      cancel_at_period_end: false,
+      next_product_bid: null,
+      last_renewed_at: null,
+      last_failed_at: null,
+    };
+    mockBillingOverview = { subscription: mockBillingSubscription };
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'order-paid-upgrade',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'paid',
+    });
+    renderPricing();
+
+    await act(async () => {
+      await user.click(await screen.findByRole('tab', { name: 'Monthly' }));
+    });
+    const business = await screen.findByTestId('global-plan-business');
+    await act(async () => {
+      await user.click(
+        within(business).getByRole('button', {
+          name: 'Upgrade now',
+        }),
+      );
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'order-paid-upgrade',
+        outcome: 'success',
+      }),
+    );
+    expect(mockMutateOverview).toHaveBeenCalledTimes(1);
+    expect(mockMutateSWRCache).toHaveBeenCalledWith(['billing-wallet-buckets']);
+    expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.billing.checkout.completed',
+    });
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName, payload]) =>
+          eventName === 'creator_billing_checkout_result' &&
+          payload.outcome === 'success',
+      ),
+    ).toHaveLength(1);
   });
 
   test('keeps plan checkout disabled until the billing overview resolves', async () => {
