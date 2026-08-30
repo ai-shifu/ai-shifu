@@ -197,7 +197,7 @@ export const ChatUi = ({
                 {previewMode ? null : (
                   <LearnerCourseShareButton
                     surface='learner_desktop_header'
-                    className='h-8 w-8 shrink-0 text-muted-foreground shadow-none hover:bg-muted/50 hover:text-foreground'
+                    className='h-8 w-8 shrink-0 text-gray-600 shadow-none hover:bg-muted/50 hover:text-foreground'
                     tooltipSide='bottom'
                   />
                 )}
