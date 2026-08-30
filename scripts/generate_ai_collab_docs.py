@@ -1029,8 +1029,8 @@ FRONTEND_META = {
     ),
     "c-common": FrontendDomainMeta(
         summary=(
-            "small shared hooks and tracking helpers that support the legacy `c` "
-            "frontend experience"
+            "small shared hooks and the Umami tracking transport used across the "
+            "Cook Web frontend, including the legacy `c` experience"
         ),
         key_files=(
             "hooks/useDisclosure.ts",
@@ -1038,20 +1038,25 @@ FRONTEND_META = {
             "tools/tracking.ts",
         ),
         invariants=(
-            "keep lightweight legacy helpers centralized so the `c` experience "
-            "does not grow duplicated micro-utilities",
-            "preserve tracking and disclosure behavior because the same patterns "
-            "can appear across multiple legacy pages",
-            "treat these helpers as compatibility surfaces until the legacy "
-            "experience is fully retired or migrated",
+            "keep business events on the shared `useTracking` hook and keep raw "
+            "Umami transport ownership in `tools/tracking.ts` instead of adding "
+            "page-local analytics entry points",
+            "preserve identify -> queue -> drain ordering and SPA pageview "
+            "deduplication, including the previous tracked URL as the referrer",
+            "keep the transport fail-open and preserve its size and type "
+            "sanitization bounds; sanitization protects delivery limits but does "
+            "not make an unapproved payload privacy-safe",
         ),
         avoid_points=(
-            "do not fork tracking helpers for one page when a shared legacy hook "
-            "already exists",
-            "do not let these helpers drift from the stores or constants they are "
-            "expected to coordinate with",
-            "do not move shared compatibility behavior into page files where it "
-            "becomes hard to discover and reuse",
+            "do not call `window.umami`, invoke identify, or implement pageview "
+            "tracking from business components when the shared hook, transport, "
+            "and `UmamiLoader` own those responsibilities",
+            "do not treat truncation, stringification, or hashing as privacy "
+            "review; event and identity callers must pass only explicitly "
+            "approved flat scalar fields, and changed pageview handling must "
+            "strip queries and sensitive URL data",
+            "do not let analytics loading, identification, queue draining, or "
+            "delivery errors block the user action or change its business result",
         ),
         test_focus="src/cook-web/src/c-common/",
     ),
@@ -1614,6 +1619,23 @@ def build_documents() -> dict[Path, str]:
                 "focused tests first, use only narrow coded suppressions for "
                 "intentional constructs, and change global Ruff policy only in "
                 "a dedicated rule PR tracked by the active Ruff ExecPlan.",
+                "Treat product analytics as part of the definition of done for "
+                "every new user-facing Cook Web capability or interaction path. "
+                "The same change must add or extend a decision-relevant Umami "
+                "event family and focused tests. Only behavior-preserving visual, "
+                "copy, performance, test, or refactoring work is exempt; a new "
+                "user-observable path introduced for accessibility still "
+                "requires analytics.",
+                "Treat every new or changed Cook Web Umami event as a versioned "
+                "data contract governed by "
+                "`docs/references/frontend-product-analytics.md`. Changes to event "
+                "names, semantics, counted populations, deduplication, or payload "
+                "fields must update producers, consumers, documentation, and "
+                "tests together.",
+                "Keep Cook Web Umami telemetry fail-open and non-authoritative: "
+                "it must not block product behavior or serve as the source of "
+                "truth for billing, permissions, or audit decisions. This rule "
+                "does not define Langfuse or backend observability contracts.",
                 "Keep generated knowledge artifacts in sync by running "
                 "`python scripts/build_repo_knowledge_index.py` after docs "
                 "structure or metadata changes.",
@@ -1745,6 +1767,32 @@ def build_documents() -> dict[Path, str]:
                 "path or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified request/business-code handling flow.",
+                "Every new user-facing Cook Web capability or interaction path "
+                "must add or extend its Umami contract, producer, and focused "
+                "tests in the same change. Capture a meaningful feature "
+                "exposure, accepted use, or a meaningful outcome, and add "
+                "exposure when the metric "
+                "needs an eligible-view denominator. A generic SPA pageview is "
+                "insufficient unless route entry is the documented adoption "
+                "signal. Exempt only behavior-preserving work; new accessibility "
+                "invocation paths still require analytics.",
+                "For Umami product analytics, read "
+                "`docs/references/frontend-product-analytics.md`, send business "
+                "events through `useTracking` or the shared tracking helper, and "
+                "leave SPA pageviews to `UmamiLoader`; do not call "
+                "`window.umami`, identify users, or emit events during render from "
+                "business components.",
+                "Treat every new or changed Umami event name and metric semantic "
+                "as a stable contract. Use static `snake_case` names, put dynamic "
+                "IDs in payload fields, and define the real trigger, counted "
+                "population, deduplication, and terminal outcome before "
+                "implementation.",
+                "Use deny-by-default payloads for every new or changed Umami "
+                "event or identity change, with explicitly listed flat scalar "
+                "fields. Do not send personal or free-form content, credentials, "
+                "raw errors, or complete URLs, queries, or referrers; changed "
+                "pageview handling must strip queries and sensitive URL data, "
+                "and truncation or hashing does not replace privacy review.",
                 "For clickable UI, prefer semantic elements (`button`, `a`, "
                 "`summary`) or shared Radix/shadcn primitives. If a "
                 "non-semantic element must handle clicks, mark the actual "
@@ -1804,6 +1852,23 @@ def build_documents() -> dict[Path, str]:
                 "focused tests first, use only narrow coded suppressions for "
                 "intentional constructs, and change global Ruff policy only in "
                 "a dedicated rule PR tracked by the active Ruff ExecPlan.",
+                "Treat product analytics as part of the definition of done for "
+                "every new user-facing Cook Web capability or interaction path. "
+                "The same change must add or extend a decision-relevant Umami "
+                "event family and focused tests. Only behavior-preserving visual, "
+                "copy, performance, test, or refactoring work is exempt; a new "
+                "user-observable path introduced for accessibility still "
+                "requires analytics.",
+                "Treat every new or changed Cook Web Umami event as a versioned "
+                "data contract governed by "
+                "`docs/references/frontend-product-analytics.md`. Changes to event "
+                "names, semantics, counted populations, deduplication, or payload "
+                "fields must update producers, consumers, documentation, and "
+                "tests together.",
+                "Keep Cook Web Umami telemetry fail-open and non-authoritative: "
+                "it must not block product behavior or serve as the source of "
+                "truth for billing, permissions, or audit decisions. This rule "
+                "does not define Langfuse or backend observability contracts.",
                 "Regenerate repository knowledge indexes with "
                 "`python scripts/build_repo_knowledge_index.py` after moving docs "
                 "or changing required metadata.",
@@ -1888,6 +1953,32 @@ def build_documents() -> dict[Path, str]:
                 "implementations or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified business-code handling path.",
+                "Every new user-facing Cook Web capability or interaction path "
+                "must add or extend its Umami contract, producer, and focused "
+                "tests in the same change. Capture a meaningful feature "
+                "exposure, accepted use, or a meaningful outcome, and add "
+                "exposure when the metric "
+                "needs an eligible-view denominator. A generic SPA pageview is "
+                "insufficient unless route entry is the documented adoption "
+                "signal. Exempt only behavior-preserving work; new accessibility "
+                "invocation paths still require analytics.",
+                "For Umami product analytics, read "
+                "`docs/references/frontend-product-analytics.md`, send business "
+                "events through `useTracking` or the shared tracking helper, and "
+                "leave SPA pageviews to `UmamiLoader`; do not call "
+                "`window.umami`, identify users, or emit events during render from "
+                "business components.",
+                "Treat every new or changed Umami event name and metric semantic "
+                "as a stable contract. Use static `snake_case` names, put dynamic "
+                "IDs in payload fields, and define the real trigger, counted "
+                "population, deduplication, and terminal outcome before "
+                "implementation.",
+                "Use deny-by-default payloads for every new or changed Umami "
+                "event or identity change, with explicitly listed flat scalar "
+                "fields. Do not send personal or free-form content, credentials, "
+                "raw errors, or complete URLs, queries, or referrers; changed "
+                "pageview handling must strip queries and sensitive URL data, "
+                "and truncation or hashing does not replace privacy review.",
                 "For clickable UI, prefer semantic elements (`button`, `a`, "
                 "`summary`) or shared Radix/shadcn primitives. If a "
                 "non-semantic element must handle clicks, mark the actual "
