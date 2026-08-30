@@ -155,6 +155,63 @@
     border-right: none;
   }
 
+  .systemName {
+    min-width: 0;
+    cursor: default;
+
+    &:hover,
+    &:focus-visible {
+      overflow: visible;
+    }
+
+    &:hover .friendlyName,
+    &:focus-visible .friendlyName {
+      opacity: 0;
+    }
+
+    &:hover .rawName,
+    &:focus-visible .rawName {
+      opacity: 1;
+    }
+  }
+
+  .friendlyName,
+  .rawName {
+    display: block;
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .rawName {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    opacity: 0;
+    border: var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);
+    border-radius: var(--border-radius-rounded-md, 8px);
+    background: #fff;
+    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+      var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-size: 11px;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+      'Courier New', monospace;
+  }
+
   .hideBadge {
     position: absolute;
     top: -6px;
@@ -245,5 +302,12 @@
     color: rgba(0, 0, 0, 0.45);
     margin-top: 4px;
     padding-left: 16px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .friendlyName,
+    .rawName {
+      transition: none;
+    }
   }
 }

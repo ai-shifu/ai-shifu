@@ -6,9 +6,11 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from flask import current_app, has_app_context
+from flaskr.i18n import get_locale_labels
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.common.profile_onboarding_prompt import (
     compile_profile_onboarding_assistant_prompt,
+    localize_profile_onboarding_assistant_prompt,
 )
 from flaskr.service.config.funcs import get_config
 from flaskr.service.config.profile_onboarding import (
@@ -35,6 +37,7 @@ def _default_config_payload() -> dict[str, object]:
         "enabled": False,
         "markdownflow": "",
         "assistant_prompt": "",
+        "assistant_prompts": {},
         "revision": 0,
         "updated_by": "",
         "updated_at": "",
@@ -45,11 +48,25 @@ def normalize_profile_onboarding_config_payload(payload: object) -> dict[str, ob
     """Normalize profile onboarding config payload."""
     base = _default_config_payload()
     if isinstance(payload, dict):
+        raw_assistant_prompts = payload.get("assistant_prompts")
+        assistant_prompts = (
+            {
+                locale.strip(): prompt.strip()
+                for locale, prompt in raw_assistant_prompts.items()
+                if isinstance(locale, str)
+                and locale.strip()
+                and isinstance(prompt, str)
+                and prompt.strip()
+            }
+            if isinstance(raw_assistant_prompts, dict)
+            else {}
+        )
         base.update(
             {
                 "enabled": bool(payload.get("enabled", False)),
                 "markdownflow": str(payload.get("markdownflow") or ""),
                 "assistant_prompt": str(payload.get("assistant_prompt") or ""),
+                "assistant_prompts": assistant_prompts,
                 "revision": int(payload.get("revision") or 0),
                 "updated_by": str(payload.get("updated_by") or ""),
                 "updated_at": str(payload.get("updated_at") or ""),
@@ -83,12 +100,14 @@ def build_profile_onboarding_config_payload(
     revision: int,
     updated_by: str,
     assistant_prompt: str = "",
+    assistant_prompts: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build the canonical persisted onboarding configuration."""
     return {
         "enabled": enabled,
         "markdownflow": markdownflow,
         "assistant_prompt": assistant_prompt,
+        "assistant_prompts": dict(assistant_prompts or {}),
         "revision": revision,
         "updated_by": updated_by,
         "updated_at": _now_iso(),
@@ -146,6 +165,7 @@ def build_profile_onboarding_config_response(
         "enabled": normalized["enabled"],
         "markdownflow": normalized["markdownflow"],
         "assistant_prompt": normalized["assistant_prompt"],
+        "assistant_prompts": normalized["assistant_prompts"],
         "config_revision": normalized["revision"],
         "updated_by": normalized["updated_by"],
         "updated_at": normalized["updated_at"],
@@ -156,6 +176,21 @@ def get_profile_onboarding_config() -> dict[str, object]:
     """Return profile onboarding config."""
     return build_profile_onboarding_config_response(
         load_profile_onboarding_config_payload()
+    )
+
+
+def _has_complete_assistant_prompts(prompts: object) -> bool:
+    """Return whether every currently supported locale has one prompt."""
+    if not isinstance(prompts, dict):
+        return False
+    supported_locales = set(get_locale_labels())
+    return (
+        bool(supported_locales)
+        and set(prompts) == supported_locales
+        and all(
+            isinstance(prompt, str) and bool(prompt.strip())
+            for prompt in prompts.values()
+        )
     )
 
 
@@ -194,42 +229,65 @@ def update_profile_onboarding_config(
     except (TypeError, ValueError):
         existing = _default_config_payload()
     assistant_prompt = str(existing.get("assistant_prompt") or "")
-    defer_missing_prompt_while_disabling = (
+    assistant_prompts = dict(existing.get("assistant_prompts") or {})
+    document_changed = markdownflow != existing["markdownflow"]
+    defer_uninitialized_generation_while_disabling = (
         not bool(payload.get("enabled", False))
-        and markdownflow == existing["markdownflow"]
-        and not assistant_prompt
+        and not assistant_prompt.strip()
+        and (not has_explicit_prompt or not explicit_prompt)
     )
-    if explicit_prompt:
+    generate_master = False
+    generate_localizations = False
+    if defer_uninitialized_generation_while_disabling:
+        pass
+    elif explicit_prompt:
+        prompt_changed = explicit_prompt != assistant_prompt.strip()
         assistant_prompt = explicit_prompt
-    elif markdownflow and (
-        not defer_missing_prompt_while_disabling
-        and (
-            has_explicit_prompt
-            or markdownflow != existing["markdownflow"]
-            or not assistant_prompt
+        if prompt_changed:
+            generate_localizations = True
+        else:
+            generate_master = document_changed
+            generate_localizations = generate_master or not (
+                _has_complete_assistant_prompts(assistant_prompts)
+            )
+    elif markdownflow and has_explicit_prompt:
+        generate_master = True
+    elif markdownflow:
+        generate_master = document_changed or not assistant_prompt
+        generate_localizations = generate_master or not _has_complete_assistant_prompts(
+            assistant_prompts
         )
-    ):
+    if markdownflow and (generate_master or generate_localizations):
         # Reject oversized input before spending a model call, then check the
-        # complete JSON again after the generated prompt is included.
+        # complete JSON again after every localized prompt is included.
         validate_profile_onboarding_config_payload_size(
             build_profile_onboarding_config_payload(
                 enabled=bool(payload.get("enabled", False)),
                 markdownflow=markdownflow,
                 revision=int(existing["revision"]) + 1,
                 updated_by=operator_user_bid or "system",
+                assistant_prompt=("" if generate_master else assistant_prompt),
             )
         )
+    if generate_master:
         assistant_prompt = compile_profile_onboarding_assistant_prompt(
             app, markdownflow
         )
+        generate_localizations = True
+    if generate_localizations:
+        assistant_prompts = localize_profile_onboarding_assistant_prompt(
+            app, assistant_prompt
+        )
     if not markdownflow:
         assistant_prompt = ""
+        assistant_prompts = {}
     next_payload = build_profile_onboarding_config_payload(
         enabled=bool(payload.get("enabled", False)),
         markdownflow=markdownflow,
         revision=int(existing.get("revision") or 0) + 1,
         updated_by=operator_user_bid or "system",
         assistant_prompt=assistant_prompt,
+        assistant_prompts=assistant_prompts,
     )
     cache_refresh_pending = save_profile_onboarding_config_payload(
         app,

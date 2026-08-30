@@ -71,6 +71,7 @@ import {
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
+import LearnerCourseShareButton from '../LearnerCourseShareButton';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 
 type ListenSlideElement = SlideElement & {
@@ -1945,30 +1946,39 @@ const ListenModeSlideRenderer = ({
     }
 
     return (
-      <div className='flex min-w-0 items-center gap-3 text-[var(--slide-mobile-fullscreen-chrome-foreground,var(--foreground))]'>
-        {courseAvatar ? (
-          <Avatar className='h-8 w-8 shrink-0'>
-            <AvatarImage
-              src={courseAvatar}
-              alt=''
-            />
-          </Avatar>
-        ) : null}
-        <div className='flex min-w-0 flex-col justify-center'>
-          {courseName ? (
-            <span className='truncate text-base font-bold leading-5 text-current'>
-              {courseName}
-            </span>
+      <div className='flex w-full min-w-0 items-center gap-3 text-[var(--slide-mobile-fullscreen-chrome-foreground,var(--foreground))]'>
+        <div className='flex min-w-0 flex-1 items-center gap-3'>
+          {courseAvatar ? (
+            <Avatar className='h-8 w-8 shrink-0'>
+              <AvatarImage
+                src={courseAvatar}
+                alt=''
+              />
+            </Avatar>
           ) : null}
-          {sectionTitle ? (
-            <span className='truncate text-xs leading-4 text-current opacity-80'>
-              {sectionTitle}
-            </span>
-          ) : null}
+          <div className='flex min-w-0 flex-col justify-center'>
+            {courseName ? (
+              <span className='truncate text-base font-bold leading-5 text-current'>
+                {courseName}
+              </span>
+            ) : null}
+            {sectionTitle ? (
+              <span className='truncate text-xs leading-4 text-current opacity-80'>
+                {sectionTitle}
+              </span>
+            ) : null}
+          </div>
         </div>
+        {previewMode ? null : (
+          <LearnerCourseShareButton
+            surface='learner_mobile_fullscreen'
+            className='h-8 w-8 shrink-0 text-current shadow-none hover:bg-current/10 hover:text-current'
+            tooltipSide='bottom'
+          />
+        )}
       </div>
     );
-  }, [courseAvatar, courseName, sectionTitle]);
+  }, [courseAvatar, courseName, previewMode, sectionTitle]);
   const fullscreenHeader = useMemo(
     () => ({
       content: fullscreenHeaderContent,

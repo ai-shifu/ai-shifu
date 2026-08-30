@@ -48,7 +48,7 @@ export default function LessonPdfDownloadButton({
       type='button'
       variant='ghost'
       size='icon'
-      className='h-8 w-8 shrink-0 text-muted-foreground shadow-none hover:bg-muted/50 hover:text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
+      className='h-8 w-8 shrink-0 text-gray-600 shadow-none hover:bg-muted/50 hover:text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
       aria-disabled={isDisabled}
       aria-label={accessibleLabel}
       aria-busy={isPreparing}

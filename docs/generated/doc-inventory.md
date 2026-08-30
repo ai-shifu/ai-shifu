@@ -28,6 +28,7 @@
 | `docs/exec-plans/active/backend-overhaul-master.md` | Backend Overhaul Master Plan: Inventory and Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/billing-credit-notifications.md` | ExecPlan: Billing Credit Notifications | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ci-backend-speed-stack.md` | Speed Up Backend Pull Request Feedback | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-dashboard-course-ownership-optimization.md` | Creator Dashboard Course Ownership Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-dashboard-course-ratings.md` | Creator Dashboard Course Ratings | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -64,6 +65,7 @@
 | `docs/exec-plans/completed/profile-onboarding-assistant-discoverability.md` | Make AI-assisted onboarding visible before the first question | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-assistant-handoff.md` | Submit AI answers without waiting for a question | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-guided.md` | Profile onboarding guided questions (PR2) | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/profile-onboarding-multilingual-assistant-prompts.md` | Localize profile-onboarding assistant prompts for every supported language | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-structural-simplification.md` | Profile Onboarding Structural Simplification | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/runtime-harness-fast-value-gate.md` | Runtime Harness Fast Value Gate | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/unified-learner-profile-dialog.md` | Unified Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |

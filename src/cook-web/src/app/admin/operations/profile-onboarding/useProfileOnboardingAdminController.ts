@@ -13,6 +13,7 @@ type ProfileOnboardingConfig = {
   enabled?: boolean;
   markdownflow?: string;
   assistant_prompt?: string;
+  assistant_prompts?: Record<string, string>;
   cache_refresh_pending?: boolean;
   config_revision?: number;
   updated_by?: string;

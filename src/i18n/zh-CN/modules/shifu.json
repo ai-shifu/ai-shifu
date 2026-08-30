@@ -35,6 +35,13 @@
     "empty": "在左侧输入授课提示词，然后点击“调试”体验学习模拟",
     "loading": "正在生成学习模拟...",
     "open": "展开学习模拟",
+    "systemVariableLabels": {
+      "accessibleName": "{label}（{name}）",
+      "background": "学生背景偏好",
+      "input": "最新输入",
+      "language": "授课语言",
+      "nickname": "学生昵称"
+    },
     "title": "学习模拟",
     "variablesCollapse": "收起",
     "variablesDescription": "不同学习者会给变量不同的值，得到不同的课程效果",

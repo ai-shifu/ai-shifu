@@ -35,6 +35,13 @@
     "empty": "Saisissez les prompts pédagogiques à gauche, puis cliquez sur « Déboguer » pour tester la simulation d’apprentissage",
     "loading": "Génération de la simulation d’apprentissage…",
     "open": "Développer la simulation d’apprentissage",
+    "systemVariableLabels": {
+      "accessibleName": "{label} ({name})",
+      "background": "Profil et préférences de l’élève",
+      "input": "Saisie la plus récente",
+      "language": "Langue d’enseignement",
+      "nickname": "Surnom de l’élève"
+    },
     "title": "Simulation d’apprentissage",
     "variablesCollapse": "Réduire",
     "variablesDescription": "Des apprenants différents définissent des variables différentes pour obtenir des cours différents",

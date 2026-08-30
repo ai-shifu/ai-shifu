@@ -89,12 +89,14 @@ export interface SystemStoreState {
 
 export interface CourseStoreState {
   courseName: string;
+  courseDescription: string;
   courseAvatar: string;
   courseTtsEnabled: boolean | null;
   courseDefaultListenModeEnabled: boolean | null;
   courseSettingsCourseId: string | null;
   updateCourseAvatar: (avatar: string) => void;
   updateCourseName: (name: string) => void;
+  updateCourseDescription: (description: string) => void;
   updateCourseTtsEnabled: (enabled: boolean | null) => void;
   updateCourseDefaultListenModeEnabled: (enabled: boolean | null) => void;
   updateCourseSettings: (
