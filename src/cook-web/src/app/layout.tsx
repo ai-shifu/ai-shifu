@@ -9,6 +9,7 @@ import { UserProvider } from '@/store/userProvider';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 import I18nDocumentAttributes from '@/components/I18nDocumentAttributes';
+import BrowserHistoryGuardBridge from '@/components/BrowserHistoryGuardBridge';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 export { metadata, viewport } from './metadata';
 // fix: dont't use, it will cause logo in dark mode is not blue
@@ -30,6 +31,7 @@ export default function RootLayout({
           id='root'
           className='min-h-screen'
         >
+          <BrowserHistoryGuardBridge />
           <DomReconcilerGuard />
           <I18nDocumentAttributes>
             <ConfigProvider>

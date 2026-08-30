@@ -40,14 +40,17 @@ export default function ProfileOnboardingAdminPage() {
     loadFailed,
     reload,
     saving,
+    navigating,
     generating,
     error,
     generationNotice,
     documentChanged,
     pendingNavigation,
+    navigationRetryPending,
     navigationStatus,
     dismissPendingNavigation,
     discardPendingChanges,
+    retryPendingNavigation,
     saveAndProceed,
     previewOpen,
     previewKey,
@@ -84,7 +87,7 @@ export default function ProfileOnboardingAdminPage() {
             <Button
               type='button'
               variant='outline'
-              disabled={!configLoaded || saving || generating}
+              disabled={!configLoaded || saving || navigating || generating}
               onClick={startPreview}
             >
               {previewOpen
@@ -93,7 +96,7 @@ export default function ProfileOnboardingAdminPage() {
             </Button>
             <Button
               type='button'
-              disabled={!configLoaded || saving || generating}
+              disabled={!configLoaded || saving || navigating || generating}
               onClick={() => void save()}
             >
               {t('module.profileOnboarding.admin.save')}
@@ -309,10 +312,18 @@ export default function ProfileOnboardingAdminPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('module.profileOnboarding.admin.unsavedDialog.title')}
+              {t(
+                navigationRetryPending
+                  ? 'module.profileOnboarding.admin.unsavedDialog.retryTitle'
+                  : 'module.profileOnboarding.admin.unsavedDialog.title',
+              )}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('module.profileOnboarding.admin.unsavedDialog.description')}
+              {t(
+                navigationRetryPending
+                  ? 'module.profileOnboarding.admin.unsavedDialog.retryDescription'
+                  : 'module.profileOnboarding.admin.unsavedDialog.description',
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {error ? (
@@ -333,27 +344,49 @@ export default function ProfileOnboardingAdminPage() {
             </div>
           ) : null}
           <AlertDialogFooter className='gap-2 sm:space-x-0'>
-            <AlertDialogCancel disabled={saving}>
-              {t('module.profileOnboarding.admin.unsavedDialog.cancel')}
+            <AlertDialogCancel disabled={saving || navigating}>
+              {t(
+                navigationRetryPending
+                  ? 'module.profileOnboarding.admin.unsavedDialog.stay'
+                  : 'module.profileOnboarding.admin.unsavedDialog.cancel',
+              )}
             </AlertDialogCancel>
-            <AlertDialogAction
-              type='button'
-              disabled={saving}
-              className='border border-input bg-white text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground'
-              onClick={discardPendingChanges}
-            >
-              {t('module.profileOnboarding.admin.unsavedDialog.discard')}
-            </AlertDialogAction>
-            <AlertDialogAction
-              type='button'
-              disabled={saving || generating}
-              onClick={event => {
-                event.preventDefault();
-                void saveAndProceed();
-              }}
-            >
-              {t('module.profileOnboarding.admin.unsavedDialog.save')}
-            </AlertDialogAction>
+            {navigationRetryPending ? (
+              <AlertDialogAction
+                type='button'
+                disabled={navigating}
+                onClick={event => {
+                  event.preventDefault();
+                  retryPendingNavigation();
+                }}
+              >
+                {t('module.profileOnboarding.admin.unsavedDialog.retry')}
+              </AlertDialogAction>
+            ) : (
+              <>
+                <AlertDialogAction
+                  type='button'
+                  disabled={saving || navigating}
+                  className='border border-input bg-white text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground'
+                  onClick={event => {
+                    event.preventDefault();
+                    discardPendingChanges();
+                  }}
+                >
+                  {t('module.profileOnboarding.admin.unsavedDialog.discard')}
+                </AlertDialogAction>
+                <AlertDialogAction
+                  type='button'
+                  disabled={saving || navigating || generating}
+                  onClick={event => {
+                    event.preventDefault();
+                    void saveAndProceed();
+                  }}
+                >
+                  {t('module.profileOnboarding.admin.unsavedDialog.save')}
+                </AlertDialogAction>
+              </>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

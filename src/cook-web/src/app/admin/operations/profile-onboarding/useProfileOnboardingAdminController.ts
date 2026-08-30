@@ -8,6 +8,12 @@ import type {
   ProfileOnboardingSessionInfo,
 } from '@/components/profile-onboarding/ProfileOnboardingConversation';
 import { useToast } from '@/hooks/useToast';
+import {
+  getBrowserHistoryIndex,
+  isBrowserHistoryBridgeTraversing,
+  registerBrowserHistoryGuard,
+  resumeBrowserHistoryTraversal,
+} from '@/lib/browserHistoryGuard';
 import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
 import type { ErrorWithCode } from '@/lib/request';
 
@@ -46,6 +52,48 @@ type ConfigLoadRetryOutcome = 'success' | 'failed';
 type SaveOutcome = 'failed' | 'saved' | 'saved_with_newer_edits';
 type DirtyNavigationDecision = 'cancel' | 'discard' | 'save_and_leave';
 type DirtyNavigationSaveOutcome = 'success' | 'failed' | 'superseded';
+type DirtyNavigationRetryDecision = 'retry' | 'stay';
+type DirtyNavigationRetryOutcome = 'failed' | 'success';
+type PendingNavigation =
+  | { kind: 'route'; href: string }
+  | {
+      kind: 'traverse';
+      entryKey: string | null;
+      fallbackUrl: string | null;
+      targetIndex: number | null;
+    };
+
+type BrowserNavigationDestination = {
+  key: string;
+  sameDocument: boolean;
+  url: string | null;
+  getState: () => unknown;
+};
+
+type BrowserNavigateEvent = Event & {
+  destination: BrowserNavigationDestination;
+  hashChange: boolean;
+  navigationType: 'push' | 'reload' | 'replace' | 'traverse';
+};
+
+type BrowserNavigationResult = {
+  finished: Promise<unknown>;
+};
+
+type BrowserNavigationApi = EventTarget & {
+  traverseTo: (key: string) => BrowserNavigationResult;
+};
+
+const getBrowserNavigationApi = (): BrowserNavigationApi | undefined => {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+  return (
+    window as typeof window & {
+      navigation?: BrowserNavigationApi;
+    }
+  ).navigation;
+};
 
 export const PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT =
   'operator_profile_prompt_generate_attempt';
@@ -61,6 +109,12 @@ export const PROFILE_DIRTY_NAVIGATION_DECISION_EVENT =
   'operator_profile_dirty_navigation_decision';
 export const PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT =
   'operator_profile_dirty_navigation_save_result';
+export const PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT =
+  'operator_profile_dirty_navigation_retry_shown';
+export const PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT =
+  'operator_profile_dirty_navigation_retry_decision';
+export const PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT =
+  'operator_profile_dirty_navigation_retry_result';
 
 const EMPTY_DRAFT: ProfileOnboardingDraft = {
   enabled: false,
@@ -113,6 +167,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   const [configLoaded, setConfigLoaded] = React.useState(false);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [navigating, setNavigating] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
   const [error, setError] = React.useState('');
   const [generationNotice, setGenerationNotice] = React.useState('');
@@ -120,20 +175,25 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [previewKey, setPreviewKey] = React.useState(0);
   const [previewDraft, setPreviewDraft] = React.useState('');
-  const [pendingNavigation, setPendingNavigation] = React.useState<
-    string | null
-  >(null);
+  const [pendingNavigation, setPendingNavigation] =
+    React.useState<PendingNavigation | null>(null);
+  const [navigationRetryPending, setNavigationRetryPending] =
+    React.useState(false);
   const [navigationStatus, setNavigationStatus] = React.useState('');
   const loadStartedRef = React.useRef(false);
   const loadInFlightRef = React.useRef(false);
   const savingRef = React.useRef(false);
+  const navigationInFlightRef = React.useRef(false);
+  const navigationRetryInFlightRef = React.useRef(false);
   const generatingRef = React.useRef(false);
   const enabledRef = React.useRef(false);
   const markdownflowRef = React.useRef('');
   const assistantPromptRef = React.useRef('');
   const promptDocumentRef = React.useRef('');
-  const pendingNavigationRef = React.useRef<string | null>(null);
+  const pendingNavigationRef = React.useRef<PendingNavigation | null>(null);
+  const navigationRetryPendingRef = React.useRef(false);
   const dirtyNavigationShownRef = React.useRef(false);
+  const dirtyNavigationRetryShownRef = React.useRef(false);
   const defaultMarkdownflow = t(
     'module.profileOnboarding.admin.defaultMarkdownflow',
   );
@@ -143,6 +203,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     [assistantPrompt, enabled, markdownflow],
   );
   const isDirty = configLoaded && !draftsMatch(currentDraft, savedConfig);
+  const shouldGuardHistory = isDirty || Boolean(pendingNavigation);
 
   const setEnabled = React.useCallback((value: boolean) => {
     enabledRef.current = value;
@@ -275,6 +336,24 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   const trackDirtyNavigationSaveResult = React.useCallback(
     (outcome: DirtyNavigationSaveOutcome) => {
       trackEventSafely(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome });
+    },
+    [trackEventSafely],
+  );
+
+  const trackDirtyNavigationRetryDecision = React.useCallback(
+    (decision: DirtyNavigationRetryDecision) => {
+      trackEventSafely(PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT, {
+        decision,
+      });
+    },
+    [trackEventSafely],
+  );
+
+  const trackDirtyNavigationRetryResult = React.useCallback(
+    (outcome: DirtyNavigationRetryOutcome) => {
+      trackEventSafely(PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT, {
+        outcome,
+      });
     },
     [trackEventSafely],
   );
@@ -489,6 +568,82 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
+  React.useLayoutEffect(() => {
+    if (!shouldGuardHistory) {
+      return undefined;
+    }
+    return registerBrowserHistoryGuard(({ fallbackUrl, targetIndex }) => {
+      if (
+        savingRef.current ||
+        navigationInFlightRef.current ||
+        pendingNavigationRef.current
+      ) {
+        return;
+      }
+      const target: PendingNavigation = {
+        kind: 'traverse',
+        entryKey: null,
+        fallbackUrl,
+        targetIndex,
+      };
+      setError('');
+      setNavigationStatus('');
+      navigationRetryPendingRef.current = false;
+      setNavigationRetryPending(false);
+      pendingNavigationRef.current = target;
+      setPendingNavigation(target);
+    });
+  }, [shouldGuardHistory]);
+
+  React.useEffect(() => {
+    if (!shouldGuardHistory) {
+      return undefined;
+    }
+    const navigation = getBrowserNavigationApi();
+    if (!navigation) {
+      return undefined;
+    }
+    const handleNavigate = (event: Event) => {
+      const navigateEvent = event as BrowserNavigateEvent;
+      if (navigateEvent.navigationType !== 'traverse') {
+        return;
+      }
+      if (isBrowserHistoryBridgeTraversing()) {
+        return;
+      }
+      const destinationKey = navigateEvent.destination?.key;
+      if (
+        !destinationKey ||
+        !navigateEvent.destination.sameDocument ||
+        navigateEvent.hashChange ||
+        !navigateEvent.cancelable
+      ) {
+        return;
+      }
+      navigateEvent.preventDefault();
+      if (savingRef.current || pendingNavigationRef.current) {
+        return;
+      }
+      const target: PendingNavigation = {
+        kind: 'traverse',
+        entryKey: destinationKey,
+        fallbackUrl: null,
+        targetIndex:
+          typeof navigateEvent.destination.getState === 'function'
+            ? getBrowserHistoryIndex(navigateEvent.destination.getState())
+            : null,
+      };
+      setError('');
+      setNavigationStatus('');
+      navigationRetryPendingRef.current = false;
+      setNavigationRetryPending(false);
+      pendingNavigationRef.current = target;
+      setPendingNavigation(target);
+    };
+    navigation.addEventListener('navigate', handleNavigate);
+    return () => navigation.removeEventListener('navigate', handleNavigate);
+  }, [shouldGuardHistory]);
+
   React.useEffect(() => {
     const isShown = Boolean(pendingNavigation);
     if (isShown && !dirtyNavigationShownRef.current) {
@@ -496,6 +651,13 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     }
     dirtyNavigationShownRef.current = isShown;
   }, [pendingNavigation, trackEventSafely]);
+
+  React.useEffect(() => {
+    if (navigationRetryPending && !dirtyNavigationRetryShownRef.current) {
+      trackEventSafely(PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT, {});
+    }
+    dirtyNavigationRetryShownRef.current = navigationRetryPending;
+  }, [navigationRetryPending, trackEventSafely]);
 
   React.useEffect(() => {
     if (!isDirty) {
@@ -535,46 +697,124 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
         return;
       }
       event.preventDefault();
-      if (savingRef.current) {
+      if (savingRef.current || pendingNavigationRef.current) {
         return;
       }
+      const navigationTarget: PendingNavigation = {
+        kind: 'route',
+        href: nextPath,
+      };
       setError('');
       setNavigationStatus('');
-      pendingNavigationRef.current = nextPath;
-      setPendingNavigation(nextPath);
+      navigationRetryPendingRef.current = false;
+      setNavigationRetryPending(false);
+      pendingNavigationRef.current = navigationTarget;
+      setPendingNavigation(navigationTarget);
     };
     document.addEventListener('click', handleDocumentClick, true);
     return () =>
       document.removeEventListener('click', handleDocumentClick, true);
   }, [isDirty]);
 
+  const proceedPendingNavigation = React.useCallback(
+    async (target: PendingNavigation): Promise<boolean> => {
+      if (target.kind === 'route') {
+        router.push(target.href, { scroll: false });
+        return true;
+      }
+      if (navigationInFlightRef.current) {
+        return false;
+      }
+      navigationInFlightRef.current = true;
+      setNavigating(true);
+      setNavigationStatus('');
+      try {
+        if (target.fallbackUrl) {
+          const fallbackUrl = new URL(target.fallbackUrl, window.location.href);
+          if (fallbackUrl.origin !== window.location.origin) {
+            throw new Error('The browser-history fallback URL is not local.');
+          }
+          router.push(
+            `${fallbackUrl.pathname}${fallbackUrl.search}${fallbackUrl.hash}`,
+            { scroll: false },
+          );
+          return true;
+        }
+        const navigation = getBrowserNavigationApi();
+        await resumeBrowserHistoryTraversal(
+          target.targetIndex,
+          target.entryKey && navigation
+            ? () => navigation.traverseTo(target.entryKey as string).finished
+            : undefined,
+        );
+        return true;
+      } catch {
+        setNavigationStatus(
+          t('module.profileOnboarding.admin.unsavedDialog.navigationFailed'),
+        );
+        return false;
+      } finally {
+        navigationInFlightRef.current = false;
+        setNavigating(false);
+      }
+    },
+    [router, t],
+  );
+
   const discardPendingChanges = React.useCallback(() => {
     const target = pendingNavigationRef.current;
-    if (!target || savingRef.current) {
+    if (!target || savingRef.current || navigationInFlightRef.current) {
       return;
     }
     trackDirtyNavigationDecision('discard');
-    pendingNavigationRef.current = null;
     applyDraft(savedConfig);
     setError('');
     setNavigationStatus('');
-    setPendingNavigation(null);
-    router.push(target, { scroll: false });
-  }, [applyDraft, router, savedConfig, trackDirtyNavigationDecision]);
+    void proceedPendingNavigation(target).then(completed => {
+      if (pendingNavigationRef.current !== target) {
+        return;
+      }
+      if (!completed) {
+        navigationRetryPendingRef.current = true;
+        setNavigationRetryPending(true);
+        return;
+      }
+      pendingNavigationRef.current = null;
+      navigationRetryPendingRef.current = false;
+      setNavigationRetryPending(false);
+      setPendingNavigation(null);
+    });
+  }, [
+    applyDraft,
+    proceedPendingNavigation,
+    savedConfig,
+    trackDirtyNavigationDecision,
+  ]);
 
   const dismissPendingNavigation = React.useCallback(() => {
-    if (!pendingNavigationRef.current || savingRef.current) {
+    if (
+      !pendingNavigationRef.current ||
+      savingRef.current ||
+      navigationInFlightRef.current ||
+      navigationRetryInFlightRef.current
+    ) {
       return;
     }
-    trackDirtyNavigationDecision('cancel');
+    if (navigationRetryPendingRef.current) {
+      trackDirtyNavigationRetryDecision('stay');
+    } else {
+      trackDirtyNavigationDecision('cancel');
+    }
     pendingNavigationRef.current = null;
+    navigationRetryPendingRef.current = false;
+    setNavigationRetryPending(false);
     setNavigationStatus('');
     setPendingNavigation(null);
-  }, [trackDirtyNavigationDecision]);
+  }, [trackDirtyNavigationDecision, trackDirtyNavigationRetryDecision]);
 
   const saveAndProceed = React.useCallback(async () => {
     const target = pendingNavigationRef.current;
-    if (!target || savingRef.current) {
+    if (!target || savingRef.current || navigationInFlightRef.current) {
       return;
     }
     trackDirtyNavigationDecision('save_and_leave');
@@ -592,16 +832,65 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       return;
     }
     trackDirtyNavigationSaveResult('success');
+    if (!(await proceedPendingNavigation(target))) {
+      if (pendingNavigationRef.current === target) {
+        navigationRetryPendingRef.current = true;
+        setNavigationRetryPending(true);
+      }
+      return;
+    }
+    if (pendingNavigationRef.current !== target) {
+      return;
+    }
     pendingNavigationRef.current = null;
+    navigationRetryPendingRef.current = false;
+    setNavigationRetryPending(false);
     setNavigationStatus('');
     setPendingNavigation(null);
-    router.push(target, { scroll: false });
   }, [
-    router,
+    proceedPendingNavigation,
     save,
     t,
     trackDirtyNavigationDecision,
     trackDirtyNavigationSaveResult,
+  ]);
+
+  const retryPendingNavigation = React.useCallback(() => {
+    const target = pendingNavigationRef.current;
+    if (
+      !target ||
+      !navigationRetryPendingRef.current ||
+      savingRef.current ||
+      navigationInFlightRef.current ||
+      navigationRetryInFlightRef.current
+    ) {
+      return;
+    }
+    navigationRetryInFlightRef.current = true;
+    trackDirtyNavigationRetryDecision('retry');
+    setNavigationStatus('');
+    void proceedPendingNavigation(target)
+      .then(
+        completed => completed,
+        () => false,
+      )
+      .then(completed => {
+        trackDirtyNavigationRetryResult(completed ? 'success' : 'failed');
+        if (!completed || pendingNavigationRef.current !== target) {
+          return;
+        }
+        pendingNavigationRef.current = null;
+        navigationRetryPendingRef.current = false;
+        setNavigationRetryPending(false);
+        setPendingNavigation(null);
+      })
+      .finally(() => {
+        navigationRetryInFlightRef.current = false;
+      });
+  }, [
+    proceedPendingNavigation,
+    trackDirtyNavigationRetryDecision,
+    trackDirtyNavigationRetryResult,
   ]);
 
   const createPreviewSession = React.useCallback(async () => {
@@ -676,15 +965,18 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     loadFailed,
     reload,
     saving,
+    navigating,
     generating,
     error,
     generationNotice,
     documentChanged,
     isDirty,
     pendingNavigation,
+    navigationRetryPending,
     navigationStatus,
     dismissPendingNavigation,
     discardPendingChanges,
+    retryPendingNavigation,
     saveAndProceed,
     previewOpen,
     previewKey,

@@ -18,30 +18,39 @@ prompt.
 ## Progress
 
 - [x] 2026-08-30 CST: Rechecked the clean detached checkout against current
-  `origin/main` and created
-  `sunner/profile-onboarding-explicit-prompt-generation` at
-  `011a4abc45d62dfe8c5f5d70ee5f0bf73afdf3a3`.
+      `origin/main` and created
+      `sunner/profile-onboarding-explicit-prompt-generation` at
+      `011a4abc45d62dfe8c5f5d70ee5f0bf73afdf3a3`.
 - [x] 2026-08-30 CST: Inspected the operator page/controller, API wrappers,
-  configuration publication service, prompt compiler/localizer, learner prompt
-  selection, existing tests, translation keys, and analytics contract.
+      configuration publication service, prompt compiler/localizer, learner prompt
+      selection, existing tests, translation keys, and analytics contract.
 - [x] 2026-08-30 CST: Added the non-persisting master-generation endpoint,
-  removed implicit master generation from every save path, and kept rollout
-  compatibility without allowing omitted legacy fields to erase prompts.
+      removed implicit master generation from every save path, and kept rollout
+      compatibility without allowing omitted legacy fields to erase prompts.
 - [x] 2026-08-30 CST: Implemented the explicit generate/edit/save draft
-  workflow, snapshot/concurrency protection, dirty-state protection, modal
-  failure feedback, and versioned fail-open analytics.
+      workflow, snapshot/concurrency protection, dirty-state protection, modal
+      failure feedback, and versioned fail-open analytics.
 - [x] 2026-08-30 CST: Unified all five locales, corrected the learner loading
-  residue, regenerated translation types, and preserved every locale's default
-  MarkdownFlow document byte-for-byte.
+      residue, regenerated translation types, and preserved every locale's default
+      MarkdownFlow document byte-for-byte.
 - [x] 2026-08-30 CST: Completed focused and full backend/frontend verification,
-  translation/type/lint/architecture/harness checks, the complete 19-hook
-  pre-commit gate, and isolated desktop plus Arabic RTL browser QA.
+      translation/type/lint/architecture/harness checks, the complete 19-hook
+      pre-commit gate, and isolated desktop plus Arabic RTL browser QA.
 - [x] 2026-08-30 CST: Applied the product follow-up that the sidebar menu uses
-  the shorter "Personalization Guide" concept without a configuration suffix;
-  the page title and breadcrumb continue to identify the configuration page.
+      the shorter "Personalization Guide" concept without a configuration suffix;
+      the page title and breadcrumb continue to identify the configuration page.
 - [x] 2026-08-30 CST: Closed the review gap around load-failure recovery by
-  adding a fail-open retry attempt/result contract and a synchronous request
-  mutex that prevents duplicate reloads.
+      adding a fail-open retry attempt/result contract and a synchronous request
+      mutex that prevents duplicate reloads.
+- [x] 2026-08-30 CST: Closed the browser-history review gap with a modern
+      Navigation API guard plus an indexed root-history fallback. Both route
+      Back/Forward through the existing dirty dialog, preserve the frozen target
+      across save or replay failures, and replay only after Discard or a successful
+      Save and leave. Bounded source-restoration retries prevent a missing
+      `popstate` from wedging the bridge; if exact history restoration is unavailable,
+      the captured same-origin route remains available as a fallback. A failed
+      accepted replay enters a navigation-only retry state without another save or
+      dirty-decision event and records its own fail-open retry lifecycle.
 
 ## Surprises & Discoveries
 
@@ -74,6 +83,15 @@ prompt.
 - Browser QA found the shared textarea reset removed its visible keyboard
   outline without adding a ring. Both editors now add a page-scoped focus ring
   without changing the shared component.
+- Next App Router does not expose a page-local pre-traversal guard. A
+  feature-detected Navigation API `navigate` event can cancel an eligible
+  same-document traversal before the URL or current history entry changes.
+  Older browsers and the Navigation API's noncancelable traversals still need
+  coverage, so a root layout bridge assigns monotonic same-document entry
+  indexes, restores the source before Next handles `popstate`, then freezes and
+  replays the exact index through the same dialog workflow. If source
+  restoration is ignored, the bridge retries once, realigns the saved source
+  URL/state, and retains the destination as a same-origin route fallback.
 
 ## Decision Log
 
@@ -104,8 +122,18 @@ prompt.
   MarkdownFlow questions, persisted schema, menu machine ID, learner endpoint,
   locale fallback, or frozen-session behavior.
 - Reuse the existing admin before-unload and same-origin-link warning pattern.
-  Browser history `popstate` blocking remains a shared App Router limitation
-  and is intentionally not solved differently on this one page.
+  Prefer the Navigation API to cancel eligible same-document traversals before
+  commit and freeze their destination key. At the root layout, also index
+  same-document history entries and register the fallback `popstate` listener
+  before Next's passive listener; it restores the source entry before showing
+  the dialog and later resumes the exact target index. This covers browsers
+  without the Navigation API and traversals that cannot be canceled. Accepted
+  replay is a one-shot bypass, and replay failures keep the frozen target and
+  switch the dialog to navigation-only retry after the draft has already been
+  discarded or saved; that retry never repeats draft analytics or publication.
+  Source restoration is bounded and falls back to a captured same-origin route
+  rather than leaving the bridge permanently busy. Cross-document and hash-only
+  navigation retain native protection.
 - Treat only an accepted operator Reload after a configuration-load failure as
   a retry analytics attempt. Automatic initial loading and internal conflict
   recovery remain outside this event family.
@@ -122,10 +150,10 @@ they can preserve the existing prompt contract safely.
 
 Focused backend verification passed 311 tests, and the complete API suite
 passed 3,554 tests with 17 skipped. The complete Cook Web suite passed 186
-suites / 1,702 tests; the focused admin/API set now passes 40 tests. TypeScript,
-frontend lint (with repository-baseline warnings only), translation validation
-and usage, architecture boundaries, repository harness, and developer-tool
-checks passed.
+suites / 1,702 tests; the focused admin/history/API set now passes 72 tests.
+TypeScript, frontend lint (with repository-baseline warnings only), translation
+validation and usage, architecture boundaries, repository harness, and
+developer-tool checks passed.
 
 Browser QA used an isolated local mock API and the actual page at a 1440x1000
 desktop viewport. It verified the loaded Chinese layout, explicit generation
@@ -134,6 +162,22 @@ revision update, locked load-failure controls plus successful reload, Arabic
 RTL with no horizontal overflow, and a visible keyboard focus ring. Evidence
 is stored under the task's Codex visualization directory; no production
 configuration or real user session was read or changed.
+
+Follow-up browser QA also exercised real Next App Router history at the same
+local page. Current Chrome's Navigation API path and a forced
+`window.navigation = undefined` fallback both protected Back and Forward:
+Cancel retained the edited document and current entry, Discard reached the
+exact frozen destination, and Save and leave published before reaching its
+target. Entry indexes and `history.length` confirmed that replay did not add a
+replacement entry or loop.
+
+Failure-path browser QA then forced both a rejected Navigation API replay and
+an ignored fallback `history.go`. The modern path retained the frozen entry and
+resolved draft in the navigation-only Retry/Stay dialog, then reached the exact
+Back target on Retry without growing history. The fallback bounded its two
+source-restoration attempts, realigned the current physical slot without
+duplicating its index, preserved the edited draft in the dirty dialog, and used
+the captured same-origin route after Discard with stable history length.
 
 The complete 19-hook lefthook pre-commit gate passed after these code and
 contract changes. The only frontend lint output was the repository's existing
@@ -174,9 +218,9 @@ registry remains the sole target-locale source.
 - Consumer: aggregate operator adoption and generation-reliability reporting.
 - Compatibility: additive event family with no historical backfill.
 
-| Field | Type | Allowed values | Privacy class | Why required |
-| --- | --- | --- | --- | --- |
-| `mode` | string | `generate`, `regenerate` | non-personal enum | distinguish initial use from deliberate replacement |
+| Field     | Type   | Allowed values                    | Privacy class     | Why required                                             |
+| --------- | ------ | --------------------------------- | ----------------- | -------------------------------------------------------- |
+| `mode`    | string | `generate`, `regenerate`          | non-personal enum | distinguish initial use from deliberate replacement      |
 | `outcome` | string | `success`, `failed`, `superseded` | non-personal enum | measure the terminal result without prompt or error text |
 
 Feature producers send only these fields. The shared helper may add its
@@ -211,14 +255,14 @@ Tracking is fail-open and never changes generation behavior.
   reporting.
 - Compatibility: additive v1 event family with no historical backfill.
 
-| Event | Feature-owned payload |
-| --- | --- |
-| `operator_profile_config_load_retry_attempt` | `{}` |
-| `operator_profile_config_load_retry_result` | `{outcome}` |
+| Event                                        | Feature-owned payload |
+| -------------------------------------------- | --------------------- |
+| `operator_profile_config_load_retry_attempt` | `{}`                  |
+| `operator_profile_config_load_retry_result`  | `{outcome}`           |
 
-| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
-| --- | --- | --- | --- | --- | --- |
-| `outcome` | string | `success`, `failed` | low | non-personal enum | measure whether the accepted retry unlocked the page |
+| Field     | Type   | Allowed values      | Cardinality | Privacy class     | Why required                                         |
+| --------- | ------ | ------------------- | ----------- | ----------------- | ---------------------------------------------------- |
+| `outcome` | string | `success`, `failed` | low         | non-personal enum | measure whether the accepted retry unlocked the page |
 
 The feature-owned payload must not include configuration, document or prompt
 text, locale, revision/update metadata, retry count, errors, URLs, or resource
@@ -231,53 +275,76 @@ fail-open and never delays or changes loading or recovery behavior.
 ### Operator dirty-navigation analytics
 
 - Business question: how often do authenticated operators encounter the
-  unsaved-draft navigation guard, which decision do they make, and what is the
-  outcome when they choose Save and leave?
-- Metric definition: count raw shown, decision, and save-result events over the
-  same reporting window. Group decisions by `decision` and save results by
-  `outcome`; compare aggregate save-result counts with aggregate
-  `save_and_leave` decisions. These are not exact row-level conversions because
-  no correlation identifier is collected and deliberate retries can produce
-  more than one decision within one shown lifecycle.
+  unsaved-draft navigation guard, which decision do they make, what happens
+  when they choose Save and leave, and can they recover when the accepted
+  navigation itself fails?
+- Metric definition: count raw guard shown/decision/save-result and navigation
+  retry shown/decision/result events over the same reporting window. Group
+  decisions by `decision` and terminal results by `outcome`; compare aggregate
+  retry results with aggregate `retry` decisions. These are not exact row-level
+  conversions because no correlation identifier is collected and deliberate
+  retries can produce multiple decisions within one dialog lifecycle.
 - Events: `operator_profile_dirty_navigation_shown`,
   `operator_profile_dirty_navigation_decision`, and
-  `operator_profile_dirty_navigation_save_result`.
+  `operator_profile_dirty_navigation_save_result`, plus
+  `operator_profile_dirty_navigation_retry_shown`,
+  `operator_profile_dirty_navigation_retry_decision`, and
+  `operator_profile_dirty_navigation_retry_result`.
 - Actor and surface: authenticated operators on
   `/admin/operations/profile-onboarding` with a dirty draft. Clean navigation,
   learner/preview flows, external/new-tab/download/modifier/same-page links,
-  clicks rejected by the in-flight guard, and native `beforeunload` are
-  excluded. Native browser prompts and their user decisions cannot be observed
-  or delivered reliably.
-- Trigger: shown after the custom dialog is committed open; decision after a
-  guarded Cancel, Discard, or Save and leave action is accepted; exactly one
-  save result after each accepted Save and leave action finishes.
+  cross-document/hash-only traversals, unmanaged pre-index history entries,
+  accepted replay traversals, attempts rejected by the pending/in-flight guard,
+  and native `beforeunload` are excluded from the dirty-decision lifecycle.
+  Navigation-only recovery after a completed Discard or Save is eligible only
+  for the retry lifecycle. Browsers without the Navigation API and noncancelable
+  managed same-document traversals use the indexed fallback and remain eligible.
+- Trigger: shown after the custom dialog is committed open following either a
+  captured eligible link, a canceled eligible same-document history traversal,
+  or restoration of an indexed fallback traversal; decision after a guarded
+  Cancel, Discard, or Save and leave action is accepted; exactly one save result
+  after each accepted Save and leave action finishes. If the accepted replay
+  fails after the draft is discarded or saved, retry shown fires once when the
+  navigation-only state is committed, retry decision fires after Stay or Retry
+  is accepted, and exactly one retry result follows each accepted Retry. This
+  recovery emits no additional dirty decision or save result.
 - Count unit and deduplication: one custom dialog-open lifecycle for shown and
   one accepted user action for decision. A Save and leave retry after failure
-  or supersession is a new decision and result. Disabled re-entry produces no
-  event, and there is no persisted cross-visit deduplication.
+  or supersession is a new dirty decision and save result. Retry shown occurs
+  once per transition into navigation-only recovery; a failed Retry remains in
+  that state without another shown event, while each later accepted Retry has
+  one decision and one result. Synchronous duplicate clicks and repeated link
+  or history attempts while dialog work is pending neither replace the frozen
+  target nor emit another event. Disabled re-entry produces no event, and there
+  is no persisted cross-visit deduplication.
 - Consumer: aggregate operator workflow-completion and draft-protection
   reporting.
 - Compatibility: additive v1 event family with no historical backfill.
 
-| Event | Feature-owned payload |
-| --- | --- |
-| `operator_profile_dirty_navigation_shown` | `{}` |
-| `operator_profile_dirty_navigation_decision` | `{decision}` |
-| `operator_profile_dirty_navigation_save_result` | `{outcome}` |
+| Event                                              | Feature-owned payload |
+| -------------------------------------------------- | --------------------- |
+| `operator_profile_dirty_navigation_shown`          | `{}`                  |
+| `operator_profile_dirty_navigation_decision`       | `{decision}`          |
+| `operator_profile_dirty_navigation_save_result`    | `{outcome}`           |
+| `operator_profile_dirty_navigation_retry_shown`    | `{}`                  |
+| `operator_profile_dirty_navigation_retry_decision` | `{decision}`          |
+| `operator_profile_dirty_navigation_retry_result`   | `{outcome}`           |
 
-| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
-| --- | --- | --- | --- | --- | --- |
-| `decision` | string | `cancel`, `discard`, `save_and_leave` | low | non-personal enum | distinguish the operator's guarded choice |
-| `outcome` | string | `success`, `failed`, `superseded` | low | non-personal enum | measure the terminal save result without drafts or errors |
+| Payload field | Event family     | Type   | Allowed values                        | Cardinality | Privacy class     | Why required                                              |
+| ------------- | ---------------- | ------ | ------------------------------------- | ----------- | ----------------- | --------------------------------------------------------- |
+| `decision`    | dirty navigation | string | `cancel`, `discard`, `save_and_leave` | low         | non-personal enum | distinguish the operator's guarded choice                 |
+| `outcome`     | dirty save       | string | `success`, `failed`, `superseded`     | low         | non-personal enum | measure the terminal save result without drafts or errors |
+| `decision`    | navigation retry | string | `stay`, `retry`                       | low         | non-personal enum | distinguish abandonment from another navigation attempt   |
+| `outcome`     | navigation retry | string | `success`, `failed`                   | low         | non-personal enum | measure whether an accepted retry completed               |
 
 The feature-owned payload must not include the destination URL/path/query/hash,
-document or prompt text, locale, revision, error text, or any resource or
-correlation identifier. The shared helper still adds its grandfathered
-`user_type`, `user_id`, `device`, and localized `timeStamp` fields; these are
-inherited transport behavior and are not approved consumer dependencies for
-this event family. Producer tests verify the feature-owned allowlist only.
-Tracking remains fail-open and never delays or changes dialog, save, or
-navigation behavior.
+history entry key, Back/Forward direction, history state, document or prompt
+text, locale, revision, error text, or any resource or correlation identifier.
+The shared helper still adds its grandfathered `user_type`, `user_id`, `device`,
+and localized `timeStamp` fields; these are inherited transport behavior and
+are not approved consumer dependencies for this event family. Producer tests
+verify the feature-owned allowlist only. Tracking remains fail-open and never
+delays or changes dialog, save, or navigation behavior.
 
 ## Plan of Work
 
@@ -301,7 +368,7 @@ navigation behavior.
   with request `{markdownflow}` and response `{assistant_prompt}` in the shared
   envelope.
 - Change save requests to full `{enabled, markdownflow, assistant_prompt,
-  config_revision}` values. Accept old omissions temporarily; validate a
+config_revision}` values. Accept old omissions temporarily; validate a
   supplied revision against the loaded database revision before localizing.
 - Delete every save-time call to the master compiler. Reuse complete locale
   maps, localize changed masters, repair incomplete maps, and clear prompt/maps
@@ -330,7 +397,14 @@ navigation behavior.
   an incomplete map is repaired.
 - Load failure cannot mutate configuration until retry succeeds. Save and
   generation double-clicks do not create duplicate operations. Unsaved drafts
-  trigger the existing leave-protection pattern.
+  trigger the existing leave-protection pattern for eligible links and
+  same-document browser Back/Forward traversals. Cancel retains the draft and
+  current entry; Discard and successful Save and leave replay the exact frozen
+  entry. Save failures, conflicts, superseded saves, and competing traversals
+  keep the dirty dialog, draft, and original destination. A replay failure after
+  Discard or Save keeps the resolved draft and original destination in a
+  navigation-only retry dialog without a duplicate save or dirty decision;
+  each accepted navigation retry records one dedicated terminal result.
 - Analytics tests assert exact names/payloads, trigger order, invalid/double
   click exclusions, every terminal outcome, prohibited-field absence, and
   business behavior when tracking throws or rejects.
@@ -355,7 +429,7 @@ restart is part of implementation or browser QA.
 ## Interfaces and Dependencies
 
 - New operator API: `POST
-  /api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate`.
+/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate`.
 - Changed operator save request: optional-for-rollout `assistant_prompt` and
   `config_revision`; the new UI always sends both.
 - Existing config response, preview/session endpoints, saved JSON schema,
