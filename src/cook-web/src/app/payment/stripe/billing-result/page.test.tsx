@@ -269,6 +269,38 @@ describe('StripeBillingResultPage', () => {
     );
   });
 
+  test('records a cancelled result without changing pending return behavior', async () => {
+    mockSearchParams.set('bill_order_bid', 'private-person@example.test');
+    mockSearchParams.set('session_id', 'sess-secret');
+    mockSearchParams.set('canceled', '1');
+    mockRequestPost.mockResolvedValue({ status: 'pending' });
+
+    render(<StripeBillingResultPage />);
+
+    expect(
+      await screen.findByText('Waiting for billing confirmation'),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Payment is still processing'),
+    ).toBeInTheDocument();
+    expect(mockRequestPost).toHaveBeenCalledWith(
+      '/api/billing/orders/private-person@example.test/sync',
+      { session_id: 'sess-secret' },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      {
+        payment_provider: 'stripe',
+        source_surface: 'stripe_return',
+        outcome: 'cancelled',
+      },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private-person@example.test',
+    );
+  });
+
   test('keeps a sync failure non-terminal and reports one result after retry', async () => {
     mockSearchParams.set('bill_order_bid', 'bill-order-rejected');
     mockRequestPost

@@ -184,7 +184,11 @@ export default function StripeBillingResultPage() {
         )) as BillingSyncResponse;
 
         if (result.status === 'pending') {
-          reportCheckoutStatus(orderBid, 'pending');
+          if (canceled) {
+            reportCheckoutResult('', 'cancelled');
+          } else {
+            reportCheckoutStatus(orderBid, 'pending');
+          }
           setState({
             status: 'pending',
             messageKey: 'module.billing.result.pending',
