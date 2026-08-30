@@ -42,6 +42,10 @@ migration explicitly replaces them.
 - [x] 2026-08-30 13:35 CST: Made Codex worktree setup resolve frontend `.env`
   and `node_modules` independently, then added durable Darwin/Linux fixtures
   for current, pre-migration, upgraded, and mixed-asset source checkouts.
+- [x] 2026-08-30 13:55 CST: Preserved narrowly scoped ignore rules for local
+  artifacts left at the legacy path and added a harness check proving those
+  artifacts stay ignored while legacy source and Yarn exception paths remain
+  visible.
 
 ## Surprises & Discoveries
 
@@ -57,6 +61,17 @@ migration explicitly replaces them.
   `src/cook-web` after applying the tracked rename to an existing checkout.
   Evidence: the repository harness passes with an ignored legacy
   `node_modules` directory present and still rejects tracked legacy paths.
+- Observation: ignored artifacts such as `.next`, `.vercel`, and Playwright
+  output previously inherited rules from the frontend-local `.gitignore`; once
+  that tracked file moves, artifacts left in the old directory lose those
+  rules and appear as untracked files.
+  Evidence: root-scoped migration rules now cover the former local artifacts,
+  and the harness verifies both the ignored artifacts and a visible source path.
+- Observation: a nested Git fixture inherits repository-local `GIT_*`
+  variables when the harness runs inside a commit hook unless they are removed
+  explicitly.
+  Evidence: the real pre-commit hook exposed the leak; the fixture now strips
+  all inherited `GIT_*` variables and runs in an isolated temporary repository.
 - Observation: GitHub CodeQL identifies alerts by path, so the directory rename
   surfaced four existing high-severity alerts as new even though the relevant
   blobs are unchanged.
@@ -105,9 +120,13 @@ upgraded, and mixed-asset layouts. The private npm package name remains
 The repository harness now rejects a missing `src/web`, any reintroduced
 tracked legacy path or filename, and every unapproved old-path occurrence. It
 intentionally tolerates ignored legacy artifacts left by existing checkouts.
-The two required compatibility surfaces are checked by exact line and
+The three required compatibility surfaces are checked by exact line and
 occurrence count, so deleting a needed fallback or hiding a new stale path in
-the same file both fail validation.
+the same file both fail validation. Narrow root ignore rules retain the former
+frontend-local treatment of generated and machine-local artifacts without
+ignoring the legacy directory wholesale; a fixture proves an ordinary source
+file, nested bare `.pnp`, and the four Yarn exception directories remain
+visible.
 
 Verification passed for the full pre-commit hook suite, repository harness,
 architecture fixtures and baseline, YAML/JSON syntax, embedded release Python,

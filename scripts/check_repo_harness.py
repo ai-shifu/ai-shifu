@@ -40,7 +40,32 @@ LEGACY_FRONTEND_FILENAME_TOKEN = "cook-" + "web"
 LEGACY_FRONTEND_FILENAME_ALLOWLIST = {
     Path("docs/exec-plans/active/rename-cook-web-directory.md"),
 }
+LEGACY_FRONTEND_IGNORE_PATTERNS = (
+    f"{LEGACY_FRONTEND_PATH}/node_modules",
+    f"{LEGACY_FRONTEND_PATH}/.pnp",
+    f"{LEGACY_FRONTEND_PATH}/**/.pnp.*",
+    f"{LEGACY_FRONTEND_PATH}/.yarn/*",
+    f"!{LEGACY_FRONTEND_PATH}/.yarn/patches",
+    f"!{LEGACY_FRONTEND_PATH}/.yarn/plugins",
+    f"!{LEGACY_FRONTEND_PATH}/.yarn/releases",
+    f"!{LEGACY_FRONTEND_PATH}/.yarn/versions",
+    f"{LEGACY_FRONTEND_PATH}/coverage",
+    f"{LEGACY_FRONTEND_PATH}/playwright-report",
+    f"{LEGACY_FRONTEND_PATH}/playwright/.auth",
+    f"{LEGACY_FRONTEND_PATH}/test-results",
+    f"{LEGACY_FRONTEND_PATH}/.next/",
+    f"{LEGACY_FRONTEND_PATH}/out/",
+    f"{LEGACY_FRONTEND_PATH}/build",
+    f"{LEGACY_FRONTEND_PATH}/**/*.pem",
+    f"{LEGACY_FRONTEND_PATH}/**/.env*",
+    f"{LEGACY_FRONTEND_PATH}/**/.pnpm-debug.log*",
+    f"{LEGACY_FRONTEND_PATH}/**/.vercel",
+    f"{LEGACY_FRONTEND_PATH}/**/*.tsbuildinfo",
+    f"{LEGACY_FRONTEND_PATH}/**/next-env.d.ts",
+    f"{LEGACY_FRONTEND_PATH}/**/.eslintcache",
+)
 LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST = {
+    Path(".gitignore"): dict.fromkeys(LEGACY_FRONTEND_IGNORE_PATTERNS, 1),
     Path(".codex/environments/environment.toml"): {
         f'legacy_frontend_directory="$source_tree/{LEGACY_FRONTEND_PATH}"': 2,
     },
@@ -510,6 +535,115 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                     )
 
 
+def check_legacy_frontend_artifact_ignores(errors: list[str]) -> None:
+    """Keep migrated local artifacts ignored without hiding legacy source files."""
+    legacy_frontend = Path("src") / LEGACY_FRONTEND_FILENAME_TOKEN
+    artifact_paths = {
+        legacy_frontend / relative_path
+        for relative_path in (
+            "node_modules/package/index.js",
+            ".pnp",
+            "cache/.pnp.cjs",
+            ".yarn/cache/package.zip",
+            "coverage/lcov.info",
+            "playwright-report/index.html",
+            "playwright/.auth/state.json",
+            "test-results/results.json",
+            ".next/cache/data",
+            "out/index.html",
+            "build/index.html",
+            "certificates/local.pem",
+            "config/.env.preview",
+            ".pnpm-debug.log.1",
+            "logs/.pnpm-debug.log.2",
+            "deployment/.vercel/project.json",
+            "cache/tsconfig.tsbuildinfo",
+            "generated/next-env.d.ts",
+            "cache/.eslintcache",
+        )
+    }
+    visible_paths = {
+        legacy_frontend / "src" / "app" / "page.tsx",
+        legacy_frontend / "cache" / ".pnp",
+        legacy_frontend / ".yarn" / "patches" / "package.patch",
+        legacy_frontend / ".yarn" / "plugins" / "plugin.cjs",
+        legacy_frontend / ".yarn" / "releases" / "yarn.cjs",
+        legacy_frontend / ".yarn" / "versions" / "version.yml",
+    }
+    candidates = sorted((*artifact_paths, *visible_paths))
+    fixture_environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+    }
+
+    try:
+        ignore_text = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory(
+            prefix="ai-shifu-legacy-ignore-"
+        ) as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            empty_template = fixture_root / "empty-template"
+            repository = fixture_root / "repository"
+            empty_template.mkdir()
+            repository.mkdir()
+            init_result = subprocess.run(
+                ["git", "init", "--quiet", f"--template={empty_template}"],
+                cwd=repository,
+                env=fixture_environment,
+                text=True,
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+            if init_result.returncode != 0:
+                errors.append(
+                    "Unable to initialize legacy ignore fixture: "
+                    f"{init_result.stderr.strip() or f'git exited {init_result.returncode}'}"
+                )
+                return
+            (repository / ".gitignore").write_text(ignore_text, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    f"core.excludesFile={os.devnull}",
+                    "check-ignore",
+                    "--no-index",
+                    "--stdin",
+                ],
+                cwd=repository,
+                env=fixture_environment,
+                input="".join(f"{path.as_posix()}\n" for path in candidates),
+                text=True,
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        errors.append(f"Unable to validate legacy frontend ignores: {error}")
+        return
+
+    if result.returncode not in (0, 1):
+        errors.append(
+            "Unable to validate legacy frontend ignores: "
+            f"{result.stderr.strip() or f'git exited {result.returncode}'}"
+        )
+        return
+
+    ignored_paths = {Path(line) for line in result.stdout.splitlines() if line}
+    missing_ignores = sorted(artifact_paths - ignored_paths)
+    if missing_ignores:
+        errors.append(
+            "Legacy frontend artifacts are not ignored: "
+            + ", ".join(path.as_posix() for path in missing_ignores)
+        )
+    hidden_visible_paths = sorted(visible_paths & ignored_paths)
+    if hidden_visible_paths:
+        errors.append(
+            "Legacy frontend ignore compatibility hides visible paths: "
+            + ", ".join(path.as_posix() for path in hidden_visible_paths)
+        )
+
+
 def check_frontmatter_docs(errors: list[str]) -> None:
     """Check frontmatter docs."""
     for category in ("design-docs", "product-specs"):
@@ -539,6 +673,7 @@ def main() -> int:
     check_root_docs(errors)
     check_frontend_path_contract(errors)
     check_codex_frontend_asset_reuse(errors)
+    check_legacy_frontend_artifact_ignores(errors)
     check_frontmatter_docs(errors)
     check_example_identifiers(errors)
 
