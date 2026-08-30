@@ -6,6 +6,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 ## Active
 
+- [Account session analytics contract](./active/account-session-analytics.md)
 - [Admin Home Onboarding](./active/admin-home-onboarding.md)
 - [Agent-First Harness Phase 2](./active/agent-first-harness-phase-2.md)
 - [Backend Inventory 2026-07 (Phase 1)](./active/backend-inventory-2026-07.md)

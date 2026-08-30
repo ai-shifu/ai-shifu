@@ -8,7 +8,7 @@ from flaskr.common.swagger import sanitize_swagger_docstring
 from yaml import YAMLError
 
 API_ROOT = Path(__file__).resolve().parents[2]
-EXPECTED_SWAGGER_DOCSTRING_COUNT = 119
+EXPECTED_SWAGGER_DOCSTRING_COUNT = 122
 KNOWN_UNPARSEABLE_SWAGGER_DOCSTRINGS = {
     ("flaskr/service/learn/routes.py", "preview_outline_block_api"),
     ("flaskr/service/learn/routes.py", "run_outline_item_api"),

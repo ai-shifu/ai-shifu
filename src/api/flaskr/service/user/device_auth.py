@@ -393,7 +393,15 @@ def poll_device_authorization(app: Flask, *, device_code: str) -> dict[str, Any]
                 _drop_session(app, normalized, user_code)
                 raise_error("server.user.deviceCodeInvalid")
             with unit_of_work():
-                token = generate_token(app, user_id)
+                # Name the session after the machine the user approved, not
+                # after the polling client's user agent.
+                token = generate_token(
+                    app,
+                    user_id,
+                    source="cli",
+                    device_name=str(payload.get("device_name") or ""),
+                    device_os=str(payload.get("device_os") or ""),
+                )
             # One-shot: the request is consumed so a leaked device code cannot
             # be replayed to mint a second token.
             _drop_session(app, normalized, user_code)

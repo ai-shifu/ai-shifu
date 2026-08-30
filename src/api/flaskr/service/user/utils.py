@@ -6,11 +6,12 @@ import secrets
 import smtplib
 import string
 import time
+import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 import jwt
-from flask import Flask, has_app_context
+from flask import Flask, has_app_context, has_request_context, request
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
@@ -25,7 +26,7 @@ from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user.captcha import consume_captcha_ticket
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
-from flaskr.service.user.token_store import token_store
+from flaskr.service.user.token_store import SessionMetadata, token_store
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
@@ -150,8 +151,76 @@ def run_creator_granted_post_auth(
 
 
 # generate token
-def generate_token(app: Flask, user_id: str) -> str:
-    """Generate an authentication token for a user identifier."""
+# Ordered so the specific match wins: a Chrome user agent also mentions Safari,
+# and an Edge one also mentions Chrome.
+_BROWSER_MARKERS = (
+    ("Edg/", "Edge"),
+    ("OPR/", "Opera"),
+    ("Firefox/", "Firefox"),
+    ("Chrome/", "Chrome"),
+    ("Safari/", "Safari"),
+)
+_OS_MARKERS = (
+    ("iPhone", "iOS"),
+    ("iPad", "iPadOS"),
+    ("Android", "Android"),
+    ("Mac OS X", "macOS"),
+    ("Windows NT", "Windows"),
+    ("Linux", "Linux"),
+)
+
+
+def describe_user_agent(user_agent: str) -> tuple[str, str]:
+    """Summarize a browser user agent as (device name, operating system).
+
+    Only enough for a person to recognise their own session in a list. The raw
+    string is deliberately not stored: it is long, highly fingerprintable, and
+    nothing here needs it.
+    """
+    raw = str(user_agent or "")
+    browser = next((name for marker, name in _BROWSER_MARKERS if marker in raw), "")
+    operating_system = next((name for marker, name in _OS_MARKERS if marker in raw), "")
+    return browser, operating_system
+
+
+def _current_session_metadata(
+    source: str, device_name: str, device_os: str
+) -> SessionMetadata:
+    """Describe the session being created from the request serving it."""
+    client_ip = ""
+    if has_request_context():
+        forwarded = request.headers.get("X-Forwarded-For")
+        client_ip = (
+            forwarded.split(",")[0].strip()
+            if forwarded
+            else str(request.remote_addr or "")
+        )
+        if not device_name and not device_os:
+            device_name, device_os = describe_user_agent(
+                request.headers.get("User-Agent", "")
+            )
+    return SessionMetadata(
+        session_bid=str(uuid.uuid4()),
+        source=source[:32],
+        device_name=device_name[:64],
+        device_os=device_os[:64],
+        created_ip=client_ip[:64],
+    )
+
+
+def generate_token(
+    app: Flask,
+    user_id: str,
+    *,
+    source: str = "web",
+    device_name: str = "",
+    device_os: str = "",
+) -> str:
+    """Generate an authentication token for a user identifier.
+
+    The session description is collected here rather than at each call site, so
+    every sign-in path records it, including ones added later.
+    """
 
     def _generate() -> str:
         token = jwt.encode(
@@ -164,10 +233,13 @@ def generate_token(app: Flask, user_id: str) -> str:
             user_id=user_id,
             token=token,
             ttl_seconds=app.config["TOKEN_EXPIRE_TIME"],
+            metadata=_current_session_metadata(source, device_name, device_os),
         )
         return token
 
     if has_app_context():
+        return _generate()
+    with app.app_context():
         return _generate()
     with app.app_context():
         return _generate()
