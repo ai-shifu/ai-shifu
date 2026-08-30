@@ -39,6 +39,7 @@ MANUAL_AGENTS = {
         "docs/references/frontend-product-analytics.md",
         "Umami",
         "one clearly defined problem",
+        "correctly, safely, completely, and with adequate tests",
         "responsibility boundary",
         "product analytics as a completion requirement",
         "best-effort",
