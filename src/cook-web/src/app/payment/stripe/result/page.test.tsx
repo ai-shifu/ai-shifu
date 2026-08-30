@@ -129,6 +129,29 @@ describe('StripeResultPage analytics contract', () => {
     );
   });
 
+  it.each(['pingxx', 'alipay', 'wechatpay'])(
+    'does not attribute a cancelled %s order to Stripe',
+    async paymentChannel => {
+      mockSearchParams.set('order_id', `order-${paymentChannel}`);
+      mockSearchParams.set('session_id', 'unrelated-stripe-session');
+      mockSearchParams.set('canceled', '1');
+      mockGetPaymentDetail.mockResolvedValue({
+        payment_channel: paymentChannel,
+        status: 0,
+        course_id: 'course-other-provider',
+      });
+
+      render(<StripeResultPage />);
+
+      expect(
+        await screen.findByText('module.pay.stripeResultPendingTitle'),
+      ).toBeInTheDocument();
+      expect(mockSyncStripeCheckout).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockGetPaymentDetail).toHaveBeenCalled());
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
   it('uses a bounded missing-order category while analytics remains best-effort', async () => {
     mockTrackEvent.mockResolvedValue(undefined);
 

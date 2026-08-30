@@ -18,6 +18,7 @@ interface StripeResultState {
   message: string;
   orderId?: string;
   analyticsOrderId?: string;
+  analyticsEligible?: boolean;
   courseId?: string;
   failureCategory?: LearnerPaymentFailureCategory;
   analyticsOutcome?: 'cancelled';
@@ -90,6 +91,7 @@ export default function StripeResultPage() {
             message: t('module.pay.stripeResultPending'),
             orderId,
             analyticsOrderId: orderId,
+            analyticsEligible: detail.payment_channel === 'stripe',
             courseId: detail.course_id,
             analyticsOutcome: 'cancelled',
           });
@@ -100,6 +102,7 @@ export default function StripeResultPage() {
           message: t('module.pay.stripeResultPending'),
           orderId,
           analyticsOrderId: orderId,
+          analyticsEligible: detail.payment_channel === 'stripe',
           courseId: detail.course_id,
         });
       } catch (error: any) {
@@ -114,7 +117,7 @@ export default function StripeResultPage() {
   }, [searchParams, t]);
 
   useEffect(() => {
-    if (state.status === 'loading') return;
+    if (state.status === 'loading' || state.analyticsEligible === false) return;
     const analyticsState = state.analyticsOutcome || state.status;
     const key = `${state.analyticsOrderId || 'missing'}:${analyticsState}`;
     if (analyticsStatusRef.current === key) return;
