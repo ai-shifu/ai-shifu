@@ -38,7 +38,7 @@
     "save": "保存设置",
     "saveCacheRefreshPending": "已保存，但新会话可能暂时仍使用上一版本。请稍后重新保存。",
     "saveFailed": "保存失败。当前编辑内容仍保留，请重试。",
-    "saveSuccess": "互动问答文档和 AI 代答提示词已保存。之后新打开的个性化设置将使用最新版本。",
+    "saveSuccess": "互动问答文档和 AI 代答提示词已保存。之后新开始的个性化设置流程将使用最新版本。",
     "title": "个性化引导配置",
     "unsavedDialog": {
       "cancel": "继续编辑",
