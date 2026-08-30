@@ -74,12 +74,8 @@ information, current progress, or previously collected answers.
 
 ## Output contract
 
-Return exactly one JSON object with two fields in this order:
-"assistant_prompt", containing the complete finished prompt as a JSON string,
-and "complete", containing the boolean true. Set "complete" to true only after
-the prompt covers every relevant source intent and satisfies all requirements
-above.
+Return only the finished prompt as plain text. Before returning it, ensure that
+it covers every relevant source intent and satisfies all requirements above.
 
-Return no Markdown fences, commentary, extra fields, or partial object. All
-content and language requirements above apply to the string inside
-"assistant_prompt", not to the JSON envelope.
+Do not wrap the prompt in Markdown fences or add commentary, labels, metadata,
+or any other surrounding content.

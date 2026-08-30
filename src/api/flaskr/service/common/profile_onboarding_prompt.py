@@ -25,20 +25,6 @@ if TYPE_CHECKING:
 _SOURCE_LOCALE_PATTERN = re.compile(r"[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\Z")
 
 
-def _parse_completed_prompt(raw: str) -> str:
-    """Require a complete compiler envelope before exposing its plain text."""
-    payload = json.loads(raw)
-    if (
-        not isinstance(payload, dict)
-        or set(payload) != {"assistant_prompt", "complete"}
-        or payload["complete"] is not True
-        or not isinstance(payload["assistant_prompt"], str)
-    ):
-        message = "Assistant prompt compiler returned an invalid envelope"
-        raise ValueError(message)
-    return payload["assistant_prompt"].strip()
-
-
 def _json_object_without_duplicate_keys(
     pairs: list[tuple[str, object]],
 ) -> dict[str, object]:
@@ -149,7 +135,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
             str(app.config.get("DEFAULT_LLM_MODEL", "") or ""),
             json.dumps({"markdownflow": document}, ensure_ascii=False),
             system=load_prompt_template("profile_onboarding_assistant_compiler"),
-            json=True,
+            json=False,
             generation_name="profile_onboarding_assistant_compiler",
             temperature=0,
             timeout=120,
@@ -169,9 +155,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
                 or (getattr(chunk, "finish_reason", None) == "length")
             )
         if not truncated:
-            # The shared wrapper may omit a content-free terminal chunk and
-            # its finish reason. An unfinished JSON envelope still fails here.
-            prompt = _parse_completed_prompt("".join(parts))
+            prompt = "".join(parts).strip()
     except Exception as exc:
         app.logger.warning(
             "Onboarding assistant compilation failed: %s", type(exc).__name__
