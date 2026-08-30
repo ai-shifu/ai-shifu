@@ -216,13 +216,14 @@ string, user identity, and raw errors are excluded.
   eligible-view denominator. Pending status is not a terminal result.
 - Trigger: modal view once after the modal is ready; attempt when Stripe submit
   or redirect, WeChat JSAPI, or a mobile native/QR action is accepted, and when
-  a desktop QR credential becomes usable; result once when paid, provider-failed,
-  an unfinished accepted attempt is explicitly dismissed, or Stripe returns an
-  explicit cancellation marker for a product-confirmed order; status when the
-  provider accepted work but confirmation remains pending, either immediately
-  after confirmation cannot establish a paid state or when polling reaches its
-  deadline without confirmed payment. The deadline status still fires when its
-  final lookup fails or returns no snapshot.
+  a desktop QR credential becomes usable; result once when paid,
+  provider-failed, or a provider returns an explicit cancellation marker for a
+  product-confirmed order. Closing the learner modal is abandonment only and
+  never a terminal payment result. Status fires when the provider accepted work
+  but confirmation remains pending, either immediately after confirmation
+  cannot establish a paid state or when polling reaches its deadline without
+  confirmed payment. The deadline status still fires when its final lookup
+  fails or returns no snapshot.
 - Population: eligible logged-in learners on desktop/mobile payment surfaces.
   Logged-out price previews can emit modal view but cannot emit payment attempt.
 - Deduplication: modal view once per open lifecycle. A provider-confirmed
@@ -244,8 +245,9 @@ string, user identity, and raw errors are excluded.
   single-channel/`other` resolution above.
 - Consumer: learner checkout conversion and provider reliability dashboard.
 - Replacement: delete the `learner_pay_cancel` producer and consumers. Modal
-  abandonment uses `learner_pay_modal_dismiss`; cancellation of an accepted
-  payment attempt uses `learner_payment_result` with `outcome=cancelled`.
+  abandonment uses only `learner_pay_modal_dismiss`; a provider-confirmed
+  cancellation of an accepted payment attempt uses `learner_payment_result`
+  with `outcome=cancelled`.
 
 | Event                       | Fields and allowed values                                                                                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

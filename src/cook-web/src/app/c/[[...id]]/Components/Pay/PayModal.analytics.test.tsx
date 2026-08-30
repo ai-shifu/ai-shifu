@@ -1064,7 +1064,7 @@ describe('learner payment modal analytics producers', () => {
     });
     fireEvent.click(screen.getByTestId('dialog-dismiss'));
     expect(eventCalls('learner_payment_status')).toHaveLength(1);
-    expect(eventCalls('learner_payment_result')).toHaveLength(1);
+    expect(eventCalls('learner_payment_result')).toHaveLength(0);
     expect(eventCalls('learner_pay_cancel')).toHaveLength(0);
 
     mockPaymentFlowState = { ...mockPaymentFlowState, isTimeout: true };
@@ -1094,10 +1094,10 @@ describe('learner payment modal analytics producers', () => {
       latestPaymentFlowOptions().onPollingTimeout();
     });
     expect(eventCalls('learner_payment_status')).toHaveLength(2);
-    expect(eventCalls('learner_payment_result')).toHaveLength(1);
+    expect(eventCalls('learner_payment_result')).toHaveLength(0);
   });
 
-  it('tracks desktop dismissal and cancellation only for an unfinished attempt', async () => {
+  it('keeps desktop modal dismissal nonterminal for an unfinished attempt', async () => {
     render(
       <PayModal
         {...requiredModalProps}
@@ -1121,18 +1121,7 @@ describe('learner payment modal analytics producers', () => {
         },
       ],
     ]);
-    expect(eventCalls('learner_payment_result')).toEqual([
-      [
-        'learner_payment_result',
-        {
-          shifu_bid: 'course-1',
-          order_id: 'order-1',
-          channel: 'wechat_qr',
-          surface: 'desktop',
-          outcome: 'cancelled',
-        },
-      ],
-    ]);
+    expect(eventCalls('learner_payment_result')).toHaveLength(0);
     expect(eventCalls('learner_pay_cancel')).toHaveLength(0);
   });
 
@@ -1438,7 +1427,7 @@ describe('learner payment modal analytics producers', () => {
     );
   });
 
-  it('tracks mobile dismissal and cancellation for an unfinished attempt', async () => {
+  it('keeps mobile modal dismissal nonterminal for an unfinished attempt', async () => {
     render(
       <PayModalM
         {...requiredModalProps}
@@ -1463,18 +1452,7 @@ describe('learner payment modal analytics producers', () => {
         },
       ],
     ]);
-    expect(eventCalls('learner_payment_result')).toEqual([
-      [
-        'learner_payment_result',
-        {
-          shifu_bid: 'course-1',
-          order_id: 'order-1',
-          channel: 'alipay_qr',
-          surface: 'mobile',
-          outcome: 'cancelled',
-        },
-      ],
-    ]);
+    expect(eventCalls('learner_payment_result')).toHaveLength(0);
     expect(eventCalls('learner_pay_cancel')).toHaveLength(0);
   });
 
@@ -1584,18 +1562,7 @@ describe('learner payment modal analytics producers', () => {
     );
 
     fireEvent.click(screen.getByTestId('dialog-dismiss'));
-    expect(eventCalls('learner_payment_result')).toEqual([
-      [
-        'learner_payment_result',
-        {
-          shifu_bid: 'course-1',
-          order_id: 'order-1',
-          channel: 'stripe',
-          surface: 'desktop',
-          outcome: 'cancelled',
-        },
-      ],
-    ]);
+    expect(eventCalls('learner_payment_result')).toHaveLength(0);
   });
 
   it('reports mobile WeChat JSAPI pending status without a false success', async () => {

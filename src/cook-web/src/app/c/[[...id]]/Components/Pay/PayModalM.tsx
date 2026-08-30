@@ -391,10 +391,7 @@ export const PayModalM = ({
       dismiss_surface: 'modal',
       had_payment_attempt: hadPaymentAttempt,
     });
-    if (paymentAttemptChannelsRef.current.size === 0) return;
-
-    trackPaymentResult('cancelled');
-  }, [courseId, orderId, trackEvent, trackPaymentResult]);
+  }, [courseId, orderId, trackEvent]);
 
   useEffect(() => {
     if (!open) {

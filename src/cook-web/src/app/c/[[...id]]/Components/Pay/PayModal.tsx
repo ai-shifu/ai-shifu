@@ -583,11 +583,8 @@ export const PayModal = ({
         dismiss_surface: dismissSurface,
         had_payment_attempt: hadPaymentAttempt,
       });
-      if (paymentAttemptChannelsRef.current.size === 0) return;
-
-      trackPaymentResult('cancelled');
     },
-    [courseId, orderId, trackEvent, trackPaymentResult],
+    [courseId, orderId, trackEvent],
   );
 
   const triggerCancel = useCallback(

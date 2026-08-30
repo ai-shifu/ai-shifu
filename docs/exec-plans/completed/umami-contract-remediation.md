@@ -68,6 +68,11 @@ their consumers are deleted instead of dual-written.
       212 Jest suites / 1,888 tests, TypeScript, full frontend lint with no
       errors, Prettier, repository harness, architecture boundaries, dev-tool
       verification, and the full Lefthook pre-commit gate.
+- [x] 2026-08-31 00:42 CST: Kept learner payment modal dismissal non-terminal
+      on desktop and mobile while preserving provider-confirmed cancellation.
+      Focused payment checks passed 4 Jest suites / 54 tests, followed by the
+      full frontend suite at 212 Jest suites / 1,888 tests, TypeScript, focused
+      lint, and Prettier.
 
 ## Surprises & Discoveries
 
