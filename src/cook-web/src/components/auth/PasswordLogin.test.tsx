@@ -172,4 +172,52 @@ describe('PasswordLogin', () => {
     expect(delivered).not.toContain('private-password');
     expect(delivered).not.toContain('private provider response');
   });
+
+  it('keeps committed login success terminal when the post-login callback throws', async () => {
+    mockLoginPassword.mockResolvedValue({
+      code: 0,
+      data: {
+        userInfo: { user_id: 'learner' },
+        token: 'token',
+      },
+    });
+    const callbackError = new Error('post-login navigation failed');
+
+    render(
+      <PasswordLogin
+        onLoginSuccess={() => {
+          throw callbackError;
+        }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('module.auth.identifier'), {
+      target: { value: 'learner' },
+    });
+    fireEvent.change(screen.getByLabelText('module.auth.password'), {
+      target: { value: 'Password1' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.auth.failed',
+        description: callbackError.message,
+        variant: 'destructive',
+      });
+    });
+
+    const resultEvents = mockTrackEvent.mock.calls.filter(
+      ([name]) => name === 'learner_login_result',
+    );
+    expect(resultEvents).toEqual([
+      [
+        'learner_login_result',
+        {
+          login_method: 'password',
+          outcome: 'success',
+        },
+      ],
+    ]);
+  });
 });

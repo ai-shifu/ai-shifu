@@ -121,6 +121,7 @@ export function PasswordLogin({
 
     trackEvent('learner_login_attempt', buildLoginAttemptAnalytics('password'));
 
+    let loginCommitted = false;
     try {
       setIsLoading(true);
       const response = await apiService.loginPassword({
@@ -132,6 +133,7 @@ export function PasswordLogin({
       if (response.code === 0 && response.data) {
         toast({ title: t('module.auth.success') });
         await login(response.data.userInfo, response.data.token);
+        loginCommitted = true;
         trackEvent(
           'learner_login_result',
           buildLoginResultAnalytics('password', 'success'),
@@ -156,10 +158,12 @@ export function PasswordLogin({
         });
       }
     } catch (error: any) {
-      trackEvent(
-        'learner_login_result',
-        buildLoginResultAnalytics('password', 'failed', 'request_failed'),
-      );
+      if (!loginCommitted) {
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('password', 'failed', 'request_failed'),
+        );
+      }
       toast({
         title: t('module.auth.failed'),
         description: error.message || t('common.core.networkError'),
