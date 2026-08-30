@@ -177,23 +177,6 @@ describe('SessionManagerModal', () => {
     );
   });
 
-  it('unwraps a response envelope when the request layer returns one', async () => {
-    (apiService.listSessions as jest.Mock).mockResolvedValue({
-      code: 0,
-      message: 'success',
-      data: [current],
-    });
-
-    render(
-      <SessionManagerModal
-        open
-        onClose={jest.fn()}
-      />,
-    );
-
-    await waitFor(() => expect(screen.getByText(/Chrome/)).toBeInTheDocument());
-  });
-
   it('loads exactly once per open', async () => {
     // Regression guard: callbacks here must not depend on `t`, `toast` or
     // `trackEvent`, whose hooks return a new identity on every render. An
@@ -210,6 +193,76 @@ describe('SessionManagerModal', () => {
     await new Promise(resolve => setTimeout(resolve, 60));
 
     expect(apiService.listSessions).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the loading state, not the old list, when reopened', async () => {
+    // Asserting while closed would pass no matter what, since the dialog
+    // renders nothing then; the check happens after it reopens, before the
+    // new response lands. What this pins down is that reopening starts from
+    // the loading state rather than the previous account's rows.
+    const { rerender } = render(
+      <SessionManagerModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText(/Chrome/)).toBeInTheDocument());
+
+    rerender(
+      <SessionManagerModal
+        open={false}
+        onClose={jest.fn()}
+      />,
+    );
+    (apiService.listSessions as jest.Mock).mockReturnValue(
+      new Promise(() => {}),
+    );
+    rerender(
+      <SessionManagerModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Chrome/)).not.toBeInTheDocument();
+  });
+
+  it('ignores a response that arrives after it closed', async () => {
+    let release: (value: unknown) => void = () => {};
+    (apiService.listSessions as jest.Mock).mockReturnValueOnce(
+      new Promise(resolve => {
+        release = resolve;
+      }),
+    );
+
+    const { rerender } = render(
+      <SessionManagerModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+    rerender(
+      <SessionManagerModal
+        open={false}
+        onClose={jest.fn()}
+      />,
+    );
+
+    // The first request only now comes back, after the dialog was dismissed.
+    release([current, cliSession]);
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    (apiService.listSessions as jest.Mock).mockReturnValue(
+      new Promise(() => {}),
+    );
+    rerender(
+      <SessionManagerModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Chrome/)).not.toBeInTheDocument();
   });
 
   it('does not load anything while closed', () => {

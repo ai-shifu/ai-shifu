@@ -21,19 +21,6 @@ export type LoginSession = {
   is_current: boolean;
 };
 
-// Some routes hand back the raw response envelope instead of its `data`, so
-// unwrap defensively rather than assuming one shape.
-const unwrap = (raw: unknown): unknown => {
-  if (
-    raw &&
-    typeof raw === 'object' &&
-    'code' in (raw as Record<string, unknown>)
-  ) {
-    return (raw as { data?: unknown }).data ?? null;
-  }
-  return raw;
-};
-
 const formatMoment = (value: string, locale: string): string => {
   if (!value) {
     return '';
@@ -89,14 +76,29 @@ export const SessionManagerModal = ({
     [],
   );
 
+  // Marks the newest request so a slower earlier one cannot land after it, and
+  // so a response arriving after the dialog closed is dropped instead of being
+  // rendered over whatever is shown next.
+  const requestIdRef = useRef(0);
+
   const load = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     try {
-      const data = unwrap(await apiService.listSessions({}));
+      const data = await apiService.listSessions({});
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       setSessions(Array.isArray(data) ? (data as LoginSession[]) : []);
     } catch (error) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       reportFailure(error, 'load');
     } finally {
-      setLoaded(true);
+      if (requestId === requestIdRef.current) {
+        setLoaded(true);
+      }
     }
   }, [reportFailure]);
 
@@ -107,7 +109,11 @@ export const SessionManagerModal = ({
 
   useEffect(() => {
     if (!open) {
+      // Invalidate anything in flight and drop what was on screen, so
+      // reopening never shows a previous account's sessions.
+      requestIdRef.current += 1;
       setLoaded(false);
+      setSessions([]);
       return;
     }
     void loadRef.current();

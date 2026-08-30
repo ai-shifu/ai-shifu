@@ -207,18 +207,26 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     )
 
 
+def _extract_request_token() -> str | None:
+    """Read the request's token from every place a client may supply it."""
+    token = request.cookies.get("token", None)
+    if not token:
+        token = request.args.get("token", None)
+    if not token:
+        token = request.headers.get("Token", None)
+    if not token and request.method.upper() == "POST" and request.is_json:
+        payload = request.get_json(silent=True)
+        if isinstance(payload, dict):
+            token = payload.get("token", None)
+    return token
+
+
 def optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
     """Allow a route to accept an optional authentication token."""
 
     @wraps(f)
     def decorated_function(*args: object, **kwargs: object) -> R:
-        token = request.cookies.get("token", None)
-        if not token:
-            token = request.args.get("token", None)
-        if not token:
-            token = request.headers.get("Token", None)
-        if not token and request.method.upper() == "POST" and request.is_json:
-            token = request.get_json().get("token", None)
+        token = _extract_request_token()
 
         if token:
             token = str(token)
@@ -798,11 +806,14 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     def _current_request_token() -> str:
-        """Identify the session making this request, so it can be marked."""
-        token = request.cookies.get("token") or request.headers.get("Token") or ""
-        if not token:
-            token = request.args.get("token") or ""
-        return str(token)
+        """Identify the session making this request, so it can be marked.
+
+        This must follow the same order as token validation, JSON body
+        included. Reading a different source would leave the marker empty for
+        a request authenticated that way, and ending every other session would
+        then end the caller's own session too.
+        """
+        return str(_extract_request_token() or "")
 
     @app.route(path_prefix + "/sessions", methods=["GET"])
     def list_sessions_api() -> str:

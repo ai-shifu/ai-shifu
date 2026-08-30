@@ -88,21 +88,45 @@ def list_user_sessions(
 def _forget(app: Flask, records: list[UserToken]) -> int:
     """Delete sessions and drop their cached lookups.
 
-    The cache entry has to go too: token validation consults it first, so a row
-    deleted from the database would otherwise keep working until the cached
-    copy expired.
+    Order matters. Token validation reads the cache first and falls back to the
+    database, so evicting the cache before the rows are committed lets a
+    concurrent request read the surviving row and put the entry straight back,
+    leaving a revoked session usable until it expired on its own.
     """
     if not records:
         return 0
+
+    tokens = [record.token for record in records if record.token]
     with unit_of_work():
         for record in records:
-            token = record.token
             db.session.delete(record)
-            if token:
-                try:
-                    redis.delete(_cache_key(app, token))
-                except Exception:
-                    app.logger.warning("could not drop cached token on revoke")
+
+    # The rows are gone by this point, so a failed eviction can only leave the
+    # session usable until its cache entry lapses. Retry once, then say so
+    # instead of reporting a clean revocation.
+    stale = []
+    for token in tokens:
+        for attempt in range(2):
+            try:
+                redis.delete(_cache_key(app, token))
+                break
+            except Exception:
+                app.logger.warning(
+                    "cache eviction attempt %s failed while revoking a session",
+                    attempt + 1,
+                )
+        else:
+            stale.append(token)
+
+    if stale:
+        app.logger.error(
+            "revoked %s session(s) but could not evict %s cached token(s); "
+            "they remain usable until the cache entry expires",
+            len(records),
+            len(stale),
+        )
+        raise_error("server.user.sessionRevokeIncomplete")
+
     return len(records)
 
 

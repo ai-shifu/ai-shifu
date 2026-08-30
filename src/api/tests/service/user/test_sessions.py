@@ -4,13 +4,14 @@ import uuid
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.models import UserToken
 from flaskr.service.user.sessions import (
     list_user_sessions,
     revoke_other_user_sessions,
     revoke_user_session,
 )
+from flaskr.service.user.token_store import token_store
 from flaskr.service.user.utils import describe_user_agent, generate_token
 
 
@@ -167,6 +168,66 @@ def test_expired_sessions_are_not_listed(app: object, user_id: str) -> None:
         db.session.commit()
 
         assert list_user_sessions(user_id=user_id) == []
+
+
+def test_revocation_says_so_when_the_cache_cannot_be_cleared(
+    app: object, user_id: str
+) -> None:
+    """A cached token outlives its row, so a failed eviction is not a success."""
+    import flaskr.service.user.sessions as sessions_module
+
+    with app.test_request_context():
+        _sign_in(app, user_id)
+        target = list_user_sessions(user_id=user_id)[0]
+
+        class ExplodingCache:
+            def delete(self, *_args: object) -> None:
+                message = "redis is unreachable"
+                raise RuntimeError(message)
+
+        original = sessions_module.redis
+        sessions_module.redis = ExplodingCache()
+        try:
+            with pytest.raises(AppError) as refused:
+                revoke_user_session(
+                    app, user_id=user_id, session_bid=target["session_bid"]
+                )
+        finally:
+            sessions_module.redis = original
+
+        assert refused.value.code == ERROR_CODE["server.user.sessionRevokeIncomplete"]
+
+
+def test_a_session_served_from_cache_keeps_its_row_alive(
+    app: object, user_id: str
+) -> None:
+    """Keep the row's expiry in step with a cache-served session.
+
+    A cache hit renews only the cache entry, so without this the row ages out
+    and the session vanishes from the list while still perfectly usable.
+    """
+    import datetime
+
+    from flaskr.util.datetime import now_utc
+
+    with app.test_request_context():
+        token = _sign_in(app, user_id)
+        record = UserToken.query.filter(UserToken.token == token).first()
+        # Simulate a row that has aged while the cache kept being renewed.
+        record.token_expired_at = now_utc() + datetime.timedelta(minutes=1)
+        db.session.commit()
+
+        ttl = int(app.config.get("TOKEN_EXPIRE_TIME", 604800))
+        result = token_store.get_and_refresh(
+            app, token=token, expected_user_id=user_id, ttl_seconds=ttl
+        )
+        db.session.commit()
+
+        assert result is not None
+        refreshed = UserToken.query.filter(UserToken.token == token).first()
+        assert refreshed.token_expired_at > now_utc() + datetime.timedelta(days=1)
+        # And it is therefore still listed.
+        assert len(list_user_sessions(user_id=user_id)) == 1
 
 
 @pytest.mark.parametrize(

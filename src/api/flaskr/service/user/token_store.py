@@ -104,6 +104,48 @@ class TokenStoreProvider:
             # Cache failures should not block login flows.
             return
 
+    def _refresh_marker_key(self, app: Flask, token: str) -> str:
+        return f"{self._cache_key(app, token)}:row"
+
+    def _refresh_row_periodically(
+        self, app: Flask, *, token: str, user_id: str, ttl_seconds: int
+    ) -> None:
+        """Keep the stored expiry from falling behind a cache-served session.
+
+        A cache hit renews only the cache entry, so a session in constant use
+        would keep working while its row aged out. Anything reading the rows --
+        the session list, and revoking every other session -- would then miss
+        exactly the sessions that are most active.
+
+        Writing the row on every hit would undo the point of the cache, so a
+        marker with half the lifetime bounds this to one write per half-window.
+        """
+        marker = self._refresh_marker_key(app, token)
+        with contextlib.suppress(Exception):
+            if self._cache.get(marker):
+                return
+
+        expires_at = now_utc() + datetime.timedelta(seconds=ttl_seconds)
+        try:
+            with db.session.begin_nested():
+                record = (
+                    UserTokenModel.query.filter(
+                        UserTokenModel.token == token,
+                        UserTokenModel.user_id == user_id,
+                    )
+                    .order_by(UserTokenModel.id.desc())
+                    .first()
+                )
+                if record is None:
+                    return
+                record.token_expired_at = expires_at
+        except Exception:
+            app.logger.warning("could not refresh token row expiry")
+            return
+
+        with contextlib.suppress(Exception):
+            self._cache.set(marker, "1", ex=max(1, ttl_seconds // 2))
+
     def get_and_refresh(
         self, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
     ) -> TokenLookupResult | None:
@@ -125,6 +167,12 @@ class TokenStoreProvider:
                 cached_user_id = cached_user_id.decode("utf-8")
             if cached_user_id:
                 if str(cached_user_id) == expected_user_id:
+                    self._refresh_row_periodically(
+                        app,
+                        token=token,
+                        user_id=expected_user_id,
+                        ttl_seconds=ttl_seconds,
+                    )
                     return TokenLookupResult(user_id=expected_user_id)
                 # Defensive: token should never map to a different user id.
                 self._cache.delete(cache_key)
