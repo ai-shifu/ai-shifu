@@ -4,8 +4,9 @@
 
 Learners in the first-course blocking onboarding flow should understand the
 concrete benefit of finishing personalization before they postpone it. The
-first click on “以后再说” opens a retention view inside the existing learner
-profile dialog. That view proves the benefit with four pure-text examples in
+first click on the blocking defer action (`module.profileOnboarding.skip`)
+opens a retention view inside the existing learner profile dialog. That view
+proves the benefit with four pure-text examples in
 which the underlying fact stays fixed while the explanation changes for three
 audiences. Only the explicit second defer action calls the existing skip API.
 
@@ -59,12 +60,15 @@ not leak its error into the restored collect/save view.
 - The first accepted defer click changes only local dialog state and emits the
   retention exposure event. It does not call the skip API, close the dialog,
   clear browser drafts, or emit `profile_onboarding_skipped`.
-- “继续完成设置” restores the prior collect or save phase and preserves the
-  mounted conversation, session, assistant draft, nickname, and profile draft.
-- “仍然以后再说” reuses the existing single-flight skip path. Both actions and
-  the carousel freeze while that request is pending. Failure stays on the
-  retention view; success emits the existing skipped event, clears the draft,
-  and releases the blocking gate.
+- The retention continue action
+  (`module.profileOnboarding.dialog.retention.continueSetup`) restores the prior
+  collect or save phase and preserves the mounted conversation, session,
+  assistant draft, nickname, and profile draft.
+- The final defer action (`module.profileOnboarding.dialog.retention.defer`)
+  reuses the existing single-flight skip path. Both actions and the carousel
+  freeze while that request is pending. Failure stays on the retention view;
+  success emits the existing skipped event, clears the draft, and releases the
+  blocking gate.
 - Use four localized static slides. Each keeps one question and three
   simultaneous audience-specific text explanations. Do not infer or display
   the current learner's real identity.
@@ -132,8 +136,9 @@ privacy, localization, standard-frame layout, and repository gates.
 
 ## Validation and Acceptance
 
-- The first blocking “以后再说” click displays retention in the same dialog and
-  does not call the skip API or emit the skipped event.
+- The first blocking defer action (`module.profileOnboarding.skip`) displays
+  retention in the same dialog and does not call the skip API or emit the
+  skipped event.
 - Continue restores the exact prior phase, DOM-backed conversation, session,
   nickname, profile draft, and assistant draft.
 - Final defer is single-flight. Failure keeps both actions retryable in
