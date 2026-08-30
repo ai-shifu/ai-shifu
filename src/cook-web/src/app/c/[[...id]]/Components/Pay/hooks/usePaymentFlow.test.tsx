@@ -126,14 +126,14 @@ describe('usePaymentFlow polling timeout', () => {
     jest.restoreAllMocks();
   });
 
-  it.each(['', '   '])(
-    'does not complete an unpaid order with blank value_to_pay %p',
+  it.each(['', '   ', null, undefined])(
+    'does not complete an unpaid order with blank or malformed value_to_pay %p',
     async valueToPay => {
       const onOrderPaid = jest.fn();
       const onPollingTimeout = jest.fn();
       mockedInitOrder.mockResolvedValueOnce({
         ...pendingOrder,
-        value_to_pay: valueToPay,
+        value_to_pay: valueToPay as unknown as string,
       });
       const hook = renderHook(() =>
         usePaymentFlow({
@@ -160,6 +160,31 @@ describe('usePaymentFlow polling timeout', () => {
 
       expect(mockedGetPayUrl).toHaveBeenCalledTimes(1);
       expect(onOrderPaid).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([null, undefined])(
+    'still completes a paid order with malformed value_to_pay %p',
+    async valueToPay => {
+      const onOrderPaid = jest.fn();
+      mockedInitOrder.mockResolvedValueOnce({
+        ...paidOrder,
+        value_to_pay: valueToPay as unknown as string,
+      });
+      const hook = renderHook(() =>
+        usePaymentFlow({
+          courseId: 'course-1',
+          isLoggedIn: true,
+          onOrderPaid,
+        }),
+      );
+
+      await act(async () => {
+        await hook.result.current.initializeOrder();
+      });
+
+      expect(hook.result.current.isCompleted).toBe(true);
+      expect(onOrderPaid).toHaveBeenCalledTimes(1);
     },
   );
 

@@ -66,7 +66,10 @@ interface OrderSnapshot {
 
 function isOrderPaid(snapshot?: OrderSnapshot | null): boolean {
   if (!snapshot) return false;
-  const valueToPay = snapshot.value_to_pay.trim();
+  const valueToPay =
+    typeof snapshot.value_to_pay === 'string'
+      ? snapshot.value_to_pay.trim()
+      : '';
   const valueToPayNumber = Number(valueToPay);
   const isFreeOrder =
     valueToPay.length > 0 &&
