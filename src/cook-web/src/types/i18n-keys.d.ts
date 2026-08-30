@@ -3161,6 +3161,8 @@ export type I18nKey =
   | 'module.profileOnboarding.admin.assistantPromptEmpty'
   | 'module.profileOnboarding.admin.assistantPromptHint'
   | 'module.profileOnboarding.admin.assistantPromptRequired'
+  | 'module.profileOnboarding.admin.configConflictRecovered'
+  | 'module.profileOnboarding.admin.configConflictRefreshFailed'
   | 'module.profileOnboarding.admin.configRevision'
   | 'module.profileOnboarding.admin.defaultMarkdownflow'
   | 'module.profileOnboarding.admin.description'

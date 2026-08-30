@@ -24,6 +24,10 @@ const mockPush = jest.fn();
 const RUN_MOCKED_PREVIEW_LABEL = 'run mocked preview';
 const DOCUMENT = '?[%{{research_topic}}...最近在关注什么？]';
 const PROMPT = 'Answer only what you know about the learner.';
+const SILENT_ERROR_CONFIG = { skipErrorToast: true };
+
+const createErrorWithCode = (message: string, code: number) =>
+  Object.assign(new Error(message), { code });
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -421,12 +425,15 @@ describe('ProfileOnboardingAdminPage', () => {
     );
 
     await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: true,
-        markdownflow: '?[...Changed question]',
-        assistant_prompt: 'Saved manual prompt',
-        config_revision: 2,
-      }),
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        {
+          enabled: true,
+          markdownflow: '?[...Changed question]',
+          assistant_prompt: 'Saved manual prompt',
+          config_revision: 2,
+        },
+        SILENT_ERROR_CONFIG,
+      ),
     );
     expect(await screen.findByText('3')).toBeInTheDocument();
     expect(mockToast).toHaveBeenCalledWith({
@@ -439,12 +446,15 @@ describe('ProfileOnboardingAdminPage', () => {
       }),
     );
     await waitFor(() => expect(mockUpdateConfig).toHaveBeenCalledTimes(2));
-    expect(mockUpdateConfig).toHaveBeenLastCalledWith({
-      enabled: true,
-      markdownflow: '?[...Changed question]',
-      assistant_prompt: 'Saved manual prompt',
-      config_revision: 3,
-    });
+    expect(mockUpdateConfig).toHaveBeenLastCalledWith(
+      {
+        enabled: true,
+        markdownflow: '?[...Changed question]',
+        assistant_prompt: 'Saved manual prompt',
+        config_revision: 3,
+      },
+      SILENT_ERROR_CONFIG,
+    );
   });
 
   test('requires both document and assistant prompt when enabled', async () => {
@@ -518,12 +528,15 @@ describe('ProfileOnboardingAdminPage', () => {
       }),
     );
     await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: false,
-        markdownflow: '',
-        assistant_prompt: '',
-        config_revision: 2,
-      }),
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        {
+          enabled: false,
+          markdownflow: '',
+          assistant_prompt: '',
+          config_revision: 2,
+        },
+        SILENT_ERROR_CONFIG,
+      ),
     );
   });
 
@@ -565,17 +578,20 @@ describe('ProfileOnboardingAdminPage', () => {
       }),
     );
     await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenLastCalledWith({
-        enabled: true,
-        markdownflow: DOCUMENT,
-        assistant_prompt: 'Newer unsaved prompt',
-        config_revision: 3,
-      }),
+      expect(mockUpdateConfig).toHaveBeenLastCalledWith(
+        {
+          enabled: true,
+          markdownflow: DOCUMENT,
+          assistant_prompt: 'Newer unsaved prompt',
+          config_revision: 3,
+        },
+        SILENT_ERROR_CONFIG,
+      ),
     );
   });
 
-  test('retains drafts when saving fails and reports cache refresh delay separately', async () => {
-    mockUpdateConfig.mockRejectedValueOnce(new Error('Revision conflict'));
+  test('retains drafts on non-conflict failures without refreshing and reports cache delay separately', async () => {
+    mockUpdateConfig.mockRejectedValueOnce(new Error('Publication failed'));
     await renderLoadedPage();
     const prompt = screen.getByLabelText(
       'module.profileOnboarding.admin.assistantPrompt',
@@ -586,8 +602,9 @@ describe('ProfileOnboardingAdminPage', () => {
         name: 'module.profileOnboarding.admin.save',
       }),
     );
-    expect(await screen.findByText('Revision conflict')).toBeInTheDocument();
+    expect(await screen.findByText('Publication failed')).toBeInTheDocument();
     expect(prompt).toHaveValue('Unsaved prompt');
+    expect(mockGetConfig).toHaveBeenCalledTimes(1);
 
     mockUpdateConfig.mockResolvedValue({
       enabled: true,
@@ -609,6 +626,168 @@ describe('ProfileOnboardingAdminPage', () => {
         }),
       ),
     );
+  });
+
+  test('refreshes a conflicting saved baseline while preserving edits made during recovery', async () => {
+    const refreshedConfig = createDeferred<Record<string, unknown>>();
+    mockGetConfig
+      .mockResolvedValueOnce({
+        enabled: true,
+        markdownflow: DOCUMENT,
+        assistant_prompt: PROMPT,
+        config_revision: 2,
+        updated_by: 'operator-1',
+        updated_at: '2026-06-15T00:00:00Z',
+      })
+      .mockReturnValueOnce(refreshedConfig.promise);
+    mockUpdateConfig.mockRejectedValueOnce(
+      createErrorWithCode('A newer version exists', 4015),
+    );
+    const editor = await renderLoadedPage();
+    const prompt = screen.getByLabelText(
+      'module.profileOnboarding.admin.assistantPrompt',
+    );
+    const localDocument = '?[...Local question]';
+    fireEvent.change(editor, { target: { value: localDocument } });
+    fireEvent.change(prompt, {
+      target: { value: 'Local prompt before refresh' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+
+    await waitFor(() => expect(mockGetConfig).toHaveBeenCalledTimes(2));
+    expect(mockGetConfig).toHaveBeenNthCalledWith(2, {}, SILENT_ERROR_CONFIG);
+    expect(editor).toBeEnabled();
+    expect(prompt).toBeEnabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    ).toBeDisabled();
+    fireEvent.change(prompt, {
+      target: { value: 'Newest local prompt during refresh' },
+    });
+
+    await act(async () =>
+      refreshedConfig.resolve({
+        enabled: false,
+        markdownflow: '?[...Remote question]',
+        assistant_prompt: 'Remote prompt',
+        config_revision: 5,
+        updated_by: 'operator-remote',
+        updated_at: '2026-06-17T00:00:00Z',
+      }),
+    );
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.admin.configConflictRecovered',
+      ),
+    ).toBeInTheDocument();
+    expect(editor).toHaveValue(localDocument);
+    expect(prompt).toHaveValue('Newest local prompt during refresh');
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('operator-remote')).toBeInTheDocument();
+    expect(mockUpdateConfig).toHaveBeenCalledTimes(1);
+
+    mockUpdateConfig.mockResolvedValueOnce({
+      enabled: true,
+      markdownflow: localDocument,
+      assistant_prompt: 'Newest local prompt during refresh',
+      config_revision: 6,
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockUpdateConfig).toHaveBeenLastCalledWith(
+        {
+          enabled: true,
+          markdownflow: localDocument,
+          assistant_prompt: 'Newest local prompt during refresh',
+          config_revision: 5,
+        },
+        SILENT_ERROR_CONFIG,
+      ),
+    );
+  });
+
+  test('keeps the stale revision and draft when conflict recovery cannot refresh', async () => {
+    mockGetConfig
+      .mockResolvedValueOnce({
+        enabled: true,
+        markdownflow: DOCUMENT,
+        assistant_prompt: PROMPT,
+        config_revision: 2,
+      })
+      .mockRejectedValueOnce(new Error('refresh unavailable'));
+    mockUpdateConfig.mockRejectedValueOnce(
+      createErrorWithCode('A newer version exists', 4015),
+    );
+    await renderLoadedPage();
+    const prompt = screen.getByLabelText(
+      'module.profileOnboarding.admin.assistantPrompt',
+    );
+    fireEvent.change(prompt, { target: { value: 'Preserved local prompt' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.admin.configConflictRefreshFailed',
+      ),
+    ).toBeInTheDocument();
+    expect(prompt).toHaveValue('Preserved local prompt');
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(mockUpdateConfig).toHaveBeenCalledTimes(1);
+    expect(mockGetConfig).toHaveBeenCalledTimes(2);
+  });
+
+  test('rejects a conflict refresh that does not advance the saved revision', async () => {
+    mockGetConfig
+      .mockResolvedValueOnce({
+        enabled: true,
+        markdownflow: DOCUMENT,
+        assistant_prompt: PROMPT,
+        config_revision: 2,
+      })
+      .mockResolvedValueOnce({
+        enabled: false,
+        markdownflow: '?[...Unconfirmed remote question]',
+        assistant_prompt: 'Unconfirmed remote prompt',
+        config_revision: 2,
+      });
+    mockUpdateConfig.mockRejectedValueOnce(
+      createErrorWithCode('A newer version exists', 4015),
+    );
+    await renderLoadedPage();
+    const prompt = screen.getByLabelText(
+      'module.profileOnboarding.admin.assistantPrompt',
+    );
+    fireEvent.change(prompt, { target: { value: 'Preserved local prompt' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.admin.configConflictRefreshFailed',
+      ),
+    ).toBeInTheDocument();
+    expect(prompt).toHaveValue('Preserved local prompt');
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Unconfirmed remote prompt'),
+    ).not.toBeInTheDocument();
   });
 
   test('locks mutations after load failure and reloads the actual configuration', async () => {
@@ -850,12 +1029,15 @@ describe('ProfileOnboardingAdminPage', () => {
     );
 
     await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: true,
-        markdownflow: submittedDocument,
-        assistant_prompt: PROMPT,
-        config_revision: 2,
-      }),
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        {
+          enabled: true,
+          markdownflow: submittedDocument,
+          assistant_prompt: PROMPT,
+          config_revision: 2,
+        },
+        SILENT_ERROR_CONFIG,
+      ),
     );
     expect(getTrackingCalls(PROFILE_DIRTY_NAVIGATION_DECISION_EVENT)).toEqual([
       [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
@@ -1028,6 +1210,83 @@ describe('ProfileOnboardingAdminPage', () => {
       [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
       [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
     ]);
+    expect(
+      getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT),
+    ).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'failed' }],
+      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'success' }],
+    ]);
+    anchor.remove();
+  });
+
+  test('keeps save-and-leave open after a conflict and uses the refreshed revision on retry', async () => {
+    const localDocument = '?[...Local dialog question]';
+    mockGetConfig
+      .mockResolvedValueOnce({
+        enabled: true,
+        markdownflow: DOCUMENT,
+        assistant_prompt: PROMPT,
+        config_revision: 2,
+      })
+      .mockResolvedValueOnce({
+        enabled: true,
+        markdownflow: '?[...Remote dialog question]',
+        assistant_prompt: 'Remote dialog prompt',
+        config_revision: 5,
+        updated_by: 'operator-remote',
+      });
+    mockUpdateConfig.mockRejectedValueOnce(
+      createErrorWithCode('A newer version exists', 4015),
+    );
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, { target: { value: localDocument } });
+    const anchor = document.createElement('a');
+    anchor.href = '/admin/operations';
+    document.body.appendChild(anchor);
+    fireEvent.click(anchor);
+
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.save',
+      }),
+    );
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'module.profileOnboarding.admin.configConflictRecovered',
+    );
+    expect(editor).toHaveValue(localDocument);
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockUpdateConfig).toHaveBeenCalledTimes(1);
+
+    mockUpdateConfig.mockResolvedValueOnce({
+      enabled: true,
+      markdownflow: localDocument,
+      assistant_prompt: PROMPT,
+      config_revision: 6,
+    });
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.save',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockUpdateConfig).toHaveBeenLastCalledWith(
+        {
+          enabled: true,
+          markdownflow: localDocument,
+          assistant_prompt: PROMPT,
+          config_revision: 5,
+        },
+        SILENT_ERROR_CONFIG,
+      ),
+    );
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith('/admin/operations', {
+        scroll: false,
+      }),
+    );
     expect(
       getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT),
     ).toEqual([

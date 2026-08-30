@@ -28,6 +28,13 @@ type ProfileOnboardingDraft = {
   assistantPrompt: string;
 };
 
+type NormalizedProfileOnboardingConfig = {
+  draft: ProfileOnboardingDraft;
+  revision: number;
+  updatedBy: string;
+  updatedAt: string;
+};
+
 type GenerateAssistantPromptResponse = {
   assistant_prompt?: string;
 };
@@ -53,6 +60,26 @@ const EMPTY_DRAFT: ProfileOnboardingDraft = {
   enabled: false,
   markdownflow: '',
   assistantPrompt: '',
+};
+
+const normalizeProfileOnboardingConfig = (
+  response: ProfileOnboardingConfig,
+  defaultMarkdownflow: string,
+): NormalizedProfileOnboardingConfig => {
+  const revision = Number(response.config_revision ?? 0);
+  const hasStoredConfiguration = revision > 0;
+  return {
+    draft: {
+      enabled: Boolean(response.enabled),
+      markdownflow: hasStoredConfiguration
+        ? (response.markdownflow ?? defaultMarkdownflow)
+        : response.markdownflow || defaultMarkdownflow,
+      assistantPrompt: response.assistant_prompt || '',
+    },
+    revision,
+    updatedBy: response.updated_by || '',
+    updatedAt: response.updated_at || '',
+  };
 };
 
 const draftsMatch = (
@@ -158,20 +185,15 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       const response = (await api.getAdminOperationProfileOnboardingConfig(
         {},
       )) as ProfileOnboardingConfig;
-      const loadedRevision = Number(response.config_revision ?? 0);
-      const hasStoredConfiguration = loadedRevision > 0;
-      const loadedDraft = {
-        enabled: Boolean(response.enabled),
-        markdownflow: hasStoredConfiguration
-          ? (response.markdownflow ?? defaultMarkdownflow)
-          : response.markdownflow || defaultMarkdownflow,
-        assistantPrompt: response.assistant_prompt || '',
-      };
-      applyDraft(loadedDraft);
-      setSavedConfig(loadedDraft);
-      setConfigRevision(loadedRevision);
-      setUpdatedBy(response.updated_by || '');
-      setUpdatedAt(response.updated_at || '');
+      const loaded = normalizeProfileOnboardingConfig(
+        response,
+        defaultMarkdownflow,
+      );
+      applyDraft(loaded.draft);
+      setSavedConfig(loaded.draft);
+      setConfigRevision(loaded.revision);
+      setUpdatedBy(loaded.updatedBy);
+      setUpdatedAt(loaded.updatedAt);
       setConfigLoaded(true);
     } catch {
       setLoadFailed(true);
@@ -225,6 +247,39 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       trackEventSafely(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome });
     },
     [trackEventSafely],
+  );
+
+  const refreshSavedBaselineAfterConflict = React.useCallback(
+    async (submittedRevision: number) => {
+      try {
+        const response = (await api.getAdminOperationProfileOnboardingConfig(
+          {},
+          { skipErrorToast: true },
+        )) as ProfileOnboardingConfig;
+        const latest = normalizeProfileOnboardingConfig(
+          response,
+          defaultMarkdownflow,
+        );
+        if (
+          !Number.isInteger(latest.revision) ||
+          latest.revision <= submittedRevision
+        ) {
+          throw new Error(
+            'The refreshed configuration revision did not advance.',
+          );
+        }
+        setSavedConfig(latest.draft);
+        setConfigRevision(latest.revision);
+        setUpdatedBy(latest.updatedBy);
+        setUpdatedAt(latest.updatedAt);
+        setError(t('module.profileOnboarding.admin.configConflictRecovered'));
+      } catch {
+        setError(
+          t('module.profileOnboarding.admin.configConflictRefreshFailed'),
+        );
+      }
+    },
+    [defaultMarkdownflow, t],
   );
 
   const generateAssistantPrompt = React.useCallback(async () => {
@@ -318,12 +373,15 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     setSaving(true);
     setError('');
     try {
-      const response = (await api.updateAdminOperationProfileOnboardingConfig({
-        enabled: submittedConfig.enabled,
-        markdownflow: submittedConfig.markdownflow,
-        assistant_prompt: submittedConfig.assistantPrompt,
-        config_revision: submittedRevision,
-      })) as ProfileOnboardingConfig;
+      const response = (await api.updateAdminOperationProfileOnboardingConfig(
+        {
+          enabled: submittedConfig.enabled,
+          markdownflow: submittedConfig.markdownflow,
+          assistant_prompt: submittedConfig.assistantPrompt,
+          config_revision: submittedRevision,
+        },
+        { skipErrorToast: true },
+      )) as ProfileOnboardingConfig;
       const savedDraft = {
         enabled: response.enabled ?? submittedConfig.enabled,
         markdownflow: response.markdownflow ?? submittedConfig.markdownflow,
@@ -366,6 +424,10 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       return hasNoNewerEdits ? 'saved' : 'saved_with_newer_edits';
     } catch (caughtError) {
       const typedError = caughtError as Partial<ErrorWithCode>;
+      if (typedError.code === 4015) {
+        await refreshSavedBaselineAfterConflict(submittedRevision);
+        return 'failed';
+      }
       setError(
         typedError.message || t('module.profileOnboarding.admin.saveFailed'),
       );
@@ -378,6 +440,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     configLoaded,
     configRevision,
     loadFailed,
+    refreshSavedBaselineAfterConflict,
     t,
     toast,
     updatedAt,

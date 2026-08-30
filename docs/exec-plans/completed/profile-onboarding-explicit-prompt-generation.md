@@ -90,6 +90,11 @@ prompt.
   A nonblank prompt without a document is always invalid.
 - Save submits full values plus `config_revision`. Omission remains temporarily
   compatible for old clients, but omission never authorizes master compilation.
+- On save conflict `4015`, refresh only the latest saved baseline, revision,
+  and metadata while preserving every current editor value. Require another
+  explicit Save after review; never auto-resubmit against the newer version.
+  If the refresh fails or does not advance the revision, retain both the draft
+  and previous revision and show retry guidance.
 - Save localizes a changed nonblank master or repairs an incomplete locale map.
   A document-only edit reuses the existing master and complete locale map.
 - Reuse the existing admin design system and route. Do not change the default
