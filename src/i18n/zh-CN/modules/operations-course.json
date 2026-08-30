@@ -256,8 +256,7 @@
       "learnerCount": "学习人数",
       "orderAmount": "订单金额（含兑换码）",
       "orderCount": "订单数",
-      "ratingScore": "评分",
-      "visitCount30d": "近30天访问人数"
+      "ratingScore": "评分"
     },
     "metricsTooltips": {
       "completedUserAvgCredits": "已学完课程且有计费积分记录的用户，平均每人消耗了多少积分。",
