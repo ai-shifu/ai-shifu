@@ -252,6 +252,18 @@ describe('browserHistoryGuard', () => {
     expect(isBrowserHistoryBridgeTraversing()).toBe(false);
   });
 
+  test('rejects a replay with no target instead of reloading the current page', async () => {
+    detachBridge = attachBrowserHistoryGuardBridge();
+    const go = jest.spyOn(window.history, 'go').mockImplementation(() => {});
+
+    await expect(resumeBrowserHistoryTraversal(null)).rejects.toThrow(
+      'browser-history traversal target is unavailable',
+    );
+
+    expect(go).not.toHaveBeenCalled();
+    expect(isBrowserHistoryBridgeTraversing()).toBe(false);
+  });
+
   test.each([
     [
       'throws synchronously',

@@ -322,6 +322,11 @@ export const resumeBrowserHistoryTraversal = (
       new Error('The browser-history bridge is unavailable.'),
     );
   }
+  if (targetIndex === null && !startTraversal) {
+    return Promise.reject(
+      new Error('The browser-history traversal target is unavailable.'),
+    );
+  }
   const liveIndex = getBrowserHistoryIndex(window.history.state);
   if (liveIndex !== null) {
     currentEntry = {
