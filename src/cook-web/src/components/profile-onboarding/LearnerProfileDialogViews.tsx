@@ -241,17 +241,24 @@ export function LearnerProfileSaveView({
 type ProfileCollectionViewProps = ProfileOnboardingConversationProps & {
   conversationKey: number;
   collectionReady: boolean;
+  focusRef?: React.RefObject<HTMLElement | null>;
 };
 
 export function ProfileCollectionView({
   conversationKey,
   collectionReady,
+  focusRef,
   ...conversationProps
 }: ProfileCollectionViewProps) {
   const { t } = useTranslation();
 
   return (
-    <section className='flex min-h-0 flex-1 flex-col'>
+    <section
+      ref={focusRef}
+      tabIndex={-1}
+      aria-label={t('module.profileOnboarding.title')}
+      className='flex min-h-0 flex-1 flex-col outline-none'
+    >
       <div className='min-h-0 flex-1'>
         <ProfileOnboardingConversation
           key={conversationKey}
@@ -319,9 +326,11 @@ export function ProfileDialogConfirmationView({
 export function ProfileInformationUsageControl({
   variant = 'popover',
   className,
+  summary,
 }: {
   variant?: 'inline' | 'popover';
   className?: string;
+  summary?: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const inline = variant === 'inline';
@@ -349,7 +358,8 @@ export function ProfileInformationUsageControl({
             className='size-4 shrink-0'
             aria-hidden='true'
           />
-          {t('module.profileOnboarding.dialog.informationUsageTitle')}
+          {summary ??
+            t('module.profileOnboarding.dialog.informationUsageTitle')}
         </span>
       </summary>
       <div
