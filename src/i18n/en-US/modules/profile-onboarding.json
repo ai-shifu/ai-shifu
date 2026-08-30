@@ -44,13 +44,8 @@
       "cancel": "Keep editing",
       "description": "If you leave, changes to the interactive question flow and My AI answer prompt will be lost.",
       "discard": "Discard changes",
-      "navigationFailed": "Navigation did not complete. Please try again.",
       "newerEditsAfterSave": "The submitted version was saved, but newer edits were made while saving. Save again or discard those edits before leaving.",
-      "retry": "Retry navigation",
-      "retryDescription": "Your changes have been handled, but navigation did not complete. Retry navigation or stay on this page.",
-      "retryTitle": "Navigation did not complete",
       "save": "Save and leave",
-      "stay": "Stay on this page",
       "title": "Unsaved personalization guide settings"
     },
     "updatedAt": "Saved at",

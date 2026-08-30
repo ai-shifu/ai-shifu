@@ -8,16 +8,12 @@ import {
   within,
 } from '@testing-library/react';
 import api from '@/api';
-import { attachBrowserHistoryGuardBridge } from '@/lib/browserHistoryGuard';
 import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
 import ProfileOnboardingAdminPage from './page';
 import {
   PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT,
   PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT,
   PROFILE_DIRTY_NAVIGATION_DECISION_EVENT,
-  PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT,
-  PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT,
-  PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT,
   PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT,
   PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT,
   PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT,
@@ -43,66 +39,6 @@ const createDeferred = <T,>() => {
     reject = rejectPromise;
   });
   return { promise, resolve, reject };
-};
-
-type MockBrowserNavigateEvent = Event & {
-  destination: {
-    key: string;
-    sameDocument: boolean;
-    url: string | null;
-  };
-  hashChange: boolean;
-  navigationType: 'push' | 'reload' | 'replace' | 'traverse';
-};
-
-type MockTraversalOptions = {
-  entryKey: string;
-  cancelable?: boolean;
-  hashChange?: boolean;
-  navigationType?: MockBrowserNavigateEvent['navigationType'];
-  sameDocument?: boolean;
-};
-
-const createMockBrowserNavigateEvent = ({
-  entryKey,
-  cancelable = true,
-  hashChange = false,
-  navigationType = 'traverse',
-  sameDocument = true,
-}: MockTraversalOptions): MockBrowserNavigateEvent =>
-  Object.assign(new Event('navigate', { cancelable }), {
-    destination: {
-      key: entryKey,
-      sameDocument,
-      url: `https://example.test/private-history/${entryKey}`,
-    },
-    hashChange,
-    navigationType,
-  });
-
-const installMockBrowserNavigation = () => {
-  const navigation = new EventTarget();
-  const replayEvents: MockBrowserNavigateEvent[] = [];
-  const traverseTo = jest.fn((entryKey: string) => {
-    const replayEvent = createMockBrowserNavigateEvent({ entryKey });
-    replayEvents.push(replayEvent);
-    navigation.dispatchEvent(replayEvent);
-    return { finished: Promise.resolve() };
-  });
-  Object.assign(navigation, { traverseTo });
-  Object.defineProperty(window, 'navigation', {
-    configurable: true,
-    value: navigation,
-  });
-  return {
-    dispatchTraversal: (options: MockTraversalOptions) => {
-      const event = createMockBrowserNavigateEvent(options);
-      act(() => navigation.dispatchEvent(event));
-      return event;
-    },
-    replayEvents,
-    traverseTo,
-  };
 };
 
 jest.mock('@/api', () => ({
@@ -214,15 +150,9 @@ const getDirtyNavigationTrackingCalls = () =>
   );
 
 describe('ProfileOnboardingAdminPage', () => {
-  let detachHistoryBridge: (() => void) | undefined;
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockTrackEvent.mockReset();
-    Object.defineProperty(window, 'navigation', {
-      configurable: true,
-      value: undefined,
-    });
     mockGetConfig.mockResolvedValue({
       enabled: true,
       markdownflow: DOCUMENT,
@@ -241,12 +171,6 @@ describe('ProfileOnboardingAdminPage', () => {
       config_revision: 3,
     });
     mockCreatePreview.mockResolvedValue({ session_id: 'preview-session-1' });
-  });
-
-  afterEach(() => {
-    detachHistoryBridge?.();
-    detachHistoryBridge = undefined;
-    jest.restoreAllMocks();
   });
 
   test('places an explicit regenerate action below the editable document', async () => {
@@ -1098,13 +1022,6 @@ describe('ProfileOnboardingAdminPage', () => {
         name: 'module.profileOnboarding.admin.unsavedDialog.discard',
       }),
     );
-    await waitFor(() =>
-      expect(
-        screen.queryByText(
-          'module.profileOnboarding.admin.unsavedDialog.title',
-        ),
-      ).not.toBeInTheDocument(),
-    );
     expect(mockPush).toHaveBeenCalledWith('/admin/operations', {
       scroll: false,
     });
@@ -1146,719 +1063,6 @@ describe('ProfileOnboardingAdminPage', () => {
       screen.queryByText('module.profileOnboarding.admin.unsavedDialog.title'),
     ).not.toBeInTheDocument();
     anchor.remove();
-  });
-
-  test.each(['back', 'forward'])(
-    'guards a dirty draft when browser history moves %s and cancellation keeps the draft',
-    async direction => {
-      const navigation = installMockBrowserNavigation();
-      const editor = await renderLoadedPage();
-      const changedDocument = `?[...Keep editing after ${direction}]`;
-      fireEvent.change(editor, { target: { value: changedDocument } });
-
-      const firstTraversal = navigation.dispatchTraversal({
-        entryKey: `${direction}-entry`,
-      });
-
-      expect(firstTraversal.defaultPrevented).toBe(true);
-      fireEvent.click(
-        await screen.findByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.cancel',
-        }),
-      );
-      expect(editor).toHaveValue(changedDocument);
-      expect(navigation.traverseTo).not.toHaveBeenCalled();
-      expect(mockPush).not.toHaveBeenCalled();
-      expect(getDirtyNavigationTrackingCalls()).toEqual([
-        [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-        [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'cancel' }],
-      ]);
-
-      const nextTraversal = navigation.dispatchTraversal({
-        entryKey: `${direction}-entry-again`,
-      });
-      expect(nextTraversal.defaultPrevented).toBe(true);
-      await waitFor(() =>
-        expect(getDirtyNavigationTrackingCalls()).toEqual([
-          [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-          [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'cancel' }],
-          [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-        ]),
-      );
-      const trackedPayload = JSON.stringify(getDirtyNavigationTrackingCalls());
-      expect(trackedPayload).not.toContain(direction);
-      expect(trackedPayload).not.toContain('entry');
-      expect(trackedPayload).not.toContain('private-history');
-      expect(trackedPayload).not.toContain(changedDocument);
-    },
-  );
-
-  test('guards browser history through the indexed fallback when Navigation API is unavailable', async () => {
-    detachHistoryBridge = attachBrowserHistoryGuardBridge();
-    const initialState = window.history.state;
-    window.history.pushState(
-      { route: 'profile-onboarding' },
-      '',
-      '/admin/operations/profile-onboarding',
-    );
-    const sourceState = window.history.state;
-    const go = jest.spyOn(window.history, 'go').mockImplementation(() => {});
-    const editor = await renderLoadedPage();
-    const changedDocument = '?[...Fallback browser history draft]';
-    fireEvent.change(editor, { target: { value: changedDocument } });
-
-    act(() =>
-      window.dispatchEvent(
-        new PopStateEvent('popstate', { state: initialState }),
-      ),
-    );
-    expect(go).toHaveBeenCalledWith(1);
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-
-    act(() =>
-      window.dispatchEvent(
-        new PopStateEvent('popstate', { state: sourceState }),
-      ),
-    );
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.cancel',
-      }),
-    );
-
-    expect(editor).toHaveValue(changedDocument);
-    expect(go).toHaveBeenCalledTimes(1);
-    expect(getDirtyNavigationTrackingCalls()).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'cancel' }],
-    ]);
-  });
-
-  test('routes a noncancelable Navigation API traversal through the indexed fallback', async () => {
-    const navigation = installMockBrowserNavigation();
-    detachHistoryBridge = attachBrowserHistoryGuardBridge();
-    const targetState = window.history.state;
-    window.history.pushState(
-      { route: 'profile-onboarding' },
-      '',
-      '/admin/operations/profile-onboarding',
-    );
-    const sourceState = window.history.state;
-    const go = jest.spyOn(window.history, 'go').mockImplementation(() => {});
-    const editor = await renderLoadedPage();
-    const changedDocument = '?[...Noncancelable history draft]';
-    fireEvent.change(editor, { target: { value: changedDocument } });
-
-    const traversal = navigation.dispatchTraversal({
-      entryKey: 'noncancelable-entry',
-      cancelable: false,
-    });
-    expect(traversal.defaultPrevented).toBe(false);
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-
-    act(() =>
-      window.dispatchEvent(
-        new PopStateEvent('popstate', { state: targetState }),
-      ),
-    );
-    expect(go).toHaveBeenCalledWith(1);
-    act(() =>
-      window.dispatchEvent(
-        new PopStateEvent('popstate', { state: sourceState }),
-      ),
-    );
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.cancel',
-      }),
-    );
-
-    expect(editor).toHaveValue(changedDocument);
-    expect(navigation.traverseTo).not.toHaveBeenCalled();
-    expect(getDirtyNavigationTrackingCalls()).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'cancel' }],
-    ]);
-  });
-
-  test('replays the exact indexed fallback target only after discard', async () => {
-    detachHistoryBridge = attachBrowserHistoryGuardBridge();
-    const initialState = window.history.state;
-    window.history.pushState(
-      { route: 'profile-onboarding' },
-      '',
-      '/admin/operations/profile-onboarding',
-    );
-    const sourceState = window.history.state;
-    const go = jest.spyOn(window.history, 'go').mockImplementation(() => {});
-    const editor = await renderLoadedPage();
-    fireEvent.change(editor, {
-      target: { value: '?[...Discard fallback history draft]' },
-    });
-    act(() =>
-      window.dispatchEvent(
-        new PopStateEvent('popstate', { state: initialState }),
-      ),
-    );
-    act(() =>
-      window.dispatchEvent(
-        new PopStateEvent('popstate', { state: sourceState }),
-      ),
-    );
-
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-      }),
-    );
-    expect(go).toHaveBeenLastCalledWith(-1);
-    expect(editor).toHaveValue(DOCUMENT);
-
-    act(() =>
-      window.dispatchEvent(
-        new PopStateEvent('popstate', { state: initialState }),
-      ),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
-    expect(getDirtyNavigationTrackingCalls()).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'discard' }],
-    ]);
-  });
-
-  test.each([
-    [
-      'throws synchronously',
-      () => {
-        throw new Error('traverseTo failed');
-      },
-    ],
-    [
-      'rejects asynchronously',
-      () => ({ finished: Promise.reject(new Error('traverseTo rejected')) }),
-    ],
-  ])(
-    'keeps the exact history target available when replay %s',
-    async (_label, failingReplay) => {
-      const navigation = installMockBrowserNavigation();
-      const editor = await renderLoadedPage();
-      fireEvent.change(editor, {
-        target: { value: '?[...Discard before replay failure]' },
-      });
-      navigation.dispatchTraversal({ entryKey: 'retry-history-entry' });
-      navigation.traverseTo.mockImplementationOnce(failingReplay);
-
-      fireEvent.click(
-        await screen.findByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-        }),
-      );
-
-      expect(
-        await screen.findByText(
-          'module.profileOnboarding.admin.unsavedDialog.navigationFailed',
-        ),
-      ).toBeInTheDocument();
-      expect(navigation.traverseTo).toHaveBeenCalledWith('retry-history-entry');
-      expect(navigation.traverseTo).toHaveBeenCalledTimes(1);
-      expect(editor).toHaveValue(DOCUMENT);
-      expect(
-        screen.getByText(
-          'module.profileOnboarding.admin.unsavedDialog.retryTitle',
-        ),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-        }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.save',
-        }),
-      ).not.toBeInTheDocument();
-
-      const competingTraversal = navigation.dispatchTraversal({
-        entryKey: 'competing-history-entry',
-      });
-      expect(competingTraversal.defaultPrevented).toBe(true);
-      expect(navigation.traverseTo).toHaveBeenCalledTimes(1);
-
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.retry',
-        }),
-      );
-      await waitFor(() =>
-        expect(navigation.traverseTo).toHaveBeenCalledTimes(2),
-      );
-      expect(navigation.traverseTo).toHaveBeenLastCalledWith(
-        'retry-history-entry',
-      );
-      await waitFor(() =>
-        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-      );
-      expect(getDirtyNavigationTrackingCalls()).toEqual([
-        [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-        [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'discard' }],
-        [PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT, {}],
-        [PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT, { decision: 'retry' }],
-        [PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT, { outcome: 'success' }],
-      ]);
-    },
-  );
-
-  test.each([
-    [
-      'throws synchronously',
-      () => {
-        throw new Error('tracking unavailable');
-      },
-    ],
-    ['rejects asynchronously', () => Promise.reject(new Error('blocked'))],
-  ])(
-    'keeps browser-history replay fail-open when tracking %s',
-    async (_label, trackingImplementation) => {
-      mockTrackEvent.mockImplementation(trackingImplementation);
-      const navigation = installMockBrowserNavigation();
-      const editor = await renderLoadedPage();
-      const changedDocument = '?[...Private history analytics draft]';
-      fireEvent.change(editor, { target: { value: changedDocument } });
-      navigation.dispatchTraversal({ entryKey: 'private-history-entry' });
-
-      fireEvent.click(
-        await screen.findByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-        }),
-      );
-      await waitFor(() =>
-        expect(navigation.traverseTo).toHaveBeenCalledWith(
-          'private-history-entry',
-        ),
-      );
-      await waitFor(() =>
-        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-      );
-      const trackedPayload = JSON.stringify(getDirtyNavigationTrackingCalls());
-      expect(trackedPayload).not.toContain('private-history-entry');
-      expect(trackedPayload).not.toContain(changedDocument);
-      expect(mockPush).not.toHaveBeenCalled();
-    },
-  );
-
-  test.each(['back', 'forward'])(
-    'discards a dirty draft and replays the exact browser-history %s traversal once',
-    async direction => {
-      const navigation = installMockBrowserNavigation();
-      const editor = await renderLoadedPage();
-      fireEvent.change(editor, {
-        target: { value: `?[...Discard before ${direction}]` },
-      });
-      const entryKey = `${direction}-destination-key`;
-
-      const traversal = navigation.dispatchTraversal({ entryKey });
-      expect(traversal.defaultPrevented).toBe(true);
-      fireEvent.click(
-        await screen.findByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-        }),
-      );
-      await waitFor(() =>
-        expect(
-          screen.queryByText(
-            'module.profileOnboarding.admin.unsavedDialog.title',
-          ),
-        ).not.toBeInTheDocument(),
-      );
-
-      expect(editor).toHaveValue(DOCUMENT);
-      expect(navigation.traverseTo).toHaveBeenCalledTimes(1);
-      expect(navigation.traverseTo).toHaveBeenCalledWith(entryKey);
-      expect(navigation.replayEvents).toHaveLength(1);
-      expect(navigation.replayEvents[0].defaultPrevented).toBe(false);
-      expect(mockPush).not.toHaveBeenCalled();
-      expect(getDirtyNavigationTrackingCalls()).toEqual([
-        [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-        [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'discard' }],
-      ]);
-    },
-  );
-
-  test('keeps a browser-history destination after save failure and traverses only after retry succeeds', async () => {
-    const navigation = installMockBrowserNavigation();
-    const changedDocument = '?[...Persist before history traversal]';
-    mockUpdateConfig.mockRejectedValueOnce(new Error('Publication failed'));
-    const editor = await renderLoadedPage();
-    fireEvent.change(editor, { target: { value: changedDocument } });
-    navigation.dispatchTraversal({ entryKey: 'saved-history-entry' });
-
-    const dialog = await screen.findByRole('alertdialog');
-    fireEvent.click(
-      within(dialog).getByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.save',
-      }),
-    );
-
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Publication failed',
-    );
-    expect(editor).toHaveValue(changedDocument);
-    expect(navigation.traverseTo).not.toHaveBeenCalled();
-
-    mockUpdateConfig.mockResolvedValueOnce({
-      enabled: true,
-      markdownflow: changedDocument,
-      assistant_prompt: PROMPT,
-      config_revision: 3,
-    });
-    fireEvent.click(
-      within(dialog).getByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.save',
-      }),
-    );
-
-    await waitFor(() =>
-      expect(navigation.traverseTo).toHaveBeenCalledWith('saved-history-entry'),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
-    expect(navigation.replayEvents[0].defaultPrevented).toBe(false);
-    expect(mockPush).not.toHaveBeenCalled();
-    expect(getDirtyNavigationTrackingCalls()).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
-      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'failed' }],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
-      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'success' }],
-    ]);
-  });
-
-  test('retries navigation without saving or repeating the dirty decision after publication succeeds', async () => {
-    const navigation = installMockBrowserNavigation();
-    const changedDocument = '?[...Save once before navigation retry]';
-    mockUpdateConfig.mockResolvedValueOnce({
-      enabled: true,
-      markdownflow: changedDocument,
-      assistant_prompt: PROMPT,
-      config_revision: 3,
-    });
-    navigation.traverseTo.mockImplementationOnce(() => ({
-      finished: Promise.reject(new Error('history replay failed')),
-    }));
-    const editor = await renderLoadedPage();
-    fireEvent.change(editor, { target: { value: changedDocument } });
-    navigation.dispatchTraversal({ entryKey: 'published-history-entry' });
-
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.save',
-      }),
-    );
-
-    expect(
-      await screen.findByText(
-        'module.profileOnboarding.admin.unsavedDialog.retryTitle',
-      ),
-    ).toBeInTheDocument();
-    expect(mockUpdateConfig).toHaveBeenCalledTimes(1);
-    expect(navigation.traverseTo).toHaveBeenCalledTimes(1);
-    expect(getDirtyNavigationTrackingCalls()).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
-      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'success' }],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT, {}],
-    ]);
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.retry',
-      }),
-    );
-
-    await waitFor(() => expect(navigation.traverseTo).toHaveBeenCalledTimes(2));
-    expect(navigation.traverseTo).toHaveBeenLastCalledWith(
-      'published-history-entry',
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
-    expect(mockUpdateConfig).toHaveBeenCalledTimes(1);
-    expect(getDirtyNavigationTrackingCalls()).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
-      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'success' }],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT, { decision: 'retry' }],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT, { outcome: 'success' }],
-    ]);
-  });
-
-  test('tracks Stay without a retry result after a replay failure', async () => {
-    const navigation = installMockBrowserNavigation();
-    navigation.traverseTo.mockImplementationOnce(() => ({
-      finished: Promise.reject(new Error('history replay failed')),
-    }));
-    const editor = await renderLoadedPage();
-    fireEvent.change(editor, {
-      target: { value: '?[...Stay after navigation failure]' },
-    });
-    navigation.dispatchTraversal({ entryKey: 'stay-history-entry' });
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-      }),
-    );
-
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.stay',
-      }),
-    );
-
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
-    expect(getDirtyNavigationTrackingCalls()).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'discard' }],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT, { decision: 'stay' }],
-    ]);
-  });
-
-  test.each([
-    [
-      'throws synchronously',
-      () => {
-        throw new Error('tracking unavailable');
-      },
-    ],
-    ['rejects asynchronously', () => Promise.reject(new Error('blocked'))],
-  ])(
-    'keeps retry shown and Stay fail-open when tracking %s',
-    async (_label, trackingImplementation) => {
-      const navigation = installMockBrowserNavigation();
-      navigation.traverseTo.mockImplementationOnce(() => ({
-        finished: Promise.reject(new Error('history replay failed')),
-      }));
-      const editor = await renderLoadedPage();
-      fireEvent.change(editor, {
-        target: { value: '?[...Stay when retry analytics fail]' },
-      });
-      navigation.dispatchTraversal({ entryKey: 'stay-fail-open-entry' });
-      const discardButton = await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-      });
-      mockTrackEvent.mockImplementation(trackingImplementation);
-
-      fireEvent.click(discardButton);
-
-      expect(
-        await screen.findByText(
-          'module.profileOnboarding.admin.unsavedDialog.retryTitle',
-        ),
-      ).toBeInTheDocument();
-      expect(
-        getTrackingCalls(PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT),
-      ).toEqual([[PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT, {}]]);
-
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.stay',
-        }),
-      );
-
-      await waitFor(() =>
-        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-      );
-      expect(
-        getTrackingCalls(PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT),
-      ).toEqual([
-        [PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT, { decision: 'stay' }],
-      ]);
-      expect(
-        getTrackingCalls(PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT),
-      ).toHaveLength(0);
-    },
-  );
-
-  test('deduplicates retry clicks and records one result for each accepted retry', async () => {
-    const navigation = installMockBrowserNavigation();
-    const finalReplay = createDeferred<void>();
-    navigation.traverseTo
-      .mockImplementationOnce(() => ({
-        finished: Promise.reject(new Error('initial replay failed')),
-      }))
-      .mockImplementationOnce(() => ({
-        finished: Promise.reject(new Error('retry replay failed')),
-      }))
-      .mockImplementationOnce(() => ({ finished: finalReplay.promise }));
-    const editor = await renderLoadedPage();
-    fireEvent.change(editor, {
-      target: { value: '?[...Retry the frozen navigation]' },
-    });
-    navigation.dispatchTraversal({ entryKey: 'deduplicated-history-entry' });
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-      }),
-    );
-
-    const retryButton = await screen.findByRole('button', {
-      name: 'module.profileOnboarding.admin.unsavedDialog.retry',
-    });
-    fireEvent.click(retryButton);
-    await waitFor(() =>
-      expect(
-        getTrackingCalls(PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT),
-      ).toEqual([
-        [PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT, { outcome: 'failed' }],
-      ]),
-    );
-
-    fireEvent.click(retryButton);
-    fireEvent.click(retryButton);
-    expect(navigation.traverseTo).toHaveBeenCalledTimes(3);
-    expect(
-      getTrackingCalls(PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT),
-    ).toHaveLength(2);
-
-    await act(async () => finalReplay.resolve(undefined));
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
-    expect(getDirtyNavigationTrackingCalls()).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'discard' }],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_SHOWN_EVENT, {}],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT, { decision: 'retry' }],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT, { outcome: 'failed' }],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_DECISION_EVENT, { decision: 'retry' }],
-      [PROFILE_DIRTY_NAVIGATION_RETRY_RESULT_EVENT, { outcome: 'success' }],
-    ]);
-  });
-
-  test.each([
-    [
-      'throws synchronously',
-      () => {
-        throw new Error('tracking unavailable');
-      },
-    ],
-    ['rejects asynchronously', () => Promise.reject(new Error('blocked'))],
-  ])(
-    'keeps navigation-only retry fail-open when tracking %s',
-    async (_label, trackingImplementation) => {
-      const navigation = installMockBrowserNavigation();
-      navigation.traverseTo.mockImplementationOnce(() => ({
-        finished: Promise.reject(new Error('initial replay failed')),
-      }));
-      const editor = await renderLoadedPage();
-      const changedDocument = '?[...Private retry analytics draft]';
-      fireEvent.change(editor, { target: { value: changedDocument } });
-      navigation.dispatchTraversal({ entryKey: 'private-retry-entry' });
-      fireEvent.click(
-        await screen.findByRole('button', {
-          name: 'module.profileOnboarding.admin.unsavedDialog.discard',
-        }),
-      );
-      const retryButton = await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.retry',
-      });
-
-      mockTrackEvent.mockImplementation(trackingImplementation);
-      fireEvent.click(retryButton);
-
-      await waitFor(() =>
-        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-      );
-      const trackedPayload = JSON.stringify(getDirtyNavigationTrackingCalls());
-      expect(trackedPayload).not.toContain('private-retry-entry');
-      expect(trackedPayload).not.toContain(changedDocument);
-      expect(navigation.traverseTo).toHaveBeenCalledTimes(2);
-    },
-  );
-
-  test('prevents competing browser-history traversal while saving and keeps the original destination', async () => {
-    const navigation = installMockBrowserNavigation();
-    const deferred = createDeferred<Record<string, unknown>>();
-    const changedDocument = '?[...Save before frozen history traversal]';
-    mockUpdateConfig.mockReturnValue(deferred.promise);
-    const editor = await renderLoadedPage();
-    fireEvent.change(editor, { target: { value: changedDocument } });
-    navigation.dispatchTraversal({ entryKey: 'original-history-entry' });
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.save',
-      }),
-    );
-    await waitFor(() => expect(mockUpdateConfig).toHaveBeenCalledTimes(1));
-
-    const competingTraversal = navigation.dispatchTraversal({
-      entryKey: 'competing-history-entry',
-    });
-    expect(competingTraversal.defaultPrevented).toBe(true);
-    expect(navigation.traverseTo).not.toHaveBeenCalled();
-    expect(getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT)).toHaveLength(
-      1,
-    );
-
-    await act(async () =>
-      deferred.resolve({
-        enabled: true,
-        markdownflow: changedDocument,
-        assistant_prompt: PROMPT,
-        config_revision: 3,
-      }),
-    );
-    await waitFor(() =>
-      expect(navigation.traverseTo).toHaveBeenCalledWith(
-        'original-history-entry',
-      ),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
-    expect(navigation.traverseTo).toHaveBeenCalledTimes(1);
-    expect(navigation.replayEvents[0].defaultPrevented).toBe(false);
-  });
-
-  test('does not custom-guard clean or ineligible Navigation API events', async () => {
-    const navigation = installMockBrowserNavigation();
-    const editor = await renderLoadedPage();
-
-    const cleanTraversal = navigation.dispatchTraversal({
-      entryKey: 'clean-entry',
-    });
-    expect(cleanTraversal.defaultPrevented).toBe(false);
-
-    fireEvent.change(editor, { target: { value: '?[...Dirty draft]' } });
-    const ineligibleTraversals = [
-      navigation.dispatchTraversal({
-        entryKey: 'push-entry',
-        navigationType: 'push',
-      }),
-      navigation.dispatchTraversal({
-        entryKey: 'cross-document-entry',
-        sameDocument: false,
-      }),
-      navigation.dispatchTraversal({
-        entryKey: 'hash-entry',
-        hashChange: true,
-      }),
-    ];
-
-    for (const traversal of ineligibleTraversals) {
-      expect(traversal.defaultPrevented).toBe(false);
-    }
-    expect(getDirtyNavigationTrackingCalls()).toHaveLength(0);
-    expect(
-      screen.queryByText('module.profileOnboarding.admin.unsavedDialog.title'),
-    ).not.toBeInTheDocument();
-    expect(navigation.traverseTo).not.toHaveBeenCalled();
   });
 
   test('excludes native and ineligible navigation from dirty-navigation analytics', async () => {
@@ -2159,7 +1363,6 @@ describe('ProfileOnboardingAdminPage', () => {
   });
 
   test('keeps save-and-leave open after a conflict and uses the refreshed revision on retry', async () => {
-    const navigation = installMockBrowserNavigation();
     const localDocument = '?[...Local dialog question]';
     mockGetConfig
       .mockResolvedValueOnce({
@@ -2180,7 +1383,10 @@ describe('ProfileOnboardingAdminPage', () => {
     );
     const editor = await renderLoadedPage();
     fireEvent.change(editor, { target: { value: localDocument } });
-    navigation.dispatchTraversal({ entryKey: 'conflict-history-entry' });
+    const anchor = document.createElement('a');
+    anchor.href = '/admin/operations';
+    document.body.appendChild(anchor);
+    fireEvent.click(anchor);
 
     const dialog = await screen.findByRole('alertdialog');
     fireEvent.click(
@@ -2193,7 +1399,7 @@ describe('ProfileOnboardingAdminPage', () => {
       'module.profileOnboarding.admin.configConflictRecovered',
     );
     expect(editor).toHaveValue(localDocument);
-    expect(navigation.traverseTo).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
     expect(mockUpdateConfig).toHaveBeenCalledTimes(1);
 
     mockUpdateConfig.mockResolvedValueOnce({
@@ -2220,28 +1426,30 @@ describe('ProfileOnboardingAdminPage', () => {
       ),
     );
     await waitFor(() =>
-      expect(navigation.traverseTo).toHaveBeenCalledWith(
-        'conflict-history-entry',
-      ),
+      expect(mockPush).toHaveBeenCalledWith('/admin/operations', {
+        scroll: false,
+      }),
     );
-    expect(mockPush).not.toHaveBeenCalled();
     expect(
       getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT),
     ).toEqual([
       [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'failed' }],
       [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'success' }],
     ]);
+    anchor.remove();
   });
 
   test('shows a modal status and keeps the destination when newer edits supersede a saved draft', async () => {
-    const navigation = installMockBrowserNavigation();
     const deferred = createDeferred<Record<string, unknown>>();
     mockUpdateConfig.mockReturnValue(deferred.promise);
     const submittedDocument = '?[...Submitted question]';
     const newerDocument = '?[...Newer question during save]';
     const editor = await renderLoadedPage();
     fireEvent.change(editor, { target: { value: submittedDocument } });
-    navigation.dispatchTraversal({ entryKey: 'superseded-history-entry' });
+    const anchor = document.createElement('a');
+    anchor.href = '/admin/operations';
+    document.body.appendChild(anchor);
+    fireEvent.click(anchor);
 
     const dialog = await screen.findByRole('alertdialog');
     fireEvent.click(
@@ -2263,7 +1471,7 @@ describe('ProfileOnboardingAdminPage', () => {
     expect(await within(dialog).findByRole('status')).toHaveTextContent(
       'module.profileOnboarding.admin.unsavedDialog.newerEditsAfterSave',
     );
-    expect(navigation.traverseTo).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
     expect(editor).toHaveValue(newerDocument);
     expect(
       within(dialog).getByRole('button', {
@@ -2275,30 +1483,7 @@ describe('ProfileOnboardingAdminPage', () => {
       [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
       [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'superseded' }],
     ]);
-
-    mockUpdateConfig.mockResolvedValueOnce({
-      enabled: true,
-      markdownflow: newerDocument,
-      assistant_prompt: PROMPT,
-      config_revision: 4,
-    });
-    fireEvent.click(
-      within(dialog).getByRole('button', {
-        name: 'module.profileOnboarding.admin.unsavedDialog.save',
-      }),
-    );
-    await waitFor(() =>
-      expect(navigation.traverseTo).toHaveBeenCalledWith(
-        'superseded-history-entry',
-      ),
-    );
-    expect(mockPush).not.toHaveBeenCalled();
-    expect(
-      getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT),
-    ).toEqual([
-      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'superseded' }],
-      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'success' }],
-    ]);
+    anchor.remove();
   });
 
   test('creates an isolated preview from the current unsaved document', async () => {

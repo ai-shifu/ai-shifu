@@ -44,13 +44,8 @@
       "cancel": "Continuer à modifier",
       "description": "Si vous quittez cette page, les modifications du questionnaire interactif et de la consigne de réponse de mon IA seront perdues.",
       "discard": "Abandonner les modifications",
-      "navigationFailed": "La navigation n’a pas abouti. Veuillez réessayer.",
       "newerEditsAfterSave": "La version envoyée a été enregistrée, mais de nouvelles modifications ont été apportées pendant l’enregistrement. Enregistrez-les à nouveau ou abandonnez-les avant de quitter.",
-      "retry": "Réessayer la navigation",
-      "retryDescription": "Vos modifications ont été traitées, mais la navigation n’a pas abouti. Réessayez ou restez sur cette page.",
-      "retryTitle": "La navigation n’a pas abouti",
       "save": "Enregistrer et quitter",
-      "stay": "Rester sur cette page",
       "title": "Configuration du guide de personnalisation non enregistrée"
     },
     "updatedAt": "Enregistré le",

@@ -44,13 +44,8 @@
       "cancel": "继续编辑",
       "description": "离开后，互动问答文档和 AI 代答提示词的修改将丢失。",
       "discard": "放弃修改",
-      "navigationFailed": "页面未能跳转，请重试。",
       "newerEditsAfterSave": "已保存提交时的版本，但保存过程中又有新修改。请再次保存或放弃这些修改后再离开。",
-      "retry": "重试跳转",
-      "retryDescription": "修改已处理，但页面未能跳转。你可以重试跳转，或留在当前页面。",
-      "retryTitle": "页面未能跳转",
       "save": "保存并离开",
-      "stay": "留在当前页面",
       "title": "有未保存的个性化引导配置"
     },
     "updatedAt": "保存时间",
