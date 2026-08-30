@@ -49,8 +49,6 @@ their consumers are deleted instead of dual-written.
       `origin/main` commit `e9b57d20d`, preserving the newly merged account
       session analytics contracts. The final full frontend suite passed: 212
       Jest suites / 1,880 tests.
-- [x] 2026-08-30 22:29 CST: Moved this plan to
-      `docs/exec-plans/completed/` after all acceptance checks passed.
 - [x] 2026-08-30 23:54 CST: Addressed billing review feedback by keeping
       recoverable synchronization states non-terminal. Focused billing checks
       passed 2 Jest suites / 36 tests, followed by the full frontend suite at
@@ -95,6 +93,16 @@ their consumers are deleted instead of dual-written.
       frontend suite at 212 Jest suites / 1,901 tests, TypeScript, focused lint,
       Prettier, repository harness, architecture boundaries, the full Lefthook
       pre-commit gate, and an independent diff review.
+- [x] 2026-08-31 01:41 CST: Made device-authorization outcome rates
+      computable by carrying the prompt's bounded `from_link` dimension into
+      approved and denied events. The source remains bound to the first counted
+      exposure even if the same pairing code is later reloaded from a different
+      URL shape. Focused checks passed 13 tests, followed by the full frontend
+      suite at 212 Jest suites / 1,901 tests, TypeScript, focused lint,
+      Prettier, repository harness, architecture boundaries, and an independent
+      attribution and privacy review, plus the full Lefthook pre-commit gate.
+- [x] 2026-08-31 01:41 CST: Confirmed all acceptance and review-follow-up
+      checks passed, then kept this plan in `docs/exec-plans/completed/`.
 
 ## Surprises & Discoveries
 
