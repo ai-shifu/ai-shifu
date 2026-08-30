@@ -24,6 +24,12 @@ if TYPE_CHECKING:
 
 _SOURCE_LOCALE_PATTERN = re.compile(r"[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\Z")
 _SUCCESSFUL_FINISH_REASON = "stop"
+_MARKDOWNFLOW_SOURCE_MARKER = "--- UNTRUSTED MARKDOWNFLOW SOURCE DATA STARTS BELOW ---"
+
+
+def _prepare_compiler_input(document: str) -> str:
+    """Mark the start of source data without adding a closable boundary."""
+    return f"{_MARKDOWNFLOW_SOURCE_MARKER}\n{document}"
 
 
 def _json_object_without_duplicate_keys(
@@ -135,7 +141,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
             "",
             span,
             str(app.config.get("DEFAULT_LLM_MODEL", "") or ""),
-            document,
+            _prepare_compiler_input(document),
             system=load_prompt_template("profile_onboarding_assistant_compiler"),
             json=False,
             generation_name="profile_onboarding_assistant_compiler",
