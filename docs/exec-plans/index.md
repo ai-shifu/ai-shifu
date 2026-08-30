@@ -53,6 +53,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Give operators and learners explicit control of AI-assisted onboarding](./completed/profile-onboarding-assistant-controls.md)
 - [Make AI-assisted onboarding visible before the first question](./completed/profile-onboarding-assistant-discoverability.md)
 - [Submit AI answers without waiting for a question](./completed/profile-onboarding-assistant-handoff.md)
+- [Make profile-onboarding prompt generation explicit](./completed/profile-onboarding-explicit-prompt-generation.md)
 - [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
 - [Localize profile-onboarding assistant prompts for every supported language](./completed/profile-onboarding-multilingual-assistant-prompts.md)
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)

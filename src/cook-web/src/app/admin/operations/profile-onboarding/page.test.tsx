@@ -5,33 +5,59 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import api from '@/api';
 import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
 import ProfileOnboardingAdminPage from './page';
+import {
+  PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT,
+  PROFILE_PROMPT_GENERATE_RESULT_EVENT,
+} from './useProfileOnboardingAdminController';
 
 const mockToast = jest.fn();
+const mockTrackEvent = jest.fn();
+const mockPush = jest.fn();
 const RUN_MOCKED_PREVIEW_LABEL = 'run mocked preview';
+const DOCUMENT = '?[%{{research_topic}}...最近在关注什么？]';
+const PROMPT = 'Answer only what you know about the learner.';
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+};
 
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getAdminOperationProfileOnboardingConfig: jest.fn(),
     updateAdminOperationProfileOnboardingConfig: jest.fn(),
+    generateAdminOperationProfileOnboardingAssistantPrompt: jest.fn(),
     createAdminOperationProfileOnboardingPreview: jest.fn(),
   },
 }));
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 jest.mock('../useOperatorGuard', () => ({
   __esModule: true,
-  default: () => ({
-    isReady: true,
-  }),
+  default: () => ({ isReady: true }),
 }));
 
 jest.mock('@/hooks/useToast', () => ({
-  useToast: () => ({
-    toast: mockToast,
+  useToast: () => ({ toast: mockToast }),
+}));
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({
+    trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
   }),
 }));
 
@@ -79,7 +105,7 @@ jest.mock(
             onMessage: () => undefined,
             onError: () => undefined,
           });
-          onDraftReady('预览画像', session.session_id);
+          onDraftReady('预览个人介绍', session.session_id);
         }}
       >
         {RUN_MOCKED_PREVIEW_LABEL}
@@ -91,230 +117,435 @@ jest.mock(
 const mockGetConfig = api.getAdminOperationProfileOnboardingConfig as jest.Mock;
 const mockUpdateConfig =
   api.updateAdminOperationProfileOnboardingConfig as jest.Mock;
+const mockGeneratePrompt =
+  api.generateAdminOperationProfileOnboardingAssistantPrompt as jest.Mock;
 const mockCreatePreview =
   api.createAdminOperationProfileOnboardingPreview as jest.Mock;
+
+const renderLoadedPage = async () => {
+  render(<ProfileOnboardingAdminPage />);
+  return screen.findByLabelText('module.profileOnboarding.admin.markdownflow');
+};
 
 describe('ProfileOnboardingAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetConfig.mockResolvedValue({
       enabled: true,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      assistant_prompt: 'Answer only what you know about the learner.',
+      markdownflow: DOCUMENT,
+      assistant_prompt: PROMPT,
       config_revision: 2,
       updated_by: 'operator-1',
-      updated_at: '2026-06-15T00:00:00+00:00',
+      updated_at: '2026-06-15T00:00:00Z',
+    });
+    mockGeneratePrompt.mockResolvedValue({
+      assistant_prompt: 'Generated prompt',
+    });
+    mockUpdateConfig.mockResolvedValue({
+      enabled: true,
+      markdownflow: DOCUMENT,
+      assistant_prompt: PROMPT,
+      config_revision: 3,
     });
     mockCreatePreview.mockResolvedValue({ session_id: 'preview-session-1' });
   });
 
-  test('shows an editable prompt but omits it when only the document changes', async () => {
-    mockUpdateConfig.mockResolvedValue({
-      enabled: true,
-      markdownflow: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
-      assistant_prompt: 'Describe the learner goals you know.',
-      config_revision: 3,
+  test('places an explicit regenerate action below the editable document', async () => {
+    const editor = await renderLoadedPage();
+    const generateButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.admin.regenerateAssistantPrompt',
     });
-
-    render(<ProfileOnboardingAdminPage />);
-
-    const editor = await screen.findByDisplayValue(
-      '?[%{{research_topic}}...最近在关注什么？]',
-    );
-    const assistantPrompt = screen.getByLabelText(
+    const prompt = screen.getByLabelText(
       'module.profileOnboarding.admin.assistantPrompt',
     );
-    expect(assistantPrompt).not.toHaveAttribute('readonly');
-    expect(assistantPrompt).toHaveValue(
-      'Answer only what you know about the learner.',
+
+    expect(prompt).toHaveValue(PROMPT);
+    expect(prompt).not.toHaveAttribute('readonly');
+    expect(editor).toHaveClass(
+      'focus-visible:ring-2',
+      'focus-visible:ring-primary/40',
+      'focus-visible:ring-offset-2',
     );
-    fireEvent.change(editor, {
-      target: {
-        value: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
-      },
+    expect(prompt).toHaveClass(
+      'focus-visible:ring-2',
+      'focus-visible:ring-primary/40',
+      'focus-visible:ring-offset-2',
+    );
+    expect(
+      editor.compareDocumentPosition(generateButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      generateButton.compareDocumentPosition(prompt) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test('generates a draft without saving and records one accepted attempt and result', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: DOCUMENT,
+      assistant_prompt: '',
+      config_revision: 2,
     });
+    await renderLoadedPage();
+
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
+        name: 'module.profileOnboarding.admin.generateAssistantPrompt',
       }),
     );
 
-    await waitFor(() => {
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: true,
-        markdownflow: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
-      });
-    });
-    await waitFor(() => {
-      expect(assistantPrompt).toHaveValue(
-        'Describe the learner goals you know.',
-      );
-    });
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.profileOnboarding.admin.saveSuccess',
-    });
+    await waitFor(() =>
+      expect(mockGeneratePrompt).toHaveBeenCalledWith({
+        markdownflow: DOCUMENT,
+      }),
+    );
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+    expect(
+      await screen.findByDisplayValue('Generated prompt'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.profileOnboarding.admin.generateSuccess'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.regenerateAssistantPrompt',
+      }),
+    ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      1,
+      PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT,
+      { mode: 'generate' },
+    );
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      2,
+      PROFILE_PROMPT_GENERATE_RESULT_EVENT,
+      { mode: 'generate', outcome: 'success' },
+    );
+    expect(mockTrackEvent.mock.calls.flat()).not.toContain(DOCUMENT);
+    expect(mockTrackEvent.mock.calls.flat()).not.toContain('Generated prompt');
   });
 
-  test('saves an intentionally edited prompt with document changes and adopts the returned saved result', async () => {
+  test('prevents duplicate generation while leaving both editors writable', async () => {
+    const deferred = createDeferred<{ assistant_prompt: string }>();
+    mockGeneratePrompt.mockReturnValue(deferred.promise);
+    const documentEditor = await renderLoadedPage();
+    const promptEditor = screen.getByLabelText(
+      'module.profileOnboarding.admin.assistantPrompt',
+    );
+    const generateButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.admin.regenerateAssistantPrompt',
+    });
+
+    fireEvent.click(generateButton);
+    fireEvent.click(generateButton);
+
+    expect(mockGeneratePrompt).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.generatingAssistantPrompt',
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    ).toBeDisabled();
+    expect(documentEditor).toBeEnabled();
+    expect(promptEditor).toBeEnabled();
+
+    await act(async () =>
+      deferred.resolve({ assistant_prompt: 'Fresh prompt' }),
+    );
+    await screen.findByDisplayValue('Fresh prompt');
+  });
+
+  test('does not overwrite edits made while generation is in flight', async () => {
+    const deferred = createDeferred<{ assistant_prompt: string }>();
+    mockGeneratePrompt.mockReturnValue(deferred.promise);
+    const documentEditor = await renderLoadedPage();
+    const promptEditor = screen.getByLabelText(
+      'module.profileOnboarding.admin.assistantPrompt',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.regenerateAssistantPrompt',
+      }),
+    );
+    fireEvent.change(documentEditor, {
+      target: { value: '?[...Newer unsaved question]' },
+    });
+    fireEvent.change(promptEditor, {
+      target: { value: 'Newer manual prompt' },
+    });
+    await act(async () =>
+      deferred.resolve({ assistant_prompt: 'Stale generated prompt' }),
+    );
+
+    expect(documentEditor).toHaveValue('?[...Newer unsaved question]');
+    expect(promptEditor).toHaveValue('Newer manual prompt');
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.admin.generationSuperseded',
+      ),
+    ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenLastCalledWith(
+      PROFILE_PROMPT_GENERATE_RESULT_EVENT,
+      { mode: 'regenerate', outcome: 'superseded' },
+    );
+  });
+
+  test('keeps the existing draft on generation failure and analytics stays fail-open', async () => {
+    mockGeneratePrompt.mockRejectedValue(new Error('sensitive provider error'));
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    await renderLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.regenerateAssistantPrompt',
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.profileOnboarding.admin.generateFailed'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
+    ).toHaveValue(PROMPT);
+    expect(
+      screen.queryByText('sensitive provider error'),
+    ).not.toBeInTheDocument();
+    expect(mockGeneratePrompt).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenLastCalledWith(
+      PROFILE_PROMPT_GENERATE_RESULT_EVENT,
+      { mode: 'regenerate', outcome: 'failed' },
+    );
+  });
+
+  test('keeps a successful generation when analytics rejects asynchronously', async () => {
+    mockTrackEvent.mockRejectedValue(new Error('tracking rejected'));
+    await renderLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.regenerateAssistantPrompt',
+      }),
+    );
+
+    expect(
+      await screen.findByDisplayValue('Generated prompt'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.profileOnboarding.admin.generateSuccess'),
+    ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('validates generation before sending a request or analytics event', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      assistant_prompt: '',
+      config_revision: 2,
+    });
+    await renderLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.generateAssistantPrompt',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.admin.generateRequiresDocument',
+      ),
+    ).toBeInTheDocument();
+    expect(mockGeneratePrompt).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('marks an existing prompt for review after the document changes and clears it after manual editing', async () => {
+    const editor = await renderLoadedPage();
+    const prompt = screen.getByLabelText(
+      'module.profileOnboarding.admin.assistantPrompt',
+    );
+
+    fireEvent.change(editor, { target: { value: '?[...Changed question]' } });
+    expect(
+      screen.getByText('module.profileOnboarding.admin.documentChanged'),
+    ).toBeInTheDocument();
+    fireEvent.change(prompt, { target: { value: 'Manually aligned prompt' } });
+    expect(
+      screen.queryByText('module.profileOnboarding.admin.documentChanged'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('saves the complete draft and revision, then adopts the returned baseline', async () => {
     mockUpdateConfig.mockResolvedValue({
       enabled: true,
       markdownflow: '?[...Changed question]',
       assistant_prompt: 'Saved manual prompt',
       config_revision: 3,
+      updated_by: 'operator-2',
+      updated_at: '2026-06-16T00:00:00Z',
     });
-    render(<ProfileOnboardingAdminPage />);
-    const editor = await screen.findByLabelText(
-      'module.profileOnboarding.admin.markdownflow',
-    );
+    const editor = await renderLoadedPage();
     const prompt = screen.getByLabelText(
       'module.profileOnboarding.admin.assistantPrompt',
     );
     fireEvent.change(editor, { target: { value: '?[...Changed question]' } });
-    fireEvent.change(prompt, { target: { value: '  Saved manual prompt  ' } });
+    fireEvent.change(prompt, { target: { value: 'Saved manual prompt' } });
+
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
       }),
     );
+
     await waitFor(() =>
       expect(mockUpdateConfig).toHaveBeenCalledWith({
         enabled: true,
         markdownflow: '?[...Changed question]',
-        assistant_prompt: '  Saved manual prompt  ',
+        assistant_prompt: 'Saved manual prompt',
+        config_revision: 2,
       }),
     );
-    await waitFor(() => expect(prompt).toHaveValue('Saved manual prompt'));
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenLastCalledWith({
-        enabled: true,
-        markdownflow: '?[...Changed question]',
-      }),
-    );
-  });
-
-  test('sends an explicit blank prompt to regenerate it and then treats the result as the saved baseline', async () => {
-    mockUpdateConfig.mockResolvedValue({
-      enabled: true,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      assistant_prompt: 'Regenerated public prompt',
-      config_revision: 3,
+    expect(await screen.findByText('3')).toBeInTheDocument();
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.profileOnboarding.admin.saveSuccess',
     });
-    render(<ProfileOnboardingAdminPage />);
-    const prompt = await screen.findByLabelText(
-      'module.profileOnboarding.admin.assistantPrompt',
-    );
-    fireEvent.change(prompt, { target: { value: '' } });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: true,
-        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-        assistant_prompt: '',
-      }),
-    );
-    await waitFor(() =>
-      expect(prompt).toHaveValue('Regenerated public prompt'),
-    );
-    fireEvent.click(
-      screen.getByRole('switch', {
-        name: 'module.profileOnboarding.admin.enabled',
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenLastCalledWith({
-        enabled: false,
-        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      }),
-    );
-  });
 
-  test('retains manual prompt edits and its prior saved baseline when saving fails', async () => {
-    mockUpdateConfig.mockRejectedValueOnce(new Error('Publication failed'));
-    render(<ProfileOnboardingAdminPage />);
-    const prompt = await screen.findByLabelText(
-      'module.profileOnboarding.admin.assistantPrompt',
-    );
-    fireEvent.change(prompt, { target: { value: 'Unsaved manual prompt' } });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
-      }),
-    );
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Publication failed',
-    );
-    expect(prompt).toHaveValue('Unsaved manual prompt');
-    mockUpdateConfig.mockResolvedValue({
-      enabled: true,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      assistant_prompt: 'Unsaved manual prompt',
-      config_revision: 3,
-    });
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
       }),
     );
     await waitFor(() => expect(mockUpdateConfig).toHaveBeenCalledTimes(2));
-    expect(mockUpdateConfig.mock.calls[1][0]).toEqual(
-      mockUpdateConfig.mock.calls[0][0],
-    );
-    expect(mockUpdateConfig.mock.calls[1][0].assistant_prompt).toBe(
-      'Unsaved manual prompt',
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument(),
-    );
+    expect(mockUpdateConfig).toHaveBeenLastCalledWith({
+      enabled: true,
+      markdownflow: '?[...Changed question]',
+      assistant_prompt: 'Saved manual prompt',
+      config_revision: 3,
+    });
   });
 
-  test('preserves prompt edits typed during save and sends them relative to the returned saved baseline', async () => {
-    let resolveSave!: (response: Record<string, unknown>) => void;
-    mockUpdateConfig.mockReturnValueOnce(
-      new Promise(resolve => {
-        resolveSave = resolve;
-      }),
-    );
-    render(<ProfileOnboardingAdminPage />);
-    const prompt = await screen.findByLabelText(
-      'module.profileOnboarding.admin.assistantPrompt',
-    );
-    fireEvent.change(prompt, { target: { value: 'Submitted manual prompt' } });
+  test('requires both document and assistant prompt when enabled', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: true,
+      markdownflow: DOCUMENT,
+      assistant_prompt: '',
+      config_revision: 2,
+    });
+    const editor = await renderLoadedPage();
+
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
       }),
     );
-    fireEvent.change(prompt, {
-      target: { value: 'Newer manual edit during save' },
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.admin.assistantPromptRequired',
+      ),
+    ).toBeInTheDocument();
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+
+    fireEvent.change(editor, { target: { value: '' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.admin.documentRequired',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('rejects an orphan prompt but allows a disabled empty configuration', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      assistant_prompt: 'Orphan prompt',
+      config_revision: 2,
     });
+    mockUpdateConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      assistant_prompt: '',
+      config_revision: 3,
+    });
+    await renderLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.admin.promptRequiresDocument',
+      ),
+    ).toBeInTheDocument();
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+
+    fireEvent.change(
+      screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
+      { target: { value: '' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockUpdateConfig).toHaveBeenCalledWith({
+        enabled: false,
+        markdownflow: '',
+        assistant_prompt: '',
+        config_revision: 2,
+      }),
+    );
+  });
+
+  test('preserves edits made during save and submits them against the returned revision', async () => {
+    const deferred = createDeferred<Record<string, unknown>>();
+    mockUpdateConfig.mockReturnValueOnce(deferred.promise);
+    await renderLoadedPage();
+    const prompt = screen.getByLabelText(
+      'module.profileOnboarding.admin.assistantPrompt',
+    );
+    fireEvent.change(prompt, { target: { value: 'Submitted prompt' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+    fireEvent.change(prompt, { target: { value: 'Newer unsaved prompt' } });
+
     await act(async () =>
-      resolveSave({
+      deferred.resolve({
         enabled: true,
-        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-        assistant_prompt: 'Submitted manual prompt',
+        markdownflow: DOCUMENT,
+        assistant_prompt: 'Submitted prompt',
         config_revision: 3,
       }),
     );
-    expect(prompt).toHaveValue('Newer manual edit during save');
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(prompt).toHaveValue('Newer unsaved prompt');
+    expect(await screen.findByText('3')).toBeInTheDocument();
+
     mockUpdateConfig.mockResolvedValue({
       enabled: true,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      assistant_prompt: 'Newer manual edit during save',
+      markdownflow: DOCUMENT,
+      assistant_prompt: 'Newer unsaved prompt',
       config_revision: 4,
     });
     fireEvent.click(
@@ -325,305 +556,315 @@ describe('ProfileOnboardingAdminPage', () => {
     await waitFor(() =>
       expect(mockUpdateConfig).toHaveBeenLastCalledWith({
         enabled: true,
-        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-        assistant_prompt: 'Newer manual edit during save',
+        markdownflow: DOCUMENT,
+        assistant_prompt: 'Newer unsaved prompt',
+        config_revision: 3,
       }),
-    );
-    await screen.findByText('4');
-  });
-
-  test('omits the unchanged prompt when clearing a disabled document and reflects the cleared saved result', async () => {
-    mockUpdateConfig.mockResolvedValue({
-      enabled: false,
-      markdownflow: '',
-      assistant_prompt: '',
-      config_revision: 3,
-    });
-    render(<ProfileOnboardingAdminPage />);
-    const editor = await screen.findByLabelText(
-      'module.profileOnboarding.admin.markdownflow',
-    );
-    fireEvent.click(
-      screen.getByRole('switch', {
-        name: 'module.profileOnboarding.admin.enabled',
-      }),
-    );
-    fireEvent.change(editor, { target: { value: '' } });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: false,
-        markdownflow: '',
-      }),
-    );
-    await waitFor(() =>
-      expect(
-        screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
-      ).toHaveValue(''),
     );
   });
 
-  test('does not silently discard an edited prompt when its document is cleared', async () => {
-    mockUpdateConfig.mockResolvedValue({
-      enabled: false,
-      markdownflow: '',
-      assistant_prompt: '',
-      config_revision: 3,
-    });
-    render(<ProfileOnboardingAdminPage />);
-    const editor = await screen.findByLabelText(
-      'module.profileOnboarding.admin.markdownflow',
-    );
+  test('retains drafts when saving fails and reports cache refresh delay separately', async () => {
+    mockUpdateConfig.mockRejectedValueOnce(new Error('Revision conflict'));
+    await renderLoadedPage();
     const prompt = screen.getByLabelText(
       'module.profileOnboarding.admin.assistantPrompt',
     );
-    fireEvent.click(
-      screen.getByRole('switch', {
-        name: 'module.profileOnboarding.admin.enabled',
-      }),
-    );
-    fireEvent.change(editor, { target: { value: '' } });
-    fireEvent.change(prompt, { target: { value: 'Keep this edited prompt' } });
+    fireEvent.change(prompt, { target: { value: 'Unsaved prompt' } });
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
       }),
     );
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'module.profileOnboarding.admin.promptRequiresDocument',
-    );
-    expect(mockUpdateConfig).not.toHaveBeenCalled();
-    expect(prompt).toHaveValue('Keep this edited prompt');
-    expect(editor).toHaveValue('');
-    fireEvent.change(prompt, { target: { value: '' } });
+    expect(await screen.findByText('Revision conflict')).toBeInTheDocument();
+    expect(prompt).toHaveValue('Unsaved prompt');
+
+    mockUpdateConfig.mockResolvedValue({
+      enabled: true,
+      markdownflow: DOCUMENT,
+      assistant_prompt: 'Unsaved prompt',
+      config_revision: 3,
+      cache_refresh_pending: true,
+    });
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
       }),
     );
     await waitFor(() =>
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: false,
-        markdownflow: '',
-        assistant_prompt: '',
-      }),
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'module.profileOnboarding.admin.saveCacheRefreshPending',
+          duration: 8000,
+        }),
+      ),
     );
   });
 
-  test('keeps the edited document and last published prompt after generation fails', async () => {
-    mockUpdateConfig.mockRejectedValue(new Error('Prompt generation failed'));
+  test('locks mutations after load failure and reloads the actual configuration', async () => {
+    mockGetConfig.mockRejectedValueOnce(new Error('network failed'));
     render(<ProfileOnboardingAdminPage />);
-    const editor = await screen.findByLabelText(
-      'module.profileOnboarding.admin.markdownflow',
-    );
-    fireEvent.change(editor, {
-      target: { value: '?[...An unsaved question]' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
-      }),
-    );
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Prompt generation failed',
-    );
-    expect(editor).toHaveValue('?[...An unsaved question]');
+    expect(
+      await screen.findByText('module.profileOnboarding.admin.loadFailed'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.admin.markdownflow'),
+    ).toBeDisabled();
     expect(
       screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
-    ).toHaveValue('Answer only what you know about the learner.');
-    expect(mockToast).not.toHaveBeenCalled();
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.generateAssistantPrompt',
+      }),
+    ).toBeDisabled();
     expect(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
       }),
-    ).toBeEnabled();
-  });
-
-  test('reports a durable save with delayed cache refresh as a warning', async () => {
-    mockUpdateConfig.mockResolvedValue({
-      enabled: true,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      assistant_prompt: 'The newly saved public prompt.',
-      config_revision: 3,
-      cache_refresh_pending: true,
-    });
-    render(<ProfileOnboardingAdminPage />);
-    await screen.findByLabelText('module.profileOnboarding.admin.markdownflow');
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
-      }),
-    );
-
-    expect(await screen.findByText('3')).toBeInTheDocument();
+    ).toBeDisabled();
     expect(
-      screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
-    ).toHaveValue('The newly saved public prompt.');
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'module.profileOnboarding.admin.saveCacheRefreshPending',
-        duration: 8000,
-      }),
-    );
-    expect(mockToast).not.toHaveBeenCalledWith({
-      title: 'module.profileOnboarding.admin.saveSuccess',
-    });
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-
-  test('preserves edits made while the public prompt is being generated', async () => {
-    let resolveSave!: (response: Record<string, unknown>) => void;
-    mockUpdateConfig.mockReturnValue(
-      new Promise(resolve => {
-        resolveSave = resolve;
-      }),
-    );
-    render(<ProfileOnboardingAdminPage />);
-    const editor = await screen.findByLabelText(
-      'module.profileOnboarding.admin.markdownflow',
-    );
-    fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
+        name: 'module.profileOnboarding.admin.preview',
       }),
-    );
-    fireEvent.change(editor, {
-      target: { value: '?[...Another question typed while saving]' },
-    });
-    await act(async () => {
-      resolveSave({
-        enabled: true,
-        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-        assistant_prompt: 'Published prompt for the submitted document.',
-        config_revision: 3,
-      });
-    });
-
-    expect(editor).toHaveValue('?[...Another question typed while saving]');
+    ).toBeDisabled();
     expect(
-      screen.getByLabelText('module.profileOnboarding.admin.assistantPrompt'),
-    ).toHaveValue('Published prompt for the submitted document.');
-    expect(screen.getByText('3')).toBeInTheDocument();
-  });
+      screen.getByRole('switch', {
+        name: 'module.profileOnboarding.admin.enabled',
+      }),
+    ).toBeDisabled();
 
-  test('preserves an intentionally empty MarkdownFlow while disabled', async () => {
-    mockGetConfig.mockResolvedValue({
-      enabled: false,
-      markdownflow: '',
-      config_revision: 2,
-    });
-    mockUpdateConfig.mockResolvedValue({
-      enabled: false,
-      markdownflow: '',
-      config_revision: 3,
-    });
-
-    render(<ProfileOnboardingAdminPage />);
-
-    const flowEditor = await screen.findByLabelText(
-      'module.profileOnboarding.admin.markdownflow',
-    );
-    expect(flowEditor).toHaveValue('');
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
+        name: 'module.profileOnboarding.admin.reload',
       }),
     );
+    expect(await screen.findByDisplayValue(DOCUMENT)).toBeEnabled();
+    expect(mockGetConfig).toHaveBeenCalledTimes(2);
+  });
+
+  test('warns before browser or same-origin navigation when the draft is dirty', async () => {
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, { target: { value: '?[...Unsaved question]' } });
 
     await waitFor(() => {
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: false,
-        markdownflow: '',
+      const event = new Event('beforeunload', {
+        bubbles: false,
+        cancelable: true,
       });
-    });
-  });
-
-  test('shows localized starter values for a virgin configuration', async () => {
-    mockGetConfig.mockResolvedValue({
-      enabled: false,
-      markdownflow: '',
-      config_revision: 0,
-      updated_by: '',
-      updated_at: '',
+      window.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
     });
 
-    render(<ProfileOnboardingAdminPage />);
-
+    const anchor = document.createElement('a');
+    anchor.href = '/admin/operations';
+    anchor.textContent = 'leave page';
+    anchor.addEventListener('click', event => {
+      if (!event.defaultPrevented) {
+        mockPush('/navigated-by-downstream-link-handler');
+      }
+    });
+    document.body.appendChild(anchor);
+    fireEvent.click(anchor);
     expect(
-      await screen.findByLabelText(
-        'module.profileOnboarding.admin.markdownflow',
+      await screen.findByText(
+        'module.profileOnboarding.admin.unsavedDialog.title',
       ),
-    ).toHaveValue('module.profileOnboarding.admin.defaultMarkdownflow');
-  });
+    ).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
 
-  test('ignores retired version and allowlist fields', async () => {
-    mockGetConfig.mockResolvedValue({
-      enabled: false,
-      markdownflow: '',
-      allowed_variable_keys: ['sys_user_background'],
-      version: 7,
-    });
-
-    render(<ProfileOnboardingAdminPage />);
-
-    await screen.findByLabelText('module.profileOnboarding.admin.markdownflow');
-    expect(screen.getAllByText('-')).not.toHaveLength(0);
-    expect(screen.queryByText('sys_user_background')).not.toBeInTheDocument();
-  });
-
-  test('does not use a retired version alias returned after save', async () => {
-    mockUpdateConfig.mockResolvedValue({
-      enabled: true,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      version: 9,
-    });
-
-    render(<ProfileOnboardingAdminPage />);
-    await screen.findByDisplayValue(
-      '?[%{{research_topic}}...最近在关注什么？]',
-    );
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
+        name: 'module.profileOnboarding.admin.unsavedDialog.discard',
+      }),
+    );
+    expect(mockPush).toHaveBeenCalledWith('/admin/operations', {
+      scroll: false,
+    });
+    anchor.remove();
+  });
+
+  test('freezes the navigation decision while save-and-proceed is in flight', async () => {
+    const deferred = createDeferred<Record<string, unknown>>();
+    mockUpdateConfig.mockReturnValue(deferred.promise);
+    const submittedDocument = '?[...Unsaved question to persist]';
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, { target: { value: submittedDocument } });
+
+    const originalAnchor = document.createElement('a');
+    originalAnchor.href = '/admin/operations';
+    originalAnchor.textContent = 'leave after save';
+    document.body.appendChild(originalAnchor);
+    fireEvent.click(originalAnchor);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.save',
       }),
     );
 
-    expect(await screen.findByText('2')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockUpdateConfig).toHaveBeenCalledWith({
+        enabled: true,
+        markdownflow: submittedDocument,
+        assistant_prompt: PROMPT,
+        config_revision: 2,
+      }),
+    );
+    const cancelButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.admin.unsavedDialog.cancel',
+    });
+    const discardButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.admin.unsavedDialog.discard',
+    });
+    const saveAndLeaveButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.admin.unsavedDialog.save',
+    });
+    expect(cancelButton).toBeDisabled();
+    expect(discardButton).toBeDisabled();
+    expect(saveAndLeaveButton).toBeDisabled();
+
+    fireEvent.click(cancelButton);
+    fireEvent.click(discardButton);
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+
+    const competingAnchor = document.createElement('a');
+    competingAnchor.href = '/admin/another-destination';
+    competingAnchor.textContent = 'change destination';
+    competingAnchor.addEventListener('click', event => {
+      if (!event.defaultPrevented) {
+        mockPush('/navigated-by-competing-link-handler');
+      }
+    });
+    document.body.appendChild(competingAnchor);
+    fireEvent.click(competingAnchor);
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('module.profileOnboarding.admin.unsavedDialog.title'),
+    ).toBeInTheDocument();
+
+    await act(async () =>
+      deferred.resolve({
+        enabled: true,
+        markdownflow: submittedDocument,
+        assistant_prompt: PROMPT,
+        config_revision: 3,
+      }),
+    );
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith('/admin/operations', {
+        scroll: false,
+      }),
+    );
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    originalAnchor.remove();
+    competingAnchor.remove();
   });
 
-  test('requires a document only when collection is enabled', async () => {
+  test('shows save-and-leave validation errors inside the dialog', async () => {
     mockGetConfig.mockResolvedValue({
       enabled: true,
-      markdownflow: '',
+      markdownflow: DOCUMENT,
+      assistant_prompt: '',
       config_revision: 2,
     });
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, { target: { value: '?[...Changed question]' } });
+    const anchor = document.createElement('a');
+    anchor.href = '/admin/operations';
+    document.body.appendChild(anchor);
+    fireEvent.click(anchor);
 
-    render(<ProfileOnboardingAdminPage />);
-    await screen.findByLabelText('module.profileOnboarding.admin.markdownflow');
-
+    const dialog = await screen.findByRole('alertdialog');
     fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
+      within(dialog).getByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.save',
       }),
     );
 
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'module.profileOnboarding.admin.assistantPromptRequired',
+    );
     expect(mockUpdateConfig).not.toHaveBeenCalled();
-    expect(
-      screen.getByText('module.profileOnboarding.admin.documentRequired'),
-    ).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(editor).toHaveValue('?[...Changed question]');
+    anchor.remove();
   });
 
-  test('creates an isolated server preview from unsaved configuration', async () => {
-    render(<ProfileOnboardingAdminPage />);
-    const flowEditor = await screen.findByDisplayValue(
-      '?[%{{research_topic}}...最近在关注什么？]',
+  test('shows save-and-leave API failures inside the dialog', async () => {
+    mockUpdateConfig.mockRejectedValue(new Error('Publication failed'));
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, { target: { value: '?[...Changed question]' } });
+    const anchor = document.createElement('a');
+    anchor.href = '/admin/operations';
+    document.body.appendChild(anchor);
+    fireEvent.click(anchor);
+
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.save',
+      }),
     );
-    fireEvent.change(flowEditor, {
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Publication failed',
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(editor).toHaveValue('?[...Changed question]');
+    expect(
+      within(dialog).getByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.discard',
+      }),
+    ).toBeEnabled();
+    anchor.remove();
+  });
+
+  test('shows a modal status and keeps the destination when newer edits supersede a saved draft', async () => {
+    const deferred = createDeferred<Record<string, unknown>>();
+    mockUpdateConfig.mockReturnValue(deferred.promise);
+    const submittedDocument = '?[...Submitted question]';
+    const newerDocument = '?[...Newer question during save]';
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, { target: { value: submittedDocument } });
+    const anchor = document.createElement('a');
+    anchor.href = '/admin/operations';
+    document.body.appendChild(anchor);
+    fireEvent.click(anchor);
+
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.save',
+      }),
+    );
+    await waitFor(() => expect(mockUpdateConfig).toHaveBeenCalledTimes(1));
+    fireEvent.change(editor, { target: { value: newerDocument } });
+    await act(async () =>
+      deferred.resolve({
+        enabled: true,
+        markdownflow: submittedDocument,
+        assistant_prompt: PROMPT,
+        config_revision: 3,
+      }),
+    );
+
+    expect(await within(dialog).findByRole('status')).toHaveTextContent(
+      'module.profileOnboarding.admin.unsavedDialog.newerEditsAfterSave',
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(editor).toHaveValue(newerDocument);
+    expect(
+      within(dialog).getByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.save',
+      }),
+    ).toBeEnabled();
+    anchor.remove();
+  });
+
+  test('creates an isolated preview from the current unsaved document', async () => {
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, {
       target: { value: '?[%{{unsaved_topic}}...未保存的问题？]' },
     });
     fireEvent.click(
@@ -635,12 +876,12 @@ describe('ProfileOnboardingAdminPage', () => {
       screen.getByRole('button', { name: RUN_MOCKED_PREVIEW_LABEL }),
     );
 
-    await waitFor(() => {
+    await waitFor(() =>
       expect(mockCreatePreview).toHaveBeenCalledWith({
         markdownflow: '?[%{{unsaved_topic}}...未保存的问题？]',
         language: 'zh-CN',
-      });
-    });
+      }),
+    );
     expect(streamProfileOnboardingRuntime).toHaveBeenCalledWith(
       expect.objectContaining({
         path: '/api/shifu/admin/operations/profile-onboarding/preview/preview-session-1/run',
@@ -649,13 +890,10 @@ describe('ProfileOnboardingAdminPage', () => {
           request_id: 'preview-run-1',
           user_input: { research_topic: ['AI 教学'] },
         },
-        language: 'zh-CN',
       }),
     );
-    expect(await screen.findByDisplayValue('预览画像')).toBeInTheDocument();
-    expect(
-      screen.getByText('module.profileOnboarding.admin.previewProfileNotice'),
-    ).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('预览个人介绍')).toBeInTheDocument();
     expect(mockUpdateConfig).not.toHaveBeenCalled();
+    expect(mockGeneratePrompt).not.toHaveBeenCalled();
   });
 });

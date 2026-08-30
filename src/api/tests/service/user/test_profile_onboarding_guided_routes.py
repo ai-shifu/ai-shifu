@@ -1130,6 +1130,7 @@ def test_operator_profile_onboarding_config_routes_delegate(
         json={
             "enabled": True,
             "markdownflow": "flow",
+            "config_revision": 3,
             **extra_payload,
         },
     )
@@ -1141,11 +1142,62 @@ def test_operator_profile_onboarding_config_routes_delegate(
             "payload": {
                 "enabled": True,
                 "markdownflow": "flow",
+                "config_revision": 3,
                 **extra_payload,
             },
             "operator_user_bid": user.user_id,
         }
     ]
+
+
+def test_operator_profile_onboarding_prompt_generation_delegates_without_saving(
+    monkeypatch: object, test_client: object
+) -> None:
+    _authenticate(monkeypatch)
+    generation_calls = []
+    save_calls = []
+    monkeypatch.setattr(
+        "flaskr.route.admin_profile_onboarding.generate_profile_onboarding_assistant_prompt",
+        lambda _app, **kwargs: (
+            generation_calls.append(kwargs)
+            or {"assistant_prompt": "Generated editable prompt"}
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.admin_profile_onboarding.update_operator_profile_onboarding_config",
+        lambda _app, **kwargs: save_calls.append(kwargs),
+    )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+        headers={"Token": "token"},
+        json={"markdownflow": "  ?[...Unsaved answer]  "},
+    )
+
+    assert _data(response) == {"assistant_prompt": "Generated editable prompt"}
+    assert generation_calls == [{"markdownflow": "?[...Unsaved answer]"}]
+    assert save_calls == []
+
+
+def test_operator_profile_onboarding_prompt_generation_validates_document_before_llm(
+    monkeypatch: object, test_client: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    _authenticate(monkeypatch)
+    compiler = Mock()
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+        headers={"Token": "token"},
+        json={"markdownflow": "?[]"},
+    )
+
+    assert response.get_json(force=True)["code"] != 0
+    compiler.assert_not_called()
 
 
 def test_operator_profile_onboarding_preview_start_is_isolated_and_purpose_scoped(
@@ -1408,11 +1460,26 @@ def test_operator_profile_onboarding_preview_start_maps_busy_error(
 @pytest.mark.parametrize(
     "payload",
     [
+        {},
+        {"markdownflow": "flow"},
+        {"enabled": False},
         None,
         [],
         {"enabled": True, "markdownflow": "?[...Answer]", "assistant_prompt": None},
         {"enabled": True, "markdownflow": "?[...Answer]", "assistant_prompt": []},
         {"enabled": True, "markdownflow": "flow", "revision": 4},
+        {
+            "enabled": True,
+            "markdownflow": "flow",
+            "assistant_prompt": "prompt",
+            "config_revision": True,
+        },
+        {
+            "enabled": True,
+            "markdownflow": "flow",
+            "assistant_prompt": "prompt",
+            "config_revision": -1,
+        },
         {
             "enabled": True,
             "markdownflow": "flow",
@@ -1441,6 +1508,22 @@ def test_operator_profile_onboarding_config_rejects_invalid_shapes(
 @pytest.mark.parametrize(
     ("path", "payload"),
     [
+        (
+            "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+            [],
+        ),
+        (
+            "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+            {"markdownflow": ""},
+        ),
+        (
+            "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+            {"markdownflow": False},
+        ),
+        (
+            "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+            {"markdownflow": "flow", "language": "en-US"},
+        ),
         (
             "/api/shifu/admin/operations/profile-onboarding/preview",
             [],
@@ -1499,7 +1582,7 @@ def test_operator_profile_onboarding_config_rejects_invalid_shapes(
         ),
     ],
 )
-def test_operator_profile_onboarding_preview_rejects_invalid_shapes(
+def test_operator_profile_onboarding_actions_reject_invalid_shapes(
     monkeypatch: object, test_client: object, path: object, payload: object
 ) -> None:
     _authenticate(monkeypatch)
@@ -1526,6 +1609,18 @@ def test_operator_profile_onboarding_config_requires_operator(
             if method == "post"
             else {}
         ),
+    )
+    assert response.get_json(force=True)["code"] != 0
+
+
+def test_operator_profile_onboarding_prompt_generation_requires_operator(
+    monkeypatch: object, test_client: object
+) -> None:
+    _authenticate(monkeypatch, is_operator=False)
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+        headers={"Token": "token"},
+        json={"markdownflow": "?[...Answer]"},
     )
     assert response.get_json(force=True)["code"] != 0
 

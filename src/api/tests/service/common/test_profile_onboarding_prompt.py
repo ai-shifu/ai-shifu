@@ -78,6 +78,89 @@ def test_localizer_uses_shared_locale_registry_and_one_llm_call(
     assert "first-person message from the learner" in kwargs["system"]
 
 
+def test_localizer_requests_and_returns_only_selected_missing_locales(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.common import profile_onboarding_prompt as module
+
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+    target_locales = {"fr-FR", "th-TH"}
+    localized_prompts = {locale: LOCALIZED_PROMPTS[locale] for locale in target_locales}
+
+    def invoke(*args: object, **kwargs: object) -> object:
+        calls.append((args, kwargs))
+        return [
+            SimpleNamespace(
+                result=_completed_response(
+                    source_locale="zh-CN",
+                    assistant_prompts=localized_prompts,
+                )
+            )
+        ]
+
+    monkeypatch.setattr(module, "get_locale_labels", LOCALE_LABELS.copy)
+    monkeypatch.setattr(module, "invoke_llm", invoke)
+
+    result = module.localize_profile_onboarding_assistant_prompt(
+        app,
+        LOCALIZED_PROMPTS["zh-CN"],
+        target_locales=target_locales,
+    )
+
+    assert result == localized_prompts
+    assert len(calls) == 1
+    args, _kwargs = calls[0]
+    request_payload = json.loads(args[4])
+    assert request_payload["target_locales"] == {
+        locale: LOCALE_LABELS[locale]
+        for locale in LOCALE_LABELS
+        if locale in target_locales
+    }
+    assert "en-US" not in request_payload["target_locales"]
+    assert "zh-CN" not in request_payload["target_locales"]
+
+
+@pytest.mark.parametrize(
+    "assistant_prompts",
+    [
+        {"fr-FR": LOCALIZED_PROMPTS["fr-FR"]},
+        {
+            "fr-FR": LOCALIZED_PROMPTS["fr-FR"],
+            "th-TH": LOCALIZED_PROMPTS["th-TH"],
+            "en-US": LOCALIZED_PROMPTS["en-US"],
+        },
+    ],
+    ids=["missing-selected-locale", "extra-existing-locale"],
+)
+def test_localizer_validates_exact_selected_locale_subset(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    assistant_prompts: dict[str, str],
+) -> None:
+    from flaskr.service.common import profile_onboarding_prompt as module
+
+    monkeypatch.setattr(module, "get_locale_labels", LOCALE_LABELS.copy)
+    monkeypatch.setattr(
+        module,
+        "invoke_llm",
+        lambda *_args, **_kwargs: [
+            SimpleNamespace(
+                result=_completed_response(
+                    source_locale="zh-CN",
+                    assistant_prompts=assistant_prompts,
+                )
+            )
+        ],
+    )
+
+    with pytest.raises(AppError):
+        module.localize_profile_onboarding_assistant_prompt(
+            app,
+            LOCALIZED_PROMPTS["zh-CN"],
+            target_locales={"fr-FR", "th-TH"},
+        )
+
+
 def test_localizer_accepts_source_locale_outside_the_supported_registry(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:

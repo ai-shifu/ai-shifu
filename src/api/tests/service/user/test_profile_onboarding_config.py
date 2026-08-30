@@ -26,7 +26,10 @@ def stub_compiler(monkeypatch: object) -> None:
     monkeypatch.setattr(
         module,
         "localize_profile_onboarding_assistant_prompt",
-        lambda _app, master_prompt: _localized_prompts(master_prompt),
+        lambda _app, master_prompt, *, target_locales=None: {
+            locale: f"{locale}: {master_prompt}"
+            for locale in (target_locales or get_i18n_list())
+        },
     )
 
 
@@ -67,6 +70,8 @@ def test_profile_onboarding_config_uses_runtime_validation(
         payload={
             "enabled": True,
             "markdownflow": document,
+            "assistant_prompt": "Use known facts to answer these questions.",
+            "config_revision": 4,
         },
         operator_user_bid="operator-1",
     )
@@ -86,6 +91,8 @@ def test_profile_onboarding_config_uses_runtime_validation(
 @pytest.mark.parametrize(
     ("payload", "field"),
     [
+        ({"markdownflow": "?[Continue]"}, "enabled"),
+        ({"enabled": False}, "markdownflow"),
         ({"enabled": "false", "markdownflow": "?[Continue]"}, "enabled"),
         ({"enabled": True, "markdownflow": ""}, "markdownflow"),
         ({"enabled": False, "markdownflow": []}, "markdownflow"),
@@ -108,6 +115,22 @@ def test_profile_onboarding_config_uses_runtime_validation(
                 "assistant_prompt": False,
             },
             "assistant_prompt",
+        ),
+        (
+            {
+                "enabled": False,
+                "markdownflow": "?[Continue]",
+                "config_revision": True,
+            },
+            "config_revision",
+        ),
+        (
+            {
+                "enabled": False,
+                "markdownflow": "?[Continue]",
+                "config_revision": -1,
+            },
+            "config_revision",
         ),
     ],
 )
@@ -286,38 +309,30 @@ def test_profile_onboarding_config_ignores_legacy_version_alias() -> None:
     assert result["revision"] == 0
 
 
-@pytest.mark.parametrize(
-    ("changed", "missing"), [(True, False), (False, True), (False, False)]
-)
-def test_saved_prompt_is_compiled_only_when_needed(
-    app: object, monkeypatch: object, changed: object, missing: object
+@pytest.mark.parametrize("changed", [True, False])
+def test_document_save_never_recompiles_complete_existing_prompt(
+    app: object, monkeypatch: object, changed: bool
 ) -> None:
+    from unittest.mock import Mock
+
     from flaskr.service.common import profile_onboarding as module
 
     document = "What helps you learn?\n\n?[...Your answer]"
     current = {
         "markdownflow": document,
-        "assistant_prompt": "" if missing else "Public prompt",
-        "assistant_prompts": {} if missing else _localized_prompts("Public prompt"),
+        "assistant_prompt": "Public prompt",
+        "assistant_prompts": _localized_prompts("Public prompt"),
         "revision": 8,
     }
-    calls = []
-    localization_calls = []
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    localizer = Mock()
     writes = []
     monkeypatch.setattr(
         module, "read_profile_onboarding_database", lambda _app: json.dumps(current)
     )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
     monkeypatch.setattr(
-        module,
-        "compile_profile_onboarding_assistant_prompt",
-        lambda _app, doc: calls.append(doc) or "Compiled prompt",
-    )
-    monkeypatch.setattr(
-        module,
-        "localize_profile_onboarding_assistant_prompt",
-        lambda _app, prompt: (
-            localization_calls.append(prompt) or _localized_prompts(prompt)
-        ),
+        module, "localize_profile_onboarding_assistant_prompt", localizer
     )
     monkeypatch.setattr(
         module,
@@ -327,17 +342,43 @@ def test_saved_prompt_is_compiled_only_when_needed(
     submitted = document + ("\n\nAnother question?\n\n?[...Answer]" if changed else "")
     response = module.update_profile_onboarding_config(
         app,
-        payload={"enabled": True, "markdownflow": submitted},
+        payload={
+            "enabled": True,
+            "markdownflow": submitted,
+            "config_revision": 8,
+        },
         operator_user_bid="operator",
     )
-    assert calls == ([submitted] if changed or missing else [])
-    assert localization_calls == (["Compiled prompt"] if changed or missing else [])
-    assert response["assistant_prompt"] == (
-        "Compiled prompt" if calls else "Public prompt"
-    )
+    compiler.assert_not_called()
+    localizer.assert_not_called()
+    assert response["assistant_prompt"] == "Public prompt"
     assert writes[0][0]["assistant_prompt"] == response["assistant_prompt"]
     assert writes[0][0]["assistant_prompts"] == response["assistant_prompts"]
     assert writes[0][1]["expected_value"] == json.dumps(current)
+
+
+def test_legacy_enabled_save_without_an_existing_prompt_is_rejected(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    publisher = Mock()
+    monkeypatch.setattr(module, "read_profile_onboarding_database", lambda _app: None)
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(module, "publish_profile_onboarding_database", publisher)
+
+    with pytest.raises(AppError, match="assistant_prompt"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={"enabled": True, "markdownflow": "?[...Answer]"},
+            operator_user_bid="operator",
+        )
+
+    compiler.assert_not_called()
+    publisher.assert_not_called()
 
 
 @pytest.mark.parametrize("enabled", [True, False])
@@ -380,13 +421,124 @@ def test_legacy_master_is_localized_on_next_ordinary_save(
     )
 
     compiler.assert_not_called()
-    localizer.assert_called_once_with(app, "Legacy master")
+    localizer.assert_called_once_with(
+        app,
+        "Legacy master",
+        target_locales=set(get_i18n_list()),
+    )
     assert response["assistant_prompt"] == "Legacy master"
     assert response["assistant_prompts"] == _localized_prompts("Legacy master")
     assert writes[0][0]["assistant_prompts"] == response["assistant_prompts"]
 
 
-def test_changed_document_regenerates_an_explicit_but_unchanged_master(
+def test_incomplete_localizations_fill_only_missing_supported_locales(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    document = "What helps you learn?\n\n?[...Your answer]"
+    current = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": document,
+            "assistant_prompt": "Stable master",
+            "assistant_prompts": {
+                "en-US": "Hand-edited English",
+                "retired-locale": "Do not retain",
+            },
+            "revision": 8,
+        }
+    )
+    missing_locales = set(get_i18n_list()) - {"en-US"}
+    generated = {locale: f"{locale}: Stable master" for locale in missing_locales}
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    localizer = Mock(return_value=generated)
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda *_args, **_kwargs: False,
+    )
+
+    response = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": True,
+            "markdownflow": document,
+            "assistant_prompt": "Stable master",
+            "config_revision": 8,
+        },
+        operator_user_bid="operator",
+    )
+
+    compiler.assert_not_called()
+    localizer.assert_called_once_with(
+        app,
+        "Stable master",
+        target_locales=missing_locales,
+    )
+    assert response["assistant_prompts"] == {
+        **generated,
+        "en-US": "Hand-edited English",
+    }
+    assert "retired-locale" not in response["assistant_prompts"]
+
+
+def test_config_revision_conflict_is_rejected_before_any_model_call(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    current = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": "?[...Current answer]",
+            "assistant_prompt": "Current prompt",
+            "assistant_prompts": _localized_prompts("Current prompt"),
+            "revision": 8,
+        }
+    )
+    compiler = Mock(side_effect=AssertionError("conflict must not compile"))
+    localizer = Mock(side_effect=AssertionError("conflict must not localize"))
+    publisher = Mock()
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+    monkeypatch.setattr(module, "publish_profile_onboarding_database", publisher)
+
+    with pytest.raises(AppError) as exc_info:
+        module.update_profile_onboarding_config(
+            app,
+            payload={
+                "enabled": True,
+                "markdownflow": "?[...Changed answer]",
+                "assistant_prompt": "Changed prompt",
+                "config_revision": 7,
+            },
+            operator_user_bid="operator",
+        )
+
+    assert exc_info.value.code == 4015
+    compiler.assert_not_called()
+    localizer.assert_not_called()
+    publisher.assert_not_called()
+
+
+def test_changed_document_preserves_explicit_unchanged_master(
     app: object, monkeypatch: object
 ) -> None:
     from unittest.mock import Mock
@@ -404,8 +556,8 @@ def test_changed_document_regenerates_an_explicit_but_unchanged_master(
             "revision": 8,
         }
     )
-    compiler = Mock(return_value="Recompiled prompt")
-    localizer = Mock(return_value=_localized_prompts("Recompiled prompt"))
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    localizer = Mock()
     monkeypatch.setattr(
         module, "read_profile_onboarding_database", lambda _app: current
     )
@@ -425,14 +577,15 @@ def test_changed_document_regenerates_an_explicit_but_unchanged_master(
             "enabled": True,
             "markdownflow": changed_document,
             "assistant_prompt": " Public prompt ",
+            "config_revision": 8,
         },
         operator_user_bid="operator",
     )
 
-    compiler.assert_called_once_with(app, changed_document)
-    localizer.assert_called_once_with(app, "Recompiled prompt")
-    assert response["assistant_prompt"] == "Recompiled prompt"
-    assert response["assistant_prompts"] == _localized_prompts("Recompiled prompt")
+    compiler.assert_not_called()
+    localizer.assert_not_called()
+    assert response["assistant_prompt"] == "Public prompt"
+    assert response["assistant_prompts"] == _localized_prompts("Public prompt")
 
 
 def test_disabling_unchanged_legacy_config_skips_prompt_initialization(
@@ -487,6 +640,102 @@ def test_disabling_unchanged_legacy_config_skips_prompt_initialization(
     assert writes[0][1]["expected_value"] == current
 
 
+def test_disabling_with_explicit_empty_prompt_clears_master_and_localizations(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    document = "What helps you learn?\n\n?[...Your answer]"
+    current = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": document,
+            "assistant_prompt": "Existing master",
+            "assistant_prompts": _localized_prompts("Existing master"),
+            "revision": 8,
+        }
+    )
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    localizer = Mock(side_effect=AssertionError("empty prompt must not localize"))
+    writes = []
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, **kwargs: writes.append((payload, kwargs)) or False,
+    )
+
+    response = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": False,
+            "markdownflow": document,
+            "assistant_prompt": "",
+            "config_revision": 8,
+        },
+        operator_user_bid="operator",
+    )
+
+    compiler.assert_not_called()
+    localizer.assert_not_called()
+    assert response["assistant_prompt"] == ""
+    assert response["assistant_prompts"] == {}
+    assert writes[0][0]["assistant_prompt"] == ""
+    assert writes[0][0]["assistant_prompts"] == {}
+
+
+def test_legacy_omitted_prompt_cannot_clear_document_with_an_existing_master(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    current = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "Existing master",
+            "assistant_prompts": _localized_prompts("Existing master"),
+            "revision": 8,
+        }
+    )
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    localizer = Mock(side_effect=AssertionError("invalid clear must not localize"))
+    publisher = Mock()
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+    monkeypatch.setattr(module, "save_profile_onboarding_config_payload", publisher)
+
+    with pytest.raises(AppError, match="assistant_prompt"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={
+                "enabled": False,
+                "markdownflow": "",
+                "config_revision": 8,
+            },
+            operator_user_bid="operator",
+        )
+
+    compiler.assert_not_called()
+    localizer.assert_not_called()
+    publisher.assert_not_called()
+
+
 def test_first_disabled_save_can_store_a_document_without_prompt_generation(
     app: object, monkeypatch: object
 ) -> None:
@@ -522,17 +771,56 @@ def test_first_disabled_save_can_store_a_document_without_prompt_generation(
     assert writes[0][0]["markdownflow"] == "?[...Your answer]"
 
 
-def test_compiler_failure_and_generated_size_never_publish(
+def test_explicit_generation_has_no_localization_or_persistence_side_effects(
     app: object, monkeypatch: object
 ) -> None:
+    from unittest.mock import Mock
+
     from flaskr.service.common import profile_onboarding as module
 
-    writes = []
-    monkeypatch.setattr(module, "read_profile_onboarding_database", lambda _app: None)
+    validated = []
+    compiler = Mock(return_value="Generated editable prompt")
+    localizer = Mock(side_effect=AssertionError("generation must not localize"))
+    publisher = Mock(side_effect=AssertionError("generation must not publish"))
+    database_reader = Mock(
+        side_effect=AssertionError("generation must not read config")
+    )
     monkeypatch.setattr(
         module,
-        "publish_profile_onboarding_database",
-        lambda *_args, **kwargs: writes.append(kwargs),
+        "validate_profile_onboarding_markdownflow",
+        lambda document: validated.append(document) or {"block_count": 1},
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+    monkeypatch.setattr(module, "publish_profile_onboarding_database", publisher)
+    monkeypatch.setattr(module, "read_profile_onboarding_database", database_reader)
+
+    result = module.generate_profile_onboarding_assistant_prompt(
+        app, markdownflow="  ?[...Answer]  "
+    )
+
+    assert result == {"assistant_prompt": "Generated editable prompt"}
+    assert validated == ["?[...Answer]"]
+    compiler.assert_called_once_with(app, "?[...Answer]")
+    localizer.assert_not_called()
+    publisher.assert_not_called()
+    database_reader.assert_not_called()
+
+
+def test_generation_failure_and_generated_size_never_publish(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    publisher = Mock()
+    localizer = Mock()
+    monkeypatch.setattr(module, "publish_profile_onboarding_database", publisher)
+    monkeypatch.setattr(
+        module, "localize_profile_onboarding_assistant_prompt", localizer
     )
 
     def fail(*_args: object) -> object:
@@ -541,23 +829,21 @@ def test_compiler_failure_and_generated_size_never_publish(
 
     monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", fail)
     with pytest.raises(RuntimeError, match="provider unavailable"):
-        module.update_profile_onboarding_config(
-            app,
-            payload={"enabled": True, "markdownflow": "?[...Answer]"},
-            operator_user_bid="operator",
+        module.generate_profile_onboarding_assistant_prompt(
+            app, markdownflow="?[...Answer]"
         )
     monkeypatch.setattr(
         module,
         "compile_profile_onboarding_assistant_prompt",
         lambda *_args: "测" * 22000,
     )
-    with pytest.raises(AppError, match="profile_onboarding_config"):
-        module.update_profile_onboarding_config(
-            app,
-            payload={"enabled": True, "markdownflow": "?[...Answer]"},
-            operator_user_bid="operator",
+    with pytest.raises(AppError) as exc_info:
+        module.generate_profile_onboarding_assistant_prompt(
+            app, markdownflow="?[...Answer]"
         )
-    assert writes == []
+    assert exc_info.value.code == 4014
+    publisher.assert_not_called()
+    localizer.assert_not_called()
 
 
 def test_localization_failure_never_publishes_partial_configuration(
@@ -573,17 +859,19 @@ def test_localization_failure_never_publishes_partial_configuration(
             "enabled": True,
             "markdownflow": document,
             "assistant_prompt": "Legacy master",
+            "assistant_prompts": {"en-US": "Existing English"},
             "revision": 8,
         }
     )
     publisher = Mock()
+    localizer = Mock(side_effect=RuntimeError("localization unavailable"))
     monkeypatch.setattr(
         module, "read_profile_onboarding_database", lambda _app: current
     )
     monkeypatch.setattr(
         module,
         "localize_profile_onboarding_assistant_prompt",
-        Mock(side_effect=RuntimeError("localization unavailable")),
+        localizer,
     )
     monkeypatch.setattr(module, "publish_profile_onboarding_database", publisher)
 
@@ -594,6 +882,11 @@ def test_localization_failure_never_publishes_partial_configuration(
             operator_user_bid="operator",
         )
 
+    localizer.assert_called_once_with(
+        app,
+        "Legacy master",
+        target_locales=set(get_i18n_list()) - {"en-US"},
+    )
     publisher.assert_not_called()
 
 
@@ -823,7 +1116,7 @@ def test_explicit_assistant_prompt_bypasses_master_compilation_and_localizes(
 
 
 @pytest.mark.parametrize("explicit_prompt", ["", " \n\t "])
-def test_clearing_assistant_prompt_regenerates_unchanged_markdownflow(
+def test_enabled_save_rejects_cleared_assistant_prompt_without_regeneration(
     app: object, monkeypatch: object, explicit_prompt: str
 ) -> None:
     from unittest.mock import Mock
@@ -837,8 +1130,9 @@ def test_clearing_assistant_prompt_regenerates_unchanged_markdownflow(
             "revision": 8,
         }
     )
-    compiler = Mock(return_value="Regenerated wording")
-    localizer = Mock(return_value=_localized_prompts("Regenerated wording"))
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    localizer = Mock(side_effect=AssertionError("empty prompt must not localize"))
+    publisher = Mock()
     monkeypatch.setattr(
         module, "read_profile_onboarding_database", lambda _app: current
     )
@@ -846,24 +1140,21 @@ def test_clearing_assistant_prompt_regenerates_unchanged_markdownflow(
     monkeypatch.setattr(
         module, "localize_profile_onboarding_assistant_prompt", localizer
     )
-    monkeypatch.setattr(
-        module,
-        "save_profile_onboarding_config_payload",
-        lambda *_args, **_kwargs: False,
-    )
-    result = module.update_profile_onboarding_config(
-        app,
-        payload={
-            "enabled": True,
-            "markdownflow": "?[...Answer]",
-            "assistant_prompt": explicit_prompt,
-        },
-        operator_user_bid="operator",
-    )
-    compiler.assert_called_once_with(app, "?[...Answer]")
-    localizer.assert_called_once_with(app, "Regenerated wording")
-    assert result["assistant_prompt"] == "Regenerated wording"
-    assert result["assistant_prompts"] == _localized_prompts("Regenerated wording")
+    monkeypatch.setattr(module, "save_profile_onboarding_config_payload", publisher)
+    with pytest.raises(AppError, match="assistant_prompt"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={
+                "enabled": True,
+                "markdownflow": "?[...Answer]",
+                "assistant_prompt": explicit_prompt,
+                "config_revision": 8,
+            },
+            operator_user_bid="operator",
+        )
+    compiler.assert_not_called()
+    localizer.assert_not_called()
+    publisher.assert_not_called()
 
 
 def test_manual_assistant_prompt_obeys_complete_utf8_json_limit(
@@ -930,7 +1221,7 @@ def test_manual_assistant_prompt_obeys_complete_utf8_json_limit(
         ("stop", True, "prompt"),
     ],
 )
-def test_compiler_rejects_incomplete_output_without_publishing(
+def test_generation_rejects_incomplete_output_without_publishing(
     app: object,
     monkeypatch: object,
     finish_reason: str | None,
@@ -943,14 +1234,6 @@ def test_compiler_rejects_incomplete_output_without_publishing(
     from flaskr.service.common import profile_onboarding as config
     from flaskr.service.common import profile_onboarding_prompt as compiler
 
-    previous = json.dumps(
-        {
-            "enabled": True,
-            "markdownflow": "?[...Previous question]",
-            "assistant_prompt": "Previously published prompt",
-            "revision": 7,
-        }
-    )
     stream_finished = []
 
     def invoke(*_args: object, **_kwargs: object) -> object:
@@ -979,18 +1262,12 @@ def test_compiler_rejects_incomplete_output_without_publishing(
         "compile_profile_onboarding_assistant_prompt",
         compiler.compile_profile_onboarding_assistant_prompt,
     )
-    monkeypatch.setattr(
-        config, "read_profile_onboarding_database", lambda _app: previous
-    )
     monkeypatch.setattr(config, "publish_profile_onboarding_database", publisher)
-    payload = {"enabled": True, "markdownflow": "?[...New question]"}
     with pytest.raises(AppError):
-        config.update_profile_onboarding_config(
-            app, payload=payload, operator_user_bid="operator"
+        config.generate_profile_onboarding_assistant_prompt(
+            app, markdownflow="?[...New question]"
         )
     publisher.assert_not_called()
-    assert config.read_profile_onboarding_database(app) == previous
-    assert payload == {"enabled": True, "markdownflow": "?[...New question]"}
     assert stream_finished == [True]
 
 

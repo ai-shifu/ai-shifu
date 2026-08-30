@@ -33,6 +33,9 @@ describe('profile onboarding api definitions', () => {
     expect(api.updateAdminOperationProfileOnboardingConfig).toBe(
       'POST /shifu/admin/operations/profile-onboarding',
     );
+    expect(api.generateAdminOperationProfileOnboardingAssistantPrompt).toBe(
+      'POST /shifu/admin/operations/profile-onboarding/assistant-prompt/generate',
+    );
     expect(api.createAdminOperationProfileOnboardingPreview).toBe(
       'POST /shifu/admin/operations/profile-onboarding/preview',
     );
