@@ -42,7 +42,9 @@ describe('StripeResultPage analytics contract', () => {
     mockTrackEvent.mockReset();
     mockGetPaymentDetail.mockReset();
     mockSyncStripeCheckout.mockReset();
-    mockSearchParams.forEach((_, key) => mockSearchParams.delete(key));
+    Array.from(mockSearchParams.keys()).forEach(key =>
+      mockSearchParams.delete(key),
+    );
   });
 
   it('records one successful terminal result with stable identifiers', async () => {
