@@ -41,21 +41,24 @@ intents while organizing them into a clear sequence based on the source. Do not
 constrain the questions with source answer formats or suggested responses.
 
 After all source-derived questions, add exactly one separate broad, open-ended
-closing question. It must invite any other information I have explicitly shared
-that could help my teacher teach me better. Do not attach categories, choices,
-examples, or suggested answers to this question. Do not add any other
-source-independent questions.
+closing question. It must invite any other non-sensitive information I have
+explicitly shared that could help my teacher teach me better. The closing
+question must not solicit sensitive personal information, even if I have
+explicitly shared it. Do not attach categories, choices, examples, or suggested
+answers to this question. Do not add any other source-independent questions.
 
 ## Answer requirements
 
 Ask the AI assistant to answer only from information I have explicitly shared
-with it. It may omit anything unknown or anything I would rather not share. It
-must not guess, invent missing details, infer sensitive traits, or require
-follow-up questions before answering. A partial response is acceptable.
+with it. Require the response to omit sensitive personal information, even if I
+have explicitly shared it. It may omit anything unknown or anything I would
+rather not share. It must not guess, invent missing details, infer sensitive
+traits, or require follow-up questions before answering. A partial response is
+acceptable.
 
 Keep information associated with distinct source intents distinguishable in
-the requested response. Any explicitly known item remains valid even when it
-is the only available information.
+the requested response. Any explicitly known item that satisfies these
+requirements remains valid even when it is the only available information.
 
 Request a concise, readable, first-person self-introduction that I can inspect
 and give directly to my teacher. The response must synthesize the available

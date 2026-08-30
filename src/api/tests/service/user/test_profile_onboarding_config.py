@@ -710,13 +710,26 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
     assert (
         "add exactly one separate broad, open-ended closing question" in system_prompt
     )
+    assert (
+        "invite any other non-sensitive information I have explicitly shared"
+        in system_prompt
+    )
+    assert (
+        "The closing question must not solicit sensitive personal information, "
+        "even if I have explicitly shared it" in system_prompt
+    )
     assert "Do not add any other source-independent questions" in system_prompt
     assert "introduce myself as a student to my teacher" in system_prompt
     assert "teacher can teach me better" in system_prompt
     assert "first-person self-introduction that I can inspect" in system_prompt
     assert "rather than return a questionnaire or a list of answers" in system_prompt
     assert "answer only from information I have explicitly shared" in system_prompt
+    assert (
+        "Require the response to omit sensitive personal information, "
+        "even if I have explicitly shared it" in system_prompt
+    )
     assert "distinct source intents distinguishable" in system_prompt
+    assert "explicitly known item that satisfies these requirements" in system_prompt
     assert (
         "Return exactly one JSON object with two fields in this order" in system_prompt
     )
