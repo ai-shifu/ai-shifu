@@ -158,6 +158,52 @@ describe('SessionManagerModal', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith('session_revoked_others', {});
   });
 
+  it('reports no outcome when a revoke fails', async () => {
+    (apiService.revokeSession as jest.Mock).mockRejectedValue(
+      new Error('server said no'),
+    );
+
+    render(
+      <SessionManagerModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText('module.settings.sessionsRevoke'),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText('module.settings.sessionsRevoke'));
+
+    await waitFor(() => expect(mockToast).toHaveBeenCalled());
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'session_revoked',
+      expect.anything(),
+    );
+  });
+
+  it('keeps session identifiers out of analytics', async () => {
+    (apiService.revokeSession as jest.Mock).mockResolvedValue({ revoked: 1 });
+
+    render(
+      <SessionManagerModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText('module.settings.sessionsRevoke'),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText('module.settings.sessionsRevoke'));
+
+    await waitFor(() => expect(mockTrackEvent).toHaveBeenCalled());
+    // A session id names a live credential's row; it must not reach analytics.
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('bid-cli');
+  });
+
   it('reports a load failure instead of showing an empty list', async () => {
     (apiService.listSessions as jest.Mock).mockRejectedValue(
       new Error('network down'),
