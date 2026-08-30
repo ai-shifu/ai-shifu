@@ -35,6 +35,10 @@ migration explicitly replaces them.
   this host has no Docker-compatible CLI or daemon for a local image build.
 - [x] 2026-08-30 12:13 CST: Completed the final stale-path and diff audit,
   including independent review of migration compatibility and allowlists.
+- [x] 2026-08-30 13:24 CST: Verified the pull-request runtime harness with real
+  Compose rendering, image builds, stack startup, endpoint readiness, and a
+  Playwright smoke test; updated the path harness to tolerate ignored artifacts
+  left by existing checkouts while continuing to reject tracked legacy paths.
 
 ## Surprises & Discoveries
 
@@ -46,6 +50,15 @@ migration explicitly replaces them.
   repository checkers, and long-lived documentation, so a filesystem-only move
   would cause silent CI skips and broken contributor commands.
   Evidence: the initial tracked scan found 121 files containing the exact path.
+- Observation: Git can leave ignored `.env`, `node_modules`, or build output in
+  `src/cook-web` after applying the tracked rename to an existing checkout.
+  Evidence: the repository harness passes with an ignored legacy
+  `node_modules` directory present and still rejects tracked legacy paths.
+- Observation: GitHub CodeQL identifies alerts by path, so the directory rename
+  surfaced four existing high-severity alerts as new even though the relevant
+  blobs are unchanged.
+  Evidence: the four branch alerts exactly match open default-branch alerts by
+  rule, message, location, and source blob; the PR documents this relocation.
 
 ## Decision Log
 
@@ -84,22 +97,23 @@ cases proved `.env` copying and dependency reuse. The private npm package name
 remains `cook-web` so old and new lockfiles stay byte-identical and existing
 `node_modules` can be reused safely.
 
-The repository harness now rejects a missing `src/web`, any reintroduced old
-directory or tracked filename, and every unapproved old-path occurrence. The
-two required compatibility surfaces are checked by exact line and occurrence
-count, so deleting a needed fallback or hiding a new stale path in the same
-file both fail validation.
+The repository harness now rejects a missing `src/web`, any reintroduced
+tracked legacy path or filename, and every unapproved old-path occurrence. It
+intentionally tolerates ignored legacy artifacts left by existing checkouts.
+The two required compatibility surfaces are checked by exact line and
+occurrence count, so deleting a needed fallback or hiding a new stale path in
+the same file both fail validation.
 
 Verification passed for the full pre-commit hook suite, repository harness,
 architecture fixtures and baseline, YAML/JSON syntax, embedded release Python,
 translation usage, generator determinism, frontend formatting, linting, type
 checking, all 185 Jest suites (1,667 tests), the optimized production build,
 and the runnable browser-only Playwright case through the standard
-`npm run test:e2e` entry. The authenticated runtime-harness smoke flow and a
-local Compose render/image build were not runnable because this host has no
-Docker-compatible CLI or daemon; all referenced Compose files, Dockerfiles,
-contexts, manifests, and copied paths were nevertheless verified to exist and
-the CI definitions that run those checks now point to `src/web`.
+`npm run test:e2e` entry. This host has no Docker-compatible CLI or daemon, so
+the local Docker checks used static path closure. The pull-request runtime
+harness subsequently passed real Compose rendering, cached image builds, full
+stack startup, endpoint readiness, and the browser smoke flow against
+`src/web`.
 
 ## Context and Orientation
 
@@ -150,7 +164,8 @@ own generators rather than hand-maintained independently.
 
 The migration is accepted only when all of the following are true:
 
-- `src/web/` exists and `src/cook-web/` does not.
+- `src/web/` exists and no tracked file remains under `src/cook-web/`; ignored
+  local artifacts left by an existing checkout do not invalidate the commit.
 - No tracked file or tracked filename contains a stale `src/cook-web` path
   outside the explicitly documented source-checkout compatibility fallback,
   historical release-tag fallback, and this migration record.
