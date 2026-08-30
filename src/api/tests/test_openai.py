@@ -156,7 +156,8 @@ def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object) -> Non
         usage = FakeUsage(prompt_tokens=5, completion_tokens=4, total_tokens=9)
         chunks = [
             FakeResponse("chunk-1", content="Hello "),
-            FakeResponse("chunk-2", content="world", finish_reason="stop", usage=usage),
+            FakeResponse("chunk-2", content="world"),
+            FakeResponse("chunk-3", finish_reason="stop", usage=usage),
         ]
         return iter(chunks)
 
@@ -194,15 +195,30 @@ def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object) -> Non
     assert span.end_args is not None
 
 
-def test_invoke_llm_preserves_empty_terminal_length_chunk(
-    monkeypatch: object, app: object
+@pytest.mark.parametrize(
+    ("finish_reason", "terminal_content"),
+    [
+        ("length", None),
+        ("content_filter", None),
+        ("content_filter", "Filtered tail"),
+    ],
+)
+def test_invoke_llm_preserves_incomplete_terminal_metadata(
+    monkeypatch: object,
+    app: object,
+    finish_reason: str,
+    terminal_content: str | None,
 ) -> None:
     def fake_completion(*args: object, **kwargs: object) -> object:
         _ = args, kwargs
         return iter(
             [
                 FakeResponse("chunk-1", content="Partial response"),
-                FakeResponse("chunk-2", finish_reason="length"),
+                FakeResponse(
+                    "chunk-2",
+                    content=terminal_content,
+                    finish_reason=finish_reason,
+                ),
             ]
         )
 
@@ -226,12 +242,16 @@ def test_invoke_llm_preserves_empty_terminal_length_chunk(
             span=span,
             model="gpt-test",
             message="Generate a response",
-            generation_name="terminal-length-test",
+            generation_name="incomplete-terminal-test",
         )
     )
 
-    assert [response.result for response in responses] == ["Partial response", ""]
+    expected_terminal_content = terminal_content or ""
+    assert [response.result for response in responses] == [
+        "Partial response",
+        expected_terminal_content,
+    ]
     assert responses[-1].is_end is True
     assert responses[-1].is_truncated is True
-    assert responses[-1].finish_reason == "length"
-    assert span.end_args["output"] == "Partial response"
+    assert responses[-1].finish_reason == finish_reason
+    assert span.end_args["output"] == f"Partial response{expected_terminal_content}"

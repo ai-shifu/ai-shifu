@@ -258,7 +258,7 @@ def test_localizer_rejects_an_ambiguous_source_primary_locale(
 
 @pytest.mark.parametrize(
     ("finish_reason", "is_truncated"),
-    [("length", False), ("stop", True)],
+    [("length", False), ("content_filter", True), ("stop", True)],
 )
 def test_localizer_rejects_truncation_after_consuming_the_stream(
     app: object,

@@ -899,6 +899,8 @@ def test_manual_assistant_prompt_obeys_complete_utf8_json_limit(
     ("finish_reason", "is_truncated", "tail"),
     [
         ("length", False, ""),
+        ("content_filter", True, ""),
+        ("content_filter", True, "filtered"),
         ("stop", True, "prompt"),
     ],
 )

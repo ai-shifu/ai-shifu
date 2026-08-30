@@ -126,6 +126,7 @@ MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
 PROVIDER_STATES: dict[str, ProviderState] = {}
 MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
+_INCOMPLETE_FINISH_REASONS = frozenset({"content_filter", "length"})
 
 
 def _log(level: str, message: str) -> None:
@@ -1116,11 +1117,12 @@ def invoke_llm(
                 content = choice.delta.content or ""
                 if content:
                     response_text += content
-                if content or choice.finish_reason == "length":
+                is_truncated = choice.finish_reason in _INCOMPLETE_FINISH_REASONS
+                if content or is_truncated:
                     yield LLMStreamResponse(
                         res.id,
                         bool(choice.finish_reason),
-                        is_truncated=choice.finish_reason == "length",
+                        is_truncated=is_truncated,
                         result=content,
                         finish_reason=choice.finish_reason,
                         usage=None,
