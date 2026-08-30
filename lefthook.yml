@@ -79,7 +79,7 @@ pre-commit:
 
     # --- Repo guardrails (stdlib python, run once; glob only gates whether) ---
     check-repo-harness:
-      glob: "{.gitignore,.codex/**,AGENTS.md,CLAUDE.md,ARCHITECTURE.md,PLANS.md,docs/**,.claude/**,.cursor/**,.github/**,lefthook.yml,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/check_ai_collab_docs.py,scripts/generate_ai_collab_docs.py}"
+      glob: "{.gitignore,.codex/**,AGENTS.md,CLAUDE.md,ARCHITECTURE.md,INSTALL_MANUAL.md,PLANS.md,README.md,docs/**,.claude/**,.cursor/**,.github/**,lefthook.yml,src/web/Dockerfile,src/web/README.md,src/web/package.json,src/web/scripts/migrate-legacy-frontend-env.js,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/check_ai_collab_docs.py,scripts/generate_ai_collab_docs.py}"
       run: python3 scripts/check_repo_harness.py
     check-example-identifiers:
       run: python3 scripts/check_example_identifiers.py --staged

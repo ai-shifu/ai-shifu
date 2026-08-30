@@ -20,17 +20,6 @@ copy_local_env() {
   fi
 }
 
-copy_first_local_env() {
-  target_file="$1"
-  shift
-  for source_file in "$@"; do
-    if [ -f "$source_file" ]; then
-      copy_local_env "$source_file" "$target_file"
-      return
-    fi
-  done
-}
-
 reuse_directory_if_compatible() {
   source_directory="$1"
   target_directory="$2"
@@ -78,10 +67,10 @@ if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
   target_frontend_directory="$worktree_path/src/web"
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
-  copy_first_local_env \
-    "$target_frontend_directory/.env" \
-    "$current_frontend_directory/.env" \
-    "$legacy_frontend_directory/.env"
+  node "$target_frontend_directory/scripts/migrate-legacy-frontend-env.js" \
+    --target "$target_frontend_directory" \
+    --source "$current_frontend_directory" \
+    --source "$legacy_frontend_directory"
   reuse_directory_if_compatible \
     "$source_tree/.venv" \
     "$worktree_path/.venv" \
@@ -108,17 +97,6 @@ copy_local_env() {
   fi
 }
 
-copy_first_local_env() {
-  target_file="$1"
-  shift
-  for source_file in "$@"; do
-    if [ -f "$source_file" ]; then
-      copy_local_env "$source_file" "$target_file"
-      return
-    fi
-  done
-}
-
 reuse_directory_if_compatible() {
   source_directory="$1"
   target_directory="$2"
@@ -166,10 +144,10 @@ if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
   target_frontend_directory="$worktree_path/src/web"
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
-  copy_first_local_env \
-    "$target_frontend_directory/.env" \
-    "$current_frontend_directory/.env" \
-    "$legacy_frontend_directory/.env"
+  node "$target_frontend_directory/scripts/migrate-legacy-frontend-env.js" \
+    --target "$target_frontend_directory" \
+    --source "$current_frontend_directory" \
+    --source "$legacy_frontend_directory"
   reuse_directory_if_compatible \
     "$source_tree/.venv" \
     "$worktree_path/.venv" \

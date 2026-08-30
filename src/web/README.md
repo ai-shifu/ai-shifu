@@ -14,6 +14,12 @@ pnpm dev
 bun dev
 ```
 
+The `dev` and `build` scripts safely copy a legacy checkout's local frontend
+environment configuration when `src/web` has no env configuration yet. They
+never combine configuration sets or overwrite an existing new-path env file.
+If the helper reports legacy dependencies, run `npm ci` from this directory;
+dependencies are rebuilt rather than migrated.
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## Authentication configuration

@@ -53,6 +53,16 @@ migration explicitly replaces them.
 - [x] 2026-08-30 14:41 CST: Extended the local repository-harness hook trigger
   to cover `.gitignore`, `.codex` environment changes, and `lefthook.yml`, so
   future edits to the migration compatibility surfaces cannot skip the check.
+- [x] 2026-08-30 15:19 CST: Added one zero-dependency migration helper for
+  ignored frontend `.env*` files left by an in-place directory upgrade, wired
+  it through development, production builds, Cursor, Codex worktrees, and the
+  manual installation path, and covered its config-set semantics with focused
+  regression tests and repository-harness contracts.
+- [x] 2026-08-30 15:27 CST: Rebased onto `origin/main` at `011a4abc4`, proved
+  all six frontend source/test blobs and the lockfile from the newly merged
+  multilingual typewriter change were preserved exactly under `src/web`, then
+  reinstalled the 0.2.20 dependency set and reran the full frontend and
+  production-build gates.
 
 ## Surprises & Discoveries
 
@@ -68,6 +78,12 @@ migration explicitly replaces them.
   `src/cook-web` after applying the tracked rename to an existing checkout.
   Evidence: the repository harness passes with an ignored legacy
   `node_modules` directory present and still rejects tracked legacy paths.
+- Observation: cross-worktree setup does not protect an ordinary checkout that
+  pulls the rename in place, and a missing frontend env file can silently
+  change runtime behavior while missing dependencies fail visibly.
+  Evidence: the active PR review reproduced the in-place gap; the canonical
+  `dev` and `build` entry points now run the shared env migration helper, while
+  a legacy-only `node_modules` directory produces an explicit `npm ci` hint.
 - Observation: ignored artifacts such as `.next`, `.vercel`, and Playwright
   output previously inherited rules from the frontend-local `.gitignore`; once
   that tracked file moves, artifacts left in the old directory lose those
@@ -109,6 +125,12 @@ migration explicitly replaces them.
   Rationale: contributor-facing automation should match `src/web` clearly,
   but externally consumed names require backwards compatibility.
   Date/Author: 2026-08-30 / Codex
+- Decision: migrate local frontend runtime env files as one configuration set
+  and never migrate `node_modules` during an in-place upgrade.
+  Rationale: mixing new- and old-path env files can change Next.js precedence
+  without overwriting a filename, while dependencies can be recreated safely
+  and should not carry stale platform-specific artifacts into the new path.
+  Date/Author: 2026-08-30 / Codex
 
 ## Outcomes & Retrospective
 
@@ -122,17 +144,21 @@ The first release after this migration can still compare its MarkdownFlow UI
 pin against a pre-migration tag: `prepare-release.yml` tries the new lockfile
 path first and then the exact historical path. Codex worktree setup accepts
 current, pre-migration, and upgraded source checkouts while always targeting
-`src/web`. It resolves `.env` and `node_modules` independently, so ignored
-assets left at the legacy path are still copied or reused after Git moves the
-tracked frontend. Ten durable Darwin/Linux fixtures cover current, legacy,
-upgraded, and mixed-asset layouts. The private npm package name remains
-`cook-web` so old and new lockfiles stay byte-identical and existing
-`node_modules` can be reused safely.
+`src/web`. The same zero-dependency helper also protects ordinary in-place
+upgrades: when the new path has no supported runtime env file, it copies one
+complete source configuration set with permissions preserved and retains the
+source for rollback. It never mixes sources or overwrites any occupied target
+set, including a dangling symlink. `node_modules` remains an independent,
+manifest-checked Codex worktree optimization; in-place upgrades receive a
+clear `cd src/web && npm ci` hint instead of migrating stale dependencies. Ten
+durable Darwin/Linux fixtures cover current, legacy, upgraded, and mixed-asset
+layouts. The private npm package name remains `cook-web` so old and new
+lockfiles stay byte-identical and compatible dependencies can be reused safely.
 
 The repository harness now rejects a missing `src/web`, any reintroduced
 tracked legacy path or filename, and every unapproved old-path occurrence. It
 intentionally tolerates ignored legacy artifacts left by existing checkouts.
-The three required compatibility surfaces are checked by exact line and
+The five required compatibility surfaces are checked by exact line and
 occurrence count, so deleting a needed fallback or hiding a new stale path in
 the same file both fail validation. Narrow root ignore rules retain the former
 frontend-local treatment of generated and machine-local artifacts without
@@ -141,14 +167,15 @@ file, nested bare `.pnp`, and the four Yarn exception directories remain
 visible.
 
 The local pre-commit trigger includes the ignore rules, Codex environment
-setup, and its own lefthook configuration in addition to the existing harness
+setup, manual and frontend guidance, frontend package and migration inputs,
+and its own lefthook configuration in addition to the existing harness
 sources. Future changes to any of the legacy-checkout compatibility inputs now
 run the same path-contract validation locally that CI runs.
 
 Verification passed for the full pre-commit hook suite, repository harness,
 architecture fixtures and baseline, YAML/JSON syntax, embedded release Python,
 translation usage, generator determinism, frontend formatting, linting, type
-checking, all 186 Jest suites (1,698 tests), the optimized production build,
+checking, all 187 Jest suites (1,705 tests), the optimized production build,
 and the runnable browser-only Playwright case through the standard
 `npm run test:e2e` entry. This host has no Docker-compatible CLI or daemon, so
 the local Docker checks used static path closure. The pull-request runtime

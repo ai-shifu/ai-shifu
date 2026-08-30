@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -34,6 +36,9 @@ from generate_ai_collab_docs import (
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = ROOT / "src" / "web"
+FRONTEND_ENV_MIGRATION_SCRIPT = (
+    FRONTEND_ROOT / "scripts" / "migrate-legacy-frontend-env.js"
+)
 CODEX_ENVIRONMENT = ROOT / ".codex" / "environments" / "environment.toml"
 LEGACY_FRONTEND_PATH = "src/" + "cook-web"
 LEGACY_FRONTEND_FILENAME_TOKEN = "cook-" + "web"
@@ -65,12 +70,19 @@ LEGACY_FRONTEND_IGNORE_PATTERNS = (
     f"{LEGACY_FRONTEND_PATH}/**/.eslintcache",
 )
 LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST = {
+    Path("INSTALL_MANUAL.md"): {
+        "If an existing checkout still has ignored frontend env files under "
+        f"`{LEGACY_FRONTEND_PATH}/`,": 1,
+    },
     Path(".gitignore"): dict.fromkeys(LEGACY_FRONTEND_IGNORE_PATTERNS, 1),
     Path(".codex/environments/environment.toml"): {
         f'legacy_frontend_directory="$source_tree/{LEGACY_FRONTEND_PATH}"': 2,
     },
     Path(".github/workflows/prepare-release.yml"): {
         f'"legacy_path": "{LEGACY_FRONTEND_PATH}/package-lock.json",': 1,
+    },
+    Path("src/web/scripts/migrate-legacy-frontend-env.js"): {
+        f"const LEGACY_FRONTEND_RELATIVE_PATH = '{LEGACY_FRONTEND_PATH}';": 1,
     },
 }
 LEGACY_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
@@ -418,8 +430,62 @@ def check_frontend_path_contract(errors: list[str]) -> None:
             )
 
 
+def check_frontend_env_migration_contract(errors: list[str]) -> None:
+    """Keep in-place env migration wired into safe development entry points."""
+    package_path = FRONTEND_ROOT / "package.json"
+    try:
+        package = json.loads(package_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        errors.append(f"Unable to load frontend package scripts: {error}")
+        return
+
+    scripts = package.get("scripts", {})
+    expected_scripts = {
+        "migrate:legacy-env": "node scripts/migrate-legacy-frontend-env.js",
+        "dev": ("node scripts/migrate-legacy-frontend-env.js && next dev --turbopack"),
+        "build": "node scripts/migrate-legacy-frontend-env.js && next build",
+    }
+    for script_name, expected_command in expected_scripts.items():
+        if scripts.get(script_name) != expected_command:
+            errors.append(
+                f"Frontend package script '{script_name}' must be '{expected_command}'"
+            )
+
+    prestart = scripts.get("prestart", "")
+    if any(
+        migration_reference in prestart
+        for migration_reference in (
+            "migrate:legacy-env",
+            "migrate-legacy-frontend-env.js",
+        )
+    ):
+        errors.append(
+            "Frontend prestart must not invoke the local env migration helper; "
+            "the production runner image does not include development scripts"
+        )
+
+    run_web_path = ROOT / ".cursor" / "run-web.sh"
+    try:
+        run_web = run_web_path.read_text(encoding="utf-8")
+    except OSError as error:
+        errors.append(f"Unable to load Cursor frontend launcher: {error}")
+        return
+    if "exec npm run dev -- -H 0.0.0.0 -p 3000" not in run_web:
+        errors.append(
+            f"{run_web_path} must launch through 'npm run dev' so the shared "
+            "helper migrates legacy frontend env files"
+        )
+
+
 def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
     """Exercise current, legacy, and upgraded Codex source checkout layouts."""
+    if not FRONTEND_ENV_MIGRATION_SCRIPT.is_file():
+        errors.append(
+            f"Missing frontend environment migration helper: "
+            f"{FRONTEND_ENV_MIGRATION_SCRIPT}"
+        )
+        return
+
     try:
         environment = tomllib.loads(CODEX_ENVIRONMENT.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as error:
@@ -470,6 +536,11 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                 worktree = fixture_root / "worktree"
                 target_frontend = worktree / current_frontend
                 target_frontend.mkdir(parents=True)
+                target_migration_script = (
+                    target_frontend / "scripts" / FRONTEND_ENV_MIGRATION_SCRIPT.name
+                )
+                target_migration_script.parent.mkdir()
+                shutil.copy2(FRONTEND_ENV_MIGRATION_SCRIPT, target_migration_script)
 
                 lockfile_content = "compatible-lockfile\n"
                 target_manifest = target_frontend / "package-lock.json"
@@ -479,9 +550,14 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                 source_manifest.parent.mkdir(parents=True, exist_ok=True)
                 source_manifest.write_text(lockfile_content, encoding="utf-8")
 
-                source_env = source_tree / env_directory / ".env"
-                source_env.parent.mkdir(parents=True, exist_ok=True)
-                source_env.write_text(f"FIXTURE={fixture_name}\n", encoding="utf-8")
+                source_envs: dict[str, Path] = {}
+                for env_filename in (".env", ".env.local"):
+                    source_env = source_tree / env_directory / env_filename
+                    source_env.parent.mkdir(parents=True, exist_ok=True)
+                    source_env.write_text(
+                        f"FIXTURE={fixture_name}:{env_filename}\n", encoding="utf-8"
+                    )
+                    source_envs[env_filename] = source_env
 
                 source_modules = source_tree / modules_directory / "node_modules"
                 source_modules.mkdir(parents=True, exist_ok=True)
@@ -518,11 +594,14 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                     )
                     continue
 
-                target_env = target_frontend / ".env"
-                if not target_env.is_file() or target_env.read_text(
-                    encoding="utf-8"
-                ) != source_env.read_text(encoding="utf-8"):
-                    errors.append(f"{fixture_label} did not copy the expected .env")
+                for env_filename, source_env in source_envs.items():
+                    target_env = target_frontend / env_filename
+                    if not target_env.is_file() or target_env.read_text(
+                        encoding="utf-8"
+                    ) != source_env.read_text(encoding="utf-8"):
+                        errors.append(
+                            f"{fixture_label} did not copy the expected {env_filename}"
+                        )
 
                 target_modules = target_frontend / "node_modules"
                 if not target_modules.is_symlink():
@@ -672,6 +751,7 @@ def main() -> int:
     check_manual_rules(errors)
     check_root_docs(errors)
     check_frontend_path_contract(errors)
+    check_frontend_env_migration_contract(errors)
     check_codex_frontend_asset_reuse(errors)
     check_legacy_frontend_artifact_ignores(errors)
     check_frontmatter_docs(errors)
