@@ -1905,6 +1905,9 @@ describe('BillingOverviewTab', () => {
     expect(mockTrackEvent.mock.invocationCallOrder[0]).toBeLessThan(
       mockCheckoutBillingSubscription.mock.invocationCallOrder[0],
     );
+    expect(mockTrackEvent.mock.invocationCallOrder[1]).toBeLessThan(
+      mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0],
+    );
     for (const [, payload] of mockTrackEvent.mock.calls) {
       expect(payload).not.toHaveProperty('display_name');
       expect(payload).not.toHaveProperty('description');

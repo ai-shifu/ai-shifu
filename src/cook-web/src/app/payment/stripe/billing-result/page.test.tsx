@@ -345,10 +345,29 @@ describe('StripeBillingResultPage', () => {
     expect(await screen.findByText('Payment confirmed')).toBeInTheDocument();
   });
 
-  test.each(['failed', 'canceled', 'timeout', 'refunded', 'unknown'])(
-    'does not show success when sync returns %s',
+  test('reports refunded as a terminal failure', async () => {
+    mockSearchParams.set('bill_order_bid', 'bill-order-refunded');
+    mockSearchParams.set('session_id', 'sess-refunded');
+    mockRequestPost.mockResolvedValue({ status: 'refunded' });
+
+    render(<StripeBillingResultPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Billing sync failed' }),
+    ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'bill-order-refunded',
+        outcome: 'failed',
+        failure_category: 'payment_failed',
+      }),
+    );
+  });
+
+  test.each(['failed', 'canceled', 'timeout', 'unknown'])(
+    'keeps the recoverable %s state non-terminal',
     async status => {
-      jest.useFakeTimers();
       mockSearchParams.set('bill_order_bid', `bill-order-${status}`);
       mockSearchParams.set('session_id', `sess-${status}`);
       mockRequestPost.mockResolvedValue({ status });
@@ -361,27 +380,63 @@ describe('StripeBillingResultPage', () => {
       expect(screen.queryByText('Billing updated')).not.toBeInTheDocument();
       expect(screen.queryByText('Payment confirmed')).not.toBeInTheDocument();
       expect(mockMutateSWRCache).not.toHaveBeenCalled();
-      if (status === 'canceled') {
-        expect(mockTrackEvent).toHaveBeenCalledWith(
-          'creator_billing_checkout_result',
-          expect.objectContaining({ outcome: 'cancelled' }),
-        );
-      } else {
-        expect(mockTrackEvent).toHaveBeenCalledWith(
-          'creator_billing_checkout_result',
-          expect.objectContaining({
-            outcome: 'failed',
-            failure_category:
-              status === 'unknown' ? 'unexpected_status' : 'payment_failed',
-          }),
-        );
-      }
-
-      await act(async () => {
-        jest.advanceTimersByTime(3000);
-      });
-
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_billing_checkout_status',
+        {
+          payment_provider: 'stripe',
+          source_surface: 'stripe_return',
+          bill_order_bid: `bill-order-${status}`,
+          status: 'confirmation_failed',
+        },
+      );
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([eventName]) => eventName === 'creator_billing_checkout_result',
+        ),
+      ).toHaveLength(0);
+      expect(
+        screen.getByRole('button', { name: 'Retry sync' }),
+      ).toBeInTheDocument();
       expect(mockPush).not.toHaveBeenCalled();
     },
   );
+
+  test('reports one terminal success when a recoverable provider state becomes paid', async () => {
+    mockSearchParams.set('bill_order_bid', 'bill-order-recovered');
+    mockRequestPost
+      .mockResolvedValueOnce({ status: 'failed' })
+      .mockResolvedValueOnce({ status: 'paid' });
+
+    render(<StripeBillingResultPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Billing sync failed' }),
+    ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      expect.objectContaining({
+        bill_order_bid: 'bill-order-recovered',
+        status: 'confirmation_failed',
+      }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry sync' }));
+
+    expect(await screen.findByText('Billing updated')).toBeInTheDocument();
+    const terminalResults = mockTrackEvent.mock.calls.filter(
+      ([eventName]) => eventName === 'creator_billing_checkout_result',
+    );
+    expect(terminalResults).toHaveLength(1);
+    expect(terminalResults[0]?.[1]).toEqual(
+      expect.objectContaining({
+        bill_order_bid: 'bill-order-recovered',
+        outcome: 'success',
+      }),
+    );
+  });
 });

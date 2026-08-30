@@ -511,8 +511,8 @@ export function BillingOverviewTab({
         setCheckoutTarget(null);
         setCheckoutAgreed(false);
         catchFailureCategory = 'redirect_failed';
-        openBillingCheckoutUrl(result.redirect_url);
         reportCheckoutStatus(resolvedAnalyticsBase, 'pending');
+        openBillingCheckoutUrl(result.redirect_url);
         return;
       }
       if (resolvedProvider === 'stripe') {

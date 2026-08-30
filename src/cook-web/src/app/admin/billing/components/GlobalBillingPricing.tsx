@@ -428,7 +428,6 @@ export function GlobalBillingPricing() {
           retryUrl: result.redirect_url,
         });
         failureCategory = 'redirect_failed';
-        openBillingCheckoutUrl(result.redirect_url);
         trackCreatorBillingEventSafely(
           trackEvent,
           CREATOR_BILLING_ANALYTICS_EVENTS.status,
@@ -437,6 +436,7 @@ export function GlobalBillingPricing() {
             status: 'pending',
           }),
         );
+        openBillingCheckoutUrl(result.redirect_url);
       } catch (error: any) {
         if (!terminalResultReported) {
           trackCreatorBillingEventSafely(

@@ -553,6 +553,9 @@ describe('GlobalBillingPricing', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/session',
     );
+    expect(mockTrackEvent.mock.invocationCallOrder[1]).toBeLessThan(
+      mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0],
+    );
     expect(
       screen.getByTestId('billing-stripe-redirect-overlay'),
     ).toHaveTextContent('Opening Stripe secure checkout...');
@@ -870,9 +873,23 @@ describe('GlobalBillingPricing', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'navigation failed',
     );
-    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+    expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_status',
-      expect.anything(),
+      expect.objectContaining({
+        bill_order_bid: 'order-redirect-failed',
+        status: 'pending',
+      }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(1);
+    expect(mockTrackEvent.mock.invocationCallOrder[1]).toBeLessThan(
+      mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0],
+    );
+    expect(mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTrackEvent.mock.invocationCallOrder[2],
     );
   });
 

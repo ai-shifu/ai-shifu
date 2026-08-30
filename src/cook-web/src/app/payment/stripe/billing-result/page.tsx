@@ -193,8 +193,8 @@ export default function StripeBillingResultPage() {
           return;
         }
 
-        if (result.status === 'canceled') {
-          reportCheckoutResult(orderBid, 'cancelled');
+        if (result.status === 'refunded') {
+          reportCheckoutResult(orderBid, 'failed', 'payment_failed');
           setState({
             status: 'error',
             messageKey: 'module.billing.result.errorTitle',
@@ -204,15 +204,10 @@ export default function StripeBillingResultPage() {
         }
 
         if (result.status !== 'paid') {
-          reportCheckoutResult(
-            orderBid,
-            'failed',
-            result.status === 'failed' ||
-              result.status === 'timeout' ||
-              result.status === 'refunded'
-              ? 'payment_failed'
-              : 'unexpected_status',
-          );
+          // Failed, canceled, and timed-out billing orders can still transition
+          // to paid after a later provider sync. Keep those observations
+          // non-terminal so a retry can report the one eventual result.
+          reportCheckoutStatus(orderBid, 'confirmation_failed');
           setState({
             status: 'error',
             messageKey: 'module.billing.result.errorTitle',
