@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
@@ -26,6 +26,33 @@ type PendingDevice = {
 
 type Phase = 'loading' | 'confirm' | 'approved' | 'denied' | 'error';
 
+type Envelope = { code?: number; message?: string; data?: unknown };
+
+// The shared request layer stops unwrapping `data` and returns the raw response
+// envelope for any path containing '/login', so login screens can render their
+// own business errors (src/lib/request.ts). This page lives under
+// /login/device, so it must read the envelope itself -- otherwise a business
+// error would be mistaken for a success, and a successful payload would be
+// read one level too high.
+const readEnvelope = (
+  raw: unknown,
+): { ok: boolean; message: string; data: unknown } => {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false, message: '', data: null };
+  }
+  const envelope = raw as Envelope;
+  if (typeof envelope.code === 'number') {
+    return {
+      ok: envelope.code === 0,
+      message: envelope.message ?? '',
+      data: envelope.data ?? null,
+    };
+  }
+  return { ok: true, message: '', data: raw };
+};
+
+const AUTH_ERROR_CODES = new Set([1001, 1004, 1005]);
+
 const DeviceAuthorizationContent = () => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -43,26 +70,51 @@ const DeviceAuthorizationContent = () => {
   const [missingCode, setMissingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const redirectToLogin = useCallback(() => {
+    const target = codeFromUrl
+      ? `/login/device?code=${encodeURIComponent(codeFromUrl)}`
+      : '/login/device';
+    router.replace(`/login?redirect=${encodeURIComponent(target)}`);
+  }, [codeFromUrl, router]);
+
+  const redirectToLoginRef = useRef(redirectToLogin);
+  useEffect(() => {
+    redirectToLoginRef.current = redirectToLogin;
+  }, [redirectToLogin]);
+
   // Send visitors through the normal login page first, then straight back
   // here: an already signed-in browser should never be asked to log in again.
   useEffect(() => {
     if (!isInitialized || isLoggedIn) {
       return;
     }
-    const target = codeFromUrl
-      ? `/login/device?code=${encodeURIComponent(codeFromUrl)}`
-      : '/login/device';
-    router.replace(`/login?redirect=${encodeURIComponent(target)}`);
-  }, [codeFromUrl, isInitialized, isLoggedIn, router]);
+    redirectToLogin();
+  }, [isInitialized, isLoggedIn, redirectToLogin]);
 
   const loadPending = useCallback(async (code: string) => {
     setPhase('loading');
     setErrorMessage('');
     try {
-      const data = await api.deviceAuthPending({ user_code: code });
-      setPending(data as PendingDevice);
+      const { ok, message, data } = readEnvelope(
+        await api.deviceAuthPending({ user_code: code }),
+      );
+      const device =
+        ok && data && typeof data === 'object' ? (data as PendingDevice) : null;
+      if (!device?.user_code) {
+        setErrorMessage(message);
+        setPhase('error');
+        return;
+      }
+      setPending(device);
       setPhase('confirm');
     } catch (error) {
+      // An expired token arrives here as a rejection, and the request layer
+      // skips its own login redirect for every path containing '/login'.
+      const errorCode = (error as { code?: number } | null)?.code;
+      if (typeof errorCode === 'number' && AUTH_ERROR_CODES.has(errorCode)) {
+        redirectToLoginRef.current();
+        return;
+      }
       setErrorMessage((error as Error)?.message || '');
       setPhase('error');
     }
@@ -94,13 +146,17 @@ const DeviceAuthorizationContent = () => {
       setSubmitting(true);
       setErrorMessage('');
       try {
-        if (approve) {
-          await api.deviceAuthApprove({ user_code: code });
-          setPhase('approved');
-        } else {
-          await api.deviceAuthDeny({ user_code: code });
-          setPhase('denied');
+        const { ok, message } = readEnvelope(
+          approve
+            ? await api.deviceAuthApprove({ user_code: code })
+            : await api.deviceAuthDeny({ user_code: code }),
+        );
+        if (!ok) {
+          setErrorMessage(message);
+          setPhase('error');
+          return;
         }
+        setPhase(approve ? 'approved' : 'denied');
       } catch (error) {
         setErrorMessage((error as Error)?.message || '');
         setPhase('error');
