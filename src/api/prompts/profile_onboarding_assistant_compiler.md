@@ -50,8 +50,8 @@ actually seeks from or about the student.
 
 ## Public prompt construction
 
-Write the finished prompt from scratch in the source document's learner-facing
-language. Begin by asking my AI assistant to use what it already knows about me
+Write the finished prompt from scratch in the source document's language. Begin
+by asking my AI assistant to use what it already knows about me
 to help me introduce myself as a student to my teacher so the teacher can teach
 me better.
 
