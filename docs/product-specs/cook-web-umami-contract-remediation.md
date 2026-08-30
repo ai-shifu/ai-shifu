@@ -240,9 +240,12 @@ string, user identity, and raw errors are excluded.
   channel is never treated as proof. Direct Stripe PaymentElement and WeChat
   JSAPI confirmation evidence is retained only for the same product-owned
   order and current accepted attempt. A later product-confirmed paid state uses
-  it only when exactly one confirmed channel is still unresolved; superseded,
-  stale, cross-order, or ambiguous evidence falls back to the
-  single-channel/`other` resolution above.
+  it only when exactly one confirmed channel is still unresolved. When a newer
+  same-channel attempt supersedes an in-flight confirmation in the current
+  order and modal lifecycle, the paid result discards the stale evidence and
+  uses the single-channel/`other` resolution above. Cross-order,
+  cross-lifecycle, and already-closed attempt callbacks are ignored; ambiguous
+  retained evidence uses the generic resolution.
 - Consumer: learner checkout conversion and provider reliability dashboard.
 - Replacement: delete the `learner_pay_cancel` producer and consumers. Modal
   abandonment uses only `learner_pay_modal_dismiss`; a provider-confirmed

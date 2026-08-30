@@ -35,6 +35,25 @@ export const normalizeLearnerPaymentChannel = (
   return 'other';
 };
 
+export const isSupersededLearnerPaymentAttempt = (
+  attempt: LearnerPaymentAttemptContext | undefined,
+  currentOrderId: string,
+  currentLifecycle: number,
+  attemptedChannels: Iterable<LearnerPaymentChannel>,
+  activeAttemptIds: ReadonlyMap<LearnerPaymentChannel, number>,
+): boolean => {
+  if (
+    !attempt?.orderId ||
+    attempt.orderId !== currentOrderId ||
+    attempt.lifecycle !== currentLifecycle ||
+    !new Set(attemptedChannels).has(attempt.channel)
+  ) {
+    return false;
+  }
+  const activeAttemptId = activeAttemptIds.get(attempt.channel);
+  return activeAttemptId !== undefined && activeAttemptId > attempt.attemptId;
+};
+
 export const resolveLearnerPaymentAttributionChannel = (
   channels: Iterable<LearnerPaymentChannel>,
   confirmedChannel?: LearnerPaymentChannel,

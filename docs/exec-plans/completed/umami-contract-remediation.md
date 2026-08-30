@@ -80,6 +80,14 @@ their consumers are deleted instead of dual-written.
       suites / 67 tests, followed by the full frontend suite at 212 Jest suites
       / 1,896 tests, TypeScript, focused lint, Prettier, repository harness,
       architecture boundaries, and the full Lefthook pre-commit gate.
+- [x] 2026-08-31 01:12 CST: Preserved the paid terminal event when an in-flight
+      Stripe synchronization is superseded by a newer same-channel attempt in
+      the same order and modal lifecycle, while keeping other stale callbacks
+      ineligible. Focused checks passed 2 Jest suites / 42 tests, followed by
+      the full frontend suite at 212 Jest suites / 1,899 tests, TypeScript,
+      focused lint, Prettier, repository harness, architecture boundaries, and
+      the full Lefthook pre-commit gate, plus independent code and contract
+      reviews.
 
 ## Surprises & Discoveries
 
@@ -184,15 +192,18 @@ card-confirmation failures remain visible, and duplicate course-creation
 submissions are rejected while one request is active. Learner payment attempts
 retain their distinct unresolved channels. A product-confirmed paid result uses
 direct Stripe or WeChat confirmation evidence only when one eligible channel
-remains for that order; stale or ambiguous evidence falls back to generic
-attribution. Other explicit provider results close only their matching channel,
-and a generic order-level result uses `channel=other` instead of guessing when
-multiple channels remain unresolved. Creator billing sync observations keep
-recoverable `failed`, `canceled`, and `timeout` API states non-terminal so a
-later paid observation can emit the one terminal success.
+remains for that order. If a newer same-channel attempt supersedes an in-flight
+confirmation in the current order and modal lifecycle, its paid result falls
+back to generic attribution; callbacks from another order or lifecycle, or an
+already-closed attempt, remain ineligible. Other explicit provider results close
+only their matching channel, and a generic order-level result uses
+`channel=other` instead of guessing when multiple channels remain unresolved.
+Creator billing sync observations keep recoverable `failed`, `canceled`, and
+`timeout` API states non-terminal so a later paid observation can emit the one
+terminal success.
 
 Validation completed with focused frontend checks and the final full 212 Jest
-suites / 1,886 tests, TypeScript, frontend lint (no errors; existing repository
+suites / 1,899 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.

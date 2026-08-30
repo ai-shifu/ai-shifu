@@ -39,6 +39,7 @@ import {
   buildLearnerPaymentAttemptAnalytics,
   buildLearnerPaymentResultAnalytics,
   buildLearnerPaymentStatusAnalytics,
+  isSupersededLearnerPaymentAttempt,
   normalizeLearnerPaymentChannel,
   normalizeLearnerPaymentCurrency,
   rememberLearnerProviderConfirmedChannel,
@@ -232,7 +233,23 @@ export const PayModalM = ({
               paymentAttemptChannelsRef.current,
             )
           : undefined;
-      if (confirmedAttempt && !confirmedChannel) return;
+      const usesSupersededAttemptFallback =
+        outcome === 'success' &&
+        !confirmedChannel &&
+        isSupersededLearnerPaymentAttempt(
+          confirmedAttempt,
+          currentOrderId,
+          paymentAnalyticsLifecycleRef.current,
+          paymentAttemptChannelsRef.current,
+          activePaymentAttemptIdsRef.current,
+        );
+      if (
+        confirmedAttempt &&
+        !confirmedChannel &&
+        !usesSupersededAttemptFallback
+      ) {
+        return;
+      }
       const channel = resolveLearnerPaymentAttributionChannel(
         paymentAttemptChannelsRef.current,
         confirmedChannel,

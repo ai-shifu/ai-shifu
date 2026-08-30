@@ -235,6 +235,18 @@ jest.mock('./StripeCardForm', () => ({
         }}
       />
       <button
+        data-testid='stripe-late-cancel'
+        onClick={() => {
+          if (mockLastStripeAttempt) {
+            onError(
+              'private-stripe-late-cancelled',
+              'failed',
+              mockLastStripeAttempt,
+            );
+          }
+        }}
+      />
+      <button
         data-testid='stripe-start-deferred'
         onClick={() => {
           const attempt = onAttempt();
@@ -904,6 +916,65 @@ describe('learner payment modal analytics producers', () => {
       outcome: 'success',
     });
   });
+
+  it.each(['desktop', 'mobile'] as const)(
+    'keeps a %s paid result when its Stripe sync is superseded by a retry',
+    async surface => {
+      mockSyncOrderStatus.mockReturnValueOnce(new Promise(() => {}));
+      renderStripePaymentModal(surface);
+
+      fireEvent.click(await screen.findByTestId('stripe-start-deferred'));
+      fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
+      await waitFor(() => expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1));
+      const staleAttempt = (
+        mockSyncOrderStatus.mock.calls[0]?.[0] as {
+          confirmedAttempt: LearnerPaymentAttemptContext;
+        }
+      ).confirmedAttempt;
+
+      fireEvent.click(screen.getByTestId('stripe-start-deferred'));
+      const currentAttempt = mockLastStripeAttempt;
+      mockLastStripeAttempt = staleAttempt;
+      fireEvent.click(screen.getByTestId('stripe-late-fail'));
+      fireEvent.click(screen.getByTestId('stripe-late-cancel'));
+      expect(eventCalls('learner_payment_result')).toHaveLength(0);
+
+      act(() => {
+        latestPaymentFlowOptions().onOrderPaid({
+          confirmedAttempt: staleAttempt,
+        });
+      });
+
+      expect(
+        eventCalls('learner_payment_attempt').map(
+          ([, payload]) => payload.channel,
+        ),
+      ).toEqual(['stripe', 'stripe']);
+      expect(eventCalls('learner_payment_result')).toEqual([
+        [
+          'learner_payment_result',
+          {
+            shifu_bid: 'course-1',
+            order_id: 'order-1',
+            channel: 'stripe',
+            surface,
+            outcome: 'success',
+          },
+        ],
+      ]);
+      expect(requiredModalProps.onOk).toHaveBeenCalledTimes(1);
+
+      mockLastStripeAttempt = currentAttempt;
+      fireEvent.click(screen.getByTestId('stripe-late-fail'));
+      expect(eventCalls('learner_payment_result')).toHaveLength(1);
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'attemptId',
+      );
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'client-secret-never-tracked',
+      );
+    },
+  );
 
   it('clears unresolved desktop channels when the order changes', async () => {
     const { rerender } = render(

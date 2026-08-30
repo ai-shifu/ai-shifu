@@ -2,6 +2,7 @@ import {
   buildLearnerPaymentAttemptAnalytics,
   buildLearnerPaymentResultAnalytics,
   buildLearnerPaymentStatusAnalytics,
+  isSupersededLearnerPaymentAttempt,
   normalizeLearnerPaymentChannel,
   normalizeLearnerPaymentCurrency,
   rememberLearnerProviderConfirmedChannel,
@@ -20,6 +21,38 @@ describe('learner payment analytics', () => {
     ['unknown-provider', 'other'],
   ] as const)('normalizes %s to %s', (input, expected) => {
     expect(normalizeLearnerPaymentChannel(input)).toBe(expected);
+  });
+
+  it('recognizes only a newer same-channel attempt in the current scope', () => {
+    const staleAttempt = {
+      orderId: 'order-1',
+      lifecycle: 3,
+      channel: 'stripe' as const,
+      attemptId: 7,
+    };
+    const isSuperseded = (
+      orderId: string,
+      lifecycle: number,
+      attemptedChannels: Array<'stripe' | 'wechat_qr'>,
+      activeAttemptId?: number,
+    ) =>
+      isSupersededLearnerPaymentAttempt(
+        staleAttempt,
+        orderId,
+        lifecycle,
+        attemptedChannels,
+        activeAttemptId === undefined
+          ? new Map()
+          : new Map([['stripe' as const, activeAttemptId]]),
+      );
+
+    expect(isSuperseded('order-1', 3, ['stripe'], 8)).toBe(true);
+    expect(isSuperseded('order-1', 3, ['stripe'], 7)).toBe(false);
+    expect(isSuperseded('order-1', 3, ['stripe'], 6)).toBe(false);
+    expect(isSuperseded('order-2', 3, ['stripe'], 8)).toBe(false);
+    expect(isSuperseded('order-1', 4, ['stripe'], 8)).toBe(false);
+    expect(isSuperseded('order-1', 3, ['wechat_qr'], 8)).toBe(false);
+    expect(isSuperseded('order-1', 3, ['stripe'])).toBe(false);
   });
 
   it('uses other for multiple unresolved attempted channels', () => {
