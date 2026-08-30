@@ -62,6 +62,27 @@ const expectSafeRetentionAnalyticsPayload = (payload: unknown) => {
   }
 };
 
+const expectSafeRetentionDeferResultPayload = (payload: unknown) => {
+  const record = payload as Record<string, unknown>;
+  expect(Object.keys(record).sort()).toEqual([
+    'outcome',
+    'phase',
+    'presentation',
+    'source',
+  ]);
+  expect(['success', 'failed']).toContain(record.outcome);
+  for (const prohibitedField of [
+    'dialog_session_id',
+    'learner_profile',
+    'nickname',
+    'question',
+    'session_id',
+    'slide_body',
+  ]) {
+    expect(record).not.toHaveProperty(prohibitedField);
+  }
+};
+
 type ConversationControl = {
   deliverDraft: (draft?: string, nickname?: string) => void;
   deliverError: (error?: Error) => void;
@@ -2165,15 +2186,66 @@ describe('LearnerProfileDialog', () => {
         ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
       ),
     ).toHaveLength(2);
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+      expect.anything(),
+    );
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'module.profileOnboarding.dialog.retention.defer',
       }),
     );
     await waitFor(() => expect(onDefer).toHaveBeenCalledWith(undefined));
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'save',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'save',
+        outcome: 'success',
+      },
+    );
+    const deferAttemptCall = mockTrackEvent.mock.calls.findIndex(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+    );
+    expect(
+      mockTrackEvent.mock.invocationCallOrder[deferAttemptCall],
+    ).toBeLessThan(onDefer.mock.invocationCallOrder[0]);
+    expectSafeRetentionAnalyticsPayload(
+      mockTrackEvent.mock.calls[deferAttemptCall]?.[1],
+    );
+    const deferResultCall = mockTrackEvent.mock.calls.findIndex(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+    );
+    expect(onDefer.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTrackEvent.mock.invocationCallOrder[deferResultCall],
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+      ),
+    ).toHaveLength(1);
+    expectSafeRetentionDeferResultPayload(
+      mockTrackEvent.mock.calls[deferResultCall]?.[1],
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+      expect.objectContaining({ outcome: 'failed' }),
+    );
     const skippedCall = mockTrackEvent.mock.calls.findIndex(
       ([event]) => event === PROFILE_ONBOARDING_EVENTS.SKIPPED,
     );
+    expect(
+      mockTrackEvent.mock.invocationCallOrder[deferResultCall],
+    ).toBeLessThan(mockTrackEvent.mock.invocationCallOrder[skippedCall]);
     expect(mockTrackEvent.mock.invocationCallOrder[skippedCall]).toBeLessThan(
       onClose.mock.invocationCallOrder[0],
     );
@@ -2244,7 +2316,10 @@ describe('LearnerProfileDialog', () => {
       await screen.findByText(
         'module.profileOnboarding.dialog.retention.title',
       );
-      mockTrackEvent.mockImplementationOnce(failTracking);
+      mockTrackEvent
+        .mockImplementationOnce(() => undefined)
+        .mockImplementationOnce(() => undefined)
+        .mockImplementationOnce(failTracking);
 
       fireEvent.click(
         screen.getByRole('button', {
@@ -2275,6 +2350,11 @@ describe('LearnerProfileDialog', () => {
       .fn()
       .mockReturnValueOnce(deferRequest.promise)
       .mockResolvedValue(false);
+    const retentionAnalyticsContext = {
+      source: 'guided',
+      presentation: 'blocking',
+      phase: 'collect',
+    } as const;
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     const { props, rerender } = renderDialog({
@@ -2316,6 +2396,16 @@ describe('LearnerProfileDialog', () => {
     });
     fireEvent.click(finalSkipButton);
     await waitFor(() => expect(onDefer).toHaveBeenCalledWith(SESSION_ID));
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+      retentionAnalyticsContext,
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) =>
+          event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+      ),
+    ).toHaveLength(1);
     expect(finalSkipButton).toBeDisabled();
     expect(continueButton).toBeDisabled();
     fireEvent.click(finalSkipButton);
@@ -2323,6 +2413,15 @@ describe('LearnerProfileDialog', () => {
     expect(onDefer).toHaveBeenCalledTimes(1);
 
     await act(async () => deferRequest.resolve(false));
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+      { ...retentionAnalyticsContext, outcome: 'failed' },
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+      ),
+    ).toHaveLength(1);
     expect(onClose).not.toHaveBeenCalled();
     expect(
       screen.getByText('module.profileOnboarding.dialog.retention.title'),
@@ -2338,6 +2437,25 @@ describe('LearnerProfileDialog', () => {
     fireEvent.click(finalSkipButton);
     await waitFor(() => expect(onDefer).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(continueButton).toBeEnabled());
+    const deferAttemptPayloads = mockTrackEvent.mock.calls
+      .filter(
+        ([event]) =>
+          event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+      )
+      .map(([, payload]) => payload);
+    const deferResultPayloads = mockTrackEvent.mock.calls
+      .filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+      )
+      .map(([, payload]) => payload);
+    expect(deferAttemptPayloads).toHaveLength(2);
+    expect(deferResultPayloads).toHaveLength(2);
+    expect(deferResultPayloads).toEqual([
+      { ...retentionAnalyticsContext, outcome: 'failed' },
+      { ...retentionAnalyticsContext, outcome: 'failed' },
+    ]);
+    deferAttemptPayloads.forEach(expectSafeRetentionAnalyticsPayload);
+    deferResultPayloads.forEach(expectSafeRetentionDeferResultPayload);
     expect(mockTrackEvent).not.toHaveBeenCalledWith(
       PROFILE_ONBOARDING_EVENTS.SKIPPED,
       expect.anything(),
@@ -2380,12 +2498,140 @@ describe('LearnerProfileDialog', () => {
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
   });
 
+  test.each([
+    [
+      'throws synchronously',
+      () => {
+        throw new Error('Skip request failed');
+      },
+    ],
+    [
+      'rejects asynchronously',
+      () => Promise.reject(new Error('Skip request failed')),
+    ],
+  ])(
+    'reports a final defer that %s while keeping analytics fail-open',
+    async (_failureMode, failDefer) => {
+      const onClose = jest.fn();
+      const onDefer = jest.fn(failDefer);
+      renderDialog({
+        exitPolicy: 'blocking',
+        presentation: 'blocking',
+        onClose,
+        onDefer,
+      });
+      await screen.findByDisplayValue(existingProfile.learner_profile);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+      );
+      await screen.findByText(
+        'module.profileOnboarding.dialog.retention.title',
+      );
+      mockTrackEvent
+        .mockImplementationOnce(() => {
+          throw new Error('attempt analytics unavailable');
+        })
+        .mockRejectedValueOnce(new Error('failure analytics unavailable'));
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.dialog.retention.defer',
+        }),
+      );
+
+      await waitFor(() => expect(onDefer).toHaveBeenCalledTimes(1));
+      expect(
+        await screen.findByText('Skip request failed'),
+      ).toBeInTheDocument();
+      const retentionAnalyticsContext = {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'save',
+      };
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+        retentionAnalyticsContext,
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+        { ...retentionAnalyticsContext, outcome: 'failed' },
+      );
+      expectSafeRetentionAnalyticsPayload(
+        mockTrackEvent.mock.calls.find(
+          ([event]) =>
+            event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+        )?.[1],
+      );
+      expectSafeRetentionDeferResultPayload(
+        mockTrackEvent.mock.calls.find(
+          ([event]) =>
+            event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+        )?.[1],
+      );
+      expect(mockTrackEvent).not.toHaveBeenCalledWith(
+        PROFILE_ONBOARDING_EVENTS.SKIPPED,
+        expect.anything(),
+      );
+      expect(onClose).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not report defer failure when dialog cleanup fails after success', async () => {
+    const onDefer = jest.fn().mockResolvedValue(true);
+    const onClose = jest.fn().mockRejectedValue(new Error('Close failed'));
+    renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onClose,
+      onDefer,
+    });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.defer',
+      }),
+    );
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+    expect(await screen.findByText('Close failed')).toBeInTheDocument();
+    expect(
+      mockTrackEvent.mock.calls
+        .filter(
+          ([event]) =>
+            event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+        )
+        .map(([, payload]) => payload),
+    ).toEqual([
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'save',
+        outcome: 'success',
+      },
+    ]);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.SKIPPED,
+      ),
+    ).toHaveLength(1);
+  });
+
   test('succeeds on retry after a final defer failure', async () => {
     const onClose = jest.fn();
     const onDefer = jest
       .fn()
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true);
+    const retentionAnalyticsContext = {
+      source: 'guided',
+      presentation: 'blocking',
+      phase: 'collect',
+    } as const;
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     const { props, rerender } = renderDialog({
@@ -2424,6 +2670,14 @@ describe('LearnerProfileDialog', () => {
       />,
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Skip unavailable');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+      retentionAnalyticsContext,
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+      { ...retentionAnalyticsContext, outcome: 'failed' },
+    );
     const retryButton = screen.getByRole('button', {
       name: 'module.profileOnboarding.dialog.retention.defer',
     });
@@ -2437,6 +2691,24 @@ describe('LearnerProfileDialog', () => {
         ([event]) => event === PROFILE_ONBOARDING_EVENTS.SKIPPED,
       ),
     ).toHaveLength(1);
+    const deferAttemptPayloads = mockTrackEvent.mock.calls
+      .filter(
+        ([event]) =>
+          event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+      )
+      .map(([, payload]) => payload);
+    const deferResultPayloads = mockTrackEvent.mock.calls
+      .filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+      )
+      .map(([, payload]) => payload);
+    expect(deferAttemptPayloads).toHaveLength(2);
+    expect(deferResultPayloads).toEqual([
+      { ...retentionAnalyticsContext, outcome: 'failed' },
+      { ...retentionAnalyticsContext, outcome: 'success' },
+    ]);
+    deferAttemptPayloads.forEach(expectSafeRetentionAnalyticsPayload);
+    deferResultPayloads.forEach(expectSafeRetentionDeferResultPayload);
     expect(
       window.sessionStorage.getItem(
         'profile-onboarding-paste-draft:profile-v2:user-a',

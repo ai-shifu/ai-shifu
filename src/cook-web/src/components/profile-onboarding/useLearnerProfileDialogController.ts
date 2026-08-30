@@ -1073,6 +1073,8 @@ export const useLearnerProfileDialogController = ({
     }
     const dialog = requestEpochRef.current.dialog;
     const scope = draftStorageScope;
+    const analyticsContext =
+      current.retentionAnalyticsContext ?? buildRetentionAnalyticsContext();
     dispatch({
       type: 'patch',
       patch: {
@@ -1081,18 +1083,36 @@ export const useLearnerProfileDialogController = ({
         externalDeferErrorVisible: false,
       },
     });
+    trackOnboardingEventSafely(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_ATTEMPT,
+      analyticsContext,
+    );
+    let deferResultTracked = false;
     try {
       const result = await onDefer(
         current.activeCollectionSessionId || undefined,
       );
-      if (!isCurrent(dialog, scope)) {
-        return;
-      }
       if (result === false) {
+        trackOnboardingEventSafely(
+          PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+          { ...analyticsContext, outcome: 'failed' },
+        );
+        deferResultTracked = true;
+        if (!isCurrent(dialog, scope)) {
+          return;
+        }
         dispatch({
           type: 'patch',
           patch: { externalDeferErrorVisible: true },
         });
+        return;
+      }
+      trackOnboardingEventSafely(
+        PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+        { ...analyticsContext, outcome: 'success' },
+      );
+      deferResultTracked = true;
+      if (!isCurrent(dialog, scope)) {
         return;
       }
       bumpEpoch('optimize');
@@ -1106,6 +1126,12 @@ export const useLearnerProfileDialogController = ({
       clearAssistantDraft();
       await onClose('dismiss');
     } catch (caughtError) {
+      if (!deferResultTracked) {
+        trackOnboardingEventSafely(
+          PROFILE_ONBOARDING_EVENTS.RETENTION_DEFER_RESULT,
+          { ...analyticsContext, outcome: 'failed' },
+        );
+      }
       if (isCurrent(dialog, scope)) {
         setDeferError(
           errorMessage(
@@ -1120,6 +1146,7 @@ export const useLearnerProfileDialogController = ({
       }
     }
   }, [
+    buildRetentionAnalyticsContext,
     bumpEpoch,
     draftStorageScope,
     exitPolicy,

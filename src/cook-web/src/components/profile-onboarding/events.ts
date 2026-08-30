@@ -4,6 +4,8 @@ export const PROFILE_ONBOARDING_EVENTS = {
   SKIPPED: 'profile_onboarding_skipped',
   RETENTION_SHOWN: 'profile_onboarding_retention_shown',
   RETENTION_CONTINUED: 'profile_onboarding_retention_continued',
+  RETENTION_DEFER_ATTEMPT: 'profile_onboarding_retention_defer_attempt',
+  RETENTION_DEFER_RESULT: 'profile_onboarding_retention_defer_result',
   RUNTIME_FAILED: 'profile_onboarding_runtime_failed',
   SETTINGS_SAVED: 'learner_profile_settings_saved',
   SETTINGS_CLEARED: 'learner_profile_settings_cleared',
