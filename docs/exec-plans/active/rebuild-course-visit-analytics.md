@@ -27,7 +27,9 @@ truth.
 - [x] 2026-08-30 17:22 CST: Removed the obsolete #1527 implementation,
   regenerated env/i18n/knowledge artifacts, and passed focused backend,
   frontend, type, translation, harness, architecture, and tooling checks.
-- [ ] Publish the cleanup pull request.
+- [x] 2026-08-30 17:25 CST: Published ready cleanup pull request
+  [#2718](https://github.com/ai-shifu/ai-shifu/pull/2718) from
+  `sunner/remove-umami-data-dependency` to `main`.
 - [ ] Create a stacked branch from the cleanup branch and implement the
   first-party course-visit write and aggregate-read path.
 - [ ] Validate and publish the stacked rebuild pull request, with its base set
@@ -74,7 +76,10 @@ truth.
 
 ## Outcomes & Retrospective
 
-Pending implementation and pull-request review.
+- Cleanup is isolated in #2718 with no database migration or replacement
+  metric, so reviewers can verify the invalid dependency is fully gone before
+  reviewing the first-party rebuild.
+- The first-party rebuild and its pull-request review are still pending.
 
 ## Context and Orientation
 
