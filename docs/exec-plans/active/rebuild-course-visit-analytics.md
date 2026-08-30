@@ -30,8 +30,14 @@ truth.
 - [x] 2026-08-30 17:25 CST: Published ready cleanup pull request
   [#2718](https://github.com/ai-shifu/ai-shifu/pull/2718) from
   `sunner/remove-umami-data-dependency` to `main`.
-- [ ] Create a stacked branch from the cleanup branch and implement the
-  first-party course-visit write and aggregate-read path.
+- [x] 2026-08-30 17:27 CST: Created
+  `sunner/rebuild-course-visit-metric` from the final cleanup head and defined
+  the first-party storage, write, query, eligibility, and initial-data
+  contracts.
+- [x] 2026-08-30 17:59 CST: Implemented the first-party course-visit table,
+  authenticated fail-open write path, atomic latest-visit upsert, rolling
+  business-table count, operator metric card, localized explanation, and
+  focused regression coverage.
 - [ ] Validate and publish the stacked rebuild pull request, with its base set
   to the cleanup branch until the cleanup merges.
 
@@ -47,6 +53,12 @@ truth.
   producer would create an undocumented, unconsumed event family.
 - Shared browser-side Umami transport is used by unrelated product analytics
   contracts and is not part of this removal.
+- Temporary guest accounts have stable product IDs but are not equivalent to
+  logged-in people and can be double-counted across guest-to-account identity
+  changes, so they cannot safely extend the original #1527 population.
+- Existing learning progress, orders, and Umami history cannot correctly
+  backfill page openings. The rebuilt metric therefore begins with a partial
+  30-day window at deployment instead of substituting a different behavior.
 
 ## Decision Log
 
@@ -73,31 +85,55 @@ truth.
   the cleanup merges, then rebase or retarget it to `main`.
   - Why: this keeps the removal reviewable on its own and prevents the rebuild
     from reintroducing obsolete Umami contracts.
+- Decision: persist one `learn_course_visitors` row per
+  `(shifu_bid, user_bid)`, preserving first visit time and atomically advancing
+  the latest visit time.
+  - Why: a uniqueness constraint makes retries and concurrent writes safe,
+    while the latest timestamp exactly supports a current rolling distinct
+    count without retaining unnecessary per-visit history.
+- Decision: use an authenticated empty-body
+  `POST /api/learn/shifu/<shifu_bid>/visit` and keep the write independent from
+  existing course-loading `GET` requests.
+  - Why: identity must come from the validated token, and a failed metric write
+    must never fail or mutate the user-visible course load.
+- Decision: exclude temporary guests and include active registered, trial, or
+  paid users on published non-preview learner routes.
+  - Why: this restores the original #1527 logged-in-user definition without
+    claiming that temporary browser-scoped identities are people.
+- Decision: do not backfill earlier visits and explain the initial partial
+  window in the metric tooltip.
+  - Why: every available proxy would silently change the definition, while
+    reading old Umami data would recreate the dependency being removed.
 
 ## Outcomes & Retrospective
 
 - Cleanup is isolated in #2718 with no database migration or replacement
   metric, so reviewers can verify the invalid dependency is fully gone before
   reviewing the first-party rebuild.
-- The first-party rebuild and its pull-request review are still pending.
+- The first-party rebuild now records only eligible published-course visits in
+  `learn_course_visitors`, derives the 30-day operator count from that table,
+  and keeps write failures independent from course loading. It contains no
+  Umami read, sync, compatibility event, or historical backfill. Publication
+  of the stacked pull request is still pending final repository gates.
 
 ## Context and Orientation
 
-The obsolete backend reader lives in
-`src/api/flaskr/common/umami_client.py`. It is called by
+Before the cleanup, the obsolete backend reader lived in
+`src/api/flaskr/common/umami_client.py`. It was called by
 `src/api/flaskr/service/shifu/admin_operations/courses_detail.py`, which
-returns `visit_count_30d` through
+returned `visit_count_30d` through
 `src/api/flaskr/service/shifu/admin_dtos_courses.py`. Compatibility exports in
 `src/api/flaskr/service/shifu/admin.py` and
-`src/api/flaskr/service/shifu/admin_operations/courses.py` keep the symbol
+`src/api/flaskr/service/shifu/admin_operations/courses.py` kept the symbol
 patchable in older tests.
 
-The matching learner-side producer lives in
-`src/cook-web/src/app/c/[[...id]]/courseVisitTracking.ts` and is invoked by the
-course page. The operator frontend no longer renders the metric, but its types,
+The matching learner-side producer lived in
+`src/cook-web/src/app/c/[[...id]]/courseVisitTracking.ts` and was invoked by the
+course page. The operator frontend no longer rendered the metric, but its types,
 empty response value, fixture fields, translation marker, generated i18n key,
-and locale strings remain. The Umami-based contract is documented in
-`docs/product-specs/operator-course-visit-analytics.md`.
+and locale strings remained. The obsolete Umami-based specification occupied
+`docs/product-specs/operator-course-visit-analytics.md`; the rebuild replaces
+it at the same canonical path with the first-party contract.
 
 The rebuild must locate an authenticated learner at the existing course-page
 initialization boundary, record a first-party visit without changing or
@@ -139,9 +175,9 @@ detail service. New model timestamps and rolling-window boundaries use UTC.
    `python scripts/check_repo_harness.py`,
    `python scripts/check_architecture_boundaries.py`, and pre-commit checks.
 5. Commit, push, and open the cleanup pull request.
-6. Create the stacked rebuild branch and update this ExecPlan with the exact
-   first-party model, endpoint, retention/deduplication rules, and migration
-   after inspecting adjacent course-entry and admin-query patterns.
+6. Add `learn_course_visitors`, an authenticated empty-body course visit
+   endpoint, atomic latest-visit upsert, and a trailing 30-day business-table
+   count after inspecting adjacent course-entry and admin-query patterns.
 7. Implement, test, commit, push, and open the stacked rebuild pull request.
 
 ## Validation and Acceptance
@@ -176,9 +212,11 @@ the pull request without force-pushing unrelated history.
   public frontend analytics configuration contract.
 - Cleanup removes the private backend Umami management API contract and
   `AdminOperationCourseDetailMetricsDTO.visit_count_30d`.
-- Rebuild will add a first-party authenticated course-visit write interface
-  and a product-owned persistence model; their exact names and schemas will be
-  recorded here before implementation.
+- Rebuild adds `POST /api/learn/shifu/<shifu_bid>/visit` with an empty body and
+  identity derived exclusively from the validated token.
+- Rebuild adds `learn_course_visitors` with UTC `first_visited_at` and
+  `last_visited_at`, a unique `(shifu_bid, user_bid)` constraint, and a
+  `(shifu_bid, last_visited_at)` query index.
 - Rebuild will restore `visit_count_30d` only as a business-backend response
   field backed by first-party data, along with the operator UI label and card.
 - Existing course authorization, admin route structure, UTC helpers, and

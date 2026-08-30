@@ -53,11 +53,13 @@ import {
   DEFAULT_LISTEN_MOBILE_VIEW_MODE,
   LISTEN_MODE_VH_FALLBACK_CLASSNAME,
 } from './Components/ChatUi/listenModeTypes';
+import { parseBooleanQueryParam } from './Components/learningModeUrl';
 
 import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { isWechatCodeFlowEnabled } from './Components/Pay/wechatJsapi';
+import { useCourseVisitRecording } from './courseVisitRecording';
 import { useCourseProfileOnboardingGate } from './hooks/useCourseProfileOnboardingGate';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
@@ -424,6 +426,8 @@ export default function ChatPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const urlLessonId = getLessonIdFromQuery(searchParams);
+  const urlPreviewMode =
+    parseBooleanQueryParam(searchParams?.get('preview') || '') ?? false;
   const debugEnabled = searchParams?.get('debug') === '1';
   if (params?.id?.[0]) {
     courseId = params.id[0];
@@ -471,16 +475,28 @@ export default function ChatPage() {
     updateChapterId,
     courseName,
     courseAvatar,
+    courseSettingsCourseId,
   } = useCourseStore(
     useShallow(state => ({
       courseName: state.courseName,
       courseAvatar: state.courseAvatar,
+      courseSettingsCourseId: state.courseSettingsCourseId,
       lessonId: state.lessonId,
       updateLessonId: state.updateLessonId,
       chapterId: state.chapterId,
       updateChapterId: state.updateChapterId,
     })),
   );
+
+  useCourseVisitRecording({
+    initialized,
+    isLoggedIn,
+    previewMode,
+    urlPreviewMode,
+    routeCourseId: courseId,
+    loadedCourseId: courseSettingsCourseId,
+    userId: userInfo?.user_id || '',
+  });
 
   const {
     runtimeReady: profileOnboardingRuntimeReady,

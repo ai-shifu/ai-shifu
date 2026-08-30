@@ -131,3 +131,16 @@ export const getCourseInfo = async (
     throw error;
   }
 };
+
+export const recordCourseVisit = async (courseId: string) => {
+  const encodedCourseId = encodeURIComponent(courseId.trim());
+  return request.post(
+    `/api/learn/shifu/${encodedCourseId}/visit`,
+    {},
+    {
+      keepalive: true,
+      skipAuthRecovery: true,
+      skipErrorToast: true,
+    },
+  );
+};

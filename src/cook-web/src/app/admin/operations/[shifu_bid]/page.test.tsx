@@ -496,6 +496,7 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
+        visit_count_30d: 31,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',
@@ -690,6 +691,52 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(await screen.findByText('Anonymous User')).toBeInTheDocument();
   });
 
+  test('shows 30-day visitors before learners with its metric definition', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    const visitLabel = screen.getByText(
+      'module.operationsCourse.detail.metricsLabels.visitCount30d',
+    );
+    const learnerLabel = screen.getByText(
+      'module.operationsCourse.detail.metricsLabels.learnerCount',
+    );
+    expect(
+      visitLabel.compareDocumentPosition(learnerLabel) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    const tooltipButton = screen.getByRole('button', {
+      name: 'module.operationsCourse.detail.metricsTooltips.visitCount30d',
+    });
+    const visitCard = tooltipButton.closest('.relative');
+    expect(visitCard).not.toBeNull();
+    expect(
+      within(visitCard as HTMLElement).getByText('31'),
+    ).toBeInTheDocument();
+  });
+
+  test('renders a zero 30-day visitor count as zero', async () => {
+    const detail = await mockGetAdminOperationCourseDetail();
+    mockGetAdminOperationCourseDetail.mockResolvedValueOnce({
+      ...detail,
+      metrics: {
+        ...detail.metrics,
+        visit_count_30d: 0,
+      },
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    const tooltipButton = screen.getByRole('button', {
+      name: 'module.operationsCourse.detail.metricsTooltips.visitCount30d',
+    });
+    const visitCard = tooltipButton.closest('.relative');
+    expect(visitCard).not.toBeNull();
+    expect(within(visitCard as HTMLElement).getByText('0')).toBeInTheDocument();
+  });
+
   test('converts course detail metadata timestamps to the browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseDetail.mockResolvedValueOnce({
@@ -705,6 +752,7 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-06-09T13:01:50Z',
       },
       metrics: {
+        visit_count_30d: 12,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',
@@ -1079,6 +1127,7 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
+        visit_count_30d: 13000,
         learner_count: 12000,
         order_count: 4000,
         order_amount: '88',
@@ -1096,8 +1145,10 @@ describe('AdminOperationCourseDetailPage', () => {
 
     render(<AdminOperationCourseDetailPage />);
 
+    expect(await screen.findByText('13000')).toBeInTheDocument();
     expect(await screen.findByText('12000')).toBeInTheDocument();
     expect(screen.getByText('11000')).toBeInTheDocument();
+    expect(screen.queryByText('13,000')).not.toBeInTheDocument();
     expect(screen.queryByText('12,000')).not.toBeInTheDocument();
 
     await openUsersTab();
@@ -1273,6 +1324,7 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
+        visit_count_30d: 12,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',

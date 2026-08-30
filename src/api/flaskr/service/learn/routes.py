@@ -21,6 +21,7 @@ from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import AppError, raise_param_error
 from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
+from flaskr.service.learn.course_visits import record_course_visit
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
@@ -292,6 +293,33 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 viewer_user_bid=viewer_user_bid,
             )
         )
+
+    @app.route(path_prefix + "/shifu/<shifu_bid>/visit", methods=["POST"])
+    @with_shifu_context()
+    def record_course_visit_api(shifu_bid: str) -> str:
+        """Record an authenticated registered learner's published-course visit.
+
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: course visit recorded
+        """
+        raw_body = request.get_data(cache=True)
+        payload = request.get_json(silent=True) if raw_body else {}
+        if payload != {}:
+            raise_param_error("request body must be empty")
+        recorded = record_course_visit(
+            app,
+            shifu_bid=shifu_bid,
+            user_bid=str(getattr(request.user, "user_id", "") or ""),
+        )
+        return make_common_response({"recorded": recorded})
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
     @with_shifu_context()

@@ -30,6 +30,7 @@ from flaskr.service.learn.const import (
     ROLE_TEACHER,
 )
 from flaskr.service.learn.models import (
+    LearnCourseVisitor,
     LearnGeneratedBlock,
     LearnGeneratedElement,
     LearnLessonFeedback,
@@ -79,12 +80,14 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from flaskr.util.datetime import now_utc
 
 
 def _clear_tables() -> None:
     db.session.query(CreditLedgerEntry).delete()
     db.session.query(CreditUsageRate).delete()
     db.session.query(BillUsageRecord).delete()
+    db.session.query(LearnCourseVisitor).delete()
     db.session.query(LearnLessonFeedback).delete()
     db.session.query(LearnGeneratedElement).delete()
     db.session.query(LearnGeneratedBlock).delete()
@@ -849,6 +852,12 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     created_at=updated_at,
                     updated_at=updated_at,
                 ),
+                LearnCourseVisitor(
+                    shifu_bid="course-detail",
+                    user_bid="visitor-1",
+                    first_visited_at=updated_at,
+                    last_visited_at=now_utc(),
+                ),
                 LearnProgressRecord(
                     progress_record_bid="progress-2",
                     shifu_bid="course-detail",
@@ -1008,6 +1017,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
         "updated_at": "2026-04-03T15:30:00Z",
     }
     assert payload["data"]["metrics"] == {
+        "visit_count_30d": 1,
         "learner_count": 2,
         "order_count": 1,
         "order_amount": "88",
@@ -1079,6 +1089,24 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             ],
         }
     ]
+
+
+def test_admin_operation_course_detail_returns_zero_without_course_visitors(
+    app: object,
+) -> None:
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-without-visitors",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 8, 1, 9, 0, 0),
+            updated_at=datetime(2026, 8, 1, 10, 0, 0),
+        )
+        db.session.commit()
+
+    detail = get_operator_course_detail(app, shifu_bid="course-without-visitors")
+
+    assert detail.metrics.visit_count_30d == 0
 
 
 def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(

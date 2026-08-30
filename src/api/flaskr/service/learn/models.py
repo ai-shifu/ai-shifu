@@ -13,8 +13,68 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
+
+
+class LearnCourseVisitor(db.Model):
+    """Persist one first-party course visit fact per registered learner."""
+
+    __tablename__ = "learn_course_visitors"
+    __table_args__: ClassVar[tuple[object, ...]] = (
+        UniqueConstraint(
+            "shifu_bid",
+            "user_bid",
+            name="uk_learn_course_visitors_shifu_user",
+        ),
+        Index(
+            "ix_learn_course_visitors_shifu_last_visit",
+            "shifu_bid",
+            "last_visited_at",
+        ),
+        {"comment": "First-party course visitors by registered learner"},
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+    )
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="User business identifier",
+    )
+    first_visited_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="First eligible visit timestamp",
+    )
+    last_visited_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Most recent eligible visit timestamp",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Creation timestamp",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        onupdate=now_utc,
+        comment="Last update timestamp",
+    )
 
 
 class LearnProgressRecord(db.Model):

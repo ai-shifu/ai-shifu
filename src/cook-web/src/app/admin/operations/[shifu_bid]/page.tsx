@@ -125,6 +125,7 @@ const EMPTY_DETAIL: AdminOperationCourseDetailResponse = {
     updated_at: '',
   },
   metrics: {
+    visit_count_30d: 0,
     learner_count: 0,
     order_count: 0,
     order_amount: '0',
@@ -211,6 +212,7 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.fields.creator')
  * t('module.operationsCourse.detail.fields.createdAt')
  * t('module.operationsCourse.detail.fields.updatedAt')
+ * t('module.operationsCourse.detail.metricsLabels.visitCount30d')
  * t('module.operationsCourse.detail.metricsLabels.learnerCount')
  * t('module.operationsCourse.detail.metricsLabels.orderCount')
  * t('module.operationsCourse.detail.metricsLabels.orderAmount')
@@ -220,6 +222,7 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.metricsLabels.creditUsageCount')
  * t('module.operationsCourse.detail.metricsLabels.creditUserCount')
  * t('module.operationsCourse.detail.metricsLabels.completedUserAvgCredits')
+ * t('module.operationsCourse.detail.metricsTooltips.visitCount30d')
  * t('module.operationsCourse.detail.orders.openMetric')
  * t('module.operationsCourse.detail.followUps.openMetric')
  * t('module.operationsCourse.detail.ratings.openMetric')
@@ -779,6 +782,11 @@ export default function AdminOperationCourseDetailPage() {
 
   const metricCards = useMemo(
     () => [
+      {
+        label: tOperations('detail.metricsLabels.visitCount30d'),
+        value: formatCount(detail.metrics.visit_count_30d, i18n.language),
+        tooltip: tOperations('detail.metricsTooltips.visitCount30d'),
+      },
       {
         label: tOperations('detail.metricsLabels.learnerCount'),
         value: formatCount(detail.metrics.learner_count, i18n.language),

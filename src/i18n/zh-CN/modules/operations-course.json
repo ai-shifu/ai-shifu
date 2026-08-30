@@ -256,7 +256,8 @@
       "learnerCount": "学习人数",
       "orderAmount": "订单金额（含兑换码）",
       "orderCount": "订单数",
-      "ratingScore": "评分"
+      "ratingScore": "评分",
+      "visitCount30d": "近30天访问人数"
     },
     "metricsTooltips": {
       "completedUserAvgCredits": "已学完课程且有计费积分记录的用户，平均每人消耗了多少积分。",
@@ -267,7 +268,8 @@
       "learnerCount": "有多少用户开始学或加入过这门课，用来看课程触达规模。",
       "orderAmount": "这门课按应付金额口径统计的订单金额，包含兑换码和激活订单，不等同于现金实收。",
       "orderCount": "这门课产生了多少笔成功订单，包含付费、兑换码和 0 元激活订单。",
-      "ratingScore": "用户给课程章节的平均评分，用来看整体学习体验。"
+      "ratingScore": "用户给课程章节的平均评分，用来看整体学习体验。",
+      "visitCount30d": "过去30天内访问过该课程的登录用户数，不含预览访问；数据自该功能上线后开始统计。"
     },
     "orders": {
       "openMetric": "查看订单数据"

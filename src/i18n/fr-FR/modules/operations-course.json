@@ -256,7 +256,8 @@
       "learnerCount": "Apprenants",
       "orderAmount": "Valeur des commandes (codes inclus)",
       "orderCount": "Commandes",
-      "ratingScore": "Note"
+      "ratingScore": "Note",
+      "visitCount30d": "Visiteurs (30 j)"
     },
     "metricsTooltips": {
       "completedUserAvgCredits": "Crédits moyens dépensés par les utilisateurs ayant terminé ce cours et ayant une consommation de crédits facturée enregistrée.",
@@ -267,7 +268,8 @@
       "learnerCount": "Nombre d’utilisateurs qui ont commencé ou rejoint ce cours, utile pour estimer sa portée.",
       "orderAmount": "Valeur des commandes calculée sur le montant dû, codes de réduction et activations inclus. Ce n’est pas le montant encaissé en espèces.",
       "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées, avec code de réduction et les activations à 0.",
-      "ratingScore": "Note moyenne donnée aux leçons, utile pour évaluer l’expérience d’apprentissage."
+      "ratingScore": "Note moyenne donnée aux leçons, utile pour évaluer l’expérience d’apprentissage.",
+      "visitCount30d": "Utilisateurs connectés ayant consulté ce cours au cours des 30 derniers jours, hors aperçus. Les données ne sont comptabilisées que depuis le lancement de cette fonctionnalité."
     },
     "orders": {
       "openMetric": "Ouvrir les données de commande"

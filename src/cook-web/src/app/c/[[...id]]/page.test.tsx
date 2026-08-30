@@ -12,6 +12,7 @@ import ChatPage from './page';
 const mockGetProfileOnboarding = jest.fn();
 const mockSkipProfileOnboarding = jest.fn();
 const mockUpdateWxcode = jest.fn();
+const mockRecordCourseVisit = jest.fn();
 const mockWechatLogin = jest.fn();
 let mockInWechat = false;
 let mockInMiniProgram = false;
@@ -31,6 +32,7 @@ const laterLabel = 'later';
 const completeOnboardingLabel = 'complete onboarding';
 const skipOnboardingLabel = 'skip onboarding';
 const dismissOnboardingLabel = 'dismiss onboarding';
+let mockSearchParams = new URLSearchParams();
 
 interface MockChatMobileHeaderProps {
   lessonId?: string;
@@ -260,6 +262,7 @@ const mockUserStoreState: MockUserStoreState = {
 const mockCourseStoreState = {
   courseName: 'Course name',
   courseAvatar: '',
+  courseSettingsCourseId: 'course-1' as string | null,
   lessonId: 'lesson-1',
   chapterId: 'chapter-1',
   payModalOpen: false,
@@ -299,7 +302,7 @@ jest.mock('next/dynamic', () => ({
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: ['course-1'] }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }));
 
 jest.mock('react-i18next', () => ({
@@ -392,6 +395,10 @@ jest.mock('@/c-api/user', () => ({
   updateWxcode: (...args: unknown[]) => mockUpdateWxcode(...args),
 }));
 
+jest.mock('@/c-api/course', () => ({
+  recordCourseVisit: (...args: unknown[]) => mockRecordCourseVisit(...args),
+}));
+
 jest.mock('@/c-service/Shifu', () => ({
   shifu: {
     EventTypes: {
@@ -479,6 +486,8 @@ describe('ChatPage profile onboarding gate', () => {
     mockUserStoreState.isLoggedIn = true;
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.getToken = () => 'token-1';
+    mockCourseStoreState.courseName = 'Course name';
+    mockCourseStoreState.courseSettingsCourseId = 'course-1';
     mockCourseStoreState.lessonId = 'lesson-1';
     mockCourseStoreState.chapterId = 'chapter-1';
     mockUserStoreState.userInfo = {
@@ -494,6 +503,7 @@ describe('ChatPage profile onboarding gate', () => {
     mockEnvStoreState.appId = 'wx-app-id';
     mockInWechat = false;
     mockInMiniProgram = false;
+    mockSearchParams = new URLSearchParams();
     sessionStorage.clear();
     mockUiLayoutStoreState.frameLayout = 'desktop';
     mockSelectedLessonId = 'lesson-1';
@@ -516,6 +526,32 @@ describe('ChatPage profile onboarding gate', () => {
     mockSkipProfileOnboarding.mockResolvedValue({ skipped: true });
     mockReloadTree.mockResolvedValue(null);
     mockRefreshUserInfo.mockResolvedValue(undefined);
+    mockRecordCourseVisit.mockResolvedValue({ recorded: true });
+  });
+
+  test('records a loaded live course even when its title is empty', async () => {
+    mockCourseStoreState.courseName = '';
+
+    render(<ChatPage />);
+
+    expect(await screen.findByTestId('chat-ui')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockRecordCourseVisit).toHaveBeenCalledTimes(1);
+    });
+    expect(mockRecordCourseVisit).toHaveBeenCalledWith('course-1');
+  });
+
+  test('does not record while the preview URL is ahead of the store state', async () => {
+    mockSearchParams = new URLSearchParams('preview=true');
+    mockSystemStoreState.previewMode = false;
+
+    render(<ChatPage />);
+
+    expect(await screen.findByTestId('chat-ui')).toBeInTheDocument();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockRecordCourseVisit).not.toHaveBeenCalled();
   });
 
   test('keeps the lesson shell visible without starting runtime while eligibility loads', async () => {

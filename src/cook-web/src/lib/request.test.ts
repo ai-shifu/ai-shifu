@@ -19,6 +19,9 @@ import {
   TRACE_REQUEST_ID_HEADER,
 } from './request-trace';
 
+const mockLogout = jest.fn();
+const mockGetToken = jest.fn(() => 'active-token');
+
 jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
   toastOnce: jest.fn(),
@@ -27,8 +30,8 @@ jest.mock('@/hooks/useToast', () => ({
 jest.mock('@/store', () => ({
   useUserStore: {
     getState: jest.fn(() => ({
-      getToken: jest.fn(() => ''),
-      logout: jest.fn(),
+      getToken: mockGetToken,
+      logout: mockLogout,
     })),
   },
 }));
@@ -180,6 +183,71 @@ describe('request SSE business fallback', () => {
       }),
     );
     expect(toast).not.toHaveBeenCalled();
+  });
+
+  test.each([1001, 1004, 1005])(
+    'rejects auth error %s without global recovery when explicitly skipped',
+    async code => {
+      const hrefBeforeRequest = window.location.href;
+
+      await expect(
+        handleBusinessCode(
+          {
+            code,
+            message: 'visit write auth failure',
+          },
+          'active-token',
+          { skipAuthRecovery: true },
+        ),
+      ).rejects.toMatchObject({ code });
+
+      expect(mockLogout).not.toHaveBeenCalled();
+      expect(window.location.href).toBe(hrefBeforeRequest);
+    },
+  );
+
+  test('passes skipAuthRecovery through the POST request pipeline', async () => {
+    const request = new Request();
+    const hrefBeforeRequest = window.location.href;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({
+        code: 1001,
+        message: 'visit write auth failure',
+      }),
+    }) as jest.Mock;
+
+    await expect(
+      request.post(
+        'http://example.com/api/learn/shifu/course-1/visit',
+        {},
+        {
+          skipAuthRecovery: true,
+          skipErrorToast: true,
+        },
+      ),
+    ).rejects.toMatchObject({ code: 1001 });
+
+    expect(mockLogout).not.toHaveBeenCalled();
+    expect(window.location.href).toBe(hrefBeforeRequest);
+  });
+
+  test('preserves auth recovery for requests that do not opt out', async () => {
+    window.location.pathname = '/login';
+
+    await expect(
+      handleBusinessCode(
+        {
+          code: 1001,
+          message: 'expired session',
+        },
+        'active-token',
+      ),
+    ).rejects.toMatchObject({ code: 1001 });
+
+    expect(mockLogout).toHaveBeenCalledWith(false);
   });
 
   test('falls back to serviceUnavailable for server request failures', async () => {

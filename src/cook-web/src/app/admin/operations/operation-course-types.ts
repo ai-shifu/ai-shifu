@@ -63,6 +63,7 @@ export type AdminOperationCourseDetailBasicInfo = {
 };
 
 export type AdminOperationCourseDetailMetrics = {
+  visit_count_30d: number;
   learner_count: number;
   order_count: number;
   order_amount: string;

@@ -13,6 +13,7 @@ from flaskr.service.common.models import (
     raise_error,
     raise_param_error,
 )
+from flaskr.service.learn.api import count_recent_course_visitors
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
     ROLE_STUDENT,
@@ -352,6 +353,7 @@ def get_operator_course_detail(
                 updated_at=course.updated_at,
             ),
             metrics=AdminOperationCourseDetailMetricsDTO(
+                visit_count_30d=count_recent_course_visitors(normalized_shifu_bid),
                 learner_count=int(learner_count),
                 order_count=int(getattr(order_summary, "order_count", 0) or 0),
                 order_amount=_format_decimal(

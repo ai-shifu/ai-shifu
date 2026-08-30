@@ -23,6 +23,7 @@ export type RequestConfig = RequestInit & {
   params?: any;
   data?: any;
   skipErrorToast?: boolean;
+  skipAuthRecovery?: boolean;
   creditInsufficientAudience?: CreditInsufficientAudience;
 };
 
@@ -53,6 +54,7 @@ type RequestDebugMeta = {
   requestId?: string;
   harnessRunId?: string;
   skipErrorToast?: boolean;
+  skipAuthRecovery?: boolean;
   creditInsufficientAudience?: CreditInsufficientAudience;
 };
 
@@ -346,7 +348,7 @@ export const handleBusinessCode = async (
       return Promise.reject(error);
     }
 
-    if (isAuthError) {
+    if (isAuthError && !meta.skipAuthRecovery) {
       await handleAuthRecovery();
     }
 
@@ -359,6 +361,7 @@ export const handleBusinessCode = async (
       typeof window !== 'undefined' &&
       !location.pathname.includes('/login') &&
       isAuthError &&
+      !meta.skipAuthRecovery &&
       !(window as any).__IS_LOGGING_OUT__ // Added: skip redirects while logout is in progress
     ) {
       const currentPath = encodeURIComponent(
@@ -594,6 +597,7 @@ export class Request {
           requestId,
           harnessRunId,
           skipErrorToast: Boolean(mergedConfig.skipErrorToast),
+          skipAuthRecovery: Boolean(mergedConfig.skipAuthRecovery),
           creditInsufficientAudience: mergedConfig.creditInsufficientAudience,
         });
       }
