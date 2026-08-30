@@ -1111,17 +1111,20 @@ def invoke_llm(
             if start_completion_time is None:
                 start_completion_time = now_utc()
             if len(res.choices):
-                reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
-            if len(res.choices) and res.choices[0].delta.content:
-                response_text += res.choices[0].delta.content
-                yield LLMStreamResponse(
-                    res.id,
-                    bool(res.choices[0].finish_reason),
-                    is_truncated=False,
-                    result=res.choices[0].delta.content,
-                    finish_reason=res.choices[0].finish_reason,
-                    usage=None,
-                )
+                choice = res.choices[0]
+                reasoning_text += _extract_reasoning_delta(choice.delta)
+                content = choice.delta.content or ""
+                if content:
+                    response_text += content
+                if content or choice.finish_reason == "length":
+                    yield LLMStreamResponse(
+                        res.id,
+                        bool(choice.finish_reason),
+                        is_truncated=choice.finish_reason == "length",
+                        result=content,
+                        finish_reason=choice.finish_reason,
+                        usage=None,
+                    )
             res_usage = getattr(res, "usage", None)
             if res_usage:
                 input_cache_tokens = _extract_input_cache(res_usage)

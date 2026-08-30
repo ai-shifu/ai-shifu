@@ -896,10 +896,10 @@ def test_manual_assistant_prompt_obeys_complete_utf8_json_limit(
 
 
 @pytest.mark.parametrize(
-    ("finish_reason", "is_truncated"),
+    ("finish_reason", "is_truncated", "tail"),
     [
-        ("length", False),
-        ("stop", True),
+        ("length", False, ""),
+        ("stop", True, "prompt"),
     ],
 )
 def test_compiler_rejects_nonempty_truncated_output_without_publishing(
@@ -907,6 +907,7 @@ def test_compiler_rejects_nonempty_truncated_output_without_publishing(
     monkeypatch: object,
     finish_reason: str | None,
     is_truncated: bool,
+    tail: str,
 ) -> None:
     from unittest.mock import Mock
 
@@ -937,7 +938,7 @@ def test_compiler_rejects_nonempty_truncated_output_without_publishing(
             response_id="part-2",
             is_end=bool(finish_reason),
             is_truncated=is_truncated,
-            result="prompt",
+            result=tail,
             finish_reason=finish_reason,
             usage=None,
         )

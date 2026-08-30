@@ -13,6 +13,11 @@ def _install_litellm_stub() -> None:
         return
 
     litellm_stub = types.ModuleType("litellm")
+    litellm_stub.__path__ = []
+    litellm_types_stub = types.ModuleType("litellm.types")
+    litellm_types_stub.__path__ = []
+    litellm_utils_stub = types.ModuleType("litellm.types.utils")
+    litellm_utils_stub.ModelResponseStream = type("ModelResponseStream", (), {})
 
     def get_model_info(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
@@ -23,6 +28,8 @@ def _install_litellm_stub() -> None:
     litellm_stub.get_model_info = get_model_info
     litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
+    sys.modules["litellm.types"] = litellm_types_stub
+    sys.modules["litellm.types.utils"] = litellm_utils_stub
 
 
 def _install_openai_responses_stub() -> None:
@@ -185,3 +192,46 @@ def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object) -> Non
     assert span.generation_args["trace_id"] == "trace-1"
     assert span.generation_args["parent_observation_id"] == "span-1"
     assert span.end_args is not None
+
+
+def test_invoke_llm_preserves_empty_terminal_length_chunk(
+    monkeypatch: object, app: object
+) -> None:
+    def fake_completion(*args: object, **kwargs: object) -> object:
+        _ = args, kwargs
+        return iter(
+            [
+                FakeResponse("chunk-1", content="Partial response"),
+                FakeResponse("chunk-2", finish_reason="length"),
+            ]
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    provider_state = llm.ProviderState(
+        enabled=True,
+        params={"api_key": "test-key", "api_base": "https://example.com"},
+        models=["gpt-test"],
+        prefix="",
+        wildcard_prefixes=("gpt",),
+    )
+    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+
+    span = DummySpan()
+    responses = list(
+        llm.invoke_llm(
+            app,
+            user_id="user-1",
+            span=span,
+            model="gpt-test",
+            message="Generate a response",
+            generation_name="terminal-length-test",
+        )
+    )
+
+    assert [response.result for response in responses] == ["Partial response", ""]
+    assert responses[-1].is_end is True
+    assert responses[-1].is_truncated is True
+    assert responses[-1].finish_reason == "length"
+    assert span.end_args["output"] == "Partial response"
