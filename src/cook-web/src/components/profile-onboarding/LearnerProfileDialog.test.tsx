@@ -745,12 +745,19 @@ describe('LearnerProfileDialog', () => {
     );
     expect(screen.queryByText('Profile unavailable')).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.retention.continueSetup',
-      }),
-    );
+    const dialogBody = screen.getByTestId('learner-profile-dialog-body');
+    const continueSetupButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.retention.continueSetup',
+    });
+    dialogBody.scrollTop = 120;
+    act(() => continueSetupButton.focus());
+    fireEvent.click(continueSetupButton);
     expect(await screen.findByText('Profile unavailable')).toBeInTheDocument();
+    const retryButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.retry',
+    });
+    await waitFor(() => expect(retryButton).toHaveFocus());
+    expect(dialogBody.scrollTop).toBe(0);
     expect(mockTrackEvent).toHaveBeenCalledWith(
       PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
       {
@@ -760,11 +767,7 @@ describe('LearnerProfileDialog', () => {
       },
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.retry',
-      }),
-    );
+    fireEvent.click(retryButton);
     expect(
       await screen.findByDisplayValue(existingProfile.learner_profile),
     ).toBeInTheDocument();

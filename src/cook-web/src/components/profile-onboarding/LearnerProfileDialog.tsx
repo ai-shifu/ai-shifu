@@ -94,11 +94,13 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   const collectionContinueButtonRef = React.useRef<HTMLButtonElement | null>(
     null,
   );
+  const retryLoadButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const [chromeHeights, setChromeHeights] = React.useState<{
     header: number | null;
     footer: number | null;
   }>({ header: null, footer: null });
-  const activeDialogView = confirmation ?? (loaded ? phase : 'loading');
+  const activeDialogView =
+    confirmation ?? (loaded ? phase : loading ? 'loading' : 'load-error');
   const collectionOwnsScroll = loaded && !confirmation && phase === 'collect';
 
   const keepFocusedControlVisible = React.useCallback(
@@ -134,6 +136,8 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
       collectionViewRef.current?.focus();
     } else if (activeDialogView === 'save') {
       viewHeadingRef.current?.focus();
+    } else if (activeDialogView === 'load-error') {
+      retryLoadButtonRef.current?.focus();
     } else {
       confirmationHeadingRef.current?.focus();
     }
@@ -266,6 +270,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 >
                   <p>{state.error}</p>
                   <Button
+                    ref={retryLoadButtonRef}
                     type='button'
                     variant='outline'
                     className='mt-3 min-h-11 border-destructive/30 bg-background text-foreground'
