@@ -109,7 +109,14 @@ their consumers are deleted instead of dual-written.
       the full frontend suite at 212 Jest suites / 1,906 tests, TypeScript,
       focused lint, Prettier, repository harness, architecture boundaries, the
       full Lefthook pre-commit gate, and independent diff reviews.
-- [x] 2026-08-31 01:54 CST: Confirmed all acceptance and review-follow-up
+- [x] 2026-08-31 02:13 CST: Ensured a payment query that remains in flight at
+      the polling deadline emits one non-terminal pending status without
+      waiting forever. A deadline query still gets the final paid opportunity;
+      if it stalls, the next tick finalizes pending, and a later paid result
+      remains eligible. Focused checks passed 21 tests, followed by the full
+      frontend suite at 212 Jest suites / 1,907 tests, TypeScript, focused lint,
+      Prettier, architecture boundaries, and an independent concurrency review.
+- [x] 2026-08-31 02:13 CST: Confirmed all acceptance and review-follow-up
       checks passed, then kept this plan in `docs/exec-plans/completed/`.
 
 ## Surprises & Discoveries
@@ -226,7 +233,7 @@ Creator billing sync observations keep recoverable `failed`, `canceled`, and
 terminal success.
 
 Validation completed with focused frontend checks and the final full 212 Jest
-suites / 1,901 tests, TypeScript, frontend lint (no errors; existing repository
+suites / 1,907 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.
