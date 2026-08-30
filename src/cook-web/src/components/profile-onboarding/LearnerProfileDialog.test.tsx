@@ -595,16 +595,32 @@ describe('LearnerProfileDialog', () => {
     ).not.toBeInTheDocument();
     expect(onDefer).not.toHaveBeenCalled();
 
+    const dialogBody = screen.getByTestId('learner-profile-dialog-body');
+    const retentionNextButton = screen.getByTestId(
+      'learner-profile-retention-next',
+    );
+    dialogBody.scrollTop = 120;
+    act(() => retentionNextButton.focus());
+    expect(retentionNextButton).toHaveFocus();
+
     await act(async () => {
       statusRequest.resolve(onboardingStatus());
       profileRequest.resolve(emptyProfile);
     });
     await waitForCollectionSession();
+    expect(retentionNextButton).toHaveFocus();
+    expect(dialogBody.scrollTop).toBe(120);
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.retention.continueSetup',
       }),
     );
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText('module.profileOnboarding.title'),
+      ).toHaveFocus(),
+    );
+    expect(dialogBody.scrollTop).toBe(0);
     expect(
       screen.getByTestId('mock-profile-onboarding-conversation'),
     ).toBeVisible();

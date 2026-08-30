@@ -98,6 +98,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     header: number | null;
     footer: number | null;
   }>({ header: null, footer: null });
+  const activeDialogView = confirmation ?? (loaded ? phase : 'loading');
   const collectionOwnsScroll = loaded && !confirmation && phase === 'collect';
 
   const keepFocusedControlVisible = React.useCallback(
@@ -124,24 +125,25 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   );
 
   React.useEffect(() => {
+    if (activeDialogView === 'loading') return;
     contentScrollRef.current?.scrollTo?.({ top: 0, behavior: 'auto' });
     if (contentScrollRef.current) {
       contentScrollRef.current.scrollTop = 0;
     }
-    if (confirmation) {
-      confirmationHeadingRef.current?.focus();
-    } else if (phase === 'collect') {
+    if (activeDialogView === 'collect') {
       collectionViewRef.current?.focus();
-    } else {
+    } else if (activeDialogView === 'save') {
       viewHeadingRef.current?.focus();
+    } else {
+      confirmationHeadingRef.current?.focus();
     }
-  }, [confirmation, loaded, phase]);
+  }, [activeDialogView]);
 
   React.useEffect(() => {
-    if (phase === 'collect' && collectionReady) {
+    if (activeDialogView === 'collect' && collectionReady) {
       collectionContinueButtonRef.current?.focus();
     }
-  }, [collectionReady, phase]);
+  }, [activeDialogView, collectionReady]);
 
   React.useLayoutEffect(() => {
     if (!open || !headerElement || !footerElement) return;
