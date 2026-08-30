@@ -357,8 +357,73 @@ def test_document_save_never_recompiles_complete_existing_prompt(
     assert writes[0][1]["expected_value"] == json.dumps(current)
 
 
+@pytest.mark.parametrize(
+    ("legacy_prompt", "clear_document"),
+    [("", False), (" \n\t ", False), ("", True)],
+)
+def test_legacy_blank_prompt_without_revision_respects_document_clear(
+    app: object, monkeypatch: object, legacy_prompt: str, clear_document: bool
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    document = "What helps you learn?\n\n?[...Your answer]"
+    localized_prompts = _localized_prompts("Published prompt")
+    current = {
+        "enabled": True,
+        "markdownflow": document,
+        "assistant_prompt": "Published prompt",
+        "assistant_prompts": localized_prompts,
+        "revision": 8,
+    }
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    localizer = Mock(side_effect=AssertionError("legacy blank save must not localize"))
+    writes = []
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: json.dumps(current)
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, **kwargs: writes.append((payload, kwargs)) or False,
+    )
+
+    submitted_document = (
+        "" if clear_document else document + "\n\nAnother question?\n\n?[...Answer]"
+    )
+    response = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": not clear_document,
+            "markdownflow": submitted_document,
+            "assistant_prompt": legacy_prompt,
+        },
+        operator_user_bid="operator",
+    )
+
+    compiler.assert_not_called()
+    localizer.assert_not_called()
+    expected_prompt = "" if clear_document else "Published prompt"
+    expected_prompts = {} if clear_document else localized_prompts
+    assert response["markdownflow"] == submitted_document
+    assert response["assistant_prompt"] == expected_prompt
+    assert response["assistant_prompts"] == expected_prompts
+    assert writes[0][0]["markdownflow"] == submitted_document
+    assert writes[0][0]["assistant_prompt"] == expected_prompt
+    assert writes[0][0]["assistant_prompts"] == expected_prompts
+    assert writes[0][1]["expected_value"] == json.dumps(current)
+
+
+@pytest.mark.parametrize(
+    "prompt_fields", [{}, {"assistant_prompt": ""}, {"assistant_prompt": " \n\t "}]
+)
 def test_legacy_enabled_save_without_an_existing_prompt_is_rejected(
-    app: object, monkeypatch: object
+    app: object, monkeypatch: object, prompt_fields: dict
 ) -> None:
     from unittest.mock import Mock
 
@@ -373,7 +438,11 @@ def test_legacy_enabled_save_without_an_existing_prompt_is_rejected(
     with pytest.raises(AppError, match="assistant_prompt"):
         module.update_profile_onboarding_config(
             app,
-            payload={"enabled": True, "markdownflow": "?[...Answer]"},
+            payload={
+                "enabled": True,
+                "markdownflow": "?[...Answer]",
+                **prompt_fields,
+            },
             operator_user_bid="operator",
         )
 

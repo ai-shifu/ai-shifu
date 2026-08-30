@@ -1102,9 +1102,22 @@ def test_learner_profile_update_rejects_invalid_shapes(
     assert response.get_json(force=True)["code"] != 0
 
 
-@pytest.mark.parametrize("extra_payload", [{}, {"assistant_prompt": " Edited prompt "}])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"enabled": True, "markdownflow": "flow", "config_revision": 3},
+        {
+            "enabled": True,
+            "markdownflow": "flow",
+            "assistant_prompt": " Edited prompt ",
+            "config_revision": 3,
+        },
+        {"enabled": True, "markdownflow": "flow", "assistant_prompt": ""},
+    ],
+    ids=["current", "current-edited-prompt", "legacy-regeneration-sentinel"],
+)
 def test_operator_profile_onboarding_config_routes_delegate(
-    monkeypatch: object, test_client: object, extra_payload: dict
+    monkeypatch: object, test_client: object, payload: dict
 ) -> None:
     user = _authenticate(monkeypatch)
     calls = []
@@ -1127,24 +1140,14 @@ def test_operator_profile_onboarding_config_routes_delegate(
     updated = test_client.post(
         "/api/shifu/admin/operations/profile-onboarding",
         headers={"Token": "token"},
-        json={
-            "enabled": True,
-            "markdownflow": "flow",
-            "config_revision": 3,
-            **extra_payload,
-        },
+        json=payload,
     )
 
     assert _data(fetched) == {"enabled": False, "config_revision": 3}
     assert _data(updated) == {"enabled": True, "config_revision": 4}
     assert calls == [
         {
-            "payload": {
-                "enabled": True,
-                "markdownflow": "flow",
-                "config_revision": 3,
-                **extra_payload,
-            },
+            "payload": payload,
             "operator_user_bid": user.user_id,
         }
     ]

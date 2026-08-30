@@ -291,8 +291,19 @@ def update_profile_onboarding_config(
 
     existing_assistant_prompt = str(existing.get("assistant_prompt") or "").strip()
     existing_assistant_prompts = dict(existing.get("assistant_prompts") or {})
+    # The previous UI sent a blank prompt without a revision to request implicit
+    # regeneration. During the backend-first rollout, preserve published text
+    # for that sentinel because save paths must no longer compile the master.
+    preserve_legacy_blank_prompt = (
+        has_explicit_prompt
+        and not has_explicit_revision
+        and not explicit_prompt
+        and bool(markdownflow)
+    )
     assistant_prompt = (
-        explicit_prompt if has_explicit_prompt else existing_assistant_prompt
+        explicit_prompt
+        if has_explicit_prompt and not preserve_legacy_blank_prompt
+        else existing_assistant_prompt
     )
     enabled = bool(payload.get("enabled", False))
     if not markdownflow and assistant_prompt:
