@@ -173,6 +173,48 @@ describe('tracking transport', () => {
     expect(JSON.stringify(data).length).toBeLessThanOrEqual(1024);
   });
 
+  it('drains business events queued before the first identity', async () => {
+    const firstIdentify = createDeferred();
+    const callOrder: string[] = [];
+    const delivered: DeliveredPayload[] = [];
+    const identify = jest.fn((userId: string) => {
+      callOrder.push(`identify:${userId}`);
+      return firstIdentify.promise;
+    });
+    const { track } = installUmami({
+      identify,
+      onPayload: payload => {
+        delivered.push(payload);
+        callOrder.push(`track:${String(payload.name ?? 'pageview')}`);
+      },
+    });
+    const { identifyUmamiUser, tracking } = loadTrackingModule();
+
+    await tracking('queued_during_bootstrap', { surface: 'login' });
+    expect(track).not.toHaveBeenCalled();
+
+    identifyUmamiUser({ user_id: 'bootstrap-user' });
+    expect(callOrder).toEqual(['identify:bootstrap-user']);
+    expect(track).not.toHaveBeenCalled();
+
+    firstIdentify.resolve();
+    await waitFor(() => {
+      expect(callOrder).toEqual([
+        'identify:bootstrap-user',
+        'track:queued_during_bootstrap',
+      ]);
+    });
+    expect(delivered).toEqual([
+      expect.objectContaining({
+        data: { surface: 'login' },
+        name: 'queued_during_bootstrap',
+        referrer: undefined,
+        title: undefined,
+        url: '/admin/operations/users/:dynamic',
+      }),
+    ]);
+  });
+
   it('preserves the current pageview but drops old business events when identity changes', async () => {
     const firstIdentify = createDeferred();
     const secondIdentify = createDeferred();

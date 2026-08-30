@@ -509,21 +509,17 @@ export const identifyUmamiUser = (userInfo?: UmamiUserInfo | null) => {
 
   const isReplacementIdentity = identifyState.prevSnapshot !== '';
 
-  // Business events accepted while another identity was pending must never be
-  // replayed under the replacement identity. Preserve only a pending current
-  // pageview, and remove the previous identity's navigation context from it.
-  // A pageview that already drained is not re-created here.
-  const currentPageview = identifyState.queuedCalls.find(
-    call => call.kind === 'pageview',
-  );
-  identifyState.queuedCalls = currentPageview
-    ? [
-        isReplacementIdentity
-          ? { ...currentPageview, referrer: undefined }
-          : currentPageview,
-      ]
-    : [];
   if (isReplacementIdentity) {
+    // Business events accepted while another identity was pending must never
+    // be replayed under the replacement identity. Preserve only a pending
+    // current pageview, and remove the previous identity's navigation context
+    // from it. A pageview that already drained is not re-created here.
+    const currentPageview = identifyState.queuedCalls.find(
+      call => call.kind === 'pageview',
+    );
+    identifyState.queuedCalls = currentPageview
+      ? [{ ...currentPageview, referrer: undefined }]
+      : [];
     pageviewState.lastReferrer = '';
   }
   identifyState.prevSnapshot = snapshot;
