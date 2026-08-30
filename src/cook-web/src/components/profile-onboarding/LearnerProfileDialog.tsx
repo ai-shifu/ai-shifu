@@ -100,7 +100,8 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     footer: number | null;
   }>({ header: null, footer: null });
   const activeDialogView =
-    confirmation ?? (loaded ? phase : loading ? 'loading' : 'load-error');
+    confirmation ??
+    (loaded ? phase : state.loadStatus === 'error' ? 'load-error' : 'loading');
   const collectionOwnsScroll = loaded && !confirmation && phase === 'collect';
 
   const keepFocusedControlVisible = React.useCallback(
