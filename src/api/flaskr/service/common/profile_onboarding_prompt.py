@@ -135,7 +135,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
             "",
             span,
             str(app.config.get("DEFAULT_LLM_MODEL", "") or ""),
-            json.dumps({"markdownflow": document}, ensure_ascii=False),
+            document,
             system=load_prompt_template("profile_onboarding_assistant_compiler"),
             json=False,
             generation_name="profile_onboarding_assistant_compiler",

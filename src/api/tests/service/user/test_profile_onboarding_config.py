@@ -688,7 +688,7 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
         == "Public prompt"
     )
     args, kwargs = calls[0]
-    assert json.loads(args[4]) == {"markdownflow": document}
+    assert args[4] == document
     assert args[1] == ""
     assert kwargs["json"] is False
     assert "output_language" not in kwargs
