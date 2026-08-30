@@ -2172,7 +2172,7 @@ describe('LearnerProfileDialog', () => {
     },
   );
 
-  test('keeps retention retryable and preserves research when final defer fails', async () => {
+  test('keeps retention retryable, hides stale errors in a new cycle, and preserves research', async () => {
     const onClose = jest.fn();
     const deferRequest = deferred<boolean>();
     const onDefer = jest
@@ -2258,6 +2258,23 @@ describe('LearnerProfileDialog', () => {
     expect(mockCreateProfileOnboardingSession).toHaveBeenCalledTimes(1);
     expect(mockConversationControls.at(-1)).toBe(conversation);
     expect(conversation.assistantDraft()).toBe('Unsubmitted answer');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    await screen.findByText('module.profileOnboarding.dialog.retention.title');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Skip unavailable')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.continueSetup',
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText('module.profileOnboarding.title'),
+      ).toHaveFocus(),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
     await continueCollectionToSave();

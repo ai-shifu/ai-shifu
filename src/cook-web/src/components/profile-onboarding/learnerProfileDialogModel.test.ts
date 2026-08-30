@@ -93,6 +93,7 @@ describe('learnerProfileDialogModel', () => {
         activeCollectionSessionId: 'session-previous',
         confirmation: 'defer-retention',
         deferError: 'Skip unavailable',
+        externalDeferErrorVisible: true,
       },
     });
 

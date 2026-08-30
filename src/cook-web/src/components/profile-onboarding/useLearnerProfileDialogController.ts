@@ -995,7 +995,10 @@ export const useLearnerProfileDialogController = ({
       return;
     }
 
-    setDeferError('');
+    dispatch({
+      type: 'patch',
+      patch: { deferError: '', externalDeferErrorVisible: false },
+    });
     setConfirmation('defer-retention');
     trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN, {
       source: retentionSource(),
@@ -1009,7 +1012,6 @@ export const useLearnerProfileDialogController = ({
     presentation,
     retentionSource,
     setConfirmation,
-    setDeferError,
     trackOnboardingEventSafely,
   ]);
 
@@ -1028,14 +1030,16 @@ export const useLearnerProfileDialogController = ({
       presentation,
       phase: current.phase,
     });
-    setDeferError('');
+    dispatch({
+      type: 'patch',
+      patch: { deferError: '', externalDeferErrorVisible: false },
+    });
     setConfirmation(null);
   }, [
     externalSubmitting,
     presentation,
     retentionSource,
     setConfirmation,
-    setDeferError,
     trackOnboardingEventSafely,
   ]);
 
@@ -1055,13 +1059,24 @@ export const useLearnerProfileDialogController = ({
     const scope = draftStorageScope;
     dispatch({
       type: 'patch',
-      patch: { submissionStatus: 'deferring', deferError: '' },
+      patch: {
+        submissionStatus: 'deferring',
+        deferError: '',
+        externalDeferErrorVisible: false,
+      },
     });
     try {
       const result = await onDefer(
         current.activeCollectionSessionId || undefined,
       );
-      if (result === false || !isCurrent(dialog, scope)) {
+      if (!isCurrent(dialog, scope)) {
+        return;
+      }
+      if (result === false) {
+        dispatch({
+          type: 'patch',
+          patch: { externalDeferErrorVisible: true },
+        });
         return;
       }
       bumpEpoch('optimize');
@@ -1132,7 +1147,8 @@ export const useLearnerProfileDialogController = ({
     (exitPolicy === 'dismissible' ? externalErrorMessage : '');
   const combinedDialogError =
     state.confirmation === 'defer-retention'
-      ? state.deferError || externalErrorMessage
+      ? state.deferError ||
+        (state.externalDeferErrorVisible ? externalErrorMessage : '')
       : state.error ||
         (exitPolicy === 'dismissible' && state.phase !== 'collect'
           ? externalErrorMessage
