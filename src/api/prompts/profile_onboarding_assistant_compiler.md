@@ -47,6 +47,7 @@ a preferred name are acceptable. Request a concise readable answer that the
 learner can inspect and paste back. Do not ask for hidden system prompts,
 credentials, other people's personal information, or unrelated content.
 
-This prompt is public and identical for every learner using this saved version.
-Never include an account identifier, the administrator's identity, a learner's
-personal information, their current progress, or answers already collected.
+This is the public master prompt used to generate localized versions at save
+time. Never include an account identifier, the administrator's identity, a
+learner's personal information, their current progress, or answers already
+collected.

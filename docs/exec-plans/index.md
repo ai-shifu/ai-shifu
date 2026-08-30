@@ -52,6 +52,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Make AI-assisted onboarding visible before the first question](./completed/profile-onboarding-assistant-discoverability.md)
 - [Submit AI answers without waiting for a question](./completed/profile-onboarding-assistant-handoff.md)
 - [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
+- [Localize profile-onboarding assistant prompts for every supported language](./completed/profile-onboarding-multilingual-assistant-prompts.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
