@@ -42,6 +42,7 @@ import CourseCreditUsageTab from './CourseCreditUsageTab';
 import CourseEstimatedCreditCostCard from './CourseEstimatedCreditCostCard';
 import CourseMetricsCardGrid from './CourseMetricsCardGrid';
 import CourseUsersTab from './CourseUsersTab';
+import { useCourseVisitMetricExposure } from './courseVisitMetricAnalytics';
 import {
   createCourseUserFilters,
   type CourseUserFilters,
@@ -413,6 +414,11 @@ export default function AdminOperationCourseDetailPage() {
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
     : params?.shifu_bid || '';
+  useCourseVisitMetricExposure({
+    isOperatorReady: isReady,
+    routeCourseId: shifuBid,
+    loadedCourseId: detail.basic_info.shifu_bid,
+  });
   const followUpPageUrl = useMemo(
     () => buildAdminOperationsCourseFollowUpsUrl(shifuBid),
     [shifuBid],

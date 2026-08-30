@@ -20,6 +20,7 @@ const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
+const mockTrackEvent = jest.fn();
 const mockScrollIntoView = jest.fn();
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 const originalRequestAnimationFrame = window.requestAnimationFrame;
@@ -109,6 +110,17 @@ jest.mock('@/hooks/useToast', () => ({
   __esModule: true,
   fail: (...args: unknown[]) => mockToastFail(...args),
   show: (...args: unknown[]) => mockToastShow(...args),
+}));
+
+jest.mock('@/components/ErrorDisplay', () => ({
+  __esModule: true,
+  default: ({ errorMessage }: { errorMessage: string }) => (
+    <div>{errorMessage}</div>
+  ),
+}));
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
 jest.mock('@/lib/browser-timezone', () => ({
@@ -387,6 +399,8 @@ describe('AdminOperationCourseDetailPage', () => {
     mockCopyText.mockReset();
     mockToastShow.mockReset();
     mockToastFail.mockReset();
+    mockTrackEvent.mockReset();
+    mockTrackEvent.mockResolvedValue(undefined);
     mockScrollIntoView.mockReset();
     mockSearchParams = new URLSearchParams();
     mockLanguage = 'en-US';
@@ -714,6 +728,13 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(
       within(visitCard as HTMLElement).getByText('31'),
     ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'operator_course_visitor_metric_shown',
+        { shifu_bid: 'course-1' },
+      ),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
   });
 
   test('renders a zero 30-day visitor count as zero', async () => {
@@ -735,6 +756,41 @@ describe('AdminOperationCourseDetailPage', () => {
     const visitCard = tooltipButton.closest('.relative');
     expect(visitCard).not.toBeNull();
     expect(within(visitCard as HTMLElement).getByText('0')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'operator_course_visitor_metric_shown',
+        { shifu_bid: 'course-1' },
+      ),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the visitor metric visible when exposure tracking fails', async () => {
+    mockTrackEvent.mockRejectedValueOnce(new Error('blocked'));
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    const tooltipButton = screen.getByRole('button', {
+      name: 'module.operationsCourse.detail.metricsTooltips.visitCount30d',
+    });
+    const visitCard = tooltipButton.closest('.relative');
+    expect(visitCard).not.toBeNull();
+    expect(
+      within(visitCard as HTMLElement).getByText('31'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(mockTrackEvent).toHaveBeenCalledTimes(1));
+  });
+
+  test('does not track an exposure when course detail loading fails', async () => {
+    mockGetAdminOperationCourseDetail.mockRejectedValueOnce(
+      new Error('detail unavailable'),
+    );
+
+    render(<AdminOperationCourseDetailPage />);
+
+    expect(await screen.findByText('detail unavailable')).toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   test('converts course detail metadata timestamps to the browser timezone', async () => {
@@ -1308,6 +1364,7 @@ describe('AdminOperationCourseDetailPage', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/admin');
     });
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   test('surfaces unknown chapter type values instead of mislabeling them', async () => {

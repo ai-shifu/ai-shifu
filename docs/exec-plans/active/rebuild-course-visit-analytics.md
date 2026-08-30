@@ -19,30 +19,38 @@ truth.
 ## Progress
 
 - [x] 2026-08-30 17:15 CST: Audited the current producer, backend reader,
-  operator API field, hidden frontend contract, tests, configuration, and
-  product specification.
+      operator API field, hidden frontend contract, tests, configuration, and
+      product specification.
 - [x] 2026-08-30 17:15 CST: Created
-  `sunner/remove-umami-data-dependency` from the latest `origin/main` for the
-  independent cleanup pull request.
+      `sunner/remove-umami-data-dependency` from the latest `origin/main` for the
+      independent cleanup pull request.
 - [x] 2026-08-30 17:22 CST: Removed the obsolete #1527 implementation,
-  regenerated env/i18n/knowledge artifacts, and passed focused backend,
-  frontend, type, translation, harness, architecture, and tooling checks.
+      regenerated env/i18n/knowledge artifacts, and passed focused backend,
+      frontend, type, translation, harness, architecture, and tooling checks.
 - [x] 2026-08-30 17:25 CST: Published ready cleanup pull request
-  [#2718](https://github.com/ai-shifu/ai-shifu/pull/2718) from
-  `sunner/remove-umami-data-dependency` to `main`.
+      [#2718](https://github.com/ai-shifu/ai-shifu/pull/2718) from
+      `sunner/remove-umami-data-dependency` to `main`.
 - [x] 2026-08-30 17:27 CST: Created
-  `sunner/rebuild-course-visit-metric` from the final cleanup head and defined
-  the first-party storage, write, query, eligibility, and initial-data
-  contracts.
+      `sunner/rebuild-course-visit-metric` from the final cleanup head and defined
+      the first-party storage, write, query, eligibility, and initial-data
+      contracts.
 - [x] 2026-08-30 17:59 CST: Implemented the first-party course-visit table,
-  authenticated fail-open write path, atomic latest-visit upsert, rolling
-  business-table count, operator metric card, localized explanation, and
-  focused regression coverage.
+      authenticated fail-open write path, atomic latest-visit upsert, rolling
+      business-table count, operator metric card, localized explanation, and
+      focused regression coverage.
 - [x] 2026-08-30 18:05 CST: Passed focused backend and frontend suites,
-  TypeScript, translation, migration, repository-harness, architecture, and
-  full pre-commit gates; published ready stacked pull request
-  [#2719](https://github.com/ai-shifu/ai-shifu/pull/2719) with #2718's branch
-  as its base until the cleanup merges.
+      TypeScript, translation, migration, repository-harness, architecture, and
+      full pre-commit gates; published ready stacked pull request
+      [#2719](https://github.com/ai-shifu/ai-shifu/pull/2719) with #2718's branch
+      as its base until the cleanup merges.
+- [x] 2026-08-30 18:24 CST: Addressed the duplicate
+      [Devin](https://github.com/ai-shifu/ai-shifu/pull/2719#discussion_r3889064203)
+      and
+      [Codex](https://github.com/ai-shifu/ai-shifu/pull/2719#discussion_r3889066618)
+      review findings with a privacy-minimized operator-card exposure event,
+      while keeping course-visit data entirely first-party; passed 106 focused
+      frontend tests, TypeScript, lint, formatting, repository-harness, and
+      architecture checks.
 
 ## Surprises & Discoveries
 
@@ -107,6 +115,12 @@ truth.
   window in the metric tooltip.
   - Why: every available proxy would silently change the definition, while
     reading old Umami data would recreate the dependency being removed.
+- Decision: add `operator_course_visitor_metric_shown` only for successful
+  operator-card exposure, with `shifu_bid` as its sole feature-owned field.
+  - Why: this satisfies the repository's user-facing capability analytics
+    contract without sending the visitor count to Umami or making Umami a
+    source, sink, compatibility write, or runtime dependency of the business
+    metric.
 
 ## Outcomes & Retrospective
 

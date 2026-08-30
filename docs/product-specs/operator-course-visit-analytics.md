@@ -90,15 +90,15 @@ Recording is subordinate to the learner-visible course operation:
 
 Persist one row per `(shifu_bid, user_bid)` in `learn_course_visitors`:
 
-| Column | Contract |
-| --- | --- |
-| `id` | Autoincrement primary key. |
-| `shifu_bid` | Stable course business ID. |
-| `user_bid` | Stable authenticated user business ID. |
-| `first_visited_at` | UTC timestamp of the first recorded eligible visit. |
-| `last_visited_at` | UTC timestamp of the most recent recorded eligible visit. |
-| `created_at` | UTC row creation timestamp. |
-| `updated_at` | UTC row update timestamp. |
+| Column             | Contract                                                  |
+| ------------------ | --------------------------------------------------------- |
+| `id`               | Autoincrement primary key.                                |
+| `shifu_bid`        | Stable course business ID.                                |
+| `user_bid`         | Stable authenticated user business ID.                    |
+| `first_visited_at` | UTC timestamp of the first recorded eligible visit.       |
+| `last_visited_at`  | UTC timestamp of the most recent recorded eligible visit. |
+| `created_at`       | UTC row creation timestamp.                               |
+| `updated_at`       | UTC row update timestamp.                                 |
 
 The database enforces a unique constraint on `(shifu_bid, user_bid)` and an
 index on `(shifu_bid, last_visited_at)`. Recording uses an atomic database
@@ -132,6 +132,58 @@ last_visited_at <= now
 The metric card appears immediately before `学习人数`. Its tooltip states that
 the value counts logged-in, non-preview course-page visitors during the last
 30 days and that collection starts when this feature is deployed.
+
+### Operator Metric Exposure Analytics
+
+The displayed business metric remains independent from Umami. A separate
+best-effort event measures whether operators reach the new metric card; it does
+not contain the visitor count and is never read by product code.
+
+- Business question: are operators reaching the recent-visitor metric, and
+  across how many courses is the metric exposed?
+- Metric definition: raw card exposures and distinct `shifu_bid` values over a
+  reporting window selected by the product analytics owner. This is an
+  exposure metric, not the course visitor count or a billing, permission, or
+  audit input.
+- Event name: `operator_course_visitor_metric_shown`.
+- Actor and surface: authenticated operators on the operator course detail
+  page.
+- Trigger: once the operator guard is ready and a successful course detail
+  response has a non-empty course ID matching the current route, which is the
+  point when the visitor card is eligible to render.
+- Population: include operators viewing a successfully loaded course detail,
+  including zero-valued visitor metrics. Exclude guests, non-operators,
+  loading and error states, empty routes, and stale detail from another route.
+- Count unit: one eligible course-card exposure.
+- Deduplication: at most once for each route visit during one page mount. A
+  re-render or detail retry on the same route does not emit again. Navigating
+  from course A to B and back to A in the same mount records three exposures
+  because those are three distinct route visits.
+- Correlation: only `shifu_bid` groups exposure by the stable course business
+  ID. The feature adds no actor identifier, and consumers must not depend on
+  inherited Umami identity fields.
+- Consumer: aggregate product-adoption analysis owned by the operator
+  experience team. There is no runtime consumer.
+- Compatibility: additive event with no legacy alias, dual-write, or backfill.
+- Failure contract: the producer neither awaits delivery nor changes the
+  rendered page when tracking throws, rejects, is blocked, or is unavailable.
+
+| Field       | Type   | Allowed values                                        | Cardinality | Privacy class           | Why required                    |
+| ----------- | ------ | ----------------------------------------------------- | ----------- | ----------------------- | ------------------------------- |
+| `shifu_bid` | string | non-empty stable course bid matching the loaded route | high        | pseudonymous machine ID | group metric exposure by course |
+
+At the feature boundary, the exact payload is only `shifu_bid`; it excludes
+the visitor count, course title, URL, user ID, and all free-form data. The
+shared `useTracking` helper currently enriches delivered events with the
+grandfathered `user_type`, `user_id`, `device`, and localized `timeStamp`
+fields documented in the analytics reference. Those inherited fields are
+transport debt, are not feature-owned, and must not become dependencies of a
+new consumer.
+
+Focused tests verify the exact event and feature payload, successful-detail
+eligibility, stale/error/operator exclusions through the readiness contract,
+per-route-visit deduplication, prohibited-field absence, page wiring, and
+fail-open behavior for both synchronous and asynchronous tracking failures.
 
 ### Initial Data and Backfill
 
