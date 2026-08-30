@@ -126,6 +126,78 @@ describe('usePaymentFlow polling timeout', () => {
     jest.restoreAllMocks();
   });
 
+  it.each(['', '   '])(
+    'does not complete an unpaid order with blank value_to_pay %p',
+    async valueToPay => {
+      const onOrderPaid = jest.fn();
+      const onPollingTimeout = jest.fn();
+      mockedInitOrder.mockResolvedValueOnce({
+        ...pendingOrder,
+        value_to_pay: valueToPay,
+      });
+      const hook = renderHook(() =>
+        usePaymentFlow({
+          courseId: 'course-1',
+          isLoggedIn: true,
+          onOrderPaid,
+          onPollingTimeout,
+        }),
+      );
+
+      await act(async () => {
+        await hook.result.current.initializeOrder();
+      });
+
+      expect(hook.result.current.isCompleted).toBe(false);
+      expect(onOrderPaid).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await hook.result.current.refreshPayment({
+          channel: 'wx_pub_qr',
+          paymentChannel: 'pingxx',
+        });
+      });
+
+      expect(mockedGetPayUrl).toHaveBeenCalledTimes(1);
+      expect(onOrderPaid).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps an explicit zero-value order free', async () => {
+    const onOrderPaid = jest.fn();
+    const onPollingTimeout = jest.fn();
+    mockedInitOrder.mockResolvedValueOnce({
+      ...pendingOrder,
+      value_to_pay: '0',
+    });
+    const hook = renderHook(() =>
+      usePaymentFlow({
+        courseId: 'course-1',
+        isLoggedIn: true,
+        onOrderPaid,
+        onPollingTimeout,
+      }),
+    );
+
+    await act(async () => {
+      await hook.result.current.initializeOrder();
+    });
+
+    expect(hook.result.current.isCompleted).toBe(true);
+    expect(onOrderPaid).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      expect(
+        await hook.result.current.refreshPayment({
+          channel: 'wx_pub_qr',
+          paymentChannel: 'pingxx',
+        }),
+      ).toBeNull();
+    });
+
+    expect(mockedGetPayUrl).not.toHaveBeenCalled();
+  });
+
   it('uses the wall-clock deadline when interval ticks are skipped', async () => {
     const onOrderPaid = jest.fn();
     const onPollingTimeout = jest.fn();

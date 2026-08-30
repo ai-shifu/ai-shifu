@@ -705,6 +705,51 @@ describe('learner payment modal analytics producers', () => {
     );
   });
 
+  it('tracks the effective mobile WeChat QR fallback channel', async () => {
+    mockEnvState = {
+      ...mockEnvState,
+      paymentChannels: ['wechatpay'],
+    };
+    mockRefreshPayment.mockResolvedValue({
+      ...qrPayment,
+      channel: 'wx_pub_qr',
+      payment_channel: 'wechatpay',
+    });
+    render(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    fireEvent.click(screen.getByText('module.pay.wechatPay'));
+    fireEvent.click(screen.getByText('module.pay.pay'));
+
+    await waitFor(() => {
+      expect(window.open).toHaveBeenCalledWith(
+        'https://provider.example/private-qr',
+      );
+    });
+    expect(mockRefreshPayment).toHaveBeenLastCalledWith({
+      channel: 'wx_pub_qr',
+      paymentChannel: 'wechatpay',
+    });
+    expect(eventCalls('learner_payment_attempt')).toEqual([
+      [
+        'learner_payment_attempt',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'wechat_qr',
+          surface: 'mobile',
+        },
+      ],
+    ]);
+    expect(JSON.stringify(eventCalls('learner_payment_attempt'))).not.toContain(
+      'wechat_jsapi',
+    );
+  });
+
   it('tracks a mobile coupon application without exposing the coupon value', async () => {
     render(
       <PayModalM

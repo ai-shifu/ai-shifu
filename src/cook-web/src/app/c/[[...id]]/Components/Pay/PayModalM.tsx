@@ -540,7 +540,7 @@ export const PayModalM = ({
         );
       }
     } else if (typeof payload.qr_url === 'string' && payload.qr_url) {
-      trackPaymentAttempt(payChannel);
+      trackPaymentAttempt(resolveRequestChannel(payChannel));
       window.open(payload.qr_url);
     }
   }, [
