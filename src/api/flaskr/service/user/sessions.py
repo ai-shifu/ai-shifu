@@ -11,6 +11,7 @@ would defeat the point of the feature.
 
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING, Any
 
 from flaskr.common.cache_provider import cache as redis
@@ -57,16 +58,31 @@ def _to_dto(record: UserToken, *, current_token: str) -> dict[str, Any]:
     }
 
 
+def _ensure_public_ids(records: list[UserToken]) -> None:
+    """Give any session without a public id one before it is listed.
+
+    Sessions issued before this feature existed have an empty id, and a session
+    without one can be shown but never revoked, since the id is how a client
+    names it. The migration backfills live sessions; this covers anything it
+    could not reach and makes the listing self-healing.
+    """
+    missing = [record for record in records if not record.session_bid]
+    if not missing:
+        return
+    with unit_of_work():
+        for record in missing:
+            record.session_bid = str(uuid.uuid4())
+
+
 def list_user_sessions(
     *, user_id: str, current_token: str = ""
 ) -> list[dict[str, Any]]:
     """List the sessions this user can currently sign in with."""
     if not user_id:
         raise_error("server.user.userNotLogin")
-    return [
-        _to_dto(record, current_token=current_token)
-        for record in _active_sessions(user_id)
-    ]
+    records = _active_sessions(user_id)
+    _ensure_public_ids(records)
+    return [_to_dto(record, current_token=current_token) for record in records]
 
 
 def _forget(app: Flask, records: list[UserToken]) -> int:

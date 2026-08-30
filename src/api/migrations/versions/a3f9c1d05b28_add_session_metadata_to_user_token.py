@@ -7,6 +7,9 @@ Create Date: 2026-08-30 21:30:00.000000
 
 from __future__ import annotations
 
+import datetime
+import uuid
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -66,6 +69,29 @@ def upgrade() -> None:
     # lookups this table never had an index for.
     op.create_index("ix_user_token_user_id", "user_token", ["user_id"])
     op.create_index("ix_user_token_session_bid", "user_token", ["session_bid"])
+
+    # Sessions that already exist have no public id, and a session without one
+    # can be listed but never revoked -- the id is how the client names it.
+    # Only live sessions are backfilled: expired ones are never shown, and
+    # skipping them keeps this to a few hundred rows instead of every row ever
+    # issued.
+    bind = op.get_bind()
+    # The column stores naive UTC, matching the repository's datetime contract,
+    # so the comparison value has to be naive UTC too rather than a database
+    # CURRENT_TIMESTAMP, whose time zone differs between MySQL and SQLite.
+    now_naive_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    live_sessions = bind.execute(
+        sa.text(
+            "SELECT id FROM user_token "
+            "WHERE session_bid = '' AND token_expired_at > :now"
+        ),
+        {"now": now_naive_utc},
+    ).fetchall()
+    for (row_id,) in live_sessions:
+        bind.execute(
+            sa.text("UPDATE user_token SET session_bid = :bid WHERE id = :id"),
+            {"bid": str(uuid.uuid4()), "id": row_id},
+        )
 
 
 def downgrade() -> None:

@@ -133,6 +133,23 @@ def test_revoking_others_keeps_the_current_session(app: object, user_id: str) ->
         assert remaining[0]["is_current"] is True
 
 
+def test_a_session_without_a_public_id_gets_one(app: object, user_id: str) -> None:
+    """Sessions predating this feature must still be revocable."""
+    with app.test_request_context():
+        _sign_in(app, user_id)
+        record = UserToken.query.filter(UserToken.user_id == user_id).first()
+        record.session_bid = ""
+        db.session.commit()
+
+        listed = list_user_sessions(user_id=user_id)
+
+        assert listed[0]["session_bid"]
+        # And it is genuinely usable, not just present in the response.
+        revoke_user_session(app, user_id=user_id, session_bid=listed[0]["session_bid"])
+        db.session.commit()
+        assert list_user_sessions(user_id=user_id) == []
+
+
 def test_an_unknown_session_is_rejected(app: object, user_id: str) -> None:
     with app.test_request_context(), pytest.raises(AppError):
         revoke_user_session(app, user_id=user_id, session_bid="does-not-exist")
