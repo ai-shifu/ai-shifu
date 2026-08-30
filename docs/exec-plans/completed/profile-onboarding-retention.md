@@ -84,7 +84,7 @@ changes onboarding state. The compact text hierarchy communicates the benefit
 before the examples while keeping the complete proof visible in the existing
 dialog frame.
 
-Final verification passed five Jest suites with 131 tests across the retention
+Final verification passed five Jest suites with 132 tests across the retention
 view, shared dialog/model, course blocking gate, and admin settings caller.
 TypeScript, ESLint (existing warnings only), five-locale parity and usage,
 generated i18n types, repository knowledge generation, the repository harness,
@@ -176,6 +176,10 @@ the sole skip boundary.
   `profile_onboarding_retention_shown` events, segmented by `source` and
   `phase`. The count unit is a retention decision cycle, not a distinct user.
   Re-entering after an earlier continue starts a new cycle and counts again.
+  Each cycle freezes `source`, `presentation`, and `phase` when retention is
+  shown, and the continued event reuses that context. When the blocking gate
+  is still loading profile details, its known auto-start target is classified
+  as `collect` rather than the reducer's temporary default phase.
   Existing `profile_onboarding_skipped` events provide aggregate terminal
   context, but without a correlation ID they must not be presented as an exact
   per-cycle join or exact complement to continued events.

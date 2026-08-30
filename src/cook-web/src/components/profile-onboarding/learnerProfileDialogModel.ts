@@ -36,6 +36,11 @@ export type LearnerProfileDialogConfirmation =
   | 'replace-collection'
   | 'defer-retention';
 export type CollectionTriggerSource = 'guided' | 'settings';
+export type LearnerProfileRetentionAnalyticsContext = {
+  source: CollectionTriggerSource;
+  presentation: ProfileOnboardingPresentation;
+  phase: LearnerProfileDialogPhase;
+};
 
 export type ProfileCollectionResult = {
   draft: string;
@@ -95,6 +100,7 @@ export type LearnerProfileDialogState = {
   error: string;
   deferError: string;
   externalDeferErrorVisible: boolean;
+  retentionAnalyticsContext: LearnerProfileRetentionAnalyticsContext | null;
 };
 
 export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
@@ -130,6 +136,7 @@ export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
   error: '',
   deferError: '',
   externalDeferErrorVisible: false,
+  retentionAnalyticsContext: null,
 };
 
 export type LearnerProfileDialogAction =

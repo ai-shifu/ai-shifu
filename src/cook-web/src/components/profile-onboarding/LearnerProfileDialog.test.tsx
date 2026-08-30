@@ -566,14 +566,13 @@ describe('LearnerProfileDialog', () => {
 
   test('shows retention instead of a second-step footer while profile data is loading', async () => {
     const profileRequest = deferred<typeof emptyProfile>();
-    const statusRequest = deferred<ReturnType<typeof onboardingStatus>>();
     const onDefer = jest.fn().mockResolvedValue(true);
     mockGetLearnerProfile.mockReturnValue(profileRequest.promise);
-    mockGetProfileOnboardingStatus.mockReturnValue(statusRequest.promise);
 
     renderDialog({
       exitPolicy: 'blocking',
       presentation: 'blocking',
+      initialOnboardingStatus: onboardingStatus(),
       onDefer,
     });
     expect(
@@ -590,6 +589,14 @@ describe('LearnerProfileDialog', () => {
         'module.profileOnboarding.dialog.retention.title',
       ),
     ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'collect',
+      },
+    );
     expect(
       screen.queryByText('module.profileOnboarding.dialog.loading'),
     ).not.toBeInTheDocument();
@@ -604,7 +611,6 @@ describe('LearnerProfileDialog', () => {
     expect(retentionNextButton).toHaveFocus();
 
     await act(async () => {
-      statusRequest.resolve(onboardingStatus());
       profileRequest.resolve(emptyProfile);
     });
     await waitForCollectionSession();
@@ -620,10 +626,66 @@ describe('LearnerProfileDialog', () => {
         screen.getByLabelText('module.profileOnboarding.title'),
       ).toHaveFocus(),
     );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'collect',
+      },
+    );
     expect(dialogBody.scrollTop).toBe(0);
     expect(
       screen.getByTestId('mock-profile-onboarding-conversation'),
     ).toBeVisible();
+  });
+
+  test('freezes retention analytics while loading changes the underlying phase', async () => {
+    const profileRequest = deferred<typeof existingProfile>();
+    mockGetLearnerProfile.mockReturnValue(profileRequest.promise);
+
+    renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      initialOnboardingStatus: onboardingStatus(),
+      onDefer: jest.fn().mockResolvedValue(true),
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.dialog.retention.title',
+      ),
+    ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'collect',
+      },
+    );
+
+    await act(async () => {
+      profileRequest.resolve(existingProfile);
+    });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.continueSetup',
+      }),
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'collect',
+      },
+    );
+    expect(profileInput()).toBeVisible();
   });
 
   test('keeps a load failure retry available after returning from retention', async () => {
@@ -653,6 +715,14 @@ describe('LearnerProfileDialog', () => {
         'module.profileOnboarding.dialog.retention.title',
       ),
     ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'collect',
+      },
+    );
     expect(screen.queryByText('Profile unavailable')).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -661,6 +731,14 @@ describe('LearnerProfileDialog', () => {
       }),
     );
     expect(await screen.findByText('Profile unavailable')).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'collect',
+      },
+    );
 
     fireEvent.click(
       screen.getByRole('button', {

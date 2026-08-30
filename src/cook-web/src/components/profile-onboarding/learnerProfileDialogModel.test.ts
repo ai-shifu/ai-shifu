@@ -94,6 +94,11 @@ describe('learnerProfileDialogModel', () => {
         confirmation: 'defer-retention',
         deferError: 'Skip unavailable',
         externalDeferErrorVisible: true,
+        retentionAnalyticsContext: {
+          source: 'guided',
+          presentation: 'blocking',
+          phase: 'collect',
+        },
       },
     });
 

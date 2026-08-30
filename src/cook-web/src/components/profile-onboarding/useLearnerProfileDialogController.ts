@@ -27,6 +27,7 @@ import {
   selectLearnerProfileDialog,
   type LearnerProfileDialogConfirmation,
   type LearnerProfileDialogProps,
+  type LearnerProfileRetentionAnalyticsContext,
   type ProfileCollectionResult,
 } from './learnerProfileDialogModel';
 import {
@@ -963,13 +964,23 @@ export const useLearnerProfileDialogController = ({
     beginCollection(current.preferredCollectionIntent, true);
   }, [beginCollection, exitPolicy, externalSubmitting, setConfirmation]);
 
-  const retentionSource = React.useCallback(() => {
-    const current = stateRef.current;
-    return (
-      current.collectionResult?.completion.triggerSource ??
-      (current.collectionIntent === 'settings' ? 'settings' : 'guided')
-    );
-  }, []);
+  const buildRetentionAnalyticsContext =
+    React.useCallback((): LearnerProfileRetentionAnalyticsContext => {
+      const current = stateRef.current;
+      const phase =
+        current.loadStatus === 'ready'
+          ? current.phase
+          : autoStartCollectionRef.current
+            ? 'collect'
+            : current.phase;
+      return {
+        source:
+          current.collectionResult?.completion.triggerSource ??
+          (current.collectionIntent === 'settings' ? 'settings' : 'guided'),
+        presentation,
+        phase,
+      };
+    }, [presentation]);
 
   const trackOnboardingEventSafely = React.useCallback(
     (eventName: string, payload: Record<string, unknown>) => {
@@ -995,22 +1006,25 @@ export const useLearnerProfileDialogController = ({
       return;
     }
 
+    const analyticsContext = buildRetentionAnalyticsContext();
     dispatch({
       type: 'patch',
-      patch: { deferError: '', externalDeferErrorVisible: false },
+      patch: {
+        deferError: '',
+        externalDeferErrorVisible: false,
+        retentionAnalyticsContext: analyticsContext,
+      },
     });
     setConfirmation('defer-retention');
-    trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN, {
-      source: retentionSource(),
-      presentation,
-      phase: current.phase,
-    });
+    trackOnboardingEventSafely(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_SHOWN,
+      analyticsContext,
+    );
   }, [
+    buildRetentionAnalyticsContext,
     exitPolicy,
     externalSubmitting,
     onDefer,
-    presentation,
-    retentionSource,
     setConfirmation,
     trackOnboardingEventSafely,
   ]);
@@ -1025,20 +1039,22 @@ export const useLearnerProfileDialogController = ({
       return;
     }
 
-    trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED, {
-      source: retentionSource(),
-      presentation,
-      phase: current.phase,
-    });
+    trackOnboardingEventSafely(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
+      current.retentionAnalyticsContext ?? buildRetentionAnalyticsContext(),
+    );
     dispatch({
       type: 'patch',
-      patch: { deferError: '', externalDeferErrorVisible: false },
+      patch: {
+        deferError: '',
+        externalDeferErrorVisible: false,
+        retentionAnalyticsContext: null,
+      },
     });
     setConfirmation(null);
   }, [
+    buildRetentionAnalyticsContext,
     externalSubmitting,
-    presentation,
-    retentionSource,
     setConfirmation,
     trackOnboardingEventSafely,
   ]);
