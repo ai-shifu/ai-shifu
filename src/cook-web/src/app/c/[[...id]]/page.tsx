@@ -28,7 +28,6 @@ import {
 } from '@/c-store';
 import { useUserStore } from '@/store';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import { useTracking } from '@/c-common/hooks/useTracking';
 import { useLessonTree, type LessonTreeLesson } from './hooks/useLessonTree';
 import {
   applyLessonSelection,
@@ -59,7 +58,6 @@ import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { isWechatCodeFlowEnabled } from './Components/Pay/wechatJsapi';
-import { trackCourseVisitIfNeeded } from './courseVisitTracking';
 import { useCourseProfileOnboardingGate } from './hooks/useCourseProfileOnboardingGate';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
@@ -160,12 +158,6 @@ const requestWechatCodeForOpenIdRebindIfUnbound = (openId: string) => {
 
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
-  const { trackEvent } = useTracking();
-  const attemptedCourseVisitKeyRef = useRef<string | null>(null);
-  const pendingCourseVisitKeyRef = useRef<string | null>(null);
-  const initialCourseVisitEntryTypeRef = useRef<'catalog' | 'deep_link' | null>(
-    null,
-  );
 
   /**
    * User info and init part
@@ -513,58 +505,6 @@ export default function ChatPage() {
     }
     document.title = courseName;
   }, [courseName, previewMode, t]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !courseName) {
-      return;
-    }
-
-    if (!initialCourseVisitEntryTypeRef.current) {
-      initialCourseVisitEntryTypeRef.current = urlLessonId
-        ? 'deep_link'
-        : 'catalog';
-    }
-
-    const entryType = initialCourseVisitEntryTypeRef.current;
-    const authState = isLoggedIn ? 'logged_in' : 'guest';
-    const visitAttemptKey = `${courseId}:${entryType}:${previewMode ? 'preview' : 'live'}:${authState}`;
-
-    if (
-      attemptedCourseVisitKeyRef.current === visitAttemptKey ||
-      pendingCourseVisitKeyRef.current === visitAttemptKey
-    ) {
-      return;
-    }
-
-    pendingCourseVisitKeyRef.current = visitAttemptKey;
-
-    void trackCourseVisitIfNeeded({
-      initialized,
-      isLoggedIn,
-      previewMode,
-      shifuBid: courseId,
-      entryType,
-      trackEvent,
-    })
-      .then(tracked => {
-        if (tracked) {
-          attemptedCourseVisitKeyRef.current = visitAttemptKey;
-        }
-      })
-      .finally(() => {
-        if (pendingCourseVisitKeyRef.current === visitAttemptKey) {
-          pendingCourseVisitKeyRef.current = null;
-        }
-      });
-  }, [
-    courseId,
-    courseName,
-    initialized,
-    isLoggedIn,
-    previewMode,
-    trackEvent,
-    urlLessonId,
-  ]);
 
   useEffect(() => {
     if (selectedLessonId) {

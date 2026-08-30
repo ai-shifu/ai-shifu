@@ -496,7 +496,6 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
-        visit_count_30d: 34,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',
@@ -625,11 +624,6 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
-    expect(
-      screen.queryByText(
-        'module.operationsCourse.detail.metricsLabels.visitCount30d',
-      ),
-    ).not.toBeInTheDocument();
     const creditsMetricCard = screen
       .getByText(
         'module.operationsCourse.detail.metricsLabels.creditConsumedTotal',
@@ -711,7 +705,6 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-06-09T13:01:50Z',
       },
       metrics: {
-        visit_count_30d: 34,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',
@@ -1086,7 +1079,6 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
-        visit_count_30d: 76384,
         learner_count: 12000,
         order_count: 4000,
         order_amount: '88',
@@ -1164,11 +1156,6 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await screen.findByText('Course One');
 
-    expect(
-      screen.queryByText(
-        'module.operationsCourse.detail.metricsLabels.visitCount30d',
-      ),
-    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', {
         name: 'module.operationsCourse.detail.followUps.openMetric',
@@ -1286,7 +1273,6 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
-        visit_count_30d: 34,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',

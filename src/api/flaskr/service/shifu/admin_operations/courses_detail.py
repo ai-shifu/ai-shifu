@@ -8,7 +8,6 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
 from flaskr.service.common.models import (
     raise_error,
@@ -46,7 +45,6 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _build_course_order_amount_expr,
     _format_average_score,
     _format_decimal,
-    _get_legacy_admin_symbol,
     _load_operator_course_detail_source,
     _load_operator_course_outline_items,
     _load_user_map,
@@ -265,9 +263,6 @@ def get_operator_course_detail(
         course_status = detail_source["course_status"]
 
         creator_user_bid = str(course.created_user_bid or "").strip()
-        visit_count_30d = _get_legacy_admin_symbol(
-            "get_course_visit_count_30d", get_course_visit_count_30d
-        )(app, normalized_shifu_bid)
         learner_count = (
             db.session.query(db.func.count(db.distinct(LearnProgressRecord.user_bid)))
             .filter(
@@ -357,7 +352,6 @@ def get_operator_course_detail(
                 updated_at=course.updated_at,
             ),
             metrics=AdminOperationCourseDetailMetricsDTO(
-                visit_count_30d=int(visit_count_30d),
                 learner_count=int(learner_count),
                 order_count=int(getattr(order_summary, "order_count", 0) or 0),
                 order_amount=_format_decimal(
