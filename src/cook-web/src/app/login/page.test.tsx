@@ -4,6 +4,10 @@ import AuthPage from './page';
 
 const replaceMock = jest.fn();
 const logoutMock = jest.fn(() => Promise.resolve());
+// next/navigation memoizes both hooks, so their return values keep a stable
+// identity across renders. Returning a fresh object per render makes every
+// effect that depends on them re-run on every render.
+const mockRouter = { replace: replaceMock };
 const mockSearchParams = {
   get: jest.fn(() => null),
 };
@@ -31,9 +35,7 @@ const mockUserState = {
 };
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    replace: replaceMock,
-  }),
+  useRouter: () => mockRouter,
   useSearchParams: () => mockSearchParams,
 }));
 

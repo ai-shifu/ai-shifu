@@ -3,6 +3,9 @@
   "__flat__": {
     "checkCodeError": "Image captcha is incorrect",
     "checkCodeExpired": "Image captcha expired",
+    "deviceAuthAlreadyHandled": "This authorization request has already been handled.",
+    "deviceAuthTooManyRequests": "Too many authorization requests. Please try again later.",
+    "deviceCodeInvalid": "The pairing code is invalid or has expired. Start authorization again from the command line.",
     "emailSendFailed": "Email send failed",
     "emailSendTooFrequent": "Emails sent too frequently",
     "emailVerificationExpiry": "This code expires in {expiry_duration}.",

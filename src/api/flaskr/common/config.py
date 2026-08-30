@@ -883,6 +883,48 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Token expiration time in seconds",
         group="auth",
     ),
+    "DEVICE_AUTH_EXPIRE_TIME": EnvVar(
+        name="DEVICE_AUTH_EXPIRE_TIME",
+        default=600,
+        type=int,
+        description="Lifetime in seconds of a pending device authorization request",
+        group="auth",
+    ),
+    "DEVICE_AUTH_POLL_INTERVAL": EnvVar(
+        name="DEVICE_AUTH_POLL_INTERVAL",
+        default=5,
+        type=int,
+        description="Seconds a device client should wait between polls",
+        group="auth",
+    ),
+    "DEVICE_AUTH_MAX_LOOKUP_ATTEMPTS": EnvVar(
+        name="DEVICE_AUTH_MAX_LOOKUP_ATTEMPTS",
+        default=10,
+        type=int,
+        description="Failed pairing-code lookups allowed per IP before refusing",
+        group="auth",
+    ),
+    "DEVICE_AUTH_MAX_REQUESTS": EnvVar(
+        name="DEVICE_AUTH_MAX_REQUESTS",
+        default=20,
+        type=int,
+        description="Device authorization requests allowed per IP per window",
+        group="auth",
+    ),
+    "DEVICE_AUTH_ISSUE_WINDOW": EnvVar(
+        name="DEVICE_AUTH_ISSUE_WINDOW",
+        default=600,
+        type=int,
+        description="Window in seconds for counting device authorization requests",
+        group="auth",
+    ),
+    "DEVICE_AUTH_LOOKUP_WINDOW": EnvVar(
+        name="DEVICE_AUTH_LOOKUP_WINDOW",
+        default=600,
+        type=int,
+        description="Window in seconds for counting failed pairing-code lookups",
+        group="auth",
+    ),
     "RESET_PWD_CODE_EXPIRE_TIME": EnvVar(
         name="RESET_PWD_CODE_EXPIRE_TIME",
         default=300,
@@ -1834,6 +1876,8 @@ REDIS_KEY_SUFFIXES: dict[str, str] = {
     "REDIS_KEY_PREFIX_PHONE_LIMIT": "phone_limit:",
     "REDIS_KEY_PREFIX_IP_BAN": "ip_ban:",
     "REDIS_KEY_PREFIX_IP_LIMIT": "ip_limit:",
+    "REDIS_KEY_PREFIX_DEVICE_AUTH": "device_auth:",
+    "REDIS_KEY_PREFIX_DEVICE_USER_CODE": "device_user_code:",
 }
 
 
