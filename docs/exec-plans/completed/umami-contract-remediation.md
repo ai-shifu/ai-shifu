@@ -105,8 +105,9 @@ their consumers are deleted instead of dual-written.
   modal currency accepted an unbounded runtime string. Final payload review
   required omitting unverified IDs and bounding currency to `CNY|USD|other`.
 - Review also exposed that the learner Stripe cancel return was classified as
-  pending analytics. The producer now records a cancelled attempt after the
-  product API confirms the order, without changing the pending order UI.
+  pending analytics. The producer now records an attempt with
+  `outcome=cancelled` after the product API confirms the order, without changing
+  the pending order UI.
 - The legacy `createOutline` producer read `parent_bid` after `replaceOutline`
   mutated its placeholder. Producer-level tests exposed the resulting empty
   parent ID and led to capturing it before mutation.
@@ -187,8 +188,8 @@ remains for that order; stale or ambiguous evidence falls back to generic
 attribution. Other explicit provider results close only their matching channel,
 and a generic order-level result uses `channel=other` instead of guessing when
 multiple channels remain unresolved. Creator billing sync observations keep
-recoverable failed, canceled, and timeout states non-terminal so a later paid
-observation can emit the one terminal success.
+recoverable `failed`, `canceled`, and `timeout` API states non-terminal so a
+later paid observation can emit the one terminal success.
 
 Validation completed with focused frontend checks and the final full 212 Jest
 suites / 1,886 tests, TypeScript, frontend lint (no errors; existing repository
