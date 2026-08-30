@@ -37,6 +37,17 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+const mockTrackEvent = jest.fn();
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+  EVENT_NAMES: {
+    DEVICE_AUTH_PROMPT_SHOWN: 'device_auth_prompt_shown',
+    DEVICE_AUTH_APPROVED: 'device_auth_approved',
+    DEVICE_AUTH_DENIED: 'device_auth_denied',
+  },
+}));
+
 const pendingDevice = {
   user_code: 'AC4-7HK',
   device_name: 'MacBook-Pro',
@@ -176,6 +187,60 @@ describe('DeviceAuthorizationPage', () => {
     expect(
       screen.queryByText('module.auth.deviceAuthApprovedTitle'),
     ).not.toBeInTheDocument();
+  });
+
+  it('reports the prompt exposure once, without leaking the pairing code', async () => {
+    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
+      envelope(pendingDevice),
+    );
+
+    const { rerender } = render(<DeviceAuthorizationPage />);
+    await screen.findByText('MacBook-Pro');
+    rerender(<DeviceAuthorizationPage />);
+
+    const exposures = mockTrackEvent.mock.calls.filter(
+      ([name]) => name === 'device_auth_prompt_shown',
+    );
+    expect(exposures).toHaveLength(1);
+    // The pairing code is a live credential; it must not reach analytics.
+    expect(JSON.stringify(exposures[0][1])).not.toContain('AC4-7HK');
+  });
+
+  it('reports the terminal outcome of each decision', async () => {
+    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
+      envelope(pendingDevice),
+    );
+    (api.deviceAuthDeny as jest.Mock).mockResolvedValue(
+      envelope({ status: 'denied' }),
+    );
+
+    render(<DeviceAuthorizationPage />);
+    fireEvent.click(await screen.findByText('module.auth.deviceAuthDeny'));
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'device_auth_denied',
+        expect.any(Object),
+      ),
+    );
+  });
+
+  it('does not report an outcome when the decision failed', async () => {
+    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
+      envelope(pendingDevice),
+    );
+    (api.deviceAuthApprove as jest.Mock).mockResolvedValue(
+      envelope(null, 1029, 'already handled'),
+    );
+
+    render(<DeviceAuthorizationPage />);
+    fireEvent.click(await screen.findByText('module.auth.deviceAuthApprove'));
+
+    await screen.findByText('already handled');
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'device_auth_approved',
+      expect.anything(),
+    );
   });
 
   it('sends the user back to login when the session expired', async () => {

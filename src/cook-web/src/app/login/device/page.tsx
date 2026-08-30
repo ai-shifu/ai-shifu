@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useUserStore } from '@/store';
+import { EVENT_NAMES, useTracking } from '@/c-common/hooks/useTracking';
 
 type PendingDevice = {
   user_code: string;
@@ -59,6 +60,7 @@ const DeviceAuthorizationContent = () => {
   const searchParams = useSearchParams();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const isInitialized = useUserStore(state => state.isInitialized);
+  const { trackEvent } = useTracking();
 
   const codeFromUrl = searchParams.get('code') ?? '';
   const [enteredCode, setEnteredCode] = useState(codeFromUrl);
@@ -76,6 +78,13 @@ const DeviceAuthorizationContent = () => {
       : '/login/device';
     router.replace(`/login?redirect=${encodeURIComponent(target)}`);
   }, [codeFromUrl, router]);
+
+  const trackEventRef = useRef(trackEvent);
+  useEffect(() => {
+    trackEventRef.current = trackEvent;
+  }, [trackEvent]);
+
+  const shownCodeRef = useRef<string>('');
 
   const redirectToLoginRef = useRef(redirectToLogin);
   useEffect(() => {
@@ -127,6 +136,21 @@ const DeviceAuthorizationContent = () => {
     void loadPending(codeFromUrl);
   }, [codeFromUrl, isInitialized, isLoggedIn, loadPending]);
 
+  // One exposure per resolved request: the pairing code identifies the
+  // request, so re-renders cannot inflate the eligible-view denominator. The
+  // code itself is never sent -- it is a live credential for ten minutes.
+  useEffect(() => {
+    const code = pending?.user_code;
+    if (!code || shownCodeRef.current === code) {
+      return;
+    }
+    shownCodeRef.current = code;
+    void trackEventRef.current(EVENT_NAMES.DEVICE_AUTH_PROMPT_SHOWN, {
+      device_os: pending?.device_os || '',
+      from_link: Boolean(codeFromUrl),
+    });
+  }, [codeFromUrl, pending]);
+
   const handleLookup = useCallback(() => {
     const code = enteredCode.trim();
     if (!code) {
@@ -157,6 +181,12 @@ const DeviceAuthorizationContent = () => {
           return;
         }
         setPhase(approve ? 'approved' : 'denied');
+        void trackEventRef.current(
+          approve
+            ? EVENT_NAMES.DEVICE_AUTH_APPROVED
+            : EVENT_NAMES.DEVICE_AUTH_DENIED,
+          { device_os: pending?.device_os || '' },
+        );
       } catch (error) {
         setErrorMessage((error as Error)?.message || '');
         setPhase('error');

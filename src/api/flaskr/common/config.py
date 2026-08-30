@@ -904,6 +904,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Failed pairing-code lookups allowed per IP before refusing",
         group="auth",
     ),
+    "DEVICE_AUTH_MAX_REQUESTS": EnvVar(
+        name="DEVICE_AUTH_MAX_REQUESTS",
+        default=20,
+        type=int,
+        description="Device authorization requests allowed per IP per window",
+        group="auth",
+    ),
+    "DEVICE_AUTH_ISSUE_WINDOW": EnvVar(
+        name="DEVICE_AUTH_ISSUE_WINDOW",
+        default=600,
+        type=int,
+        description="Window in seconds for counting device authorization requests",
+        group="auth",
+    ),
     "DEVICE_AUTH_LOOKUP_WINDOW": EnvVar(
         name="DEVICE_AUTH_LOOKUP_WINDOW",
         default=600,

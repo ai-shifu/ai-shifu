@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.device_auth import (
     STATUS_APPROVED,
     STATUS_DENIED,
@@ -119,6 +119,61 @@ def test_pairing_code_guessing_is_rate_limited(app: object) -> None:
         with pytest.raises(AppError):
             get_device_authorization(
                 app, user_code=started["user_code"], client_ip=attacker_ip
+            )
+
+
+def test_a_valid_lookup_does_not_refill_the_guess_budget(app: object) -> None:
+    """A code the attacker legitimately holds must not reset their budget.
+
+    The final lookup uses a *valid* code on purpose: an unknown code is refused
+    either way, so it could not tell a spent budget apart from a fresh one.
+    """
+    with app.test_request_context():
+        attacker_ip = "198.51.100.21"
+        max_attempts = int(app.config.get("DEVICE_AUTH_MAX_LOOKUP_ATTEMPTS", 10))
+        own_request = _start(app)
+        other_request = _start(app)
+
+        # Spend every attempt but one, then succeed with a code they do hold.
+        for _ in range(max_attempts - 1):
+            with pytest.raises(AppError):
+                get_device_authorization(
+                    app, user_code="AAA-AAA", client_ip=attacker_ip
+                )
+        get_device_authorization(
+            app, user_code=own_request["user_code"], client_ip=attacker_ip
+        )
+
+        # The budget is spent, so even a valid code must now be refused.
+        with pytest.raises(AppError):
+            get_device_authorization(
+                app, user_code=other_request["user_code"], client_ip=attacker_ip
+            )
+
+
+def test_opening_requests_is_rate_limited(app: object) -> None:
+    """Starting a request is unauthenticated, so it cannot be unbounded."""
+    with app.test_request_context():
+        client_ip = "198.51.100.42"
+        max_requests = int(app.config.get("DEVICE_AUTH_MAX_REQUESTS", 20))
+
+        for _ in range(max_requests):
+            create_device_authorization(app, device_name="flood", client_ip=client_ip)
+
+        with pytest.raises(AppError) as refused:
+            create_device_authorization(app, device_name="flood", client_ip=client_ip)
+        assert refused.value.code == ERROR_CODE["server.user.deviceAuthTooManyRequests"]
+
+
+def test_a_decided_request_cannot_be_decided_again(app: object) -> None:
+    """Conflicting decisions must not both succeed."""
+    with app.test_request_context():
+        started = _start(app)
+        deny_device_authorization(app, user_code=started["user_code"])
+
+        with pytest.raises(AppError):
+            approve_device_authorization(
+                app, user_code=started["user_code"], user_id=USER_ID
             )
 
 

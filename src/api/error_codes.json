@@ -17,6 +17,7 @@
   "server.user.passwordNeedsDigit": 1020,
   "server.user.deviceCodeInvalid": 1028,
   "server.user.deviceAuthAlreadyHandled": 1029,
+  "server.user.deviceAuthTooManyRequests": 1030,
   "server.profile.learnerProfileOptimizationFailed": 1021,
   "server.profile.learnerProfileOptimizationRejected": 1022,
   "server.profile.learnerProfileOptimizationRateLimited": 1023,
