@@ -101,7 +101,15 @@ their consumers are deleted instead of dual-written.
       suite at 212 Jest suites / 1,901 tests, TypeScript, focused lint,
       Prettier, repository harness, architecture boundaries, and an independent
       attribution and privacy review, plus the full Lefthook pre-commit gate.
-- [x] 2026-08-31 01:41 CST: Confirmed all acceptance and review-follow-up
+- [x] 2026-08-31 01:54 CST: Kept password and Google login success terminal
+      after the local session commit, even when existing post-login callbacks,
+      redirect resolution, success notification, or session cleanup later
+      fails. Their existing UI errors and exception propagation remain
+      unchanged. Focused checks passed 2 Jest suites / 11 tests, followed by
+      the full frontend suite at 212 Jest suites / 1,906 tests, TypeScript,
+      focused lint, Prettier, repository harness, architecture boundaries, the
+      full Lefthook pre-commit gate, and independent diff reviews.
+- [x] 2026-08-31 01:54 CST: Confirmed all acceptance and review-follow-up
       checks passed, then kept this plan in `docs/exec-plans/completed/`.
 
 ## Surprises & Discoveries
