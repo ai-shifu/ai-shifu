@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { toast } from '@/hooks/useToast';
@@ -38,6 +39,16 @@ import {
   resolveBillingProductTitle,
   resolveBillingProviderLabel,
 } from '@/lib/billing';
+import {
+  buildCreatorBillingAttemptAnalytics,
+  buildCreatorBillingResultAnalytics,
+  buildCreatorBillingStatusAnalytics,
+  CREATOR_BILLING_ANALYTICS_EVENTS,
+  trackCreatorBillingEventSafely,
+  type CreatorBillingAnalyticsBaseInput,
+  type CreatorBillingFailureCategory,
+  type CreatorBillingStatus,
+} from '@/lib/billingAnalytics';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
 import { BillingOverviewShowcase } from './BillingOverviewShowcase';
@@ -87,6 +98,7 @@ type CheckoutTarget =
   | null;
 
 type PingxxCheckoutState = {
+  analyticsBase: CreatorBillingAnalyticsBaseInput;
   amountInMinor: number;
   billingOrderBid: string;
   currency: string;
@@ -189,6 +201,7 @@ export function BillingOverviewTab({
   onOpenOrdersTab,
 }: BillingOverviewTabProps = {}) {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
   registerBillingTranslationUsage(t);
 
   const {
@@ -235,11 +248,77 @@ export function BillingOverviewTab({
   const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<
     'cancel' | 'resume' | ''
   >('');
+  const reportedAnalyticsKeysRef = useRef(new Set<string>());
+
+  function reportCheckoutResult(
+    analyticsBase: CreatorBillingAnalyticsBaseInput,
+    outcome: 'success' | 'failed' | 'cancelled',
+    failureCategory?: CreatorBillingFailureCategory,
+  ) {
+    const resultKey = analyticsBase.billOrderBid
+      ? `result:${analyticsBase.billOrderBid}`
+      : '';
+    if (resultKey && reportedAnalyticsKeysRef.current.has(resultKey)) {
+      return;
+    }
+    if (resultKey) {
+      reportedAnalyticsKeysRef.current.add(resultKey);
+    }
+    trackCreatorBillingEventSafely(
+      trackEvent,
+      CREATOR_BILLING_ANALYTICS_EVENTS.result,
+      buildCreatorBillingResultAnalytics({
+        ...analyticsBase,
+        outcome,
+        failureCategory,
+      }),
+    );
+  }
+
+  function reportCheckoutStatus(
+    analyticsBase: CreatorBillingAnalyticsBaseInput,
+    status: CreatorBillingStatus,
+  ) {
+    const statusKey = analyticsBase.billOrderBid
+      ? `status:${analyticsBase.billOrderBid}:${status}`
+      : '';
+    if (statusKey && reportedAnalyticsKeysRef.current.has(statusKey)) {
+      return;
+    }
+    if (statusKey) {
+      reportedAnalyticsKeysRef.current.add(statusKey);
+    }
+    trackCreatorBillingEventSafely(
+      trackEvent,
+      CREATOR_BILLING_ANALYTICS_EVENTS.status,
+      buildCreatorBillingStatusAnalytics({
+        ...analyticsBase,
+        status,
+      }),
+    );
+  }
 
   useBillingPingxxPolling({
     open: Boolean(pingxxCheckout),
     billingOrderBid: pingxxCheckout?.billingOrderBid || '',
     onResolved: async result => {
+      if (pingxxCheckout?.analyticsBase) {
+        const resolvedAnalyticsBase = {
+          ...pingxxCheckout.analyticsBase,
+          billOrderBid: result.bill_order_bid,
+        };
+        if (result.status === 'paid') {
+          reportCheckoutResult(resolvedAnalyticsBase, 'success');
+        } else if (result.status === 'canceled') {
+          reportCheckoutResult(resolvedAnalyticsBase, 'cancelled');
+        } else {
+          reportCheckoutResult(
+            resolvedAnalyticsBase,
+            'failed',
+            'payment_failed',
+          );
+        }
+      }
       await refreshBillingData();
       if (result.status !== 'pending') {
         setPingxxCheckout(null);
@@ -306,6 +385,38 @@ export function BillingOverviewTab({
       return;
     }
 
+    const checkoutChannel = isQrBillingProvider(checkoutTarget.provider)
+      ? checkoutTarget.provider === 'pingxx'
+        ? selectedPingxxChannel
+        : resolveDefaultBillingQrChannel(checkoutTarget.provider)
+      : undefined;
+    const analyticsBase: CreatorBillingAnalyticsBaseInput = {
+      billingMarket: 'domestic',
+      productType: checkoutTarget.kind,
+      productBid: checkoutTarget.product.product_bid,
+      productCode: checkoutTarget.product.product_code,
+      billingInterval:
+        checkoutTarget.kind === 'plan'
+          ? checkoutTarget.product.billing_interval
+          : 'one_time',
+      priceAmount: resolveBillingProductPayableAmount(checkoutTarget.product),
+      currency: checkoutTarget.product.currency,
+      creditAmount: checkoutTarget.product.credit_amount,
+      paymentProvider: checkoutTarget.provider,
+      paymentChannel: checkoutChannel,
+      checkoutAction:
+        checkoutTarget.kind === 'topup'
+          ? 'topup'
+          : checkoutTarget.action || 'subscribe',
+      sourceSurface: 'billing_overview',
+      sourceTab: checkoutTarget.kind === 'plan' ? 'plans' : 'topup',
+    };
+    trackCreatorBillingEventSafely(
+      trackEvent,
+      CREATOR_BILLING_ANALYTICS_EVENTS.attempt,
+      buildCreatorBillingAttemptAnalytics(analyticsBase),
+    );
+
     const loadingKey = `${checkoutTarget.kind}:${checkoutTarget.provider}:${checkoutTarget.product.product_bid}`;
     const planAction =
       checkoutTarget.kind === 'plan' ? checkoutTarget.action : undefined;
@@ -318,13 +429,12 @@ export function BillingOverviewTab({
     if (isStripeCheckout) {
       setStripeRedirect({ phase: 'creating' });
     }
+    let catchFailureCategory: CreatorBillingFailureCategory =
+      'checkout_request_failed';
+    let catchAnalyticsBase = analyticsBase;
+    let terminalResultReported = false;
     try {
       let result: BillingCheckoutResult;
-      const checkoutChannel = isQrBillingProvider(checkoutTarget.provider)
-        ? checkoutTarget.provider === 'pingxx'
-          ? selectedPingxxChannel
-          : resolveDefaultBillingQrChannel(checkoutTarget.provider)
-        : undefined;
 
       if (checkoutTarget.kind === 'plan') {
         result = (await api.checkoutBillingSubscription({
@@ -341,7 +451,16 @@ export function BillingOverviewTab({
         })) as BillingCheckoutResult;
       }
 
+      const resolvedAnalyticsBase: CreatorBillingAnalyticsBaseInput = {
+        ...analyticsBase,
+        paymentProvider: result.provider,
+        billOrderBid: result.bill_order_bid,
+      };
+      catchAnalyticsBase = resolvedAnalyticsBase;
+
       if (result.status === 'unsupported') {
+        reportCheckoutResult(resolvedAnalyticsBase, 'failed', 'unsupported');
+        terminalResultReported = true;
         setStripeRedirect(null);
         toast({
           title: t('module.billing.checkout.unsupported'),
@@ -353,10 +472,24 @@ export function BillingOverviewTab({
       }
 
       if (result.status === 'paid') {
+        reportCheckoutResult(resolvedAnalyticsBase, 'success');
+        terminalResultReported = true;
         await refreshBillingData();
         setStripeRedirect(null);
         toast({
           title: t('module.billing.checkout.completed'),
+        });
+        setCheckoutTarget(null);
+        setCheckoutAgreed(false);
+        return;
+      }
+      if (result.status === 'failed') {
+        reportCheckoutResult(resolvedAnalyticsBase, 'failed', 'payment_failed');
+        terminalResultReported = true;
+        setStripeRedirect(null);
+        toast({
+          title: t('module.billing.checkout.unsupported'),
+          variant: 'destructive',
         });
         setCheckoutTarget(null);
         setCheckoutAgreed(false);
@@ -377,10 +510,18 @@ export function BillingOverviewTab({
         }
         setCheckoutTarget(null);
         setCheckoutAgreed(false);
+        catchFailureCategory = 'redirect_failed';
         openBillingCheckoutUrl(result.redirect_url);
+        reportCheckoutStatus(resolvedAnalyticsBase, 'pending');
         return;
       }
       if (resolvedProvider === 'stripe') {
+        reportCheckoutResult(
+          resolvedAnalyticsBase,
+          'failed',
+          'missing_redirect',
+        );
+        terminalResultReported = true;
         setStripeRedirect(null);
         toast({
           title: t('module.billing.checkout.unsupported'),
@@ -400,6 +541,13 @@ export function BillingOverviewTab({
             : resolveDefaultBillingQrChannel(resolvedProvider));
         const qrCode = extractBillingPingxxQrCode(result, preferredChannel);
         if (!qrCode) {
+          reportCheckoutStatus(
+            {
+              ...resolvedAnalyticsBase,
+              paymentChannel: preferredChannel,
+            },
+            'confirmation_failed',
+          );
           setStripeRedirect(null);
           toast({
             title: t('module.billing.checkout.unsupported'),
@@ -409,6 +557,10 @@ export function BillingOverviewTab({
         }
 
         setPingxxCheckout({
+          analyticsBase: {
+            ...resolvedAnalyticsBase,
+            paymentChannel: qrCode.channel,
+          },
           amountInMinor:
             result.payable_amount ??
             resolveBillingProductPayableAmount(checkoutTarget.product),
@@ -429,11 +581,20 @@ export function BillingOverviewTab({
           selectedChannel: qrCode.channel,
           prepaidOffsetAmount: result.prepaid_offset_amount || 0,
         });
+        reportCheckoutStatus(
+          {
+            ...resolvedAnalyticsBase,
+            paymentChannel: qrCode.channel,
+          },
+          'pending',
+        );
         setSelectedPingxxChannel(qrCode.channel);
         setCheckoutTarget(null);
         return;
       }
 
+      reportCheckoutResult(resolvedAnalyticsBase, 'failed', 'unsupported');
+      terminalResultReported = true;
       setStripeRedirect(null);
       toast({
         title: t('module.billing.checkout.unsupported'),
@@ -442,6 +603,13 @@ export function BillingOverviewTab({
       setCheckoutTarget(null);
       setCheckoutAgreed(false);
     } catch (error: any) {
+      if (!terminalResultReported) {
+        reportCheckoutResult(
+          catchAnalyticsBase,
+          'failed',
+          catchFailureCategory,
+        );
+      }
       setStripeRedirect(null);
       toast({
         title: error?.message || t('common.core.unknownError'),
@@ -460,11 +628,28 @@ export function BillingOverviewTab({
     setCheckoutLoadingKey(
       `pingxx:${pingxxCheckout.billingOrderBid}:${channel}`,
     );
+    let terminalResultReported = false;
     try {
       const syncResult = (await api.syncBillingOrder({
         bill_order_bid: pingxxCheckout.billingOrderBid,
       })) as BillingSyncResult;
       if (syncResult.status !== 'pending') {
+        const resolvedAnalyticsBase = {
+          ...pingxxCheckout.analyticsBase,
+          billOrderBid: syncResult.bill_order_bid,
+        };
+        if (syncResult.status === 'paid') {
+          reportCheckoutResult(resolvedAnalyticsBase, 'success');
+        } else if (syncResult.status === 'canceled') {
+          reportCheckoutResult(resolvedAnalyticsBase, 'cancelled');
+        } else {
+          reportCheckoutResult(
+            resolvedAnalyticsBase,
+            'failed',
+            'payment_failed',
+          );
+        }
+        terminalResultReported = true;
         await refreshBillingData();
         if (syncResult.status === 'paid') {
           toast({
@@ -481,6 +666,16 @@ export function BillingOverviewTab({
         channel,
       })) as BillingCheckoutResult;
       if (result.status === 'paid') {
+        reportCheckoutResult(
+          {
+            ...pingxxCheckout.analyticsBase,
+            paymentProvider: result.provider,
+            paymentChannel: channel,
+            billOrderBid: result.bill_order_bid,
+          },
+          'success',
+        );
+        terminalResultReported = true;
         await refreshBillingData();
         toast({
           title: t('module.billing.checkout.completed'),
@@ -489,8 +684,28 @@ export function BillingOverviewTab({
         setCheckoutAgreed(false);
         return;
       }
+      const refreshedAnalyticsBase = {
+        ...pingxxCheckout.analyticsBase,
+        paymentProvider: result.provider,
+        paymentChannel: channel,
+        billOrderBid: result.bill_order_bid,
+      };
+      if (result.status === 'failed' || result.status === 'unsupported') {
+        reportCheckoutResult(
+          refreshedAnalyticsBase,
+          'failed',
+          result.status === 'failed' ? 'payment_failed' : 'unsupported',
+        );
+        terminalResultReported = true;
+        toast({
+          title: t('module.billing.checkout.unsupported'),
+          variant: 'destructive',
+        });
+        return;
+      }
       const qrCode = extractBillingPingxxQrCode(result, channel);
       if (!qrCode) {
+        reportCheckoutStatus(refreshedAnalyticsBase, 'confirmation_failed');
         toast({
           title: t('module.billing.checkout.unsupported'),
           variant: 'destructive',
@@ -502,6 +717,12 @@ export function BillingOverviewTab({
         current
           ? {
               ...current,
+              analyticsBase: {
+                ...current.analyticsBase,
+                paymentProvider: result.provider,
+                paymentChannel: qrCode.channel,
+                billOrderBid: result.bill_order_bid,
+              },
               expiresInSeconds: result.expires_in_seconds,
               provider: result.provider,
               qrUrl: qrCode.url,
@@ -509,8 +730,23 @@ export function BillingOverviewTab({
             }
           : current,
       );
+      reportCheckoutStatus(
+        {
+          ...pingxxCheckout.analyticsBase,
+          paymentProvider: result.provider,
+          paymentChannel: qrCode.channel,
+          billOrderBid: result.bill_order_bid,
+        },
+        'pending',
+      );
       setSelectedPingxxChannel(qrCode.channel);
     } catch (error: any) {
+      if (!terminalResultReported) {
+        reportCheckoutStatus(
+          pingxxCheckout.analyticsBase,
+          'confirmation_failed',
+        );
+      }
       toast({
         title: error?.message || t('common.core.unknownError'),
         variant: 'destructive',

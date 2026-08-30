@@ -24,6 +24,7 @@ import {
   PAY_CHANNEL_WECHAT_JSAPI,
   PAY_CHANNEL_ZHIFUBAO,
   PAY_CHANNEL_STRIPE,
+  ORDER_STATUS,
 } from './constans';
 import { isWechatJsapiAvailable } from './wechatJsapi';
 import MainButtonM from '@/c-components/m/MainButtonM';
@@ -34,6 +35,14 @@ import { useWechat } from '@/c-common/hooks/useWechat';
 
 import { toast } from '@/hooks/useToast';
 import { resolveLearnerPaymentToast } from '@/lib/learnerError';
+import {
+  buildLearnerPaymentAttemptAnalytics,
+  buildLearnerPaymentResultAnalytics,
+  buildLearnerPaymentStatusAnalytics,
+  normalizeLearnerPaymentChannel,
+  trackLearnerPaymentEventSafely,
+  type LearnerPaymentChannel,
+} from '@/lib/paymentAnalytics';
 
 import { inWechat } from '@/c-constants/uiConstants';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
@@ -126,6 +135,68 @@ export const PayModalM = ({
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
   const { payByJsApi } = useWechat();
+  const paymentOrderIdRef = useRef('');
+  const paymentAttemptChannelRef = useRef<LearnerPaymentChannel | null>(null);
+  const paymentResultTrackedRef = useRef(false);
+
+  const trackPaymentAttempt = useCallback(
+    (rawChannel: string) => {
+      const channel = normalizeLearnerPaymentChannel(rawChannel);
+      paymentAttemptChannelRef.current = channel;
+      paymentResultTrackedRef.current = false;
+      trackLearnerPaymentEventSafely(
+        trackEvent,
+        'learner_payment_attempt',
+        buildLearnerPaymentAttemptAnalytics({
+          shifuBid: courseId,
+          orderId: paymentOrderIdRef.current,
+          channel,
+          surface: 'mobile',
+        }),
+      );
+    },
+    [courseId, trackEvent],
+  );
+
+  const trackPaymentResult = useCallback(
+    (
+      outcome: 'success' | 'failed' | 'cancelled',
+      failureCategory?: 'provider_failed',
+    ) => {
+      const channel = paymentAttemptChannelRef.current;
+      if (!channel || paymentResultTrackedRef.current) return;
+      paymentResultTrackedRef.current = true;
+      trackLearnerPaymentEventSafely(
+        trackEvent,
+        'learner_payment_result',
+        buildLearnerPaymentResultAnalytics({
+          shifuBid: courseId,
+          orderId: paymentOrderIdRef.current,
+          channel,
+          surface: 'mobile',
+          outcome,
+          failureCategory,
+        }),
+      );
+    },
+    [courseId, trackEvent],
+  );
+
+  const trackPaymentPending = useCallback(() => {
+    const channel = paymentAttemptChannelRef.current;
+    if (!channel) return;
+    trackLearnerPaymentEventSafely(
+      trackEvent,
+      'learner_payment_status',
+      buildLearnerPaymentStatusAnalytics({
+        shifuBid: courseId,
+        orderId: paymentOrderIdRef.current,
+        channel,
+        surface: 'mobile',
+        status: 'pending',
+      }),
+    );
+  }, [courseId, trackEvent]);
   const {
     open: couponCodeModalOpen,
     onClose: onCouponCodeModalClose,
@@ -155,9 +226,17 @@ export const PayModalM = ({
     courseId,
     isLoggedIn,
     onOrderPaid: () => {
+      trackPaymentResult('success');
       onOk?.();
     },
+    onPollingTimeout: () => {
+      trackPaymentPending();
+    },
   });
+
+  useEffect(() => {
+    paymentOrderIdRef.current = orderId;
+  }, [orderId]);
 
   const displayPrice = isLoggedIn ? price : previewPrice;
   const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
@@ -182,17 +261,24 @@ export const PayModalM = ({
     () => getCurrencyCode(currencySymbol),
     [currencySymbol],
   );
-  const emitCancelEvent = useCallback(() => {
-    trackEvent('learner_pay_cancel', {
+  const trackModalDismiss = useCallback(() => {
+    const hadPaymentAttempt = paymentAttemptChannelRef.current !== null;
+    trackLearnerPaymentEventSafely(trackEvent, 'learner_pay_modal_dismiss', {
       shifu_bid: courseId,
-      order_id: orderId || '',
-      cancel_stage: 'modal',
+      ...(orderId ? { order_id: orderId } : {}),
+      dismiss_surface: 'modal',
+      had_payment_attempt: hadPaymentAttempt,
     });
-  }, [courseId, orderId, trackEvent]);
+    if (!hadPaymentAttempt || paymentResultTrackedRef.current) return;
+
+    trackPaymentResult('cancelled');
+  }, [courseId, orderId, trackEvent, trackPaymentResult]);
 
   useEffect(() => {
     if (!open) {
       modalViewTrackedRef.current = false;
+      paymentAttemptChannelRef.current = null;
+      paymentResultTrackedRef.current = false;
       return;
     }
     if (!ready) {
@@ -202,9 +288,11 @@ export const PayModalM = ({
       return;
     }
     modalViewTrackedRef.current = true;
-    trackEvent('learner_pay_modal_view', {
+    trackLearnerPaymentEventSafely(trackEvent, 'learner_pay_modal_view', {
       shifu_bid: courseId,
-      price: displayPrice || '0',
+      price_amount: Number.isFinite(Number(displayPrice))
+        ? Number(displayPrice)
+        : 0,
       currency: currencyCode,
     });
   }, [courseId, currencyCode, displayPrice, open, ready, trackEvent]);
@@ -407,14 +495,24 @@ export const PayModalM = ({
       nativePayload) as NativePaymentPayload;
     const jsapiParams = resolveJsapiParams(payload.qr_url, paymentPayload);
     if (jsapiParams) {
+      trackPaymentAttempt(payChannel);
       try {
         await payByJsApi(jsapiParams);
         const syncPaymentChannel = payload.payment_channel || paymentChannel;
         try {
-          await syncOrderStatus(
+          const snapshot = await syncOrderStatus(
             syncPaymentChannel ? { paymentChannel: syncPaymentChannel } : {},
           );
+          if (snapshot?.status !== ORDER_STATUS.BUY_STATUS_SUCCESS) {
+            trackPaymentPending();
+            toast({
+              title: t('module.pay.paymentStatusSyncPending'),
+              variant: 'default',
+            });
+            return;
+          }
         } catch {
+          trackPaymentPending();
           toast({
             title: t('module.pay.paymentStatusSyncPending'),
             variant: 'default',
@@ -435,8 +533,13 @@ export const PayModalM = ({
           title: resolvedToast.message,
           variant: resolvedToast.variant,
         });
+        trackPaymentResult(
+          resolvedToast.variant === 'default' ? 'cancelled' : 'failed',
+          resolvedToast.variant === 'default' ? undefined : 'provider_failed',
+        );
       }
     } else if (typeof payload.qr_url === 'string' && payload.qr_url) {
+      trackPaymentAttempt(payChannel);
       window.open(payload.qr_url);
     }
   }, [
@@ -449,6 +552,9 @@ export const PayModalM = ({
     resolveRequestChannel,
     syncOrderStatus,
     t,
+    trackPaymentAttempt,
+    trackPaymentPending,
+    trackPaymentResult,
   ]);
 
   const onPayChannelChange = useCallback(
@@ -497,18 +603,32 @@ export const PayModalM = ({
 
   const handleStripeSuccess = useCallback(async () => {
     try {
-      await syncOrderStatus();
+      const snapshot = await syncOrderStatus();
+      if (snapshot?.status !== ORDER_STATUS.BUY_STATUS_SUCCESS) {
+        trackPaymentPending();
+        toast({
+          title: t('module.pay.paymentStatusSyncPending'),
+          variant: 'default',
+        });
+        return;
+      }
       toast({ title: t('module.pay.paySuccess') });
     } catch {
+      trackPaymentPending();
       toast({
         title: t('module.pay.paymentStatusSyncPending'),
         variant: 'default',
       });
     }
-  }, [syncOrderStatus, t]);
+  }, [syncOrderStatus, t, trackPaymentPending]);
 
   const handleStripeError = useCallback(
-    (message: string) => {
+    (message: string, status: 'failed' | 'pending' = 'failed') => {
+      if (status === 'pending') {
+        trackPaymentPending();
+      } else {
+        trackPaymentResult('failed', 'provider_failed');
+      }
       const resolvedToast = resolveLearnerPaymentToast({
         message,
         fallbackMessage: t('module.pay.payFailed'),
@@ -520,11 +640,12 @@ export const PayModalM = ({
         variant: resolvedToast.variant,
       });
     },
-    [t],
+    [t, trackPaymentPending, trackPaymentResult],
   );
 
   const handleStripeCheckout = useCallback(() => {
     if (stripeCheckoutUrl) {
+      trackPaymentAttempt(PAY_CHANNEL_STRIPE);
       if (stripePayload.checkout_session_id && orderId) {
         rememberStripeCheckoutSession(
           stripePayload.checkout_session_id,
@@ -533,7 +654,12 @@ export const PayModalM = ({
       }
       window.location.href = stripeCheckoutUrl;
     }
-  }, [orderId, stripePayload.checkout_session_id, stripeCheckoutUrl]);
+  }, [
+    orderId,
+    stripePayload.checkout_session_id,
+    stripeCheckoutUrl,
+    trackPaymentAttempt,
+  ]);
 
   const onCouponCodeOkClick = useCallback(async () => {
     if (!couponCodeInput) {
@@ -544,9 +670,9 @@ export const PayModalM = ({
       channel: resolveRequestChannel(payChannel),
       paymentChannel: resolvePaymentChannel(payChannel),
     });
-    trackEvent('learner_coupon_apply', {
+    trackLearnerPaymentEventSafely(trackEvent, 'learner_coupon_apply', {
       shifu_bid: courseId,
-      coupon_code: couponCodeInput,
+      outcome: 'success',
     });
     closeCouponCodeModal();
   }, [
@@ -562,9 +688,9 @@ export const PayModalM = ({
 
   const triggerCancel = useCallback(() => {
     skipNextCancelEventRef.current = true;
-    emitCancelEvent();
+    trackModalDismiss();
     onCancel?.();
-  }, [emitCancelEvent, onCancel]);
+  }, [onCancel, trackModalDismiss]);
 
   const onLoginButtonClick = useCallback(() => {
     triggerCancel();
@@ -604,7 +730,7 @@ export const PayModalM = ({
         skipNextCancelEventRef.current = false;
         return;
       }
-      emitCancelEvent();
+      trackModalDismiss();
       onCancel?.();
     }
   }
@@ -771,6 +897,9 @@ export const PayModalM = ({
                               <StripeCardForm
                                 clientSecret={stripePayload.client_secret}
                                 publishableKey={stripePublishableKey || ''}
+                                onAttempt={() =>
+                                  trackPaymentAttempt(PAY_CHANNEL_STRIPE)
+                                }
                                 onConfirmSuccess={handleStripeSuccess}
                                 onError={handleStripeError}
                               />

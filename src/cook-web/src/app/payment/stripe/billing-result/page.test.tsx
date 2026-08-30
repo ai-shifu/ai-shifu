@@ -14,6 +14,7 @@ import request from '@/lib/request';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
 
 const mockPush = jest.fn();
+const mockTrackEvent = jest.fn();
 const mockSearchParams = new URLSearchParams();
 const mockMutateSWRCache = jest.fn(
   async (...args: [unknown, unknown?, unknown?]) => {
@@ -36,6 +37,10 @@ const mockReadonlySearchParams = {
 jest.mock('next/navigation', () => ({
   useRouter: () => mockRouter,
   useSearchParams: () => mockReadonlySearchParams,
+}));
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -98,6 +103,7 @@ const mockConsumeStripeCheckoutSession =
 describe('StripeBillingResultPage', () => {
   beforeEach(() => {
     mockPush.mockReset();
+    mockTrackEvent.mockReset();
     mockRequestPost.mockReset();
     mockMutateSWRCache.mockClear();
     mockGetBillingOverview.mockReset();
@@ -130,6 +136,19 @@ describe('StripeBillingResultPage', () => {
 
     expect(await screen.findByText('Billing updated')).toBeInTheDocument();
     expect(await screen.findByText('Payment confirmed')).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      {
+        payment_provider: 'stripe',
+        source_surface: 'stripe_return',
+        bill_order_bid: 'bill-order-1',
+        outcome: 'success',
+      },
+    );
+    const resultPayload = mockTrackEvent.mock.calls[0]?.[1];
+    expect(resultPayload).not.toHaveProperty('session_id');
+    expect(resultPayload).not.toHaveProperty('redirect_url');
+    expect(resultPayload).not.toHaveProperty('raw_error');
     await waitFor(() => {
       expect(mockMutateSWRCache).toHaveBeenCalledTimes(3);
     });
@@ -179,6 +198,15 @@ describe('StripeBillingResultPage', () => {
     expect(
       await screen.findByText('Missing billing order'),
     ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      {
+        payment_provider: 'stripe',
+        source_surface: 'stripe_return',
+        outcome: 'failed',
+        failure_category: 'missing_order',
+      },
+    );
   });
 
   test('allows retry when sync returns pending', async () => {
@@ -199,6 +227,96 @@ describe('StripeBillingResultPage', () => {
     await waitFor(() => {
       expect(mockRequestPost).toHaveBeenCalledTimes(2);
     });
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      {
+        payment_provider: 'stripe',
+        source_surface: 'stripe_return',
+        bill_order_bid: 'bill-order-2',
+        status: 'pending',
+      },
+    );
+  });
+
+  test('records a cancelled Stripe return without syncing the order', async () => {
+    mockSearchParams.set('bill_order_bid', 'bill-order-cancelled');
+    mockSearchParams.set('session_id', 'sess-secret');
+    mockSearchParams.set('canceled', '1');
+
+    render(<StripeBillingResultPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Billing sync failed' }),
+    ).toBeInTheDocument();
+    expect(mockRequestPost).not.toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      {
+        payment_provider: 'stripe',
+        source_surface: 'stripe_return',
+        bill_order_bid: 'bill-order-cancelled',
+        outcome: 'cancelled',
+      },
+    );
+    expect(mockTrackEvent.mock.calls[0]?.[1]).not.toHaveProperty('session_id');
+    expect(mockTrackEvent.mock.calls[0]?.[1]).not.toHaveProperty('canceled');
+  });
+
+  test('keeps a sync failure non-terminal and reports one result after retry', async () => {
+    mockSearchParams.set('bill_order_bid', 'bill-order-rejected');
+    mockRequestPost
+      .mockRejectedValueOnce(
+        new Error('customer person@example.test could not be synced'),
+      )
+      .mockResolvedValueOnce({ status: 'paid' });
+
+    render(<StripeBillingResultPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Billing sync failed' }),
+    ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      {
+        payment_provider: 'stripe',
+        source_surface: 'stripe_return',
+        bill_order_bid: 'bill-order-rejected',
+        status: 'confirmation_failed',
+      },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'person@example.test',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry sync' }));
+
+    expect(await screen.findByText('Billing updated')).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'bill-order-rejected',
+        outcome: 'success',
+      }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(1);
+  });
+
+  test('keeps a paid return successful when tracking throws', async () => {
+    mockSearchParams.set('bill_order_bid', 'bill-order-fail-open');
+    mockRequestPost.mockResolvedValue({ status: 'paid' });
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+
+    render(<StripeBillingResultPage />);
+
+    expect(await screen.findByText('Billing updated')).toBeInTheDocument();
+    expect(await screen.findByText('Payment confirmed')).toBeInTheDocument();
   });
 
   test.each(['failed', 'canceled', 'timeout', 'refunded', 'unknown'])(
@@ -217,6 +335,21 @@ describe('StripeBillingResultPage', () => {
       expect(screen.queryByText('Billing updated')).not.toBeInTheDocument();
       expect(screen.queryByText('Payment confirmed')).not.toBeInTheDocument();
       expect(mockMutateSWRCache).not.toHaveBeenCalled();
+      if (status === 'canceled') {
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'creator_billing_checkout_result',
+          expect.objectContaining({ outcome: 'cancelled' }),
+        );
+      } else {
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'creator_billing_checkout_result',
+          expect.objectContaining({
+            outcome: 'failed',
+            failure_category:
+              status === 'unknown' ? 'unexpected_status' : 'payment_failed',
+          }),
+        );
+      }
 
       await act(async () => {
         jest.advanceTimersByTime(3000);

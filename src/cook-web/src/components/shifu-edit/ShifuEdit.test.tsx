@@ -984,6 +984,41 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith('creator_lesson_history_click');
   });
 
+  test('tracks an accepted lesson preview before saving with only stable IDs', async () => {
+    setLessonNode();
+    mockShifuState.mdflow = 'Private lesson content';
+    baseActions.getCurrentMdflow.mockReturnValue('Private lesson content');
+    mockTrackEvent.mockResolvedValue(false);
+    baseActions.saveMdflow.mockImplementation(async () => {
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_lesson_preview_click',
+        {
+          shifu_bid: 'shifu-1',
+          outline_bid: 'lesson-1',
+        },
+      );
+    });
+    baseActions.previewParse.mockResolvedValue({
+      variables: {},
+      blocksCount: 0,
+      systemVariableKeys: [],
+      allVariableKeys: [],
+      unusedKeys: [],
+    });
+
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(
+      screen.getByText('module.shifu.previewArea.action').closest('button')!,
+    );
+
+    await waitFor(() => {
+      expect(baseActions.previewParse).toHaveBeenCalled();
+    });
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('mdflow');
+    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('name');
+  });
+
   test('enables regenerate actions for editable lesson preview', async () => {
     setLessonNode();
 

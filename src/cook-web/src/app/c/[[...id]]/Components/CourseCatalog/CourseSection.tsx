@@ -79,8 +79,6 @@ export const CourseSection = ({
   };
 
   const onSectionClick = useCallback(() => {
-    onTrySelect?.({ id });
-
     if (status_value === LESSON_STATUS_VALUE.LOCKED) {
       return;
     }
@@ -105,6 +103,7 @@ export const CourseSection = ({
       return;
     }
 
+    onTrySelect?.({ id });
     onSelect?.({ id });
   }, [
     onTrySelect,

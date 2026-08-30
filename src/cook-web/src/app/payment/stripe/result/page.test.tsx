@@ -1,0 +1,140 @@
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import StripeResultPage from './page';
+import { getPaymentDetail, syncStripeCheckout } from '@/c-api/order';
+
+const mockPush = jest.fn();
+const mockTrackEvent = jest.fn();
+const mockSearchParams = new URLSearchParams();
+const mockStableSearchParams = {
+  get: (key: string) => mockSearchParams.get(key),
+};
+const mockT = (key: string) => key;
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+  useSearchParams: () => mockStableSearchParams,
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: mockT }),
+}));
+
+jest.mock('@/c-api/order', () => ({
+  getPaymentDetail: jest.fn(),
+  syncStripeCheckout: jest.fn(),
+}));
+
+jest.mock('@/lib/stripe-storage', () => ({
+  consumeStripeCheckoutSession: jest.fn(),
+}));
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
+
+const mockGetPaymentDetail = getPaymentDetail as jest.Mock;
+const mockSyncStripeCheckout = syncStripeCheckout as jest.Mock;
+
+describe('StripeResultPage analytics contract', () => {
+  beforeEach(() => {
+    mockPush.mockReset();
+    mockTrackEvent.mockReset();
+    mockGetPaymentDetail.mockReset();
+    mockSyncStripeCheckout.mockReset();
+    mockSearchParams.forEach((_, key) => mockSearchParams.delete(key));
+  });
+
+  it('records one successful terminal result with stable identifiers', async () => {
+    mockSearchParams.set('order_id', 'order-1');
+    mockGetPaymentDetail.mockResolvedValue({
+      payment_channel: 'stripe',
+      status: 1,
+      course_id: 'course-1',
+    });
+
+    render(<StripeResultPage />);
+
+    expect(
+      await screen.findByText('module.pay.stripeResultSuccessTitle'),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith('learner_payment_result', {
+        shifu_bid: 'course-1',
+        order_id: 'order-1',
+        channel: 'stripe',
+        surface: 'stripe_return',
+        outcome: 'success',
+      }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('records pending status without misclassifying it as failure', async () => {
+    mockSearchParams.set('order_id', 'order-2');
+    mockGetPaymentDetail.mockResolvedValue({
+      payment_channel: 'stripe',
+      status: 0,
+      course_id: 'course-2',
+    });
+
+    render(<StripeResultPage />);
+
+    expect(
+      await screen.findByText('module.pay.stripeResultPendingTitle'),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith('learner_payment_status', {
+        shifu_bid: 'course-2',
+        order_id: 'order-2',
+        channel: 'stripe',
+        surface: 'stripe_return',
+        status: 'pending',
+      }),
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_payment_result',
+      expect.anything(),
+    );
+  });
+
+  it('uses a bounded missing-order category while analytics remains best-effort', async () => {
+    mockTrackEvent.mockResolvedValue(undefined);
+
+    render(<StripeResultPage />);
+
+    expect(
+      await screen.findByText('module.pay.stripeResultErrorTitle'),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith('learner_payment_result', {
+        channel: 'stripe',
+        surface: 'stripe_return',
+        outcome: 'failed',
+        failure_category: 'missing_order',
+      }),
+    );
+  });
+
+  it('does not include a raw status lookup error in the failure event', async () => {
+    mockSearchParams.set('order_id', 'order-3');
+    mockGetPaymentDetail.mockRejectedValue(
+      new Error('private provider response'),
+    );
+
+    render(<StripeResultPage />);
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith('learner_payment_result', {
+        order_id: 'order-3',
+        channel: 'stripe',
+        surface: 'stripe_return',
+        outcome: 'failed',
+        failure_category: 'status_lookup_failed',
+      }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private provider response',
+    );
+  });
+});

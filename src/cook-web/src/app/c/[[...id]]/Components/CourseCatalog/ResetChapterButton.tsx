@@ -5,8 +5,10 @@ import { useTranslation } from 'react-i18next';
 
 import { useShallow } from 'zustand/react/shallow';
 import { useCourseStore } from '@/c-store/useCourseStore';
+import { useEnvStore } from '@/c-store/envStore';
+import { useSystemStore } from '@/c-store/useSystemStore';
 
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import { shifu } from '@/c-service/Shifu';
 import styles from './ResetChapterButton.module.scss';
 
@@ -21,6 +23,13 @@ import {
 } from '@/components/ui/Dialog';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
+import {
+  buildResetChapterAnalytics,
+  buildResetChapterConfirmAnalytics,
+  RESET_CHAPTER_CONFIRM_EVENT,
+  RESET_CHAPTER_EVENT,
+  shouldTrackResetChapter,
+} from './resetChapterAnalytics';
 
 type ResetChapterButtonProps = {
   className?: string;
@@ -41,6 +50,8 @@ export const ResetChapterButton = ({
 }: ResetChapterButtonProps) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
+  const shifuBid = useEnvStore(state => state.courseId);
+  const previewMode = useSystemStore(state => state.previewMode);
 
   const [showConfirm, setShowConfirm] = useState(false);
   const resetButtonClickAtRef = useRef(0);
@@ -70,16 +81,19 @@ export const ResetChapterButton = ({
 
       resetButtonClickAtRef.current = now;
       setShowConfirm(true);
-      trackEvent(EVENT_NAMES.RESET_CHAPTER, {
-        chapter_id: chapterId,
-        chapter_name: chapterName,
-      });
+      if (shouldTrackResetChapter(previewMode)) {
+        trackEvent(
+          RESET_CHAPTER_EVENT,
+          buildResetChapterAnalytics({ shifuBid, chapterId }),
+        );
+      }
     },
     [
       chapterId,
-      chapterName,
       isResettingCurrentLesson,
       onClick,
+      previewMode,
+      shifuBid,
       showConfirm,
       trackEvent,
     ],
@@ -100,11 +114,16 @@ export const ResetChapterButton = ({
       chapter_name: chapterName,
     });
 
-    trackEvent(EVENT_NAMES.RESET_CHAPTER_CONFIRM, {
-      chapter_id: chapterId,
-      lesson_id: lessonId,
-      chapter_name: chapterName,
-    });
+    if (shouldTrackResetChapter(previewMode)) {
+      trackEvent(
+        RESET_CHAPTER_CONFIRM_EVENT,
+        buildResetChapterConfirmAnalytics({
+          shifuBid,
+          chapterId,
+          lessonId,
+        }),
+      );
+    }
 
     onConfirm?.();
 

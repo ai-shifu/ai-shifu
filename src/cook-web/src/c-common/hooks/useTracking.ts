@@ -1,46 +1,19 @@
 import { useCallback } from 'react';
 import { EVENT_NAMES, tracking } from '@/c-common/tools/tracking';
-import { useUserStore } from '@/store';
-import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
-import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { getScriptInfo } from '@/c-api/lesson';
 export { EVENT_NAMES } from '@/c-common/tools/tracking';
 
-const USER_STATE_DICT = {
-  未注册: 'guest',
-  已注册: 'user',
-  已付费: 'member',
-};
-
 export const useTracking = () => {
-  const { frameLayout } = useUiLayoutStore(state => state);
-  const { userInfo } = useUserStore(state => state);
-
-  const getEventBasicData = useCallback(() => {
-    return {
-      user_type: userInfo?.state ? USER_STATE_DICT[userInfo.state] : 'guest',
-      user_id: userInfo?.user_id || 0,
-      device: frameLayout === FRAME_LAYOUT_MOBILE ? 'H5' : 'Web',
-    };
-  }, [frameLayout, userInfo?.state, userInfo?.user_id]);
-
   const trackEvent = useCallback(
     async (
       eventName: string,
       eventData: Record<string, unknown> = {},
     ): Promise<void> => {
       try {
-        const basicData = getEventBasicData();
-        const data = {
-          ...eventData,
-          ...basicData,
-          timeStamp: new Date().toLocaleString(),
-        };
-        // console.log('trackEvent', eventName, data);
-        tracking(eventName, data);
+        void tracking(eventName, eventData).catch(() => {});
       } catch {}
     },
-    [getEventBasicData],
+    [],
   );
 
   const trackTrailProgress = useCallback(
@@ -55,7 +28,6 @@ export const useTracking = () => {
 
         trackEvent(EVENT_NAMES.TRIAL_PROGRESS, {
           progress_no: scriptInfo.position,
-          progress_desc: scriptInfo.outline_name,
         });
       } catch {}
     },

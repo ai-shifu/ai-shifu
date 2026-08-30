@@ -202,8 +202,10 @@ describe('DeviceAuthorizationPage', () => {
       ([name]) => name === 'device_auth_prompt_shown',
     );
     expect(exposures).toHaveLength(1);
+    expect(exposures[0][1]).toEqual({ device_os: 'macos', from_link: true });
     // The pairing code is a live credential; it must not reach analytics.
     expect(JSON.stringify(exposures[0][1])).not.toContain('AC4-7HK');
+    expect(JSON.stringify(exposures[0][1])).not.toContain('macOS 15');
   });
 
   it('reports the terminal outcome of each decision', async () => {
@@ -218,10 +220,9 @@ describe('DeviceAuthorizationPage', () => {
     fireEvent.click(await screen.findByText('module.auth.deviceAuthDeny'));
 
     await waitFor(() =>
-      expect(mockTrackEvent).toHaveBeenCalledWith(
-        'device_auth_denied',
-        expect.any(Object),
-      ),
+      expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_denied', {
+        device_os: 'macos',
+      }),
     );
   });
 

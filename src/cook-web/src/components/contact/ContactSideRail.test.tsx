@@ -4,6 +4,7 @@ import {
   ContactSideRail,
   CONTACT_RAIL_CLICK_EVENT,
   CONTACT_RAIL_I18N_KEY,
+  resolveContactRailSurface,
 } from './ContactSideRail';
 
 const mockTrackEvent = jest.fn();
@@ -50,9 +51,17 @@ describe('ContactSideRail', () => {
     fireEvent.click(contactLink);
 
     expect(mockTrackEvent).toHaveBeenCalledWith(CONTACT_RAIL_CLICK_EVENT, {
-      page_path: '/admin',
-      target_url: 'https://ai-shifu.cn/contact.html',
+      surface: 'admin',
     });
+    expect(mockTrackEvent.mock.calls[0]?.[1]).not.toHaveProperty('page_path');
+    expect(mockTrackEvent.mock.calls[0]?.[1]).not.toHaveProperty('target_url');
+  });
+
+  test('maps paths to bounded surfaces without exposing dynamic segments', () => {
+    expect(resolveContactRailSurface('/admin/orders')).toBe('admin');
+    expect(resolveContactRailSurface('/invite/private-code')).toBe('invite');
+    expect(resolveContactRailSurface('/c/private-course')).toBe('other');
+    expect(resolveContactRailSurface(null)).toBe('other');
   });
 
   test('renders a right-aligned square trigger with a hover label panel', () => {

@@ -15,14 +15,16 @@ import { useTranslation } from 'react-i18next';
 interface StripeCardFormProps {
   clientSecret?: string;
   publishableKey?: string;
+  onAttempt?: () => void;
   onConfirmSuccess: () => Promise<void> | void;
-  onError?: (message: string) => void;
+  onError?: (message: string, status?: 'failed' | 'pending') => void;
 }
 
 const StripeFormInner = ({
+  onAttempt,
   onConfirmSuccess,
   onError,
-}: Pick<StripeCardFormProps, 'onConfirmSuccess' | 'onError'>) => {
+}: Pick<StripeCardFormProps, 'onAttempt' | 'onConfirmSuccess' | 'onError'>) => {
   const stripe = useStripe();
   const elements = useElements();
   const { t } = useTranslation();
@@ -34,6 +36,7 @@ const StripeFormInner = ({
       return;
     }
     setSubmitting(true);
+    onAttempt?.();
     try {
       const result = await stripe.confirmPayment({
         elements,
@@ -41,7 +44,10 @@ const StripeFormInner = ({
       });
 
       if (result.error) {
-        onError?.(result.error.message || t('module.pay.stripeError'));
+        onError?.(
+          result.error.message || t('module.pay.stripeError'),
+          'failed',
+        );
         return;
       }
 
@@ -50,11 +56,15 @@ const StripeFormInner = ({
         if (status === 'succeeded') {
           await onConfirmSuccess();
         } else if (status === 'processing') {
-          onError?.(t('module.pay.stripeProcessing'));
+          onError?.(t('module.pay.stripeProcessing'), 'pending');
         } else if (status === 'requires_payment_method') {
-          onError?.(t('module.pay.stripeRequiresMethod'));
+          onError?.(t('module.pay.stripeRequiresMethod'), 'failed');
+        } else {
+          onError?.(t('module.pay.stripeProcessing'), 'pending');
         }
       }
+    } catch {
+      onError?.(t('module.pay.stripeError'), 'failed');
     } finally {
       setSubmitting(false);
     }
@@ -80,6 +90,7 @@ const StripeFormInner = ({
 export const StripeCardForm = ({
   clientSecret,
   publishableKey,
+  onAttempt,
   onConfirmSuccess,
   onError,
 }: StripeCardFormProps) => {
@@ -126,6 +137,7 @@ export const StripeCardForm = ({
       options={elementsOptions}
     >
       <StripeFormInner
+        onAttempt={onAttempt}
         onConfirmSuccess={onConfirmSuccess}
         onError={onError}
       />

@@ -2,7 +2,6 @@
 
 import { useCallback } from 'react';
 import apiService from '@/api';
-import { environment } from '@/config/environment';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useUserStore } from '@/store';
@@ -16,6 +15,10 @@ import {
   setGoogleOAuthState,
 } from '@/lib/google-oauth-session';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  buildLoginAttemptAnalytics,
+  buildLoginResultAnalytics,
+} from '@/lib/loginAnalytics';
 
 interface OAuthStartPayload {
   authorization_url: string;
@@ -101,6 +104,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
       redirectUriOverride,
       language,
     }: StartGoogleLoginOptions = {}) => {
+      trackEvent('learner_login_attempt', buildLoginAttemptAnalytics('google'));
       try {
         if (typeof window === 'undefined') {
           throw new Error('Google OAuth requires a browser environment.');
@@ -133,6 +137,10 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         setGoogleOAuthState(payload.state);
         window.location.href = payload.authorization_url;
       } catch (error: any) {
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('google', 'failed', 'start_failed'),
+        );
         clearGoogleSession();
         const message = error?.message || t('module.auth.googleLoginError');
         toast({
@@ -150,6 +158,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
       ensureGuestToken,
       options,
       t,
+      trackEvent,
       toast,
     ],
   );
@@ -158,10 +167,16 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
     async ({ code, state, fallbackRedirect }: FinalizeGoogleLoginOptions) => {
       if (!code) {
         const error = new Error('Missing OAuth code');
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('google', 'failed', 'callback_invalid'),
+        );
         options.onError?.(error);
         throw error;
       }
 
+      let failureCategory: 'callback_invalid' | 'callback_failed' =
+        'callback_invalid';
       try {
         // Defence in depth alongside the backend's session pairing: a state
         // this browser never issued means the flow started somewhere else, so
@@ -171,6 +186,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
           throw new Error(t('module.auth.googleStateMismatch'));
         }
 
+        failureCategory = 'callback_failed';
         const response = await callWithTokenRefresh(() =>
           apiService.googleOauthCallback({ code, state: state || '' }),
         );
@@ -182,10 +198,10 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
 
         await login(payload.userInfo, payload.token);
 
-        trackEvent('learner_login_success', {
-          user_id: payload.userInfo?.user_id || '',
-          login_method: 'google',
-        });
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('google', 'success'),
+        );
 
         const redirectTarget =
           fallbackRedirect || getGoogleOAuthRedirect() || '/admin';
@@ -200,6 +216,10 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
           userInfo: payload.userInfo,
         };
       } catch (error: any) {
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('google', 'failed', failureCategory),
+        );
         clearGoogleSession();
         const message = error?.message || t('module.auth.googleLoginError');
         toast({
@@ -211,7 +231,15 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         throw error;
       }
     },
-    [callWithTokenRefresh, clearGoogleSession, login, options, t, toast],
+    [
+      callWithTokenRefresh,
+      clearGoogleSession,
+      login,
+      options,
+      t,
+      toast,
+      trackEvent,
+    ],
   );
 
   const getPendingRedirect = useCallback(() => {

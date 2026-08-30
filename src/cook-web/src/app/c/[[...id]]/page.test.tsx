@@ -447,11 +447,6 @@ jest.mock('./Components/ChatUi/ChatUi', () => ({
   default: (props: MockChatUiProps) => mockChatUi(props),
 }));
 
-jest.mock('@/c-components/TrackingVisit', () => ({
-  __esModule: true,
-  default: () => <div data-testid='tracking-visit' />,
-}));
-
 jest.mock('./Components/FeedbackModal/FeedbackModal', () => ({
   __esModule: true,
   default: () => null,

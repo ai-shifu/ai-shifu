@@ -48,6 +48,7 @@ interface UsePaymentFlowOptions {
   courseId: string;
   isLoggedIn: boolean;
   onOrderPaid?: () => void;
+  onPollingTimeout?: () => void;
 }
 
 interface OrderSnapshot {
@@ -56,6 +57,13 @@ interface OrderSnapshot {
   value_to_pay: string;
   price_item?: PriceItem[];
   status: number;
+}
+
+function isOrderPaid(snapshot?: OrderSnapshot | null): boolean {
+  if (!snapshot) return false;
+  const valueToPayNumber = Number(snapshot.value_to_pay);
+  const isFreeOrder = !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
+  return snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS || isFreeOrder;
 }
 
 export interface PaymentActionParams {
@@ -86,9 +94,16 @@ export const usePaymentFlow = ({
   courseId,
   isLoggedIn,
   onOrderPaid,
+  onPollingTimeout,
 }: UsePaymentFlowOptions) => {
   const mountedRef = useRef(true);
   const nativeSyncLastAtRef = useRef(0);
+  const pollingDeadlineAtRef = useRef(0);
+  const pollingGenerationRef = useRef(0);
+  const pollingInFlightGenerationRef = useRef<number | null>(null);
+  const timeoutReportedGenerationRef = useRef<number | null>(null);
+  const refreshGenerationRef = useRef(0);
+  const completedRef = useRef(false);
   useEffect(() => {
     return () => {
       mountedRef.current = false;
@@ -115,6 +130,14 @@ export const usePaymentFlow = ({
   const [countDownMs, setCountDownMs] = useState(MAX_TIMEOUT);
   const [pollingActive, setPollingActive] = useState(false);
 
+  const restartPollingWindow = useCallback(() => {
+    pollingGenerationRef.current += 1;
+    pollingInFlightGenerationRef.current = null;
+    pollingDeadlineAtRef.current = Date.now() + MAX_TIMEOUT;
+    setIsTimeout(false);
+    setCountDownMs(MAX_TIMEOUT);
+  }, []);
+
   useEffect(() => {
     if (!isLoggedIn) {
       setInitLoading(false);
@@ -129,13 +152,15 @@ export const usePaymentFlow = ({
       setPriceItems(
         snapshot.price_item?.filter(item => item?.is_discount) || [],
       );
-      const valueToPayNumber = Number(snapshot.value_to_pay);
-      const isFreeOrder =
-        !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
-      if (snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS || isFreeOrder) {
+      if (isOrderPaid(snapshot)) {
+        const wasCompleted = completedRef.current;
+        completedRef.current = true;
         setIsCompleted(true);
+        setIsTimeout(false);
         setPollingActive(false);
-        onOrderPaid?.();
+        if (!wasCompleted) {
+          onOrderPaid?.();
+        }
       }
     },
     [onOrderPaid],
@@ -160,9 +185,10 @@ export const usePaymentFlow = ({
     if (!isLoggedIn) {
       return null;
     }
+    refreshGenerationRef.current += 1;
+    completedRef.current = false;
     setIsLoading(true);
-    setIsTimeout(false);
-    setCountDownMs(MAX_TIMEOUT);
+    restartPollingWindow();
     setPaymentInfo(defaultPaymentInfo);
     nativeSyncLastAtRef.current = 0;
     try {
@@ -172,9 +198,7 @@ export const usePaymentFlow = ({
       }
       updateOrderId(snapshot.order_id);
       setCouponCode('');
-      setIsCompleted(
-        snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS ? true : false,
-      );
+      setIsCompleted(false);
       updateFromOrder(snapshot);
       return snapshot;
     } finally {
@@ -183,39 +207,58 @@ export const usePaymentFlow = ({
         setInitLoading(false);
       }
     }
-  }, [initOrderUniform, isLoggedIn, updateFromOrder, updateOrderId]);
+  }, [
+    initOrderUniform,
+    isLoggedIn,
+    restartPollingWindow,
+    updateFromOrder,
+    updateOrderId,
+  ]);
 
   const refreshPayment = useCallback(
     async ({ channel, paymentChannel, snapshot }: PaymentActionParams) => {
-      if (!orderIdRef.current) return null;
+      const currentOrderId = orderIdRef.current;
+      if (!currentOrderId || completedRef.current) return null;
+      const refreshGeneration = ++refreshGenerationRef.current;
       setIsLoading(true);
       try {
         const current =
           snapshot ||
           ((await queryOrder({
-            orderId: orderIdRef.current,
+            orderId: currentOrderId,
           })) as OrderSnapshot | null);
         if (!mountedRef.current || !current) {
-          return current;
+          return null;
+        }
+        const currentSnapshot = current;
+        if (
+          refreshGeneration !== refreshGenerationRef.current ||
+          completedRef.current
+        ) {
+          if (
+            currentOrderId === orderIdRef.current &&
+            isOrderPaid(currentSnapshot)
+          ) {
+            updateFromOrder(currentSnapshot);
+          }
+          return null;
         }
         updateFromOrder(current);
-        const currentSnapshot = current;
-        const valueToPayNumber = Number(currentSnapshot.value_to_pay);
-        const isFreeOrder =
-          !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
-        if (
-          currentSnapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS ||
-          isFreeOrder
-        ) {
+        if (isOrderPaid(currentSnapshot)) {
           return current;
         }
         const payload = await getPayUrl({
           channel,
-          orderId: orderIdRef.current,
+          orderId: currentOrderId,
           paymentChannel,
         } as PayUrlRequest);
-        if (!mountedRef.current || !payload) {
-          return payload;
+        if (
+          !mountedRef.current ||
+          refreshGeneration !== refreshGenerationRef.current ||
+          !payload ||
+          completedRef.current
+        ) {
+          return null;
         }
         setPaymentInfo({
           channel: payload.channel,
@@ -225,23 +268,29 @@ export const usePaymentFlow = ({
           paymentPayload: payload.payment_payload || {},
         });
         nativeSyncLastAtRef.current = 0;
-        setIsTimeout(false);
-        setCountDownMs(MAX_TIMEOUT);
+        restartPollingWindow();
         if (payload.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
+          const wasCompleted = completedRef.current;
+          completedRef.current = true;
           setIsCompleted(true);
           setPollingActive(false);
-          onOrderPaid?.();
+          if (!wasCompleted) {
+            onOrderPaid?.();
+          }
         } else {
           setPollingActive(true);
         }
         return payload;
       } finally {
-        if (mountedRef.current) {
+        if (
+          mountedRef.current &&
+          refreshGeneration === refreshGenerationRef.current
+        ) {
           setIsLoading(false);
         }
       }
     },
-    [onOrderPaid, updateFromOrder],
+    [onOrderPaid, restartPollingWindow, updateFromOrder],
   );
 
   const applyCoupon = useCallback(
@@ -273,40 +322,96 @@ export const usePaymentFlow = ({
 
   useInterval(
     async () => {
-      setCountDownMs(prev => {
-        if (prev <= COUNTDOWN_INTERVAL) {
-          setIsTimeout(true);
-          setPollingActive(false);
-          return 0;
-        }
-        return prev - COUNTDOWN_INTERVAL;
-      });
-
-      if (!orderIdRef.current) {
+      const generation = pollingGenerationRef.current;
+      if (timeoutReportedGenerationRef.current === generation) {
         return;
       }
-      const currentOrderId = orderIdRef.current;
-      const nativePaymentChannel = paymentInfo.paymentChannel;
-      if (shouldSyncNativePaymentChannel(nativePaymentChannel)) {
-        const now = Date.now();
-        if (now - nativeSyncLastAtRef.current >= NATIVE_SYNC_INTERVAL) {
-          nativeSyncLastAtRef.current = now;
-          try {
-            await syncPaymentOrder({
-              orderId: currentOrderId,
-              paymentChannel: nativePaymentChannel,
-            });
-          } catch {
-            // The regular order query below keeps polling while the provider sync is transiently unavailable.
+      const remainingMs = Math.max(
+        pollingDeadlineAtRef.current - Date.now(),
+        0,
+      );
+      setCountDownMs(remainingMs);
+      if (remainingMs === 0) {
+        setPollingActive(false);
+        if (!completedRef.current) {
+          setIsTimeout(true);
+        }
+      }
+      if (pollingInFlightGenerationRef.current === generation) {
+        return;
+      }
+      pollingInFlightGenerationRef.current = generation;
+      let finalSnapshot: OrderSnapshot | null = null;
+
+      try {
+        if (!orderIdRef.current) {
+          return;
+        }
+        const currentOrderId = orderIdRef.current;
+        const nativePaymentChannel = paymentInfo.paymentChannel;
+        if (shouldSyncNativePaymentChannel(nativePaymentChannel)) {
+          const now = Date.now();
+          if (now - nativeSyncLastAtRef.current >= NATIVE_SYNC_INTERVAL) {
+            nativeSyncLastAtRef.current = now;
+            try {
+              await syncPaymentOrder({
+                orderId: currentOrderId,
+                paymentChannel: nativePaymentChannel,
+              });
+            } catch {
+              // The regular order query below keeps polling while the provider sync is transiently unavailable.
+            }
+          }
+        }
+
+        const resp = await queryOrder({ orderId: currentOrderId });
+        if (!mountedRef.current || !resp) {
+          return;
+        }
+        const responseSnapshot = resp as OrderSnapshot;
+        if (generation !== pollingGenerationRef.current) {
+          if (
+            currentOrderId === orderIdRef.current &&
+            isOrderPaid(responseSnapshot)
+          ) {
+            updateFromOrder(responseSnapshot);
+          }
+          return;
+        }
+        finalSnapshot = responseSnapshot;
+        updateFromOrder(finalSnapshot);
+      } finally {
+        if (pollingInFlightGenerationRef.current === generation) {
+          pollingInFlightGenerationRef.current = null;
+        }
+        const timeoutReached = Date.now() >= pollingDeadlineAtRef.current;
+        if (mountedRef.current && generation === pollingGenerationRef.current) {
+          setCountDownMs(
+            Math.max(pollingDeadlineAtRef.current - Date.now(), 0),
+          );
+          if (timeoutReached) {
+            setPollingActive(false);
+            if (!completedRef.current && !isOrderPaid(finalSnapshot)) {
+              setIsTimeout(true);
+            }
+          }
+        }
+        const shouldFinalizeTimeout =
+          timeoutReached &&
+          finalSnapshot !== null &&
+          mountedRef.current &&
+          generation === pollingGenerationRef.current &&
+          !completedRef.current &&
+          timeoutReportedGenerationRef.current !== generation;
+        if (shouldFinalizeTimeout) {
+          timeoutReportedGenerationRef.current = generation;
+          setPollingActive(false);
+          if (!isOrderPaid(finalSnapshot)) {
+            setIsTimeout(true);
+            onPollingTimeout?.();
           }
         }
       }
-
-      const resp = await queryOrder({ orderId: currentOrderId });
-      if (!mountedRef.current || !resp) {
-        return;
-      }
-      updateFromOrder(resp as OrderSnapshot);
     },
     isLoggedIn && pollingActive ? COUNTDOWN_INTERVAL : null,
   );
@@ -338,6 +443,8 @@ export const usePaymentFlow = ({
   );
 
   const resetState = useCallback(() => {
+    refreshGenerationRef.current += 1;
+    completedRef.current = false;
     updateOrderId('');
     setPrice('0');
     setOriginalPrice('');
@@ -345,11 +452,11 @@ export const usePaymentFlow = ({
     setCouponCode('');
     setPaymentInfo(defaultPaymentInfo);
     nativeSyncLastAtRef.current = 0;
-    setIsTimeout(false);
+    restartPollingWindow();
+    setIsLoading(false);
     setIsCompleted(false);
-    setCountDownMs(MAX_TIMEOUT);
     setPollingActive(false);
-  }, [updateOrderId]);
+  }, [restartPollingWindow, updateOrderId]);
 
   return {
     orderId,

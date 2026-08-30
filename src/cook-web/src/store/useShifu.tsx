@@ -46,6 +46,10 @@ import {
   StoredVariablesByScope,
 } from '@/components/lesson-preview/variableStorage';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  buildOutlineCreateAnalytics,
+  OUTLINE_CREATE_EVENT,
+} from './shifuAnalytics';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 const PROFILE_CACHE_TTL = 5000; // 5s
@@ -888,12 +892,14 @@ export const ShifuProvider = ({
           status: 'edit',
         },
       });
-      trackEvent('creator_outline_create', {
-        shifu_bid: shifuBid,
-        outline_bid: newOutline.bid,
-        outline_name: newOutline.name,
-        parent_bid: parentId,
-      });
+      trackEvent(
+        OUTLINE_CREATE_EVENT,
+        buildOutlineCreateAnalytics({
+          shifuBid,
+          outlineBid: newOutline.bid,
+          parentBid: parentId,
+        }),
+      );
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -940,12 +946,14 @@ export const ShifuProvider = ({
           status: 'edit',
         },
       });
-      trackEvent('creator_outline_create', {
-        shifu_bid: shifuBid,
-        outline_bid: newOutline.bid,
-        outline_name: newOutline.name,
-        parent_bid: '',
-      });
+      trackEvent(
+        OUTLINE_CREATE_EVENT,
+        buildOutlineCreateAnalytics({
+          shifuBid,
+          outlineBid: newOutline.bid,
+          parentBid: '',
+        }),
+      );
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -1094,12 +1102,14 @@ export const ShifuProvider = ({
           status: 'edit',
         },
       });
-      trackEvent('creator_outline_create', {
-        shifu_bid: shifuBid,
-        outline_bid: newOutline.bid,
-        outline_name: newOutline.name,
-        parent_bid: parentId,
-      });
+      trackEvent(
+        OUTLINE_CREATE_EVENT,
+        buildOutlineCreateAnalytics({
+          shifuBid,
+          outlineBid: newOutline.bid,
+          parentBid: parentId,
+        }),
+      );
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -1135,12 +1145,14 @@ export const ShifuProvider = ({
           position: '',
           children: [],
         });
-        trackEvent('creator_outline_create', {
-          shifu_bid: currentShifu?.bid || '',
-          outline_bid: newChapter.bid,
-          outline_name: newChapter.name,
-          parent_bid: data.parent_bid || '',
-        });
+        trackEvent(
+          OUTLINE_CREATE_EVENT,
+          buildOutlineCreateAnalytics({
+            shifuBid: currentShifu?.bid,
+            outlineBid: newChapter.bid,
+            parentBid: data.parent_bid,
+          }),
+        );
         setFocusId('');
         setLastSaveTime(new Date());
       } else {
@@ -1190,6 +1202,7 @@ export const ShifuProvider = ({
       0;
 
     const isNew = data.bid === 'new_chapter' || data.bid === 'new_lesson';
+    const parentBid = data.parent_bid;
     try {
       if (isNew) {
         const type =
@@ -1215,12 +1228,14 @@ export const ShifuProvider = ({
           children: [],
         });
 
-        trackEvent('creator_outline_create', {
-          shifu_bid: currentShifu?.bid || '',
-          outline_bid: newUnit.bid,
-          outline_name: newUnit.name,
-          parent_bid: data.parent_bid || '',
-        });
+        trackEvent(
+          OUTLINE_CREATE_EVENT,
+          buildOutlineCreateAnalytics({
+            shifuBid: currentShifu?.bid,
+            outlineBid: newUnit.bid,
+            parentBid,
+          }),
+        );
         setFocusId('');
         setLastSaveTime(new Date());
       } else {

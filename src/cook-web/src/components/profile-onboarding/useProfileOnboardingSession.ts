@@ -21,6 +21,7 @@ import type {
   ProfileOnboardingAssistantAnswers,
   ProfileOnboardingSessionInfo,
 } from './profileOnboardingConversationModel';
+import type { ProfileAssistantFailureCategory } from './profileOnboardingAnalytics';
 
 type StreamHandle = { close?: () => void };
 
@@ -61,6 +62,11 @@ type UseProfileOnboardingSessionParams = {
   onError: (error: unknown) => void;
   onSessionCreateRejected?: (error: unknown) => void;
   onRetry?: () => void;
+  onAssistantAttempt?: () => void;
+  onAssistantResult?: (
+    outcome: 'success' | 'failed',
+    failureCategory?: ProfileAssistantFailureCategory,
+  ) => void;
 };
 
 export const useProfileOnboardingSession = ({
@@ -76,6 +82,8 @@ export const useProfileOnboardingSession = ({
   onError,
   onSessionCreateRejected,
   onRetry,
+  onAssistantAttempt,
+  onAssistantResult,
 }: UseProfileOnboardingSessionParams) => {
   const [state, dispatch] = React.useReducer(
     profileOnboardingConversationReducer,
@@ -126,6 +134,8 @@ export const useProfileOnboardingSession = ({
   const onErrorRef = React.useRef(onError);
   const onSessionCreateRejectedRef = React.useRef(onSessionCreateRejected);
   const onRetryRef = React.useRef(onRetry);
+  const onAssistantAttemptRef = React.useRef(onAssistantAttempt);
+  const onAssistantResultRef = React.useRef(onAssistantResult);
   const disabledRef = React.useRef(disabled);
   const messagesRef = React.useRef(messages);
   const runInFlightRef = React.useRef(false);
@@ -137,6 +147,8 @@ export const useProfileOnboardingSession = ({
   onErrorRef.current = onError;
   onSessionCreateRejectedRef.current = onSessionCreateRejected;
   onRetryRef.current = onRetry;
+  onAssistantAttemptRef.current = onAssistantAttempt;
+  onAssistantResultRef.current = onAssistantResult;
   disabledRef.current = disabled;
   messagesRef.current = messages;
 
@@ -161,6 +173,24 @@ export const useProfileOnboardingSession = ({
     streamRef.current = null;
   }, []);
 
+  const reportAssistantAttempt = React.useCallback(() => {
+    try {
+      onAssistantAttemptRef.current?.();
+    } catch {}
+  }, []);
+
+  const reportAssistantResult = React.useCallback(
+    (
+      outcome: 'success' | 'failed',
+      failureCategory?: ProfileAssistantFailureCategory,
+    ) => {
+      try {
+        onAssistantResultRef.current?.(outcome, failureCategory);
+      } catch {}
+    },
+    [],
+  );
+
   const handleStreamError = React.useCallback(() => {
     if (streamCompletedRef.current || !mountedRef.current) {
       return;
@@ -172,8 +202,11 @@ export const useProfileOnboardingSession = ({
     setRunInFlight(false);
     setRunningOperation(null);
     dispatch({ type: 'fail', retryable: true });
+    if (lastRunRequestRef.current?.rawText !== undefined) {
+      reportAssistantResult('failed', 'stream_failed');
+    }
     onErrorRef.current(new Error(messagesRef.current.retryableError));
-  }, [setRunInFlight, stopStream]);
+  }, [reportAssistantResult, setRunInFlight, stopStream]);
 
   const handleEvent = React.useCallback(
     (event: ProfileOnboardingStreamEvent) => {
@@ -210,6 +243,12 @@ export const useProfileOnboardingSession = ({
         setRunningOperation(null);
         if (!retryable || requiresFreshSession) holdAssistantRequest(null);
         dispatch({ type: 'fail', retryable });
+        if (lastRunRequestRef.current?.rawText !== undefined) {
+          reportAssistantResult(
+            'failed',
+            requiresFreshSession ? 'session_expired' : 'runtime_failed',
+          );
+        }
         if (requiresFreshSession) {
           sessionIdRef.current = '';
           blockIndexRef.current = 0;
@@ -249,10 +288,16 @@ export const useProfileOnboardingSession = ({
           lastRunRequestRef.current?.rawText !== undefined;
         if (!draft && !(assistantResult && nickname)) {
           dispatch({ type: 'fail', retryable: false });
+          if (assistantResult) {
+            reportAssistantResult('failed', 'missing_result');
+          }
           onErrorRef.current(new Error(messagesRef.current.missingDraft));
           return;
         }
         dispatch({ type: 'complete' });
+        if (assistantResult) {
+          reportAssistantResult('success');
+        }
         if (assistantResult && onAssistantDraftReadyRef.current) {
           onAssistantDraftReadyRef.current(
             draft,
@@ -288,7 +333,7 @@ export const useProfileOnboardingSession = ({
         }
       });
     },
-    [holdAssistantRequest, setRunInFlight, stopStream],
+    [holdAssistantRequest, reportAssistantResult, setRunInFlight, stopStream],
   );
 
   const runRequest = React.useCallback(
@@ -321,6 +366,9 @@ export const useProfileOnboardingSession = ({
             : 'questions',
       );
       dispatch({ type: 'start_run' });
+      if (request.rawText !== undefined) {
+        reportAssistantAttempt();
+      }
       const runAttempt = ++runAttemptRef.current;
       try {
         const callbacks = {
@@ -360,7 +408,13 @@ export const useProfileOnboardingSession = ({
         if (runAttempt === runAttemptRef.current) handleStreamError();
       }
     },
-    [handleEvent, handleStreamError, setRunInFlight, stopStream],
+    [
+      handleEvent,
+      handleStreamError,
+      reportAssistantAttempt,
+      setRunInFlight,
+      stopStream,
+    ],
   );
 
   const flushAssistantRequest = React.useCallback(() => {

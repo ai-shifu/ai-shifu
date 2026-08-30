@@ -6,18 +6,26 @@ import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import { getPaymentDetail, syncStripeCheckout } from '@/c-api/order';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  buildLearnerPaymentResultAnalytics,
+  buildLearnerPaymentStatusAnalytics,
+  type LearnerPaymentFailureCategory,
+} from '@/lib/paymentAnalytics';
 
 interface StripeResultState {
   status: 'loading' | 'success' | 'pending' | 'error';
   message: string;
   orderId?: string;
   courseId?: string;
+  failureCategory?: LearnerPaymentFailureCategory;
 }
 
 export default function StripeResultPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
   const [state, setState] = useState<StripeResultState>({
     status: 'loading',
     message: '',
@@ -26,6 +34,7 @@ export default function StripeResultPage() {
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [redirectCountdown, setRedirectCountdown] = useState(3);
   const lastSyncedOrderRef = useRef<string | undefined>(undefined);
+  const analyticsStatusRef = useRef('');
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id') || '';
@@ -40,6 +49,7 @@ export default function StripeResultPage() {
       setState({
         status: 'error',
         message: t('module.pay.stripeResultMissingOrder'),
+        failureCategory: 'missing_order',
       });
       return;
     }
@@ -81,10 +91,40 @@ export default function StripeResultPage() {
           status: 'error',
           message: error?.message || t('module.pay.stripeError'),
           orderId,
+          failureCategory: 'status_lookup_failed',
         });
       }
     })();
   }, [searchParams, t]);
+
+  useEffect(() => {
+    if (state.status === 'loading') return;
+    const key = `${state.orderId || 'missing'}:${state.status}`;
+    if (analyticsStatusRef.current === key) return;
+    analyticsStatusRef.current = key;
+
+    const base = {
+      shifuBid: state.courseId,
+      orderId: state.orderId,
+      channel: 'stripe' as const,
+      surface: 'stripe_return' as const,
+    };
+    if (state.status === 'pending') {
+      trackEvent(
+        'learner_payment_status',
+        buildLearnerPaymentStatusAnalytics({ ...base, status: 'pending' }),
+      );
+      return;
+    }
+    trackEvent(
+      'learner_payment_result',
+      buildLearnerPaymentResultAnalytics({
+        ...base,
+        outcome: state.status === 'success' ? 'success' : 'failed',
+        failureCategory: state.failureCategory,
+      }),
+    );
+  }, [state, trackEvent]);
 
   useEffect(() => {
     syncAttemptedRef.current = false;

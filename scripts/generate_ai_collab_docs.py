@@ -1067,7 +1067,7 @@ FRONTEND_META = {
         ),
         key_files=(
             "PopupModal.tsx",
-            "TrackingVisit.tsx",
+            "AppContext.ts",
             "logo/LogoWithText.tsx",
             "m/MainButtonM.tsx",
         ),

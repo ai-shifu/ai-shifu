@@ -10,6 +10,10 @@ import {
   clearReferralContext,
 } from '@/lib/referral-context';
 import type { ReferralLoginMetadata } from '@/types/referral';
+import {
+  buildLoginAttemptAnalytics,
+  buildLoginResultAnalytics,
+} from '@/lib/loginAnalytics';
 
 interface ApiResponse {
   code: number;
@@ -139,22 +143,13 @@ export function useAuth(options: UseAuthOptions = {}) {
   };
 
   // Process login response
-  const processLoginResponse = async (
-    response: LoginResponse,
-    loginMethod?: string,
-  ) => {
+  const processLoginResponse = async (response: LoginResponse) => {
     if (response.code === 0 && response.data) {
       toast({
         title: t('module.auth.success'),
       });
       await login(response.data.userInfo, response.data.token);
       options.onSuccess?.(response.data.userInfo);
-      if (loginMethod) {
-        trackEvent('learner_login_success', {
-          user_id: response.data.userInfo?.user_id || '',
-          login_method: loginMethod,
-        });
-      }
       return true;
     }
     return false;
@@ -167,6 +162,7 @@ export function useAuth(options: UseAuthOptions = {}) {
     language: string,
     referralMetadata?: ReferralLoginMetadata,
   ) => {
+    trackEvent('learner_login_attempt', buildLoginAttemptAnalytics('sms'));
     try {
       const referralPayload = buildReferralLoginPayload(referralMetadata);
       const response = await callWithTokenRefresh(() =>
@@ -180,11 +176,20 @@ export function useAuth(options: UseAuthOptions = {}) {
         }),
       );
 
-      const success = await processLoginResponse(response, 'sms');
+      const success = await processLoginResponse(response);
       if (success && referralPayload.invite_code) {
         clearReferralContext();
       }
-      if (!success) {
+      if (success) {
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('sms', 'success'),
+        );
+      } else {
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('sms', 'failed', 'credentials_rejected'),
+        );
         handleLoginError(
           response.code,
           response.message || response.msg,
@@ -194,6 +199,10 @@ export function useAuth(options: UseAuthOptions = {}) {
 
       return response;
     } catch (error: any) {
+      trackEvent(
+        'learner_login_result',
+        buildLoginResultAnalytics('sms', 'failed', 'request_failed'),
+      );
       toast({
         title: t('module.auth.failed'),
         description: error.message || t('common.core.networkError'),

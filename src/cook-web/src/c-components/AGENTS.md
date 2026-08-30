@@ -13,7 +13,7 @@ domain-specific frontend ownership.
 
 - Representative files in this subtree:
   `src/cook-web/src/c-components/PopupModal.tsx`,
-  `src/cook-web/src/c-components/TrackingVisit.tsx`,
+  `src/cook-web/src/c-components/AppContext.ts`,
   `src/cook-web/src/c-components/logo/LogoWithText.tsx`,
   `src/cook-web/src/c-components/m/MainButtonM.tsx`
 

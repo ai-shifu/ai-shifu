@@ -21,6 +21,10 @@ import Image from 'next/image';
 import guestIcon from './icons/svg-guest.svg';
 import trialIcon from './icons/svg-trial.svg';
 import normalIcon from './icons/svg-normal.svg';
+import {
+  buildLessonSettingSaveAnalytics,
+  buildOutlinePromptSaveAnalytics,
+} from './chapterSettingAnalytics';
 
 type ChapterSettingsDialogProps = {
   outlineBid?: string;
@@ -216,22 +220,26 @@ const ChapterSettingsDialog = ({
         });
 
         if (isLesson) {
-          trackEvent(eventName, {
-            outline_bid: outlineBid,
-            shifu_bid: currentShifu?.bid,
-            save_type: saveType,
-            variant,
-            learning_permission: learningPermission,
-            hide_chapter: hideChapter,
-            system_prompt: systemPrompt,
-          });
+          trackEvent(
+            eventName,
+            buildLessonSettingSaveAnalytics({
+              outlineBid,
+              shifuBid: currentShifu?.bid,
+              saveType,
+              variant,
+              learningPermission,
+              hideChapter,
+            }),
+          );
         } else {
-          trackEvent(eventName, {
-            outline_bid: outlineBid,
-            shifu_bid: currentShifu?.bid,
-            system_prompt: systemPrompt,
-            save_type: saveType,
-          });
+          trackEvent(
+            eventName,
+            buildOutlinePromptSaveAnalytics({
+              outlineBid,
+              shifuBid: currentShifu?.bid,
+              saveType,
+            }),
+          );
         }
         setIsDirty(false);
         if (needClose) {

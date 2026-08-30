@@ -3,18 +3,23 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 const mockSaveMdflow = jest.fn();
 const mockGetShifuDraftMeta = jest.fn();
+const mockGetShifuDetail = jest.fn();
+const mockCreateOutline = jest.fn();
+const mockTrackEvent = jest.fn();
 
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     saveMdflow: (...args: unknown[]) => mockSaveMdflow(...args),
     getShifuDraftMeta: (...args: unknown[]) => mockGetShifuDraftMeta(...args),
+    getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
+    createOutline: (...args: unknown[]) => mockCreateOutline(...args),
   },
 }));
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({
-    trackEvent: jest.fn(),
+    trackEvent: mockTrackEvent,
   }),
 }));
 
@@ -49,6 +54,9 @@ describe('useShifu draft meta handling', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset();
     mockGetShifuDraftMeta.mockReset();
+    mockGetShifuDetail.mockReset();
+    mockCreateOutline.mockReset();
+    mockTrackEvent.mockReset();
   });
 
   it('loads draft meta without browser timezone', async () => {
@@ -166,4 +174,181 @@ describe('useShifu draft meta handling', () => {
     );
     consoleErrorSpy.mockRestore();
   });
+});
+
+describe('useShifu outline-create analytics producers', () => {
+  const creatorPaths = [
+    'addRootOutline',
+    'addSubOutline',
+    'addSiblingOutline',
+    'createChapter',
+    'createOutline',
+  ] as const;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Private course name',
+      readonly: false,
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const prepareCreatorPath = async (
+    path: (typeof creatorPaths)[number],
+    result: { current: ReturnType<typeof useShifu> },
+  ) => {
+    const settings = {
+      name: 'Private outline name',
+      learningPermission: 'trial',
+      isHidden: false,
+      systemPrompt: 'Private system prompt',
+    } as const;
+
+    if (path === 'addRootOutline') {
+      return {
+        parentBid: '',
+        invoke: () => result.current.actions.addRootOutline(settings),
+      };
+    }
+
+    if (path === 'createChapter') {
+      const placeholder = {
+        id: 'new_chapter',
+        bid: 'new_chapter',
+        parent_bid: '',
+        name: 'Private outline name',
+        position: '',
+        depth: 0,
+        children: [],
+      };
+      act(() => result.current.actions.setChapters([placeholder]));
+      return {
+        parentBid: '',
+        invoke: () => result.current.actions.createChapter(placeholder),
+      };
+    }
+
+    const lesson = {
+      id: path === 'createOutline' ? 'new_lesson' : 'lesson-1',
+      bid: path === 'createOutline' ? 'new_lesson' : 'lesson-1',
+      parent_bid: 'chapter-1',
+      name: 'Private outline name',
+      position: '',
+      depth: 1,
+      children: [],
+    };
+    const parent = {
+      id: 'chapter-1',
+      bid: 'chapter-1',
+      parent_bid: '',
+      name: 'Private chapter name',
+      position: '',
+      depth: 0,
+      children: [lesson],
+    };
+    act(() => result.current.actions.setChapters([parent]));
+
+    if (path === 'addSubOutline') {
+      return {
+        parentBid: 'chapter-1',
+        invoke: () => result.current.actions.addSubOutline(parent, settings),
+      };
+    }
+    if (path === 'addSiblingOutline') {
+      return {
+        parentBid: 'chapter-1',
+        invoke: () =>
+          result.current.actions.addSiblingOutline(lesson, settings),
+      };
+    }
+    return {
+      parentBid: 'chapter-1',
+      invoke: () => result.current.actions.createOutline(lesson),
+    };
+  };
+
+  it.each(creatorPaths)(
+    '%s emits only after success with the server-issued outline BID',
+    async path => {
+      const createdOutline = createDeferred<{
+        bid: string;
+        name: string;
+      }>();
+      mockCreateOutline.mockReturnValue(createdOutline.promise);
+      const { result } = renderHook(() => useShifu(), { wrapper });
+
+      await act(async () => {
+        await result.current.actions.loadShifu('course-1');
+      });
+      const { invoke, parentBid } = await prepareCreatorPath(path, result);
+
+      let operation!: Promise<unknown>;
+      act(() => {
+        operation = invoke();
+      });
+
+      expect(mockCreateOutline).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      await act(async () => {
+        createdOutline.resolve({
+          bid: 'server-outline-1',
+          name: 'Private outline name',
+        });
+        await operation;
+      });
+
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith('creator_outline_create', {
+        shifu_bid: 'course-1',
+        outline_bid: 'server-outline-1',
+        parent_bid: parentBid,
+      });
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('name');
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('description');
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
+        'system_prompt',
+      );
+    },
+  );
+
+  it.each(creatorPaths)(
+    '%s emits nothing when outline creation fails',
+    async path => {
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const createdOutline = createDeferred<{
+        bid: string;
+        name: string;
+      }>();
+      mockCreateOutline.mockReturnValue(createdOutline.promise);
+      const { result } = renderHook(() => useShifu(), { wrapper });
+
+      await act(async () => {
+        await result.current.actions.loadShifu('course-1');
+      });
+      const { invoke } = await prepareCreatorPath(path, result);
+
+      let operation!: Promise<unknown>;
+      act(() => {
+        operation = invoke();
+      });
+      const observedOperation = operation.catch(() => undefined);
+
+      await act(async () => {
+        createdOutline.reject(new Error('Private API error'));
+        await observedOperation;
+      });
+
+      expect(mockCreateOutline).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    },
+  );
 });

@@ -93,6 +93,7 @@ import {
   buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
 } from '@/components/shifu-setting/ask-provider-schema';
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
+import { buildShifuSettingSaveAnalytics } from '@/components/shifu-setting/shifuSettingAnalytics';
 import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceCloneDialog';
 import {
   buildClonedVoiceListParams,
@@ -1136,10 +1137,16 @@ export default function ShifuSettingDialog({
         await api.saveShifuDetail({
           ...payload,
         });
-        trackEvent('creator_shifu_setting_save', {
-          ...payload,
-          save_type: saveType,
-        });
+        trackEvent(
+          'creator_shifu_setting_save',
+          buildShifuSettingSaveAnalytics({
+            shifuBid: shifuId,
+            saveType,
+            ttsEnabled,
+            defaultListenModeEnabled,
+            useLearnerLanguage,
+          }),
+        );
         if (onSave) {
           onSave();
         }

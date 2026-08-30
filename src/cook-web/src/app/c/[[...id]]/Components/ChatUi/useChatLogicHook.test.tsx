@@ -301,6 +301,78 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(mockGetRunMessage.mock.calls[0]?.[4]).toBe('teacher');
   });
 
+  it('does not count a preview generation as a learner run', async () => {
+    const params = buildBaseParams();
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...params,
+          previewMode: true,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(params.trackEvent).not.toHaveBeenCalledWith(
+      'learner_run_start',
+      expect.anything(),
+    );
+    expect(params.trackEvent).not.toHaveBeenCalledWith(
+      'learner_lesson_start',
+      expect.anything(),
+    );
+  });
+
+  it('counts a live learner generation with stable identifiers only', async () => {
+    const params = buildBaseParams();
+
+    const { result } = renderHook(() => useChatLogicHook(params), { wrapper });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(params.trackEvent).toHaveBeenCalledWith('learner_run_start', {
+      shifu_bid: 'shifu-1',
+      outline_bid: 'lesson-1',
+      learning_mode: 'read',
+    });
+    expect(params.trackEvent).toHaveBeenCalledWith('learner_lesson_start', {
+      shifu_bid: 'shifu-1',
+      outline_bid: 'lesson-1',
+    });
+  });
+
+  it('does not count an existing lesson record as a new lesson start', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'Existing lesson content',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+    const params = buildBaseParams();
+
+    const { result } = renderHook(() => useChatLogicHook(params), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(params.trackEvent).not.toHaveBeenCalledWith(
+      'learner_lesson_start',
+      expect.anything(),
+    );
+  });
+
   it('sends listen=true in the run body when listen requests are enabled', async () => {
     const { result } = renderHook(
       () =>

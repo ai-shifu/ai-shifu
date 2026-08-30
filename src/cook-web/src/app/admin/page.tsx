@@ -41,6 +41,12 @@ import {
 } from '@/lib/onboardingTargets';
 import AdminTitle from './components/AdminTitle';
 import ShifuCard from './components/ShifuCard';
+import {
+  buildCourseCreationAttemptAnalytics,
+  buildCourseCreationCancelAnalytics,
+  buildCourseCreationResultAnalytics,
+  COURSE_CREATION_EVENTS,
+} from './courseCreationAnalytics';
 
 const COURSE_TABS_LIST_CLASS =
   'h-auto rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]';
@@ -100,6 +106,7 @@ const ScriptManagementPage = () => {
   const actionDialogResetTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const manualCreateInFlightRef = useRef(false);
 
   const activeTabRef = useRef<'all' | 'archived'>(activeTab);
   const guideCourseTargetId = buildGuideCourseTargetId(
@@ -234,7 +241,25 @@ const ScriptManagementPage = () => {
 
   // Store the latest fetchShifus in ref
   fetchShifusRef.current = fetchShifus;
+
+  const sendAnalytics = useCallback(
+    (eventName: string, eventData: Record<string, unknown>) => {
+      try {
+        void Promise.resolve(trackEvent(eventName, eventData)).catch(() => {});
+      } catch {}
+    },
+    [trackEvent],
+  );
+
   const onCreateShifu = async (values: any) => {
+    if (manualCreateInFlightRef.current) {
+      return;
+    }
+    manualCreateInFlightRef.current = true;
+    sendAnalytics(
+      COURSE_CREATION_EVENTS.ATTEMPT,
+      buildCourseCreationAttemptAnalytics('manual'),
+    );
     try {
       const response = await api.createShifu(values);
       toast({
@@ -243,10 +268,12 @@ const ScriptManagementPage = () => {
         duration: CREATE_SUCCESS_TOAST_DURATION_MS,
       });
       setShowCreateShifuModal(false);
-      trackEvent('creator_shifu_create_success', {
-        shifu_bid: response.bid,
-        shifu_name: response.name,
+      const resultPayload = buildCourseCreationResultAnalytics({
+        creationPath: 'manual',
+        outcome: 'success',
+        shifuBid: response.bid,
       });
+      sendAnalytics(COURSE_CREATION_EVENTS.RESULT, resultPayload);
       await waitForCreateRedirectDelay();
       // Redirect to edit page instead of refreshing list
       router.push(`/shifu/${response.bid}?onboarding_source=manual_create`);
@@ -263,12 +290,45 @@ const ScriptManagementPage = () => {
             : t('common.core.unknownError'),
         variant: 'destructive',
       });
+      sendAnalytics(
+        COURSE_CREATION_EVENTS.RESULT,
+        buildCourseCreationResultAnalytics({
+          creationPath: 'manual',
+          outcome: 'failed',
+          failureCategory: 'request_failed',
+        }),
+      );
+    } finally {
+      manualCreateInFlightRef.current = false;
     }
   };
 
   const handleCreateShifuModal = () => {
-    trackEvent('creator_shifu_create_click', {});
     setShowCreateShifuModal(true);
+  };
+
+  const handleCreateShifuOpenChange = (open: boolean) => {
+    if (!open && showCreateShifuModal && !manualCreateInFlightRef.current) {
+      sendAnalytics(
+        COURSE_CREATION_EVENTS.CANCEL,
+        buildCourseCreationCancelAnalytics('manual'),
+      );
+    }
+    setShowCreateShifuModal(open);
+  };
+
+  const handleAiCourseCreatorClick = () => {
+    sendAnalytics(
+      COURSE_CREATION_EVENTS.ATTEMPT,
+      buildCourseCreationAttemptAnalytics('ai_assistant'),
+    );
+    sendAnalytics(
+      COURSE_CREATION_EVENTS.RESULT,
+      buildCourseCreationResultAnalytics({
+        creationPath: 'ai_assistant',
+        outcome: 'success',
+      }),
+    );
   };
 
   const resetListAndFetch = useCallback(() => {
@@ -594,6 +654,7 @@ const ScriptManagementPage = () => {
                     target='_blank'
                     rel='noopener noreferrer'
                     className='text-xs text-muted-foreground underline hover:text-foreground'
+                    onClick={handleAiCourseCreatorClick}
                     {...buildOnboardingTargetProps(
                       ONBOARDING_TARGET_IDS.lobsterCreateEntry,
                     )}
@@ -615,7 +676,7 @@ const ScriptManagementPage = () => {
           </div>
           <CreateShifuDialog
             open={showCreateShifuModal}
-            onOpenChange={setShowCreateShifuModal}
+            onOpenChange={handleCreateShifuOpenChange}
             onSubmit={onCreateShifu}
           />
           <div className='flex-1 overflow-auto'>

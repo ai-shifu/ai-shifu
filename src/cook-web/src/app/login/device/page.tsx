@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useUserStore } from '@/store';
 import { EVENT_NAMES, useTracking } from '@/c-common/hooks/useTracking';
+import { normalizeDeviceOsForAnalytics } from './deviceAuthorizationAnalytics';
 
 type PendingDevice = {
   user_code: string;
@@ -146,7 +147,7 @@ const DeviceAuthorizationContent = () => {
     }
     shownCodeRef.current = code;
     void trackEventRef.current(EVENT_NAMES.DEVICE_AUTH_PROMPT_SHOWN, {
-      device_os: pending?.device_os || '',
+      device_os: normalizeDeviceOsForAnalytics(pending?.device_os),
       from_link: Boolean(codeFromUrl),
     });
   }, [codeFromUrl, pending]);
@@ -185,7 +186,7 @@ const DeviceAuthorizationContent = () => {
           approve
             ? EVENT_NAMES.DEVICE_AUTH_APPROVED
             : EVENT_NAMES.DEVICE_AUTH_DENIED,
-          { device_os: pending?.device_os || '' },
+          { device_os: normalizeDeviceOsForAnalytics(pending?.device_os) },
         );
       } catch (error) {
         setErrorMessage((error as Error)?.message || '');

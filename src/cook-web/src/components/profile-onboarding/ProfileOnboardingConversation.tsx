@@ -21,6 +21,10 @@ import {
 } from './profileOnboardingConversationModel';
 import { ProfileAssistantAnswersView } from './ProfileAssistantAnswersView';
 import { useProfileOnboardingSession } from './useProfileOnboardingSession';
+import type {
+  ProfileAssistantFailureCategory,
+  ProfileCollectionRoute,
+} from './profileOnboardingAnalytics';
 
 // ContentRender recreates its custom interaction component on every render.
 // Isolate it from sibling view/copy/paste state to preserve unsent input.
@@ -60,6 +64,12 @@ export type ProfileOnboardingConversationProps = {
   onSessionCreateRejected?: (error: unknown) => void;
   onRetry?: () => void;
   questionScrollFooter?: React.ReactNode;
+  onCollectionRouteChosen?: (route: ProfileCollectionRoute) => void;
+  onAssistantAttempt?: () => void;
+  onAssistantResult?: (
+    outcome: 'success' | 'failed',
+    failureCategory?: ProfileAssistantFailureCategory,
+  ) => void;
 };
 
 type PendingProfileDraft = {
@@ -84,6 +94,9 @@ export default function ProfileOnboardingConversation({
   onSessionCreateRejected,
   onRetry,
   questionScrollFooter,
+  onCollectionRouteChosen,
+  onAssistantAttempt,
+  onAssistantResult,
 }: ProfileOnboardingConversationProps) {
   const { t, i18n } = useTranslation();
   const [assistantVisible, setAssistantVisible] = React.useState(false);
@@ -162,6 +175,8 @@ export default function ProfileOnboardingConversation({
     onError,
     onSessionCreateRejected,
     onRetry,
+    onAssistantAttempt,
+    onAssistantResult,
   });
   const itemsRef = React.useRef(items);
   itemsRef.current = items;
@@ -175,6 +190,14 @@ export default function ProfileOnboardingConversation({
   const hasVisibleStatus = Boolean(visibleErrorMessage || retryAvailable);
   const canUseAssistant = Boolean(
     assistantView && assistantPrompt && assistantAvailable,
+  );
+  const reportRouteChosen = React.useCallback(
+    (route: ProfileCollectionRoute) => {
+      try {
+        onCollectionRouteChosen?.(route);
+      } catch {}
+    },
+    [onCollectionRouteChosen],
   );
 
   // Hidden questions cannot be edited; keep their renderer props unchanged
@@ -359,7 +382,10 @@ export default function ProfileOnboardingConversation({
             type='button'
             className='absolute bottom-9 right-3 z-10 hidden h-auto min-h-10 max-w-[calc(50%-2.75rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-[0_6px_12px_-8px_rgba(15,23,42,0.38)] sm:inline-flex'
             disabled={disabled}
-            onClick={() => setAssistantVisible(true)}
+            onClick={() => {
+              reportRouteChosen('ai_assistant');
+              setAssistantVisible(true);
+            }}
           >
             <Sparkles
               className='size-4 shrink-0'
@@ -380,7 +406,10 @@ export default function ProfileOnboardingConversation({
           onChange={assistantView.onChange}
           onSubmit={submitAssistantAnswers}
           onBack={() => {
-            if (resumeQuestions()) setAssistantVisible(false);
+            if (resumeQuestions()) {
+              reportRouteChosen('guided_questions');
+              setAssistantVisible(false);
+            }
           }}
         />
       ) : null}

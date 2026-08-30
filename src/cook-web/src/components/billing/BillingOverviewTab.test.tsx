@@ -15,6 +15,11 @@ const mockEnvState = {
   runtimeConfigLoaded: true,
   stripeEnabled: 'true',
 };
+const mockTrackEvent = jest.fn();
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -411,6 +416,7 @@ describe('BillingOverviewTab', () => {
     mockUseSWR.mockReset();
     mockMutateSWRCache.mockReset();
     mockMutateOverview.mockReset();
+    mockTrackEvent.mockReset();
 
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -1868,6 +1874,44 @@ describe('BillingOverviewTab', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://stripe.test/checkout',
     );
+    const attemptPayload = {
+      billing_market: 'domestic',
+      product_type: 'plan',
+      product_bid: 'bill-product-plan-yearly',
+      product_code: 'creator-plan-yearly',
+      billing_interval: 'year',
+      price_amount: 1500000,
+      currency: 'CNY',
+      credit_amount: 10000,
+      payment_provider: 'stripe',
+      checkout_action: 'subscribe',
+      source_surface: 'billing_overview',
+      source_tab: 'plans',
+    };
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      1,
+      'creator_billing_checkout_attempt',
+      attemptPayload,
+    );
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      2,
+      'creator_billing_checkout_status',
+      {
+        ...attemptPayload,
+        bill_order_bid: 'order-plan-1',
+        status: 'pending',
+      },
+    );
+    expect(mockTrackEvent.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCheckoutBillingSubscription.mock.invocationCallOrder[0],
+    );
+    for (const [, payload] of mockTrackEvent.mock.calls) {
+      expect(payload).not.toHaveProperty('display_name');
+      expect(payload).not.toHaveProperty('description');
+      expect(payload).not.toHaveProperty('redirect_url');
+      expect(payload).not.toHaveProperty('checkout_session_id');
+      expect(payload).not.toHaveProperty('raw_error');
+    }
     expect(
       screen.getByTestId('billing-stripe-redirect-overlay'),
     ).toHaveTextContent('module.billing.checkout.redirect.openingStripe');
@@ -2103,7 +2147,7 @@ describe('BillingOverviewTab', () => {
     });
   });
 
-  test('shows an in-app Pingxx top-up QR when Stripe is unavailable', async () => {
+  test('keeps a QR dismissal non-terminal before the same order succeeds', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
@@ -2161,6 +2205,190 @@ describe('BillingOverviewTab', () => {
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
     expect(screen.getByText('24-credit pack')).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_attempt',
+      {
+        billing_market: 'domestic',
+        product_type: 'topup',
+        product_bid: 'bill-product-topup-small',
+        product_code: 'creator-topup-small',
+        billing_interval: 'one_time',
+        price_amount: 4600,
+        currency: 'CNY',
+        credit_amount: 24,
+        payment_provider: 'pingxx',
+        payment_channel: 'wx_pub_qr',
+        checkout_action: 'topup',
+        source_surface: 'billing_overview',
+        source_tab: 'topup',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      expect.objectContaining({
+        bill_order_bid: 'order-topup-1',
+        payment_provider: 'pingxx',
+        payment_channel: 'wx_pub_qr',
+        status: 'pending',
+      }),
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.cancel',
+        }),
+      );
+    });
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(0);
+    expect(
+      screen.queryByTestId('billing-pingxx-qr-code'),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-topup-card-bill-product-topup-small-action',
+        ),
+      );
+    });
+    await acceptBillingAgreement(user);
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(mockCheckoutBillingTopup).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    });
+
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      bill_order_bid: 'order-topup-1',
+      status: 'paid',
+    });
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.pay.clickRefresh',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_billing_checkout_result',
+        expect.objectContaining({
+          bill_order_bid: 'order-topup-1',
+          outcome: 'success',
+        }),
+      );
+    });
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockTrackEvent.mock.calls.some(
+        ([eventName, payload]) =>
+          eventName === 'creator_billing_checkout_result' &&
+          payload?.outcome === 'cancelled',
+      ),
+    ).toBe(false);
+    expect(
+      screen.queryByTestId('billing-pingxx-qr-code'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('reports a QR checkout as cancelled only after backend confirmation', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockCheckoutBillingTopup.mockResolvedValue({
+      bill_order_bid: 'order-topup-cancelled-1',
+      provider: 'pingxx',
+      payment_mode: 'one_time',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/wechat-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.topup',
+        }),
+      );
+    });
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-topup-card-bill-product-topup-small-action',
+        ),
+      );
+    });
+    await acceptBillingAgreement(user);
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    });
+
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      bill_order_bid: 'order-topup-cancelled-1',
+      status: 'canceled',
+    });
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.pay.clickRefresh',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledWith({
+        bill_order_bid: 'order-topup-cancelled-1',
+      });
+      expect(mockMutateOverview).toHaveBeenCalled();
+      expect(
+        screen.queryByTestId('billing-pingxx-qr-code'),
+      ).not.toBeInTheDocument();
+    });
+    const resultCalls = mockTrackEvent.mock.calls.filter(
+      ([eventName]) => eventName === 'creator_billing_checkout_result',
+    );
+    expect(resultCalls).toHaveLength(1);
+    expect(resultCalls[0]).toEqual([
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'order-topup-cancelled-1',
+        outcome: 'cancelled',
+      }),
+    ]);
+    expect(
+      resultCalls.some(
+        ([, payload]) =>
+          payload?.outcome === 'success' || payload?.outcome === 'failed',
+      ),
+    ).toBe(false);
   });
 
   test('polls pending Pingxx checkout and closes the QR dialog after payment', async () => {
@@ -2254,9 +2482,132 @@ describe('BillingOverviewTab', () => {
         screen.queryByTestId('billing-pingxx-qr-code'),
       ).not.toBeInTheDocument();
     });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'order-plan-pingxx-1',
+        outcome: 'success',
+      }),
+    );
   });
 
-  test('syncs the Pingxx order before refreshing the QR dialog manually', async () => {
+  test('keeps a missing QR response non-terminal before the same order is paid', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-plan-pingxx-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+        },
+      },
+    });
+    mockCheckoutBillingOrder.mockResolvedValue({
+      bill_order_bid: 'order-plan-pingxx-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {},
+    });
+    mockSyncBillingOrder
+      .mockResolvedValueOnce({
+        bill_order_bid: 'order-plan-pingxx-1',
+        status: 'pending',
+      })
+      .mockResolvedValueOnce({
+        bill_order_bid: 'order-plan-pingxx-1',
+        status: 'paid',
+      });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
+      );
+    });
+    await acceptBillingAgreement(user);
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingOrder).toHaveBeenCalledWith({
+        bill_order_bid: 'order-plan-pingxx-1',
+        channel: 'alipay_qr',
+      });
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_billing_checkout_status',
+        expect.objectContaining({
+          bill_order_bid: 'order-plan-pingxx-1',
+          payment_channel: 'alipay_qr',
+          status: 'confirmation_failed',
+        }),
+      );
+      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    });
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(0);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
+    });
+
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledTimes(2);
+      expect(
+        screen.queryByTestId('billing-pingxx-qr-code'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'order-plan-pingxx-1',
+        outcome: 'success',
+      }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(1);
+  });
+
+  test('keeps a manual Pingxx sync failure non-terminal before a paid retry', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
@@ -2301,10 +2652,12 @@ describe('BillingOverviewTab', () => {
         },
       },
     });
-    mockSyncBillingOrder.mockResolvedValueOnce({
-      bill_order_bid: 'order-plan-pingxx-1',
-      status: 'paid',
-    });
+    mockSyncBillingOrder
+      .mockRejectedValueOnce(new Error('private provider failure'))
+      .mockResolvedValueOnce({
+        bill_order_bid: 'order-plan-pingxx-1',
+        status: 'paid',
+      });
 
     renderOverviewTab();
 
@@ -2339,6 +2692,29 @@ describe('BillingOverviewTab', () => {
         bill_order_bid: 'order-plan-pingxx-1',
       });
       expect(mockCheckoutBillingOrder).not.toHaveBeenCalled();
+      expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      expect.objectContaining({
+        bill_order_bid: 'order-plan-pingxx-1',
+        status: 'confirmation_failed',
+      }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private provider failure',
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.pay.clickRefresh',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledTimes(2);
       expect(mockMutateOverview).toHaveBeenCalled();
       expect(mockMutateSWRCache).toHaveBeenCalledWith([
         'billing-wallet-buckets',
@@ -2347,5 +2723,17 @@ describe('BillingOverviewTab', () => {
         screen.queryByTestId('billing-pingxx-qr-code'),
       ).not.toBeInTheDocument();
     });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'order-plan-pingxx-1',
+        outcome: 'success',
+      }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_billing_checkout_result',
+      ),
+    ).toHaveLength(1);
   });
 });

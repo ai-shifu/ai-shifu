@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore } from '@/c-store/useCourseStore';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import {
   Tooltip,
   TooltipContent,
@@ -26,6 +27,10 @@ import {
   type LearningMode,
 } from './learningModeOptions';
 import { setLearningModeInUrl } from './learningModeUrl';
+import {
+  buildLearningModeSelectionAnalytics,
+  LEARNING_MODE_SELECTION_EVENT,
+} from './learningModeAnalytics';
 
 const learningModeIcons: Record<LearningMode, LucideIcon> = {
   read: BookOpen,
@@ -43,13 +48,15 @@ export const LearningModeSwitch = ({
   size = 'mobile',
 }: LearningModeSwitchProps) => {
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
-  const { learningMode, updateLearningMode, canUseClassroomMode } =
+  const { learningMode, updateLearningMode, canUseClassroomMode, previewMode } =
     useSystemStore(
       useShallow(state => ({
         learningMode: state.learningMode,
         updateLearningMode: state.updateLearningMode,
         canUseClassroomMode: state.canUseClassroomMode,
+        previewMode: state.previewMode,
       })),
     );
   const availableOptions = getAvailableLearningModeOptions({
@@ -65,6 +72,19 @@ export const LearningModeSwitch = ({
   );
 
   const handleLearningModeSelect = (nextLearningMode: LearningMode) => {
+    if (nextLearningMode === learningMode) {
+      return;
+    }
+    if (!previewMode) {
+      trackEvent(
+        LEARNING_MODE_SELECTION_EVENT,
+        buildLearningModeSelectionAnalytics({
+          from: learningMode,
+          to: nextLearningMode,
+          source: size === 'desktop' ? 'desktop_switch' : 'mobile_switch',
+        }),
+      );
+    }
     setLearningModeInUrl(nextLearningMode);
     updateLearningMode(nextLearningMode);
   };

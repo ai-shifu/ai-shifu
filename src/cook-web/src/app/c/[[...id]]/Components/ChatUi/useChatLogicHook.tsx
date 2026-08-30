@@ -1510,12 +1510,13 @@ function useChatLogicHook({
         }, timeoutMs);
       };
 
-      // Track run start event
-      trackEvent('learner_run_start', {
-        shifu_bid: shifuBid,
-        outline_bid: outlineBid,
-        learning_mode: isListenMode ? 'listen' : 'read',
-      });
+      if (!effectivePreviewMode) {
+        trackEvent('learner_run_start', {
+          shifu_bid: shifuBid,
+          outline_bid: outlineBid,
+          learning_mode: isListenMode ? 'listen' : 'read',
+        });
+      }
       source = getRunMessage(
         shifuBid,
         outlineBid,

@@ -6,6 +6,7 @@ import { PasswordLogin } from './PasswordLogin';
 const mockToast = jest.fn();
 const mockLogin = jest.fn();
 const mockLoginPassword = jest.fn();
+const mockTrackEvent = jest.fn();
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -35,6 +36,10 @@ jest.mock('@/api', () => ({
   default: {
     loginPassword: (...args: unknown[]) => mockLoginPassword(...args),
   },
+}));
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
 jest.mock('@/components/TermsCheckbox', () => ({
@@ -124,5 +129,47 @@ describe('PasswordLogin', () => {
         language: 'en-US',
       });
     });
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_attempt', {
+      login_method: 'password',
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_result', {
+      login_method: 'password',
+      outcome: 'success',
+    });
+    expect(mockTrackEvent.mock.calls.map(([name]) => name)).not.toContain(
+      'learner_login_success',
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'learner@example.com',
+    );
+  });
+
+  it('records a bounded failure without credentials or API messages', async () => {
+    mockLoginPassword.mockResolvedValue({
+      code: 1001,
+      message: 'private provider response',
+    });
+
+    render(<PasswordLogin onLoginSuccess={jest.fn()} />);
+    fireEvent.change(screen.getByLabelText('module.auth.identifier'), {
+      target: { value: 'private-user' },
+    });
+    fireEvent.change(screen.getByLabelText('module.auth.password'), {
+      target: { value: 'private-password' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_result', {
+        login_method: 'password',
+        outcome: 'failed',
+        failure_category: 'credentials_rejected',
+      });
+    });
+    const delivered = JSON.stringify(mockTrackEvent.mock.calls);
+    expect(delivered).not.toContain('private-user');
+    expect(delivered).not.toContain('private-password');
+    expect(delivered).not.toContain('private provider response');
   });
 });

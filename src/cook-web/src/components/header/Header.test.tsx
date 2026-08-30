@@ -6,6 +6,7 @@ import Header from './Header';
 
 const mockSaveMdflow = jest.fn();
 const mockToast = jest.fn();
+const mockTrackEvent = jest.fn();
 const mockCurrentShifu = {
   bid: 'course-1',
   name: 'Published Course',
@@ -43,7 +44,7 @@ jest.mock('@/hooks/useToast', () => ({
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({
-    trackEvent: jest.fn(),
+    trackEvent: mockTrackEvent,
   }),
 }));
 
@@ -139,6 +140,7 @@ describe('Header publish success link', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset().mockResolvedValue(undefined);
     mockToast.mockReset();
+    mockTrackEvent.mockReset();
     mockCurrentShifu.name = 'Published Course';
     mockCurrentShifu.description = 'A teacher-written course description.';
     mockCurrentShifu.canPublish = true;
@@ -203,6 +205,66 @@ describe('Header publish success link', () => {
       'https://example.test/c/course-1',
     );
     expect(learningLink.getAttribute('href')).not.toContain('?');
+    expect(mockTrackEvent).toHaveBeenCalledWith('creator_publish_attempt', {
+      shifu_bid: 'course-1',
+      learning_mode: 'default',
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith('creator_publish_result', {
+      shifu_bid: 'course-1',
+      learning_mode: 'default',
+      outcome: 'success',
+    });
+    const eventNames = mockTrackEvent.mock.calls.map(([name]) => name);
+    expect(eventNames).not.toContain('creator_publish_click');
+    expect(eventNames).not.toContain('creator_publish_confirm');
+  });
+
+  test('records save and publish failures as one terminal result', async () => {
+    mockSaveMdflow.mockRejectedValueOnce(new Error('private save failure'));
+
+    renderHeader();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.publish' }),
+    );
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith('creator_publish_result', {
+        shifu_bid: 'course-1',
+        learning_mode: 'default',
+        outcome: 'failed',
+        failure_stage: 'save',
+      });
+    });
+    expect(api.publishShifu).not.toHaveBeenCalled();
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private save failure',
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'component.header.publish' }),
+      ).toBeEnabled();
+    });
+
+    mockTrackEvent.mockReset();
+    mockSaveMdflow.mockResolvedValueOnce(undefined);
+    (api.publishShifu as jest.Mock).mockRejectedValueOnce(
+      new Error('private publish failure'),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.publish' }),
+    );
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith('creator_publish_result', {
+        shifu_bid: 'course-1',
+        learning_mode: 'default',
+        outcome: 'failed',
+        failure_stage: 'publish',
+      });
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private publish failure',
+    );
   });
 
   test('keeps the success dialog link parameterless when opening a learning mode fails', async () => {

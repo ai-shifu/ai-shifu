@@ -512,22 +512,40 @@ describe('GlobalBillingPricing', () => {
       );
     });
 
-    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      'creator_billing_checkout_click',
+    const attemptPayload = {
+      billing_market: 'global',
+      product_type: 'plan',
+      product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessAnnual}`,
+      product_code: GLOBAL_BILLING_PRODUCT_CODES.businessAnnual,
+      billing_interval: 'year',
+      price_amount: 399900,
+      currency: 'USD',
+      credit_amount: 100000,
+      payment_provider: 'stripe',
+      checkout_action: 'subscribe',
+      source_surface: 'global_pricing',
+      source_tab: 'plans',
+    };
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      1,
+      'creator_billing_checkout_attempt',
+      attemptPayload,
+    );
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      2,
+      'creator_billing_checkout_status',
       {
-        billing_market: 'global',
-        product_type: 'plan',
-        product_code: GLOBAL_BILLING_PRODUCT_CODES.businessAnnual,
-        plan_name: 'Business',
-        billing_interval: 'year',
-        price_amount: 399900,
-        currency: 'USD',
-        credit_amount: 100000,
-        source_tab: 'plans',
-        checkout_status: 'pending',
+        ...attemptPayload,
+        bill_order_bid: 'order-business-annual',
+        status: 'pending',
       },
     );
+    for (const [, payload] of mockTrackEvent.mock.calls) {
+      expect(payload).not.toHaveProperty('plan_name');
+      expect(payload).not.toHaveProperty('checkout_status');
+      expect(payload).not.toHaveProperty('redirect_url');
+      expect(payload).not.toHaveProperty('raw_error');
+    }
     expect(mockCheckoutSubscription).toHaveBeenCalledWith({
       payment_provider: 'stripe',
       product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessAnnual}`,
@@ -587,17 +605,21 @@ describe('GlobalBillingPricing', () => {
     });
 
     expect(mockTrackEvent).toHaveBeenCalledWith(
-      'creator_billing_checkout_click',
-      expect.objectContaining({
+      'creator_billing_checkout_attempt',
+      {
+        billing_market: 'global',
         product_type: 'topup',
+        product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.credits3000}`,
         product_code: GLOBAL_BILLING_PRODUCT_CODES.credits3000,
         billing_interval: 'one_time',
         price_amount: 27900,
         currency: 'USD',
         credit_amount: 3000,
+        payment_provider: 'stripe',
+        checkout_action: 'topup',
+        source_surface: 'global_pricing',
         source_tab: 'credit_packs',
-        checkout_status: 'pending',
-      }),
+      },
     );
     expect(mockCheckoutTopup).toHaveBeenCalledWith({
       payment_provider: 'stripe',
@@ -633,6 +655,20 @@ describe('GlobalBillingPricing', () => {
     expect(
       within(business).getByText('Opening checkout...').closest('button'),
     ).toBeDisabled();
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      1,
+      'creator_billing_checkout_attempt',
+      expect.objectContaining({
+        product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessAnnual}`,
+      }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent.mock.calls.map(([name]) => name)).not.toContain(
+      'creator_billing_checkout_click',
+    );
+    expect(mockTrackEvent.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCheckoutSubscription.mock.invocationCallOrder[0],
+    );
 
     await act(async () => {
       resolveCheckout({
@@ -742,6 +778,102 @@ describe('GlobalBillingPricing', () => {
 
     expect(mockCheckoutSubscription).not.toHaveBeenCalled();
     expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('reports an API rejection without collecting its raw error', async () => {
+    const user = userEvent.setup();
+    mockCheckoutSubscription.mockRejectedValue(
+      new Error('customer person@example.test was declined'),
+    );
+    renderPricing();
+
+    const business = await screen.findByTestId('global-plan-business');
+    await act(async () => {
+      await user.click(
+        within(business).getByRole('button', { name: 'Choose plan' }),
+      );
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        outcome: 'failed',
+        failure_category: 'checkout_request_failed',
+      }),
+    );
+    const resultPayload = mockTrackEvent.mock.calls.find(
+      ([name]) => name === 'creator_billing_checkout_result',
+    )?.[1];
+    expect(resultPayload).not.toHaveProperty('error');
+    expect(resultPayload).not.toHaveProperty('raw_error');
+    expect(JSON.stringify(resultPayload)).not.toContain('person@example.test');
+    expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+  });
+
+  test('keeps checkout fail-open when tracking throws', async () => {
+    const user = userEvent.setup();
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'order-fail-open',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'pending',
+      redirect_url: 'https://checkout.stripe.test/fail-open',
+    });
+    renderPricing();
+
+    const business = await screen.findByTestId('global-plan-business');
+    await act(async () => {
+      await user.click(
+        within(business).getByRole('button', { name: 'Choose plan' }),
+      );
+    });
+
+    expect(mockCheckoutSubscription).toHaveBeenCalled();
+    expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
+      'https://checkout.stripe.test/fail-open',
+    );
+  });
+
+  test('reports a redirect failure with the stable billing order ID', async () => {
+    const user = userEvent.setup();
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'order-redirect-failed',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'pending',
+      redirect_url: 'https://checkout.stripe.test/unavailable',
+    });
+    mockOpenBillingCheckoutUrl.mockImplementation(() => {
+      throw new Error('navigation failed for a raw URL');
+    });
+    renderPricing();
+
+    const business = await screen.findByTestId('global-plan-business');
+    await act(async () => {
+      await user.click(
+        within(business).getByRole('button', { name: 'Choose plan' }),
+      );
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'order-redirect-failed',
+        outcome: 'failed',
+        failure_category: 'redirect_failed',
+      }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'navigation failed',
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      expect.anything(),
+    );
   });
 
   test('allows upgrades from retired global SKUs so the backend can validate migration', async () => {
@@ -811,6 +943,14 @@ describe('GlobalBillingPricing', () => {
       variant: 'destructive',
     });
     expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({
+        bill_order_bid: 'order-unsupported',
+        outcome: 'failed',
+        failure_category: 'unsupported',
+      }),
+    );
   });
 
   test('fails closed when the global catalog has an unexpected price', async () => {

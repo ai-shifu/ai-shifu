@@ -15,6 +15,11 @@ import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { cn } from '@/lib/utils';
 import i18n from '@/i18n';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  buildLoginAttemptAnalytics,
+  buildLoginResultAnalytics,
+} from '@/lib/loginAnalytics';
 
 interface PasswordLoginProps {
   onLoginSuccess: () => void;
@@ -30,6 +35,7 @@ export function PasswordLogin({
   const { toast } = useToast();
   const { login } = useUserStore();
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -113,6 +119,8 @@ export function PasswordLogin({
       return;
     }
 
+    trackEvent('learner_login_attempt', buildLoginAttemptAnalytics('password'));
+
     try {
       setIsLoading(true);
       const response = await apiService.loginPassword({
@@ -124,8 +132,20 @@ export function PasswordLogin({
       if (response.code === 0 && response.data) {
         toast({ title: t('module.auth.success') });
         await login(response.data.userInfo, response.data.token);
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('password', 'success'),
+        );
         onLoginSuccess();
       } else {
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics(
+            'password',
+            'failed',
+            'credentials_rejected',
+          ),
+        );
         toast({
           title: t('module.auth.failed'),
           description:
@@ -136,6 +156,10 @@ export function PasswordLogin({
         });
       }
     } catch (error: any) {
+      trackEvent(
+        'learner_login_result',
+        buildLoginResultAnalytics('password', 'failed', 'request_failed'),
+      );
       toast({
         title: t('module.auth.failed'),
         description: error.message || t('common.core.networkError'),
