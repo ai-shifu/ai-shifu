@@ -765,17 +765,21 @@ export const PayModalM = ({
       status: 'failed' | 'pending',
       attempt: LearnerPaymentAttemptContext,
     ) => {
-      if (status === 'pending') {
-        trackPaymentPending(attempt);
-      } else {
-        trackPaymentResult('failed', 'provider_failed', attempt);
-      }
       const resolvedToast = resolveLearnerPaymentToast({
         message,
         fallbackMessage: t('module.pay.payFailed'),
         canceledMessage: t('module.pay.paymentCanceled'),
         unsupportedMessage: t('module.pay.wechatJsapiUnavailable'),
       });
+      if (status === 'pending') {
+        trackPaymentPending(attempt);
+      } else {
+        trackPaymentResult(
+          resolvedToast.variant === 'default' ? 'cancelled' : 'failed',
+          resolvedToast.variant === 'default' ? undefined : 'provider_failed',
+          attempt,
+        );
+      }
       toast({
         title: resolvedToast.message,
         variant: resolvedToast.variant,

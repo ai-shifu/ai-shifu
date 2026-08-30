@@ -73,6 +73,13 @@ their consumers are deleted instead of dual-written.
       Focused payment checks passed 4 Jest suites / 54 tests, followed by the
       full frontend suite at 212 Jest suites / 1,888 tests, TypeScript, focused
       lint, and Prettier.
+- [x] 2026-08-31 00:52 CST: Addressed post-push learner checkout feedback by
+      keeping malformed payment snapshots fail-closed, classifying explicit
+      Stripe cancellation separately from processing and provider failure, and
+      isolating Stripe return query fixtures. Focused checks passed 5 Jest
+      suites / 67 tests, followed by the full frontend suite at 212 Jest suites
+      / 1,896 tests, TypeScript, focused lint, Prettier, repository harness,
+      architecture boundaries, and the full Lefthook pre-commit gate.
 
 ## Surprises & Discoveries
 

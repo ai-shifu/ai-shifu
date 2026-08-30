@@ -207,6 +207,22 @@ jest.mock('./StripeCardForm', () => ({
         }}
       />
       <button
+        data-testid='stripe-cancel'
+        onClick={() => {
+          const attempt = onAttempt();
+          mockLastStripeAttempt = attempt;
+          onError('private-stripe-payment-cancelled', 'failed', attempt);
+        }}
+      />
+      <button
+        data-testid='stripe-pending'
+        onClick={() => {
+          const attempt = onAttempt();
+          mockLastStripeAttempt = attempt;
+          onError('module.pay.stripeProcessing', 'pending', attempt);
+        }}
+      />
+      <button
         data-testid='stripe-late-fail'
         onClick={() => {
           if (mockLastStripeAttempt) {
@@ -312,10 +328,21 @@ jest.mock('@/hooks/useToast', () => ({
 }));
 
 jest.mock('@/lib/learnerError', () => ({
-  resolveLearnerPaymentToast: () => ({
-    message: 'resolved-payment-error',
-    variant: 'destructive',
-  }),
+  resolveLearnerPaymentToast: ({
+    error,
+    message,
+    canceledMessage,
+  }: {
+    error?: Error | string;
+    message?: string;
+    canceledMessage: string;
+  }) => {
+    const rawMessage =
+      message || (typeof error === 'string' ? error : error?.message) || '';
+    return rawMessage.toLowerCase().includes('cancel')
+      ? { message: canceledMessage, variant: 'default' }
+      : { message: 'resolved-payment-error', variant: 'destructive' };
+  },
 }));
 
 jest.mock('@/lib/stripe-storage', () => ({
@@ -419,6 +446,42 @@ describe('learner payment modal analytics producers', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  const renderStripePaymentModal = (surface: 'desktop' | 'mobile') => {
+    mockEnvState = {
+      ...mockEnvState,
+      stripePublishableKey: 'private-stripe-publishable-key',
+      stripeEnabled: 'true',
+      paymentChannels: ['stripe'],
+    };
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      paymentInfo: {
+        channel: 'stripe',
+        qrUrl: '',
+        status: ORDER_STATUS.BUY_STATUS_TO_BE_PAID,
+        paymentChannel: 'stripe',
+        paymentPayload: {
+          mode: 'payment_intent',
+          client_secret: 'client-secret-never-tracked',
+        },
+      },
+    };
+
+    return render(
+      surface === 'desktop' ? (
+        <PayModal
+          {...requiredModalProps}
+          open
+        />
+      ) : (
+        <PayModalM
+          {...requiredModalProps}
+          open
+        />
+      ),
+    );
+  };
 
   it('bounds runtime currency values on both payment modal surfaces', async () => {
     mockEnvState.currencySymbol = 'private-person@example.test';
@@ -990,6 +1053,69 @@ describe('learner payment modal analytics producers', () => {
     expect(trackedPayloads).not.toContain('private-stripe-provider-error');
     expect(trackedPayloads).not.toContain('private-stripe-late-error');
   });
+
+  it.each(['desktop', 'mobile'] as const)(
+    'records an explicit %s Stripe cancellation without a failure category',
+    async surface => {
+      renderStripePaymentModal(surface);
+
+      fireEvent.click(await screen.findByTestId('stripe-cancel'));
+
+      expect(eventCalls('learner_payment_attempt')).toEqual([
+        [
+          'learner_payment_attempt',
+          {
+            shifu_bid: 'course-1',
+            order_id: 'order-1',
+            channel: 'stripe',
+            surface,
+          },
+        ],
+      ]);
+      expect(eventCalls('learner_payment_result')).toEqual([
+        [
+          'learner_payment_result',
+          {
+            shifu_bid: 'course-1',
+            order_id: 'order-1',
+            channel: 'stripe',
+            surface,
+            outcome: 'cancelled',
+          },
+        ],
+      ]);
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.pay.paymentCanceled',
+        variant: 'default',
+      });
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'private-stripe-payment-cancelled',
+      );
+    },
+  );
+
+  it.each(['desktop', 'mobile'] as const)(
+    'keeps a %s Stripe processing response nonterminal',
+    async surface => {
+      renderStripePaymentModal(surface);
+
+      fireEvent.click(await screen.findByTestId('stripe-pending'));
+
+      expect(eventCalls('learner_payment_status')).toEqual([
+        [
+          'learner_payment_status',
+          {
+            shifu_bid: 'course-1',
+            order_id: 'order-1',
+            channel: 'stripe',
+            surface,
+            status: 'pending',
+          },
+        ],
+      ]);
+      expect(eventCalls('learner_payment_result')).toHaveLength(0);
+    },
+  );
 
   it('does not start a desktop retry attempt until refresh returns a usable QR', async () => {
     const { rerender } = render(
