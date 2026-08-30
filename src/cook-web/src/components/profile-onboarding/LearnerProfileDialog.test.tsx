@@ -1676,6 +1676,73 @@ describe('LearnerProfileDialog', () => {
     );
   });
 
+  test('reports durable completion after the learner returns from retention', async () => {
+    const onClose = jest.fn();
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+
+    renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onClose,
+      onDefer: jest.fn(),
+    });
+    await waitForCollectionSession();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    await screen.findByText('module.profileOnboarding.dialog.retention.title');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.continueSetup',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: FINISH_COLLECTION_LABEL }),
+    );
+    await continueCollectionToSave();
+    await screen.findByDisplayValue('Collection draft');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.complete',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('saved'));
+    const retainedCompletionCalls = mockTrackEvent.mock.calls.filter(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+    );
+    expect(retainedCompletionCalls).toEqual([
+      [
+        PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+        {
+          source: 'guided',
+          presentation: 'blocking',
+          phase: 'collect',
+        },
+      ],
+    ]);
+    expectSafeRetentionAnalyticsPayload(retainedCompletionCalls[0]?.[1]);
+    const retainedCompletionCall = mockTrackEvent.mock.calls.findIndex(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+    );
+    expect(
+      mockCompleteGuidedProfileOnboarding.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      mockTrackEvent.mock.invocationCallOrder[retainedCompletionCall],
+    );
+    expect(
+      mockTrackEvent.mock.invocationCallOrder[retainedCompletionCall],
+    ).toBeLessThan(onClose.mock.invocationCallOrder[0]);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.COMPLETED,
+      expect.objectContaining({ source: 'guided', presentation: 'blocking' }),
+    );
+  });
+
   test('closes a durable save without waiting for the profile refresh', async () => {
     const refresh = deferred<void>();
     const onSaved = jest.fn(() => refresh.promise);
@@ -1730,7 +1797,7 @@ describe('LearnerProfileDialog', () => {
     );
   });
 
-  test('keeps the guided session and draft after save failure so save can retry', async () => {
+  test('keeps the guided session, draft, and retention context after save failure', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     mockCompleteGuidedProfileOnboarding
@@ -1740,8 +1807,21 @@ describe('LearnerProfileDialog', () => {
         learner_profile: 'Collection draft',
       });
 
-    renderDialog({ exitPolicy: 'blocking' });
+    renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onDefer: jest.fn(),
+    });
     await waitForCollectionSession();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    await screen.findByText('module.profileOnboarding.dialog.retention.title');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.continueSetup',
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
     await continueCollectionToSave();
     await screen.findByDisplayValue('Collection draft');
@@ -1752,6 +1832,10 @@ describe('LearnerProfileDialog', () => {
 
     expect(await screen.findByText('Save unavailable')).toBeInTheDocument();
     expect(profileInput()).toHaveValue('Collection draft');
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+      expect.anything(),
+    );
     fireEvent.click(complete);
 
     await waitFor(() =>
@@ -1760,6 +1844,16 @@ describe('LearnerProfileDialog', () => {
     expect(mockCompleteGuidedProfileOnboarding.mock.calls[1][0]).toEqual(
       mockCompleteGuidedProfileOnboarding.mock.calls[0][0],
     );
+    const retainedCompletionCalls = mockTrackEvent.mock.calls.filter(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+    );
+    expect(retainedCompletionCalls).toHaveLength(1);
+    expect(retainedCompletionCalls[0]?.[1]).toEqual({
+      source: 'guided',
+      presentation: 'blocking',
+      phase: 'collect',
+    });
+    expectSafeRetentionAnalyticsPayload(retainedCompletionCalls[0]?.[1]);
   });
 
   test('asks before replacing a dirty draft and starts settings research only after confirmation', async () => {
@@ -1975,6 +2069,10 @@ describe('LearnerProfileDialog', () => {
     );
     expect(mockTrackEvent).not.toHaveBeenCalledWith(
       PROFILE_ONBOARDING_EVENTS.SETTINGS_CLEARED,
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+      expect.anything(),
     );
   });
 
@@ -2283,6 +2381,93 @@ describe('LearnerProfileDialog', () => {
       }),
     );
     expect(profileInput()).toHaveValue(existingProfile.learner_profile);
+  });
+
+  test.each([
+    [
+      'throws synchronously',
+      () => {
+        throw new Error('completion analytics unavailable');
+      },
+    ],
+    [
+      'rejects asynchronously',
+      () => Promise.reject(new Error('completion analytics rejected')),
+    ],
+  ])(
+    'finishes a retained profile save when completion analytics %s',
+    async (_analyticsFailure, failTracking) => {
+      const onClose = jest.fn();
+      renderDialog({
+        exitPolicy: 'blocking',
+        presentation: 'blocking',
+        onClose,
+        onDefer: jest.fn(),
+      });
+      await screen.findByDisplayValue(existingProfile.learner_profile);
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+      );
+      await screen.findByText(
+        'module.profileOnboarding.dialog.retention.title',
+      );
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.dialog.retention.continueSetup',
+        }),
+      );
+      mockTrackEvent.mockImplementationOnce(failTracking);
+
+      fireEvent.click(saveButton());
+
+      await waitFor(() => expect(onClose).toHaveBeenCalledWith('saved'));
+      const retainedCompletionCalls = mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+      );
+      expect(retainedCompletionCalls).toHaveLength(1);
+      expect(retainedCompletionCalls[0]?.[1]).toEqual({
+        source: 'guided',
+        presentation: 'blocking',
+        phase: 'save',
+      });
+      expectSafeRetentionAnalyticsPayload(retainedCompletionCalls[0]?.[1]);
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('reports retained completion once when dialog cleanup retries after a durable save', async () => {
+    const onClose = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('Close failed'))
+      .mockResolvedValueOnce(undefined);
+    renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onClose,
+      onDefer: jest.fn(),
+    });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    await screen.findByText('module.profileOnboarding.dialog.retention.title');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retention.continueSetup',
+      }),
+    );
+
+    fireEvent.click(saveButton());
+    expect(await screen.findByText('Close failed')).toBeInTheDocument();
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(2));
+    expect(mockUpdateLearnerProfile).toHaveBeenCalledTimes(2);
+    const retainedCompletionCalls = mockTrackEvent.mock.calls.filter(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+    );
+    expect(retainedCompletionCalls).toHaveLength(1);
+    expectSafeRetentionAnalyticsPayload(retainedCompletionCalls[0]?.[1]);
   });
 
   test.each([

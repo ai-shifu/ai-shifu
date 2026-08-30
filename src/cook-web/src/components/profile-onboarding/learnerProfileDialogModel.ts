@@ -101,6 +101,7 @@ export type LearnerProfileDialogState = {
   deferError: string;
   externalDeferErrorVisible: boolean;
   retentionAnalyticsContext: LearnerProfileRetentionAnalyticsContext | null;
+  continuedRetentionAnalyticsContext: LearnerProfileRetentionAnalyticsContext | null;
 };
 
 export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
@@ -137,6 +138,7 @@ export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
   deferError: '',
   externalDeferErrorVisible: false,
   retentionAnalyticsContext: null,
+  continuedRetentionAnalyticsContext: null,
 };
 
 export type LearnerProfileDialogAction =

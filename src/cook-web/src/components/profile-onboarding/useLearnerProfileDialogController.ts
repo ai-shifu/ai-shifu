@@ -175,6 +175,17 @@ export const useLearnerProfileDialogController = ({
     [],
   );
 
+  const trackOnboardingEventSafely = React.useCallback(
+    (eventName: string, payload: Record<string, unknown>) => {
+      try {
+        void Promise.resolve(trackEvent(eventName, payload)).catch(() => {});
+      } catch {
+        // Onboarding choices must remain available when analytics is unavailable.
+      }
+    },
+    [trackEvent],
+  );
+
   const beginCollection = React.useCallback(
     (
       intent: ProfileOnboardingSessionIntent,
@@ -464,6 +475,8 @@ export const useLearnerProfileDialogController = ({
 
   const saveProfile = React.useCallback(async () => {
     const current = stateRef.current;
+    const retentionAnalyticsContext =
+      current.continuedRetentionAnalyticsContext;
     const values = selectLearnerProfileDialog(
       current,
       exitPolicy,
@@ -513,9 +526,19 @@ export const useLearnerProfileDialogController = ({
 
       clearAssistantDraft();
       applyProfileResponse(response);
+      if (retentionAnalyticsContext) {
+        trackOnboardingEventSafely(
+          PROFILE_ONBOARDING_EVENTS.RETENTION_COMPLETED,
+          retentionAnalyticsContext,
+        );
+        dispatch({
+          type: 'patch',
+          patch: { continuedRetentionAnalyticsContext: null },
+        });
+      }
       if (completion) {
         const shownAt = collectionShownAtRef.current;
-        void trackEvent(PROFILE_ONBOARDING_EVENTS.COMPLETED, {
+        trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.COMPLETED, {
           source: completion.triggerSource,
           presentation,
           ...(shownAt === null ? {} : { duration_ms: Date.now() - shownAt }),
@@ -556,6 +579,7 @@ export const useLearnerProfileDialogController = ({
     setError,
     t,
     trackEvent,
+    trackOnboardingEventSafely,
   ]);
 
   const dismiss = React.useCallback(
@@ -982,17 +1006,6 @@ export const useLearnerProfileDialogController = ({
       };
     }, []);
 
-  const trackOnboardingEventSafely = React.useCallback(
-    (eventName: string, payload: Record<string, unknown>) => {
-      try {
-        void Promise.resolve(trackEvent(eventName, payload)).catch(() => {});
-      } catch {
-        // Onboarding choices must remain available when analytics is unavailable.
-      }
-    },
-    [trackEvent],
-  );
-
   const requestDeferRetention = React.useCallback(() => {
     const current = stateRef.current;
     if (
@@ -1013,6 +1026,7 @@ export const useLearnerProfileDialogController = ({
         deferError: '',
         externalDeferErrorVisible: false,
         retentionAnalyticsContext: analyticsContext,
+        continuedRetentionAnalyticsContext: null,
       },
     });
     setConfirmation('defer-retention');
@@ -1039,9 +1053,11 @@ export const useLearnerProfileDialogController = ({
       return;
     }
 
+    const analyticsContext =
+      current.retentionAnalyticsContext ?? buildRetentionAnalyticsContext();
     trackOnboardingEventSafely(
       PROFILE_ONBOARDING_EVENTS.RETENTION_CONTINUED,
-      current.retentionAnalyticsContext ?? buildRetentionAnalyticsContext(),
+      analyticsContext,
     );
     dispatch({
       type: 'patch',
@@ -1049,6 +1065,7 @@ export const useLearnerProfileDialogController = ({
         deferError: '',
         externalDeferErrorVisible: false,
         retentionAnalyticsContext: null,
+        continuedRetentionAnalyticsContext: analyticsContext,
       },
     });
     setConfirmation(null);
@@ -1115,6 +1132,13 @@ export const useLearnerProfileDialogController = ({
       if (!isCurrent(dialog, scope)) {
         return;
       }
+      dispatch({
+        type: 'patch',
+        patch: {
+          retentionAnalyticsContext: null,
+          continuedRetentionAnalyticsContext: null,
+        },
+      });
       bumpEpoch('optimize');
       bumpEpoch('collection');
       trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.SKIPPED, {

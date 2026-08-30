@@ -99,6 +99,11 @@ describe('learnerProfileDialogModel', () => {
           presentation: 'blocking',
           phase: 'collect',
         },
+        continuedRetentionAnalyticsContext: {
+          source: 'guided',
+          presentation: 'blocking',
+          phase: 'save',
+        },
       },
     });
 

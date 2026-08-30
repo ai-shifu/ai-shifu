@@ -30,6 +30,9 @@ change, or new storage is introduced.
 - [x] 2026-08-30 11:30 CST: Passed focused and caller tests, translations,
       TypeScript, ESLint, the repository harness, dev-tool verification, and
       the complete pre-commit gate; archive this plan for publication.
+- [x] 2026-08-30 14:13 CST: Extended the decision funnel through durable
+      profile-save completion so retained setup can be measured beyond the
+      immediate return click.
 
 ## Surprises & Discoveries
 
@@ -45,11 +48,12 @@ tighter internal spacing makes all four Chinese slides fit, while the existing
 middle-content scrolling remains available for longer locales.
 
 The latest `main` added the contract in
-`docs/references/frontend-product-analytics.md`. The two new retention events
-therefore require a versioned metric, payload, privacy, deduplication, and
+`docs/references/frontend-product-analytics.md`. The retention event family
+therefore requires a versioned metric, payload, privacy, deduplication, and
 failure-isolation contract in this plan. Final review also found that retention
-must take precedence over the loading body and that a failed final defer must
-not leak its error into the restored collect/save view.
+must take precedence over the loading body, that a failed final defer must not
+leak its error into the restored collect/save view, and that an immediate
+continue click is not sufficient evidence of eventual setup completion.
 
 ## Decision Log
 
@@ -63,7 +67,9 @@ not leak its error into the restored collect/save view.
 - The retention continue action
   (`module.profileOnboarding.dialog.retention.continueSetup`) restores the prior
   collect or save phase and preserves the mounted conversation, session,
-  assistant draft, nickname, and profile draft.
+  assistant draft, nickname, and profile draft. Its frozen analytics context is
+  retained until a durable profile save succeeds so completion can be
+  attributed to the retention funnel.
 - The final defer action (`module.profileOnboarding.dialog.retention.defer`)
   reuses the existing single-flight skip path. Both actions and the carousel
   freeze while that request is pending. An attempt event precedes the request,
@@ -89,7 +95,7 @@ changes onboarding state. The compact text hierarchy communicates the benefit
 before the examples while keeping the complete proof visible in the existing
 dialog frame.
 
-Final verification passed five Jest suites with 135 tests across the retention
+Final verification passed five Jest suites with 139 tests across the retention
 view, shared dialog/model, course blocking gate, and admin settings caller.
 TypeScript, ESLint (existing warnings only), five-locale parity and usage,
 generated i18n types, repository knowledge generation, the repository harness,
@@ -119,7 +125,7 @@ Extend the existing dialog state machine with a reversible retention state,
 route only the blocking defer action through it, and keep the original phase
 mounted so returning is lossless. Add the localized pure-text proof carousel
 and its motion, input, and accessibility behavior. Preserve the existing final
-skip API path and document the two additive analytics signals. Verify behavior,
+skip API path and document the additive analytics funnel. Verify behavior,
 privacy, localization, standard-frame layout, and repository gates.
 
 ## Concrete Steps
@@ -156,7 +162,8 @@ privacy, localization, standard-frame layout, and repository gates.
   plus controls fit on every slide. Mobile, short-height, long-language, and RTL
   layouts retain a reachable single-scroll experience.
 - Analytics tests prove exact safe payloads, accepted-trigger deduplication,
-  final-success timing, prohibited-field absence, and fail-open behavior.
+  durable retained-completion timing, final-defer timing, prohibited-field
+  absence, and fail-open behavior.
 
 ## Idempotence and Recovery
 
@@ -177,24 +184,30 @@ the sole skip boundary.
 
 - Business question: when an eligible learner is about to postpone blocking
   profile setup, how often does the benefit explanation lead them back to
-  setup, how often do they still attempt to defer, and what share of delivered
-  defer results fail?
+  setup, how often does that return lead to a durable profile save, how often do
+  they still attempt to defer, and what share of delivered defer results fail?
 - Metric definition: for each rolling seven-day window, report raw accepted
   `profile_onboarding_retention_continued` divided by raw accepted
-  `profile_onboarding_retention_shown` as the return-to-setup rate, and raw
+  `profile_onboarding_retention_shown` as the return-to-setup rate; raw
+  `profile_onboarding_retention_completed` divided by raw continued as the
+  post-return completion rate; raw completed divided by shown as the retained
+  setup-completion rate; and raw
   `profile_onboarding_retention_defer_attempt` divided by shown as the final
   defer-attempt rate. Report failed `profile_onboarding_retention_defer_result`
   events divided by all delivered defer-result events as the terminal failure
-  rate. Segment all three by `source` and `phase`. Counts are decision cycles
-  or attempts, not distinct users; a deliberate retry is a new attempt. Each
-  cycle freezes `source`, `presentation`, and `phase` when retention is shown,
-  and all later decision events reuse that context. When the blocking gate is
-  still loading profile details, its known auto-start target is classified as
-  `collect` rather than the reducer's temporary default phase. Without a
-  correlation ID, aggregate attempt and result counts must not be presented as
-  an exact per-cycle join.
+  rate. Segment all rates by `source` and `phase`. Counts are decision cycles,
+  successful saves, or attempts, not distinct users; a deliberate retry is a
+  new attempt. Each cycle freezes `source`, `presentation`, and `phase` when
+  retention is shown, and all later decision events reuse that context. When
+  the blocking gate is still loading profile details, its known auto-start
+  target is classified as `collect` rather than the reducer's temporary default
+  phase. Without a correlation ID, aggregate continued/completed and
+  attempt/result ratios must not be presented as exact per-cycle joins or as
+  causal uplift. Incremental lift requires a separately designed control or
+  experiment cohort.
 - Event names: `profile_onboarding_retention_shown`,
   `profile_onboarding_retention_continued`,
+  `profile_onboarding_retention_completed`,
   `profile_onboarding_retention_defer_attempt`, and
   `profile_onboarding_retention_defer_result`.
 - Actor and surface: authenticated learners in the fixed
@@ -203,23 +216,29 @@ the sole skip boundary.
 - Trigger: `shown` fires after the first defer handler passes all guards and
   accepts the transition into retention. `continued` fires after the primary
   retention action passes its guards and before the dialog restores the prior
-  phase. `defer_attempt` fires after all single-flight guards accept the final
-  defer action and before `onDefer` starts. `defer_result` fires exactly once
-  when `onDefer` returns success, returns `false`, throws, or rejects; later
-  dialog cleanup failure cannot change that terminal result. Automatic slide
-  changes and carousel controls do not emit decision events. The existing
-  skipped event still fires only after the skip API confirms success.
+  phase. `completed` fires after a later profile-save API confirms durable
+  success and before dialog cleanup, only when the learner previously accepted
+  continue for a retention cycle. `defer_attempt` fires after all single-flight
+  guards accept the final defer action and before `onDefer` starts.
+  `defer_result` fires exactly once when `onDefer` returns success, returns
+  `false`, throws, or rejects; later dialog cleanup failure cannot change that
+  terminal result. Automatic slide changes and carousel controls do not emit
+  decision events. The existing skipped event still fires only after the skip
+  API confirms success.
 - Population: include authenticated learners for whom the course gate renders
   blocking onboarding. Exclude guests, preview mode, hidden onboarding,
   dismissible settings entry, ordinary close/cancel, render-only states, and
   clicks rejected while collection or submission is in flight.
 - Count unit: one accepted retention entry for `shown`, one accepted return
-  action for `continued`, and one accepted final-defer operation for each
-  attempt/result pair.
+  action for `continued`, one durable profile save after retained return for
+  `completed`, and one accepted final-defer operation for each attempt/result
+  pair.
 - Deduplication: React state and single-flight guards allow at most one event
   per accepted state transition and exactly one terminal result per accepted
-  defer attempt. Re-render, pending duplicate clicks, and disabled clicks do
-  not count. A deliberate retry after failure is a new attempt. There is no
+  defer attempt. The frozen context survives failed save attempts and is
+  cleared after the first durable save, so save retry emits at most one
+  `completed`. Re-render, pending duplicate clicks, and disabled clicks do not
+  count. A deliberate defer retry after failure is a new attempt. There is no
   persisted user/session deduplication; a deliberate later re-entry is a new
   cycle.
 - Correlation: no feature-owned identifier is collected. Events can be
@@ -233,14 +252,16 @@ the sole skip boundary.
   existing `profile_onboarding_skipped`; the skipped name and payload remain
   unchanged.
 - Verification: focused dialog tests assert exact triggers and payloads,
-  repeat-entry behavior, double-click/single-flight guards, final-success
-  timing, `false`/throw/reject failures, retry, cleanup failure, prohibited-field
-  absence, and synchronous/asynchronous analytics failure isolation.
+  repeat-entry behavior, double-click/single-flight guards, durable completion
+  timing, save retry, final-defer timing, `false`/throw/reject failures, cleanup
+  failure, prohibited-field absence, and synchronous/asynchronous analytics
+  failure isolation.
 
 | Event                                        | Trigger                                                       | Feature-owned fields                         |
 | -------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------- |
 | `profile_onboarding_retention_shown`         | Accepted transition from blocking collect/save into retention | `source`, `presentation`, `phase`            |
 | `profile_onboarding_retention_continued`     | Accepted primary action that restores collect/save            | `source`, `presentation`, `phase`            |
+| `profile_onboarding_retention_completed`     | Durable profile save after an accepted retained return        | `source`, `presentation`, `phase`            |
 | `profile_onboarding_retention_defer_attempt` | Accepted final-defer operation before its request starts      | `source`, `presentation`, `phase`            |
 | `profile_onboarding_retention_defer_result`  | One terminal result after the final-defer request settles     | `source`, `presentation`, `phase`, `outcome` |
 
