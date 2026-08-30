@@ -38,6 +38,8 @@ MANUAL_AGENTS = {
         "docs/exec-plans/active/",
         "docs/references/frontend-product-analytics.md",
         "Umami",
+        "one clearly defined problem",
+        "responsibility boundary",
         "product analytics as a completion requirement",
         "best-effort",
         "python scripts/check_repo_harness.py",

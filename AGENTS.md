@@ -43,6 +43,13 @@ to.
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
+- Keep every pull request focused on one clearly defined problem. Include all
+  code, tests, docs, migrations, and compatibility work required to solve that
+  problem, but move unrelated fixes, cleanup, and follow-up work to separate
+  pull requests.
+- During code review, evaluate only whether the pull request solves its stated
+  problem correctly, safely, completely, and with adequate tests, including
+  regressions or contract effects introduced by the change.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
   touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
   `.github` instructions in the same change.
@@ -96,6 +103,8 @@ to.
   discoverable from versioned files.
 - Do not start modifying code from guesswork when the local implementation and
   neighboring tests have not been inspected.
+- Do not raise review findings about unrelated or pre-existing problems
+  outside the current pull request's responsibility boundary.
 - Do not hardcode user-facing strings, secrets, or environment-specific URLs.
 - Do not add free-form or user-authored text, prompts or model output, names,
   contact details, profile content, titles or descriptions, coupon codes,
