@@ -2,7 +2,7 @@
 title: Cook Web Umami Contract Remediation
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-08-30
+last_reviewed: 2026-08-31
 canonical: true
 ---
 
@@ -222,10 +222,10 @@ string, user identity, and raw errors are excluded.
   provider-failed, or a provider returns an explicit cancellation marker for a
   product-confirmed order. Closing the learner modal is abandonment only and
   never a terminal payment result. Status fires when the provider accepted work
-  but confirmation remains pending, either immediately after confirmation
-  cannot establish a paid state or when polling reaches its deadline without
-  confirmed payment. The deadline status still fires when its final lookup
-  fails or returns no snapshot.
+  but the existing product flow reports a processing state, a direct status
+  synchronization rejects, or the existing polling state reaches its timeout
+  without confirmed payment. Analytics only observes those states; it does not
+  add a query, deadline, retry, or payment-state transition.
 - Population: eligible logged-in learners on desktop/mobile payment surfaces.
   Logged-out price previews can emit modal view but cannot emit payment attempt.
 - Deduplication: modal view once per open lifecycle. A provider-confirmed
@@ -241,13 +241,12 @@ string, user identity, and raw errors are excluded.
   unresolved attempted channels use `channel=other`; the latest selected
   channel is never treated as proof. Direct Stripe PaymentElement and WeChat
   JSAPI confirmation evidence is retained only for the same product-owned
-  order and current accepted attempt. A later product-confirmed paid state uses
-  it only when exactly one confirmed channel is still unresolved. When a newer
-  same-channel attempt supersedes an in-flight confirmation in the current
-  order and modal lifecycle, the paid result discards the stale evidence and
-  uses the single-channel/`other` resolution above. Cross-order,
-  cross-lifecycle, and already-closed attempt callbacks are ignored; ambiguous
-  retained evidence uses the generic resolution.
+  order and current accepted attempt. Cross-order, cross-lifecycle, superseded,
+  and already-closed provider callbacks are ignored for provider-specific
+  analytics attribution while their original payment synchronization still
+  runs. A generic product-owned paid observation does not carry analytics
+  context through the payment hook; it resolves only from the current
+  unresolved channel set and uses `channel=other` when that set is ambiguous.
 - Consumer: learner checkout conversion and provider reliability dashboard.
 - Replacement: delete the `learner_pay_cancel` producer and consumers. Modal
   abandonment uses only `learner_pay_modal_dismiss`; a provider-confirmed
@@ -308,15 +307,16 @@ surfaces `global_pricing|billing_overview|stripe_return`; providers
 `payment_failed`, `redirect_failed`, `unexpected_status`, or `unsupported`.
 Localized plan names, checkout URLs, and raw provider errors are excluded.
 
-`confirmation_failed` is non-terminal: it means either the status-sync request
-failed, the API observed `failed`, `canceled`, or `timeout` that the billing
-state machine can still correct to `paid`, or the API returned an unrecognized
-state that is not proven terminal. A later retry may therefore emit the one
-terminal success for that order; it must not emit an early failed result and a
-later successful result for the same checkout.
+`confirmation_failed` is non-terminal: it means the existing product flow did
+not confirm a terminal paid state. Analytics does not add retries, cache
+refreshes, status branches, or user-visible messages. A later product-driven
+retry may therefore emit the one terminal success for that order; it must not
+emit an early failed result and a later successful result for the same
+checkout.
 `refunded` cannot transition back to `paid`, so the return page reports it as a
-terminal failed result. An explicit `canceled=1` return is a terminal user
-cancellation and omits the unverified query order from analytics.
+terminal failed result. An explicit `canceled=1` return is recorded as a user
+cancellation only after the original product synchronization runs and observes
+a non-paid state; the event omits the unverified query order from analytics.
 
 ## Course creation
 
@@ -327,11 +327,11 @@ cancellation and omits the unverified query order from analytics.
   a course was later created. These two path results must not be combined into
   one course-created metric.
 - Trigger: manual attempt immediately before the create API and result after its
-  terminal response; cancel on explicit modal close while no request is in
-  flight; AI attempt/result together when the external handoff click is accepted.
+  terminal response; cancel on explicit modal close; AI attempt/result together
+  when the external handoff click is accepted.
 - Population: authenticated teachers on the admin course list.
-- Deduplication: an in-flight ref suppresses duplicate manual submits; later
-  deliberate actions count again.
+- Deduplication: none beyond the existing UI behavior. Every accepted submit is
+  counted independently, and analytics never suppresses a create request.
 - Consumer: course-creation path adoption and manual reliability analysis.
 - Replacement: delete the `creator_shifu_create_click` and
   `creator_shifu_create_success` producers and consumers. Course-creation

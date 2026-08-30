@@ -106,7 +106,6 @@ const ScriptManagementPage = () => {
   const actionDialogResetTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const manualCreateInFlightRef = useRef(false);
 
   const activeTabRef = useRef<'all' | 'archived'>(activeTab);
   const guideCourseTargetId = buildGuideCourseTargetId(
@@ -252,10 +251,6 @@ const ScriptManagementPage = () => {
   );
 
   const onCreateShifu = async (values: any) => {
-    if (manualCreateInFlightRef.current) {
-      return;
-    }
-    manualCreateInFlightRef.current = true;
     sendAnalytics(
       COURSE_CREATION_EVENTS.ATTEMPT,
       buildCourseCreationAttemptAnalytics('manual'),
@@ -298,8 +293,6 @@ const ScriptManagementPage = () => {
           failureCategory: 'request_failed',
         }),
       );
-    } finally {
-      manualCreateInFlightRef.current = false;
     }
   };
 
@@ -308,7 +301,7 @@ const ScriptManagementPage = () => {
   };
 
   const handleCreateShifuOpenChange = (open: boolean) => {
-    if (!open && showCreateShifuModal && !manualCreateInFlightRef.current) {
+    if (!open && showCreateShifuModal) {
       sendAnalytics(
         COURSE_CREATION_EVENTS.CANCEL,
         buildCourseCreationCancelAnalytics('manual'),

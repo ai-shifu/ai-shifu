@@ -72,18 +72,19 @@ export const LearningModeSwitch = ({
   );
 
   const handleLearningModeSelect = (nextLearningMode: LearningMode) => {
-    if (nextLearningMode === learningMode) {
-      return;
-    }
-    if (!previewMode) {
-      trackEvent(
-        LEARNING_MODE_SELECTION_EVENT,
-        buildLearningModeSelectionAnalytics({
-          from: learningMode,
-          to: nextLearningMode,
-          source: size === 'desktop' ? 'desktop_switch' : 'mobile_switch',
-        }),
-      );
+    if (nextLearningMode !== learningMode && !previewMode) {
+      try {
+        void Promise.resolve(
+          trackEvent(
+            LEARNING_MODE_SELECTION_EVENT,
+            buildLearningModeSelectionAnalytics({
+              from: learningMode,
+              to: nextLearningMode,
+              source: size === 'desktop' ? 'desktop_switch' : 'mobile_switch',
+            }),
+          ),
+        ).catch(() => {});
+      } catch {}
     }
     setLearningModeInUrl(nextLearningMode);
     updateLearningMode(nextLearningMode);

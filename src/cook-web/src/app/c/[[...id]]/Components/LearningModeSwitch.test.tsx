@@ -136,7 +136,7 @@ describe('LearningModeSwitch', () => {
     }
   });
 
-  it('does not track or update when the active mode is selected again', () => {
+  it('keeps the existing update behavior when the active mode is selected again', () => {
     const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
     render(<LearningModeSwitch />);
 
@@ -147,8 +147,33 @@ describe('LearningModeSwitch', () => {
     );
 
     expect(mockTrackEvent).not.toHaveBeenCalled();
-    expect(replaceStateSpy).not.toHaveBeenCalled();
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?mode=read',
+    );
     expect(useSystemStore.getState().learningMode).toBe('read');
+  });
+
+  it('still switches modes when tracking throws', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    render(<LearningModeSwitch />);
+
+    fireEvent.click(
+      screen.getByRole('radio', {
+        name: 'module.chat.learningModeListen',
+      }),
+    );
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?mode=listen',
+    );
+    expect(useSystemStore.getState().learningMode).toBe('listen');
   });
 
   it('labels accepted desktop selections with the desktop source', () => {

@@ -16,22 +16,11 @@ import {
 
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
-const mockMutateOverview = jest.fn();
-const mockMutateSWRCache = jest.fn();
 let mockBillingSubscription: BillingSubscription | null = null;
 let mockBillingOverview:
   | { subscription: BillingSubscription | null }
   | undefined;
 let mockResolvedLanguage = 'zh-CN';
-
-jest.mock('swr', () => {
-  const actual = jest.requireActual('swr');
-  return {
-    __esModule: true,
-    ...actual,
-    mutate: (...args: unknown[]) => mockMutateSWRCache(...args),
-  };
-});
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
@@ -42,10 +31,8 @@ jest.mock('@/hooks/useToast', () => ({
 }));
 
 jest.mock('@/hooks/useBillingData', () => ({
-  BILLING_WALLET_BUCKETS_SWR_KEY: 'billing-wallet-buckets',
   useBillingOverview: () => ({
     data: mockBillingOverview,
-    mutate: mockMutateOverview,
   }),
 }));
 
@@ -303,8 +290,6 @@ describe('GlobalBillingPricing', () => {
     mockCheckoutTopup.mockReset();
     mockTrackEvent.mockReset();
     mockToast.mockReset();
-    mockMutateOverview.mockReset().mockResolvedValue(undefined);
-    mockMutateSWRCache.mockReset().mockResolvedValue(undefined);
     mockOpenBillingCheckoutUrl.mockReset();
     mockBillingSubscription = null;
     mockBillingOverview = {
@@ -772,7 +757,7 @@ describe('GlobalBillingPricing', () => {
     );
   });
 
-  test('refreshes billing state after an immediate paid upgrade', async () => {
+  test('keeps the existing missing-redirect handling for an immediate paid response', async () => {
     const user = userEvent.setup();
     mockBillingSubscription = {
       subscription_bid: 'sub-growth-monthly',
@@ -816,19 +801,11 @@ describe('GlobalBillingPricing', () => {
         outcome: 'success',
       }),
     );
-    expect(mockMutateOverview).toHaveBeenCalledTimes(1);
-    expect(mockMutateSWRCache).toHaveBeenCalledWith(['billing-wallet-buckets']);
     expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
     expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.billing.checkout.completed',
+      title: 'This payment method is not available right now.',
+      variant: 'destructive',
     });
-    expect(
-      mockTrackEvent.mock.calls.filter(
-        ([eventName, payload]) =>
-          eventName === 'creator_billing_checkout_result' &&
-          payload.outcome === 'success',
-      ),
-    ).toHaveLength(1);
   });
 
   test('keeps plan checkout disabled until the billing overview resolves', async () => {

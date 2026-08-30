@@ -58,6 +58,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
+- [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 
 ## Supporting Tracker

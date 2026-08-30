@@ -480,8 +480,9 @@ describe('AdminPage', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
     );
+    fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
 
-    expect(screen.getByTestId('create-shifu-dialog')).toBeInTheDocument();
+    await waitFor(() => expect(mockCreateShifu).toHaveBeenCalledTimes(1));
   });
 
   test('opens redemption dialog from the course card menu and keeps the course locked until close animation finishes', async () => {

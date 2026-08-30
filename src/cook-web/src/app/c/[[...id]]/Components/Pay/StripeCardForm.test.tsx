@@ -66,7 +66,7 @@ describe('StripeCardForm payment outcomes', () => {
     expect(props.onError).not.toHaveBeenCalled();
   });
 
-  it('classifies provider rejection and pending statuses without exposing analytics data', async () => {
+  it('forwards known provider failures and pending statuses with attempt context', async () => {
     mockConfirmPayment.mockResolvedValueOnce({
       error: { message: 'private provider detail' },
     });
@@ -92,24 +92,33 @@ describe('StripeCardForm payment outcomes', () => {
         expect.objectContaining({ orderId: 'order-1', channel: 'stripe' }),
       ),
     );
+    await waitFor(() => expect(screen.getByRole('button')).toBeEnabled());
+
+    rejected.onError.mockReset();
+    mockConfirmPayment.mockResolvedValueOnce({
+      paymentIntent: { status: 'requires_action' },
+    });
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => expect(mockConfirmPayment).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(screen.getByRole('button')).toBeEnabled());
+    expect(rejected.onError).not.toHaveBeenCalled();
   });
 
-  it('keeps the form usable when Stripe throws', async () => {
-    mockConfirmPayment.mockRejectedValue(new Error('private exception'));
-    const props = renderForm();
+  it('continues the payment when attempt tracking throws', async () => {
+    mockConfirmPayment.mockResolvedValue({
+      paymentIntent: { status: 'succeeded' },
+    });
+    const props = renderForm({
+      onAttempt: jest.fn(() => {
+        throw new Error('tracking unavailable');
+      }),
+    });
 
     fireEvent.click(await screen.findByRole('button'));
 
-    await waitFor(() =>
-      expect(props.onError).toHaveBeenCalledWith(
-        'module.pay.stripeError',
-        'failed',
-        expect.objectContaining({ orderId: 'order-1', channel: 'stripe' }),
-      ),
-    );
-    expect(screen.getByRole('button')).toBeEnabled();
-    expect(JSON.stringify(props.onError.mock.calls)).not.toContain(
-      'private exception',
-    );
+    await waitFor(() => expect(mockConfirmPayment).toHaveBeenCalledTimes(1));
+    expect(props.onConfirmSuccess).toHaveBeenCalledWith(undefined);
+    await waitFor(() => expect(screen.getByRole('button')).toBeEnabled());
   });
 });

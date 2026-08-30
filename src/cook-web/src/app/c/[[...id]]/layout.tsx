@@ -613,9 +613,6 @@ export default function ChatLayout({
           }
 
           // Keep users on page for transient failures instead of forcing 404.
-          if (!isRetry) {
-            debugWarn('[course-info] retry transient course information error');
-          }
           debugWarn('[course-info] skip 404 redirect for non-notfound error', {
             courseId,
             attempt,

@@ -239,17 +239,21 @@ describe('StripeBillingResultPage', () => {
     );
   });
 
-  test('records a cancelled Stripe return without syncing the order', async () => {
+  test('records a cancelled Stripe return after preserving order sync', async () => {
     mockSearchParams.set('bill_order_bid', 'private-person@example.test');
     mockSearchParams.set('session_id', 'sess-secret');
     mockSearchParams.set('canceled', '1');
+    mockRequestPost.mockResolvedValue({ status: 'canceled' });
 
     render(<StripeBillingResultPage />);
 
     expect(
       await screen.findByRole('heading', { name: 'Billing sync failed' }),
     ).toBeInTheDocument();
-    expect(mockRequestPost).not.toHaveBeenCalled();
+    expect(mockRequestPost).toHaveBeenCalledWith(
+      '/api/billing/orders/private-person@example.test/sync',
+      { session_id: 'sess-secret' },
+    );
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_result',
       {

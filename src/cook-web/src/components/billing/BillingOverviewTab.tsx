@@ -494,14 +494,6 @@ export function BillingOverviewTab({
       if (result.status === 'failed') {
         reportCheckoutResult(resolvedAnalyticsBase, 'failed', 'payment_failed');
         terminalResultReported = true;
-        setStripeRedirect(null);
-        toast({
-          title: t('module.billing.checkout.unsupported'),
-          variant: 'destructive',
-        });
-        setCheckoutTarget(null);
-        setCheckoutAgreed(false);
-        return;
       }
 
       const resolvedProvider = result.provider;
@@ -697,11 +689,6 @@ export function BillingOverviewTab({
           result.status === 'failed' ? 'payment_failed' : 'unsupported',
         );
         terminalResultReported = true;
-        toast({
-          title: t('module.billing.checkout.unsupported'),
-          variant: 'destructive',
-        });
-        return;
       }
       const qrCode = extractBillingPingxxQrCode(result, channel);
       if (!qrCode) {

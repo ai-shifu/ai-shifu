@@ -16,14 +16,14 @@ import { useTranslation } from 'react-i18next';
 interface StripeCardFormProps {
   clientSecret?: string;
   publishableKey?: string;
-  onAttempt: () => LearnerPaymentAttemptContext;
+  onAttempt: () => LearnerPaymentAttemptContext | undefined;
   onConfirmSuccess: (
-    attempt: LearnerPaymentAttemptContext,
+    attempt?: LearnerPaymentAttemptContext,
   ) => Promise<void> | void;
   onError?: (
     message: string,
     status: 'failed' | 'pending',
-    attempt: LearnerPaymentAttemptContext,
+    attempt?: LearnerPaymentAttemptContext,
   ) => void;
 }
 
@@ -43,8 +43,11 @@ const StripeFormInner = ({
       return;
     }
     setSubmitting(true);
-    const attempt = onAttempt();
     try {
+      let attempt: LearnerPaymentAttemptContext | undefined;
+      try {
+        attempt = onAttempt();
+      } catch {}
       const result = await stripe.confirmPayment({
         elements,
         redirect: 'if_required',
@@ -67,12 +70,8 @@ const StripeFormInner = ({
           onError?.(t('module.pay.stripeProcessing'), 'pending', attempt);
         } else if (status === 'requires_payment_method') {
           onError?.(t('module.pay.stripeRequiresMethod'), 'failed', attempt);
-        } else {
-          onError?.(t('module.pay.stripeProcessing'), 'pending', attempt);
         }
       }
-    } catch {
-      onError?.(t('module.pay.stripeError'), 'failed', attempt);
     } finally {
       setSubmitting(false);
     }

@@ -400,10 +400,7 @@ const latestPaymentFlowOptions = () =>
   mockUsePaymentFlow.mock.calls[
     mockUsePaymentFlow.mock.calls.length - 1
   ][0] as {
-    onOrderPaid: (context?: {
-      confirmedAttempt: LearnerPaymentAttemptContext;
-    }) => void;
-    onPollingTimeout: () => void;
+    onOrderPaid: () => void;
   };
 
 const requiredModalProps = {
@@ -536,7 +533,7 @@ describe('learner payment modal analytics producers', () => {
     );
   });
 
-  it('tracks desktop QR timeout as pending and retries independently', async () => {
+  it('tracks desktop QR timeout as pending', async () => {
     const { rerender } = render(
       <PayModal
         {...requiredModalProps}
@@ -565,9 +562,13 @@ describe('learner payment modal analytics producers', () => {
       ],
     ]);
 
-    act(() => {
-      latestPaymentFlowOptions().onPollingTimeout();
-    });
+    mockPaymentFlowState = { ...mockPaymentFlowState, isTimeout: true };
+    rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
     expect(eventCalls('learner_payment_status')).toEqual([
       [
         'learner_payment_status',
@@ -582,25 +583,6 @@ describe('learner payment modal analytics producers', () => {
     ]);
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
 
-    mockPaymentFlowState = { ...mockPaymentFlowState, isTimeout: true };
-    rerender(
-      <PayModal
-        {...requiredModalProps}
-        open
-      />,
-    );
-    fireEvent.click(screen.getByText('module.pay.clickRefresh'));
-
-    await waitFor(() => {
-      expect(eventCalls('learner_payment_attempt')).toHaveLength(2);
-    });
-    act(() => {
-      latestPaymentFlowOptions().onPollingTimeout();
-    });
-    expect(eventCalls('learner_payment_status')).toHaveLength(2);
-    expect(eventCalls('learner_payment_status')[1]).toEqual(
-      eventCalls('learner_payment_status')[0],
-    );
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private-qr',
@@ -637,9 +619,13 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => {
       expect(eventCalls('learner_payment_attempt')).toHaveLength(2);
     });
-    act(() => {
-      latestPaymentFlowOptions().onPollingTimeout();
-    });
+    mockPaymentFlowState = { ...mockPaymentFlowState, isTimeout: true };
+    rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
     expect(eventCalls('learner_payment_status')).toEqual([
       [
         'learner_payment_status',
@@ -741,14 +727,7 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => {
       expect(eventCalls('learner_payment_result')).toHaveLength(1);
     });
-    expect(mockSyncOrderStatus).toHaveBeenLastCalledWith({
-      confirmedAttempt: {
-        orderId: 'order-1',
-        lifecycle: expect.any(Number),
-        channel: 'stripe',
-        attemptId: expect.any(Number),
-      },
-    });
+    expect(mockSyncOrderStatus).toHaveBeenLastCalledWith();
     expect(
       eventCalls('learner_payment_attempt').map(
         ([, payload]) => payload.channel,
@@ -772,7 +751,7 @@ describe('learner payment modal analytics producers', () => {
     expect(trackedPayloads).not.toContain('client-secret-never-tracked');
   });
 
-  it('rejects a Stripe confirmation from an earlier modal lifecycle', async () => {
+  it('does not track an earlier modal lifecycle while preserving payment sync', async () => {
     mockEnvState = {
       ...mockEnvState,
       stripePublishableKey: 'private-stripe-publishable-key',
@@ -810,34 +789,21 @@ describe('learner payment modal analytics producers', () => {
     fireEvent.click(await screen.findByTestId('stripe-start-deferred'));
     fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
 
-    expect(mockSyncOrderStatus).not.toHaveBeenCalled();
+    expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1);
     expect(eventCalls('learner_payment_status')).toHaveLength(0);
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
 
-    mockSyncOrderStatus.mockImplementationOnce(
-      async (params: { confirmedAttempt?: LearnerPaymentAttemptContext }) => {
-        latestPaymentFlowOptions().onOrderPaid(
-          params.confirmedAttempt
-            ? { confirmedAttempt: params.confirmedAttempt }
-            : undefined,
-        );
-        return paidOrder;
-      },
-    );
+    mockSyncOrderStatus.mockImplementationOnce(async () => {
+      latestPaymentFlowOptions().onOrderPaid();
+      return paidOrder;
+    });
     fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
 
     await waitFor(() => {
       expect(eventCalls('learner_payment_result')).toHaveLength(1);
     });
-    expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1);
-    expect(mockSyncOrderStatus).toHaveBeenLastCalledWith({
-      confirmedAttempt: {
-        orderId: 'order-1',
-        lifecycle: expect.any(Number),
-        channel: 'stripe',
-        attemptId: expect.any(Number),
-      },
-    });
+    expect(mockSyncOrderStatus).toHaveBeenCalledTimes(2);
+    expect(mockSyncOrderStatus).toHaveBeenLastCalledWith();
     expect(eventCalls('learner_payment_result')[0]?.[1]).toEqual({
       shifu_bid: 'course-1',
       order_id: 'order-1',
@@ -850,7 +816,7 @@ describe('learner payment modal analytics producers', () => {
     );
   });
 
-  it('rejects an older same-channel confirmation after a Stripe retry', async () => {
+  it('does not track an older retry while preserving payment sync', async () => {
     mockEnvState = {
       ...mockEnvState,
       stripePublishableKey: 'private-stripe-publishable-key',
@@ -884,25 +850,19 @@ describe('learner payment modal analytics producers', () => {
     fireEvent.click(await screen.findByTestId('stripe-start-deferred'));
     fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
 
-    expect(mockSyncOrderStatus).not.toHaveBeenCalled();
+    expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1);
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
 
-    mockSyncOrderStatus.mockImplementationOnce(
-      async (params: { confirmedAttempt?: LearnerPaymentAttemptContext }) => {
-        latestPaymentFlowOptions().onOrderPaid(
-          params.confirmedAttempt
-            ? { confirmedAttempt: params.confirmedAttempt }
-            : undefined,
-        );
-        return paidOrder;
-      },
-    );
+    mockSyncOrderStatus.mockImplementationOnce(async () => {
+      latestPaymentFlowOptions().onOrderPaid();
+      return paidOrder;
+    });
     fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
 
     await waitFor(() => {
       expect(eventCalls('learner_payment_result')).toHaveLength(1);
     });
-    expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1);
+    expect(mockSyncOrderStatus).toHaveBeenCalledTimes(2);
     expect(
       eventCalls('learner_payment_attempt').map(
         ([, payload]) => payload.channel,
@@ -916,65 +876,6 @@ describe('learner payment modal analytics producers', () => {
       outcome: 'success',
     });
   });
-
-  it.each(['desktop', 'mobile'] as const)(
-    'keeps a %s paid result when its Stripe sync is superseded by a retry',
-    async surface => {
-      mockSyncOrderStatus.mockReturnValueOnce(new Promise(() => {}));
-      renderStripePaymentModal(surface);
-
-      fireEvent.click(await screen.findByTestId('stripe-start-deferred'));
-      fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
-      await waitFor(() => expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1));
-      const staleAttempt = (
-        mockSyncOrderStatus.mock.calls[0]?.[0] as {
-          confirmedAttempt: LearnerPaymentAttemptContext;
-        }
-      ).confirmedAttempt;
-
-      fireEvent.click(screen.getByTestId('stripe-start-deferred'));
-      const currentAttempt = mockLastStripeAttempt;
-      mockLastStripeAttempt = staleAttempt;
-      fireEvent.click(screen.getByTestId('stripe-late-fail'));
-      fireEvent.click(screen.getByTestId('stripe-late-cancel'));
-      expect(eventCalls('learner_payment_result')).toHaveLength(0);
-
-      act(() => {
-        latestPaymentFlowOptions().onOrderPaid({
-          confirmedAttempt: staleAttempt,
-        });
-      });
-
-      expect(
-        eventCalls('learner_payment_attempt').map(
-          ([, payload]) => payload.channel,
-        ),
-      ).toEqual(['stripe', 'stripe']);
-      expect(eventCalls('learner_payment_result')).toEqual([
-        [
-          'learner_payment_result',
-          {
-            shifu_bid: 'course-1',
-            order_id: 'order-1',
-            channel: 'stripe',
-            surface,
-            outcome: 'success',
-          },
-        ],
-      ]);
-      expect(requiredModalProps.onOk).toHaveBeenCalledTimes(1);
-
-      mockLastStripeAttempt = currentAttempt;
-      fireEvent.click(screen.getByTestId('stripe-late-fail'));
-      expect(eventCalls('learner_payment_result')).toHaveLength(1);
-      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
-        'attemptId',
-      );
-      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
-        'client-secret-never-tracked',
-      );
-    },
-  );
 
   it('clears unresolved desktop channels when the order changes', async () => {
     const { rerender } = render(
@@ -1245,55 +1146,6 @@ describe('learner payment modal analytics producers', () => {
     );
   });
 
-  it('resets the desktop open lifecycle without retrying an expired QR', async () => {
-    const { rerender } = render(
-      <PayModal
-        {...requiredModalProps}
-        open
-      />,
-    );
-    await waitFor(() => {
-      expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
-    });
-
-    act(() => {
-      latestPaymentFlowOptions().onPollingTimeout();
-    });
-    fireEvent.click(screen.getByTestId('dialog-dismiss'));
-    expect(eventCalls('learner_payment_status')).toHaveLength(1);
-    expect(eventCalls('learner_payment_result')).toHaveLength(0);
-    expect(eventCalls('learner_pay_cancel')).toHaveLength(0);
-
-    mockPaymentFlowState = { ...mockPaymentFlowState, isTimeout: true };
-    rerender(
-      <PayModal
-        {...requiredModalProps}
-        open={false}
-      />,
-    );
-    rerender(
-      <PayModal
-        {...requiredModalProps}
-        open
-      />,
-    );
-
-    await waitFor(() => {
-      expect(eventCalls('learner_pay_modal_view')).toHaveLength(2);
-    });
-    expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
-
-    fireEvent.click(screen.getByText('module.pay.clickRefresh'));
-    await waitFor(() => {
-      expect(eventCalls('learner_payment_attempt')).toHaveLength(2);
-    });
-    act(() => {
-      latestPaymentFlowOptions().onPollingTimeout();
-    });
-    expect(eventCalls('learner_payment_status')).toHaveLength(2);
-    expect(eventCalls('learner_payment_result')).toHaveLength(0);
-  });
-
   it('keeps desktop modal dismissal nonterminal for an unfinished attempt', async () => {
     render(
       <PayModal
@@ -1351,8 +1203,8 @@ describe('learner payment modal analytics producers', () => {
     expect(eventCalls('learner_pay_cancel')).toHaveLength(0);
   });
 
-  it('tracks a mobile timeout as pending and retries independently', async () => {
-    render(
+  it('tracks a mobile timeout as pending across existing retries', async () => {
+    const { rerender } = render(
       <PayModalM
         {...requiredModalProps}
         open
@@ -1383,9 +1235,13 @@ describe('learner payment modal analytics producers', () => {
       ],
     ]);
 
-    act(() => {
-      latestPaymentFlowOptions().onPollingTimeout();
-    });
+    mockPaymentFlowState = { ...mockPaymentFlowState, isTimeout: true };
+    rerender(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
     expect(eventCalls('learner_payment_status')).toEqual([
       [
         'learner_payment_status',
@@ -1400,13 +1256,24 @@ describe('learner payment modal analytics producers', () => {
     ]);
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
 
+    mockPaymentFlowState = { ...mockPaymentFlowState, isTimeout: false };
+    rerender(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
     fireEvent.click(screen.getByText('module.pay.pay'));
     await waitFor(() => {
       expect(eventCalls('learner_payment_attempt')).toHaveLength(2);
     });
-    act(() => {
-      latestPaymentFlowOptions().onPollingTimeout();
-    });
+    mockPaymentFlowState = { ...mockPaymentFlowState, isTimeout: true };
+    rerender(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
     expect(eventCalls('learner_payment_status')).toHaveLength(2);
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
@@ -1510,12 +1377,6 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1));
     expect(mockSyncOrderStatus).toHaveBeenLastCalledWith({
       paymentChannel: 'wechatpay',
-      confirmedAttempt: {
-        orderId: 'order-1',
-        lifecycle: expect.any(Number),
-        channel: 'wechat_jsapi',
-        attemptId: expect.any(Number),
-      },
     });
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
     act(() => {
@@ -1711,6 +1572,7 @@ describe('learner payment modal analytics producers', () => {
         },
       },
     };
+    mockSyncOrderStatus.mockRejectedValueOnce(new Error('sync unavailable'));
     render(
       <PayModal
         {...requiredModalProps}
@@ -1779,6 +1641,7 @@ describe('learner payment modal analytics producers', () => {
         jsapi_params: { timeStamp: 'private-provider-credential' },
       },
     });
+    mockSyncOrderStatus.mockRejectedValueOnce(new Error('sync unavailable'));
     render(
       <PayModalM
         {...requiredModalProps}

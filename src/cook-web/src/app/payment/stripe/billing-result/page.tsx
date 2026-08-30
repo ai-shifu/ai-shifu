@@ -193,21 +193,14 @@ export default function StripeBillingResultPage() {
           return;
         }
 
-        if (result.status === 'refunded') {
-          reportCheckoutResult(orderBid, 'failed', 'payment_failed');
-          setState({
-            status: 'error',
-            messageKey: 'module.billing.result.errorTitle',
-            billingOrderBid: orderBid,
-          });
-          return;
-        }
-
         if (result.status !== 'paid') {
-          // Failed, canceled, and timed-out billing orders can still transition
-          // to paid after a later provider sync. Keep those observations
-          // non-terminal so a retry can report the one eventual result.
-          reportCheckoutStatus(orderBid, 'confirmation_failed');
+          if (canceled) {
+            reportCheckoutResult('', 'cancelled');
+          } else if (result.status === 'refunded') {
+            reportCheckoutResult(orderBid, 'failed', 'payment_failed');
+          } else {
+            reportCheckoutStatus(orderBid, 'confirmation_failed');
+          }
           setState({
             status: 'error',
             messageKey: 'module.billing.result.errorTitle',
@@ -236,20 +229,10 @@ export default function StripeBillingResultPage() {
         });
       }
     },
-    [reportCheckoutResult, reportCheckoutStatus, sessionId],
+    [canceled, reportCheckoutResult, reportCheckoutStatus, sessionId],
   );
 
   useEffect(() => {
-    if (canceled) {
-      reportCheckoutResult('', 'cancelled');
-      setState({
-        status: 'error',
-        messageKey: 'module.billing.result.errorTitle',
-        ...(billingOrderBid ? { billingOrderBid } : {}),
-      });
-      syncAttemptedRef.current = null;
-      return;
-    }
     if (!billingOrderBid) {
       reportCheckoutResult('', 'failed', 'missing_order');
       setState({
@@ -266,13 +249,7 @@ export default function StripeBillingResultPage() {
     }
     syncAttemptedRef.current = syncKey;
     void syncBillingOrder(billingOrderBid);
-  }, [
-    billingOrderBid,
-    canceled,
-    reportCheckoutResult,
-    sessionId,
-    syncBillingOrder,
-  ]);
+  }, [billingOrderBid, reportCheckoutResult, sessionId, syncBillingOrder]);
 
   const message = useMemo(() => {
     if (state.messageText) {

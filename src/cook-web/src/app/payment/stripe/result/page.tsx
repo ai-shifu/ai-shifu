@@ -17,6 +17,7 @@ interface StripeResultState {
   status: 'loading' | 'success' | 'pending' | 'error';
   message: string;
   orderId?: string;
+  analyticsOrderId?: string;
   courseId?: string;
   failureCategory?: LearnerPaymentFailureCategory;
   analyticsOutcome?: 'cancelled';
@@ -78,6 +79,7 @@ export default function StripeResultPage() {
             status: 'success',
             message: t('module.pay.paySuccess'),
             orderId,
+            analyticsOrderId: orderId,
             courseId: detail.course_id,
           });
           return;
@@ -87,6 +89,7 @@ export default function StripeResultPage() {
             status: 'pending',
             message: t('module.pay.stripeResultPending'),
             orderId,
+            analyticsOrderId: orderId,
             courseId: detail.course_id,
             analyticsOutcome: 'cancelled',
           });
@@ -96,12 +99,14 @@ export default function StripeResultPage() {
           status: 'pending',
           message: t('module.pay.stripeResultPending'),
           orderId,
+          analyticsOrderId: orderId,
           courseId: detail.course_id,
         });
       } catch (error: any) {
         setState({
           status: 'error',
           message: error?.message || t('module.pay.stripeError'),
+          orderId,
           failureCategory: 'status_lookup_failed',
         });
       }
@@ -111,13 +116,13 @@ export default function StripeResultPage() {
   useEffect(() => {
     if (state.status === 'loading') return;
     const analyticsState = state.analyticsOutcome || state.status;
-    const key = `${state.orderId || 'missing'}:${analyticsState}`;
+    const key = `${state.analyticsOrderId || 'missing'}:${analyticsState}`;
     if (analyticsStatusRef.current === key) return;
     analyticsStatusRef.current = key;
 
     const base = {
       shifuBid: state.courseId,
-      orderId: state.orderId,
+      orderId: state.analyticsOrderId,
       channel: 'stripe' as const,
       surface: 'stripe_return' as const,
     };

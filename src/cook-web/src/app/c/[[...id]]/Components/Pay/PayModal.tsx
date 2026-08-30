@@ -21,7 +21,6 @@ import {
   PAY_CHANNEL_WECHAT,
   PAY_CHANNEL_WECHAT_JSAPI,
   PAY_CHANNEL_ZHIFUBAO,
-  ORDER_STATUS,
 } from './constans';
 import { isWechatJsapiAvailable } from './wechatJsapi';
 import type {
@@ -113,54 +112,64 @@ export const PayModal = ({
   );
   const hadPaymentAttemptRef = useRef(false);
   const qrAttemptKeyRef = useRef('');
+  const timeoutAnalyticsReportedRef = useRef(false);
 
   const trackPaymentAttempt = useCallback(
-    (rawChannel: string): LearnerPaymentAttemptContext => {
-      const channel = normalizeLearnerPaymentChannel(rawChannel);
-      const attemptId = ++paymentAttemptSequenceRef.current;
-      paymentAttemptChannelsRef.current.add(channel);
-      activePaymentAttemptIdsRef.current.set(channel, attemptId);
-      const existingProviderEvidence =
-        providerConfirmedChannelsByOrderRef.current.get(
-          paymentOrderIdRef.current,
+    (rawChannel: string): LearnerPaymentAttemptContext | undefined => {
+      try {
+        const channel = normalizeLearnerPaymentChannel(rawChannel);
+        const attemptId = ++paymentAttemptSequenceRef.current;
+        paymentAttemptChannelsRef.current.add(channel);
+        activePaymentAttemptIdsRef.current.set(channel, attemptId);
+        const existingProviderEvidence =
+          providerConfirmedChannelsByOrderRef.current.get(
+            paymentOrderIdRef.current,
+          );
+        existingProviderEvidence?.delete(channel);
+        if (existingProviderEvidence?.size === 0) {
+          providerConfirmedChannelsByOrderRef.current.delete(
+            paymentOrderIdRef.current,
+          );
+        }
+        hadPaymentAttemptRef.current = true;
+        trackLearnerPaymentEventSafely(
+          trackEvent,
+          'learner_payment_attempt',
+          buildLearnerPaymentAttemptAnalytics({
+            shifuBid: courseId,
+            orderId: paymentOrderIdRef.current,
+            channel,
+            surface: 'desktop',
+          }),
         );
-      existingProviderEvidence?.delete(channel);
-      if (existingProviderEvidence?.size === 0) {
-        providerConfirmedChannelsByOrderRef.current.delete(
-          paymentOrderIdRef.current,
-        );
-      }
-      hadPaymentAttemptRef.current = true;
-      trackLearnerPaymentEventSafely(
-        trackEvent,
-        'learner_payment_attempt',
-        buildLearnerPaymentAttemptAnalytics({
-          shifuBid: courseId,
+        return {
           orderId: paymentOrderIdRef.current,
+          lifecycle: paymentAnalyticsLifecycleRef.current,
           channel,
-          surface: 'desktop',
-        }),
-      );
-      return {
-        orderId: paymentOrderIdRef.current,
-        lifecycle: paymentAnalyticsLifecycleRef.current,
-        channel,
-        attemptId,
-      };
+          attemptId,
+        };
+      } catch {
+        return undefined;
+      }
     },
     [courseId, trackEvent],
   );
 
   const rememberProviderConfirmedChannel = useCallback(
-    (attempt: LearnerPaymentAttemptContext | undefined) =>
-      rememberLearnerProviderConfirmedChannel(
-        providerConfirmedChannelsByOrderRef.current,
-        attempt,
-        paymentOrderIdRef.current,
-        paymentAnalyticsLifecycleRef.current,
-        paymentAttemptChannelsRef.current,
-        activePaymentAttemptIdsRef.current,
-      ),
+    (attempt: LearnerPaymentAttemptContext | undefined) => {
+      try {
+        return rememberLearnerProviderConfirmedChannel(
+          providerConfirmedChannelsByOrderRef.current,
+          attempt,
+          paymentOrderIdRef.current,
+          paymentAnalyticsLifecycleRef.current,
+          paymentAttemptChannelsRef.current,
+          activePaymentAttemptIdsRef.current,
+        );
+      } catch {
+        return false;
+      }
+    },
     [],
   );
 
@@ -182,99 +191,103 @@ export const PayModal = ({
       failureCategory?: 'provider_failed',
       confirmedAttempt?: LearnerPaymentAttemptContext,
     ) => {
-      const currentOrderId = paymentOrderIdRef.current;
-      const providerConfirmedChannels =
-        providerConfirmedChannelsByOrderRef.current.get(currentOrderId) || [];
-      const confirmedChannel = confirmedAttempt
-        ? resolveCurrentPaymentAttemptChannel(confirmedAttempt)
-        : outcome === 'success'
-          ? resolveLearnerProviderConfirmedChannel(
-              providerConfirmedChannels,
-              paymentAttemptChannelsRef.current,
-            )
-          : undefined;
-      const usesSupersededAttemptFallback =
-        outcome === 'success' &&
-        !confirmedChannel &&
-        isSupersededLearnerPaymentAttempt(
-          confirmedAttempt,
-          currentOrderId,
-          paymentAnalyticsLifecycleRef.current,
+      try {
+        const currentOrderId = paymentOrderIdRef.current;
+        const providerConfirmedChannels =
+          providerConfirmedChannelsByOrderRef.current.get(currentOrderId) || [];
+        const confirmedChannel = confirmedAttempt
+          ? resolveCurrentPaymentAttemptChannel(confirmedAttempt)
+          : outcome === 'success'
+            ? resolveLearnerProviderConfirmedChannel(
+                providerConfirmedChannels,
+                paymentAttemptChannelsRef.current,
+              )
+            : undefined;
+        const usesSupersededAttemptFallback =
+          outcome === 'success' &&
+          !confirmedChannel &&
+          isSupersededLearnerPaymentAttempt(
+            confirmedAttempt,
+            currentOrderId,
+            paymentAnalyticsLifecycleRef.current,
+            paymentAttemptChannelsRef.current,
+            activePaymentAttemptIdsRef.current,
+          );
+        if (
+          confirmedAttempt &&
+          !confirmedChannel &&
+          !usesSupersededAttemptFallback
+        ) {
+          return;
+        }
+        const channel = resolveLearnerPaymentAttributionChannel(
           paymentAttemptChannelsRef.current,
-          activePaymentAttemptIdsRef.current,
+          confirmedChannel,
         );
-      if (
-        confirmedAttempt &&
-        !confirmedChannel &&
-        !usesSupersededAttemptFallback
-      ) {
-        return;
-      }
-      const channel = resolveLearnerPaymentAttributionChannel(
-        paymentAttemptChannelsRef.current,
-        confirmedChannel,
-      );
-      if (!channel) {
-        if (outcome === 'success' && !confirmedAttempt) {
-          providerConfirmedChannelsByOrderRef.current.delete(currentOrderId);
+        if (!channel) {
+          if (outcome === 'success' && !confirmedAttempt) {
+            providerConfirmedChannelsByOrderRef.current.delete(currentOrderId);
+          }
+          return;
         }
-        return;
-      }
-      if (confirmedChannel) {
-        paymentAttemptChannelsRef.current.delete(confirmedChannel);
-        activePaymentAttemptIdsRef.current.delete(confirmedChannel);
-      } else {
-        paymentAttemptChannelsRef.current.clear();
-        activePaymentAttemptIdsRef.current.clear();
-      }
-      if (outcome === 'success' || !confirmedChannel) {
-        providerConfirmedChannelsByOrderRef.current.delete(currentOrderId);
-      } else {
-        const remainingConfirmedChannels =
-          providerConfirmedChannelsByOrderRef.current.get(currentOrderId);
-        remainingConfirmedChannels?.delete(confirmedChannel);
-        if (remainingConfirmedChannels?.size === 0) {
-          providerConfirmedChannelsByOrderRef.current.delete(currentOrderId);
+        if (confirmedChannel) {
+          paymentAttemptChannelsRef.current.delete(confirmedChannel);
+          activePaymentAttemptIdsRef.current.delete(confirmedChannel);
+        } else {
+          paymentAttemptChannelsRef.current.clear();
+          activePaymentAttemptIdsRef.current.clear();
         }
-      }
-      trackLearnerPaymentEventSafely(
-        trackEvent,
-        'learner_payment_result',
-        buildLearnerPaymentResultAnalytics({
-          shifuBid: courseId,
-          orderId: paymentOrderIdRef.current,
-          channel,
-          surface: 'desktop',
-          outcome,
-          failureCategory,
-        }),
-      );
+        if (outcome === 'success' || !confirmedChannel) {
+          providerConfirmedChannelsByOrderRef.current.delete(currentOrderId);
+        } else {
+          const remainingConfirmedChannels =
+            providerConfirmedChannelsByOrderRef.current.get(currentOrderId);
+          remainingConfirmedChannels?.delete(confirmedChannel);
+          if (remainingConfirmedChannels?.size === 0) {
+            providerConfirmedChannelsByOrderRef.current.delete(currentOrderId);
+          }
+        }
+        trackLearnerPaymentEventSafely(
+          trackEvent,
+          'learner_payment_result',
+          buildLearnerPaymentResultAnalytics({
+            shifuBid: courseId,
+            orderId: paymentOrderIdRef.current,
+            channel,
+            surface: 'desktop',
+            outcome,
+            failureCategory,
+          }),
+        );
+      } catch {}
     },
     [courseId, resolveCurrentPaymentAttemptChannel, trackEvent],
   );
 
   const trackPaymentPending = useCallback(
     (attempt?: LearnerPaymentAttemptContext) => {
-      const confirmedChannel = attempt
-        ? resolveCurrentPaymentAttemptChannel(attempt)
-        : undefined;
-      if (attempt && !confirmedChannel) return;
-      const channel = resolveLearnerPaymentAttributionChannel(
-        paymentAttemptChannelsRef.current,
-        confirmedChannel,
-      );
-      if (!channel) return;
-      trackLearnerPaymentEventSafely(
-        trackEvent,
-        'learner_payment_status',
-        buildLearnerPaymentStatusAnalytics({
-          shifuBid: courseId,
-          orderId: paymentOrderIdRef.current,
-          channel,
-          surface: 'desktop',
-          status: 'pending',
-        }),
-      );
+      try {
+        const confirmedChannel = attempt
+          ? resolveCurrentPaymentAttemptChannel(attempt)
+          : undefined;
+        if (attempt && !confirmedChannel) return;
+        const channel = resolveLearnerPaymentAttributionChannel(
+          paymentAttemptChannelsRef.current,
+          confirmedChannel,
+        );
+        if (!channel) return;
+        trackLearnerPaymentEventSafely(
+          trackEvent,
+          'learner_payment_status',
+          buildLearnerPaymentStatusAnalytics({
+            shifuBid: courseId,
+            orderId: paymentOrderIdRef.current,
+            channel,
+            surface: 'desktop',
+            status: 'pending',
+          }),
+        );
+      } catch {}
     },
     [courseId, resolveCurrentPaymentAttemptChannel, trackEvent],
   );
@@ -306,12 +319,9 @@ export const PayModal = ({
     payload,
     courseId,
     isLoggedIn,
-    onOrderPaid: context => {
-      trackPaymentResult('success', undefined, context?.confirmedAttempt);
+    onOrderPaid: () => {
+      trackPaymentResult('success');
       onOk?.();
-    },
-    onPollingTimeout: () => {
-      trackPaymentPending();
     },
   });
 
@@ -336,6 +346,16 @@ export const PayModal = ({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!isTimeout) {
+      timeoutAnalyticsReportedRef.current = false;
+      return;
+    }
+    if (timeoutAnalyticsReportedRef.current) return;
+    timeoutAnalyticsReportedRef.current = true;
+    trackPaymentPending();
+  }, [isTimeout, trackPaymentPending]);
 
   const displayPrice = isLoggedIn ? price : previewPrice;
   const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
@@ -544,44 +564,29 @@ export const PayModal = ({
   }, [courseId, previewMode]);
 
   const trackQrPaymentAttempt = useCallback(
-    (
-      rawChannel: string,
-      nextOrderId: string,
-      qrUrl: string,
-      forceNewAttempt = false,
-    ) => {
+    (rawChannel: string, nextOrderId: string, qrUrl: string) => {
       const attemptKey = `${nextOrderId}:${rawChannel}:${qrUrl}`;
-      if (!forceNewAttempt && qrAttemptKeyRef.current === attemptKey) return;
+      if (qrAttemptKeyRef.current === attemptKey) return;
       qrAttemptKeyRef.current = attemptKey;
       trackPaymentAttempt(rawChannel);
     },
     [trackPaymentAttempt],
   );
 
-  const onQrcodeRefresh = useCallback(async () => {
+  const onQrcodeRefresh = useCallback(() => {
     if (!orderId) {
       return;
     }
-    const refreshed = await refreshPayment({
+    refreshPayment({
       channel: resolveRequestChannel(payChannel),
       paymentChannel: resolvePaymentChannel(payChannel),
     });
-    if (
-      refreshed &&
-      'qr_url' in refreshed &&
-      typeof refreshed.qr_url === 'string' &&
-      refreshed.qr_url
-    ) {
-      // Refresh is a new accepted attempt even when the provider reuses the QR.
-      trackQrPaymentAttempt(payChannel, orderId, refreshed.qr_url, true);
-    }
   }, [
     orderId,
     payChannel,
     refreshPayment,
     resolvePaymentChannel,
     resolveRequestChannel,
-    trackQrPaymentAttempt,
   ]);
 
   let qrcodeStatus = 'active';
@@ -653,20 +658,10 @@ export const PayModal = ({
   );
 
   const handleStripeSuccess = useCallback(
-    async (attempt: LearnerPaymentAttemptContext) => {
+    async (attempt?: LearnerPaymentAttemptContext) => {
       try {
-        if (!rememberProviderConfirmedChannel(attempt)) return;
-        const snapshot = await syncOrderStatus({
-          confirmedAttempt: attempt,
-        });
-        if (snapshot?.status !== ORDER_STATUS.BUY_STATUS_SUCCESS) {
-          trackPaymentPending(attempt);
-          toast({
-            title: t('module.pay.paymentStatusSyncPending'),
-            variant: 'default',
-          });
-          return;
-        }
+        rememberProviderConfirmedChannel(attempt);
+        await syncOrderStatus();
         toast({ title: t('module.pay.paySuccess') });
       } catch {
         trackPaymentPending(attempt);
@@ -707,7 +702,7 @@ export const PayModal = ({
     (
       message: string,
       status: 'failed' | 'pending',
-      attempt: LearnerPaymentAttemptContext,
+      attempt?: LearnerPaymentAttemptContext,
     ) => {
       const resolvedToast = resolveLearnerPaymentToast({
         message,
@@ -788,19 +783,10 @@ export const PayModal = ({
         });
       });
       try {
-        if (!rememberProviderConfirmedChannel(paymentAttempt)) return;
-        const snapshot = await syncOrderStatus({
+        rememberProviderConfirmedChannel(paymentAttempt);
+        await syncOrderStatus({
           paymentChannel: 'wechatpay',
-          confirmedAttempt: paymentAttempt,
         });
-        if (snapshot?.status !== ORDER_STATUS.BUY_STATUS_SUCCESS) {
-          trackPaymentPending(paymentAttempt);
-          toast({
-            title: t('module.pay.paymentStatusSyncPending'),
-            variant: 'default',
-          });
-          return;
-        }
       } catch {
         trackPaymentPending(paymentAttempt);
         toast({

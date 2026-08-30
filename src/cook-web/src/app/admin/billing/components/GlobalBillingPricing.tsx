@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import useSWR, { mutate as mutateSWRCache } from 'swr';
+import useSWR from 'swr';
 import { Check, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
@@ -14,10 +14,7 @@ import { TopupCard } from '@/components/billing/BillingOverviewCards';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/hooks/useToast';
-import {
-  BILLING_WALLET_BUCKETS_SWR_KEY,
-  useBillingOverview,
-} from '@/hooks/useBillingData';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import {
   Card,
   CardContent,
@@ -287,7 +284,7 @@ export function GlobalBillingPricing() {
       )) as BillingCatalogResponse,
     { revalidateOnFocus: false },
   );
-  const { data: overview, mutate: mutateOverview } = useBillingOverview();
+  const { data: overview } = useBillingOverview();
   const hasResolvedOverview = overview !== undefined;
   const globalProducts = React.useMemo(
     () => resolveGlobalProducts(data),
@@ -381,16 +378,10 @@ export function GlobalBillingPricing() {
             }),
           );
           terminalResultReported = true;
-          await Promise.allSettled([
-            mutateOverview(),
-            mutateSWRCache(buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY)),
-          ]);
-          setStripeRedirect(null);
-          toast({ title: t('module.billing.checkout.completed') });
-          return;
-        }
-
-        if (result.status === 'unsupported' || result.status === 'failed') {
+        } else if (
+          result.status === 'unsupported' ||
+          result.status === 'failed'
+        ) {
           trackCreatorBillingEventSafely(
             trackEvent,
             CREATOR_BILLING_ANALYTICS_EVENTS.result,
@@ -404,14 +395,7 @@ export function GlobalBillingPricing() {
             }),
           );
           terminalResultReported = true;
-          setStripeRedirect(null);
-          toast({
-            title: t('module.billing.checkout.unsupported'),
-            variant: 'destructive',
-          });
-          return;
-        }
-        if (!result.redirect_url) {
+        } else if (!result.redirect_url) {
           trackCreatorBillingEventSafely(
             trackEvent,
             CREATOR_BILLING_ANALYTICS_EVENTS.result,
@@ -422,6 +406,9 @@ export function GlobalBillingPricing() {
             }),
           );
           terminalResultReported = true;
+        }
+
+        if (result.status === 'unsupported' || !result.redirect_url) {
           setStripeRedirect(null);
           toast({
             title: t('module.billing.checkout.unsupported'),
@@ -465,7 +452,7 @@ export function GlobalBillingPricing() {
         setCheckoutLoadingKey('');
       }
     },
-    [hasResolvedOverview, mutateOverview, t, trackEvent],
+    [hasResolvedOverview, t, trackEvent],
   );
 
   return (
