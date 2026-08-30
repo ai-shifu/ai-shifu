@@ -640,13 +640,12 @@ describe('LearnerProfileDialog', () => {
     ).toBeVisible();
   });
 
-  test('freezes retention analytics while loading changes the underlying phase', async () => {
+  test('normalizes and freezes retention analytics while loading changes phase', async () => {
     const profileRequest = deferred<typeof existingProfile>();
     mockGetLearnerProfile.mockReturnValue(profileRequest.promise);
 
     renderDialog({
       exitPolicy: 'blocking',
-      presentation: 'blocking',
       initialOnboardingStatus: onboardingStatus(),
       onDefer: jest.fn().mockResolvedValue(true),
     });

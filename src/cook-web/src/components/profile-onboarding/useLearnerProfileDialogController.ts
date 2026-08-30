@@ -977,10 +977,10 @@ export const useLearnerProfileDialogController = ({
         source:
           current.collectionResult?.completion.triggerSource ??
           (current.collectionIntent === 'settings' ? 'settings' : 'guided'),
-        presentation,
+        presentation: 'blocking',
         phase,
       };
-    }, [presentation]);
+    }, []);
 
   const trackOnboardingEventSafely = React.useCallback(
     (eventName: string, payload: Record<string, unknown>) => {
