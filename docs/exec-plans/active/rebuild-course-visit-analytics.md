@@ -38,8 +38,11 @@ truth.
   authenticated fail-open write path, atomic latest-visit upsert, rolling
   business-table count, operator metric card, localized explanation, and
   focused regression coverage.
-- [ ] Validate and publish the stacked rebuild pull request, with its base set
-  to the cleanup branch until the cleanup merges.
+- [x] 2026-08-30 18:05 CST: Passed focused backend and frontend suites,
+  TypeScript, translation, migration, repository-harness, architecture, and
+  full pre-commit gates; published ready stacked pull request
+  [#2719](https://github.com/ai-shifu/ai-shifu/pull/2719) with #2718's branch
+  as its base until the cleanup merges.
 
 ## Surprises & Discoveries
 
@@ -113,8 +116,9 @@ truth.
 - The first-party rebuild now records only eligible published-course visits in
   `learn_course_visitors`, derives the 30-day operator count from that table,
   and keeps write failures independent from course loading. It contains no
-  Umami read, sync, compatibility event, or historical backfill. Publication
-  of the stacked pull request is still pending final repository gates.
+  Umami read, sync, compatibility event, or historical backfill. It is
+  published for review as stacked pull request #2719 after all local repository
+  gates passed; hosted checks run on the pull request independently.
 
 ## Context and Orientation
 
