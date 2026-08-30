@@ -177,6 +177,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
 
       let failureCategory: 'callback_invalid' | 'callback_failed' =
         'callback_invalid';
+      let loginCommitted = false;
       try {
         // Defence in depth alongside the backend's session pairing: a state
         // this browser never issued means the flow started somewhere else, so
@@ -197,6 +198,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         }
 
         await login(payload.userInfo, payload.token);
+        loginCommitted = true;
 
         trackEvent(
           'learner_login_result',
@@ -216,10 +218,12 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
           userInfo: payload.userInfo,
         };
       } catch (error: any) {
-        trackEvent(
-          'learner_login_result',
-          buildLoginResultAnalytics('google', 'failed', failureCategory),
-        );
+        if (!loginCommitted) {
+          trackEvent(
+            'learner_login_result',
+            buildLoginResultAnalytics('google', 'failed', failureCategory),
+          );
+        }
         clearGoogleSession();
         const message = error?.message || t('module.auth.googleLoginError');
         toast({

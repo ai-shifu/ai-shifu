@@ -58,6 +58,13 @@ jest.mock('@/lib/google-oauth-session', () => ({
 
 const mockGoogleOauthStart = apiService.googleOauthStart as jest.Mock;
 const mockGoogleOauthCallback = apiService.googleOauthCallback as jest.Mock;
+const successfulGoogleCallbackResponse = {
+  code: 0,
+  data: {
+    token: 'token-private',
+    userInfo: { user_id: 'user-private' },
+  },
+};
 
 describe('useGoogleAuth analytics contract', () => {
   beforeEach(() => {
@@ -74,6 +81,11 @@ describe('useGoogleAuth analytics contract', () => {
     mockGoogleOauthStart.mockReset();
     mockGoogleOauthCallback.mockReset();
   });
+
+  const loginResultCalls = () =>
+    mockTrackEvent.mock.calls.filter(
+      ([eventName]) => eventName === 'learner_login_result',
+    );
 
   it('records the accepted OAuth start before the request and a bounded start failure', async () => {
     mockGoogleOauthStart.mockRejectedValue(new Error('private OAuth detail'));
@@ -102,13 +114,7 @@ describe('useGoogleAuth analytics contract', () => {
   });
 
   it('records a successful callback without OAuth state, code, token, or identity', async () => {
-    mockGoogleOauthCallback.mockResolvedValue({
-      code: 0,
-      data: {
-        token: 'token-private',
-        userInfo: { user_id: 'user-private' },
-      },
-    });
+    mockGoogleOauthCallback.mockResolvedValue(successfulGoogleCallbackResponse);
     const onSuccess = jest.fn();
     const { result } = renderHook(() => useGoogleAuth({ onSuccess }));
 
@@ -134,6 +140,90 @@ describe('useGoogleAuth analytics contract', () => {
       '/admin',
     );
   });
+
+  it.each([
+    'redirect resolution',
+    'post-login callback',
+    'success toast',
+    'session cleanup',
+  ] as const)(
+    'keeps Google success terminal when %s throws',
+    async failureStage => {
+      const postLoginError = new Error(`private ${failureStage} error`);
+      const onSuccess = jest.fn();
+      const onError = jest.fn();
+      mockGoogleOauthCallback.mockResolvedValue(
+        successfulGoogleCallbackResponse,
+      );
+
+      if (failureStage === 'redirect resolution') {
+        mockGetGoogleOAuthRedirect.mockImplementationOnce(() => {
+          throw postLoginError;
+        });
+      } else if (failureStage === 'post-login callback') {
+        onSuccess.mockImplementationOnce(() => {
+          throw postLoginError;
+        });
+      } else if (failureStage === 'success toast') {
+        mockToast.mockImplementationOnce(() => {
+          throw postLoginError;
+        });
+      } else {
+        mockClearGoogleOAuthSession.mockImplementationOnce(() => {
+          throw postLoginError;
+        });
+      }
+
+      const { result } = renderHook(() =>
+        useGoogleAuth({ onSuccess, onError }),
+      );
+
+      await act(async () => {
+        await expect(
+          result.current.finalizeGoogleLogin({
+            code: 'oauth-code-private',
+            state: 'expected-state',
+          }),
+        ).rejects.toBe(postLoginError);
+      });
+
+      expect(mockLogin).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(postLoginError);
+      expect(loginResultCalls()).toEqual([
+        [
+          'learner_login_result',
+          { login_method: 'google', outcome: 'success' },
+        ],
+      ]);
+      const successResultIndex = mockTrackEvent.mock.calls.findIndex(
+        ([eventName, payload]) =>
+          eventName === 'learner_login_result' && payload.outcome === 'success',
+      );
+      expect(successResultIndex).toBeGreaterThanOrEqual(0);
+      expect(mockLogin.mock.invocationCallOrder[0]).toBeLessThan(
+        mockTrackEvent.mock.invocationCallOrder[successResultIndex],
+      );
+      const failingOperationOrder =
+        failureStage === 'redirect resolution'
+          ? mockGetGoogleOAuthRedirect.mock.invocationCallOrder[0]
+          : failureStage === 'post-login callback'
+            ? onSuccess.mock.invocationCallOrder[0]
+            : failureStage === 'success toast'
+              ? mockToast.mock.invocationCallOrder[0]
+              : mockClearGoogleOAuthSession.mock.invocationCallOrder[0];
+      expect(
+        mockTrackEvent.mock.invocationCallOrder[successResultIndex],
+      ).toBeLessThan(failingOperationOrder);
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.auth.failed',
+        description: postLoginError.message,
+        variant: 'destructive',
+      });
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        postLoginError.message,
+      );
+    },
+  );
 
   it('separates invalid callbacks from provider callback failures', async () => {
     const { result } = renderHook(() => useGoogleAuth());
@@ -168,6 +258,33 @@ describe('useGoogleAuth analytics contract', () => {
     });
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private callback response',
+    );
+
+    mockTrackEvent.mockReset();
+    mockGoogleOauthCallback
+      .mockReset()
+      .mockResolvedValue(successfulGoogleCallbackResponse);
+    mockLogin.mockRejectedValueOnce(new Error('private login commit error'));
+    await act(async () => {
+      await expect(
+        result.current.finalizeGoogleLogin({
+          code: 'private-code',
+          state: 'expected-state',
+        }),
+      ).rejects.toThrow('private login commit error');
+    });
+    expect(loginResultCalls()).toEqual([
+      [
+        'learner_login_result',
+        {
+          login_method: 'google',
+          outcome: 'failed',
+          failure_category: 'callback_failed',
+        },
+      ],
+    ]);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private login commit error',
     );
   });
 });
