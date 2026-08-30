@@ -143,12 +143,16 @@ export function useAuth(options: UseAuthOptions = {}) {
   };
 
   // Process login response
-  const processLoginResponse = async (response: LoginResponse) => {
+  const processLoginResponse = async (
+    response: LoginResponse,
+    onLoginCommitted?: () => void,
+  ) => {
     if (response.code === 0 && response.data) {
       toast({
         title: t('module.auth.success'),
       });
       await login(response.data.userInfo, response.data.token);
+      onLoginCommitted?.();
       options.onSuccess?.(response.data.userInfo);
       return true;
     }
@@ -163,6 +167,7 @@ export function useAuth(options: UseAuthOptions = {}) {
     referralMetadata?: ReferralLoginMetadata,
   ) => {
     trackEvent('learner_login_attempt', buildLoginAttemptAnalytics('sms'));
+    let loginCommitted = false;
     try {
       const referralPayload = buildReferralLoginPayload(referralMetadata);
       const response = await callWithTokenRefresh(() =>
@@ -176,16 +181,17 @@ export function useAuth(options: UseAuthOptions = {}) {
         }),
       );
 
-      const success = await processLoginResponse(response);
-      if (success && referralPayload.invite_code) {
-        clearReferralContext();
-      }
-      if (success) {
+      const success = await processLoginResponse(response, () => {
+        loginCommitted = true;
         trackEvent(
           'learner_login_result',
           buildLoginResultAnalytics('sms', 'success'),
         );
-      } else {
+      });
+      if (success && referralPayload.invite_code) {
+        clearReferralContext();
+      }
+      if (!success) {
         trackEvent(
           'learner_login_result',
           buildLoginResultAnalytics('sms', 'failed', 'credentials_rejected'),
@@ -199,10 +205,12 @@ export function useAuth(options: UseAuthOptions = {}) {
 
       return response;
     } catch (error: any) {
-      trackEvent(
-        'learner_login_result',
-        buildLoginResultAnalytics('sms', 'failed', 'request_failed'),
-      );
+      if (!loginCommitted) {
+        trackEvent(
+          'learner_login_result',
+          buildLoginResultAnalytics('sms', 'failed', 'request_failed'),
+        );
+      }
       toast({
         title: t('module.auth.failed'),
         description: error.message || t('common.core.networkError'),

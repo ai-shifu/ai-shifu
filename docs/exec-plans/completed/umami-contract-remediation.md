@@ -88,6 +88,13 @@ their consumers are deleted instead of dual-written.
       focused lint, Prettier, repository harness, architecture boundaries, and
       the full Lefthook pre-commit gate, plus independent code and contract
       reviews.
+- [x] 2026-08-31 01:26 CST: Recorded SMS login success immediately after the
+      local session commit so later callback or referral-cleanup errors cannot
+      reclassify it as `request_failed`, without changing their existing error
+      propagation. The focused hook suite passed 4 tests, followed by the full
+      frontend suite at 212 Jest suites / 1,901 tests, TypeScript, focused lint,
+      Prettier, repository harness, architecture boundaries, the full Lefthook
+      pre-commit gate, and an independent diff review.
 
 ## Surprises & Discoveries
 
@@ -203,7 +210,7 @@ Creator billing sync observations keep recoverable `failed`, `canceled`, and
 terminal success.
 
 Validation completed with focused frontend checks and the final full 212 Jest
-suites / 1,899 tests, TypeScript, frontend lint (no errors; existing repository
+suites / 1,901 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.

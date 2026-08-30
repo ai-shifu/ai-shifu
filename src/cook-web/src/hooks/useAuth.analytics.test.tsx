@@ -7,6 +7,7 @@ const mockLogout = jest.fn();
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockGetToken = jest.fn(() => 'token');
+const mockBuildReferralLoginPayload = jest.fn();
 const mockClearReferralContext = jest.fn();
 const mockUserState = {
   login: mockLogin,
@@ -46,7 +47,8 @@ jest.mock('@/i18n', () => ({
 }));
 
 jest.mock('@/lib/referral-context', () => ({
-  buildReferralLoginPayload: () => ({}),
+  buildReferralLoginPayload: (...args: unknown[]) =>
+    mockBuildReferralLoginPayload(...args),
   clearReferralContext: () => mockClearReferralContext(),
 }));
 
@@ -60,17 +62,25 @@ describe('useAuth SMS analytics contract', () => {
     mockToast.mockReset();
     mockTrackEvent.mockReset();
     mockGetToken.mockClear();
+    mockBuildReferralLoginPayload.mockReset().mockReturnValue({});
     mockClearReferralContext.mockReset();
   });
 
+  const successfulSmsResponse = {
+    code: 0,
+    data: {
+      userInfo: { user_id: 'user-private' },
+      token: 'token-private',
+    },
+  };
+
+  const loginResultCalls = () =>
+    mockTrackEvent.mock.calls.filter(
+      ([eventName]) => eventName === 'learner_login_result',
+    );
+
   it('emits attempt before the request and one sanitized success result', async () => {
-    mockSmsLogin.mockResolvedValue({
-      code: 0,
-      data: {
-        userInfo: { user_id: 'user-private' },
-        token: 'token-private',
-      },
-    });
+    mockSmsLogin.mockResolvedValue(successfulSmsResponse);
     const { result } = renderHook(() => useAuth());
 
     await act(async () => {
@@ -92,6 +102,95 @@ describe('useAuth SMS analytics contract', () => {
     );
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
       /13800138000|123456|user-private|token-private/,
+    );
+  });
+
+  it('keeps SMS success terminal when the post-login callback throws', async () => {
+    const callbackError = new Error('private post-login callback error');
+    const onSuccess = jest.fn(() => {
+      throw callbackError;
+    });
+    const onError = jest.fn();
+    mockSmsLogin.mockResolvedValue(successfulSmsResponse);
+    const { result } = renderHook(() => useAuth({ onSuccess, onError }));
+
+    await act(async () => {
+      await expect(
+        result.current.loginWithSmsCode('13800138000', '123456', 'zh-CN'),
+      ).rejects.toBe(callbackError);
+    });
+
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(callbackError);
+    expect(loginResultCalls()).toEqual([
+      ['learner_login_result', { login_method: 'sms', outcome: 'success' }],
+    ]);
+    const successResultIndex = mockTrackEvent.mock.calls.findIndex(
+      ([eventName, payload]) =>
+        eventName === 'learner_login_result' && payload.outcome === 'success',
+    );
+    expect(successResultIndex).toBeGreaterThanOrEqual(0);
+    expect(mockLogin.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTrackEvent.mock.invocationCallOrder[successResultIndex],
+    );
+    expect(
+      mockTrackEvent.mock.invocationCallOrder[successResultIndex],
+    ).toBeLessThan(onSuccess.mock.invocationCallOrder[0]);
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.auth.failed',
+      description: callbackError.message,
+      variant: 'destructive',
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private post-login callback error',
+    );
+  });
+
+  it('keeps SMS success terminal when referral cleanup throws', async () => {
+    const cleanupError = new Error('private referral cleanup error');
+    const onSuccess = jest.fn();
+    const onError = jest.fn();
+    const referralMetadata = {
+      invite_code: 'AB12CD34',
+      referral_session_id: 'session-1',
+      referral_entry_source: 'invite_link' as const,
+    };
+    mockBuildReferralLoginPayload.mockReturnValue(referralMetadata);
+    mockClearReferralContext.mockImplementation(() => {
+      throw cleanupError;
+    });
+    mockSmsLogin.mockResolvedValue(successfulSmsResponse);
+    const { result } = renderHook(() => useAuth({ onSuccess, onError }));
+
+    await act(async () => {
+      await expect(
+        result.current.loginWithSmsCode(
+          '13800138000',
+          '123456',
+          'zh-CN',
+          referralMetadata,
+        ),
+      ).rejects.toBe(cleanupError);
+    });
+
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(mockClearReferralContext).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(cleanupError);
+    expect(onSuccess.mock.invocationCallOrder[0]).toBeLessThan(
+      mockClearReferralContext.mock.invocationCallOrder[0],
+    );
+    expect(loginResultCalls()).toEqual([
+      ['learner_login_result', { login_method: 'sms', outcome: 'success' }],
+    ]);
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.auth.failed',
+      description: cleanupError.message,
+      variant: 'destructive',
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private referral cleanup error',
     );
   });
 
