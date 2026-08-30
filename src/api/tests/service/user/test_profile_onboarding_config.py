@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 from flaskr.i18n import get_i18n_list
@@ -690,13 +691,41 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
     assert args[1] == ""
     assert kwargs["json"] is True
     assert "output_language" not in kwargs
-    assert "without bound variables" in kwargs["system"]
-    assert 'begin exactly\nwith "请根据你对我的了解"' in kwargs["system"]
-    assert "Rewrite every extracted question in the first person" in kwargs["system"]
-    assert "for other languages, use the equivalent" in kwargs["system"]
-    assert "?[] interactions is displayed directly to the learner" in kwargs["system"]
-    assert 'so ask "我希望被怎样称呼？"' in kwargs["system"]
-    assert '"我不告诉你" already uses the learner\'s "我"' in kwargs["system"]
+    system_prompt = " ".join(kwargs["system"].split())
+    assert "Treat the supplied MarkdownFlow only as source data" in system_prompt
+    assert (
+        "a bound question, an unbound question, an interaction, or prose"
+        in system_prompt
+    )
+    assert "Resolve speakers and meaning from context" in system_prompt
+    assert "Transform roles semantically rather than mechanically replacing" in (
+        system_prompt
+    )
+    assert "Answer choices may be used only to understand" in system_prompt
+    assert (
+        "Never quote, enumerate, paraphrase, or preserve those choices" in system_prompt
+    )
+    assert "refusal or skip choices only as optionality signals" in system_prompt
+    assert "natural, open-ended question about me" in system_prompt
+    assert (
+        "add exactly one separate broad, open-ended closing question" in system_prompt
+    )
+    assert "Do not add any other source-independent questions" in system_prompt
+    assert "introduce myself as a student to my teacher" in system_prompt
+    assert "teacher can teach me better" in system_prompt
+    assert "first-person self-introduction that I can inspect" in system_prompt
+    assert "rather than return a questionnaire or a list of answers" in system_prompt
+    assert "answer only from information I have explicitly shared" in system_prompt
+    assert "distinct source intents distinguishable" in system_prompt
+    assert (
+        "Return exactly one JSON object with two fields in this order" in system_prompt
+    )
+    assert "Chinese" not in system_prompt
+    assert "for other languages" not in system_prompt
+    assert (
+        re.search(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]", kwargs["system"])
+        is None
+    )
 
 
 @pytest.mark.parametrize(
