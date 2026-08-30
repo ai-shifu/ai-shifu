@@ -1118,7 +1118,7 @@ def invoke_llm(
                 if content:
                     response_text += content
                 is_truncated = choice.finish_reason in _INCOMPLETE_FINISH_REASONS
-                if content or is_truncated:
+                if content or choice.finish_reason is not None:
                     yield LLMStreamResponse(
                         res.id,
                         bool(choice.finish_reason),

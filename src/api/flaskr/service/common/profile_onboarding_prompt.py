@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from flask import Flask
 
 _SOURCE_LOCALE_PATTERN = re.compile(r"[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\Z")
+_SUCCESSFUL_FINISH_REASON = "stop"
 
 
 def _json_object_without_duplicate_keys(
@@ -122,6 +123,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
     span = None
     prompt = ""
     truncated = False
+    completed = False
     try:
         trace, span = create_trace_with_root_span(
             client=get_langfuse_client(),
@@ -149,12 +151,15 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
         # usage accounting and tracing even for incomplete output.
         for chunk in responses:
             parts.append(chunk.result)
+            finish_reason = getattr(chunk, "finish_reason", None)
+            if finish_reason is not None:
+                completed = finish_reason == _SUCCESSFUL_FINISH_REASON
             truncated = (
                 truncated
                 or bool(getattr(chunk, "is_truncated", False))
-                or (getattr(chunk, "finish_reason", None) == "length")
+                or finish_reason == "length"
             )
-        if not truncated:
+        if completed and not truncated:
             prompt = "".join(parts).strip()
     except Exception as exc:
         app.logger.warning(
@@ -170,7 +175,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
                     trace_payload={"output": prompt},
                     root_span_payload={"output": prompt},
                 )
-    if truncated or not prompt:
+    if truncated or not completed or not prompt:
         raise_error("server.profile.profileOnboardingPromptGenerationFailed")
     return prompt
 

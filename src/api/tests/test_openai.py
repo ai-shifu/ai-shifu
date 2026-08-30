@@ -185,7 +185,10 @@ def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object) -> Non
         )
     )
 
-    assert [resp.result for resp in responses] == ["Hello ", "world"]
+    assert [resp.result for resp in responses] == ["Hello ", "world", ""]
+    assert responses[-1].is_end is True
+    assert responses[-1].is_truncated is False
+    assert responses[-1].finish_reason == "stop"
     assert captured_kwargs["kwargs"]["api_key"] == "test-key"
     assert captured_kwargs["kwargs"]["api_base"] == "https://example.com"
     assert captured_kwargs["kwargs"]["stream"] is True

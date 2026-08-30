@@ -674,6 +674,7 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
         return [
             SimpleNamespace(result="  Public "),
             SimpleNamespace(result="prompt  "),
+            SimpleNamespace(result="", finish_reason="stop"),
         ]
 
     monkeypatch.setattr(module, "invoke_llm", invoke)
@@ -898,13 +899,14 @@ def test_manual_assistant_prompt_obeys_complete_utf8_json_limit(
 @pytest.mark.parametrize(
     ("finish_reason", "is_truncated", "tail"),
     [
+        (None, False, "prompt"),
         ("length", False, ""),
         ("content_filter", True, ""),
         ("content_filter", True, "filtered"),
         ("stop", True, "prompt"),
     ],
 )
-def test_compiler_rejects_nonempty_truncated_output_without_publishing(
+def test_compiler_rejects_incomplete_output_without_publishing(
     app: object,
     monkeypatch: object,
     finish_reason: str | None,
@@ -968,9 +970,8 @@ def test_compiler_rejects_nonempty_truncated_output_without_publishing(
     assert stream_finished == [True]
 
 
-@pytest.mark.parametrize("finish_reason", [None, "stop"])
 def test_compiler_accepts_nontruncated_shared_wrapper_chunks(
-    app: object, monkeypatch: object, finish_reason: str | None
+    app: object, monkeypatch: object
 ) -> None:
     from flaskr.api.llm import LLMStreamResponse
     from flaskr.service.common import profile_onboarding_prompt as module
@@ -989,10 +990,18 @@ def test_compiler_accepts_nontruncated_shared_wrapper_chunks(
             ),
             LLMStreamResponse(
                 response_id="part-2",
-                is_end=bool(finish_reason),
+                is_end=False,
                 is_truncated=False,
                 result="Closing question.\n ",
-                finish_reason=finish_reason,
+                finish_reason=None,
+                usage=None,
+            ),
+            LLMStreamResponse(
+                response_id="part-3",
+                is_end=True,
+                is_truncated=False,
+                result="",
+                finish_reason="stop",
                 usage=None,
             ),
         ],
