@@ -35,11 +35,19 @@ type GenerateAssistantPromptResponse = {
 type GenerateMode = 'generate' | 'regenerate';
 type GenerateOutcome = 'success' | 'failed' | 'superseded';
 type SaveOutcome = 'failed' | 'saved' | 'saved_with_newer_edits';
+type DirtyNavigationDecision = 'cancel' | 'discard' | 'save_and_leave';
+type DirtyNavigationSaveOutcome = 'success' | 'failed' | 'superseded';
 
 export const PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT =
   'operator_profile_prompt_generate_attempt';
 export const PROFILE_PROMPT_GENERATE_RESULT_EVENT =
   'operator_profile_prompt_generate_result';
+export const PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT =
+  'operator_profile_dirty_navigation_shown';
+export const PROFILE_DIRTY_NAVIGATION_DECISION_EVENT =
+  'operator_profile_dirty_navigation_decision';
+export const PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT =
+  'operator_profile_dirty_navigation_save_result';
 
 const EMPTY_DRAFT: ProfileOnboardingDraft = {
   enabled: false,
@@ -90,6 +98,8 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   const markdownflowRef = React.useRef('');
   const assistantPromptRef = React.useRef('');
   const promptDocumentRef = React.useRef('');
+  const pendingNavigationRef = React.useRef<string | null>(null);
+  const dirtyNavigationShownRef = React.useRef(false);
   const defaultMarkdownflow = t(
     'module.profileOnboarding.admin.defaultMarkdownflow',
   );
@@ -199,6 +209,20 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
         mode,
         outcome,
       });
+    },
+    [trackEventSafely],
+  );
+
+  const trackDirtyNavigationDecision = React.useCallback(
+    (decision: DirtyNavigationDecision) => {
+      trackEventSafely(PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision });
+    },
+    [trackEventSafely],
+  );
+
+  const trackDirtyNavigationSaveResult = React.useCallback(
+    (outcome: DirtyNavigationSaveOutcome) => {
+      trackEventSafely(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome });
     },
     [trackEventSafely],
   );
@@ -373,6 +397,14 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   }, [isDirty]);
 
   React.useEffect(() => {
+    const isShown = Boolean(pendingNavigation);
+    if (isShown && !dirtyNavigationShownRef.current) {
+      trackEventSafely(PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {});
+    }
+    dirtyNavigationShownRef.current = isShown;
+  }, [pendingNavigation, trackEventSafely]);
+
+  React.useEffect(() => {
     if (!isDirty) {
       return undefined;
     }
@@ -415,6 +447,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       }
       setError('');
       setNavigationStatus('');
+      pendingNavigationRef.current = nextPath;
       setPendingNavigation(nextPath);
     };
     document.addEventListener('click', handleDocumentClick, true);
@@ -423,45 +456,60 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   }, [isDirty]);
 
   const discardPendingChanges = React.useCallback(() => {
-    if (!pendingNavigation || savingRef.current) {
+    const target = pendingNavigationRef.current;
+    if (!target || savingRef.current) {
       return;
     }
-    const target = pendingNavigation;
+    trackDirtyNavigationDecision('discard');
+    pendingNavigationRef.current = null;
     applyDraft(savedConfig);
     setError('');
     setNavigationStatus('');
     setPendingNavigation(null);
     router.push(target, { scroll: false });
-  }, [applyDraft, pendingNavigation, router, savedConfig]);
+  }, [applyDraft, router, savedConfig, trackDirtyNavigationDecision]);
 
   const dismissPendingNavigation = React.useCallback(() => {
-    if (savingRef.current) {
+    if (!pendingNavigationRef.current || savingRef.current) {
       return;
     }
+    trackDirtyNavigationDecision('cancel');
+    pendingNavigationRef.current = null;
     setNavigationStatus('');
     setPendingNavigation(null);
-  }, []);
+  }, [trackDirtyNavigationDecision]);
 
   const saveAndProceed = React.useCallback(async () => {
-    if (!pendingNavigation || savingRef.current) {
+    const target = pendingNavigationRef.current;
+    if (!target || savingRef.current) {
       return;
     }
-    const target = pendingNavigation;
+    trackDirtyNavigationDecision('save_and_leave');
     setNavigationStatus('');
     const saveOutcome = await save();
     if (saveOutcome === 'saved_with_newer_edits') {
+      trackDirtyNavigationSaveResult('superseded');
       setNavigationStatus(
         t('module.profileOnboarding.admin.unsavedDialog.newerEditsAfterSave'),
       );
       return;
     }
     if (saveOutcome !== 'saved') {
+      trackDirtyNavigationSaveResult('failed');
       return;
     }
+    trackDirtyNavigationSaveResult('success');
+    pendingNavigationRef.current = null;
     setNavigationStatus('');
     setPendingNavigation(null);
     router.push(target, { scroll: false });
-  }, [pendingNavigation, router, save, t]);
+  }, [
+    router,
+    save,
+    t,
+    trackDirtyNavigationDecision,
+    trackDirtyNavigationSaveResult,
+  ]);
 
   const createPreviewSession = React.useCallback(async () => {
     setPreviewDraft('');

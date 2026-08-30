@@ -173,6 +173,57 @@ grandfathered transport metadata; tests cover the feature-owned allowlist and
 must not claim that mocked-hook coverage proves the final provider payload.
 Tracking is fail-open and never changes generation behavior.
 
+### Operator dirty-navigation analytics
+
+- Business question: how often do authenticated operators encounter the
+  unsaved-draft navigation guard, which decision do they make, and what is the
+  outcome when they choose Save and leave?
+- Metric definition: count raw shown, decision, and save-result events over the
+  same reporting window. Group decisions by `decision` and save results by
+  `outcome`; compare aggregate save-result counts with aggregate
+  `save_and_leave` decisions. These are not exact row-level conversions because
+  no correlation identifier is collected and deliberate retries can produce
+  more than one decision within one shown lifecycle.
+- Events: `operator_profile_dirty_navigation_shown`,
+  `operator_profile_dirty_navigation_decision`, and
+  `operator_profile_dirty_navigation_save_result`.
+- Actor and surface: authenticated operators on
+  `/admin/operations/profile-onboarding` with a dirty draft. Clean navigation,
+  learner/preview flows, external/new-tab/download/modifier/same-page links,
+  clicks rejected by the in-flight guard, and native `beforeunload` are
+  excluded. Native browser prompts and their user decisions cannot be observed
+  or delivered reliably.
+- Trigger: shown after the custom dialog is committed open; decision after a
+  guarded Cancel, Discard, or Save and leave action is accepted; exactly one
+  save result after each accepted Save and leave action finishes.
+- Count unit and deduplication: one custom dialog-open lifecycle for shown and
+  one accepted user action for decision. A Save and leave retry after failure
+  or supersession is a new decision and result. Disabled re-entry produces no
+  event, and there is no persisted cross-visit deduplication.
+- Consumer: aggregate operator workflow-completion and draft-protection
+  reporting.
+- Compatibility: additive v1 event family with no historical backfill.
+
+| Event | Feature-owned payload |
+| --- | --- |
+| `operator_profile_dirty_navigation_shown` | `{}` |
+| `operator_profile_dirty_navigation_decision` | `{decision}` |
+| `operator_profile_dirty_navigation_save_result` | `{outcome}` |
+
+| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
+| --- | --- | --- | --- | --- | --- |
+| `decision` | string | `cancel`, `discard`, `save_and_leave` | low | non-personal enum | distinguish the operator's guarded choice |
+| `outcome` | string | `success`, `failed`, `superseded` | low | non-personal enum | measure the terminal save result without drafts or errors |
+
+The feature-owned payload must not include the destination URL/path/query/hash,
+document or prompt text, locale, revision, error text, or any resource or
+correlation identifier. The shared helper still adds its grandfathered
+`user_type`, `user_id`, `device`, and localized `timeStamp` fields; these are
+inherited transport behavior and are not approved consumer dependencies for
+this event family. Producer tests verify the feature-owned allowlist only.
+Tracking remains fail-open and never delays or changes dialog, save, or
+navigation behavior.
+
 ## Plan of Work
 
 1. Add strict request/response contracts and focused route tests for explicit

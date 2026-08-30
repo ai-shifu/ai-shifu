@@ -11,6 +11,9 @@ import api from '@/api';
 import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
 import ProfileOnboardingAdminPage from './page';
 import {
+  PROFILE_DIRTY_NAVIGATION_DECISION_EVENT,
+  PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT,
+  PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT,
   PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT,
   PROFILE_PROMPT_GENERATE_RESULT_EVENT,
 } from './useProfileOnboardingAdminController';
@@ -126,6 +129,14 @@ const renderLoadedPage = async () => {
   render(<ProfileOnboardingAdminPage />);
   return screen.findByLabelText('module.profileOnboarding.admin.markdownflow');
 };
+
+const getTrackingCalls = (eventName: string) =>
+  mockTrackEvent.mock.calls.filter(([name]) => name === eventName);
+
+const getDirtyNavigationTrackingCalls = () =>
+  mockTrackEvent.mock.calls.filter(([name]) =>
+    String(name).startsWith('operator_profile_dirty_navigation_'),
+  );
 
 describe('ProfileOnboardingAdminPage', () => {
   beforeEach(() => {
@@ -655,6 +666,7 @@ describe('ProfileOnboardingAdminPage', () => {
       window.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(true);
     });
+    expect(getDirtyNavigationTrackingCalls()).toHaveLength(0);
 
     const anchor = document.createElement('a');
     anchor.href = '/admin/operations';
@@ -671,7 +683,17 @@ describe('ProfileOnboardingAdminPage', () => {
         'module.profileOnboarding.admin.unsavedDialog.title',
       ),
     ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT)).toEqual([
+        [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
+      ]),
+    );
     expect(mockPush).not.toHaveBeenCalled();
+
+    fireEvent.click(anchor);
+    expect(getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT)).toHaveLength(
+      1,
+    );
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -681,8 +703,133 @@ describe('ProfileOnboardingAdminPage', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/operations', {
       scroll: false,
     });
+    expect(getDirtyNavigationTrackingCalls()).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
+      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'discard' }],
+    ]);
+    const trackedPayload = JSON.stringify(getDirtyNavigationTrackingCalls());
+    expect(trackedPayload).not.toContain('/admin/operations');
+    expect(trackedPayload).not.toContain('Unsaved question');
+    expect(trackedPayload).not.toContain(PROMPT);
+    expect(trackedPayload).not.toContain('config_revision');
+    expect(trackedPayload).not.toContain('error');
     anchor.remove();
   });
+
+  test('tracks cancelling the dirty-navigation dialog without navigating', async () => {
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, { target: { value: '?[...Keep editing]' } });
+    const anchor = document.createElement('a');
+    anchor.href = '/admin/operations';
+    document.body.appendChild(anchor);
+    fireEvent.click(anchor);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.cancel',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(getDirtyNavigationTrackingCalls()).toEqual([
+        [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
+        [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'cancel' }],
+      ]),
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText('module.profileOnboarding.admin.unsavedDialog.title'),
+    ).not.toBeInTheDocument();
+    anchor.remove();
+  });
+
+  test('excludes native and ineligible navigation from dirty-navigation analytics', async () => {
+    const editor = await renderLoadedPage();
+    fireEvent.change(editor, { target: { value: '?[...Unsaved question]' } });
+
+    const beforeUnload = new Event('beforeunload', {
+      bubbles: false,
+      cancelable: true,
+    });
+    window.dispatchEvent(beforeUnload);
+    expect(beforeUnload.defaultPrevented).toBe(true);
+
+    const anchors = [
+      Object.assign(document.createElement('a'), { href: '#same-page' }),
+      Object.assign(document.createElement('a'), {
+        href: 'https://example.com/elsewhere',
+      }),
+      Object.assign(document.createElement('a'), {
+        href: '/admin/operations',
+        target: '_blank',
+      }),
+      Object.assign(document.createElement('a'), {
+        href: '/admin/download',
+        download: 'config.txt',
+      }),
+    ];
+    for (const anchor of anchors) {
+      anchor.addEventListener('click', event => event.preventDefault());
+      document.body.appendChild(anchor);
+      fireEvent.click(anchor);
+    }
+    const modifiedClickAnchor = document.createElement('a');
+    modifiedClickAnchor.href = '/admin/operations';
+    modifiedClickAnchor.addEventListener('click', event =>
+      event.preventDefault(),
+    );
+    document.body.appendChild(modifiedClickAnchor);
+    fireEvent.click(modifiedClickAnchor, { ctrlKey: true });
+
+    expect(getDirtyNavigationTrackingCalls()).toHaveLength(0);
+    expect(
+      screen.queryByText('module.profileOnboarding.admin.unsavedDialog.title'),
+    ).not.toBeInTheDocument();
+    for (const anchor of [...anchors, modifiedClickAnchor]) {
+      anchor.remove();
+    }
+  });
+
+  test.each([
+    [
+      'throws synchronously',
+      () => {
+        throw new Error('tracking unavailable');
+      },
+    ],
+    ['rejects asynchronously', () => Promise.reject(new Error('blocked'))],
+  ])(
+    'keeps save-and-leave fail-open when tracking %s',
+    async (_label, trackingImplementation) => {
+      mockTrackEvent.mockImplementation(trackingImplementation);
+      const changedDocument = '?[...Save despite analytics failure]';
+      mockUpdateConfig.mockResolvedValue({
+        enabled: true,
+        markdownflow: changedDocument,
+        assistant_prompt: PROMPT,
+        config_revision: 3,
+      });
+      const editor = await renderLoadedPage();
+      fireEvent.change(editor, { target: { value: changedDocument } });
+      const anchor = document.createElement('a');
+      anchor.href = '/admin/operations';
+      document.body.appendChild(anchor);
+      fireEvent.click(anchor);
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'module.profileOnboarding.admin.unsavedDialog.save',
+        }),
+      );
+
+      await waitFor(() =>
+        expect(mockPush).toHaveBeenCalledWith('/admin/operations', {
+          scroll: false,
+        }),
+      );
+      expect(mockUpdateConfig).toHaveBeenCalledTimes(1);
+      anchor.remove();
+    },
+  );
 
   test('freezes the navigation decision while save-and-proceed is in flight', async () => {
     const deferred = createDeferred<Record<string, unknown>>();
@@ -710,6 +857,9 @@ describe('ProfileOnboardingAdminPage', () => {
         config_revision: 2,
       }),
     );
+    expect(getTrackingCalls(PROFILE_DIRTY_NAVIGATION_DECISION_EVENT)).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
+    ]);
     const cancelButton = screen.getByRole('button', {
       name: 'module.profileOnboarding.admin.unsavedDialog.cancel',
     });
@@ -740,6 +890,15 @@ describe('ProfileOnboardingAdminPage', () => {
 
     expect(mockPush).not.toHaveBeenCalled();
     expect(
+      getTrackingCalls(PROFILE_DIRTY_NAVIGATION_DECISION_EVENT),
+    ).toHaveLength(1);
+    expect(
+      getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT),
+    ).toHaveLength(0);
+    expect(getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT)).toHaveLength(
+      1,
+    );
+    expect(
       screen.getByText('module.profileOnboarding.admin.unsavedDialog.title'),
     ).toBeInTheDocument();
 
@@ -757,6 +916,26 @@ describe('ProfileOnboardingAdminPage', () => {
       }),
     );
     expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(getDirtyNavigationTrackingCalls()).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
+      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
+      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'success' }],
+    ]);
+    const decisionCallIndex = mockTrackEvent.mock.calls.findIndex(
+      ([name]) => name === PROFILE_DIRTY_NAVIGATION_DECISION_EVENT,
+    );
+    const resultCallIndex = mockTrackEvent.mock.calls.findIndex(
+      ([name]) => name === PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT,
+    );
+    expect(
+      mockTrackEvent.mock.invocationCallOrder[decisionCallIndex],
+    ).toBeLessThan(mockUpdateConfig.mock.invocationCallOrder[0]);
+    expect(mockUpdateConfig.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTrackEvent.mock.invocationCallOrder[resultCallIndex],
+    );
+    expect(
+      mockTrackEvent.mock.invocationCallOrder[resultCallIndex],
+    ).toBeLessThan(mockPush.mock.invocationCallOrder[0]);
     originalAnchor.remove();
     competingAnchor.remove();
   });
@@ -788,11 +967,16 @@ describe('ProfileOnboardingAdminPage', () => {
     expect(mockUpdateConfig).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
     expect(editor).toHaveValue('?[...Changed question]');
+    expect(getDirtyNavigationTrackingCalls()).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
+      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
+      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'failed' }],
+    ]);
     anchor.remove();
   });
 
-  test('shows save-and-leave API failures inside the dialog', async () => {
-    mockUpdateConfig.mockRejectedValue(new Error('Publication failed'));
+  test('shows save-and-leave API failures and tracks a deliberate retry', async () => {
+    mockUpdateConfig.mockRejectedValueOnce(new Error('Publication failed'));
     const editor = await renderLoadedPage();
     fireEvent.change(editor, { target: { value: '?[...Changed question]' } });
     const anchor = document.createElement('a');
@@ -817,6 +1001,39 @@ describe('ProfileOnboardingAdminPage', () => {
         name: 'module.profileOnboarding.admin.unsavedDialog.discard',
       }),
     ).toBeEnabled();
+    expect(getDirtyNavigationTrackingCalls()).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
+      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
+      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'failed' }],
+    ]);
+
+    const changedDocument = '?[...Changed question]';
+    mockUpdateConfig.mockResolvedValueOnce({
+      enabled: true,
+      markdownflow: changedDocument,
+      assistant_prompt: PROMPT,
+      config_revision: 3,
+    });
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.profileOnboarding.admin.unsavedDialog.save',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith('/admin/operations', {
+        scroll: false,
+      }),
+    );
+    expect(getTrackingCalls(PROFILE_DIRTY_NAVIGATION_DECISION_EVENT)).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
+      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
+    ]);
+    expect(
+      getTrackingCalls(PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT),
+    ).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'failed' }],
+      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'success' }],
+    ]);
     anchor.remove();
   });
 
@@ -859,6 +1076,11 @@ describe('ProfileOnboardingAdminPage', () => {
         name: 'module.profileOnboarding.admin.unsavedDialog.save',
       }),
     ).toBeEnabled();
+    expect(getDirtyNavigationTrackingCalls()).toEqual([
+      [PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT, {}],
+      [PROFILE_DIRTY_NAVIGATION_DECISION_EVENT, { decision: 'save_and_leave' }],
+      [PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT, { outcome: 'superseded' }],
+    ]);
     anchor.remove();
   });
 
