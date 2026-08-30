@@ -61,6 +61,13 @@ their consumers are deleted instead of dual-written.
       Focused payment checks passed 2 Jest suites / 37 tests, followed by the
       full frontend suite at 212 Jest suites / 1,886 tests, TypeScript, focused
       lint, and Prettier.
+- [x] 2026-08-31 00:29 CST: Closed follow-up attribution races by retaining
+      order-, lifecycle-, and attempt-scoped Stripe and WeChat confirmation
+      evidence until a paid observation or analytics reset. Focused checks
+      passed 4 Jest suites / 54 tests, followed by the full frontend suite at
+      212 Jest suites / 1,888 tests, TypeScript, full frontend lint with no
+      errors, Prettier, repository harness, architecture boundaries, dev-tool
+      verification, and the full Lefthook pre-commit gate.
 
 ## Surprises & Discoveries
 
@@ -162,13 +169,14 @@ final provider check before timing out and reports unresolved confirmation as
 pending, successful billing synchronization is shown as completed, synchronous
 card-confirmation failures remain visible, and duplicate course-creation
 submissions are rejected while one request is active. Learner payment attempts
-retain their distinct unresolved channels; product-confirmed paid results after
-direct Stripe or WeChat confirmation keep that confirmed channel, other explicit
-provider results close only their matching channel, and a generic order-level
-result uses `channel=other` instead of guessing when multiple channels remain
-unresolved. Creator billing sync observations keep recoverable failed, canceled,
-and timeout states non-terminal so a later paid observation can emit the one
-terminal success.
+retain their distinct unresolved channels. A product-confirmed paid result uses
+direct Stripe or WeChat confirmation evidence only when one eligible channel
+remains for that order; stale or ambiguous evidence falls back to generic
+attribution. Other explicit provider results close only their matching channel,
+and a generic order-level result uses `channel=other` instead of guessing when
+multiple channels remain unresolved. Creator billing sync observations keep
+recoverable failed, canceled, and timeout states non-terminal so a later paid
+observation can emit the one terminal success.
 
 Validation completed with focused frontend checks and the final full 212 Jest
 suites / 1,886 tests, TypeScript, frontend lint (no errors; existing repository

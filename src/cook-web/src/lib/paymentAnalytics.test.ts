@@ -4,7 +4,10 @@ import {
   buildLearnerPaymentStatusAnalytics,
   normalizeLearnerPaymentChannel,
   normalizeLearnerPaymentCurrency,
+  rememberLearnerProviderConfirmedChannel,
+  resolveCurrentLearnerPaymentAttemptChannel,
   resolveLearnerPaymentAttributionChannel,
+  resolveLearnerProviderConfirmedChannel,
   trackLearnerPaymentEventSafely,
 } from './paymentAnalytics';
 
@@ -37,6 +40,121 @@ describe('learner payment analytics', () => {
     expect(
       resolveLearnerPaymentAttributionChannel(['wechat_qr'], 'stripe'),
     ).toBeNull();
+    expect(resolveLearnerProviderConfirmedChannel([], [])).toBeUndefined();
+    expect(resolveLearnerProviderConfirmedChannel(['stripe'], ['stripe'])).toBe(
+      'stripe',
+    );
+    expect(
+      resolveLearnerProviderConfirmedChannel(['stripe', 'stripe'], ['stripe']),
+    ).toBe('stripe');
+    expect(
+      resolveLearnerProviderConfirmedChannel(
+        ['stripe', 'wechat_jsapi'],
+        ['stripe', 'wechat_jsapi'],
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveLearnerProviderConfirmedChannel(
+        ['stripe'],
+        ['wechat_qr', 'alipay_qr'],
+      ),
+    ).toBeUndefined();
+    const stripeAttempt = {
+      orderId: 'order-1',
+      lifecycle: 3,
+      channel: 'stripe' as const,
+      attemptId: 7,
+    };
+    const activeAttemptIds = new Map([['stripe' as const, 7]]);
+    expect(
+      resolveCurrentLearnerPaymentAttemptChannel(
+        stripeAttempt,
+        'order-1',
+        3,
+        ['wechat_qr', 'stripe'],
+        activeAttemptIds,
+      ),
+    ).toBe('stripe');
+    expect(
+      resolveCurrentLearnerPaymentAttemptChannel(
+        stripeAttempt,
+        'order-2',
+        3,
+        ['wechat_qr', 'stripe'],
+        activeAttemptIds,
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveCurrentLearnerPaymentAttemptChannel(
+        stripeAttempt,
+        'order-1',
+        4,
+        ['wechat_qr', 'stripe'],
+        activeAttemptIds,
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveCurrentLearnerPaymentAttemptChannel(
+        stripeAttempt,
+        'order-1',
+        3,
+        ['wechat_qr'],
+        activeAttemptIds,
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveCurrentLearnerPaymentAttemptChannel(
+        stripeAttempt,
+        'order-1',
+        3,
+        ['wechat_qr', 'stripe'],
+        new Map([['stripe' as const, 8]]),
+      ),
+    ).toBeUndefined();
+    const evidenceByOrder = new Map();
+    expect(
+      rememberLearnerProviderConfirmedChannel(
+        evidenceByOrder,
+        stripeAttempt,
+        'order-1',
+        3,
+        ['wechat_qr', 'stripe'],
+        activeAttemptIds,
+      ),
+    ).toBe(true);
+    expect(evidenceByOrder.get('order-1')).toEqual(new Set(['stripe']));
+    expect(
+      rememberLearnerProviderConfirmedChannel(
+        evidenceByOrder,
+        stripeAttempt,
+        'order-2',
+        3,
+        ['wechat_qr', 'stripe'],
+        activeAttemptIds,
+      ),
+    ).toBe(false);
+    expect(evidenceByOrder.has('order-2')).toBe(false);
+    expect(
+      rememberLearnerProviderConfirmedChannel(
+        evidenceByOrder,
+        stripeAttempt,
+        'order-1',
+        4,
+        ['wechat_qr', 'stripe'],
+        activeAttemptIds,
+      ),
+    ).toBe(false);
+    expect(
+      rememberLearnerProviderConfirmedChannel(
+        evidenceByOrder,
+        stripeAttempt,
+        'order-1',
+        3,
+        ['wechat_qr'],
+        activeAttemptIds,
+      ),
+    ).toBe(false);
+    expect(evidenceByOrder.has('order-2')).toBe(false);
   });
 
   it.each([

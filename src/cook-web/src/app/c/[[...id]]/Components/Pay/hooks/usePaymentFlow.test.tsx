@@ -275,27 +275,31 @@ describe('usePaymentFlow polling timeout', () => {
     expect(hook.result.current.isTimeout).toBe(false);
   });
 
-  it('forwards the confirmed attempt channel for a direct status sync', async () => {
+  it('forwards confirmed attempt evidence for a direct status sync', async () => {
     const onOrderPaid = jest.fn();
     const onPollingTimeout = jest.fn();
     const hook = await startPendingPayment({ onOrderPaid, onPollingTimeout });
     mockedQueryOrder.mockResolvedValueOnce(paidOrder);
+    const confirmedAttempt = {
+      orderId: 'order-1',
+      lifecycle: 1,
+      channel: 'stripe' as const,
+      attemptId: 1,
+    };
 
     await act(async () => {
       await hook.result.current.syncOrderStatus({
-        confirmedAttemptChannel: 'stripe:checkout_session',
+        confirmedAttempt,
       });
     });
 
     expect(onOrderPaid).toHaveBeenCalledTimes(1);
-    expect(onOrderPaid).toHaveBeenCalledWith({
-      confirmedAttemptChannel: 'stripe:checkout_session',
-    });
+    expect(onOrderPaid).toHaveBeenCalledWith({ confirmedAttempt });
     expect(onPollingTimeout).not.toHaveBeenCalled();
     expect(hook.result.current.isCompleted).toBe(true);
   });
 
-  it('isolates confirmed channels across overlapping direct status syncs', async () => {
+  it('isolates confirmed attempts across overlapping direct status syncs', async () => {
     const onOrderPaid = jest.fn();
     const onPollingTimeout = jest.fn();
     const hook = await startPendingPayment({ onOrderPaid, onPollingTimeout });
@@ -306,13 +310,25 @@ describe('usePaymentFlow polling timeout', () => {
       .mockReturnValueOnce(wechatQuery.promise);
     let stripeSync: Promise<unknown> | undefined;
     let wechatSync: Promise<unknown> | undefined;
+    const stripeAttempt = {
+      orderId: 'order-1',
+      lifecycle: 1,
+      channel: 'stripe' as const,
+      attemptId: 1,
+    };
+    const wechatAttempt = {
+      orderId: 'order-1',
+      lifecycle: 1,
+      channel: 'wechat_jsapi' as const,
+      attemptId: 2,
+    };
 
     await act(async () => {
       stripeSync = hook.result.current.syncOrderStatus({
-        confirmedAttemptChannel: 'stripe:checkout_session',
+        confirmedAttempt: stripeAttempt,
       });
       wechatSync = hook.result.current.syncOrderStatus({
-        confirmedAttemptChannel: 'wx_pub',
+        confirmedAttempt: wechatAttempt,
       });
       await Promise.resolve();
     });
@@ -323,7 +339,7 @@ describe('usePaymentFlow polling timeout', () => {
     });
     expect(onOrderPaid).toHaveBeenCalledTimes(1);
     expect(onOrderPaid).toHaveBeenCalledWith({
-      confirmedAttemptChannel: 'wx_pub',
+      confirmedAttempt: wechatAttempt,
     });
 
     await act(async () => {

@@ -29,16 +29,22 @@ describe('StripeCardForm payment outcomes', () => {
   });
 
   const renderForm = (overrides: Record<string, unknown> = {}) => {
+    const attempt = {
+      orderId: 'order-1',
+      lifecycle: 1,
+      channel: 'stripe' as const,
+      attemptId: 1,
+    };
     const props = {
       clientSecret: 'client-secret-never-tracked',
       publishableKey: 'publishable-key',
-      onAttempt: jest.fn(),
+      onAttempt: jest.fn(() => attempt),
       onConfirmSuccess: jest.fn(),
       onError: jest.fn(),
       ...overrides,
     };
     render(<StripeCardForm {...props} />);
-    return props;
+    return { ...props, attempt };
   };
 
   it('records the accepted attempt before confirming a successful payment', async () => {
@@ -56,6 +62,7 @@ describe('StripeCardForm payment outcomes', () => {
     expect(props.onAttempt.mock.invocationCallOrder[0]).toBeLessThan(
       mockConfirmPayment.mock.invocationCallOrder[0],
     );
+    expect(props.onConfirmSuccess).toHaveBeenCalledWith(props.attempt);
     expect(props.onError).not.toHaveBeenCalled();
   });
 
@@ -69,6 +76,7 @@ describe('StripeCardForm payment outcomes', () => {
       expect(rejected.onError).toHaveBeenCalledWith(
         'private provider detail',
         'failed',
+        expect.objectContaining({ orderId: 'order-1', channel: 'stripe' }),
       ),
     );
 
@@ -81,6 +89,7 @@ describe('StripeCardForm payment outcomes', () => {
       expect(rejected.onError).toHaveBeenCalledWith(
         'module.pay.stripeProcessing',
         'pending',
+        expect.objectContaining({ orderId: 'order-1', channel: 'stripe' }),
       ),
     );
   });
@@ -95,6 +104,7 @@ describe('StripeCardForm payment outcomes', () => {
       expect(props.onError).toHaveBeenCalledWith(
         'module.pay.stripeError',
         'failed',
+        expect.objectContaining({ orderId: 'order-1', channel: 'stripe' }),
       ),
     );
     expect(screen.getByRole('button')).toBeEnabled();

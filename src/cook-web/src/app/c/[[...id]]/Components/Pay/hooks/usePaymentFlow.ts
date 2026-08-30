@@ -10,6 +10,7 @@ import {
   type PayUrlRequest,
   type PaymentChannel,
 } from '@/c-api/order';
+import type { LearnerPaymentAttemptContext } from '@/lib/paymentAnalytics';
 import { ORDER_STATUS } from '../constans';
 
 interface PriceItem {
@@ -43,7 +44,7 @@ export interface PaymentInfoState {
 }
 
 export interface PaymentPaidContext {
-  confirmedAttemptChannel: string;
+  confirmedAttempt: LearnerPaymentAttemptContext;
 }
 
 interface UsePaymentFlowOptions {
@@ -86,7 +87,7 @@ export interface PaymentCouponParams extends PaymentActionParams {
 
 export interface PaymentSyncParams {
   paymentChannel?: PaymentChannel;
-  confirmedAttemptChannel?: string;
+  confirmedAttempt?: LearnerPaymentAttemptContext;
 }
 
 const defaultPaymentInfo: PaymentInfoState = {
@@ -448,8 +449,8 @@ export const usePaymentFlow = ({
       if (!mountedRef.current || !resp) {
         return resp;
       }
-      const paidContext = params.confirmedAttemptChannel
-        ? { confirmedAttemptChannel: params.confirmedAttemptChannel }
+      const paidContext = params.confirmedAttempt
+        ? { confirmedAttempt: params.confirmedAttempt }
         : undefined;
       updateFromOrder(resp as OrderSnapshot, paidContext);
       return resp;

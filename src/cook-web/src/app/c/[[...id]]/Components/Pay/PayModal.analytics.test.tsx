@@ -9,6 +9,7 @@ import {
 import { PayModal } from './PayModal';
 import { PayModalM } from './PayModalM';
 import { ORDER_STATUS } from './constans';
+import type { LearnerPaymentAttemptContext } from '@/lib/paymentAnalytics';
 
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
@@ -22,6 +23,8 @@ const mockUsePaymentFlow = jest.fn();
 let mockPaymentFlowState: Record<string, any>;
 let mockEnvState: Record<string, any>;
 let mockWechatJsapiAvailable = false;
+let mockLastStripeAttempt: LearnerPaymentAttemptContext | undefined;
+let mockDeferredStripeConfirmations: Array<() => void> = [];
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -178,28 +181,56 @@ jest.mock('./StripeCardForm', () => ({
     onConfirmSuccess,
     onError,
   }: {
-    onAttempt: () => void;
-    onConfirmSuccess: () => Promise<void>;
-    onError: (message: string) => void;
+    onAttempt: () => LearnerPaymentAttemptContext;
+    onConfirmSuccess: (attempt: LearnerPaymentAttemptContext) => Promise<void>;
+    onError: (
+      message: string,
+      status: 'failed' | 'pending',
+      attempt: LearnerPaymentAttemptContext,
+    ) => void;
   }) => (
     <>
       <button
         data-testid='stripe-submit'
         onClick={() => {
-          onAttempt();
-          void onConfirmSuccess();
+          const attempt = onAttempt();
+          mockLastStripeAttempt = attempt;
+          void onConfirmSuccess(attempt);
         }}
       />
       <button
         data-testid='stripe-fail'
         onClick={() => {
-          onAttempt();
-          onError('private-stripe-provider-error');
+          const attempt = onAttempt();
+          mockLastStripeAttempt = attempt;
+          onError('private-stripe-provider-error', 'failed', attempt);
         }}
       />
       <button
         data-testid='stripe-late-fail'
-        onClick={() => onError('private-stripe-late-error')}
+        onClick={() => {
+          if (mockLastStripeAttempt) {
+            onError(
+              'private-stripe-late-error',
+              'failed',
+              mockLastStripeAttempt,
+            );
+          }
+        }}
+      />
+      <button
+        data-testid='stripe-start-deferred'
+        onClick={() => {
+          const attempt = onAttempt();
+          mockLastStripeAttempt = attempt;
+          mockDeferredStripeConfirmations.push(() => {
+            void onConfirmSuccess(attempt);
+          });
+        }}
+      />
+      <button
+        data-testid='stripe-confirm-deferred'
+        onClick={() => mockDeferredStripeConfirmations.shift()?.()}
       />
     </>
   ),
@@ -330,7 +361,9 @@ const latestPaymentFlowOptions = () =>
   mockUsePaymentFlow.mock.calls[
     mockUsePaymentFlow.mock.calls.length - 1
   ][0] as {
-    onOrderPaid: (context?: { confirmedAttemptChannel: string }) => void;
+    onOrderPaid: (context?: {
+      confirmedAttempt: LearnerPaymentAttemptContext;
+    }) => void;
     onPollingTimeout: () => void;
   };
 
@@ -342,6 +375,8 @@ const requiredModalProps = {
 describe('learner payment modal analytics producers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLastStripeAttempt = undefined;
+    mockDeferredStripeConfirmations = [];
     mockWechatJsapiAvailable = false;
     mockEnvState = {
       stripePublishableKey: '',
@@ -621,16 +656,10 @@ describe('learner payment modal analytics producers', () => {
         open
       />,
     );
-    mockSyncOrderStatus.mockImplementationOnce(
-      async (params: { confirmedAttemptChannel?: string } = {}) => {
-        latestPaymentFlowOptions().onOrderPaid(
-          params.confirmedAttemptChannel
-            ? { confirmedAttemptChannel: params.confirmedAttemptChannel }
-            : undefined,
-        );
-        return paidOrder;
-      },
-    );
+    mockSyncOrderStatus.mockImplementationOnce(async () => {
+      latestPaymentFlowOptions().onOrderPaid();
+      return paidOrder;
+    });
 
     fireEvent.click(await screen.findByTestId('stripe-submit'));
 
@@ -638,7 +667,12 @@ describe('learner payment modal analytics producers', () => {
       expect(eventCalls('learner_payment_result')).toHaveLength(1);
     });
     expect(mockSyncOrderStatus).toHaveBeenLastCalledWith({
-      confirmedAttemptChannel: 'stripe:checkout_session',
+      confirmedAttempt: {
+        orderId: 'order-1',
+        lifecycle: expect.any(Number),
+        channel: 'stripe',
+        attemptId: expect.any(Number),
+      },
     });
     expect(
       eventCalls('learner_payment_attempt').map(
@@ -661,6 +695,151 @@ describe('learner payment modal analytics producers', () => {
     const trackedPayloads = JSON.stringify(mockTrackEvent.mock.calls);
     expect(trackedPayloads).not.toContain('private-stripe-publishable-key');
     expect(trackedPayloads).not.toContain('client-secret-never-tracked');
+  });
+
+  it('rejects a Stripe confirmation from an earlier modal lifecycle', async () => {
+    mockEnvState = {
+      ...mockEnvState,
+      stripePublishableKey: 'private-stripe-publishable-key',
+      stripeEnabled: 'true',
+      paymentChannels: ['stripe'],
+    };
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      paymentInfo: {
+        channel: 'stripe',
+        qrUrl: '',
+        status: ORDER_STATUS.BUY_STATUS_TO_BE_PAID,
+        paymentChannel: 'stripe',
+        paymentPayload: {
+          mode: 'payment_intent',
+          client_secret: 'client-secret-never-tracked',
+        },
+      },
+    };
+    const { rerender } = render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId('stripe-start-deferred'));
+    rerender(<PayModal {...requiredModalProps} />);
+    rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    fireEvent.click(await screen.findByTestId('stripe-start-deferred'));
+    fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
+
+    expect(mockSyncOrderStatus).not.toHaveBeenCalled();
+    expect(eventCalls('learner_payment_status')).toHaveLength(0);
+    expect(eventCalls('learner_payment_result')).toHaveLength(0);
+
+    mockSyncOrderStatus.mockImplementationOnce(
+      async (params: { confirmedAttempt?: LearnerPaymentAttemptContext }) => {
+        latestPaymentFlowOptions().onOrderPaid(
+          params.confirmedAttempt
+            ? { confirmedAttempt: params.confirmedAttempt }
+            : undefined,
+        );
+        return paidOrder;
+      },
+    );
+    fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
+
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_result')).toHaveLength(1);
+    });
+    expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1);
+    expect(mockSyncOrderStatus).toHaveBeenLastCalledWith({
+      confirmedAttempt: {
+        orderId: 'order-1',
+        lifecycle: expect.any(Number),
+        channel: 'stripe',
+        attemptId: expect.any(Number),
+      },
+    });
+    expect(eventCalls('learner_payment_result')[0]?.[1]).toEqual({
+      shifu_bid: 'course-1',
+      order_id: 'order-1',
+      channel: 'stripe',
+      surface: 'desktop',
+      outcome: 'success',
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'client-secret-never-tracked',
+    );
+  });
+
+  it('rejects an older same-channel confirmation after a Stripe retry', async () => {
+    mockEnvState = {
+      ...mockEnvState,
+      stripePublishableKey: 'private-stripe-publishable-key',
+      stripeEnabled: 'true',
+      paymentChannels: ['pingxx', 'stripe'],
+    };
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      paymentInfo: {
+        channel: 'stripe',
+        qrUrl: '',
+        status: ORDER_STATUS.BUY_STATUS_TO_BE_PAID,
+        paymentChannel: 'stripe',
+        paymentPayload: {
+          mode: 'payment_intent',
+          client_secret: 'client-secret-never-tracked',
+        },
+      },
+    };
+    render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    fireEvent.click(screen.getByText('module.pay.payChannelStripeCard'));
+    fireEvent.click(await screen.findByTestId('stripe-start-deferred'));
+    fireEvent.click(screen.getByTestId('pay-channel-switch'));
+    fireEvent.click(screen.getByText('module.pay.payChannelStripeCard'));
+    fireEvent.click(await screen.findByTestId('stripe-start-deferred'));
+    fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
+
+    expect(mockSyncOrderStatus).not.toHaveBeenCalled();
+    expect(eventCalls('learner_payment_result')).toHaveLength(0);
+
+    mockSyncOrderStatus.mockImplementationOnce(
+      async (params: { confirmedAttempt?: LearnerPaymentAttemptContext }) => {
+        latestPaymentFlowOptions().onOrderPaid(
+          params.confirmedAttempt
+            ? { confirmedAttempt: params.confirmedAttempt }
+            : undefined,
+        );
+        return paidOrder;
+      },
+    );
+    fireEvent.click(screen.getByTestId('stripe-confirm-deferred'));
+
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_result')).toHaveLength(1);
+    });
+    expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1);
+    expect(
+      eventCalls('learner_payment_attempt').map(
+        ([, payload]) => payload.channel,
+      ),
+    ).toEqual(['stripe', 'stripe']);
+    expect(eventCalls('learner_payment_result')[0]?.[1]).toEqual({
+      shifu_bid: 'course-1',
+      order_id: 'order-1',
+      channel: 'stripe',
+      surface: 'desktop',
+      outcome: 'success',
+    });
   });
 
   it('clears unresolved desktop channels when the order changes', async () => {
@@ -1137,26 +1316,27 @@ describe('learner payment modal analytics producers', () => {
         jsapi_params: { timeStamp: 'private-provider-credential' },
       },
     });
-    mockSyncOrderStatus.mockImplementationOnce(
-      async (params: { confirmedAttemptChannel?: string } = {}) => {
-        latestPaymentFlowOptions().onOrderPaid(
-          params.confirmedAttemptChannel
-            ? { confirmedAttemptChannel: params.confirmedAttemptChannel }
-            : undefined,
-        );
-        return paidOrder;
-      },
-    );
+    mockSyncOrderStatus.mockResolvedValueOnce(pendingOrder);
 
     fireEvent.click(screen.getByText('module.pay.wechatPay'));
     fireEvent.click(screen.getByText('module.pay.pay'));
 
-    await waitFor(() => {
-      expect(eventCalls('learner_payment_result')).toHaveLength(1);
-    });
+    await waitFor(() => expect(mockSyncOrderStatus).toHaveBeenCalledTimes(1));
     expect(mockSyncOrderStatus).toHaveBeenLastCalledWith({
       paymentChannel: 'wechatpay',
-      confirmedAttemptChannel: 'wx_pub',
+      confirmedAttempt: {
+        orderId: 'order-1',
+        lifecycle: expect.any(Number),
+        channel: 'wechat_jsapi',
+        attemptId: expect.any(Number),
+      },
+    });
+    expect(eventCalls('learner_payment_result')).toHaveLength(0);
+    act(() => {
+      latestPaymentFlowOptions().onOrderPaid();
+    });
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_result')).toHaveLength(1);
     });
     expect(
       eventCalls('learner_payment_attempt').map(

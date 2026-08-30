@@ -9,15 +9,22 @@ import {
 } from '@stripe/react-stripe-js';
 import type { Stripe } from '@stripe/stripe-js';
 import { Button } from '@/components/ui/Button';
+import type { LearnerPaymentAttemptContext } from '@/lib/paymentAnalytics';
 import { getStripeInstance } from '@/lib/stripe';
 import { useTranslation } from 'react-i18next';
 
 interface StripeCardFormProps {
   clientSecret?: string;
   publishableKey?: string;
-  onAttempt?: () => void;
-  onConfirmSuccess: () => Promise<void> | void;
-  onError?: (message: string, status?: 'failed' | 'pending') => void;
+  onAttempt: () => LearnerPaymentAttemptContext;
+  onConfirmSuccess: (
+    attempt: LearnerPaymentAttemptContext,
+  ) => Promise<void> | void;
+  onError?: (
+    message: string,
+    status: 'failed' | 'pending',
+    attempt: LearnerPaymentAttemptContext,
+  ) => void;
 }
 
 const StripeFormInner = ({
@@ -36,7 +43,7 @@ const StripeFormInner = ({
       return;
     }
     setSubmitting(true);
-    onAttempt?.();
+    const attempt = onAttempt();
     try {
       const result = await stripe.confirmPayment({
         elements,
@@ -47,6 +54,7 @@ const StripeFormInner = ({
         onError?.(
           result.error.message || t('module.pay.stripeError'),
           'failed',
+          attempt,
         );
         return;
       }
@@ -54,17 +62,17 @@ const StripeFormInner = ({
       if (result.paymentIntent) {
         const status = result.paymentIntent.status;
         if (status === 'succeeded') {
-          await onConfirmSuccess();
+          await onConfirmSuccess(attempt);
         } else if (status === 'processing') {
-          onError?.(t('module.pay.stripeProcessing'), 'pending');
+          onError?.(t('module.pay.stripeProcessing'), 'pending', attempt);
         } else if (status === 'requires_payment_method') {
-          onError?.(t('module.pay.stripeRequiresMethod'), 'failed');
+          onError?.(t('module.pay.stripeRequiresMethod'), 'failed', attempt);
         } else {
-          onError?.(t('module.pay.stripeProcessing'), 'pending');
+          onError?.(t('module.pay.stripeProcessing'), 'pending', attempt);
         }
       }
     } catch {
-      onError?.(t('module.pay.stripeError'), 'failed');
+      onError?.(t('module.pay.stripeError'), 'failed', attempt);
     } finally {
       setSubmitting(false);
     }

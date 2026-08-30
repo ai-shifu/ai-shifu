@@ -10,6 +10,13 @@ export type LearnerPaymentFailureCategory =
   | 'missing_order'
   | 'status_lookup_failed';
 
+export interface LearnerPaymentAttemptContext {
+  readonly orderId: string;
+  readonly lifecycle: number;
+  readonly channel: LearnerPaymentChannel;
+  readonly attemptId: number;
+}
+
 type LearnerPaymentTrackEvent = (
   eventName: string,
   eventData: Record<string, unknown>,
@@ -39,6 +46,61 @@ export const resolveLearnerPaymentAttributionChannel = (
   }
   if (distinctChannels.size > 1) return 'other';
   return distinctChannels.values().next().value ?? null;
+};
+
+export const resolveCurrentLearnerPaymentAttemptChannel = (
+  attempt: LearnerPaymentAttemptContext | undefined,
+  currentOrderId: string,
+  currentLifecycle: number,
+  attemptedChannels: Iterable<LearnerPaymentChannel>,
+  activeAttemptIds: ReadonlyMap<LearnerPaymentChannel, number>,
+): LearnerPaymentChannel | undefined => {
+  if (
+    !attempt?.orderId ||
+    attempt.orderId !== currentOrderId ||
+    attempt.lifecycle !== currentLifecycle ||
+    activeAttemptIds.get(attempt.channel) !== attempt.attemptId
+  ) {
+    return undefined;
+  }
+  return new Set(attemptedChannels).has(attempt.channel)
+    ? attempt.channel
+    : undefined;
+};
+
+export const rememberLearnerProviderConfirmedChannel = (
+  evidenceByOrder: Map<string, Set<LearnerPaymentChannel>>,
+  attempt: LearnerPaymentAttemptContext | undefined,
+  currentOrderId: string,
+  currentLifecycle: number,
+  attemptedChannels: Iterable<LearnerPaymentChannel>,
+  activeAttemptIds: ReadonlyMap<LearnerPaymentChannel, number>,
+): boolean => {
+  const channel = resolveCurrentLearnerPaymentAttemptChannel(
+    attempt,
+    currentOrderId,
+    currentLifecycle,
+    attemptedChannels,
+    activeAttemptIds,
+  );
+  if (!channel || !attempt) return false;
+  const confirmedChannels =
+    evidenceByOrder.get(attempt.orderId) || new Set<LearnerPaymentChannel>();
+  confirmedChannels.add(channel);
+  evidenceByOrder.set(attempt.orderId, confirmedChannels);
+  return true;
+};
+
+export const resolveLearnerProviderConfirmedChannel = (
+  confirmedChannels: Iterable<LearnerPaymentChannel>,
+  unresolvedChannels: Iterable<LearnerPaymentChannel>,
+): LearnerPaymentChannel | undefined => {
+  const unresolved = new Set(unresolvedChannels);
+  const eligibleChannels = new Set(
+    Array.from(confirmedChannels).filter(channel => unresolved.has(channel)),
+  );
+  if (eligibleChannels.size !== 1) return undefined;
+  return eligibleChannels.values().next().value;
 };
 
 export const normalizeLearnerPaymentCurrency = (
