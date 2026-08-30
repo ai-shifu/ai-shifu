@@ -26,6 +26,10 @@ type PendingDevice = {
   client_ip: string;
 };
 
+type ResolvedPendingDevice = PendingDevice & {
+  openedFromLink: boolean;
+};
+
 type Phase = 'loading' | 'confirm' | 'approved' | 'denied' | 'error';
 
 type Envelope = { code?: number; message?: string; data?: unknown };
@@ -65,7 +69,7 @@ const DeviceAuthorizationContent = () => {
 
   const codeFromUrl = searchParams.get('code') ?? '';
   const [enteredCode, setEnteredCode] = useState(codeFromUrl);
-  const [pending, setPending] = useState<PendingDevice | null>(null);
+  const [pending, setPending] = useState<ResolvedPendingDevice | null>(null);
   const [phase, setPhase] = useState<Phase>(
     codeFromUrl ? 'loading' : 'confirm',
   );
@@ -85,7 +89,10 @@ const DeviceAuthorizationContent = () => {
     trackEventRef.current = trackEvent;
   }, [trackEvent]);
 
-  const shownCodeRef = useRef<string>('');
+  const shownPromptRef = useRef<{
+    code: string;
+    openedFromLink: boolean;
+  } | null>(null);
 
   const redirectToLoginRef = useRef(redirectToLogin);
   useEffect(() => {
@@ -101,7 +108,7 @@ const DeviceAuthorizationContent = () => {
     redirectToLogin();
   }, [isInitialized, isLoggedIn, redirectToLogin]);
 
-  const loadPending = useCallback(async (code: string) => {
+  const loadPending = useCallback(async (code: string, fromLink: boolean) => {
     setPhase('loading');
     setErrorMessage('');
     try {
@@ -115,7 +122,7 @@ const DeviceAuthorizationContent = () => {
         setPhase('error');
         return;
       }
-      setPending(device);
+      setPending({ ...device, openedFromLink: fromLink });
       setPhase('confirm');
     } catch (error) {
       // An expired token arrives here as a rejection, and the request layer
@@ -134,7 +141,7 @@ const DeviceAuthorizationContent = () => {
     if (!isInitialized || !isLoggedIn || !codeFromUrl) {
       return;
     }
-    void loadPending(codeFromUrl);
+    void loadPending(codeFromUrl, true);
   }, [codeFromUrl, isInitialized, isLoggedIn, loadPending]);
 
   // One exposure per resolved request: the pairing code identifies the
@@ -142,15 +149,18 @@ const DeviceAuthorizationContent = () => {
   // code itself is never sent -- it is a live credential for ten minutes.
   useEffect(() => {
     const code = pending?.user_code;
-    if (!code || shownCodeRef.current === code) {
+    if (!code || shownPromptRef.current?.code === code) {
       return;
     }
-    shownCodeRef.current = code;
+    shownPromptRef.current = {
+      code,
+      openedFromLink: pending.openedFromLink,
+    };
     void trackEventRef.current(EVENT_NAMES.DEVICE_AUTH_PROMPT_SHOWN, {
       device_os: normalizeDeviceOsForAnalytics(pending?.device_os),
-      from_link: Boolean(codeFromUrl),
+      from_link: pending.openedFromLink,
     });
-  }, [codeFromUrl, pending]);
+  }, [pending]);
 
   const handleLookup = useCallback(() => {
     const code = enteredCode.trim();
@@ -159,7 +169,7 @@ const DeviceAuthorizationContent = () => {
       return;
     }
     setMissingCode(false);
-    void loadPending(code);
+    void loadPending(code, false);
   }, [enteredCode, loadPending]);
 
   const handleDecision = useCallback(
@@ -182,11 +192,18 @@ const DeviceAuthorizationContent = () => {
           return;
         }
         setPhase(approve ? 'approved' : 'denied');
+        const openedFromLink =
+          shownPromptRef.current?.code === code
+            ? shownPromptRef.current.openedFromLink
+            : (pending?.openedFromLink ?? false);
         void trackEventRef.current(
           approve
             ? EVENT_NAMES.DEVICE_AUTH_APPROVED
             : EVENT_NAMES.DEVICE_AUTH_DENIED,
-          { device_os: normalizeDeviceOsForAnalytics(pending?.device_os) },
+          {
+            device_os: normalizeDeviceOsForAnalytics(pending?.device_os),
+            from_link: openedFromLink,
+          },
         );
       } catch (error) {
         setErrorMessage((error as Error)?.message || '');

@@ -208,7 +208,7 @@ describe('DeviceAuthorizationPage', () => {
     expect(JSON.stringify(exposures[0][1])).not.toContain('macOS 15');
   });
 
-  it('reports the terminal outcome of each decision', async () => {
+  it('keeps the originating link source on a denied outcome', async () => {
     (api.deviceAuthPending as jest.Mock).mockResolvedValue(
       envelope(pendingDevice),
     );
@@ -216,12 +216,19 @@ describe('DeviceAuthorizationPage', () => {
       envelope({ status: 'denied' }),
     );
 
-    render(<DeviceAuthorizationPage />);
-    fireEvent.click(await screen.findByText('module.auth.deviceAuthDeny'));
+    const { rerender } = render(<DeviceAuthorizationPage />);
+    await screen.findByText('MacBook-Pro');
+
+    // The terminal event must retain the source of the prompt even if the URL
+    // changes while that resolved request remains on screen.
+    searchParams = new URLSearchParams('');
+    rerender(<DeviceAuthorizationPage />);
+    fireEvent.click(screen.getByText('module.auth.deviceAuthDeny'));
 
     await waitFor(() =>
       expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_denied', {
         device_os: 'macos',
+        from_link: true,
       }),
     );
   });
@@ -274,11 +281,18 @@ describe('DeviceAuthorizationPage', () => {
 
   it('lets the user type the pairing code when the link has none', async () => {
     searchParams = new URLSearchParams('');
-    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
-      envelope(pendingDevice),
+    let resolveLinkedReload!: (value: ReturnType<typeof envelope>) => void;
+    const linkedReload = new Promise<ReturnType<typeof envelope>>(resolve => {
+      resolveLinkedReload = resolve;
+    });
+    (api.deviceAuthPending as jest.Mock)
+      .mockResolvedValueOnce(envelope(pendingDevice))
+      .mockReturnValueOnce(linkedReload);
+    (api.deviceAuthApprove as jest.Mock).mockResolvedValue(
+      envelope({ status: 'approved' }),
     );
 
-    render(<DeviceAuthorizationPage />);
+    const { rerender } = render(<DeviceAuthorizationPage />);
 
     fireEvent.change(screen.getByLabelText('module.auth.deviceAuthCodeLabel'), {
       target: { value: 'ac4-7hk' },
@@ -290,5 +304,41 @@ describe('DeviceAuthorizationPage', () => {
         user_code: 'ac4-7hk',
       }),
     );
+    expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_prompt_shown', {
+      device_os: 'macos',
+      from_link: false,
+    });
+
+    // Re-resolving the same code from a link must not change the source of the
+    // already-counted exposure used by the terminal outcome.
+    searchParams = new URLSearchParams('code=AC4-7HK');
+    rerender(<DeviceAuthorizationPage />);
+    await waitFor(() =>
+      expect(api.deviceAuthPending).toHaveBeenLastCalledWith({
+        user_code: 'AC4-7HK',
+      }),
+    );
+    expect(
+      await screen.findByText('module.auth.deviceAuthLoading'),
+    ).toBeInTheDocument();
+    resolveLinkedReload(envelope(pendingDevice));
+    await screen.findByText('MacBook-Pro');
+    const exposures = mockTrackEvent.mock.calls.filter(
+      ([name]) => name === 'device_auth_prompt_shown',
+    );
+    expect(exposures).toHaveLength(1);
+    fireEvent.click(await screen.findByText('module.auth.deviceAuthApprove'));
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_approved', {
+        device_os: 'macos',
+        from_link: false,
+      }),
+    );
+    const approvedPayload = mockTrackEvent.mock.calls.find(
+      ([name]) => name === 'device_auth_approved',
+    )?.[1];
+    expect(JSON.stringify(approvedPayload)).not.toContain('AC4-7HK');
+    expect(JSON.stringify(approvedPayload)).not.toContain('macOS 15');
   });
 });

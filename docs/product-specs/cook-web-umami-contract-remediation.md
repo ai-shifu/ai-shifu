@@ -186,7 +186,9 @@ backend messages are excluded.
 - Business question: which device-authorization prompts are resolved by the
   user, and how does that vary by a bounded operating-system category?
 - Metric definition: approved and denied outcomes divided by prompt exposures,
-  grouped only by `device_os` and the exposure's `from_link` flag.
+  grouped only by the shared `device_os` and `from_link` fields. There is no
+  request identifier, so this is an aggregate ratio rather than a row-level
+  join.
 - Trigger: prompt shown once after a pairing request resolves; approved or
   denied once after the corresponding API call succeeds.
 - Population: authenticated users viewing a valid pending device request.
@@ -200,8 +202,8 @@ backend messages are excluded.
 | Event                      | Complete reviewed field set |
 | -------------------------- | --------------------------- |
 | `device_auth_prompt_shown` | `device_os`, `from_link`    |
-| `device_auth_approved`     | `device_os`                 |
-| `device_auth_denied`       | `device_os`                 |
+| `device_auth_approved`     | `device_os`, `from_link`    |
+| `device_auth_denied`       | `device_os`, `from_link`    |
 
 `device_os` is exactly one of `android|chromeos|ios|linux|macos|other|unknown|windows`.
 The pairing code, device name, client version, IP address, raw operating-system
