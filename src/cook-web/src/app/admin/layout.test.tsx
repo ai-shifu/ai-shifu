@@ -991,6 +991,23 @@ describe('AdminLayout', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('does not render the billing card when billing is disabled', () => {
+    mockEnvState.billingEnabled = 'false';
+
+    render(
+      <AdminLayout>
+        <div data-testid='child-content' />
+      </AdminLayout>,
+    );
+
+    expect(
+      screen.queryByTestId('admin-billing-sidebar-card'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('admin-billing-sidebar-primary-link'),
+    ).not.toBeInTheDocument();
+  });
+
   test('hides referral invite navigation when campaign is unavailable', async () => {
     mockGetReferralInviteProfile.mockResolvedValueOnce({
       available: false,

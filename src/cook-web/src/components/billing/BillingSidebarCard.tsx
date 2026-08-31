@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight, Crown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import type { CreatorBillingOverview } from '@/types/billing';
 import {
   formatBillingCreditBalance,
@@ -20,11 +21,15 @@ type BillingSidebarCardProps = {
   isLoading?: boolean;
 };
 
+const BILLING_SIDEBAR_PACKAGES_CLICK_EVENT =
+  'creator_billing_sidebar_packages_click';
+
 export function BillingSidebarCard({
   overview,
   isLoading = false,
 }: BillingSidebarCardProps) {
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
   const availableCredits = overview?.wallet?.available_credits;
   const shouldShowCredits = !isLoading && availableCredits != null;
   const creditsValue = shouldShowCredits
@@ -37,6 +42,16 @@ export function BillingSidebarCard({
         overview?.subscription?.current_period_end_at,
       )
     : '';
+
+  const trackPackagesClick = () => {
+    try {
+      void Promise.resolve(
+        trackEvent(BILLING_SIDEBAR_PACKAGES_CLICK_EVENT, {}),
+      ).catch(() => {});
+    } catch {
+      // Billing navigation must remain available when analytics is unavailable.
+    }
+  };
 
   return (
     <div
@@ -51,6 +66,16 @@ export function BillingSidebarCard({
         )}`}
         className='absolute inset-0 z-0 rounded-[var(--border-radius-rounded-xl,14px)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
         data-testid='admin-billing-sidebar-primary-link'
+        onClick={event => {
+          if (event.button === 0) {
+            trackPackagesClick();
+          }
+        }}
+        onAuxClick={event => {
+          if (event.button === 1) {
+            trackPackagesClick();
+          }
+        }}
       />
       <div className='pointer-events-none relative z-10'>
         <div className='flex items-center justify-between gap-3 border-b border-[rgba(0,0,0,0.05)] pb-3 mr-1'>
