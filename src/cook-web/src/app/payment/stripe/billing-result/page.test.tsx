@@ -280,12 +280,14 @@ describe('StripeBillingResultPage', () => {
     );
   });
 
-  test('records a cancelled result without changing pending return behavior', async () => {
+  test('deduplicates a cancelled pending return when retry becomes paid', async () => {
     mockSearchParams.set('bill_order_bid', 'private-person@example.test');
     mockSearchParams.set('session_id', 'sess-secret');
     mockSearchParams.set('canceled', '1');
     mockConsumeStripeBillingOrderForAnalytics.mockReturnValue(true);
-    mockRequestPost.mockResolvedValue({ status: 'pending' });
+    mockRequestPost
+      .mockResolvedValueOnce({ status: 'pending' })
+      .mockResolvedValueOnce({ status: 'paid' });
 
     render(<StripeBillingResultPage />);
 
@@ -311,6 +313,20 @@ describe('StripeBillingResultPage', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private-person@example.test',
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry sync' }));
+
+    expect(await screen.findByText('Billing updated')).toBeInTheDocument();
+    expect(mockRequestPost).toHaveBeenCalledTimes(2);
+    const terminalResults = mockTrackEvent.mock.calls.filter(
+      ([eventName]) => eventName === 'creator_billing_checkout_result',
+    );
+    expect(terminalResults).toHaveLength(1);
+    expect(terminalResults[0]?.[1]).toEqual({
+      payment_provider: 'stripe',
+      source_surface: 'stripe_return',
+      outcome: 'cancelled',
+    });
   });
 
   test('does not attribute an unassociated cancelled order to Stripe', async () => {

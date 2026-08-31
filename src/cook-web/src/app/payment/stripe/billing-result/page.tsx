@@ -116,11 +116,12 @@ export default function StripeBillingResultPage() {
 
   const reportCheckoutResult = useCallback(
     (
-      orderBid: string,
+      payloadOrderBid: string,
+      deduplicationOrderBid: string,
       outcome: 'success' | 'failed' | 'cancelled',
       failureCategory?: CreatorBillingFailureCategory,
     ) => {
-      const resultKey = `result:${orderBid || 'missing'}`;
+      const resultKey = `result:${deduplicationOrderBid || 'missing'}`;
       if (reportedAnalyticsKeysRef.current.has(resultKey)) {
         return;
       }
@@ -129,7 +130,7 @@ export default function StripeBillingResultPage() {
         trackEvent,
         CREATOR_BILLING_ANALYTICS_EVENTS.result,
         buildCreatorBillingResultAnalytics({
-          ...(orderBid ? { billOrderBid: orderBid } : {}),
+          ...(payloadOrderBid ? { billOrderBid: payloadOrderBid } : {}),
           paymentProvider: 'stripe',
           sourceSurface: 'stripe_return',
           outcome,
@@ -164,7 +165,7 @@ export default function StripeBillingResultPage() {
   const syncBillingOrder = useCallback(
     async (orderBid: string) => {
       if (!orderBid) {
-        reportCheckoutResult('', 'failed', 'missing_order');
+        reportCheckoutResult('', '', 'failed', 'missing_order');
         setState({
           status: 'error',
           messageKey: 'module.billing.result.missingOrder',
@@ -189,7 +190,7 @@ export default function StripeBillingResultPage() {
         if (result.status === 'pending') {
           if (canceled) {
             if (consumeStripeBillingOrderForAnalytics(orderBid)) {
-              reportCheckoutResult('', 'cancelled');
+              reportCheckoutResult('', orderBid, 'cancelled');
             }
           } else {
             reportCheckoutStatus(orderBid, 'pending');
@@ -205,10 +206,15 @@ export default function StripeBillingResultPage() {
         if (result.status !== 'paid') {
           if (result.status === 'refunded') {
             consumeStripeBillingOrderForAnalytics(orderBid);
-            reportCheckoutResult(orderBid, 'failed', 'payment_failed');
+            reportCheckoutResult(
+              orderBid,
+              orderBid,
+              'failed',
+              'payment_failed',
+            );
           } else if (canceled) {
             if (consumeStripeBillingOrderForAnalytics(orderBid)) {
-              reportCheckoutResult('', 'cancelled');
+              reportCheckoutResult('', orderBid, 'cancelled');
             }
           } else {
             reportCheckoutStatus(orderBid, 'confirmation_failed');
@@ -222,7 +228,7 @@ export default function StripeBillingResultPage() {
         }
 
         consumeStripeBillingOrderForAnalytics(orderBid);
-        reportCheckoutResult(orderBid, 'success');
+        reportCheckoutResult(orderBid, orderBid, 'success');
         await refreshBillingPageCaches();
 
         setState({
@@ -247,7 +253,7 @@ export default function StripeBillingResultPage() {
 
   useEffect(() => {
     if (!billingOrderBid) {
-      reportCheckoutResult('', 'failed', 'missing_order');
+      reportCheckoutResult('', '', 'failed', 'missing_order');
       setState({
         status: 'error',
         messageKey: 'module.billing.result.missingOrder',
