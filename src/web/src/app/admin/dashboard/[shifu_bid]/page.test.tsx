@@ -282,6 +282,9 @@ describe('AdminDashboardCourseDetailPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Course 1')).toBeInTheDocument();
     expect(
+      screen.getByText('module.dashboard.detail.basicInfo.learnerCount'),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(
         'module.dashboard.detail.basicInfo.statusLabels.published',
       ),
@@ -298,6 +301,11 @@ describe('AdminDashboardCourseDetailPage', () => {
         name: 'module.dashboard.detail.metricsTooltips.completionRate',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', {
+        name: /module\.dashboard\.detail\.metricsTooltips/,
+      }),
+    ).toHaveLength(7);
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('13800138000')).toBeInTheDocument();
     expect(screen.getByText('2025-01-02 16:00:00')).toBeInTheDocument();

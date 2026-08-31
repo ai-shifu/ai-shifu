@@ -5,7 +5,7 @@
       "chapterCount": "Nombre de chapitres",
       "courseName": "Nom du cours",
       "createdAt": "Créé le",
-      "learnerCount": "Nombre d’apprenants",
+      "learnerCount": "Participants au total",
       "status": "Statut du cours",
       "statusLabels": {
         "published": "Publié",
@@ -128,11 +128,9 @@
       "title": "Format d’apprentissage"
     },
     "metrics": {
-      "activeLearnersLast7Days": "Apprenants actifs (7 j)",
       "completedLearners": "Apprenants ayant terminé",
       "completionRate": "Taux d’achèvement",
       "learningLearners": "Apprenants en cours",
-      "newLearnersLast7Days": "Nouveaux apprenants (7 j)",
       "orderAmount": "Montant des commandes",
       "orderCount": "Commandes",
       "rating": "Note du cours",
@@ -140,15 +138,13 @@
       "totalQuestions": "Questions de suivi"
     },
     "metricsTooltips": {
-      "activeLearnersLast7Days": "Apprenants ayant eu une activité d’apprentissage au cours des 7 derniers jours, utile pour voir l’engagement récent.",
-      "completedLearners": "Apprenants ayant terminé ce cours, utile pour mesurer le volume de complétion.",
-      "completionRate": "Part des apprenants ayant terminé le cours, utile pour évaluer la complétion globale.",
-      "learningLearners": "Apprenants actuellement en cours, utile pour voir combien utilisent encore le cours.",
-      "newLearnersLast7Days": "Apprenants ayant commencé ou rejoint ce cours au cours des 7 derniers jours, utile pour voir la croissance récente.",
-      "orderAmount": "Montant encaissé des commandes payées réussies pour ce cours ; les commandes avec Code d’échange ne sont pas incluses dans ce montant.",
-      "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées et celles avec Code d’échange, utile pour évaluer la conversion.",
-      "rating": "Note moyenne donnée aux leçons par les apprenants, utile pour évaluer l’expérience d’apprentissage.",
-      "totalQuestions": "Questions de suivi posées par les apprenants sur ce cours. Ouvrez pour voir le détail."
+      "completedLearners": "Personnes ayant terminé toutes les leçons de ce cours.",
+      "completionRate": "Part des participants ayant terminé toutes les leçons de ce cours.",
+      "learningLearners": "Personnes ayant commencé le cours sans avoir encore terminé toutes les leçons.",
+      "orderAmount": "Montant total payé par les utilisateurs pour ce cours. Les commandes avec code d’échange ne sont pas incluses.",
+      "orderCount": "Commandes réussies de ce cours, y compris les commandes payées et celles avec code d’échange.",
+      "rating": "Note moyenne donnée aux leçons par les apprenants, sur 5.",
+      "totalQuestions": "Nombre total de questions de suivi posées à l’IA pendant l’apprentissage. Ouvrez pour voir le détail."
     },
     "ratings": {
       "emptyValue": "--",

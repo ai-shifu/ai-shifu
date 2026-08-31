@@ -397,26 +397,6 @@ export default function AdminDashboardCourseDetailPage() {
         tooltip: t('module.dashboard.detail.metricsTooltips.completionRate'),
       },
       {
-        label: t('module.dashboard.detail.metrics.newLearnersLast7Days'),
-        value: formatCount(
-          detail.metrics.new_learner_count_last_7_days,
-          emptyValue,
-        ),
-        tooltip: t(
-          'module.dashboard.detail.metricsTooltips.newLearnersLast7Days',
-        ),
-      },
-      {
-        label: t('module.dashboard.detail.metrics.activeLearnersLast7Days'),
-        value: formatCount(
-          detail.metrics.active_learner_count_last_7_days,
-          emptyValue,
-        ),
-        tooltip: t(
-          'module.dashboard.detail.metricsTooltips.activeLearnersLast7Days',
-        ),
-      },
-      {
         label: t('module.dashboard.detail.metrics.totalQuestions'),
         value: formatCount(detail.metrics.total_follow_up_count, emptyValue),
         tooltip: t('module.dashboard.detail.metricsTooltips.totalQuestions'),
@@ -433,11 +413,9 @@ export default function AdminDashboardCourseDetailPage() {
     ],
     [
       currencySymbol,
-      detail.metrics.active_learner_count_last_7_days,
       detail.metrics.completed_learner_count,
       detail.metrics.completion_rate,
       detail.metrics.learning_learner_count,
-      detail.metrics.new_learner_count_last_7_days,
       detail.metrics.order_amount,
       detail.metrics.order_count,
       detail.metrics.rating_score,
