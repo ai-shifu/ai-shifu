@@ -6,7 +6,7 @@
   "server.user.checkCodeError": 1009,
   "server.user.checkCodeExpired": 1010,
   "server.user.smsSendError": 1011,
-  "server.user.smsSendFrequently": 1012,
+  "server.user.smsSendTooFrequent": 1012,
   "server.user.smsSendExpired": 1013,
   "server.user.smsCheckError": 1014,
   "server.user.googleOAuthStateInvalid": 1015,

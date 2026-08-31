@@ -2,6 +2,8 @@
 
 import uuid
 
+import pytest
+
 
 class _FakeRedis:
     def __init__(self, values: object = None) -> None:
@@ -187,6 +189,7 @@ def test_send_email_code_stores_lowercase_identifier(
 
     import flaskr.service.user.utils as user_utils
     from flaskr.dao import db
+    from flaskr.service.common.models import AppError
     from flaskr.service.user.models import UserVerifyCode
 
     from tests.common.fixtures.fake_redis import FakeRedis
@@ -264,11 +267,198 @@ def test_send_email_code_stores_lowercase_identifier(
             assert "Verify your AI-Shifu account" in html_body
             assert "1234" in html_body
             assert "Please do not reply" in html_body
+
+            with pytest.raises(AppError) as exc_info:
+                user_utils.send_email_code(app, raw_email)
+            assert exc_info.value.code == 1033
         finally:
             UserVerifyCode.query.filter(
                 UserVerifyCode.mail.in_([raw_email, normalized_email])
             ).delete(synchronize_session=False)
             db.session.commit()
+
+
+@pytest.mark.parametrize(
+    ("policy_name", "identifier", "next_identifier", "expected_rate_code"),
+    [
+        ("_SMS_CHALLENGE_POLICY", "13800138000", "13800138001", 1012),
+        (
+            "_EMAIL_CHALLENGE_POLICY",
+            "learner@example.com",
+            "next@example.com",
+            1033,
+        ),
+    ],
+)
+def test_prepare_verification_challenge_shares_limits_and_persistence(
+    monkeypatch: object,
+    policy_name: str,
+    identifier: str,
+    next_identifier: str,
+    expected_rate_code: int,
+) -> None:
+    from types import SimpleNamespace
+
+    import flaskr.service.user.utils as user_utils
+    from flaskr.service.common.models import AppError
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    fake_redis = FakeRedis()
+    captured_records: list[dict[str, object]] = []
+    monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils.time, "time", lambda: 100)
+    monkeypatch.setattr(
+        user_utils.secrets,
+        "choice",
+        lambda _characters: "1",
+    )
+
+    def _capture_record(**kwargs: object) -> object:
+        captured_records.append(kwargs)
+        return SimpleNamespace(verify_code_send=0)
+
+    monkeypatch.setattr(
+        user_utils,
+        "create_and_commit_user_verify_code",
+        _capture_record,
+    )
+    monkeypatch.setattr(
+        user_utils,
+        "_redis_prefix",
+        lambda current_app, config_key: current_app.config[config_key],
+    )
+
+    fake_app = SimpleNamespace(
+        config={
+            "REDIS_KEY_PREFIX_IP_BAN": "test:ip-ban:",
+            "REDIS_KEY_PREFIX_IP_LIMIT": "test:ip-limit:",
+            "REDIS_KEY_PREFIX_PHONE_LIMIT": "test:phone-limit:",
+            "REDIS_KEY_PREFIX_PHONE_CODE": "test:phone-code:",
+            "REDIS_KEY_PREFIX_MAIL_LIMIT": "test:mail-limit:",
+            "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail-code:",
+            "IP_SMS_LIMIT_COUNT": 2,
+            "IP_SMS_LIMIT_TIME": 60,
+            "IP_MAIL_LIMIT_COUNT": 2,
+            "IP_MAIL_LIMIT_TIME": 60,
+            "IP_BAN_TIME": 300,
+            "SMS_CODE_INTERVAL": 60,
+            "PHONE_CODE_EXPIRE_TIME": 300,
+            "MAIL_CODE_INTERVAL": 60,
+            "MAIL_CODE_EXPIRE_TIME": 300,
+        }
+    )
+    policy = getattr(user_utils, policy_name)
+    challenge = user_utils._prepare_verification_challenge(
+        fake_app,
+        identifier,
+        "203.0.113.10",
+        policy,
+    )
+
+    assert challenge.code == "1111"
+    assert challenge.expire_in == 300
+    assert (
+        fake_redis.get(
+            user_utils._redis_prefix(fake_app, policy.code_prefix_config) + identifier
+        )
+        == b"1111"
+    )
+    assert captured_records == [
+        {
+            "mail": identifier if policy.verify_code_type == 2 else None,
+            "phone": identifier if policy.verify_code_type == 1 else None,
+            "verify_code": "1111",
+            "verify_code_type": policy.verify_code_type,
+            "ip": "203.0.113.10",
+        }
+    ]
+
+    with pytest.raises(AppError) as rate_error:
+        user_utils._prepare_verification_challenge(
+            fake_app,
+            identifier,
+            "203.0.113.10",
+            policy,
+        )
+    assert rate_error.value.code == expected_rate_code
+
+    with pytest.raises(AppError) as ip_error:
+        user_utils._prepare_verification_challenge(
+            fake_app,
+            next_identifier,
+            "203.0.113.10",
+            policy,
+        )
+    assert ip_error.value.code == 9999
+
+
+def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
+    app: object, monkeypatch: object
+) -> None:
+    import flaskr.service.user.utils as user_utils
+    from flaskr.dao import db
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user.models import UserVerifyCode
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    class _FailingSMTPSSL:
+        initialized_with: tuple[object, object] | None = None
+        quit_called = False
+
+        def __init__(self, server: object, port: object) -> None:
+            type(self).initialized_with = (server, port)
+
+        def login(self, *_args: object) -> None:
+            return None
+
+        def sendmail(self, *_args: object) -> None:
+            message = "simulated send failure"
+            raise RuntimeError(message)
+
+        def quit(self) -> None:
+            type(self).quit_called = True
+
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils.smtplib, "SMTP_SSL", _FailingSMTPSSL)
+    monkeypatch.setattr(
+        user_utils.smtplib,
+        "SMTP",
+        lambda *_args, **_kwargs: pytest.fail("STARTTLS must not be used for port 465"),
+    )
+    fixed_digits = iter("2468")
+    monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
+
+    email = "ssl@example.com"
+    smtp_config = {
+        "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail:",
+        "REDIS_KEY_PREFIX_MAIL_LIMIT": "test:mail-limit:",
+        "MAIL_CODE_EXPIRE_TIME": "300",
+        "MAIL_CODE_INTERVAL": "60",
+        "SMTP_SENDER": "sender@example.com",
+        "SMTP_SERVER": "smtp.example.com",
+        "SMTP_PORT": "465",
+        "SMTP_USERNAME": "sender@example.com",
+        "SMTP_PASSWORD": "secret",
+    }
+    for key, value in smtp_config.items():
+        monkeypatch.setenv(key, value)
+        app.config.enhanced._cache.pop(key, None)
+
+    with app.app_context():
+        try:
+            with pytest.raises(AppError):
+                user_utils.send_email_code(app, email)
+
+            assert _FailingSMTPSSL.initialized_with == ("smtp.example.com", 465)
+            assert _FailingSMTPSSL.quit_called is True
+        finally:
+            UserVerifyCode.query.filter_by(mail=email).delete(synchronize_session=False)
+            db.session.commit()
+            for key in smtp_config:
+                app.config.enhanced._cache.pop(key, None)
 
 
 def test_send_email_code_uses_requested_language_and_singular_expiry(
