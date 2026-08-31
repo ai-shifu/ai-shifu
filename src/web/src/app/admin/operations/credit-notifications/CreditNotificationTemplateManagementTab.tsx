@@ -1,0 +1,439 @@
+import { RefreshCw, Search } from 'lucide-react';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import AdminRowActions from '@/app/admin/components/AdminRowActions';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { useEnvStore } from '@/c-store';
+import type { EnvStoreState } from '@/c-types/store';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/Sheet';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import type {
+  AdminOperationCreditNotificationPolicy,
+  AdminOperationCreditNotificationTemplateOption,
+} from '../operation-credit-notification-types';
+import { CreditNotificationConfigOverviewTable } from './CreditNotificationConfigOverviewTable';
+
+type TemplateColumn = {
+  key: string;
+  header: React.ReactNode;
+  className?: string;
+};
+
+const TEMPLATE_STATUS_KEYS: Record<string, string> = {
+  AUDIT_SATE_CANCEL:
+    'module.operationsCreditNotifications.templateManagement.status.AUDIT_SATE_CANCEL',
+  AUDIT_STATE_CANCEL:
+    'module.operationsCreditNotifications.templateManagement.status.AUDIT_STATE_CANCEL',
+  AUDIT_STATE_INIT:
+    'module.operationsCreditNotifications.templateManagement.status.AUDIT_STATE_INIT',
+  AUDIT_STATE_NOT_PASS:
+    'module.operationsCreditNotifications.templateManagement.status.AUDIT_STATE_NOT_PASS',
+  AUDIT_STATE_PASS:
+    'module.operationsCreditNotifications.templateManagement.status.AUDIT_STATE_PASS',
+};
+
+const TEMPLATE_TYPE_KEYS: Record<string, string> = {
+  '0': 'module.operationsCreditNotifications.templateManagement.type.0',
+  '1': 'module.operationsCreditNotifications.templateManagement.type.1',
+  '2': 'module.operationsCreditNotifications.templateManagement.type.2',
+  '6': 'module.operationsCreditNotifications.templateManagement.type.6',
+};
+
+export function CreditNotificationTemplateManagementTab({
+  templates,
+  loading,
+  error,
+  policy,
+  refresh,
+}: {
+  templates: AdminOperationCreditNotificationTemplateOption[];
+  loading: boolean;
+  error: string;
+  policy: AdminOperationCreditNotificationPolicy;
+  refresh: () => void;
+}) {
+  const { t } = useTranslation();
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
+  const contactMode = resolveContactMode(
+    loginMethodsEnabled,
+    defaultLoginMethod,
+  );
+  const [keyword, setKeyword] = React.useState('');
+  const [status, setStatus] = React.useState('');
+  const [selectedTemplate, setSelectedTemplate] =
+    React.useState<AdminOperationCreditNotificationTemplateOption | null>(null);
+
+  const statusLabel = React.useCallback(
+    (value: string) =>
+      TEMPLATE_STATUS_KEYS[value]
+        ? t(TEMPLATE_STATUS_KEYS[value])
+        : value || '--',
+    [t],
+  );
+  const typeLabel = React.useCallback(
+    (value: string) =>
+      TEMPLATE_TYPE_KEYS[value] ? t(TEMPLATE_TYPE_KEYS[value]) : value || '--',
+    [t],
+  );
+  const bindingsFor = React.useCallback(
+    (templateCode: string) =>
+      Object.entries(policy.types)
+        .filter(([, config]) => config.template_code === templateCode)
+        .map(([notificationType]) => notificationType),
+    [policy.types],
+  );
+
+  const statuses = React.useMemo(
+    () =>
+      Array.from(
+        new Set(templates.map(item => item.template_status).filter(Boolean)),
+      ).sort(),
+    [templates],
+  );
+  const rows = React.useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    return templates
+      .filter(item => !status || item.template_status === status)
+      .filter(item => {
+        if (!normalizedKeyword) return true;
+        return [item.template_name, item.template_code, item.template_content]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedKeyword);
+      })
+      .map(item => ({ ...item, key: item.template_code }));
+  }, [keyword, status, templates]);
+
+  if (contactMode === 'email') {
+    return (
+      <div className='rounded-lg border border-border bg-white p-6'>
+        <h2 className='text-base font-semibold'>
+          {t(
+            'module.operationsCreditNotifications.templateManagement.emailTitle',
+          )}
+        </h2>
+        <p className='mt-2 text-sm text-muted-foreground'>
+          {t(
+            'module.operationsCreditNotifications.templateManagement.emailComingSoon',
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  const columns: TemplateColumn[] = [
+    {
+      key: 'name',
+      header: t(
+        'module.operationsCreditNotifications.templateManagement.columns.name',
+      ),
+    },
+    {
+      key: 'status',
+      header: t(
+        'module.operationsCreditNotifications.templateManagement.columns.status',
+      ),
+    },
+    {
+      key: 'type',
+      header: t(
+        'module.operationsCreditNotifications.templateManagement.columns.type',
+      ),
+    },
+    {
+      key: 'bindings',
+      header: t(
+        'module.operationsCreditNotifications.templateManagement.columns.bindings',
+      ),
+    },
+    {
+      key: 'content',
+      header: t(
+        'module.operationsCreditNotifications.templateManagement.columns.content',
+      ),
+      className: 'min-w-72',
+    },
+    {
+      key: 'action',
+      header: t(
+        'module.operationsCreditNotifications.templateManagement.columns.action',
+      ),
+      className: 'w-24 min-w-24 whitespace-nowrap text-center',
+    },
+  ];
+
+  return (
+    <div className='space-y-4 pb-6'>
+      <div className='flex flex-wrap items-end justify-between gap-3'>
+        <div>
+          <h2 className='text-base font-semibold'>
+            {t(
+              'module.operationsCreditNotifications.templateManagement.smsTitle',
+            )}
+          </h2>
+          <p className='mt-1 text-sm text-muted-foreground'>
+            {t(
+              'module.operationsCreditNotifications.templateManagement.smsDescription',
+            )}
+          </p>
+        </div>
+        <Button
+          type='button'
+          variant='outline'
+          onClick={refresh}
+          disabled={loading}
+        >
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+          />
+          {t('module.operationsCreditNotifications.templateManagement.refresh')}
+        </Button>
+      </div>
+      <div className='flex flex-wrap gap-3'>
+        <div className='relative min-w-64 flex-1'>
+          <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
+          <Input
+            value={keyword}
+            onChange={event => setKeyword(event.target.value)}
+            className='pl-9'
+            placeholder={t(
+              'module.operationsCreditNotifications.templateManagement.searchPlaceholder',
+            )}
+          />
+        </div>
+        <Select
+          value={status || '__all__'}
+          onValueChange={value => setStatus(value === '__all__' ? '' : value)}
+        >
+          <SelectTrigger
+            className='h-10 min-w-48 bg-white'
+            aria-label={t(
+              'module.operationsCreditNotifications.templateManagement.statusFilter',
+            )}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='__all__'>
+              {t(
+                'module.operationsCreditNotifications.templateManagement.allStatuses',
+              )}
+            </SelectItem>
+            {statuses.map(value => (
+              <SelectItem
+                key={value}
+                value={value}
+              >
+                {statusLabel(value)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {error ? (
+        <p className='text-sm text-destructive'>
+          {t(
+            'module.operationsCreditNotifications.templateManagement.loadError',
+          )}
+        </p>
+      ) : null}
+      {rows.length ? (
+        <CreditNotificationConfigOverviewTable
+          columns={columns}
+          rows={rows}
+          renderCell={(row, column) => {
+            if (column.key === 'name')
+              return (
+                <div>
+                  <div className='font-medium'>{row.template_name || '--'}</div>
+                  <code className='text-xs text-muted-foreground'>
+                    {row.template_code}
+                  </code>
+                </div>
+              );
+            if (column.key === 'status')
+              return (
+                <Badge variant='secondary'>
+                  {statusLabel(row.template_status)}
+                </Badge>
+              );
+            if (column.key === 'type')
+              return (
+                <span className='text-sm'>{typeLabel(row.template_type)}</span>
+              );
+            if (column.key === 'bindings') {
+              const bindings = bindingsFor(row.template_code);
+              return bindings.length ? (
+                <div className='flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground'>
+                  {bindings.map(value => (
+                    <span key={value}>
+                      {t(`module.operationsCreditNotifications.type.${value}`)}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className='text-sm text-muted-foreground'>
+                  {t(
+                    'module.operationsCreditNotifications.templateManagement.unbound',
+                  )}
+                </span>
+              );
+            }
+            if (column.key === 'content')
+              return (
+                <p className='line-clamp-2 text-sm'>
+                  {row.template_content || '--'}
+                </p>
+              );
+            return (
+              <div className='flex justify-center'>
+                <AdminRowActions
+                  label={t('module.operationsCreditNotifications.actions.more')}
+                  className='whitespace-nowrap'
+                  actions={[
+                    {
+                      key: 'detail',
+                      label: t(
+                        'module.operationsCreditNotifications.actions.detail',
+                      ),
+                      onClick: () => setSelectedTemplate(row),
+                    },
+                  ]}
+                />
+              </div>
+            );
+          }}
+        />
+      ) : (
+        <div className='rounded-lg border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground'>
+          {loading
+            ? t(
+                'module.operationsCreditNotifications.templateManagement.loading',
+              )
+            : t(
+                'module.operationsCreditNotifications.templateManagement.empty',
+              )}
+        </div>
+      )}
+      <Sheet
+        open={Boolean(selectedTemplate)}
+        onOpenChange={open => {
+          if (!open) setSelectedTemplate(null);
+        }}
+      >
+        <SheetContent className='flex w-full flex-col overflow-hidden border-border bg-white p-0 sm:w-[420px] md:w-[560px]'>
+          <SheetHeader className='border-b border-border px-6 py-4 pe-12'>
+            <SheetTitle>{selectedTemplate?.template_name || '--'}</SheetTitle>
+            <SheetDescription>
+              {t(
+                'module.operationsCreditNotifications.templateManagement.detailDescription',
+              )}
+            </SheetDescription>
+          </SheetHeader>
+          {selectedTemplate ? (
+            <div className='flex-1 space-y-5 overflow-auto px-6 py-5 text-sm'>
+              {[
+                {
+                  label: t(
+                    'module.operationsCreditNotifications.templateManagement.detail.code',
+                  ),
+                  value: selectedTemplate.template_code,
+                },
+                {
+                  label: t(
+                    'module.operationsCreditNotifications.templateManagement.detail.status',
+                  ),
+                  value: statusLabel(selectedTemplate.template_status),
+                },
+                {
+                  label: t(
+                    'module.operationsCreditNotifications.templateManagement.detail.type',
+                  ),
+                  value: typeLabel(selectedTemplate.template_type),
+                },
+                {
+                  label: t(
+                    'module.operationsCreditNotifications.templateManagement.detail.syncedAt',
+                  ),
+                  value:
+                    formatAdminUtcDateTime(selectedTemplate.last_synced_at) ||
+                    '--',
+                },
+              ].map(item => (
+                <div
+                  key={item.label}
+                  className='grid grid-cols-[120px_1fr] gap-4'
+                >
+                  <span className='text-muted-foreground'>{item.label}</span>
+                  <span className='break-all text-right'>{item.value}</span>
+                </div>
+              ))}
+              <div>
+                <div className='mb-2 text-muted-foreground'>
+                  {t(
+                    'module.operationsCreditNotifications.templateManagement.detail.content',
+                  )}
+                </div>
+                <div className='whitespace-pre-wrap rounded-md bg-muted/40 p-3 leading-6'>
+                  {selectedTemplate.template_content || '--'}
+                </div>
+              </div>
+              <div>
+                <div className='mb-2 text-muted-foreground'>
+                  {t(
+                    'module.operationsCreditNotifications.templateManagement.detail.variables',
+                  )}
+                </div>
+                <div className='flex flex-wrap gap-1'>
+                  {selectedTemplate.placeholders?.length
+                    ? selectedTemplate.placeholders.map(value => (
+                        <code
+                          key={value}
+                          className='rounded bg-muted px-2 py-1 text-xs'
+                        >
+                          {value}
+                        </code>
+                      ))
+                    : '--'}
+                </div>
+              </div>
+              {selectedTemplate.error_message ? (
+                <div>
+                  <div className='mb-2 text-muted-foreground'>
+                    {t(
+                      'module.operationsCreditNotifications.templateManagement.detail.error',
+                    )}
+                  </div>
+                  <div className='rounded-md border border-destructive/30 bg-destructive/5 p-3 text-destructive'>
+                    {selectedTemplate.error_message}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}

@@ -19,7 +19,7 @@ export type NotificationFilters = {
 };
 
 export type ErrorState = { message: string; code?: number };
-export type PageTab = 'records' | 'config';
+export type PageTab = 'records' | 'config' | 'templates';
 export type NotificationOverviewCardKey =
   | 'total'
   | 'pending'
@@ -659,4 +659,4 @@ export const buildPlaceholderGuideGroups = ({
 };
 
 export const normalizeTab = (value?: string | null): PageTab =>
-  value === 'config' ? 'config' : DEFAULT_TAB;
+  value === 'config' || value === 'templates' ? value : DEFAULT_TAB;

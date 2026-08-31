@@ -83,6 +83,8 @@ LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS = "estimated_days"
 LOW_BALANCE_ESTIMATED_DAYS_MAX_DAYS = 365
 LOW_BALANCE_ESTIMATED_DAYS_MAX_LOOKBACK_DAYS = 365
 NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN = "aliyun"
+ALIYUN_TEMPLATE_LIST_PAGE_SIZE = 50
+ALIYUN_TEMPLATE_LIST_MAX_PAGES = 100
 NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED = "synced"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER = "failed_provider"
 CREDIT_NOTIFICATION_STATUS_SKIPPED = "skipped"
@@ -1032,23 +1034,51 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
             }
 
         now = now_utc()
-        response = query_sms_template_list_ali(app, page_index=1, page_size=50)
-        body = getattr(response, "body", None)
-        response_code = _template_body_value(body, "code") if body is not None else ""
-        if body is None or (response_code and response_code != "OK"):
-            return {
-                "items": _local_notification_template_options(app),
-                "source": "local",
-                "provider_available": False,
-                "error_code": response_code or "provider_failed",
-                "error_message": (
-                    _template_body_value(body, "message")
-                    if body is not None
-                    else "provider_failed"
-                ),
-            }
-
-        provider_items = getattr(body, "sms_template_list", None) or []
+        provider_items: list[object] = []
+        seen_template_codes: set[str] = set()
+        body = None
+        page_index = 1
+        page_size = ALIYUN_TEMPLATE_LIST_PAGE_SIZE
+        while True:
+            response = query_sms_template_list_ali(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+            )
+            body = getattr(response, "body", None)
+            response_code = (
+                _template_body_value(body, "code") if body is not None else ""
+            )
+            if body is None or (response_code and response_code != "OK"):
+                return {
+                    "items": _local_notification_template_options(app),
+                    "source": "local",
+                    "provider_available": False,
+                    "error_code": response_code or "provider_failed",
+                    "error_message": (
+                        _template_body_value(body, "message")
+                        if body is not None
+                        else "provider_failed"
+                    ),
+                }
+            page_items = list(getattr(body, "sms_template_list", None) or [])
+            new_page_items = []
+            for provider_item in page_items:
+                template_code = _template_list_body_value(
+                    provider_item, "template_code"
+                )
+                if not template_code or template_code in seen_template_codes:
+                    continue
+                seen_template_codes.add(template_code)
+                new_page_items.append(provider_item)
+            provider_items.extend(new_page_items)
+            if (
+                len(page_items) < page_size
+                or not new_page_items
+                or page_index >= ALIYUN_TEMPLATE_LIST_MAX_PAGES
+            ):
+                break
+            page_index += 1
         template_codes = [
             _template_list_body_value(provider_item, "template_code")
             for provider_item in provider_items

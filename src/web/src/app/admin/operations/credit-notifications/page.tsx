@@ -27,7 +27,6 @@ import { toast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
-  AdminOperationCreditNotificationDryRunResponse,
   AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationListResponse,
   AdminOperationCreditNotificationOverview,
@@ -36,10 +35,10 @@ import type {
   AdminOperationCreditNotificationRequeueResponse,
   AdminOperationCreditNotificationTemplateListResponse,
   AdminOperationCreditNotificationTemplateOption,
-  AdminOperationCreditNotificationTemplateSyncResponse,
 } from '../operation-credit-notification-types';
 import { CreditNotificationConfigTab } from './CreditNotificationConfigTab';
 import { CreditNotificationRecordsTab } from './CreditNotificationRecordsTab';
+import { CreditNotificationTemplateManagementTab } from './CreditNotificationTemplateManagementTab';
 import { getTemplateOptionsForType } from './CreditNotificationTypeConfigCard';
 import {
   clonePolicy,
@@ -50,7 +49,6 @@ import {
   DEFAULT_TAB,
   EMPTY_LABEL,
   type ErrorState,
-  type KnownNotificationType,
   normalizePolicy,
   type NotificationOverviewCardKey,
   NOTIFICATION_TYPES,
@@ -347,7 +345,7 @@ export default function AdminOperationCreditNotificationsPage() {
   }, [fetchOverview, fetchRecords, isReady]);
 
   React.useEffect(() => {
-    if (!isReady || activeTab !== 'config') {
+    if (!isReady || (activeTab !== 'config' && activeTab !== 'templates')) {
       return;
     }
     void loadConfigResources();
@@ -641,6 +639,12 @@ export default function AdminOperationCreditNotificationsPage() {
               >
                 {t('module.operationsCreditNotifications.tabs.config')}
               </TabsTrigger>
+              <TabsTrigger
+                value='templates'
+                className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+              >
+                {t('module.operationsCreditNotifications.tabs.templates')}
+              </TabsTrigger>
             </TabsList>
           }
         />
@@ -696,6 +700,19 @@ export default function AdminOperationCreditNotificationsPage() {
             saveConfig={saveConfig}
             clearTemplateSyncResult={clearTemplateSyncResult}
             resolveTypeLabel={resolveTypeLabel}
+          />
+        </TabsContent>
+
+        <TabsContent
+          value='templates'
+          className='mt-0 min-h-0 flex-1 overflow-auto pr-1'
+        >
+          <CreditNotificationTemplateManagementTab
+            templates={templateOptions}
+            loading={configLoading}
+            error={templateListError}
+            policy={policy}
+            refresh={() => void fetchTemplateOptions()}
           />
         </TabsContent>
       </Tabs>

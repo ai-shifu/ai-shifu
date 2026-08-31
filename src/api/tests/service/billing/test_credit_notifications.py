@@ -862,6 +862,59 @@ def test_list_credit_notification_templates_syncs_provider_list(
         assert template.placeholders_json == ["credits"]
 
 
+def test_list_credit_notification_templates_loads_all_provider_pages(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=f"test-key-{secrets.token_hex(4)}",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=secrets.token_urlsafe(24),
+    )
+    requested_pages: list[int] = []
+
+    def query_templates(
+        app: object,
+        *,
+        page_index: int,
+        page_size: int,
+    ) -> SimpleNamespace:
+        del app
+        requested_pages.append(page_index)
+        item_count = page_size if page_index == 1 else 1
+        return SimpleNamespace(
+            body=SimpleNamespace(
+                code="OK",
+                message="OK",
+                request_id=f"req-list-{page_index}",
+                sms_template_list=[
+                    SimpleNamespace(
+                        template_code=f"TPL-{page_index}-{index}",
+                        template_name=f"Template {page_index}-{index}",
+                        template_content="Credits ${credits}",
+                        audit_status="AUDIT_STATE_PASS",
+                        template_type="0",
+                        create_date="2026-05-22 00:00:00",
+                        order_id=f"order-{page_index}-{index}",
+                        reason={},
+                    )
+                    for index in range(item_count)
+                ],
+            )
+        )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.query_sms_template_list_ali",
+        query_templates,
+    )
+
+    payload = list_credit_notification_templates(app)
+
+    assert requested_pages == [1, 2]
+    assert len(payload["items"]) == 51
+    assert payload["items"][-1]["template_code"] == "TPL-2-0"
+
+
 def test_sync_credit_notification_template_records_provider_exception(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,

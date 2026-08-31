@@ -524,6 +524,54 @@ describe('AdminOperationCreditNotificationsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the complete Alibaba Cloud template library in the templates tab', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+
+    expect(await screen.findByText('Grant')).toBeInTheDocument();
+    expect(screen.getByText('TPL-GRANT')).toBeInTheDocument();
+    expect(screen.getByText('Credits ${credits}')).toBeInTheDocument();
+    expect(mockGetTemplates).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCreditNotifications.templateManagement.searchPlaceholder',
+      ),
+      { target: { value: 'does-not-exist' } },
+    );
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.templateManagement.empty',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows email template positioning without SMS templates on email sites', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+
+    expect(
+      await screen.findByText(
+        'module.operationsCreditNotifications.templateManagement.emailTitle',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('TPL-GRANT')).not.toBeInTheDocument();
+  });
+
   it('lists failed provider records and requeues them', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 

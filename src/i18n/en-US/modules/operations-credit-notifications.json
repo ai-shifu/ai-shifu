@@ -435,7 +435,53 @@
   },
   "tabs": {
     "config": "Notification Config",
-    "records": "Notification records"
+    "records": "Notification records",
+    "templates": "Template management"
+  },
+  "templateManagement": {
+    "allStatuses": "All review statuses",
+    "columns": {
+      "action": "Action",
+      "bindings": "Used by",
+      "content": "Content",
+      "name": "Template",
+      "status": "Review status",
+      "type": "Template type"
+    },
+    "detail": {
+      "code": "Template Code",
+      "content": "Full content",
+      "error": "Sync error",
+      "status": "Review status",
+      "syncedAt": "Last synced",
+      "type": "Template type",
+      "variables": "Variables"
+    },
+    "detailDescription": "Provider details and current business usage for this template.",
+    "emailComingSoon": "Email template management will be available after the email delivery provider is configured.",
+    "emailTitle": "Email templates",
+    "empty": "No templates match the current filters.",
+    "loadError": "The Alibaba Cloud template list could not be loaded. Local cached templates are shown when available.",
+    "loading": "Loading templates...",
+    "refresh": "Sync Alibaba Cloud SMS templates",
+    "searchPlaceholder": "Search template name, Code, or content",
+    "smsDescription": "All SMS templates synchronized from Alibaba Cloud, including templates not yet bound to a credit notification.",
+    "smsTitle": "Alibaba Cloud SMS templates",
+    "status": {
+      "AUDIT_SATE_CANCEL": "Canceled",
+      "AUDIT_STATE_CANCEL": "Canceled",
+      "AUDIT_STATE_INIT": "Under review",
+      "AUDIT_STATE_NOT_PASS": "Rejected",
+      "AUDIT_STATE_PASS": "Approved"
+    },
+    "statusFilter": "Review status",
+    "type": {
+      "0": "Notification SMS",
+      "1": "Promotional SMS",
+      "2": "Verification code",
+      "6": "International SMS"
+    },
+    "unbound": "Not in use"
   },
   "templateName": {
     "credit_expiring": "Credit expiry reminder notification template",
