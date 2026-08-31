@@ -239,6 +239,44 @@ def assert_current_stripe_campaign_provider_discounts_ready(
         raise_error("server.billing.campaignProviderDiscountSyncRequired")
 
 
+def load_current_stripe_campaign_provider_discount(
+    *,
+    campaign_bid: str,
+    product_bid: str,
+    provider_price_mapping: BillingProductProviderPrice,
+) -> BillingCampaignProviderDiscount | None:
+    """Return the active Stripe coupon row for checkout in the current price scope."""
+    normalized_campaign_bid = normalize_bid(campaign_bid)
+    normalized_product_bid = normalize_bid(product_bid)
+    provider_price_bid = normalize_bid(provider_price_mapping.provider_price_bid)
+    provider_account_id = normalize_bid(provider_price_mapping.provider_account_id)
+    if not (
+        normalized_campaign_bid
+        and normalized_product_bid
+        and provider_price_bid
+        and provider_account_id
+    ):
+        return None
+    return (
+        BillingCampaignProviderDiscount.query.filter(
+            BillingCampaignProviderDiscount.deleted == 0,
+            BillingCampaignProviderDiscount.campaign_bid == normalized_campaign_bid,
+            BillingCampaignProviderDiscount.product_bid == normalized_product_bid,
+            BillingCampaignProviderDiscount.product_provider_price_bid
+            == provider_price_bid,
+            BillingCampaignProviderDiscount.provider == PROVIDER_STRIPE,
+            BillingCampaignProviderDiscount.provider_account_id == provider_account_id,
+            BillingCampaignProviderDiscount.livemode
+            == int(bool(provider_price_mapping.livemode)),
+            BillingCampaignProviderDiscount.status
+            == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
+            BillingCampaignProviderDiscount.provider_coupon_id != "",
+        )
+        .order_by(BillingCampaignProviderDiscount.id.desc())
+        .first()
+    )
+
+
 def has_open_campaign_provider_coupons(campaign_bid: str) -> bool:
     """Return whether a campaign may still have live provider coupons."""
     normalized_campaign_bid = normalize_bid(campaign_bid)
@@ -478,11 +516,17 @@ def _prepare_discount_row(
             message = "Invalid percent discount"
             raise _error(code, message, binding)
         discount_amount = 0
-        percent_discount_amount = int(
-            (Decimal(list_price_amount) * discount_percent / Decimal(100)).quantize(
-                Decimal(1)
-            )
+        raw_percent_discount_amount = (
+            Decimal(list_price_amount) * discount_percent / Decimal(100)
         )
+        if (
+            raw_percent_discount_amount
+            != raw_percent_discount_amount.to_integral_value()
+        ):
+            code = "fractional_minor_unit_discount"
+            message = "Percent discount must resolve to an exact minor currency unit"
+            raise _error(code, message, binding)
+        percent_discount_amount = int(raw_percent_discount_amount)
         campaign_price_amount = max(list_price_amount - percent_discount_amount, 0)
     else:
         code = "invalid_discount_type"

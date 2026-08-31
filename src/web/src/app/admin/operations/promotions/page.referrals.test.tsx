@@ -186,7 +186,7 @@ describe('AdminOperationPromotionsPage referral campaigns', () => {
     );
     fireEvent.click(
       dialogScope.getByRole('button', {
-        name: 'module.billing.catalog.plans.creatorMonthly.title',
+        name: 'module.billing.catalog.plans.creatorMonthly.title · module.billing.catalog.labels.perMonth',
       }),
     );
 

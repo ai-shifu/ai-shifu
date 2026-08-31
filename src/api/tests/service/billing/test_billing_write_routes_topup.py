@@ -14,8 +14,12 @@ from tests.service.billing import (
     billing_write_routes_test_helpers as write_route_helpers,
 )
 from tests.service.billing.billing_write_routes_test_helpers import (
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_TOPUP,
+    BILLING_PRODUCT_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_TRIAL_PRODUCT_BID,
     CREDIT_BUCKET_CATEGORY_FREE,
@@ -25,6 +29,9 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_GIFT,
     CREDIT_SOURCE_TYPE_TOPUP,
+    BillingCampaign,
+    BillingCampaignProduct,
+    BillingCampaignProviderDiscount,
     BillingOrder,
     BillingSubscription,
     CreditLedgerEntry,
@@ -144,6 +151,89 @@ class TestBillingWriteRoutesTopup:
             "price_bill-product-topup-small"
         )
         assert "price_data" not in stripe_request["extra"]["line_items"][0]
+
+    def test_stripe_topup_checkout_uses_published_campaign_coupon(
+        self, billing_write_client: object
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = now_utc()
+        add_active_subscription(app, subscription_bid="sub-topup-stripe-coupon-1")
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-stripe-topup",
+                    name="Stripe topup campaign",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    discount_amount=500,
+                    discount_percent=Decimal("0"),
+                    bonus_credit_amount=Decimal("0"),
+                    enabled=1,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=1),
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-stripe-topup",
+                    product_bid="bill-product-topup-small",
+                    product_type=BILLING_PRODUCT_TYPE_TOPUP,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    discount_amount=500,
+                    discount_percent=Decimal("0"),
+                    campaign_price_amount=14500,
+                    bonus_credit_amount=Decimal("0"),
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProviderDiscount(
+                    campaign_provider_discount_bid="cpd-stripe-topup-small",
+                    campaign_bid="campaign-stripe-topup",
+                    product_bid="bill-product-topup-small",
+                    product_provider_price_bid="mapping-bill-product-topup-small",
+                    provider="stripe",
+                    provider_account_id="acct_test",
+                    provider_product_id="prod_bill-product-topup-small",
+                    provider_price_id="price_bill-product-topup-small",
+                    provider_coupon_id="coupon_topup_small",
+                    livemode=0,
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    list_price_amount=15000,
+                    campaign_price_amount=14500,
+                    discount_amount=500,
+                    discount_percent=Decimal("0"),
+                    currency="CNY",
+                    duration="once",
+                    status=BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
+                    metadata_json={},
+                    activated_at=now,
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.commit()
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "bill-product-topup-small",
+                "payment_provider": "stripe",
+            },
+            headers={"X-Language": "zh-CN"},
+        ).get_json(force=True)
+
+        assert checkout["code"] == 0
+        assert checkout["data"]["payable_amount"] == 14500
+        stripe_request = billing_write_client["stripe_requests"][-1]
+        assert stripe_request["extra"]["discounts"] == [
+            {"coupon": "coupon_topup_small"}
+        ]
 
     def test_repeated_topup_sync_repairs_bucket_snapshot_from_existing_grant(
         self, billing_write_client: object
@@ -834,5 +924,5 @@ class TestBillingWriteRoutesTopup:
             assert new_bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
             assert new_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
             assert raw_order.status == 1
-            assert raw_order.checkout_session_id == "cs_billing_test"
+            assert raw_order.checkout_session_id == f"cs_{bill_order_bid}"
             assert raw_order.payment_intent_id == "pi_billing_test"

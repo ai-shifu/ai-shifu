@@ -776,6 +776,8 @@
     "approximatePricePrefix": "Approx.",
     "audienceLabel": "Best suited for",
     "billedAnnually": "Billed {price} every 12 months.",
+    "campaignAnnualBilling": "First 12 months: {price}. Renews at {renewalPrice} every 12 months.",
+    "campaignMonthlyBilling": "First month only. Renews at {renewalPrice} per month.",
     "cancelAnytime": "Billed monthly. Cancel anytime.",
     "checkoutNotice": "Stripe checkout is available. You will be redirected to Stripe to complete payment.",
     "comingSoon": {

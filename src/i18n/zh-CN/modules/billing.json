@@ -776,6 +776,8 @@
     "approximatePricePrefix": "约",
     "audienceLabel": "适用场景",
     "billedAnnually": "每 12 个月支付 {price}",
+    "campaignAnnualBilling": "首 12 个月 {price}，之后每 12 个月按 {renewalPrice} 续费。",
+    "campaignMonthlyBilling": "仅首月优惠，之后每月按 {renewalPrice} 续费。",
     "cancelAnytime": "按月付费，可随时取消。",
     "checkoutNotice": "已支持 Stripe 在线支付，点击后将跳转至 Stripe 完成付款。",
     "comingSoon": {
