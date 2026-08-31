@@ -874,7 +874,6 @@ def test_qwen_glm_53_params_use_lowest_supported_reasoning(model_id: object) -> 
     assert llm._reload_qwen_params(model_id, 0.4) == {
         "temperature": 0.4,
         "extra_body": {
-            "enable_thinking": True,
             "reasoning_effort": "low",
         },
     }
@@ -1029,7 +1028,6 @@ def test_qwen_glm_53_thinking_policy_removes_caller_conflicts() -> None:
         "temperature": 0.4,
         "extra_body": {
             "custom_field": "keep",
-            "enable_thinking": True,
             "reasoning_effort": "low",
         },
     }
@@ -1199,7 +1197,6 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 {
                     "extra_body": {
-                        "enable_thinking": True,
                         "reasoning_effort": "low",
                     }
                 },
@@ -1302,7 +1299,7 @@ def test_litellm_198_native_adapter_contracts() -> None:
 
     assert contracts["deepseek"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["dashscope"]["body"]["enable_thinking"] is False
-    assert contracts["dashscope_glm_53"]["body"]["enable_thinking"] is True
+    assert "enable_thinking" not in contracts["dashscope_glm_53"]["body"]
     assert contracts["dashscope_glm_53"]["body"]["reasoning_effort"] == "low"
     assert contracts["volcengine"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}

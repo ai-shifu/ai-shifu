@@ -780,12 +780,12 @@ def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, objec
 
 def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, object]:
     if model_id.casefold() in _QWEN_REQUIRED_THINKING_MODELS:
-        # DashScope's ZHIPU GLM-5.3 models always think. Disabling thinking
-        # returns HTTP 400, while low is their lowest supported thinking level.
+        # DashScope's ZHIPU GLM-5.3 models always think and default to enabled.
+        # Only set their lowest supported thinking level; the provider-policy
+        # merge removes any conflicting enable_thinking value from callers.
         return {
             "temperature": temperature,
             "extra_body": {
-                "enable_thinking": True,
                 "reasoning_effort": "low",
             },
         }
