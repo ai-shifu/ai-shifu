@@ -123,7 +123,9 @@ def verify_email_code(
                 identifier=normalized_email,
                 defaults=defaults,
             )
-            init_first_course(app, target_aggregate.user_bid)
+            creator_granted_now = (
+                init_first_course(app, target_aggregate.user_bid) or creator_granted_now
+            )
         else:
             entity = get_user_entity_by_bid(
                 target_aggregate.user_bid, include_deleted=True
@@ -141,7 +143,9 @@ def verify_email_code(
                 entity = update_user_entity_fields(entity, **updates)
                 if promote_state:
                     created_new_user = True
-                    init_first_course(app, entity.user_bid)
+                    creator_granted_now = (
+                        init_first_course(app, entity.user_bid) or creator_granted_now
+                    )
 
         upsert_credential(
             app,
@@ -154,11 +158,14 @@ def verify_email_code(
             verified=True,
         )
 
-        creator_granted_now = ensure_admin_creator_and_demo_permissions(
-            app,
-            target_aggregate.user_bid,
-            target_aggregate.language,
-            login_context,
+        creator_granted_now = (
+            ensure_admin_creator_and_demo_permissions(
+                app,
+                target_aggregate.user_bid,
+                target_aggregate.language,
+                login_context,
+            )
+            or creator_granted_now
         )
 
         refreshed = load_user_aggregate(target_aggregate.user_bid)
