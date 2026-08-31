@@ -25,7 +25,10 @@ const mockPush = jest.fn();
 const mockGetDashboardCourseDetail = api.getDashboardCourseDetail as jest.Mock;
 const mockGetDashboardCourseLearners =
   api.getDashboardCourseLearners as jest.Mock;
-const mockTranslate = (key: string) => key;
+const mockTranslate = (key: string) =>
+  key === 'module.dashboard.detail.basicInfo.learnerCount'
+    ? 'Total Participants'
+    : key;
 
 const createDetailResponse = (overrides?: Record<string, unknown>) => ({
   basic_info: {
@@ -40,11 +43,9 @@ const createDetailResponse = (overrides?: Record<string, unknown>) => ({
   metrics: {
     order_count: 3,
     order_amount: '99.00',
-    new_learner_count_last_7_days: 1,
     learning_learner_count: 1,
     completed_learner_count: 1,
     completion_rate: '50.00',
-    active_learner_count_last_7_days: 1,
     total_follow_up_count: 8,
     rating_score: '4.0',
   },
@@ -281,9 +282,7 @@ describe('AdminDashboardCourseDetailPage', () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText('Course 1')).toBeInTheDocument();
-    expect(
-      screen.getByText('module.dashboard.detail.basicInfo.learnerCount'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Total Participants')).toBeInTheDocument();
     expect(
       screen.getByText(
         'module.dashboard.detail.basicInfo.statusLabels.published',
@@ -301,11 +300,21 @@ describe('AdminDashboardCourseDetailPage', () => {
         name: 'module.dashboard.detail.metricsTooltips.completionRate',
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole('button', {
-        name: /module\.dashboard\.detail\.metricsTooltips/,
-      }),
-    ).toHaveLength(7);
+    [
+      'orderCount',
+      'orderAmount',
+      'learningLearners',
+      'completedLearners',
+      'completionRate',
+      'totalQuestions',
+      'rating',
+    ].forEach(metricKey => {
+      expect(
+        screen.getByRole('button', {
+          name: `module.dashboard.detail.metricsTooltips.${metricKey}`,
+        }),
+      ).toBeInTheDocument();
+    });
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('13800138000')).toBeInTheDocument();
     expect(screen.getByText('2025-01-02 16:00:00')).toBeInTheDocument();
@@ -415,11 +424,9 @@ describe('AdminDashboardCourseDetailPage', () => {
             ...createDetailResponse().metrics,
             order_count: 0,
             order_amount: '0.00',
-            new_learner_count_last_7_days: 0,
             learning_learner_count: 0,
             completed_learner_count: 0,
             completion_rate: '0.00',
-            active_learner_count_last_7_days: 0,
             total_follow_up_count: 0,
             rating_score: '',
           },

@@ -1408,11 +1408,9 @@ class TestDashboardRoutes:
         assert detail_payload["data"]["metrics"] == {
             "order_count": 3,
             "order_amount": "60.00",
-            "new_learner_count_last_7_days": 2,
             "learning_learner_count": 1,
             "completed_learner_count": 1,
             "completion_rate": "33.33",
-            "active_learner_count_last_7_days": 1,
             "total_follow_up_count": 3,
             "rating_score": "4.0",
         }
@@ -2508,6 +2506,28 @@ class TestDashboardRoutes:
                         created_at=now - timedelta(minutes=50),
                         updated_at=now - timedelta(minutes=50),
                     ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u4-l1-in-progress",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-1",
+                        user_bid="learner-4",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=40),
+                        updated_at=now - timedelta(minutes=40),
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u4-l2-in-progress",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-2",
+                        user_bid="learner-4",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=30),
+                        updated_at=now - timedelta(minutes=30),
+                    ),
                 ]
             )
             db.session.commit()
@@ -2517,9 +2537,10 @@ class TestDashboardRoutes:
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["basic_info"]["learner_count"] == 3
+        assert payload["data"]["basic_info"]["learner_count"] == 4
+        assert payload["data"]["metrics"]["learning_learner_count"] == 2
         assert payload["data"]["metrics"]["completed_learner_count"] == 2
-        assert payload["data"]["metrics"]["completion_rate"] == "66.67"
+        assert payload["data"]["metrics"]["completion_rate"] == "50.00"
 
     def test_course_detail_rejects_non_owned_course(
         self,

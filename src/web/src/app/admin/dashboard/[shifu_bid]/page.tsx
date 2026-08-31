@@ -45,11 +45,9 @@ const EMPTY_DETAIL: DashboardCourseDetailResponse = {
   metrics: {
     order_count: 0,
     order_amount: '0.00',
-    new_learner_count_last_7_days: 0,
     learning_learner_count: 0,
     completed_learner_count: 0,
     completion_rate: '0.00',
-    active_learner_count_last_7_days: 0,
     total_follow_up_count: 0,
     rating_score: '',
   },

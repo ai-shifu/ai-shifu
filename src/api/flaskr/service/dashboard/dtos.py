@@ -93,9 +93,6 @@ class DashboardCourseDetailMetricsDTO(AutoJsonMixin, BaseModel):
     order_amount: str = Field(
         ..., description="Order amount with 2 decimal places", required=False
     )
-    new_learner_count_last_7_days: int = Field(
-        ..., description="Distinct new learners in last 7 days", required=False
-    )
     learning_learner_count: int = Field(
         ..., description="Learners currently in progress", required=False
     )
@@ -104,9 +101,6 @@ class DashboardCourseDetailMetricsDTO(AutoJsonMixin, BaseModel):
     )
     completion_rate: str = Field(
         ..., description="Completion rate percentage with 2 decimals", required=False
-    )
-    active_learner_count_last_7_days: int = Field(
-        ..., description="Distinct active learners in last 7 days", required=False
     )
     total_follow_up_count: int = Field(
         ..., description="Total follow-up question count", required=False
