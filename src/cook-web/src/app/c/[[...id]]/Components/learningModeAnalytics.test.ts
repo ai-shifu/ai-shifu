@@ -28,20 +28,40 @@ describe('learningModeAnalytics', () => {
       shouldTrackLastLearningMode({
         previewMode: true,
         storedLearningMode: 'listen',
+        resolvedLearningMode: 'listen',
       }),
     ).toBe(false);
     expect(
       shouldTrackLastLearningMode({
         previewMode: false,
         storedLearningMode: null,
+        resolvedLearningMode: 'read',
       }),
     ).toBe(false);
     expect(
       shouldTrackLastLearningMode({
         previewMode: false,
         storedLearningMode: 'listen',
+        resolvedLearningMode: 'listen',
       }),
     ).toBe(true);
+  });
+
+  test('excludes stored modes that resolve to an available fallback', () => {
+    expect(
+      shouldTrackLastLearningMode({
+        previewMode: false,
+        storedLearningMode: 'listen',
+        resolvedLearningMode: 'read',
+      }),
+    ).toBe(false);
+    expect(
+      shouldTrackLastLearningMode({
+        previewMode: false,
+        storedLearningMode: 'classroom',
+        resolvedLearningMode: 'read',
+      }),
+    ).toBe(false);
   });
 
   test('builds the restored-mode payload from stable IDs and an enum', () => {

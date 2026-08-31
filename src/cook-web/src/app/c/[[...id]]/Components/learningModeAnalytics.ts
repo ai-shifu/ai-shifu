@@ -23,10 +23,15 @@ export const buildLearningModeSelectionAnalytics = ({
 export const shouldTrackLastLearningMode = ({
   previewMode,
   storedLearningMode,
+  resolvedLearningMode,
 }: {
   previewMode: boolean;
   storedLearningMode: LearningMode | null;
-}) => !previewMode && storedLearningMode !== null;
+  resolvedLearningMode: LearningMode;
+}) =>
+  !previewMode &&
+  storedLearningMode !== null &&
+  storedLearningMode === resolvedLearningMode;
 
 export const buildLastLearningModeAnalytics = ({
   shifuBid,

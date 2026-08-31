@@ -22,6 +22,7 @@ import {
   EnvStoreState,
   SystemStoreState,
   CourseStoreState,
+  LearningMode,
 } from '@/c-types/store';
 
 import { useEnvStore, useCourseStore } from '@/c-store';
@@ -97,6 +98,9 @@ export default function ChatLayout({
   const initializedLearningModeStorageCoursesRef = useRef<Set<string>>(
     new Set(),
   );
+  const initialStoredLearningModesRef = useRef<
+    Map<string, LearningMode | null>
+  >(new Map());
   const { i18n, t } = useTranslation();
   const { trackEvent } = useTracking();
   const routeParams = useParams<{ id?: string[] }>();
@@ -395,22 +399,54 @@ export default function ChatLayout({
       return;
     }
 
-    // Inspect each course only at its first mode initialization in this mount.
-    // Mark URL overrides and preview routes as initialized too, so removing an
-    // override or making a later explicit selection cannot be misreported as a
-    // storage restoration.
-    initializedLearningModeStorageCoursesRef.current.add(storageCourseId);
-    if (hasListenModeOverride || urlModeParam !== null) {
+    // URL overrides and preview routes never count as storage restoration.
+    if (hasListenModeOverride || urlModeParam !== null || isPreviewMode) {
+      initializedLearningModeStorageCoursesRef.current.add(storageCourseId);
       return;
     }
 
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
+    if (!initialStoredLearningModesRef.current.has(storageCourseId)) {
+      initialStoredLearningModesRef.current.set(
+        storageCourseId,
+        storedLearningMode,
+      );
+    }
+    const initialStoredLearningMode =
+      initialStoredLearningModesRef.current.get(storageCourseId) ?? null;
+
+    // Capability data can arrive after the stored preference. Wait to classify
+    // the analytics restoration, but reject it if an explicit selection changes
+    // storage in the meantime.
+    if (storedLearningMode !== initialStoredLearningMode) {
+      initializedLearningModeStorageCoursesRef.current.add(storageCourseId);
+      return;
+    }
+    if (
+      (storedLearningMode === 'listen' && courseTtsEnabledForMode === null) ||
+      (storedLearningMode === 'classroom' &&
+        canUseClassroomModeForCourse === null)
+    ) {
+      return;
+    }
+
+    const resolvedLearningMode = resolveCourseLearningMode({
+      courseTtsEnabled: courseTtsEnabledForMode,
+      courseDefaultListenModeEnabled: courseDefaultListenModeEnabledForMode,
+      canUseClassroomMode: canUseClassroomModeForCourse,
+      hasListenModeOverride,
+      listenModeParam,
+      urlModeParam,
+      storedLearningMode,
+    });
+    initializedLearningModeStorageCoursesRef.current.add(storageCourseId);
 
     if (
       storedLearningMode === null ||
       !shouldTrackLastLearningMode({
         previewMode: isPreviewMode,
         storedLearningMode,
+        resolvedLearningMode,
       })
     ) {
       return;
@@ -420,12 +456,16 @@ export default function ChatLayout({
       buildLastLearningModeAnalytics({
         shifuBid: storageCourseId,
         outlineBid,
-        learningMode: storedLearningMode,
+        learningMode: resolvedLearningMode,
       }),
     );
   }, [
+    canUseClassroomModeForCourse,
+    courseDefaultListenModeEnabledForMode,
+    courseTtsEnabledForMode,
     hasListenModeOverride,
     isPreviewMode,
+    listenModeParam,
     outlineBid,
     storageCourseId,
     trackEvent,

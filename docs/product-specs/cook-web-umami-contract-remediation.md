@@ -405,8 +405,12 @@ IDs, and raw errors are excluded.
 `learner_last_learning_mode` measures initialization: it is emitted once when a
 live learner route restores a stored course-scoped mode, with `shifu_bid`,
 optional `outline_bid`, and `learning_mode=read|listen|classroom`. Preview and
-missing stored preference are excluded. It remains because that question is
-different from an explicit mode-selection transition.
+missing stored preference are excluded. Capability resolution must confirm that
+the stored mode remains available; a fallback to `read` after TTS or classroom
+access checks emits no restoration event. An explicit selection made while a
+capability check is pending also excludes the initial stored preference from
+restoration reporting. It remains because that question is different from an
+explicit mode-selection transition.
 
 ## Learner run start
 

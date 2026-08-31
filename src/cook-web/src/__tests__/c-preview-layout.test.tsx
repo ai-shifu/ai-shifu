@@ -256,6 +256,136 @@ describe('C preview layout', () => {
     );
   });
 
+  test('does not report a stored listen mode when TTS is unavailable', async () => {
+    window.history.replaceState({}, '', '/c/123');
+    window.localStorage.setItem('course_learning_mode:123', 'listen');
+    act(() => {
+      useSystemStore.setState({
+        learningMode: 'read',
+        canUseClassroomMode: false,
+        previewMode: false,
+        skip: false,
+      });
+      useCourseStore.setState({
+        courseSettingsCourseId: '123',
+        courseTtsEnabled: false,
+      });
+    });
+
+    render(
+      <ChatLayout>
+        <LearningModeSwitch />
+      </ChatLayout>,
+    );
+
+    await act(async () => {});
+    expect(useSystemStore.getState().learningMode).toBe('read');
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_last_learning_mode',
+      expect.anything(),
+    );
+  });
+
+  test('waits for TTS capability before reporting a stored listen mode', async () => {
+    window.history.replaceState({}, '', '/c/123');
+    window.localStorage.setItem('course_learning_mode:123', 'listen');
+    act(() => {
+      useSystemStore.setState({
+        learningMode: 'read',
+        canUseClassroomMode: false,
+        previewMode: false,
+        skip: false,
+      });
+      useCourseStore.setState({
+        courseSettingsCourseId: '123',
+        courseTtsEnabled: null,
+      });
+    });
+
+    render(
+      <ChatLayout>
+        <LearningModeSwitch />
+      </ChatLayout>,
+    );
+
+    await act(async () => {});
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_last_learning_mode',
+      expect.anything(),
+    );
+
+    act(() => {
+      useCourseStore.getState().updateCourseSettings('123', {
+        ttsEnabled: true,
+        defaultListenModeEnabled: false,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_last_learning_mode',
+        {
+          shifu_bid: '123',
+          learning_mode: 'listen',
+        },
+      );
+    });
+  });
+
+  test('does not report the initial stored mode after an explicit selection while capability is pending', async () => {
+    window.history.replaceState({}, '', '/c/123');
+    window.localStorage.setItem('course_learning_mode:123', 'listen');
+    act(() => {
+      useSystemStore.setState({
+        learningMode: 'read',
+        canUseClassroomMode: false,
+        previewMode: false,
+        skip: false,
+      });
+      useCourseStore.setState({
+        courseSettingsCourseId: '123',
+        courseTtsEnabled: null,
+      });
+    });
+
+    render(
+      <ChatLayout>
+        <LearningModeSwitch />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(useSystemStore.getState().learningMode).toBe('listen');
+    });
+    fireEvent.click(
+      screen.getByRole('radio', {
+        name: 'module.chat.learningModeRead',
+      }),
+    );
+    await waitFor(() => {
+      expect(window.localStorage.getItem('course_learning_mode:123')).toBe(
+        'read',
+      );
+    });
+
+    act(() => {
+      useCourseStore.getState().updateCourseSettings('123', {
+        ttsEnabled: true,
+        defaultListenModeEnabled: false,
+      });
+    });
+    await act(async () => {});
+
+    expect(useSystemStore.getState().learningMode).toBe('read');
+    expect(window.localStorage.getItem('course_learning_mode:123')).toBe(
+      'read',
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_last_learning_mode',
+      expect.anything(),
+    );
+  });
+
   test('applies preview mode before child effects run', async () => {
     mockSearchParamsValue = 'preview=true';
     window.history.replaceState({}, '', '/c/123?preview=true');
