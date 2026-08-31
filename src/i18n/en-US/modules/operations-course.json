@@ -256,8 +256,7 @@
       "learnerCount": "Learners",
       "orderAmount": "Order Value (Incl. Coupon Codes)",
       "orderCount": "Orders",
-      "ratingScore": "Rating",
-      "visitCount30d": "Visitors (30d)"
+      "ratingScore": "Rating"
     },
     "metricsTooltips": {
       "completedUserAvgCredits": "Average credits spent by users who finished this course and have recorded billed credit usage.",

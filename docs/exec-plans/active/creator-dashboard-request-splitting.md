@@ -65,13 +65,13 @@ it needs an ExecPlan to keep the contract and validation path explicit.
   - `src/api/flaskr/service/dashboard/dtos.py`
   - `src/api/tests/service/dashboard/test_dashboard_routes.py`
 - Frontend entry points:
-  - `src/cook-web/src/app/admin/dashboard/[shifu_bid]/page.tsx`
-  - `src/cook-web/src/app/admin/dashboard/[shifu_bid]/page.test.tsx`
-  - `src/cook-web/src/api/api.ts`
-  - `src/cook-web/src/types/dashboard.ts`
+  - `src/web/src/app/admin/dashboard/[shifu_bid]/page.tsx`
+  - `src/web/src/app/admin/dashboard/[shifu_bid]/page.test.tsx`
+  - `src/web/src/api/api.ts`
+  - `src/web/src/types/dashboard.ts`
 - Follow-up references for request-id protection:
-  - `src/cook-web/src/app/admin/dashboard/[shifu_bid]/follow-ups/page.tsx`
-  - `src/cook-web/src/app/admin/dashboard/[shifu_bid]/ratings/page.tsx`
+  - `src/web/src/app/admin/dashboard/[shifu_bid]/follow-ups/page.tsx`
+  - `src/web/src/app/admin/dashboard/[shifu_bid]/ratings/page.tsx`
 
 ## Plan of Work
 

@@ -23,7 +23,6 @@ from flask import Flask, current_app
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.billing.consts import (

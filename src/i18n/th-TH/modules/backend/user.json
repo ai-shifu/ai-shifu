@@ -3,6 +3,9 @@
   "__flat__": {
     "checkCodeError": "รหัสยืนยันแบบรูปภาพไม่ถูกต้อง",
     "checkCodeExpired": "รหัสยืนยันแบบรูปภาพหมดอายุแล้ว",
+    "deviceAuthAlreadyHandled": "คำขออนุญาตนี้ได้รับการดำเนินการแล้ว",
+    "deviceAuthTooManyRequests": "มีคำขออนุญาตมากเกินไป กรุณาลองใหม่ภายหลัง",
+    "deviceCodeInvalid": "รหัสจับคู่ไม่ถูกต้องหรือหมดอายุแล้ว กรุณาเริ่มการอนุญาตใหม่จากบรรทัดคำสั่ง",
     "emailSendFailed": "ส่งอีเมลไม่สำเร็จ",
     "emailSendTooFrequent": "ส่งอีเมลถี่เกินไป",
     "emailVerificationExpiry": "รหัสยืนยันจะหมดอายุใน {expiry_duration}",
@@ -31,6 +34,8 @@
     "passwordNeedsDigit": "รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว",
     "passwordNeedsLetter": "รหัสผ่านต้องมีตัวอักษรอย่างน้อย 1 ตัว",
     "passwordTooShort": "รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร",
+    "sessionNotFound": "ไม่พบเซสชันการเข้าสู่ระบบนี้ หรือสิ้นสุดไปแล้ว",
+    "sessionRevokeIncomplete": "สิ้นสุดเซสชันแล้ว แต่การล้างแคชล้มเหลว อาจใช้เวลาสองสามนาทีจึงจะหยุดทำงาน",
     "smsCheckError": "รหัสยืนยันทาง SMS ไม่ถูกต้อง",
     "smsSendExpired": "รหัสยืนยันทาง SMS หมดอายุแล้ว",
     "smsSendTooFrequent": "ส่ง SMS ถี่เกินไป",

@@ -75,7 +75,7 @@ called only the localizer and did not publish an operator configuration.
 `service/common/profile_onboarding.py` owns canonical configuration and save
 semantics. `service/common/profile_onboarding_prompt.py` owns the LLM compiler.
 `route/profile.py` resolves the learner locale and creates the frozen session.
-The operator page under `cook-web` continues to edit only the master prompt.
+The operator page under `web` continues to edit only the master prompt.
 
 ## Plan of Work
 

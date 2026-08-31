@@ -3,7 +3,7 @@
 > 自包含执行文档。时区物理收口已完成（分支 `aichy/time-260620`，8 个 commit，`fmt` 为唯一 UTC 出口）。
 > 本计划清理 billing 残留的 `timezone_name` 死参数链与前端 `?timezone=` 注入。
 > conda python: `/opt/homebrew/Caskroom/miniconda/base/envs/ai-shifu/bin/python`
-> 测试：`cd src/api && pytest tests/service/billing -q`；`cd src/cook-web && ./node_modules/.bin/jest src/components/billing src/hooks src/app/admin/billing`
+> 测试：`cd src/api && pytest tests/service/billing -q`；`cd src/web && ./node_modules/.bin/jest src/components/billing src/hooks src/app/admin/billing`
 > 注意：本地 dev billing 未启用（端点返回 `7103`），无法实时验证，**完全依赖单测**。
 
 ## 背景
@@ -69,10 +69,10 @@
 ## 验证
 ```bash
 cd src/api && /opt/homebrew/Caskroom/miniconda/base/envs/ai-shifu/bin/python -m pytest tests/service/billing -q   # 378 baseline
-cd src/cook-web && npx tsc --noEmit && ./node_modules/.bin/jest src/components/billing src/hooks src/app/admin/billing
+cd src/web && npx tsc --noEmit && ./node_modules/.bin/jest src/components/billing src/hooks src/app/admin/billing
 # 残留检查
 grep -rn "timezone_name\|withBillingTimezone\|_get_timezone_name" src/api/flaskr/service/billing | grep -v __pycache__   # 期望仅 _format_sms_datetime 相关(若保留)
-grep -rn "withBillingTimezone\|buildBillingSwrKey(.*getBrowserTimeZone" src/cook-web/src   # 期望空
+grep -rn "withBillingTimezone\|buildBillingSwrKey(.*getBrowserTimeZone" src/web/src   # 期望空
 ```
 
 ## 风险

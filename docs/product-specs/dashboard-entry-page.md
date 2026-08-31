@@ -124,24 +124,24 @@ Note: if product expects a different meaning for “generation”, adjust before
 
 ## Page structure
 
-- `src/cook-web/src/app/admin/dashboard/page.tsx`
+- `src/web/src/app/admin/dashboard/page.tsx`
   - New entry page UI
   - KPI cards: courses/learners/orders/generation
   - Course list (table or cards)
   - Date range filter (reuse existing `DateRangeFilter` pattern)
   - Click course => `router.push('/admin/dashboard/shifu/${shifuBid}')`
 
-- `src/cook-web/src/app/admin/dashboard/shifu/[shifu_bid]/page.tsx`
+- `src/web/src/app/admin/dashboard/shifu/[shifu_bid]/page.tsx`
   - Move current course-level dashboard implementation here
   - Keep existing learner detail sheet and charts unchanged
 
 ## API integration
 
-Add in `src/cook-web/src/api/api.ts`:
+Add in `src/web/src/api/api.ts`:
 
 - `getDashboardEntry: 'GET /dashboard/entry'`
 
-Add new TS types in `src/cook-web/src/types/dashboard.ts`:
+Add new TS types in `src/web/src/types/dashboard.ts`:
 
 - `DashboardEntrySummary`
 - `DashboardEntryCourseItem`
@@ -171,7 +171,7 @@ Then run:
 
 - `python scripts/check_translations.py`
 - `python scripts/check_translation_usage.py --fail-on-unused`
-- `cd src/cook-web && npm run i18n:keys`
+- `cd src/web && npm run i18n:keys`
 
 ## Test Plan
 

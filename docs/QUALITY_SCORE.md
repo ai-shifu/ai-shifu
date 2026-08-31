@@ -33,13 +33,22 @@ governance work can be prioritized mechanically.
   refactors, and keep `scripts/harness_diagnostics.py` plus the local
   observability stack in the standard smoke-failure workflow.
 
-### cook-web
+### Web frontend
 
 - Current grade: `B`
 - Gaps: route and component tests exist, but the browser harness still covers
-  only the minimum login, admin, and learner paths.
+  only the minimum login, admin, and learner paths. The shared Umami transport
+  and the highest-risk producer families now have privacy and regression
+  coverage. The legacy generic visit event and incorrect predecessor names in
+  the remediated publish, login, payment, billing, and course-creation families
+  are deleted rather than dual-written; untouched event families still need
+  complete versioned consumer contracts.
 - Next action: keep the Playwright smoke suite green under the default dev
-  harness and widen it only after the current three paths stay stable.
+  harness and widen it only after the current three paths stay stable. Verify
+  the new canonical series and their consumers after production deployment,
+  inventory remaining dashboard consumers, and enforce
+  `docs/references/frontend-product-analytics.md` for all new or changed Cook
+  Web Umami events.
 
 ### runtime harness
 

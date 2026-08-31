@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FRONTEND_ROOT = ROOT / "src" / "cook-web" / "src"
+FRONTEND_ROOT = ROOT / "src" / "web" / "src"
 BACKEND_ROOT = ROOT / "src" / "api"
 DEFAULT_BASELINE = ROOT / "docs" / "generated" / "architecture-boundary-baseline.json"
 FIXTURE_ROOT = ROOT / "scripts" / "testdata" / "architecture_boundaries"
@@ -505,6 +505,13 @@ def main() -> int:
     args = parse_args()
     if args.run_fixture_tests:
         return run_fixture_tests()
+
+    if not FRONTEND_ROOT.is_dir():
+        print(
+            f"Frontend source directory is missing: {FRONTEND_ROOT}",
+            file=sys.stderr,
+        )
+        return 1
 
     baseline_path = Path(args.baseline).resolve()
     current = dedupe_violations(

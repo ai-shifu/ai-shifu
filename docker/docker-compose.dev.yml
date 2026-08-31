@@ -89,7 +89,7 @@ services:
   ai-shifu-cook-web-dev:
     image: ai-shifu-cook-web-dev:latest
     build:
-      context: ../src/cook-web
+      context: ../src/web
       dockerfile: Dockerfile_DEV
     restart: unless-stopped
     command:
@@ -107,8 +107,8 @@ services:
     depends_on:
       - ai-shifu-api-dev
     volumes:
-      - ../src/cook-web/public:/app/public
-      - ../src/cook-web/src:/app/src
+      - ../src/web/public:/app/public
+      - ../src/web/src:/app/src
       - ../src/i18n:/app/src/i18n
 
   ai-shifu-nginx-dev-dev:

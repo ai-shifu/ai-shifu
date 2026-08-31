@@ -151,8 +151,8 @@ credits without a unified expiry.
     jump behavior
 - focused commands:
   - `cd src/api && pytest tests/service/shifu/test_admin_users.py -q`
-  - `cd src/cook-web && npm run test -- src/app/admin/operations/users/page.test.tsx 'src/app/admin/operations/users/[user_bid]/page.test.tsx'`
-  - `cd src/cook-web && npm run lint`
+  - `cd src/web && npm run test -- src/app/admin/operations/users/page.test.tsx 'src/app/admin/operations/users/[user_bid]/page.test.tsx'`
+  - `cd src/web && npm run lint`
 - expected existing limitation:
-  - `cd src/cook-web && npm run type-check` may still be blocked by the known
+  - `cd src/web && npm run type-check` may still be blocked by the known
     legacy `markdown-flow-ui/slide` type errors under `src/app/c/[[...id]]/`

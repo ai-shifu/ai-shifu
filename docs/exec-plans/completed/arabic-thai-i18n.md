@@ -51,8 +51,8 @@ released with Arabic and Thai resources.
 
 - Shared locale source: `src/i18n/`.
 - Locale registration and namespace metadata: `src/i18n/locales.json`.
-- Cook Web i18n singleton and backend bridge: `src/cook-web/src/i18n.ts` and `src/cook-web/src/lib/`.
-- Generated frontend key types: `src/cook-web/src/types/i18n-keys.d.ts`.
+- Cook Web i18n singleton and backend bridge: `src/web/src/i18n.ts` and `src/web/src/lib/`.
+- Generated frontend key types: `src/web/src/types/i18n-keys.d.ts`.
 - Validation: `scripts/check_translations.py`, `scripts/check_translation_usage.py`, and the frontend i18n tests.
 - Locale selection and document direction must be traced from the real app route/layout entry points before editing.
 
@@ -116,7 +116,7 @@ files or discard unrelated worktree changes.
 
 - `src/i18n/locales.json` is the shared locale/namespace contract.
 - JSON locale bundles are consumed by both backend and frontend loaders.
-- `src/cook-web/src/i18n.ts` and `src/cook-web/src/lib/unified-i18n-backend.ts` define frontend loading/fallback behavior.
-- `src/cook-web/src/types/i18n-keys.d.ts` is generated from locale keys and must not drift from the source bundles.
+- `src/web/src/i18n.ts` and `src/web/src/lib/unified-i18n-backend.ts` define frontend loading/fallback behavior.
+- `src/web/src/types/i18n-keys.d.ts` is generated from locale keys and must not drift from the source bundles.
 - ICU/i18next formatting, React `Trans` content, and MarkdownFlow interaction syntax impose placeholder and token-preservation constraints.
 - Browser/CSS direction support may affect shared layout components, tables, icons, and third-party editor/player surfaces.

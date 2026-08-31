@@ -110,13 +110,13 @@ was not added.
 ## Context and Orientation
 
 - Dialog shell and phase footer:
-  `src/cook-web/src/components/profile-onboarding/LearnerProfileDialog.tsx`
+  `src/web/src/components/profile-onboarding/LearnerProfileDialog.tsx`
 - Phase views and information usage control:
-  `src/cook-web/src/components/profile-onboarding/LearnerProfileDialogViews.tsx`
+  `src/web/src/components/profile-onboarding/LearnerProfileDialogViews.tsx`
 - MarkdownFlow collection region:
-  `src/cook-web/src/components/profile-onboarding/ProfileOnboardingConversation.tsx`
+  `src/web/src/components/profile-onboarding/ProfileOnboardingConversation.tsx`
 - Pasted AI answer editor:
-  `src/cook-web/src/components/profile-onboarding/ProfileAssistantAnswersView.tsx`
+  `src/web/src/components/profile-onboarding/ProfileAssistantAnswersView.tsx`
 - Focused tests live beside those components.
 
 ## Plan of Work

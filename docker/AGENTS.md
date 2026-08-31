@@ -107,7 +107,7 @@ environment examples.
 
 - `SKILL.md` is the repository-level skill routing index.
 
-- `src/api/SKILL.md` and `src/cook-web/SKILL.md` remain the right entry points
+- `src/api/SKILL.md` and `src/web/SKILL.md` remain the right entry points
   when Docker changes are tightly coupled to backend or frontend behavior.
 
 - Keep durable Docker rules here; move repeated deployment or release

@@ -783,10 +783,6 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
     monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 7,
-    )
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1012,7 +1008,6 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
         "updated_at": "2026-04-03T15:30:00Z",
     }
     assert payload["data"]["metrics"] == {
-        "visit_count_30d": 7,
         "learner_count": 2,
         "order_count": 1,
         "order_amount": "88",
@@ -1092,10 +1087,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
     monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     monkeypatch.setattr(
         "flaskr.service.shifu.admin_operations.courses_credit_estimate.get_current_models",
         lambda _app: [
@@ -2073,10 +2064,6 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
     monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
@@ -4670,10 +4657,6 @@ def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
     monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
@@ -4747,10 +4730,6 @@ def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
     monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 2, 9, 0, 0)
 
     with app.app_context():
@@ -4815,10 +4794,6 @@ def test_admin_operation_course_detail_metrics_prefer_paid_price_and_fallback_to
     monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 3, 9, 0, 0)
 
     with app.app_context():
@@ -4886,10 +4861,6 @@ def test_admin_operation_course_detail_metrics_include_successful_orders_across_
     monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 4, 9, 0, 0)
 
     with app.app_context():

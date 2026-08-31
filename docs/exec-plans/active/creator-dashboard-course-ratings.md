@@ -61,16 +61,16 @@ needs an ExecPlan to keep the contract and validation path legible.
   - `src/api/flaskr/service/dashboard/routes.py`
   - `src/api/tests/service/dashboard/test_dashboard_routes.py`
 - Frontend entry points:
-  - `src/cook-web/src/app/admin/dashboard/[shifu_bid]/page.tsx`
-  - `src/cook-web/src/app/admin/dashboard/[shifu_bid]/follow-ups/page.tsx`
-  - `src/cook-web/src/app/admin/dashboard/admin-dashboard-routes.ts`
-  - `src/cook-web/src/api/api.ts`
-  - `src/cook-web/src/types/dashboard.ts`
-  - `src/cook-web/src/app/admin/dashboard/[shifu_bid]/page.test.tsx`
+  - `src/web/src/app/admin/dashboard/[shifu_bid]/page.tsx`
+  - `src/web/src/app/admin/dashboard/[shifu_bid]/follow-ups/page.tsx`
+  - `src/web/src/app/admin/dashboard/admin-dashboard-routes.ts`
+  - `src/web/src/api/api.ts`
+  - `src/web/src/types/dashboard.ts`
+  - `src/web/src/app/admin/dashboard/[shifu_bid]/page.test.tsx`
 - Operator reference:
   - `src/api/flaskr/service/shifu/admin.py`
-  - `src/cook-web/src/app/admin/operations/[shifu_bid]/ratings/page.tsx`
-  - `src/cook-web/src/app/admin/operations/operation-course-types.ts`
+  - `src/web/src/app/admin/operations/[shifu_bid]/ratings/page.tsx`
+  - `src/web/src/app/admin/operations/operation-course-types.ts`
 
 ## Plan of Work
 

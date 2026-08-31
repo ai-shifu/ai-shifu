@@ -85,10 +85,10 @@ features.
 - Backend entry point today:
   - `src/api/flaskr/service/promo/admin.py`
 - Frontend entry points today:
-  - `src/cook-web/src/app/admin/operations/promotions/page.tsx`
-  - `src/cook-web/src/app/admin/operations/promotions/promotionPageShared.tsx`
+  - `src/web/src/app/admin/operations/promotions/page.tsx`
+  - `src/web/src/app/admin/operations/promotions/promotionPageShared.tsx`
 - Existing tests to extend first:
-  - `src/cook-web/src/app/admin/operations/promotions/page.test.tsx`
+  - `src/web/src/app/admin/operations/promotions/page.test.tsx`
   - `src/api/tests/service/promo/test_admin_promotions.py`
 
 The current backend already accepts `ops_state` in at least part of the
@@ -112,7 +112,7 @@ interpretations.”
    - accepted `ops_state` filter values
    - the actual data predicates behind each value
    - any coupon/activity-specific divergences
-2. Inspect `src/cook-web/src/app/admin/operations/promotions/page.tsx` and
+2. Inspect `src/web/src/app/admin/operations/promotions/page.tsx` and
    `promotionPageShared.tsx` to list:
    - where status badges are derived
    - where filter options are declared
@@ -151,12 +151,12 @@ interpretations.”
 #### Frontend
 
 - Coupon filter dropdown lives in
-  `src/cook-web/src/app/admin/operations/promotions/page.tsx`
+  `src/web/src/app/admin/operations/promotions/page.tsx`
   and exposes:
   - `expiring_soon`
   - `used_up`
 - Coupon table attention badges live in
-  `src/cook-web/src/app/admin/operations/promotions/promotionPageShared.tsx`
+  `src/web/src/app/admin/operations/promotions/promotionPageShared.tsx`
   and currently render only when `item.computed_status === 'active'`:
   - `used_up` if `used_count >= total_count`
   - `expiring_soon` if `end_at` is within `PROMOTION_EXPIRING_SOON_DAYS`
@@ -194,9 +194,9 @@ interpretations.”
   - `src/api/flaskr/service/promo/admin.py`
   - any DTO or serializer files touched by promotions filters/results
 - Frontend:
-  - `src/cook-web/src/app/admin/operations/promotions/page.tsx`
-  - `src/cook-web/src/app/admin/operations/promotions/promotionPageShared.tsx`
+  - `src/web/src/app/admin/operations/promotions/page.tsx`
+  - `src/web/src/app/admin/operations/promotions/promotionPageShared.tsx`
   - related admin UI filter/badge helpers if extraction becomes necessary
 - Validation dependencies:
   - `src/api/tests/service/promo/test_admin_promotions.py`
-  - `src/cook-web/src/app/admin/operations/promotions/page.test.tsx`
+  - `src/web/src/app/admin/operations/promotions/page.test.tsx`

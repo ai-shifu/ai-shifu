@@ -1164,11 +1164,11 @@ interface BillingPaymentProviderAdapter {
 
 当前前端的已知事实：
 
-- App Router 入口集中在 `src/cook-web/src/app/`
-- 接口定义集中在 `src/cook-web/src/api/api.ts`
-- 请求封装集中在 `src/cook-web/src/lib/request.ts`
-- 运行时配置通过 `src/cook-web/src/lib/initializeEnvData.ts` 写入 `envStore`
-- 管理端统一布局在 `src/cook-web/src/app/admin/layout.tsx`
+- App Router 入口集中在 `src/web/src/app/`
+- 接口定义集中在 `src/web/src/api/api.ts`
+- 请求封装集中在 `src/web/src/lib/request.ts`
+- 运行时配置通过 `src/web/src/lib/initializeEnvData.ts` 写入 `envStore`
+- 管理端统一布局在 `src/web/src/app/admin/layout.tsx`
 - 现有订单管理页已经使用 `Table + Sheet + 本地状态/搜索参数` 的管理端交互模式
 - `/admin` 现有创作中心首页已经接近目标结构；当前批次只做 Figma `方案1` 浅色稿对齐，不重做信息架构
 
@@ -1177,15 +1177,15 @@ v1 前端不新建全局 billing store，默认采用：
 - 读接口：SWR
 - 写接口：统一 `api` 方法 + 成功后 `mutate`
 - 页面局部状态：`useState`
-- 公共类型：新增 `src/cook-web/src/types/billing.ts`
+- 公共类型：新增 `src/web/src/types/billing.ts`
 
 #### 7.5.1 v1 路由与页面结构
 
 当前批次固定采用 Figma `方案1` 浅色稿，对 creator admin 侧只落一个 Billing Center 单路由，避免一开始拆太多子页面。
 
-- 新增 `src/cook-web/src/app/admin/billing/page.tsx`
-- 在 `src/cook-web/src/app/admin/layout.tsx` 侧边栏新增常驻 `我的会员` 卡片
-- 在 `src/cook-web/src/app/admin/layout.tsx` 侧边栏新增 `会员与积分` 菜单，统一跳转到 `/admin/billing`
+- 新增 `src/web/src/app/admin/billing/page.tsx`
+- 在 `src/web/src/app/admin/layout.tsx` 侧边栏新增常驻 `我的会员` 卡片
+- 在 `src/web/src/app/admin/layout.tsx` 侧边栏新增 `会员与积分` 菜单，统一跳转到 `/admin/billing`
 - Billing Center 使用 `Tabs` 拆成两个视图：
   - `套餐与积分`
   - `积分明细`
@@ -1204,9 +1204,26 @@ v1 前端不新建全局 billing store，默认采用：
   - 展示 bucket 来源摘要、积分流水、来源类型、余额变化，以及最近 activity
   - usage 类明细通过右侧 detail sheet 展开
 
-#### 7.5.2 v1 组件拆分
+#### 7.5.2 侧边账务卡片导航埋点
 
-当前 `src/cook-web/src/components/billing/` 的主要组件包括：
+- Business question：管理后台侧边账务卡片是否是值得保留的套餐入口。
+- Metric definition：按滚动 7 天和 30 天统计被接受的套餐入口原始交互次数；当前没有曝光事件，因此不得将其解释为点击率，也不得和 checkout 事件组成精确漏斗。
+- Event name：`creator_billing_sidebar_packages_click`。
+- Actor and surface：账务能力开启时可看到卡片的已登录后台用户，固定为管理后台侧边账务卡片的套餐入口；运营管理员不额外排除。
+- Trigger：套餐主链接接收到一次有效的鼠标主键、键盘 Enter、带修饰键的主键或鼠标中键激活时，在浏览器执行原生导航前发送。通过浏览器上下文菜单打开新标签页无法被页面观察，明确排除。
+- Population：仅在账务卡片实际渲染时可触发；guest、登录状态未确认、账务能力关闭、卡片隐藏、用户菜单覆盖或没有发生用户激活时不发送。
+- Count unit：一次被接受的链接激活。后续重复的主动激活分别计数。
+- Deduplication：每个 DOM 激活最多发送一次；不跨点击、页面或会话去重。键盘路径只监听链接产生的 `click`，不额外监听 `keydown`，避免双计。
+- Correlation：无 feature-owned correlation ID，不与 checkout 做逐次关联；共享 helper 的既有 transport fields 不作为新 consumer 依赖。
+- Consumers：产品与账务团队的管理后台套餐入口原始流量趋势分析。
+- Compatibility：新增 v1 事件，不复用或改写既有 `creator_billing_checkout_click`。
+- Verification：聚焦组件测试覆盖普通点击、Enter、Space、Meta/Ctrl/Shift 修饰键、鼠标中键、非导航辅助点击、详情链接排除、精确空载荷，以及同步抛错和异步拒绝时原生链接仍可继续导航；布局测试覆盖账务能力关闭时不渲染入口。
+
+Feature-owned payload 固定为 `{}`。共享 `useTracking` 仍会自动添加既有的 `user_type`、`user_id`、`device` 和 `timeStamp` transport fields；这些字段不是本事件新增的契约字段，新 consumer 不得依赖它们。不得添加 URL、query、referrer、账务数据、用户输入、错误原文或关联 ID；埋点始终 fail-open，不得阻塞或改变导航。
+
+#### 7.5.3 v1 组件拆分
+
+当前 `src/web/src/components/billing/` 的主要组件包括：
 
 - `BillingSidebarCard.tsx`
 - `BillingAlertsBanner.tsx`
@@ -1225,9 +1242,9 @@ v1 前端不新建全局 billing store，默认采用：
 - 详情查看沿用现有订单页的 `Sheet` 交互，不使用新窗口跳转
 - 购买动作统一在 dialog 中确认，再调用 checkout API
 
-#### 7.5.3 API 接入与前端类型
+#### 7.5.4 API 接入与前端类型
 
-需要在 `src/cook-web/src/api/api.ts` 增加：
+需要在 `src/web/src/api/api.ts` 增加：
 
 - `getBillingCatalog`
 - `getBillingOverview`
@@ -1243,7 +1260,7 @@ v1 前端不新建全局 billing store，默认采用：
 - `getAdminBillingOrders`
 - `adjustAdminBillingLedger`
 
-需要在 `src/cook-web/src/types/billing.ts` 定义：
+需要在 `src/web/src/types/billing.ts` 定义：
 
 - `BillingPlan`
 - `BillingTopupProduct`
@@ -1261,13 +1278,13 @@ v1 前端不新建全局 billing store，默认采用：
 - `getBillingLedger` 在 `Details` tab 激活时懒加载；order sync / checkout 由 Stripe result、Pingxx polling 和 checkout dialog 按需触发
 - 写操作成功后只刷新受影响的 SWR key，不全页硬刷新
 
-#### 7.5.4 Stripe 支付回跳
+#### 7.5.5 Stripe 支付回跳
 
-当前现有 Stripe 回跳页 `src/cook-web/src/app/payment/stripe/result/page.tsx` 是学员购课专用，成功后会跳到课程页，不适合 creator billing 直接复用。
+当前现有 Stripe 回跳页 `src/web/src/app/payment/stripe/result/page.tsx` 是学员购课专用，成功后会跳到课程页，不适合 creator billing 直接复用。
 
 v1 前端方案：
 
-- 新增 `src/cook-web/src/app/payment/stripe/billing-result/page.tsx`
+- 新增 `src/web/src/app/payment/stripe/billing-result/page.tsx`
 - 后端从 `HOST_URL` 派生 Stripe billing result URL
 - billing result 页职责：
   - 从 query 读取 `bill_order_bid` / `session_id`
@@ -1276,7 +1293,7 @@ v1 前端方案：
   - 成功后跳回 `/admin/billing`
   - 待支付或失败时展示明确状态和重试入口
 
-#### 7.5.5 v1.1 前端扩展
+#### 7.5.6 v1.1 前端扩展
 
 v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
@@ -1286,10 +1303,10 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
 当前实现状态：
 
-- `src/cook-web/src/app/admin/billing/page.tsx` 当前运行时只保留 2-tab shell：`Plans`、`Details`
+- `src/web/src/app/admin/billing/page.tsx` 当前运行时只保留 2-tab shell：`Plans`、`Details`
 - creator 侧 live surface 收敛为 overview checkout、Pingxx polling、Stripe billing result sync，以及 details 页中的 wallet / ledger activity
 - creator 侧 `Orders`、`Entitlements`、`Domains`、`Reports` 扩展 tab 当前不接线，也不宣称为 shipped UI
-- `src/cook-web/src/app/admin/billing/admin/page.tsx` 现已扩展为 6-tab ops console：`Subscriptions`、`Orders`、`Exceptions`、`Entitlements`、`Domains`、`Reports`
+- `src/web/src/app/admin/billing/admin/page.tsx` 现已扩展为 6-tab ops console：`Subscriptions`、`Orders`、`Exceptions`、`Entitlements`、`Domains`、`Reports`
 - admin `Entitlements` tab 已接入 `GET /admin/billing/entitlements`，查看跨 creator 的有效权益快照
 - admin `Domains` tab 已接入 `GET /admin/billing/domain-audits`，审核跨 creator 的自定义域名状态与 entitlement gate
 - admin `Reports` tab 已接入 `GET /admin/billing/reports/usage-daily` 与 `GET /admin/billing/reports/ledger-daily`，查看跨 creator usage / ledger 汇总
@@ -1302,7 +1319,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - admin `/admin/billing/admin`
   - 保留 `Subscriptions`、`Orders`、`Exceptions`、`Entitlements`、`Domains`、`Reports` 六个 ops tab
 
-#### 7.5.6 i18n 与状态展示
+#### 7.5.7 i18n 与状态展示
 
 前端新增文案统一使用 `module.billing.*` 命名空间，至少覆盖：
 

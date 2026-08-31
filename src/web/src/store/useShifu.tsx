@@ -1,0 +1,2152 @@
+'use client';
+
+import {
+  Shifu,
+  ShifuContextType,
+  Outline,
+  Block,
+  ProfileItem,
+  AIBlockProperties,
+  SolidContentBlockProperties,
+  SaveBlockListResult,
+  ApiResponse,
+  ReorderOutlineItemDto,
+  BlockDTO,
+  BlockType,
+  ModelOption,
+  SaveMdflowPayload,
+  LessonCreationSettings,
+  DraftMeta,
+  MdflowHistoryItem,
+  MdflowHistoryListResult,
+  MdflowHistoryVersionDetail,
+  MdflowHistoryRestoreResult,
+  LoadMdflowOptions,
+} from '../types/shifu';
+import api from '@/api';
+import { debounce } from 'lodash';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
+import { normalizeShifuDetail } from '@/lib/shifu-normalize';
+import { normalizeModelOptions } from './modelOptions';
+import {
+  createContext,
+  ReactElement,
+  ReactNode,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+} from 'react';
+import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import {
+  getStoredPreviewVariables,
+  mapKeysToStoredVariables,
+  PreviewVariablesMap,
+  savePreviewVariables,
+  StoredVariablesByScope,
+} from '@/components/lesson-preview/variableStorage';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  buildOutlineCreateAnalytics,
+  OUTLINE_CREATE_EVENT,
+} from './shifuAnalytics';
+
+const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
+const PROFILE_CACHE_TTL = 5000; // 5s
+const HIDDEN_STORAGE_PREFIX = 'hidden_profile_variables';
+const HIDE_MODE_STORAGE_PREFIX = 'hidden_profile_variables_mode';
+
+const buildHiddenStorageKey = (shifuId?: string) =>
+  shifuId ? `${HIDDEN_STORAGE_PREFIX}:${shifuId}` : '';
+
+const buildHideModeStorageKey = (shifuId?: string) =>
+  shifuId ? `${HIDE_MODE_STORAGE_PREFIX}:${shifuId}` : '';
+
+const readHiddenFromStorage = (shifuId?: string): string[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  const key = buildHiddenStorageKey(shifuId);
+  if (!key) return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item => typeof item === 'string');
+  } catch (error) {
+    console.warn('Failed to read hidden variables from storage', error);
+    return [];
+  }
+};
+
+const writeHiddenToStorage = (shifuId: string, hiddenKeys: string[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const key = buildHiddenStorageKey(shifuId);
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(hiddenKeys));
+  } catch (error) {
+    console.warn('Failed to write hidden variables to storage', error);
+  }
+};
+
+const readHideModeFromStorage = (shifuId?: string): boolean | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const key = buildHideModeStorageKey(shifuId);
+  if (!key) return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) {
+      return null;
+    }
+    return raw === '1';
+  } catch (error) {
+    console.warn('Failed to read hide mode from storage', error);
+    return null;
+  }
+};
+
+const writeHideModeToStorage = (shifuId: string, mode: boolean) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const key = buildHideModeStorageKey(shifuId);
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, mode ? '1' : '0');
+  } catch (error) {
+    console.warn('Failed to write hide mode to storage', error);
+  }
+};
+
+const logProfileAction = (
+  action: 'hide_unused' | 'restore_hidden' | 'unhide_by_keys',
+  shifuId: string,
+  items?: ProfileItem[],
+  extra?: Record<string, unknown>,
+) => {
+  if (process.env.NODE_ENV === 'production') return;
+  const hiddenKeys =
+    items
+      ?.filter(item => item.is_hidden)
+      .map(item => item.profile_key)
+      .filter(Boolean) || [];
+  // eslint-disable-next-line no-console
+  console.debug('[shifu] profile_action', {
+    action,
+    shifuId,
+    hiddenKeys,
+    total: items?.length ?? 0,
+    ...(extra || {}),
+  });
+};
+
+const buildBlockListWithAllInfo = (
+  blocks: Block[],
+  blockTypes: Record<string, any>,
+  blockProperties: Record<string, BlockDTO>,
+) => {
+  const list = blocks.map((block: Block) => {
+    return {
+      bid: block.bid,
+      type: blockTypes[block.bid] ?? blockProperties[block.bid].type,
+      properties: blockProperties[block.bid].properties,
+      variable_bids: blockProperties[block.bid].variable_bids,
+      resource_bids: blockProperties[block.bid].resource_bids,
+    };
+  });
+  return list;
+};
+
+export const ShifuProvider = ({
+  children,
+}: {
+  children: ReactNode;
+}): ReactElement => {
+  const { trackEvent } = useTracking();
+  const [currentShifu, setCurrentShifu] = useState<Shifu | null>(null);
+  const [chapters, setChapters] = useState<Outline[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState('');
+  const [focusValue, setFocusValue] = useState('');
+  const [cataData, setCataData] = useState<{ [x: string]: Outline }>({});
+  const [blocks, setBlocks] = useState<BlockDTO[]>([]);
+  const [blockProperties, setBlockProperties] = useState<{
+    [x: string]: BlockDTO;
+  }>({});
+  const [blockContentProperties, setBlockContentProperties] = useState<{
+    [x: string]: any;
+  }>({});
+  const [blockTypes, setBlockTypes] = useState<{
+    [x: string]: BlockType;
+  }>({});
+  const [blockUITypes, setBlockUITypes] = useState<{
+    [x: string]: BlockType;
+  }>({});
+  const [blockContentTypes, setBlockContentTypes] = useState<{
+    [x: string]: BlockType;
+  }>({});
+  const [blockContentState, setBlockContentState] = useState<{
+    [x: string]: 'edit' | 'preview';
+  }>({});
+  const [blockErrors, setBlockErrors] = useState<{
+    [x: string]: string | null;
+  }>({});
+  const [currentNode, setCurrentNode] = useState<Outline | null>(null);
+  const [profileItemDefinations, setProfileItemDefinations] = useState<
+    ProfileItem[]
+  >([]);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [mdflow, setMdflow] = useState<string>('');
+  const [variables, setVariables] = useState<string[]>([]);
+  const [hiddenVariables, setHiddenVariables] = useState<string[]>([]);
+  const [unusedVariables, setUnusedVariables] = useState<string[]>([]);
+  const [hideUnusedMode, setHideUnusedMode] = useState(false);
+  const [baseRevision, setBaseRevision] = useState<number | null>(null);
+  const [latestDraftMeta, setLatestDraftMeta] = useState<DraftMeta | null>(
+    null,
+  );
+  const [hasDraftConflict, setHasDraftConflict] = useState(false);
+  const [autosavePaused, setAutosavePaused] = useState(false);
+  const currentMdflow = useRef<string>('');
+  const lastPersistedMdflowRef = useRef<Record<string, string>>({});
+  const saveMdflowLockRef = useRef<{
+    inflight: boolean;
+    outlineId: string | null;
+  }>({
+    inflight: false,
+    outlineId: null,
+  });
+  const mdflowRequestRef = useRef<{ id: number; outlineId: string | null }>({
+    id: 0,
+    outlineId: null,
+  });
+  const mdflowCacheRef = useRef<Record<string, string>>({});
+  const profileDefinitionCacheRef = useRef<
+    Record<
+      string,
+      {
+        list: ProfileItem[];
+        systemVariableKeys: string[];
+        unusedKeys?: string[];
+        updatedAt: number;
+      }
+    >
+  >({});
+  const [systemVariables, setSystemVariables] = useState<
+    Record<string, string>[]
+  >([]);
+  const currentOutlineRef = useRef<string | null>(null);
+
+  const internalSetCurrentNode = (node: Outline | null) => {
+    setCurrentNode(node);
+    currentOutlineRef.current = node?.bid || null;
+    const cacheKey = node?.bid;
+    if (cacheKey && mdflowCacheRef.current[cacheKey] !== undefined) {
+      const cached = mdflowCacheRef.current[cacheKey];
+      currentMdflow.current = cached;
+      setMdflow(cached);
+      return;
+    }
+    if (currentMdflow.current !== '') {
+      currentMdflow.current = '';
+      setMdflow('');
+    }
+  };
+  // Debounced autosave for mdflow; kept stable via ref
+  const debouncedAutoSaveRef = useRef(
+    debounce(async (payload?: SaveMdflowPayload) => {
+      await saveMdflow(payload);
+    }, 3000),
+  );
+
+  // Ensure UI types and content types are fetched only in the client environment
+  // const UITypes = useUITypes()
+
+  const loadShifu = async (
+    shifuId: string,
+    options?: {
+      silent?: boolean;
+    },
+  ) => {
+    const silent = options?.silent ?? false;
+
+    try {
+      if (!silent) {
+        setIsLoading(true);
+      }
+      setError(null);
+      const shifu = await api.getShifuDetail({
+        shifu_bid: shifuId,
+      });
+      setCurrentShifu(normalizeShifuDetail(shifu) as Shifu | null);
+    } catch (error) {
+      console.error(error);
+      setError('Failed to load shifu');
+    } finally {
+      if (!silent) {
+        setIsLoading(false);
+      }
+    }
+  };
+  const recursiveCataData = (cataTree: Outline[]): any => {
+    const result: any = {};
+    const processItem = (item: any, parentId = '', depth = 0) => {
+      result[item.id] = {
+        ...cataData[item.id],
+        parent_bid: parentId,
+        parentId: parentId,
+        name: item.name,
+        type: item.type,
+        is_hidden: item.is_hidden,
+        depth: depth,
+        status: 'edit',
+      };
+
+      if (item.children) {
+        item.children.forEach((child: any) => {
+          processItem(child, item.bid, depth + 1);
+        });
+      }
+    };
+
+    cataTree.forEach((child: any) => {
+      processItem(child, '', 0);
+    });
+    return result;
+  };
+  const buildOutlineTree = (items: Outline[]) => {
+    const treeData = recursiveCataData(items);
+    setCataData(treeData);
+    return treeData;
+  };
+  const findNode = (id: string) => {
+    const find = (nodes: Outline[]): any => {
+      for (const node of nodes) {
+        if (node.id === id) {
+          return node;
+        }
+        if (node.children) {
+          const result = find(node.children || []);
+          if (result) {
+            return result;
+          }
+        }
+      }
+      return null;
+    };
+    return find(chapters);
+  };
+
+  // Helper function to find the best node to select after deletion
+  const findBestNodeAfterDeletion = (
+    deletedOutline: Outline,
+  ): Outline | null => {
+    // If it's a chapter (depth 0), don't auto-select anything
+    if ((deletedOutline.depth || 0) === 0) {
+      return null;
+    }
+
+    // Find the parent node using parent_bid first
+    let parent = findNode(deletedOutline.parent_bid || '');
+
+    // If parent_bid is undefined or parent not found, search through all chapters to find the actual parent
+    if (!parent) {
+      for (const chapter of chapters) {
+        const searchInNode = (node: Outline): Outline | null => {
+          if (node.children) {
+            for (const child of node.children) {
+              if (child.id === deletedOutline.id) {
+                return node; // Found the parent
+              }
+              const result = searchInNode(child);
+              if (result) return result;
+            }
+          }
+          return null;
+        };
+        const foundParent = searchInNode(chapter);
+        if (foundParent) {
+          parent = foundParent;
+          break;
+        }
+      }
+    }
+
+    if (!parent?.children) {
+      return null;
+    }
+
+    // Find the index of the deleted node in parent's children
+    const deletedIndex = parent.children.findIndex(
+      (child: any) => child.id === deletedOutline.id,
+    );
+
+    if (deletedIndex > 0) {
+      // Select the previous sibling (the node above)
+      return parent.children[deletedIndex - 1];
+    } else if (deletedIndex === 0) {
+      // If it's the first child, select the parent (chapter)
+      return parent;
+    }
+
+    return null;
+  };
+  // Helper function to remove outline from tree structure
+  const removeOutlineFromTree = (outline: Outline) => {
+    if (outline.parent_bid) {
+      const parent = findNode(outline.parent_bid || '');
+      if (parent) {
+        parent.children = parent.children?.filter(
+          (child: any) => child.id !== outline.id,
+        );
+      }
+    } else {
+      const list = chapters.filter((child: any) => child.id !== outline.id);
+      setChapters([...list]);
+      return;
+    }
+    setChapters([...chapters]);
+  };
+
+  // Helper function to clean up catalog data
+  const cleanupCatalogData = (outline: Outline) => {
+    delete cataData[outline.id];
+    setCataData({ ...cataData });
+  };
+
+  // Helper function to handle API deletion
+  const deleteOutlineAPI = async (outline: Outline) => {
+    if (outline.id === 'new_chapter') {
+      return;
+    }
+    await api.deleteOutline({
+      shifu_bid: currentShifu?.bid || '',
+      outline_bid: outline.id,
+    });
+  };
+
+  // Helper function to handle cursor positioning after deletion
+  const handleCursorPositioning = async (nextNode: Outline | null) => {
+    if (nextNode) {
+      internalSetCurrentNode(nextNode);
+      if (nextNode.bid) {
+        // await loadBlocks(nextNode.bid, currentShifu?.bid || '');
+        await loadMdflow(nextNode.bid, currentShifu?.bid || '');
+      } else {
+        setBlocks([]);
+      }
+    } else {
+      internalSetCurrentNode(null);
+      setBlocks([]);
+    }
+    setFocusId('');
+  };
+
+  // Remove placeholder nodes locally without hitting APIs
+  const removePlaceholderOutline = (outline: Outline) => {
+    removeOutlineFromTree(outline);
+    cleanupCatalogData(outline);
+    setFocusId('');
+  };
+
+  const removeOutline = async (outline: Outline) => {
+    setIsSaving(true);
+    setError(null);
+
+    const isCurrentNodeDeleted = currentNode?.id === outline.id;
+    const nextNode = isCurrentNodeDeleted
+      ? findBestNodeAfterDeletion(outline)
+      : null;
+
+    try {
+      removeOutlineFromTree(outline);
+      cleanupCatalogData(outline);
+      await deleteOutlineAPI(outline);
+
+      if (isCurrentNodeDeleted) {
+        await handleCursorPositioning(nextNode);
+      }
+
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to remove outline');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadProfileItemDefinations = async (shifuId: string) => {
+    const list = await api.getProfileItemDefinitions({
+      parent_id: shifuId,
+      type: 'all',
+    });
+    setProfileItemDefinations(list);
+  };
+
+  const remapOutlineTree = (
+    items: any,
+    parentBid = '',
+    depth = 0,
+  ): Outline[] => {
+    return items.map((item: any) => {
+      return {
+        id: item.bid,
+        type: item.type,
+        is_hidden: item.is_hidden,
+        name: item.name,
+        bid: item.bid,
+        depth,
+        parent_bid: item.parent_bid ?? parentBid,
+        position: item.position,
+        children: remapOutlineTree(item.children || [], item.bid, depth + 1),
+      };
+    });
+  };
+
+  const findOutlineByBid = (
+    nodes: Outline[],
+    targetBid: string,
+  ): Outline | null => {
+    for (const node of nodes) {
+      if (node.bid === targetBid) {
+        return node;
+      }
+      const foundNode = findOutlineByBid(node.children || [], targetBid);
+      if (foundNode) {
+        return foundNode;
+      }
+    }
+
+    return null;
+  };
+
+  const loadMdflow = async (
+    outlineId: string,
+    shifuId: string,
+    options?: LoadMdflowOptions,
+  ) => {
+    if (
+      outlineId === '' ||
+      outlineId === 'new_lesson' ||
+      outlineId === 'new_chapter'
+    ) {
+      return false;
+    }
+    const requestId = mdflowRequestRef.current.id + 1;
+    mdflowRequestRef.current = { id: requestId, outlineId };
+    setIsLoading(true);
+    setError(null);
+    const isLatest = () =>
+      mdflowRequestRef.current.id === requestId &&
+      mdflowRequestRef.current.outlineId === outlineId;
+
+    try {
+      const mdflow = await api.getMdflow({
+        shifu_bid: shifuId,
+        outline_bid: outlineId,
+      });
+      mdflowCacheRef.current[outlineId] = mdflow || '';
+      if (!isLatest()) {
+        return false;
+      }
+      if (currentOutlineRef.current !== outlineId) {
+        lastPersistedMdflowRef.current[outlineId] = mdflow || '';
+        return false;
+      }
+      if (options?.canApply && !options.canApply()) {
+        lastPersistedMdflowRef.current[outlineId] = mdflow || '';
+        return false;
+      }
+      setMdflow(mdflow);
+      setCurrentMdflow(mdflow);
+      lastPersistedMdflowRef.current[outlineId] = mdflow || '';
+      await parseMdflow(mdflow, shifuId, outlineId);
+      return true;
+    } catch (error) {
+      if (isLatest()) {
+        console.error(error);
+        setError('Failed to load lesson content');
+      }
+      return false;
+    } finally {
+      if (isLatest()) {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const loadDraftMeta = useCallback(
+    async (shifuId: string, outlineId?: string) => {
+      if (!shifuId) {
+        setLatestDraftMeta(null);
+        return null;
+      }
+      try {
+        const payload: Record<string, string> = { shifu_bid: shifuId };
+        if (outlineId) {
+          payload.outline_bid = outlineId;
+        }
+        const meta = await api.getShifuDraftMeta(payload);
+        if (!outlineId || currentOutlineRef.current === outlineId) {
+          setLatestDraftMeta(meta as DraftMeta);
+        }
+        return meta as DraftMeta;
+      } catch (error) {
+        console.error('Failed to load draft meta', error);
+        if (!outlineId || currentOutlineRef.current === outlineId) {
+          setLatestDraftMeta(null);
+        }
+        return null;
+      }
+    },
+    [],
+  );
+
+  const loadMdflowHistory = useCallback(
+    async (shifuId: string, outlineId: string, limit = 100) => {
+      if (!shifuId || !outlineId) {
+        return [] as MdflowHistoryItem[];
+      }
+      const timezone = getBrowserTimeZone();
+      try {
+        const result = (await api.getMdflowHistory({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          limit,
+          ...(timezone ? { timezone } : {}),
+        })) as MdflowHistoryListResult;
+        return result?.items || [];
+      } catch (error) {
+        console.error('Failed to load mdflow history', error);
+        return [] as MdflowHistoryItem[];
+      }
+    },
+    [],
+  );
+
+  const loadMdflowHistoryVersionDetail = useCallback(
+    async (shifuId: string, outlineId: string, versionId: number) => {
+      if (!shifuId || !outlineId || versionId <= 0) {
+        return null;
+      }
+      const timezone = getBrowserTimeZone();
+      try {
+        return (await api.getMdflowHistoryVersionDetail({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          version_id: versionId,
+          ...(timezone ? { timezone } : {}),
+        })) as MdflowHistoryVersionDetail;
+      } catch (error) {
+        console.error('Failed to load mdflow history version detail', error);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const restoreMdflowHistory = useCallback(
+    async (
+      shifuId: string,
+      outlineId: string,
+      versionId: number,
+      revision?: number | null,
+    ) => {
+      if (!shifuId || !outlineId || versionId == null) {
+        return null;
+      }
+      // Prevent pending debounced saves from overwriting restored content.
+      debouncedAutoSaveRef.current.cancel();
+      try {
+        const resolvedBaseRevision = revision ?? baseRevision ?? undefined;
+        const result = (await api.restoreMdflowHistory({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          version_id: versionId,
+          base_revision: resolvedBaseRevision,
+        })) as MdflowHistoryRestoreResult;
+        if (typeof result?.new_revision === 'number') {
+          setBaseRevision(result.new_revision);
+        }
+        return result;
+      } catch (error: any) {
+        if (error?.code === 4007) {
+          await loadDraftMeta(shifuId, outlineId);
+          setHasDraftConflict(true);
+          setAutosavePaused(true);
+          return null;
+        }
+        console.error('Failed to restore mdflow history', error);
+        throw error;
+      }
+    },
+    [baseRevision, loadDraftMeta],
+  );
+
+  const loadChapters = async (
+    shifuId: string,
+    options?: { autoSelectFirstLesson?: boolean; preferredLessonBid?: string },
+  ) => {
+    const autoSelectFirstLesson = options?.autoSelectFirstLesson ?? true;
+    const preferredLessonBid = options?.preferredLessonBid?.trim() || '';
+    try {
+      setIsLoading(true);
+      setError(null);
+      const [shifuInfo, chaptersData] = await Promise.all([
+        api.getShifuDetail({ shifu_bid: shifuId }),
+        api.getShifuOutlineTree({ shifu_bid: shifuId }),
+      ]);
+      setCurrentShifu(normalizeShifuDetail(shifuInfo) as Shifu | null);
+      const list = remapOutlineTree(chaptersData);
+      const preferredLessonNode = preferredLessonBid
+        ? findOutlineByBid(list, preferredLessonBid)
+        : null;
+
+      if (preferredLessonNode && (preferredLessonNode.depth || 0) > 0) {
+        internalSetCurrentNode(preferredLessonNode);
+        await loadMdflow(preferredLessonNode.bid, shifuId);
+      } else if (autoSelectFirstLesson && list.length > 0) {
+        // Find the first lesson to select by default
+        const firstLesson = list.find(
+          chapter => chapter.children && chapter.children.length > 0,
+        )?.children?.[0];
+
+        if (firstLesson) {
+          internalSetCurrentNode(firstLesson);
+          await loadMdflow(firstLesson.bid, shifuId);
+          // await loadBlocks(firstLesson.bid, shifuId);
+        }
+      } else if (!autoSelectFirstLesson) {
+        debouncedAutoSaveRef.current.cancel();
+        internalSetCurrentNode(null);
+        setMdflow('');
+        currentMdflow.current = '';
+        setBaseRevision(null);
+        setLatestDraftMeta(null);
+        setHasDraftConflict(false);
+        setAutosavePaused(false);
+      }
+      setChapters(list);
+      buildOutlineTree(list);
+      await refreshVariableUsage(shifuId);
+      // loadProfileItemDefinations(shifuId);
+    } catch (error) {
+      console.error(error);
+      setError('Failed to load chapters');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const initBlockTypes = async (list: Block[]) => {
+    const types = list.reduce((prev: any, cur: Block) => {
+      prev[cur.bid] = cur.type;
+      return prev;
+    }, {});
+    setBlockTypes(types);
+  };
+
+  const initBlockProperties = async (list: Block[]) => {
+    const properties = list.reduce((prev: any, cur: Block) => {
+      return {
+        ...prev,
+        [cur.bid]: cur,
+      };
+    }, {});
+    setBlockProperties(properties);
+  };
+
+  const updateBlockProperties = useCallback(
+    async (bid: string, properties: any) => {
+      setBlocks(prevBlocks =>
+        prevBlocks.map(block =>
+          block.bid === bid
+            ? {
+                ...block,
+                type: properties.type,
+                properties: properties.properties,
+                variable_bids: properties.variable_bids || [],
+                resource_bids: properties.resource_bids || [],
+              }
+            : block,
+        ),
+      );
+
+      setBlockTypes(prev => ({
+        ...prev,
+        [bid]: properties.type,
+      }));
+      setBlockProperties(prev => {
+        const newState = {
+          ...prev,
+          [bid]: properties,
+        };
+        return newState;
+      });
+    },
+    [],
+  );
+
+  const loadBlocks = async (outlineId: string, shifuId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      clearBlockErrors();
+      const blocksData = await api.getBlocks({
+        shifu_bid: shifuId,
+        outline_bid: outlineId,
+      });
+      const list = blocksData;
+      setBlocks(list);
+      initBlockTypes(list);
+      initBlockProperties(list);
+      setIsLoading(false);
+    } catch (error) {
+      console.error(error);
+      setIsLoading(false);
+    }
+  };
+  const blockPropertiesRef = useRef(blockProperties);
+  blockPropertiesRef.current = blockProperties;
+  const saveBlocks = useCallback(
+    async (shifu_id: string) => {
+      if (isLoading) {
+        return;
+      }
+      const list = buildBlockListWithAllInfo(
+        blocks,
+        blockTypes,
+        blockPropertiesRef.current,
+      );
+      try {
+        setError(null);
+        await api.saveBlocks({
+          shifu_bid: shifu_id,
+          outline_bid: currentNode!.bid,
+          blocks: list,
+        });
+      } catch (error) {
+        console.error(error);
+        setError('Failed to save blocks');
+      }
+    },
+    [blocks, isLoading, blockTypes, currentNode],
+  );
+
+  const addSubOutline = async (
+    parent: Outline,
+    settings: LessonCreationSettings,
+  ) => {
+    const shifuBid = currentShifu?.bid;
+    if (!shifuBid) {
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const parentNode = findNode(parent.id);
+      if (!parentNode) {
+        throw new Error('Parent node not found');
+      }
+      const parentId = parentNode.id;
+      const index = parentNode.children?.length || 0;
+      const created = await api.createOutline({
+        parent_bid: parentId,
+        index,
+        name: settings.name,
+        description: settings.name,
+        type: settings.learningPermission,
+        system_prompt: settings.systemPrompt,
+        is_hidden: settings.isHidden,
+        shifu_bid: shifuBid,
+      });
+      const depth = (parentNode.depth || parent.depth || 0) + 1;
+      const newOutline: Outline = {
+        id: created.bid,
+        bid: created.bid,
+        parent_bid: parentId,
+        name: created.name,
+        children: [],
+        position: '',
+        depth,
+        type: settings.learningPermission,
+        is_hidden: settings.isHidden,
+      };
+      parentNode.children = [...(parentNode.children || []), newOutline];
+      setChapters([...chapters]);
+      setCataData({
+        ...cataData,
+        [newOutline.id]: {
+          ...newOutline,
+          parentId: parentId,
+          status: 'edit',
+        },
+      });
+      trackEvent(
+        OUTLINE_CREATE_EVENT,
+        buildOutlineCreateAnalytics({
+          shifuBid,
+          outlineBid: newOutline.bid,
+          parentBid: parentId,
+        }),
+      );
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to create lesson');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const addRootOutline = async (settings: LessonCreationSettings) => {
+    const shifuBid = currentShifu?.bid;
+    if (!shifuBid) {
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const index = chapters.length;
+      const created = await api.createOutline({
+        parent_bid: '',
+        index,
+        name: settings.name,
+        description: settings.name,
+        type: LEARNING_PERMISSION.GUEST,
+        system_prompt: settings.systemPrompt,
+        is_hidden: false,
+        shifu_bid: shifuBid,
+      });
+      const newOutline: Outline = {
+        id: created.bid,
+        bid: created.bid,
+        parent_bid: '',
+        name: created.name,
+        children: [],
+        position: '',
+        depth: 0,
+      };
+      setChapters([...chapters, newOutline]);
+      setCataData({
+        ...cataData,
+        [newOutline.id]: {
+          ...newOutline,
+          status: 'edit',
+        },
+      });
+      trackEvent(
+        OUTLINE_CREATE_EVENT,
+        buildOutlineCreateAnalytics({
+          shifuBid,
+          outlineBid: newOutline.bid,
+          parentBid: '',
+        }),
+      );
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to create chapter');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveCurrentBlocks = useCallback(
+    async (
+      outline: string,
+      blocks: Block[],
+      blockTypes: Record<string, any>,
+      blockProperties: Record<string, BlockDTO>,
+      shifu_id: string,
+    ): Promise<ApiResponse<SaveBlockListResult> | null> => {
+      if (isLoading) {
+        return null;
+      }
+      setIsSaving(true);
+      setError(null);
+      try {
+        setError(null);
+        const blockList = buildBlockListWithAllInfo(
+          blocks,
+          blockTypes,
+          blockProperties,
+        );
+        const result = await api.saveBlocks({
+          outline_bid: outline,
+          blocks: blockList,
+          shifu_bid: shifu_id || '',
+        });
+
+        if (!result) {
+          setError('common.core.errorSaveFailed');
+          return result;
+        }
+
+        const blockErrorMessages = result?.error_messages;
+        const errorCount =
+          blockErrorMessages && typeof blockErrorMessages === 'object'
+            ? Object.keys(blockErrorMessages).length
+            : 0;
+
+        if (errorCount > 0) {
+          Object.entries(blockErrorMessages).forEach(
+            ([blockId, errorMessage]) => {
+              setBlockError(blockId, errorMessage as string);
+            },
+          );
+        } else {
+          clearBlockErrors();
+        }
+
+        return result;
+      } catch (error: any) {
+        setError(error.message);
+        throw error;
+      } finally {
+        setIsSaving(false);
+        setLastSaveTime(new Date());
+      }
+    },
+    [],
+  );
+
+  const autoSaveBlocks = (
+    payload?: SaveMdflowPayload,
+  ): Promise<ApiResponse<SaveBlockListResult> | null> => {
+    if (autosavePaused || hasDraftConflict) {
+      return Promise.resolve(null);
+    }
+    debouncedAutoSaveRef.current(payload);
+    return Promise.resolve(null);
+  };
+
+  const flushAutoSaveBlocks = (payload?: SaveMdflowPayload) => {
+    if (autosavePaused || hasDraftConflict) {
+      return;
+    }
+    if (payload) {
+      debouncedAutoSaveRef.current(payload);
+    }
+    debouncedAutoSaveRef.current.flush();
+  };
+
+  const cancelAutoSaveBlocks = () => {
+    debouncedAutoSaveRef.current.cancel();
+  };
+
+  const addSiblingOutline = async (
+    item: Outline,
+    settings: LessonCreationSettings,
+  ) => {
+    const shifuBid = currentShifu?.bid;
+    if (!shifuBid) {
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const parentNode = findNode(item.parent_bid || '');
+      if (!parentNode) {
+        throw new Error('Parent node not found');
+      }
+      const parentId = parentNode.id;
+      const currentIndex =
+        parentNode.children?.findIndex(child => child.id === item.id) ?? -1;
+      const insertIndex =
+        currentIndex >= 0 ? currentIndex + 1 : parentNode.children?.length || 0;
+      const created = await api.createOutline({
+        parent_bid: parentId,
+        index: insertIndex,
+        name: settings.name,
+        description: settings.name,
+        type: settings.learningPermission,
+        system_prompt: settings.systemPrompt,
+        is_hidden: settings.isHidden,
+        shifu_bid: shifuBid,
+      });
+      const depth =
+        item.depth !== undefined ? item.depth : (parentNode.depth || 0) + 1;
+      const newOutline: Outline = {
+        id: created.bid,
+        bid: created.bid,
+        parent_bid: parentId,
+        name: created.name,
+        children: [],
+        position: '',
+        depth,
+        type: settings.learningPermission,
+        is_hidden: settings.isHidden,
+      };
+      const children = [...(parentNode.children || [])];
+      children.splice(insertIndex, 0, newOutline);
+      parentNode.children = children;
+      setChapters([...chapters]);
+      setCataData({
+        ...cataData,
+        [newOutline.id]: {
+          ...newOutline,
+          parentId: parentId,
+          status: 'edit',
+        },
+      });
+      trackEvent(
+        OUTLINE_CREATE_EVENT,
+        buildOutlineCreateAnalytics({
+          shifuBid,
+          outlineBid: newOutline.bid,
+          parentBid: parentId,
+        }),
+      );
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to create lesson');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const createChapter = async (data: Outline) => {
+    setIsSaving(true);
+    setError(null);
+    updateOutlineStatus(data.id, 'saving');
+    const index = chapters.findIndex(child => child.id === data.id);
+
+    try {
+      if (data.id === 'new_chapter') {
+        const newChapter = await api.createOutline({
+          parent_bid: '',
+          index: index,
+          name: data.name,
+          description: data.name,
+          type: LEARNING_PERMISSION.GUEST,
+          system_prompt: '',
+          is_hidden: false,
+          shifu_id: currentShifu?.bid || '',
+        });
+        replaceOutline('new_chapter', {
+          id: newChapter.bid,
+          bid: newChapter.bid,
+          name: newChapter.name,
+          position: '',
+          children: [],
+        });
+        trackEvent(
+          OUTLINE_CREATE_EVENT,
+          buildOutlineCreateAnalytics({
+            shifuBid: currentShifu?.bid,
+            outlineBid: newChapter.bid,
+            parentBid: data.parent_bid,
+          }),
+        );
+        setFocusId('');
+        setLastSaveTime(new Date());
+      } else {
+        await api.modifyOutline({
+          outline_bid: data.id,
+          index: index,
+          description: data.name,
+          name: data.name,
+          shifu_id: currentShifu?.bid || '',
+        });
+
+        const currentChapter = chapters.find(chapter => chapter.id === data.id);
+
+        replaceOutline(data.id, {
+          id: data.id,
+          bid: data.bid,
+          name: data.name,
+          position: '',
+          children: currentChapter?.children || [],
+        });
+        setFocusId('');
+        setLastSaveTime(new Date());
+      }
+    } catch (error) {
+      console.error(error);
+      setError(
+        data.id === 'new_chapter'
+          ? 'Failed to create chapter'
+          : 'Failed to modify chapter',
+      );
+      updateOutlineStatus(data.id, data.id === 'new_chapter' ? 'new' : 'edit');
+      setFocusId(data.id);
+    } finally {
+      setIsSaving(false);
+      setIsLoading(false);
+    }
+  };
+
+  const createOutline = async (data: Outline) => {
+    setIsSaving(true);
+    setError(null);
+    updateOutlineStatus(data.bid, 'saving');
+
+    const parent = findNode(data.parent_bid || '');
+    const index =
+      parent?.children?.findIndex((child: Outline) => child.bid === data.bid) ||
+      0;
+
+    const isNew = data.bid === 'new_chapter' || data.bid === 'new_lesson';
+    const parentBid = data.parent_bid;
+    try {
+      if (isNew) {
+        const type =
+          data.bid === 'new_chapter'
+            ? LEARNING_PERMISSION.GUEST
+            : LEARNING_PERMISSION.TRIAL;
+        const newUnit = await api.createOutline({
+          parent_bid: data.parent_bid,
+          index,
+          name: data.name,
+          description: data.name,
+          type: type,
+          system_prompt: '',
+          is_hidden: false,
+          shifu_bid: currentShifu?.bid || '',
+        });
+
+        replaceOutline(data.bid, {
+          id: newUnit.bid,
+          bid: newUnit.bid,
+          name: newUnit.name,
+          position: '',
+          children: [],
+        });
+
+        trackEvent(
+          OUTLINE_CREATE_EVENT,
+          buildOutlineCreateAnalytics({
+            shifuBid: currentShifu?.bid,
+            outlineBid: newUnit.bid,
+            parentBid,
+          }),
+        );
+        setFocusId('');
+        setLastSaveTime(new Date());
+      } else {
+        await api.modifyOutline({
+          outline_bid: data.id,
+          index: index,
+          description: data.name,
+          name: data.name,
+          shifu_bid: currentShifu?.bid || '',
+        });
+        replaceOutline(data.id, {
+          id: data.id,
+          bid: data.bid,
+          name: data.name,
+          position: data.position,
+        });
+        setFocusId('');
+        setLastSaveTime(new Date());
+      }
+    } catch (error) {
+      console.error(error);
+      setError(
+        data.id === 'new_chapter'
+          ? 'Failed to create unit'
+          : 'Failed to modify unit',
+      );
+      updateOutlineStatus(data.id, data.id === 'new_chapter' ? 'new' : 'edit');
+      setFocusId(data.id);
+    } finally {
+      setIsSaving(false);
+      setIsLoading(false);
+    }
+  };
+
+  const createSiblingUnit = async (data: Outline) => {
+    try {
+      updateOutlineStatus(data.id, 'saving');
+      setError(null);
+
+      const parent = findNode(data.parent_bid || '');
+      // get node index in children
+      const index = parent.children.findIndex(
+        (child: Outline) => child.id === data.id,
+      );
+
+      const newUnit = await api.createOutline({
+        parent_bid: data.parent_bid,
+        index: Math.max(0, index - 1),
+        name: data.name,
+        description: data.name,
+        type: LEARNING_PERMISSION.TRIAL,
+        system_prompt: '',
+        is_hidden: false,
+        shifu_id: currentShifu?.bid || '',
+      });
+
+      replaceOutline('new_chapter', {
+        id: newUnit.bid,
+        parent_bid: parent.bid,
+        bid: newUnit.bid,
+        name: newUnit.name,
+        position: '',
+        children: [],
+      });
+    } catch (error) {
+      console.error(error);
+      setError('Failed to create chapter');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateOutlineStatus = (
+    id: string,
+    status: 'new' | 'edit' | 'saving',
+  ) => {
+    setCataData({
+      ...cataData,
+      [id]: {
+        ...cataData[id],
+        status,
+      },
+    });
+  };
+
+  const updateOutline = async (id: string, value: Outline) => {
+    setCataData({
+      ...cataData,
+      [id]: {
+        ...cataData[id],
+        ...value,
+      },
+    });
+    setLastSaveTime(new Date());
+  };
+
+  const addChapter = async (chapter: Outline) => {
+    if (cataData['new_chapter']) {
+      return;
+    }
+    if (chapters?.find((child: any) => child.id === 'new_chapter')) {
+      return;
+    }
+    setChapters([...chapters, chapter]);
+    updateOutline(chapter.id, {
+      ...chapter,
+      status: 'new',
+    });
+    setFocusId(chapter.id);
+  };
+
+  const replaceOutline = async (id: string, outline: Outline) => {
+    const node = findNode(id);
+    node.id = outline.id;
+    node.name = outline.name;
+    node.position = outline.position;
+    node.parent_bid = outline.parent_bid;
+    node.bid = outline.bid;
+    if (outline.children && outline.children.length > 0) {
+      node.children = outline.children;
+    }
+    setChapters([...chapters]);
+    delete cataData[id];
+    setCataData({
+      ...cataData,
+      [outline.id]: {
+        ...outline,
+        status: 'edit',
+      },
+    });
+  };
+
+  const setBlockContentPropertiesById = (
+    id: string,
+    properties: AIBlockProperties | SolidContentBlockProperties,
+    reset: boolean = false,
+  ) => {
+    if (reset) {
+      setBlockContentProperties({
+        ...blockContentProperties,
+        [id]: properties,
+      });
+      return;
+    }
+    setBlockContentProperties({
+      ...blockContentProperties,
+      [id]: {
+        ...properties,
+      },
+    });
+  };
+
+  const setBlockContentTypesById = (id: string, type: BlockType) => {
+    setBlockTypes({
+      ...blockTypes,
+      [id]: type,
+    });
+  };
+
+  const setBlockUIPropertiesById = (
+    id: string,
+    properties: any,
+    reset: boolean = false,
+  ) => {
+    if (reset) {
+      setBlockProperties({
+        ...blockProperties,
+        [id]: properties,
+      });
+      return;
+    }
+    setBlockProperties({
+      ...blockProperties,
+      [id]: {
+        ...blockProperties[id],
+        ...properties,
+      },
+    });
+    if (blockProperties[id].type !== properties.type) {
+      setBlockTypes({
+        ...blockTypes,
+        [id]: properties.type,
+      });
+    }
+  };
+
+  const setBlockUITypesById = (id: string, type: BlockType) => {
+    setBlockTypes({
+      ...blockTypes,
+      [id]: type,
+    });
+  };
+
+  const setBlockContentStateById = (id: string, state: 'edit' | 'preview') => {
+    setBlockContentState({
+      ...blockContentState,
+      [id]: state,
+    });
+  };
+
+  const updateChapterOrder = async (
+    move_chapter_id: string,
+    move_to_parent_id?: string,
+    chapter_ids?: string[],
+  ) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await api.updateChapterOrder({
+        move_chapter_id,
+        move_to_parent_id,
+        chapter_ids,
+        shifu_id: currentShifu?.bid,
+      });
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to update chapter order');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const removeBlock = async (id: string) => {
+    const list = blocks.filter(block => block.bid !== id);
+    setBlocks(list);
+    await saveCurrentBlocks(
+      currentNode!.bid,
+      list,
+      blockTypes,
+      blockProperties,
+      currentShifu?.bid || '',
+    );
+  };
+
+  const loadModels = async () => {
+    const list = await api.getModelList({});
+    setModels(normalizeModelOptions(list));
+  };
+
+  const setBlockError = (blockId: string, error: string | null) => {
+    setBlockErrors(prev => ({
+      ...prev,
+      [blockId]: error,
+    }));
+  };
+
+  const clearBlockErrors = () => {
+    setBlockErrors({});
+  };
+
+  const reorderOutlineTree = async (outlines: ReorderOutlineItemDto[]) => {
+    await api.reorderOutlineTree({
+      shifu_bid: currentShifu?.bid || '',
+      outlines,
+    });
+  };
+
+  const applyProfileDefinitionList = (
+    list: ProfileItem[],
+    shifuId?: string,
+    options?: { updateCache?: boolean },
+  ): { list: ProfileItem[]; systemVariableKeys: string[] } => {
+    const shouldUpdateCache = options?.updateCache ?? true;
+    setProfileItemDefinations(list || []);
+    const sysVariables =
+      list
+        ?.filter((item: ProfileItem) => item.profile_scope === 'system')
+        .map((item: ProfileItem) => ({
+          name: item.profile_key,
+          label: item.profile_remark || '',
+        })) || [];
+    setSystemVariables(sysVariables);
+
+    const customVariables =
+      list
+        ?.filter((item: ProfileItem) => item.profile_scope === 'user')
+        .map((item: ProfileItem) => item.profile_key) || [];
+    const hiddenVariableKeys =
+      list
+        ?.filter(
+          (item: ProfileItem) =>
+            item.profile_scope === 'user' && item.is_hidden,
+        )
+        .map((item: ProfileItem) => item.profile_key) || [];
+
+    setVariables(customVariables);
+    setHiddenVariables(hiddenVariableKeys);
+    if (shifuId) {
+      writeHiddenToStorage(shifuId, hiddenVariableKeys);
+      const storedMode = readHideModeFromStorage(shifuId);
+      setHideUnusedMode(storedMode ?? false);
+    }
+
+    const systemVariableKeys = sysVariables.map(variable => variable.name);
+    if (shifuId && shouldUpdateCache) {
+      profileDefinitionCacheRef.current[shifuId] = {
+        list,
+        systemVariableKeys,
+        updatedAt: Date.now(),
+      };
+    }
+
+    return {
+      list: list || [],
+      systemVariableKeys,
+    };
+  };
+
+  const refreshProfileDefinitions = useCallback(
+    async (shifuId: string, options?: { forceRefresh?: boolean }) => {
+      const cached = profileDefinitionCacheRef.current[shifuId];
+      const now = Date.now();
+      if (
+        !options?.forceRefresh &&
+        cached &&
+        now - cached.updatedAt < PROFILE_CACHE_TTL
+      ) {
+        applyProfileDefinitionList(cached.list, shifuId, {
+          updateCache: false,
+        });
+        setUnusedVariables(cached.unusedKeys || []);
+        return cached;
+      }
+      const storedHidden = readHiddenFromStorage(shifuId);
+      if (!cached && storedHidden.length > 0) {
+        setHiddenVariables(storedHidden);
+      }
+      try {
+        const [list, usage] = await Promise.all([
+          api.getProfileItemDefinitions({
+            parent_id: shifuId,
+            type: 'all',
+          }),
+          api.getProfileVariableUsage({ parent_id: shifuId }),
+        ]);
+        const { systemVariableKeys } =
+          applyProfileDefinitionList(list || [], shifuId) || {};
+        const unusedKeys = usage?.unused_keys || [];
+        setUnusedVariables(unusedKeys);
+        profileDefinitionCacheRef.current[shifuId] = {
+          list: list || [],
+          systemVariableKeys: systemVariableKeys || [],
+          unusedKeys,
+          updatedAt: Date.now(),
+        };
+        return {
+          list: list || [],
+          systemVariableKeys: systemVariableKeys || [],
+          unusedKeys,
+        };
+      } catch (error) {
+        console.error(error);
+        setProfileItemDefinations([]);
+        setSystemVariables([]);
+        setVariables([]);
+        setUnusedVariables([]);
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const refreshVariableUsage = useCallback(async (shifuId: string) => {
+    try {
+      const usage = await api.getProfileVariableUsage({
+        parent_id: shifuId,
+      });
+      const unusedKeys = usage?.unused_keys || [];
+      setUnusedVariables(unusedKeys);
+      const cached = profileDefinitionCacheRef.current[shifuId];
+      if (cached) {
+        profileDefinitionCacheRef.current[shifuId] = {
+          ...cached,
+          unusedKeys,
+        };
+      }
+      return usage;
+    } catch (error) {
+      console.error(error);
+      setUnusedVariables([]);
+      return null;
+    }
+  }, []);
+
+  const parseMdflow = async (
+    value: string,
+    shifuId: string,
+    outlineId: string,
+  ) => {
+    setIsLoading(true);
+    try {
+      await refreshProfileDefinitions(shifuId);
+    } catch (error) {
+      console.error(error);
+      setSystemVariables([]);
+      setVariables([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const previewParse = async (
+    value: string,
+    shifuId: string,
+    outlineId: string,
+  ): Promise<{
+    variables: PreviewVariablesMap;
+    blocksCount: number;
+    systemVariableKeys: string[];
+    allVariableKeys?: string[];
+    unusedKeys?: string[];
+  }> => {
+    try {
+      const resolvedShifuId = shifuId || currentShifu?.bid || '';
+      const resolvedOutlineId = outlineId || currentNode?.bid || '';
+      const { systemVariableKeys, unusedKeys } =
+        (await refreshProfileDefinitions(resolvedShifuId, {
+          forceRefresh: true,
+        })) || {};
+      const result = await api.parseMdflow({
+        shifu_bid: resolvedShifuId,
+        outline_bid: resolvedOutlineId,
+        data: value,
+      });
+      const variableKeys = result?.variables || [];
+      const resolvedSystemKeys =
+        systemVariableKeys && systemVariableKeys.length
+          ? systemVariableKeys
+          : systemVariables?.map(variable => variable.name).filter(Boolean) ||
+            [];
+      const storedVariables: StoredVariablesByScope =
+        getStoredPreviewVariables(resolvedShifuId);
+      const variablesMap = mapKeysToStoredVariables(
+        variableKeys,
+        storedVariables,
+        resolvedSystemKeys,
+      );
+      savePreviewVariables(resolvedShifuId, variablesMap, resolvedSystemKeys);
+      return {
+        variables: variablesMap,
+        blocksCount: result?.blocks_count ?? 0,
+        systemVariableKeys: resolvedSystemKeys,
+        allVariableKeys: variableKeys,
+        unusedKeys,
+      };
+    } catch (error) {
+      console.error(error);
+      return { variables: {}, blocksCount: 0, systemVariableKeys: [] };
+    }
+  };
+
+  const hideUnusedVariables = async (shifuId: string) => {
+    try {
+      const list = await api.hideUnusedProfileItems({
+        parent_id: shifuId,
+      });
+      if (list) {
+        applyProfileDefinitionList(list as ProfileItem[], shifuId);
+        logProfileAction('hide_unused', shifuId, list as ProfileItem[]);
+        await refreshVariableUsage(shifuId);
+      } else {
+        delete profileDefinitionCacheRef.current[shifuId];
+        await Promise.all([
+          refreshProfileDefinitions(shifuId),
+          refreshVariableUsage(shifuId),
+        ]);
+      }
+      setHideUnusedMode(true);
+      writeHideModeToStorage(shifuId, true);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const hideVariableByKey = async (shifuId: string, key: string) => {
+    if (!key) return;
+    try {
+      const list = await api.updateProfileHiddenState({
+        parent_id: shifuId,
+        profile_keys: [key],
+        hidden: true,
+      });
+      if (list) {
+        applyProfileDefinitionList(list as ProfileItem[], shifuId);
+        await refreshVariableUsage(shifuId);
+      } else {
+        delete profileDefinitionCacheRef.current[shifuId];
+        await Promise.all([
+          refreshProfileDefinitions(shifuId),
+          refreshVariableUsage(shifuId),
+        ]);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const restoreHiddenVariables = async (shifuId: string) => {
+    try {
+      if (!hiddenVariables.length) {
+        setHideUnusedMode(false);
+        writeHideModeToStorage(shifuId, false);
+        return;
+      }
+      const list = await api.updateProfileHiddenState({
+        parent_id: shifuId,
+        profile_keys: hiddenVariables,
+        hidden: false,
+      });
+      if (list) {
+        applyProfileDefinitionList(list as ProfileItem[], shifuId);
+        logProfileAction('restore_hidden', shifuId, list as ProfileItem[], {
+          requestedKeys: hiddenVariables,
+        });
+        await refreshVariableUsage(shifuId);
+      } else {
+        delete profileDefinitionCacheRef.current[shifuId];
+        await Promise.all([
+          refreshProfileDefinitions(shifuId),
+          refreshVariableUsage(shifuId),
+        ]);
+      }
+      setHideUnusedMode(false);
+      writeHideModeToStorage(shifuId, false);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const syncHiddenVariablesToUsage = useCallback(
+    async (
+      shifuId: string,
+      options?: { unusedKeys?: string[]; hiddenKeys?: string[] },
+    ) => {
+      if (!shifuId || !hideUnusedMode) {
+        return;
+      }
+      const storedHidden = readHiddenFromStorage(shifuId);
+      const resolvedHiddenKeys =
+        options?.hiddenKeys ??
+        (storedHidden.length ? storedHidden : hiddenVariables);
+      let resolvedUnusedKeys = options?.unusedKeys;
+      if (!resolvedUnusedKeys) {
+        const usage = await refreshVariableUsage(shifuId);
+        if (!usage) {
+          return;
+        }
+        resolvedUnusedKeys = usage?.unused_keys || [];
+      }
+      if (!resolvedUnusedKeys) {
+        return;
+      }
+
+      const unusedSet = new Set(resolvedUnusedKeys);
+      const keysToUnhide = resolvedHiddenKeys.filter(
+        key => !unusedSet.has(key),
+      );
+
+      if (!keysToUnhide.length) {
+        return;
+      }
+
+      let appliedList: ProfileItem[] | null = null;
+      const applyUpdate = async (keys: string[], hidden: boolean) => {
+        if (!keys.length) return;
+        const list = await api.updateProfileHiddenState({
+          parent_id: shifuId,
+          profile_keys: keys,
+          hidden,
+        });
+        if (list) {
+          appliedList = list as ProfileItem[];
+        }
+      };
+
+      try {
+        // Only unhide keys that became used to keep manual hides stable.
+        await applyUpdate(keysToUnhide, false);
+        if (appliedList) {
+          const existingCache = profileDefinitionCacheRef.current[shifuId];
+          applyProfileDefinitionList(appliedList, shifuId);
+          const updatedCache = profileDefinitionCacheRef.current[shifuId];
+          if (updatedCache) {
+            updatedCache.unusedKeys = resolvedUnusedKeys;
+          }
+        } else {
+          delete profileDefinitionCacheRef.current[shifuId];
+          await refreshProfileDefinitions(shifuId);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [
+      applyProfileDefinitionList,
+      hideUnusedMode,
+      hiddenVariables,
+      refreshProfileDefinitions,
+      refreshVariableUsage,
+    ],
+  );
+
+  const saveMdflow = async (payload?: SaveMdflowPayload) => {
+    if (autosavePaused || hasDraftConflict) {
+      return;
+    }
+    const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
+    const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
+    const data = payload?.data ?? currentMdflow.current ?? '';
+    const resolvedBaseRevision =
+      payload?.base_revision ?? baseRevision ?? undefined;
+    if (!shifu_bid || !outline_bid) {
+      return;
+    }
+    if (saveMdflowLockRef.current.inflight) {
+      if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
+        // When another outline save is in-flight, skip cross-outline saves
+        return;
+      }
+    }
+    saveMdflowLockRef.current = {
+      inflight: true,
+      outlineId: outline_bid || null,
+    };
+    let keepLock = false;
+    try {
+      const result = await api.saveMdflow({
+        shifu_bid,
+        outline_bid,
+        data,
+        base_revision: resolvedBaseRevision,
+      });
+      if (result && typeof result.new_revision === 'number') {
+        setBaseRevision(result.new_revision);
+      }
+      if (outline_bid) {
+        mdflowCacheRef.current[outline_bid] = data || '';
+        lastPersistedMdflowRef.current[outline_bid] = data || '';
+      }
+      setLastSaveTime(new Date());
+      await loadDraftMeta(shifu_bid, outline_bid);
+    } catch (error: any) {
+      if (error?.code === 4007) {
+        await loadDraftMeta(shifu_bid, outline_bid);
+        setHasDraftConflict(true);
+        setAutosavePaused(true);
+        debouncedAutoSaveRef.current.cancel();
+        keepLock = true;
+        return;
+      }
+      throw error;
+    } finally {
+      if (!keepLock) {
+        saveMdflowLockRef.current = { inflight: false, outlineId: null };
+      }
+    }
+  };
+
+  const setCurrentMdflow = (value: string) => {
+    currentMdflow.current = value;
+    setMdflow(value || '');
+    if (currentOutlineRef.current) {
+      mdflowCacheRef.current[currentOutlineRef.current] = value || '';
+    }
+  };
+
+  const getCurrentMdflow = () => {
+    return currentMdflow.current;
+  };
+
+  const hasUnsavedMdflow = (outlineId?: string, value?: string) => {
+    const targetOutlineId = outlineId || currentOutlineRef.current || '';
+    if (!targetOutlineId) {
+      return false;
+    }
+    const latest = value ?? currentMdflow.current ?? '';
+    const last = lastPersistedMdflowRef.current[targetOutlineId] ?? '';
+    return latest !== last;
+  };
+
+  const removePlaceholderLessons = (nodes: Outline[] = []): Outline[] => {
+    return nodes
+      .filter(node => node.id !== 'new_lesson')
+      .map(node => ({
+        ...node,
+        children: removePlaceholderLessons(node.children || []),
+      }));
+  };
+
+  const findNodeInList = (nodes: Outline[], id: string): Outline | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      const found = findNodeInList(node.children || [], id);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const insertPlaceholderChapter = () => {
+    if (chapters.some(ch => ch.id === 'new_chapter')) return;
+
+    const placeholder: Outline = {
+      id: 'new_chapter',
+      bid: 'new_chapter',
+      name: '',
+      parent_bid: '',
+      children: [],
+      depth: 0,
+      position: '',
+      type: LEARNING_PERMISSION.GUEST,
+      is_hidden: false,
+    };
+
+    setChapters([...chapters, placeholder]);
+
+    setCataData({
+      ...cataData,
+      ['new_chapter']: {
+        ...placeholder,
+        parentId: '',
+        status: 'new',
+      },
+    });
+
+    setFocusId('new_chapter');
+  };
+
+  const insertPlaceholderLesson = (parent: Outline) => {
+    if (!parent) return;
+
+    let addedPlaceholder: Outline | null = null;
+    let placeholderParentId: string | null = null;
+
+    setChapters(prev => {
+      const cleaned = removePlaceholderLessons(prev);
+      const parentNode = findNodeInList(cleaned, parent.id);
+      if (!parentNode) {
+        return cleaned;
+      }
+
+      if (parentNode.children?.some(ch => ch.id === 'new_lesson')) {
+        return cleaned;
+      }
+
+      const placeholder: Outline = {
+        id: 'new_lesson',
+        bid: 'new_lesson',
+        name: '',
+        parent_bid: parentNode.id,
+        children: [],
+        depth: (parentNode.depth || parent.depth || 0) + 1,
+        position: '',
+        type: LEARNING_PERMISSION.GUEST,
+        is_hidden: false,
+      };
+
+      parentNode.children = [...(parentNode.children || []), placeholder];
+      parentNode.collapsed = false;
+      addedPlaceholder = placeholder;
+      placeholderParentId = parentNode.id;
+      return cleaned;
+    });
+
+    // prevent duplicate placeholder lesson
+    setCataData(prev => {
+      const next = { ...prev };
+      delete next['new_lesson'];
+      if (addedPlaceholder && placeholderParentId) {
+        next['new_lesson'] = {
+          ...addedPlaceholder,
+          parentId: placeholderParentId,
+          status: 'new',
+        };
+      }
+      return next;
+    });
+
+    if (addedPlaceholder) {
+      setFocusId('new_lesson');
+    }
+  };
+
+  const value: ShifuContextType = {
+    currentShifu,
+    chapters,
+    isLoading,
+    isSaving,
+    error,
+    lastSaveTime,
+    focusId,
+    focusValue,
+    cataData,
+    blocks,
+    blockContentProperties,
+    blockTypes,
+    blockContentState,
+    blockErrors,
+    currentNode,
+    profileItemDefinations,
+    models,
+    blockProperties,
+    blockUITypes,
+    blockContentTypes,
+    mdflow,
+    variables,
+    hiddenVariables,
+    systemVariables,
+    unusedVariables,
+    hideUnusedMode,
+    baseRevision,
+    latestDraftMeta,
+    hasDraftConflict,
+    autosavePaused,
+    actions: {
+      setFocusId,
+      addChapter,
+      addRootOutline,
+      setChapters,
+      loadShifu,
+      loadChapters,
+      createChapter,
+      setFocusValue,
+      updateOutline,
+      addSubOutline,
+      addSiblingOutline,
+      removeOutline,
+      replaceOutline,
+      createSiblingUnit,
+      createOutline,
+      loadBlocks,
+      updateBlockProperties,
+      setBlockContentPropertiesById,
+      setBlockContentTypesById,
+      setBlockUIPropertiesById,
+      setBlockUITypesById,
+      updateChapterOrder,
+      setBlockContentStateById,
+      setBlocks,
+      saveBlocks,
+      autoSaveBlocks,
+      saveCurrentBlocks,
+      removeBlock,
+      setCurrentNode: internalSetCurrentNode,
+      loadModels,
+      setBlockError,
+      clearBlockErrors,
+      reorderOutlineTree,
+      loadMdflow,
+      saveMdflow,
+      loadDraftMeta,
+      loadMdflowHistory,
+      loadMdflowHistoryVersionDetail,
+      restoreMdflowHistory,
+      setBaseRevision,
+      setLatestDraftMeta,
+      setDraftConflict: setHasDraftConflict,
+      setAutosavePaused,
+      parseMdflow,
+      previewParse,
+      hideUnusedVariables,
+      restoreHiddenVariables,
+      hideVariableByKey,
+      syncHiddenVariablesToUsage,
+      unhideVariablesByKeys: async (shifuId: string, keys: string[]) => {
+        if (!keys.length) return;
+        try {
+          const list = await api.updateProfileHiddenState({
+            parent_id: shifuId,
+            profile_keys: keys,
+            hidden: false,
+          });
+          if (list) {
+            applyProfileDefinitionList(list as ProfileItem[], shifuId);
+            logProfileAction('unhide_by_keys', shifuId, list as ProfileItem[], {
+              requestedKeys: keys,
+            });
+            await refreshVariableUsage(shifuId);
+          } else {
+            delete profileDefinitionCacheRef.current[shifuId];
+            await Promise.all([
+              refreshProfileDefinitions(shifuId),
+              refreshVariableUsage(shifuId),
+            ]);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      },
+      refreshProfileDefinitions,
+      refreshVariableUsage,
+      setCurrentMdflow,
+      getCurrentMdflow,
+      hasUnsavedMdflow,
+      flushAutoSaveBlocks,
+      cancelAutoSaveBlocks,
+      insertPlaceholderChapter,
+      insertPlaceholderLesson,
+      removePlaceholderOutline,
+    },
+  };
+
+  return (
+    <ShifuContext.Provider value={value}>{children}</ShifuContext.Provider>
+  );
+};
+
+export const useShifu = (): ShifuContextType => {
+  const context = useContext(ShifuContext);
+  if (context === undefined) {
+    throw new Error('useShifu must be used within a ShifuProvider');
+  }
+  return context;
+};

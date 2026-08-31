@@ -31,7 +31,7 @@ all explicit, versioned, and mechanically enforced.
   smoke tests, and request-id diagnostics.
   Evidence: `docs/design-docs/agent-first-harness.md`,
   `docs/exec-plans/completed/agent-first-harness-migration.md`,
-  `scripts/check_repo_harness.py`, and `src/cook-web/e2e/smoke.spec.ts`.
+  `scripts/check_repo_harness.py`, and `src/web/e2e/smoke.spec.ts`.
 - Observation: the control plane is stronger than the runtime plane.
   Knowledge docs, generated mirrors, and `pre-commit` exist, but the default
   CI workflows do not yet treat repo-harness and runtime-harness as first-class
@@ -181,7 +181,7 @@ default Docker dev stack.
 - `python scripts/check_repo_harness.py`
 - `python scripts/check_architecture_boundaries.py --run-fixture-tests`
 - `cd docker && docker compose -f docker-compose.dev.yml config`
-- `cd src/cook-web && npm run test:e2e`
+- `cd src/web && npm run test:e2e`
 
 ## Idempotence and Recovery
 
@@ -197,7 +197,7 @@ The final validated state is:
   default dev stack;
 - `python scripts/check_repo_harness.py` passes;
 - `python scripts/check_architecture_boundaries.py --run-fixture-tests` passes;
-- `cd src/cook-web && npm run test:e2e` passes against the default dev stack.
+- `cd src/web && npm run test:e2e` passes against the default dev stack.
 
 ## Interfaces and Dependencies
 

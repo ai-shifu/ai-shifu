@@ -76,10 +76,10 @@ Extend the creator onboarding rollout to a targeted existing-creator cohort
   - `src/api/flaskr/route/user.py`
   - `src/api/tests/service/user/test_onboarding_routes.py`
 - Frontend owner paths:
-  - `src/cook-web/src/app/admin/layout.tsx`
-  - `src/cook-web/src/components/onboarding/onboardingSteps.ts`
-  - `src/cook-web/src/components/shifu-edit/ShifuEdit.tsx`
-  - `src/cook-web/src/types/onboarding.ts`
+  - `src/web/src/app/admin/layout.tsx`
+  - `src/web/src/components/onboarding/onboardingSteps.ts`
+  - `src/web/src/components/shifu-edit/ShifuEdit.tsx`
+  - `src/web/src/types/onboarding.ts`
 - Translation owner paths:
   - `src/i18n/zh-CN/modules/onboarding.json`
   - `src/i18n/en-US/modules/onboarding.json`

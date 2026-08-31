@@ -256,8 +256,7 @@
       "learnerCount": "عدد المتعلمين",
       "orderAmount": "قيمة الطلبات (تشمل رموز الاسترداد)",
       "orderCount": "عدد الطلبات",
-      "ratingScore": "التقييم",
-      "visitCount30d": "عدد الزوار خلال آخر 30 يومًا"
+      "ratingScore": "التقييم"
     },
     "metricsTooltips": {
       "completedUserAvgCredits": "متوسط الأرصدة التي صرفها المستخدمون الذين أكملوا هذه الدورة ولديهم استخدام أرصدة مفوتر مسجل.",

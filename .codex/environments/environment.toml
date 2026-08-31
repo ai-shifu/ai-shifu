@@ -31,20 +31,55 @@ reuse_directory_if_compatible() {
   fi
 }
 
+reuse_frontend_node_modules() {
+  current_frontend_directory="$1"
+  legacy_frontend_directory="$2"
+  target_frontend_directory="$3"
+
+  reuse_directory_if_compatible \
+    "$current_frontend_directory/node_modules" \
+    "$target_frontend_directory/node_modules" \
+    "$current_frontend_directory/package-lock.json" \
+    "$target_frontend_directory/package-lock.json"
+  if [ -e "$target_frontend_directory/node_modules" ]; then
+    return
+  fi
+
+  legacy_manifest="$legacy_frontend_directory/package-lock.json"
+  if [ ! -f "$legacy_manifest" ]; then
+    # After Git applies the tracked rename, ignored node_modules can remain at
+    # the legacy path while its package-lock.json has moved to src/web.
+    legacy_manifest="$current_frontend_directory/package-lock.json"
+  fi
+
+  reuse_directory_if_compatible \
+    "$legacy_frontend_directory/node_modules" \
+    "$target_frontend_directory/node_modules" \
+    "$legacy_manifest" \
+    "$target_frontend_directory/package-lock.json"
+}
+
 if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
+  # Git moves tracked files but can leave ignored assets at the legacy path,
+  # so resolve the frontend environment and dependencies independently.
+  current_frontend_directory="$source_tree/src/web"
+  legacy_frontend_directory="$source_tree/src/cook-web"
+  target_frontend_directory="$worktree_path/src/web"
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
-  copy_local_env "$source_tree/src/cook-web/.env" "$worktree_path/src/cook-web/.env"
+  node "$target_frontend_directory/scripts/migrate-legacy-frontend-env.js" \
+    --target "$target_frontend_directory" \
+    --source "$current_frontend_directory" \
+    --source "$legacy_frontend_directory"
   reuse_directory_if_compatible \
     "$source_tree/.venv" \
     "$worktree_path/.venv" \
     "$source_tree/src/api/requirements.txt" \
     "$worktree_path/src/api/requirements.txt"
-  reuse_directory_if_compatible \
-    "$source_tree/src/cook-web/node_modules" \
-    "$worktree_path/src/cook-web/node_modules" \
-    "$source_tree/src/cook-web/package-lock.json" \
-    "$worktree_path/src/cook-web/package-lock.json"
+  reuse_frontend_node_modules \
+    "$current_frontend_directory" \
+    "$legacy_frontend_directory" \
+    "$target_frontend_directory"
 fi'''
 
 [setup.linux]
@@ -73,27 +108,62 @@ reuse_directory_if_compatible() {
   fi
 }
 
+reuse_frontend_node_modules() {
+  current_frontend_directory="$1"
+  legacy_frontend_directory="$2"
+  target_frontend_directory="$3"
+
+  reuse_directory_if_compatible \
+    "$current_frontend_directory/node_modules" \
+    "$target_frontend_directory/node_modules" \
+    "$current_frontend_directory/package-lock.json" \
+    "$target_frontend_directory/package-lock.json"
+  if [ -e "$target_frontend_directory/node_modules" ]; then
+    return
+  fi
+
+  legacy_manifest="$legacy_frontend_directory/package-lock.json"
+  if [ ! -f "$legacy_manifest" ]; then
+    # After Git applies the tracked rename, ignored node_modules can remain at
+    # the legacy path while its package-lock.json has moved to src/web.
+    legacy_manifest="$current_frontend_directory/package-lock.json"
+  fi
+
+  reuse_directory_if_compatible \
+    "$legacy_frontend_directory/node_modules" \
+    "$target_frontend_directory/node_modules" \
+    "$legacy_manifest" \
+    "$target_frontend_directory/package-lock.json"
+}
+
 if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
+  # Git moves tracked files but can leave ignored assets at the legacy path,
+  # so resolve the frontend environment and dependencies independently.
+  current_frontend_directory="$source_tree/src/web"
+  legacy_frontend_directory="$source_tree/src/cook-web"
+  target_frontend_directory="$worktree_path/src/web"
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
-  copy_local_env "$source_tree/src/cook-web/.env" "$worktree_path/src/cook-web/.env"
+  node "$target_frontend_directory/scripts/migrate-legacy-frontend-env.js" \
+    --target "$target_frontend_directory" \
+    --source "$current_frontend_directory" \
+    --source "$legacy_frontend_directory"
   reuse_directory_if_compatible \
     "$source_tree/.venv" \
     "$worktree_path/.venv" \
     "$source_tree/src/api/requirements.txt" \
     "$worktree_path/src/api/requirements.txt"
-  reuse_directory_if_compatible \
-    "$source_tree/src/cook-web/node_modules" \
-    "$worktree_path/src/cook-web/node_modules" \
-    "$source_tree/src/cook-web/package-lock.json" \
-    "$worktree_path/src/cook-web/package-lock.json"
+  reuse_frontend_node_modules \
+    "$current_frontend_directory" \
+    "$legacy_frontend_directory" \
+    "$target_frontend_directory"
 fi'''
 
 [[actions]]
 name = "Cook Web"
 icon = "debug"
 command = '''
-cd src/cook-web
+cd src/web
 exec npm run dev'''
 
 [[actions]]
@@ -115,7 +185,7 @@ cd src/api
 name = "Frontend tests"
 icon = "test"
 command = '''
-cd src/cook-web
+cd src/web
 npm run test:ci'''
 
 [[actions]]

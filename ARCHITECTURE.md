@@ -11,7 +11,7 @@ validation.
 
 - `src/api/`: Flask backend, service modules, persistence, provider
   integration, shared backend tests, and backend maintenance scripts.
-- `src/cook-web/`: Next.js frontend for learner flows, admin/operator tools,
+- `src/web/`: Next.js frontend for learner flows, admin/operator tools,
   authoring, and shared frontend tests.
 - `src/i18n/`: Shared translation inventory consumed by backend and frontend.
 - `docker/`: Local dev, latest-image, and pinned-release runtime packaging.
@@ -45,10 +45,10 @@ validation.
 
 ### Frontend
 
-- Route entrypoints live in `src/cook-web/src/app/**/page.tsx`,
+- Route entrypoints live in `src/web/src/app/**/page.tsx`,
   `layout.tsx`, and `route.ts`.
 - Shared request transport and business-code handling live in
-  `src/cook-web/src/lib/request.ts` and `src/cook-web/src/lib/api.ts`.
+  `src/web/src/lib/request.ts` and `src/web/src/lib/api.ts`.
 - Legacy `c-*` paths remain active compatibility surfaces and must still be
   treated as maintained code.
 
