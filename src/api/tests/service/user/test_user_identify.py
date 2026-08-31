@@ -13,8 +13,34 @@ class _FakeRedis:
     def get(self, key: object) -> object:
         return self.values.get(key)
 
+    def set(
+        self,
+        key: str,
+        value: object,
+        ex: int | None = None,
+        px: int | None = None,
+        nx: bool = False,
+        xx: bool = False,
+        *_args: object,
+        **_kwargs: object,
+    ) -> object:
+        _ = (ex, px)
+        if nx and key in self.values:
+            return False
+        if xx and key not in self.values:
+            return False
+        self.values[key] = value
+        return True
+
+    def incr(self, key: str, amount: int = 1) -> int:
+        value = int(self.values.get(key, 0)) + amount
+        self.values[key] = value
+        return value
+
     def delete(self, *keys: str) -> object:
         self.deleted.extend(keys)
+        for key in keys:
+            self.values.pop(key, None)
         return len(keys)
 
 
@@ -824,3 +850,59 @@ def test_email_flow_verifies_code_from_db_when_cache_missing(app: object) -> Non
         updated = UserVerifyCode.query.filter_by(id=record.id).first()
         assert updated is not None
         assert updated.verify_code_used == 1
+
+
+def test_email_flow_invalidates_code_after_five_failed_attempts(app: object) -> None:
+    from flaskr.dao import db
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.user import email_flow
+    from flaskr.service.user.models import UserVerifyCode
+
+    with app.app_context():
+        app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
+
+        email = "limited@example.com"
+        code = "5678"
+        code_key = app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email
+        attempt_key = f"{app.config['REDIS_KEY_PREFIX_MAIL_CODE']}attempts:{email}"
+        fake_redis = _FakeRedis({code_key: code})
+        email_flow.redis = fake_redis
+
+        record = UserVerifyCode(
+            phone="",
+            mail=email,
+            verify_code=code,
+            verify_code_type=2,
+            verify_code_send=1,
+            verify_code_used=0,
+            user_ip="",
+        )
+        db.session.add(record)
+        db.session.commit()
+
+        for _attempt in range(5):
+            with pytest.raises(AppError) as exc_info:
+                email_flow.verify_email_code(
+                    app,
+                    user_id=None,
+                    email=email,
+                    code="0000",
+                )
+            assert exc_info.value.code == ERROR_CODE["server.common.unknownError"]
+
+        assert fake_redis.values[attempt_key] == 5
+        assert code_key not in fake_redis.values
+
+        with pytest.raises(AppError) as exc_info:
+            email_flow.verify_email_code(
+                app,
+                user_id=None,
+                email=email,
+                code=code,
+            )
+        assert exc_info.value.code == ERROR_CODE["server.common.unknownError"]
+
+        updated = UserVerifyCode.query.filter_by(id=record.id).first()
+        assert updated is not None
+        assert updated.verify_code_used == 0
