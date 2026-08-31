@@ -553,4 +553,34 @@ describe('AdminDashboardCourseDetailPage', () => {
     expect(screen.getByText('6.00')).toBeInTheDocument();
     expect(screen.getAllByText('--').length).toBeGreaterThan(0);
   });
+
+  test('renders the learning mode empty state when metrics are unavailable', async () => {
+    const user = userEvent.setup();
+    mockGetDashboardCourseDetail.mockResolvedValue(
+      createDetailResponse({ learning_mode_metrics: [] }),
+    );
+    mockGetDashboardCourseLearners.mockResolvedValue(
+      createLearnersResponse({ items: [], total: 0, page_count: 0 }),
+    );
+
+    render(<AdminDashboardCourseDetailPage />);
+
+    const tab = await screen.findByRole('tab', {
+      name: 'module.dashboard.detail.learningModePerformance.title',
+    });
+    await act(async () => {
+      await user.click(tab);
+    });
+
+    expect(
+      await screen.findByText(
+        'module.dashboard.detail.learningModePerformance.empty',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.dashboard.detail.learningModePerformance.modes.read',
+      ),
+    ).not.toBeInTheDocument();
+  });
 });

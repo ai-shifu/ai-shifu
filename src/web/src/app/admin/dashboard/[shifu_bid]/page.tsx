@@ -454,8 +454,12 @@ export default function AdminDashboardCourseDetailPage() {
   );
 
   const learningModeMetricRows = useMemo(() => {
+    if (!detail.learning_mode_metrics?.length) {
+      return [];
+    }
+
     const metricsByMode = new Map(
-      (detail.learning_mode_metrics || []).map(metric => [metric.mode, metric]),
+      detail.learning_mode_metrics.map(metric => [metric.mode, metric]),
     );
     return LEARNING_MODE_METRIC_ORDER.map(mode => {
       const metric = metricsByMode.get(mode);
