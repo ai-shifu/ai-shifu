@@ -7,9 +7,15 @@ import pytest
 
 
 class _FakeRedisLock:
-    def __init__(self, locks: dict[str, bool], key: str) -> None:
+    def __init__(
+        self,
+        locks: dict[str, bool],
+        key: str,
+        extend_outcome: bool | Exception = True,
+    ) -> None:
         self._locks = locks
         self._key = key
+        self._extend_outcome = extend_outcome
         self._held = False
         self.extend_calls: list[tuple[int, bool]] = []
         self.extended = threading.Event()
@@ -32,12 +38,20 @@ class _FakeRedisLock:
     def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
         self.extend_calls.append((additional_time, replace_ttl))
         self.extended.set()
-        return self._held
+        if isinstance(self._extend_outcome, Exception):
+            raise self._extend_outcome
+        return self._held and self._extend_outcome
 
 
 class _FakeRedis:
-    def __init__(self, values: object = None) -> None:
+    def __init__(
+        self,
+        values: object = None,
+        *,
+        lock_extend_outcome: bool | Exception = True,
+    ) -> None:
         self.values = dict(values or {})
+        self.lock_extend_outcome = lock_extend_outcome
         self.deleted = []
         self.locks: dict[str, bool] = {}
         self.last_lock: _FakeRedisLock | None = None
@@ -79,7 +93,11 @@ class _FakeRedis:
     ) -> _FakeRedisLock:
         _ = (timeout, blocking_timeout)
         self.lock_thread_local = thread_local
-        self.last_lock = _FakeRedisLock(self.locks, key)
+        self.last_lock = _FakeRedisLock(
+            self.locks,
+            key,
+            self.lock_extend_outcome,
+        )
         return self.last_lock
 
     def delete(self, *keys: str) -> object:
@@ -936,6 +954,43 @@ def test_verification_code_lock_renews_redis_lease(
         )
         for call in lock.extend_calls
     )
+    assert not fake_redis.locks
+
+
+@pytest.mark.parametrize(
+    "extend_outcome",
+    [False, ConnectionError("Redis unavailable")],
+    ids=["rejected", "redis-error"],
+)
+def test_verification_code_lock_fails_closed_when_renewal_is_lost(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    extend_outcome: bool | Exception,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
+
+    fake_redis = _FakeRedis(lock_extend_outcome=extend_outcome)
+    monkeypatch.setattr(
+        verification_codes,
+        "VERIFICATION_LOCK_RENEW_INTERVAL_SECONDS",
+        0.01,
+    )
+
+    def _use_verification_lock() -> None:
+        with verification_codes.verification_code_lock(
+            app,
+            kind="email",
+            identifier="learner@example.com",
+            cache_provider=fake_redis,
+        ):
+            lock = fake_redis.last_lock
+            assert lock is not None
+            assert lock.extended.wait(timeout=1)
+
+    with app.app_context(), pytest.raises(AppError):
+        _use_verification_lock()
+
     assert not fake_redis.locks
 
 
