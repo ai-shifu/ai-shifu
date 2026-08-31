@@ -38,6 +38,7 @@ def _renew_verification_lock(
     app: Flask,
     lock: CacheLock,
     stop_event: threading.Event,
+    lock_lost_event: threading.Event,
 ) -> None:
     while not stop_event.wait(VERIFICATION_LOCK_RENEW_INTERVAL_SECONDS):
         try:
@@ -45,9 +46,11 @@ def _renew_verification_lock(
                 VERIFICATION_LOCK_TIMEOUT_SECONDS,
                 replace_ttl=True,
             ):
+                lock_lost_event.set()
                 return
         except Exception:
             app.logger.exception("Failed to renew verification code lock")
+            lock_lost_event.set()
             return
 
 
@@ -118,9 +121,10 @@ def verification_code_lock(
     if not acquired:
         raise_error(lock_error)
     stop_event = threading.Event()
+    lock_lost_event = threading.Event()
     renewal_thread = threading.Thread(
         target=_renew_verification_lock,
-        args=(app, lock, stop_event),
+        args=(app, lock, stop_event, lock_lost_event),
         daemon=True,
         name="verification-code-lock-renewer",
     )
@@ -130,8 +134,12 @@ def verification_code_lock(
     finally:
         stop_event.set()
         renewal_thread.join(timeout=1)
+        if renewal_thread.is_alive():
+            lock_lost_event.set()
         with contextlib.suppress(Exception):
             lock.release()
+    if lock_lost_event.is_set():
+        raise_error(lock_error)
 
 
 def _record_invalid_attempt(
