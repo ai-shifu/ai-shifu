@@ -23,11 +23,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import { toast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
-  AdminOperationCreditNotificationDryRunResponse,
   AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationListResponse,
   AdminOperationCreditNotificationOverview,
@@ -36,10 +36,10 @@ import type {
   AdminOperationCreditNotificationRequeueResponse,
   AdminOperationCreditNotificationTemplateListResponse,
   AdminOperationCreditNotificationTemplateOption,
-  AdminOperationCreditNotificationTemplateSyncResponse,
 } from '../operation-credit-notification-types';
 import { CreditNotificationConfigTab } from './CreditNotificationConfigTab';
 import { CreditNotificationRecordsTab } from './CreditNotificationRecordsTab';
+import { CreditNotificationTemplateManagementTab } from './CreditNotificationTemplateManagementTab';
 import { getTemplateOptionsForType } from './CreditNotificationTypeConfigCard';
 import {
   clonePolicy,
@@ -50,7 +50,6 @@ import {
   DEFAULT_TAB,
   EMPTY_LABEL,
   type ErrorState,
-  type KnownNotificationType,
   normalizePolicy,
   type NotificationOverviewCardKey,
   NOTIFICATION_TYPES,
@@ -61,6 +60,14 @@ import {
 } from './creditNotificationUtils';
 import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
 import { useCreditNotificationTemplateSyncState } from './useCreditNotificationTemplateSyncState';
+import {
+  NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT,
+  NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT,
+  NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT,
+  NOTIFICATION_TEMPLATE_SYNC_ATTEMPT_EVENT,
+  NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT,
+  NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+} from './notificationTemplateTracking';
 
 const normalizeResolvedPolicyLists = (
   payload: unknown,
@@ -83,6 +90,7 @@ const normalizeResolvedPolicyLists = (
 export default function AdminOperationCreditNotificationsPage() {
   const { t } = useTranslation();
   const { isReady } = useOperatorGuard();
+  const { trackEvent } = useTracking();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -127,6 +135,7 @@ export default function AdminOperationCreditNotificationsPage() {
     'provider' | 'local' | ''
   >('');
   const [templateListError, setTemplateListError] = React.useState('');
+  const [templateListLoading, setTemplateListLoading] = React.useState(false);
   const [savedPolicy, setSavedPolicy] =
     React.useState<AdminOperationCreditNotificationPolicy>(createDefaultPolicy);
   const [resolvedLists, setResolvedLists] =
@@ -135,6 +144,7 @@ export default function AdminOperationCreditNotificationsPage() {
     { type: 'tab'; tab: PageTab } | { type: 'href'; href: string } | null
   >(null);
   const requestIdRef = React.useRef(0);
+  const templateListRequestIdRef = React.useRef(0);
   const configLoadStartedRef = React.useRef(false);
   const isConfigDirty = React.useMemo(
     () => JSON.stringify(policy) !== JSON.stringify(savedPolicy),
@@ -228,23 +238,72 @@ export default function AdminOperationCreditNotificationsPage() {
     setConfigError('');
   }, []);
 
-  const fetchTemplateOptions = React.useCallback(async () => {
-    try {
-      const response = (await api.getAdminOperationCreditNotificationTemplates(
-        {},
-      )) as AdminOperationCreditNotificationTemplateListResponse;
-      setTemplateOptions(response.items || []);
-      setTemplateListSource(response.source || '');
-      setTemplateListError(
-        response.provider_available ? '' : response.error_code,
-      );
-    } catch (requestError) {
-      const resolvedError = requestError as ErrorWithCode;
-      setTemplateOptions([]);
-      setTemplateListSource('');
-      setTemplateListError(resolvedError.message || 'template_list_failed');
-    }
-  }, []);
+  const trackTemplateEventSafely = React.useCallback(
+    (eventName: string, payload: Record<string, string>) => {
+      try {
+        void Promise.resolve(trackEvent(eventName, payload)).catch(
+          () => undefined,
+        );
+      } catch {
+        // Analytics is best-effort and must not affect operator workflows.
+      }
+    },
+    [trackEvent],
+  );
+
+  const fetchTemplateOptions = React.useCallback(
+    async (mode: 'initial' | 'manual' = 'initial') => {
+      const requestId = templateListRequestIdRef.current + 1;
+      templateListRequestIdRef.current = requestId;
+      setTemplateListLoading(true);
+      if (mode === 'manual') {
+        trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_ATTEMPT_EVENT, {
+          ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+        });
+      }
+      try {
+        const response =
+          (await api.getAdminOperationCreditNotificationTemplates(
+            {},
+          )) as AdminOperationCreditNotificationTemplateListResponse;
+        if (requestId !== templateListRequestIdRef.current) {
+          return;
+        }
+        setTemplateOptions(response.items || []);
+        setTemplateListSource(response.source || '');
+        setTemplateListError(
+          response.provider_available ? '' : response.error_code,
+        );
+        if (mode === 'manual') {
+          trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT, {
+            ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+            outcome: response.provider_available ? 'success' : 'failed',
+            source: response.source || 'local',
+          });
+        }
+      } catch (requestError) {
+        if (requestId !== templateListRequestIdRef.current) {
+          return;
+        }
+        const resolvedError = requestError as ErrorWithCode;
+        setTemplateOptions([]);
+        setTemplateListSource('');
+        setTemplateListError(resolvedError.message || 'template_list_failed');
+        if (mode === 'manual') {
+          trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT, {
+            ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+            outcome: 'failed',
+            source: 'local',
+          });
+        }
+      } finally {
+        if (requestId === templateListRequestIdRef.current) {
+          setTemplateListLoading(false);
+        }
+      }
+    },
+    [trackTemplateEventSafely],
+  );
 
   const fetchOverview = React.useCallback(async () => {
     const response = (await api.getAdminOperationCreditNotificationsOverview(
@@ -347,7 +406,7 @@ export default function AdminOperationCreditNotificationsPage() {
   }, [fetchOverview, fetchRecords, isReady]);
 
   React.useEffect(() => {
-    if (!isReady || activeTab !== 'config') {
+    if (!isReady || (activeTab !== 'config' && activeTab !== 'templates')) {
       return;
     }
     void loadConfigResources();
@@ -641,6 +700,12 @@ export default function AdminOperationCreditNotificationsPage() {
               >
                 {t('module.operationsCreditNotifications.tabs.config')}
               </TabsTrigger>
+              <TabsTrigger
+                value='templates'
+                className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+              >
+                {t('module.operationsCreditNotifications.tabs.templates')}
+              </TabsTrigger>
             </TabsList>
           }
         />
@@ -696,6 +761,41 @@ export default function AdminOperationCreditNotificationsPage() {
             saveConfig={saveConfig}
             clearTemplateSyncResult={clearTemplateSyncResult}
             resolveTypeLabel={resolveTypeLabel}
+          />
+        </TabsContent>
+
+        <TabsContent
+          value='templates'
+          className='mt-0 min-h-0 flex-1 overflow-auto pr-1'
+        >
+          <CreditNotificationTemplateManagementTab
+            templates={templateOptions}
+            active={activeTab === 'templates'}
+            loading={templateListLoading}
+            error={templateListError}
+            policy={policy}
+            bindingStatus={
+              configLoaded ? 'ready' : configLoading ? 'loading' : 'unavailable'
+            }
+            refresh={() => fetchTemplateOptions('manual')}
+            onViewed={() =>
+              trackTemplateEventSafely(
+                NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT,
+                NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+              )
+            }
+            onFilterApplied={filter =>
+              trackTemplateEventSafely(
+                NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT,
+                { ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT, filter },
+              )
+            }
+            onDetailOpened={() =>
+              trackTemplateEventSafely(
+                NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT,
+                NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+              )
+            }
           />
         </TabsContent>
       </Tabs>

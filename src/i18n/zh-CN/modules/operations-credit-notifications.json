@@ -435,7 +435,55 @@
   },
   "tabs": {
     "config": "通知配置",
-    "records": "通知记录"
+    "records": "通知记录",
+    "templates": "模板管理"
+  },
+  "templateManagement": {
+    "allStatuses": "全部审核状态",
+    "bindingsLoading": "正在加载绑定关系",
+    "bindingsUnavailable": "绑定关系加载失败",
+    "columns": {
+      "action": "操作",
+      "bindings": "使用场景",
+      "content": "模板内容",
+      "name": "模板",
+      "status": "审核状态",
+      "type": "模板类型"
+    },
+    "detail": {
+      "code": "模板 Code",
+      "content": "完整内容",
+      "error": "同步错误",
+      "status": "审核状态",
+      "syncedAt": "最近同步",
+      "type": "模板类型",
+      "variables": "变量"
+    },
+    "detailDescription": "查看供应商模板详情及当前业务使用情况。",
+    "emailComingSoon": "邮件发送供应商配置完成后，将在此管理邮件模板。",
+    "emailTitle": "邮件模板",
+    "empty": "没有符合当前筛选条件的模板。",
+    "loadError": "无法加载阿里云模板列表；如有本地缓存，将继续展示缓存模板。",
+    "loading": "正在加载模板...",
+    "refresh": "同步阿里云短信模板",
+    "searchPlaceholder": "搜索模板名称、Code 或内容",
+    "smsDescription": "展示从阿里云同步的全部短信模板，包括尚未绑定积分通知的模板。",
+    "smsTitle": "阿里云短信模板",
+    "status": {
+      "AUDIT_SATE_CANCEL": "已取消",
+      "AUDIT_STATE_CANCEL": "已取消",
+      "AUDIT_STATE_INIT": "审核中",
+      "AUDIT_STATE_NOT_PASS": "审核未通过",
+      "AUDIT_STATE_PASS": "审核通过"
+    },
+    "statusFilter": "审核状态",
+    "type": {
+      "0": "通知短信",
+      "1": "推广短信",
+      "2": "验证码",
+      "6": "国际/港澳台短信"
+    },
+    "unbound": "未使用"
   },
   "templateName": {
     "credit_expiring": "积分到期提醒通知模板",

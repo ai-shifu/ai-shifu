@@ -26,6 +26,8 @@
 - [x] 2026-06-21 16:10 CST: Follow-up admin refinements split the records overview/filter UI and then moved `CreditNotificationConfigTab` local template/input/managed-list state into a dedicated hook so the config tab stays orchestration-focused without changing backend contracts.
 - [x] 2026-06-21 16:24 CST: Stopped this follow-up round after the local-state extraction; `dry-run` and template-sync deeper hook splits remain explicitly deferred to a later credit-notification follow-up PR to keep the scope reviewable.
 - [x] 2026-06-21 17:05 CST: A config-tab follow-up extracted `dry-run` and template-sync state into dedicated frontend hooks so their errors stay local to the config area instead of reusing page-level state.
+- [x] 2026-08-31 17:58 CST: Template-management review remediation preserves Aliyun page request IDs, serializes manual library refreshes in the UI, adds provider-template workflow analytics, and completes the Thai detail label.
+- [x] 2026-08-31 18:56 CST: Closed template-management data-integrity gaps: binding relationships now report unavailable when notification config loading fails, and provider-fallback template lists return every synchronized local template instead of silently limiting results to 100.
 
 ## Surprises & Discoveries
 
@@ -64,6 +66,17 @@ Implemented v1 of the积分通知中心:
 - Billing overview exposes `credit_status`, `debug_allowed`, and `softlimit_threshold`; preview/debug paths enforce softlimit in both frontend and backend.
 - Focused backend, task, and frontend tests cover staging, dedupe, skip, provider retry, scan windows, softlimit, Celery schedule/config, operator page rendering, and frontend preview blocking.
 - Follow-up operator refinements now scope records/config/dry-run errors separately, refresh records plus overview in parallel after requeue, keep the credit notification config tab maintainable by isolating its local editor and managed-list state in a dedicated frontend hook, and move `dry-run` plus template-sync state into dedicated frontend hooks so config actions stay local to the config experience without changing contracts or records-tab behavior.
+
+## PR2B Template Management Analytics Contract
+
+- Business question: whether operators discover the domestic SMS template library and complete provider synchronizations successfully.
+- Metric definition: per operator session, count one eligible template-library exposure, every accepted manual synchronization attempt, and one terminal result for each attempt.
+- Event names: `operator_notification_template_library_viewed`, `operator_notification_template_sync_attempt`, `operator_notification_template_sync_result`, `operator_notification_template_filter_applied`, and `operator_notification_template_detail_opened`.
+- Actor and surface: authenticated operators on the credit-notification template-management tab; email-channel placeholder views are excluded.
+- Trigger and deduplication: exposure fires once per mounted eligible tab view; sync attempt fires after the refresh guard accepts a click; a result fires once after that request settles; filter and detail events are not deduplicated because repeated operator actions are meaningful.
+- Payload allowlist: `channel` (`sms`), `provider` (`aliyun`), `source` (`provider` or `local`), `outcome` (`success` or `failed`), and `filter` (`keyword` or `status`). Do not emit template content, template codes, names, user identifiers, contact information, or provider request IDs.
+- Consumers: operator notification-center adoption and provider synchronization reliability reporting. This is a new additive event family.
+- Verification: focused frontend tests cover eligible exposure, accepted sync attempts and outcomes, filter/detail events, payload allowlists, and analytics failures that do not alter the user workflow.
 
 ## Context and Orientation
 

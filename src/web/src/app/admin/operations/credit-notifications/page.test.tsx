@@ -16,10 +16,21 @@ import AdminOperationCreditNotificationsPage from './page';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
+const mockTrackEvent = jest.fn();
 let mockSearchParams = new URLSearchParams();
 let mockLoginMethodsEnabled = ['phone'];
 let mockDefaultLoginMethod = 'phone';
 const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+};
 
 const mockTranslations: Record<string, string> = {
   'module.user.defaultUserName': 'Anonymous User',
@@ -202,6 +213,12 @@ jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
 }));
 
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({
+    trackEvent: mockTrackEvent,
+  }),
+}));
+
 const mockGetConfig =
   api.getAdminOperationCreditNotificationConfig as jest.Mock;
 const mockGetDetail =
@@ -328,6 +345,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockReplace.mockReset();
     mockPush.mockReset();
+    mockTrackEvent.mockReset();
     mockGetConfig.mockReset();
     mockGetDetail.mockReset();
     mockGetTemplates.mockReset();
@@ -524,6 +542,144 @@ describe('AdminOperationCreditNotificationsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the complete Alibaba Cloud template library in the templates tab', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+
+    expect(await screen.findByText('Grant')).toBeInTheDocument();
+    expect(screen.getByText('TPL-GRANT')).toBeInTheDocument();
+    expect(screen.getByText('Credits ${credits}')).toBeInTheDocument();
+    expect(mockGetTemplates).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_template_library_viewed',
+      { channel: 'sms', provider: 'aliyun' },
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCreditNotifications.templateManagement.searchPlaceholder',
+      ),
+      { target: { value: 'does-not-exist' } },
+    );
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.templateManagement.empty',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.blur(
+      screen.getByPlaceholderText(
+        'module.operationsCreditNotifications.templateManagement.searchPlaceholder',
+      ),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_template_filter_applied',
+      { channel: 'sms', provider: 'aliyun', filter: 'keyword' },
+    );
+  });
+
+  it('does not mark templates unbound when the binding config fails to load', async () => {
+    mockGetConfig.mockRejectedValueOnce(new Error('config unavailable'));
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+
+    expect(await screen.findByText('Grant')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.templateManagement.bindingsUnavailable',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsCreditNotifications.templateManagement.unbound',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows email template positioning without SMS templates on email sites', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+
+    expect(
+      await screen.findByText(
+        'module.operationsCreditNotifications.templateManagement.emailTitle',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('TPL-GRANT')).not.toBeInTheDocument();
+  });
+
+  it('disables manual template sync while tracking its terminal result', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+    await screen.findByText('Grant');
+
+    const refreshRequest = createDeferred<{
+      items: unknown[];
+      source: 'provider';
+      provider_available: true;
+      error_code: string;
+      error_message: string;
+    }>();
+    mockGetTemplates.mockReturnValueOnce(refreshRequest.promise);
+
+    const refreshButton = screen.getByRole('button', {
+      name: 'module.operationsCreditNotifications.templateManagement.refresh',
+    });
+    fireEvent.click(refreshButton);
+
+    expect(refreshButton).toBeDisabled();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_template_sync_attempt',
+      { channel: 'sms', provider: 'aliyun' },
+    );
+
+    refreshRequest.resolve({
+      items: [],
+      source: 'provider',
+      provider_available: true,
+      error_code: '',
+      error_message: '',
+    });
+
+    await waitFor(() => {
+      expect(refreshButton).not.toBeDisabled();
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_template_sync_result',
+      {
+        channel: 'sms',
+        provider: 'aliyun',
+        outcome: 'success',
+        source: 'provider',
+      },
+    );
+  });
+
   it('lists failed provider records and requeues them', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
@@ -707,7 +863,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab({ waitForTemplates: false });
 
-    expect(screen.getByText('config unavailable')).toBeInTheDocument();
+    expect(await screen.findByText('config unavailable')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
         name: 'module.operationsCreditNotifications.actions.applyConfig',
