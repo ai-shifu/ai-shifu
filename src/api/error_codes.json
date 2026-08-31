@@ -20,6 +20,7 @@
   "server.user.deviceAuthTooManyRequests": 1030,
   "server.user.sessionNotFound": 1031,
   "server.user.sessionRevokeIncomplete": 1032,
+  "server.user.emailSendTooFrequent": 1033,
   "server.profile.learnerProfileOptimizationFailed": 1021,
   "server.profile.learnerProfileOptimizationRejected": 1022,
   "server.profile.learnerProfileOptimizationRateLimited": 1023,

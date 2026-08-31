@@ -300,16 +300,8 @@ export default function AuthPage() {
     document.title = t('module.auth.title');
   }, [language, ready, t]);
 
-  useEffect(() => {
-    if (!isInitialized || !isLoggedIn) {
-      return;
-    }
-
-    const target = resolveRedirectPath();
-    if (window.location.pathname !== target) {
-      router.replace(target);
-    }
-  }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
+  // Successful login handlers own navigation. An automatic redirect here
+  // would race the login-page guest-session reset above.
 
   const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -376,7 +368,14 @@ export default function AuthPage() {
             />
           );
         case 'email':
-          return <EmailLogin onLoginSuccess={handleAuthSuccess} />;
+          return (
+            <EmailLogin
+              onLoginSuccess={handleAuthSuccess}
+              loginContext={loginContext}
+              courseId={courseIdFromRedirect || undefined}
+              referralMetadata={referralMetadata}
+            />
+          );
         case 'google':
           return (
             <div className='space-y-3'>
