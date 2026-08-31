@@ -9,6 +9,11 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.service.billing.consts import (
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_SOURCE_TYPE_USAGE,
+)
+from flaskr.service.billing.models import CreditLedgerEntry
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
@@ -23,6 +28,7 @@ from flaskr.service.dashboard.dtos import (
     DashboardCourseFollowUpListDTO,
     DashboardCourseFollowUpSummaryDTO,
     DashboardCourseFollowUpTimelineItemDTO,
+    DashboardCourseLearningModeMetricDTO,
     DashboardCourseRatingItemDTO,
     DashboardCourseRatingListDTO,
     DashboardCourseRatingSummaryDTO,
@@ -37,6 +43,12 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_RESET,
@@ -94,6 +106,14 @@ COURSE_STATUS_PUBLISHED = "published"
 COURSE_STATUS_UNPUBLISHED = "unpublished"
 FOLLOW_UP_ELEMENT_TYPE_ASK = "ask"
 FOLLOW_UP_ELEMENT_TYPE_ANSWER = "answer"
+LEARNING_MODE_READ = "read"
+LEARNING_MODE_LISTEN = "listen"
+LEARNING_MODE_CLASSROOM = "classroom"
+DASHBOARD_LEARNING_MODE_ORDER = (
+    LEARNING_MODE_READ,
+    LEARNING_MODE_LISTEN,
+    LEARNING_MODE_CLASSROOM,
+)
 
 
 def _format_money(value: Decimal) -> str:
@@ -111,6 +131,10 @@ def _format_average_score(value: Decimal | None) -> str:
     if value is None:
         return ""
     return f"{value:.1f}"
+
+
+def _format_credit_value(value: Decimal) -> str:
+    return _format_money(Decimal(str(value or 0)))
 
 
 def _normalize_dashboard_identifier(value: str) -> str:
@@ -2644,6 +2668,112 @@ def build_dashboard_course_learners(
         )
 
 
+def _build_dashboard_learning_mode_metrics(
+    shifu_bid: str,
+) -> list[DashboardCourseLearningModeMetricDTO]:
+    recent_window_start = now_utc() - timedelta(days=7)
+    learning_mode_expr = BillUsageRecord.extra["learning_mode"].as_string()
+    normalized_learning_mode_expr = db.func.lower(
+        db.func.trim(db.func.coalesce(learning_mode_expr, ""))
+    )
+    inferred_learning_mode_expr = case(
+        (
+            normalized_learning_mode_expr.in_(DASHBOARD_LEARNING_MODE_ORDER),
+            normalized_learning_mode_expr,
+        ),
+        (
+            BillUsageRecord.usage_type == BILL_USAGE_TYPE_TTS,
+            LEARNING_MODE_LISTEN,
+        ),
+        else_=LEARNING_MODE_READ,
+    )
+    ledger_credit_subquery = (
+        db.session.query(
+            CreditLedgerEntry.source_bid.label("usage_bid"),
+            db.func.coalesce(
+                db.func.sum(db.func.abs(CreditLedgerEntry.amount)), 0
+            ).label("consumed_credits"),
+        )
+        .filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+        )
+        .group_by(CreditLedgerEntry.source_bid)
+        .subquery()
+    )
+    ledger_amount_expr = db.func.coalesce(ledger_credit_subquery.c.consumed_credits, 0)
+    rows = (
+        db.session.query(
+            inferred_learning_mode_expr.label("learning_mode"),
+            db.func.count(db.func.distinct(BillUsageRecord.user_bid)).label(
+                "participant_count"
+            ),
+            db.func.coalesce(db.func.sum(ledger_amount_expr), 0).label(
+                "consumed_credits"
+            ),
+            db.func.coalesce(
+                db.func.sum(
+                    case(
+                        (
+                            BillUsageRecord.created_at >= recent_window_start,
+                            ledger_amount_expr,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("recent_consumed_credits"),
+        )
+        .outerjoin(
+            ledger_credit_subquery,
+            ledger_credit_subquery.c.usage_bid == BillUsageRecord.usage_bid,
+        )
+        .filter(
+            BillUsageRecord.shifu_bid == shifu_bid,
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.billable == 1,
+            BillUsageRecord.status == 0,
+            BillUsageRecord.record_level == 0,
+            BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD,
+            BillUsageRecord.usage_type.in_((BILL_USAGE_TYPE_LLM, BILL_USAGE_TYPE_TTS)),
+        )
+        .group_by(inferred_learning_mode_expr)
+        .all()
+    )
+    row_map = {
+        str(getattr(row, "learning_mode", "") or "").strip(): row for row in rows
+    }
+    metrics: list[DashboardCourseLearningModeMetricDTO] = []
+    for mode in DASHBOARD_LEARNING_MODE_ORDER:
+        row = row_map.get(mode)
+        participant_count = int(getattr(row, "participant_count", 0) or 0)
+        consumed_credits = Decimal(str(getattr(row, "consumed_credits", 0) or 0))
+        recent_consumed_credits = Decimal(
+            str(getattr(row, "recent_consumed_credits", 0) or 0)
+        )
+        consumption_speed = ""
+        if row is not None:
+            consumption_speed = _format_credit_value(
+                recent_consumed_credits / Decimal(7)
+            )
+        average_consumed_credits = ""
+        if participant_count > 0:
+            average_consumed_credits = _format_credit_value(
+                consumed_credits / Decimal(participant_count)
+            )
+        metrics.append(
+            DashboardCourseLearningModeMetricDTO(
+                mode=mode,
+                participant_count=participant_count,
+                consumed_credits=_format_credit_value(consumed_credits),
+                consumption_speed=consumption_speed,
+                average_consumed_credits=average_consumed_credits,
+            )
+        )
+    return metrics
+
+
 def build_dashboard_course_detail(
     app: Flask,
     user_id: str,
@@ -2737,6 +2867,9 @@ def build_dashboard_course_detail(
             for joined_at in joined_at_map.values()
             if joined_at >= now_utc() - timedelta(days=7)
         )
+        learning_mode_metrics = _build_dashboard_learning_mode_metrics(
+            normalized_shifu_bid
+        )
         learning_learner_count = sum(
             1
             for learner_bid in sorted_learner_bids
@@ -2772,4 +2905,5 @@ def build_dashboard_course_detail(
                 total_follow_up_count=int(total_follow_up_count),
                 rating_score=_format_average_score(rating_score),
             ),
+            learning_mode_metrics=learning_mode_metrics,
         )

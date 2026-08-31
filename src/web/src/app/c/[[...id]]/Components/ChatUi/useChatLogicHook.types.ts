@@ -57,6 +57,7 @@ export interface UseChatSessionParams {
   previewMode?: boolean;
   lessonHasContentUpdate?: boolean;
   isListenMode?: boolean;
+  learningMode?: 'read' | 'listen' | 'classroom' | string;
   listenRequestEnabled?: boolean;
   shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;

@@ -166,6 +166,27 @@ class DashboardCourseDetailLearnersDTO(AutoJsonMixin, BaseModel):
 
 
 @register_schema_to_swagger
+class DashboardCourseLearningModeMetricDTO(AutoJsonMixin, BaseModel):
+    """Dashboard per-learning-mode performance metric."""
+
+    mode: str = Field(..., description="Learning mode", required=False)
+    participant_count: int = Field(
+        ..., description="Distinct participant count", required=False
+    )
+    consumed_credits: str = Field(
+        ..., description="Total consumed credits", required=False
+    )
+    consumption_speed: str = Field(
+        ...,
+        description="Average consumed credits per day in the last 7 days",
+        required=False,
+    )
+    average_consumed_credits: str = Field(
+        ..., description="Average consumed credits per participant", required=False
+    )
+
+
+@register_schema_to_swagger
 class DashboardCourseDetailDTO(AutoJsonMixin, BaseModel):
     """Dashboard detail response payload."""
 
@@ -174,6 +195,11 @@ class DashboardCourseDetailDTO(AutoJsonMixin, BaseModel):
     )
     metrics: DashboardCourseDetailMetricsDTO = Field(
         ..., description="Course detail metrics", required=False
+    )
+    learning_mode_metrics: list[DashboardCourseLearningModeMetricDTO] = Field(
+        default_factory=list,
+        description="Per-learning-mode performance metrics",
+        required=False,
     )
 
 

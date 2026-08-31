@@ -9,12 +9,14 @@ import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { useUserStore } from '@/store';
 import type {
   DashboardCourseDetailLearnerItem,
+  DashboardCourseLearningModeMetric,
   DashboardCourseLearnersResponse,
   DashboardCourseDetailResponse,
 } from '@/types/dashboard';
@@ -25,6 +27,7 @@ import {
 } from '../admin-dashboard-routes';
 import { formatOrderAmount } from '../dashboardCourseTableRow';
 import CourseMetricsCardGrid from '../../operations/[shifu_bid]/CourseMetricsCardGrid';
+import DashboardCourseLearningModeCard from './DashboardCourseLearningModeCard';
 import DashboardCourseLearnersCard from './DashboardCourseLearnersCard';
 
 type ErrorState = { message: string; code?: number };
@@ -50,6 +53,7 @@ const EMPTY_DETAIL: DashboardCourseDetailResponse = {
     total_follow_up_count: 0,
     rating_score: '',
   },
+  learning_mode_metrics: [],
 };
 
 const EMPTY_LEARNERS: DashboardCourseLearnersResponse = {
@@ -74,6 +78,8 @@ const formatPercent = (value: string, emptyValue: string): string => {
   }
   return `${normalized}%`;
 };
+
+const LEARNING_MODE_METRIC_ORDER = ['read', 'listen', 'classroom'] as const;
 
 export default function AdminDashboardCourseDetailPage() {
   const { t } = useTranslation();
@@ -106,6 +112,9 @@ export default function AdminDashboardCourseDetailPage() {
   const [learnerLastLearningStart, setLearnerLastLearningStart] = useState('');
   const [learnerLastLearningEnd, setLearnerLastLearningEnd] = useState('');
   const [learnerPage, setLearnerPage] = useState(1);
+  const [activeDetailTab, setActiveDetailTab] = useState<
+    'learners' | 'learningModePerformance'
+  >('learners');
   const detailRequestIdRef = useRef(0);
   const learnersRequestIdRef = useRef(0);
 
@@ -361,32 +370,40 @@ export default function AdminDashboardCourseDetailPage() {
       {
         label: t('module.dashboard.detail.metrics.orderCount'),
         value: formatCount(detail.metrics.order_count, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.orderCount'),
         onClick: orderListUrl ? handleOrderClick : undefined,
         actionLabel: `${t('module.dashboard.detail.metrics.orderCount')}-value`,
       },
       {
         label: t('module.dashboard.detail.metrics.orderAmount'),
         value: formatOrderAmount(detail.metrics.order_amount, currencySymbol),
+        tooltip: t('module.dashboard.detail.metricsTooltips.orderAmount'),
         onClick: orderListUrl ? handleOrderClick : undefined,
         actionLabel: `${t('module.dashboard.detail.metrics.orderAmount')}-value`,
       },
       {
         label: t('module.dashboard.detail.metrics.learningLearners'),
         value: formatCount(detail.metrics.learning_learner_count, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.learningLearners'),
       },
       {
         label: t('module.dashboard.detail.metrics.completedLearners'),
         value: formatCount(detail.metrics.completed_learner_count, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.completedLearners'),
       },
       {
         label: t('module.dashboard.detail.metrics.completionRate'),
         value: formatPercent(detail.metrics.completion_rate, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.completionRate'),
       },
       {
         label: t('module.dashboard.detail.metrics.newLearnersLast7Days'),
         value: formatCount(
           detail.metrics.new_learner_count_last_7_days,
           emptyValue,
+        ),
+        tooltip: t(
+          'module.dashboard.detail.metricsTooltips.newLearnersLast7Days',
         ),
       },
       {
@@ -395,16 +412,21 @@ export default function AdminDashboardCourseDetailPage() {
           detail.metrics.active_learner_count_last_7_days,
           emptyValue,
         ),
+        tooltip: t(
+          'module.dashboard.detail.metricsTooltips.activeLearnersLast7Days',
+        ),
       },
       {
         label: t('module.dashboard.detail.metrics.totalQuestions'),
         value: formatCount(detail.metrics.total_follow_up_count, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.totalQuestions'),
         onClick: followUpListUrl ? handleFollowUpClick : undefined,
         actionLabel: `${t('module.dashboard.detail.metrics.totalQuestions')}-value`,
       },
       {
         label: t('module.dashboard.detail.metrics.rating'),
         value: detail.metrics.rating_score || emptyValue,
+        tooltip: t('module.dashboard.detail.metricsTooltips.rating'),
         onClick: ratingsPageUrl ? handleRatingClick : undefined,
         actionLabel: `${t('module.dashboard.detail.metrics.rating')}-value`,
       },
@@ -430,6 +452,26 @@ export default function AdminDashboardCourseDetailPage() {
       t,
     ],
   );
+
+  const learningModeMetricRows = useMemo(() => {
+    if (!detail.learning_mode_metrics?.length) {
+      return [];
+    }
+
+    const metricsByMode = new Map(
+      detail.learning_mode_metrics.map(metric => [metric.mode, metric]),
+    );
+    return LEARNING_MODE_METRIC_ORDER.map(mode => {
+      const metric = metricsByMode.get(mode);
+      return {
+        mode,
+        participant_count: metric?.participant_count ?? 0,
+        consumed_credits: metric?.consumed_credits ?? '',
+        consumption_speed: metric?.consumption_speed ?? '',
+        average_consumed_credits: metric?.average_consumed_credits ?? '',
+      } satisfies DashboardCourseLearningModeMetric;
+    });
+  }, [detail.learning_mode_metrics]);
 
   const handleRetry = useCallback(() => {
     fetchDetail();
@@ -540,27 +582,63 @@ export default function AdminDashboardCourseDetailPage() {
               cards={coreDataItems}
             />
 
-            <DashboardCourseLearnersCard
-              learners={learners}
-              loading={learnersLoading}
-              error={learnersError}
-              keyword={learnerKeywordInput}
-              learningStatus={learnerStatusInput}
-              lastLearningStart={learnerLastLearningStartInput}
-              lastLearningEnd={learnerLastLearningEndInput}
-              searchPlaceholder={learnerSearchPlaceholder}
-              emptyValue={emptyValue}
-              onKeywordChange={setLearnerKeywordInput}
-              onLearningStatusChange={value => setLearnerStatusInput(value)}
-              onLastLearningTimeChange={({ start, end }) => {
-                setLearnerLastLearningStartInput(start);
-                setLearnerLastLearningEndInput(end);
-              }}
-              onSearch={handleLearnerSearch}
-              onReset={handleLearnerReset}
-              onPageChange={handleLearnerPageChange}
-              onFollowUpClick={handleLearnerFollowUpClick}
-            />
+            <Tabs
+              value={activeDetailTab}
+              onValueChange={value =>
+                setActiveDetailTab(
+                  value as 'learners' | 'learningModePerformance',
+                )
+              }
+              className='space-y-4'
+            >
+              <div className='overflow-x-auto'>
+                <TabsList>
+                  <TabsTrigger value='learners'>
+                    {t('module.dashboard.detail.learners.title')}
+                  </TabsTrigger>
+                  <TabsTrigger value='learningModePerformance'>
+                    {t('module.dashboard.detail.learningModePerformance.title')}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent
+                value='learners'
+                className='mt-0'
+              >
+                <DashboardCourseLearnersCard
+                  learners={learners}
+                  loading={learnersLoading}
+                  error={learnersError}
+                  keyword={learnerKeywordInput}
+                  learningStatus={learnerStatusInput}
+                  lastLearningStart={learnerLastLearningStartInput}
+                  lastLearningEnd={learnerLastLearningEndInput}
+                  searchPlaceholder={learnerSearchPlaceholder}
+                  emptyValue={emptyValue}
+                  onKeywordChange={setLearnerKeywordInput}
+                  onLearningStatusChange={value => setLearnerStatusInput(value)}
+                  onLastLearningTimeChange={({ start, end }) => {
+                    setLearnerLastLearningStartInput(start);
+                    setLearnerLastLearningEndInput(end);
+                  }}
+                  onSearch={handleLearnerSearch}
+                  onReset={handleLearnerReset}
+                  onPageChange={handleLearnerPageChange}
+                  onFollowUpClick={handleLearnerFollowUpClick}
+                />
+              </TabsContent>
+
+              <TabsContent
+                value='learningModePerformance'
+                className='mt-0'
+              >
+                <DashboardCourseLearningModeCard
+                  rows={learningModeMetricRows}
+                  emptyValue={emptyValue}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
