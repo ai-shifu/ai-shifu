@@ -74,6 +74,7 @@ const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
   'draft',
 ]);
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
+const BILLING_CATALOG_SWR_KEY = 'billing-catalog';
 
 function isBillingSubscriptionActive(
   subscription: BillingSubscription | null | undefined,
@@ -219,14 +220,14 @@ export function BillingOverviewTab({
     error: catalogError,
     isLoading: catalogLoading,
   } = useSWR<BillingCatalogResponse>(
-    buildBillingSwrKey('billing-catalog'),
+    buildBillingSwrKey(BILLING_CATALOG_SWR_KEY),
     async () =>
       (await api.getBillingCatalog(
         {},
         BILLING_PASSIVE_REQUEST_CONFIG,
       )) as BillingCatalogResponse,
     {
-      revalidateOnFocus: false,
+      revalidateOnFocus: true,
     },
   );
   const { paymentChannels, runtimeConfigLoaded, stripeEnabled } = useEnvStore(
@@ -387,6 +388,7 @@ export function BillingOverviewTab({
   async function refreshBillingData() {
     await Promise.all([
       mutateOverview(),
+      mutateSWRCache(buildBillingSwrKey(BILLING_CATALOG_SWR_KEY)),
       mutateSWRCache(buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY)),
     ]);
   }

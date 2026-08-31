@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from flaskr.util.datetime import now_utc
 
@@ -58,11 +58,12 @@ if TYPE_CHECKING:
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
     "payment_intent.succeeded",
-    "checkout.session.completed",
+    "checkout.session.async_payment_succeeded",
 }
 
 _STRIPE_FAIL_EVENT_TYPES = {
     "payment_intent.payment_failed",
+    "checkout.session.async_payment_failed",
 }
 
 _STRIPE_REFUND_EVENT_TYPES = {
@@ -219,7 +220,17 @@ def _can_transition_billing_order_status(
     return True
 
 
-def _map_stripe_order_status(event_type: str) -> int | None:
+def _map_stripe_order_status(
+    event_type: str,
+    data_object: dict[str, object] | None = None,
+) -> int | None:
+    if event_type == "checkout.session.completed":
+        payment_status = (
+            str((data_object or {}).get("payment_status") or "").strip().lower()
+        )
+        if payment_status in {"paid", "no_payment_required"}:
+            return BILLING_ORDER_STATUS_PAID
+        return None
     if event_type in _STRIPE_SUCCESS_EVENT_TYPES:
         return BILLING_ORDER_STATUS_PAID
     if event_type in _STRIPE_FAIL_EVENT_TYPES:
@@ -328,6 +339,43 @@ def _extract_stripe_failure_message(data_object: dict[str, object]) -> str:
     return str(error_info.get("message") or "")
 
 
+def _coerce_stripe_int(value: object) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def extract_stripe_paid_amount(payload: dict[str, Any]) -> int | None:
+    """Resolve Stripe's actual paid amount from a checkout or intent payload."""
+    session = payload.get("checkout_session", payload)
+    intent = payload.get("payment_intent", {})
+    if not isinstance(session, dict):
+        session = {}
+    if not isinstance(intent, dict):
+        intent = {}
+    session_amount = _coerce_stripe_int(session.get("amount_total"))
+    if session_amount is not None:
+        return session_amount
+    amount_received = _coerce_stripe_int(intent.get("amount_received"))
+    if amount_received is not None:
+        return amount_received
+    return _coerce_stripe_int(intent.get("amount"))
+
+
+def extract_stripe_paid_currency(payload: dict[str, Any]) -> str:
+    """Resolve Stripe's paid currency from a checkout or intent payload."""
+    session = payload.get("checkout_session", payload)
+    intent = payload.get("payment_intent", {})
+    if not isinstance(session, dict):
+        session = {}
+    if not isinstance(intent, dict):
+        intent = {}
+    return str(session.get("currency") or intent.get("currency") or "").upper()
+
+
 def _apply_billing_subscription_provider_update(
     app: Flask,
     subscription: BillingSubscription,
@@ -337,6 +385,7 @@ def _apply_billing_subscription_provider_update(
     payload: dict[str, object],
     data_object: dict[str, object],
     source: str = "webhook",
+    allow_activation: bool = True,
 ) -> bool:
     event_time = _extract_provider_event_time(payload)
     if not _should_apply_subscription_event(subscription, event_time):
@@ -364,6 +413,11 @@ def _apply_billing_subscription_provider_update(
         mapped_status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
     if event_type == "customer.subscription.deleted":
         mapped_status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+    if not allow_activation and mapped_status in {
+        BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    }:
+        mapped_status = None
     if mapped_status is not None:
         subscription.status = mapped_status
 
@@ -566,9 +620,7 @@ def _is_stripe_checkout_paid(
     session: dict[str, object],
     intent: dict[str, object] | None,
 ) -> bool:
-    if session.get("payment_status") == "paid":
-        return True
-    if session.get("status") == "complete" and not session.get("payment_status"):
+    if session.get("payment_status") in {"paid", "no_payment_required"}:
         return True
     return bool(intent and intent.get("status") == "succeeded")
 
@@ -582,6 +634,8 @@ load_billing_renewal_order_for_stripe_event = (
 extract_stripe_provider_reference = _extract_stripe_provider_reference
 extract_stripe_failure_code = _extract_stripe_failure_code
 extract_stripe_failure_message = _extract_stripe_failure_message
+resolve_stripe_paid_amount = extract_stripe_paid_amount
+resolve_stripe_paid_currency = extract_stripe_paid_currency
 apply_billing_subscription_provider_update = _apply_billing_subscription_provider_update
 apply_subscription_checkout_success = _apply_subscription_checkout_success
 apply_subscription_checkout_failure = _apply_subscription_checkout_failure

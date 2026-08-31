@@ -15,6 +15,7 @@ from flaskr.service.billing.campaign_discount_providers import (
     StripeCampaignDiscountProvider,
 )
 from flaskr.service.billing.campaign_provider_discounts import (
+    CampaignProviderDiscountError,
     list_admin_campaign_provider_discounts,
     publish_admin_campaign_provider_discounts,
     retire_admin_campaign_provider_discounts,
@@ -533,6 +534,32 @@ def test_publish_percent_campaign_creates_percent_off_coupon(
     assert len(provider.created) == 1
     assert provider.created[0].amount_off is None
     assert provider.created[0].percent_off == Decimal("20.00")
+
+
+def test_publish_percent_campaign_rejects_fractional_minor_unit(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-fractional-percent",
+            product_bid="product-growth-fractional-percent-1",
+            discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
+            campaign_price_amount=5162,
+            discount_percent=Decimal("12.50"),
+        )
+    _patch_scope(monkeypatch)
+
+    with pytest.raises(CampaignProviderDiscountError) as exc_info:
+        publish_admin_campaign_provider_discounts(
+            app,
+            campaign_bid="campaign-growth-fractional-percent",
+            operator_user_bid="operator",
+            provider=provider,
+        )
+
+    assert exc_info.value.code == "fractional_minor_unit_discount"
+    assert provider.created == []
 
 
 def test_bonus_campaign_does_not_create_provider_coupon(

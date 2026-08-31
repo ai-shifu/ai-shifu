@@ -359,6 +359,8 @@ def test_handle_stripe_webhook_routes_bill_orders_without_regression(
                     "subscription": "sub_provider_1",
                     "customer": "cus_provider_1",
                     "payment_status": "paid",
+                    "amount_total": 9900,
+                    "currency": "cny",
                     "metadata": {
                         "bill_order_bid": "bill-order-webhook-1",
                         "order_bid": "bill-order-webhook-1",
@@ -467,6 +469,8 @@ def test_stripe_webhook_route_delegates_bill_orders(
                     "subscription": "sub_provider_route_1",
                     "customer": "cus_provider_route_1",
                     "payment_status": "paid",
+                    "amount_total": 9900,
+                    "currency": "cny",
                     "metadata": {
                         "bill_order_bid": "bill-order-route-1",
                         "order_bid": "bill-order-route-1",
@@ -544,6 +548,8 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
                     "subscription": "sub_provider_idempotent_1",
                     "customer": "cus_provider_idempotent_1",
                     "payment_status": "paid",
+                    "amount_total": 9900,
+                    "currency": "cny",
                     "metadata": {
                         "bill_order_bid": "bill-order-idempotent-1",
                         "order_bid": "bill-order-idempotent-1",
@@ -661,6 +667,8 @@ def test_handle_stripe_webhook_ignores_orphan_billing_event(
                     "subscription": "sub_orphan_test",
                     "customer": "cus_orphan_test",
                     "payment_status": "paid",
+                    "amount_total": 9900,
+                    "currency": "cny",
                     "metadata": {
                         "bill_order_bid": "bill-order-orphan-1",
                         "order_bid": "bill-order-orphan-1",

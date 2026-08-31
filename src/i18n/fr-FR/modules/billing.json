@@ -776,6 +776,8 @@
     "approximatePricePrefix": "Environ",
     "audienceLabel": "Idéal pour",
     "billedAnnually": "Facturation de {price} tous les 12 mois.",
+    "campaignAnnualBilling": "12 premiers mois : {price}. Renouvellement à {renewalPrice} tous les 12 mois.",
+    "campaignMonthlyBilling": "Premier mois uniquement. Renouvellement à {renewalPrice} par mois.",
     "cancelAnytime": "Facturation mensuelle. Annulation à tout moment.",
     "checkoutNotice": "Le paiement Stripe est disponible. Vous serez redirigé vers Stripe pour finaliser le paiement.",
     "comingSoon": {

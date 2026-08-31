@@ -776,6 +776,8 @@
     "approximatePricePrefix": "حوالي",
     "audienceLabel": "المشهد المناسب",
     "billedAnnually": "الدفع كل 12 شهرًا بقيمة {price}",
+    "campaignAnnualBilling": "أول 12 شهرًا بسعر {price}. يتجدد بسعر {renewalPrice} كل 12 شهرًا.",
+    "campaignMonthlyBilling": "للشهر الأول فقط. يتجدد بسعر {renewalPrice} شهريًا.",
     "cancelAnytime": "الدفع شهريًا، ويمكن الإلغاء في أي وقت.",
     "checkoutNotice": "يدعم الدفع الإلكتروني عبر Stripe. بعد النقر، ستنتقل إلى Stripe لإكمال الدفع.",
     "comingSoon": {

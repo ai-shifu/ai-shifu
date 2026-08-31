@@ -318,6 +318,8 @@
 }
 
 .topupCard {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   min-height: 152px;
   padding: 24px 24px 20px 24px;
@@ -339,6 +341,25 @@
   &:hover {
     background: #f6faff;
   }
+}
+
+.topupCardCampaignRibbon {
+  pointer-events: none;
+  position: absolute;
+  top: 20px;
+  right: -44px;
+  z-index: 1;
+  width: 160px;
+  padding: 4px 0;
+  transform: rotate(45deg);
+  background: #dc2626;
+  color: #fff;
+  text-align: center;
+  font-size: var(--text-xs-font-size, 12px);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: var(--text-xs-line-height, 16px);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+  white-space: nowrap;
 }
 
 .topupCardBody {

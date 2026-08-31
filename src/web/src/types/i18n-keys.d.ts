@@ -716,6 +716,8 @@ export type I18nKey =
   | 'module.billing.globalPricing.approximatePricePrefix'
   | 'module.billing.globalPricing.audienceLabel'
   | 'module.billing.globalPricing.billedAnnually'
+  | 'module.billing.globalPricing.campaignAnnualBilling'
+  | 'module.billing.globalPricing.campaignMonthlyBilling'
   | 'module.billing.globalPricing.cancelAnytime'
   | 'module.billing.globalPricing.checkoutNotice'
   | 'module.billing.globalPricing.comingSoon.close'
