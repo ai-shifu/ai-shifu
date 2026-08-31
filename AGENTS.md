@@ -26,7 +26,7 @@ to.
 - Whenever creating a Git worktree for this repository, copy existing local
   `.env` files from the source checkout into the matching paths in the new
   worktree before starting services, including the repository-root `.env` and
-  `src/cook-web/.env` when present. Preserve file permissions, never commit
+  `src/web/.env` when present. Preserve file permissions, never commit
   these copies, and do not overwrite an environment file already customized
   in the new worktree.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
@@ -198,7 +198,7 @@ prod**.
 | Library            | Kind             | Pinned in                                            | Published from                                                            |
 | ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
 | `markdown-flow`    | Python (backend) | `src/api/requirements.txt` (`markdown-flow==<ver>`)  | [markdown-flow-agent-py](https://github.com/ai-shifu/markdown-flow-agent-py) (PyPI) |
-| `markdown-flow-ui` | npm (frontend)   | `src/cook-web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
+| `markdown-flow-ui` | npm (frontend)   | `src/web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
 
 ### Trying a library change against this project
 
@@ -207,13 +207,13 @@ prod**.
    throwaway test package. Wait for the run to pass; the version is now published.
 2. Point this project at that version:
    - **Locally (uncommitted)**: edit the pin in `src/api/requirements.txt`
-     (backend) or `src/cook-web/package.json` (frontend).
+     (backend) or `src/web/package.json` (frontend).
    - **On an already-pushed feature branch**: run the matching bump action —
      **Bump markdown-flow** (`bump-markdown-flow.yml`) or **Bump markdown-flow-ui**
      (`bump-markdown-flow-ui.yml`). Each validates the version is published,
      updates the pin, and pushes the bump back to the branch. Both refuse to run
      on `main`. (The frontend bump pins an exact version and refreshes
-     `src/cook-web/package-lock.json` so CI's `npm ci` stays green.)
+     `src/web/package-lock.json` so CI's `npm ci` stays green.)
 
 ### Rule: `main` must pin RELEASE versions of both libraries
 
@@ -223,7 +223,7 @@ in `repo-harness.yml` enforces this on every PR into `main` and fails on a
 pre-release/dev pin:
 
 - The `markdown-flow` release pin is checked in `src/api/requirements.txt`.
-- The `markdown-flow-ui` release pin is checked in `src/cook-web/package.json`.
+- The `markdown-flow-ui` release pin is checked in `src/web/package.json`.
 
 Pin release versions of both before merging.
 
@@ -242,10 +242,10 @@ Pin release versions of both before merging.
   not behavior coverage.
 - When a task changes shared boundaries or introduces new app/service
   dependencies, run `python scripts/check_architecture_boundaries.py`.
-- When a task touches the browser harness, run `cd src/cook-web && npm run test:e2e`.
+- When a task touches the browser harness, run `cd src/web && npm run test:e2e`.
 
 ## Related Skills
 
 - `SKILL.md` is the repository-level skill routing index.
 - `src/api/SKILL.md` owns backend workflow skills.
-- `src/cook-web/SKILL.md` owns frontend workflow skills.
+- `src/web/SKILL.md` owns frontend workflow skills.

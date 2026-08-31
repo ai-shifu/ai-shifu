@@ -5,7 +5,7 @@ visual element types (fence, svg, iframe, video, table, sandbox, image).
 
 Cross-Platform Compatibility Note:
 These patterns mirror the frontend visual boundary detection in
-src/cook-web/src/c-utils/listen-mode/visual-boundary-detector.ts
+src/web/src/c-utils/listen-mode/visual-boundary-detector.ts
 """
 
 from __future__ import annotations

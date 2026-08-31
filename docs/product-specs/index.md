@@ -22,3 +22,5 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-08-16` | Canonical: `true`
 - [Operator Course Creator Transfer](../product-specs/transfer-course-creator.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
+- [Cook Web Umami Contract Remediation](../product-specs/web-umami-contract-remediation.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-08-31` | Canonical: `true`

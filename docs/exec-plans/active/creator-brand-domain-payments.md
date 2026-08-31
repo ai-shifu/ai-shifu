@@ -75,7 +75,7 @@ markdown-flow locale type drift.
 Backend ownership is split between `service/billing` for entitlements and
 configuration, `service/order` for learner orders and payment providers,
 `service/user` for WeChat identity, and `route/config.py` for runtime config.
-The creator UI lives under `src/cook-web/src/app/admin/billing` and uses shared
+The creator UI lives under `src/web/src/app/admin/billing` and uses shared
 billing request/types modules.
 
 ## Plan of Work

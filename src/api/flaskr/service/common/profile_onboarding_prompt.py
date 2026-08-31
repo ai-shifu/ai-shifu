@@ -1,4 +1,4 @@
-"""Compile and localize public onboarding assistant prompts at configuration save."""
+"""Compile editable onboarding prompts and localize them for publication."""
 
 from __future__ import annotations
 
@@ -113,10 +113,23 @@ def _parse_completed_localizations(
 
 def _prepare_localization_inputs(
     assistant_prompt: str,
+    *,
+    target_locales: set[str] | None = None,
 ) -> tuple[str, dict[str, str]]:
     """Resolve and validate the source prompt and current locale registry."""
     master_prompt = assistant_prompt.strip()
-    locale_labels = get_locale_labels()
+    registered_locale_labels = get_locale_labels()
+    if target_locales is None:
+        locale_labels = registered_locale_labels
+    else:
+        if not target_locales or not target_locales.issubset(registered_locale_labels):
+            message = "Assistant prompt localization requires supported target locales"
+            raise ValueError(message)
+        locale_labels = {
+            locale: label
+            for locale, label in registered_locale_labels.items()
+            if locale in target_locales
+        }
     if not master_prompt or not locale_labels:
         message = "Assistant prompt localization requires a prompt and locales"
         raise ValueError(message)
@@ -187,15 +200,21 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
 
 
 def localize_profile_onboarding_assistant_prompt(
-    app: Flask, assistant_prompt: str
+    app: Flask,
+    assistant_prompt: str,
+    *,
+    target_locales: set[str] | None = None,
 ) -> dict[str, str]:
-    """Generate one validated prompt for every locale in the shared registry."""
+    """Generate validated prompts for all or selected registered locales."""
     trace = None
     span = None
     localized_prompts: dict[str, str] = {}
     truncated = False
     try:
-        master_prompt, locale_labels = _prepare_localization_inputs(assistant_prompt)
+        master_prompt, locale_labels = _prepare_localization_inputs(
+            assistant_prompt,
+            target_locales=target_locales,
+        )
         trace, span = create_trace_with_root_span(
             client=get_langfuse_client(),
             trace_payload={"name": "profile_onboarding_assistant_localizer"},

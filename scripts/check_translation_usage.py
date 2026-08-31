@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
 BACKEND_DIR = ROOT / "src" / "api"
-COOK_WEB_DIR = ROOT / "src" / "cook-web" / "src"
 WEB_DIR = ROOT / "src" / "web" / "src"
 
 STRING_LITERAL = re.compile(r"['\"][^'\"]+['\"]")
@@ -242,33 +241,34 @@ def collect_backend_keys() -> set[str]:
 
 def collect_frontend_keys() -> set[str]:
     """Collect frontend keys."""
+    if not WEB_DIR.is_dir():
+        message = f"Web frontend source directory not found: {WEB_DIR}"
+        raise RuntimeError(message)
+
     patterns = FRONTEND_PATTERNS
     used: set[str] = set()
     extensions = (".ts", ".tsx", ".js", ".jsx")
-    for root in (COOK_WEB_DIR, WEB_DIR):
-        if not root.exists():
+    for file_path in WEB_DIR.rglob("*"):
+        if file_path.suffix not in extensions:
             continue
-        for file_path in root.rglob("*"):
-            if file_path.suffix not in extensions:
-                continue
-            if (
-                ".test." in file_path.name
-                or ".spec." in file_path.name
-                or "__tests__" in file_path.parts
-            ):
-                continue
-            text = file_path.read_text(encoding="utf-8", errors="ignore")
-            for pattern in patterns:
-                for match in pattern.findall(text):
-                    used.add(match)
-            used.update(collect_frontend_namespaced_keys(text))
-            used.update(collect_frontend_trans_keys(text))
-            # Catch translation keys referenced as bare string literals
-            # (e.g. in arrays or maps) that are later passed to t().
-            for match in STRING_LITERAL.findall(text):
-                candidate = match[1:-1]
-                if TRANSLATION_KEY_LITERAL.fullmatch(candidate):
-                    used.add(candidate)
+        if (
+            ".test." in file_path.name
+            or ".spec." in file_path.name
+            or "__tests__" in file_path.parts
+        ):
+            continue
+        text = file_path.read_text(encoding="utf-8", errors="ignore")
+        for pattern in patterns:
+            for match in pattern.findall(text):
+                used.add(match)
+        used.update(collect_frontend_namespaced_keys(text))
+        used.update(collect_frontend_trans_keys(text))
+        # Catch translation keys referenced as bare string literals
+        # (e.g. in arrays or maps) that are later passed to t().
+        for match in STRING_LITERAL.findall(text):
+            candidate = match[1:-1]
+            if TRANSLATION_KEY_LITERAL.fullmatch(candidate):
+                used.add(candidate)
     return used
 
 

@@ -49,7 +49,7 @@ gate passed.
 ## Context and Orientation
 
 Course editor variable recommendations and the preview variable panel are
-assembled in `src/cook-web/src/components/shifu-edit/ShifuEdit.tsx`. The built-in
+assembled in `src/web/src/components/shifu-edit/ShifuEdit.tsx`. The built-in
 course content is in `src/api/demo_shifus/cn_demo.json`. Profile services,
 MarkdownFlow parsing, and runtime resolution are deliberately outside the code
 change.

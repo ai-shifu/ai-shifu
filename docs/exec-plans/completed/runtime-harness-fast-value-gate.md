@@ -49,7 +49,7 @@ The fast-gate implementation now includes a minimal Compose definition, an artif
 
 `scripts/harness/runtime_timeline.py` is the new standard-library CLI. Its `wait` command receives named endpoint specifications, appends attempt/ready events to a JSON artifact, writes a concise GitHub Actions summary when `GITHUB_STEP_SUMMARY` is present, and exits with diagnostics when a timeout occurs.
 
-`src/cook-web/e2e/harness-auth.ts` owns the existing deterministic phone login helper. `auth.setup.ts` logs in once and writes storage state under Playwright output. `smoke.spec.ts` retains authenticated product-entry assertions. `playwright.config.ts` creates an explicit setup project and the dependent smoke project.
+`src/web/e2e/harness-auth.ts` owns the existing deterministic phone login helper. `auth.setup.ts` logs in once and writes storage state under Playwright output. `smoke.spec.ts` retains authenticated product-entry assertions. `playwright.config.ts` creates an explicit setup project and the dependent smoke project.
 
 ## Plan of Work
 
@@ -69,7 +69,7 @@ First, create the ExecPlan and the timeline utility with isolated automated chec
 - `python -m pytest scripts/harness/tests/test_runtime_timeline.py` proves that event writes, healthy endpoints, timed-out endpoints, request-deadline handling, and interval validation create the expected timeline schema.
 - `docker compose -f docker/docker-compose.runtime-harness.yml config` validates the minimal Compose file when Docker is available.
 - The workflow YAML parses and contains the original pull-request/push path filters, `runtime-harness` job name, the minimal Compose path, and the uploaded timeline artifact.
-- `cd src/cook-web && npm run type-check` accepts the Playwright setup/state configuration. **Passed locally on 2026-08-22.**
+- `cd src/web && npm run type-check` accepts the Playwright setup/state configuration. **Passed locally on 2026-08-22.**
 - `python scripts/check_repo_harness.py` and `python scripts/check_architecture_boundaries.py` remain green after generated knowledge documents are refreshed.
 - GitHub Actions run 32550726976 is the final acceptance evidence for this increment: it preserved login, authenticated administration, learner entry, and zero-5xx browser assertions while no longer waits for Grafana/Loki/Tempo/Prometheus/Celery. It completed successfully in 4m41s.
 

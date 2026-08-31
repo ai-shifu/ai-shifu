@@ -48,7 +48,7 @@ hash behavior, and operator-visible behavior.
 
 ## Outcomes & Retrospective
 
-- `src/cook-web/src/app/admin/operations/users/[user_bid]/page.tsx` now acts as
+- `src/web/src/app/admin/operations/users/[user_bid]/page.tsx` now acts as
   a slimmer route entry and delegates data loading and display derivation to
   local hooks.
 - The route remains behaviorally covered by the existing page test suite, and
@@ -60,13 +60,13 @@ hash behavior, and operator-visible behavior.
 
 Relevant files:
 
-- `src/cook-web/src/app/admin/operations/users/[user_bid]/page.tsx`
-- `src/cook-web/src/app/admin/operations/users/[user_bid]/useUserDetailData.ts`
-- `src/cook-web/src/app/admin/operations/users/[user_bid]/useUserCreditLedgerData.ts`
-- `src/cook-web/src/app/admin/operations/users/[user_bid]/useUserDetailViewModel.tsx`
-- `src/cook-web/src/app/admin/operations/users/[user_bid]/userDetailConstants.ts`
-- `src/cook-web/src/app/admin/operations/users/[user_bid]/page.test.tsx`
-- `src/cook-web/src/app/admin/operations/operation-user-types.ts`
+- `src/web/src/app/admin/operations/users/[user_bid]/page.tsx`
+- `src/web/src/app/admin/operations/users/[user_bid]/useUserDetailData.ts`
+- `src/web/src/app/admin/operations/users/[user_bid]/useUserCreditLedgerData.ts`
+- `src/web/src/app/admin/operations/users/[user_bid]/useUserDetailViewModel.tsx`
+- `src/web/src/app/admin/operations/users/[user_bid]/userDetailConstants.ts`
+- `src/web/src/app/admin/operations/users/[user_bid]/page.test.tsx`
+- `src/web/src/app/admin/operations/operation-user-types.ts`
 
 ## Plan of Work
 
@@ -94,9 +94,9 @@ Relevant files:
 
 ## Validation and Acceptance
 
-- `cd src/cook-web && npm test -- --runTestsByPath 'src/app/admin/operations/users/[user_bid]/page.test.tsx'`
-- `cd src/cook-web && npm run type-check`
-- `cd src/cook-web && npm run lint -- --file 'src/app/admin/operations/users/[user_bid]/page.tsx' --file 'src/app/admin/operations/users/[user_bid]/useUserDetailData.ts' --file 'src/app/admin/operations/users/[user_bid]/useUserCreditLedgerData.ts' --file 'src/app/admin/operations/users/[user_bid]/useUserDetailViewModel.tsx' --file 'src/app/admin/operations/users/[user_bid]/userDetailConstants.ts'`
+- `cd src/web && npm test -- --runTestsByPath 'src/app/admin/operations/users/[user_bid]/page.test.tsx'`
+- `cd src/web && npm run type-check`
+- `cd src/web && npm run lint -- --file 'src/app/admin/operations/users/[user_bid]/page.tsx' --file 'src/app/admin/operations/users/[user_bid]/useUserDetailData.ts' --file 'src/app/admin/operations/users/[user_bid]/useUserCreditLedgerData.ts' --file 'src/app/admin/operations/users/[user_bid]/useUserDetailViewModel.tsx' --file 'src/app/admin/operations/users/[user_bid]/userDetailConstants.ts'`
 - `python scripts/check_repo_harness.py`
 - `git diff --check`
 

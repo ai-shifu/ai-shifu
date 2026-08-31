@@ -99,9 +99,9 @@ rules.
 - Compatibility: <additive, dual-write, rename, backfill, or new version>
 - Verification: <producer, exclusion, deduplication, privacy, and consumer tests>
 
-| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
-| --- | --- | --- | --- | --- | --- |
-| `<field>` | string/number/boolean | enum or validation rule | low/high | non-personal/pseudonymous | <metric or join need> |
+| Field     | Type                  | Allowed values          | Cardinality | Privacy class             | Why required          |
+| --------- | --------------------- | ----------------------- | ----------- | ------------------------- | --------------------- |
+| `<field>` | string/number/boolean | enum or validation rule | low/high    | non-personal/pseudonymous | <metric or join need> |
 ```
 
 The business question and metric definition are required. “Track usage” is not
@@ -209,12 +209,16 @@ documented contract and privacy review.
 - Product code emits events through `useTracking` or a shared, reviewed
   tracking helper. It must not call `window.umami`, `umami.track`, or
   `umami.identify` directly.
-- `UmamiLoader` is the single owner of SPA pageviews. Umami auto-tracking stays
-  disabled, route changes are deduplicated, and feature components do not emit
-  pageviews.
+- `UmamiLoader` is the single owner of SPA pageviews. Keep
+  `data-auto-track="false"` so Umami does not install automatic pageview,
+  history, or click handlers; route changes are deduplicated, and feature
+  components do not emit pageviews.
 - Preserve the identify → queue → drain order. Pageviews and events that occur
   before Umami and user identity are ready are queued with their captured
-  context, then drained after identify completes.
+  context, then drained only after that identity completes. Replacing a pending
+  identity discards its queued calls; they must never be replayed under the new
+  account. If the loaded tracker has no `identify` capability, keep the bounded
+  queue instead of delivering un-attributed calls.
 - Preserve transport-level name, key, value, field-count, JSON-size, URL, and
   referrer sanitation. Feature code must still satisfy the stricter contract
   before sanitation.
@@ -248,38 +252,33 @@ They are an example, not the start of an event registry.
 
 ### Events and feature-owned payloads
 
-| Event | Trigger | Feature-owned fields |
-| --- | --- | --- |
-| `course_share_click` | After the re-entry guard accepts the deliberate click and before URL resolution/native sharing | `shifu_bid`, `surface` |
-| `course_share_result` | Once after the accepted interaction reaches a terminal outcome | `shifu_bid`, `surface`, `method`, `outcome` |
+| Event                 | Trigger                                                                                        | Feature-owned fields                        |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `course_share_click`  | After the re-entry guard accepts the deliberate click and before URL resolution/native sharing | `shifu_bid`, `surface`                      |
+| `course_share_result` | Once after the accepted interaction reaches a terminal outcome                                 | `shifu_bid`, `surface`, `method`, `outcome` |
 
-| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
-| --- | --- | --- | --- | --- | --- |
-| `shifu_bid` | string | stable course bid | high | pseudonymous machine ID | group adoption by course |
-| `surface` | string | `teacher_header`, `learner_desktop_header`, `learner_mobile_header`, `learner_mobile_fullscreen` | low | non-personal enum | compare entry points and infer actor context |
-| `method` | string | `native`, `clipboard` | low | non-personal enum | compare completion paths |
-| `outcome` | string | `success`, `failed`, `cancelled` | low | non-personal enum | measure terminal result without raw errors |
+| Field       | Type   | Allowed values                                                                                   | Cardinality | Privacy class           | Why required                                 |
+| ----------- | ------ | ------------------------------------------------------------------------------------------------ | ----------- | ----------------------- | -------------------------------------------- |
+| `shifu_bid` | string | stable course bid                                                                                | high        | pseudonymous machine ID | group adoption by course                     |
+| `surface`   | string | `teacher_header`, `learner_desktop_header`, `learner_mobile_header`, `learner_mobile_fullscreen` | low         | non-personal enum       | compare entry points and infer actor context |
+| `method`    | string | `native`, `clipboard`                                                                            | low         | non-personal enum       | compare completion paths                     |
+| `outcome`   | string | `success`, `failed`, `cancelled`                                                                 | low         | non-personal enum       | measure terminal result without raw errors   |
 
-This table lists the fields owned by the sharing producers, not every field in
-the payload currently delivered to Umami. The shared `useTracking` helper also
-adds `user_type`, `user_id`, `device`, and the grandfathered localized
-`timeStamp`. Those helper-added fields are inherited transport behavior, not a
-positive part of this example and not approved as dependencies for new
-consumers.
+This table is also the complete application-event payload delivered to Umami.
+The shared `useTracking` helper does not append identity, device, localized
+timestamps, or other implicit business fields. The transport establishes the
+one pseudonymous distinct ID separately through `umami.identify`, and it
+overrides URL, referrer, and title with privacy-normalized routing context. The
+standard Umami tracker envelope may still provide `website`, `hostname`,
+browser `language`, and `screen`; these are platform fields, not application
+event data. Consumers must not expect identity or page context to be duplicated
+inside event data.
 
-Every event contract must inventory both layers: the feature-owned allowlist
-and the complete payload after shared-helper enrichment. Label inherited
-legacy fields explicitly, audit them against the privacy rules, and do not
-claim that the final schema is fully compliant until the relevant transport
-debt is migrated. Removing or changing helper-added fields requires the same
-compatibility review as any other consumed schema change.
-
-The existing producer tests assert the exact feature-owned fields for native
-success, clipboard success/failure, cancellation, and invalid input. They also
-assert that course title, description, and URL never enter the producer
-payload. Because those tests mock `useTracking`, they do not prove the final
-helper-enriched payload; that missing low-level coverage remains tracked as
-legacy debt.
+The producer tests assert the exact fields for native success, clipboard
+success/failure, cancellation, and invalid input. They also assert that course
+title, description, and URL never enter the producer payload. Separate
+transport tests prove that the helper does not enrich those fields and that the
+final payload remains a flat scalar allowlist.
 
 ## Verification
 
@@ -293,10 +292,10 @@ For every new or changed event, add focused tests that cover:
 - absence of prohibited or incidental fields; and
 - consumer calculations or fixtures when an existing query/dashboard changes.
 
-The contract review must also record the complete helper-enriched payload,
-including any explicitly grandfathered transport fields. A feature-level test
-that mocks `useTracking` verifies only the producer boundary and must not be
-presented as proof of the final delivered schema.
+The contract review must also record the complete delivered payload. A
+feature-level test that mocks `useTracking` verifies only the producer boundary;
+pair it with the shared transport tests when claiming that the final delivered
+schema is compliant.
 
 When changing the shared transport, also cover identify-before-drain ordering,
 events emitted before script readiness, SPA pageview deduplication, sanitation
@@ -306,17 +305,20 @@ Verify deployed analytics separately before reporting live coverage.
 
 ## Grandfathered Legacy Debt
 
-The following existing behavior is tracked as non-blocking migration debt in
-`docs/QUALITY_SCORE.md`:
+The shared transport no longer preserves the previously grandfathered
+localized `timeStamp`, implicit event identity/device fields, object
+serialization, raw pageview URLs, or direct identify metadata. Any dashboard
+that consumed those fields must migrate to explicit reviewed dimensions or to
+Umami's pseudonymous distinct identity and normalized route context.
 
-- dynamic event names at legacy call sites;
-- free-text or object-derived payload values;
-- the localized `timeStamp` field added by `useTracking`;
-- pageviews that include query strings;
-- identify session metadata such as nickname, user state, and language; and
-- missing focused tests for the low-level tracking transport.
+Remaining legacy producer debt is limited to event families that have not been
+changed since this contract was introduced. Dynamic event names and legacy
+aliases replaced by the 2026-08-30 remediation are no longer produced or read;
+historical rows remain only inside Umami and are not part of the current
+contract. Any remaining debt is tracked in `docs/QUALITY_SCORE.md` and is not
+an approved example.
 
 These behaviors are not approved examples. New code must not copy them. When a
-legacy event or the shared transport is changed, apply this contract and use a
-dedicated compatibility migration when historical consumers or event meaning
-would otherwise break.
+legacy event or the shared transport is changed, apply this contract and follow
+the product-approved replacement policy; do not preserve an incorrect event
+solely because historical Umami rows or queries exist.

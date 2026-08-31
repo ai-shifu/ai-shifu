@@ -25,8 +25,8 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
-- [Rebuild Course Visit Analytics Without Umami Data Reads](./active/rebuild-course-visit-analytics.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
+- [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 
 ## Completed
@@ -53,11 +53,14 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Give operators and learners explicit control of AI-assisted onboarding](./completed/profile-onboarding-assistant-controls.md)
 - [Make AI-assisted onboarding visible before the first question](./completed/profile-onboarding-assistant-discoverability.md)
 - [Submit AI answers without waiting for a question](./completed/profile-onboarding-assistant-handoff.md)
+- [Make profile-onboarding prompt generation explicit](./completed/profile-onboarding-explicit-prompt-generation.md)
 - [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
 - [Localize profile-onboarding assistant prompts for every supported language](./completed/profile-onboarding-multilingual-assistant-prompts.md)
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
+- [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
+- [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 
 ## Supporting Tracker

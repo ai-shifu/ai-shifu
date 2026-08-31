@@ -14,10 +14,13 @@ rejected unless the terminal states are recorded separately.
   how often do they complete it, how often do they refuse, and how often does
   the prompt go unanswered? A refusal rate that is not near zero would mean
   people are being shown requests they did not start.
-- Metric definition: numerator is distinct approvals (`device_auth_approved`);
-  denominator is distinct prompt exposures (`device_auth_prompt_shown`) in the
-  same calendar week. Abandonment is the residual, `1 - (approved + denied) /
-  shown`, and is meaningful only because exposure is counted separately.
+- Metric definition: numerator is approval events (`device_auth_approved`);
+  denominator is prompt exposure events (`device_auth_prompt_shown`) in the
+  same calendar week, grouped by the shared `device_os` and `from_link` fields.
+  Abandonment is the residual, `1 - (approved + denied) / shown`, and is
+  meaningful only because exposure is counted separately. Without a request
+  identifier, this calculation is aggregate and cannot be presented as a
+  row-level join.
 - Event name(s): `device_auth_prompt_shown`, `device_auth_approved`,
   `device_auth_denied`.
 - Actor and surface: the signed-in user, on the `/login/device` page only.
@@ -34,16 +37,18 @@ rejected unless the terminal states are recorded separately.
   to a specific request.
 - Consumers: none yet. The refusal rate is the signal worth watching once the
   flow ships.
-- Compatibility: additive; three new names.
-- Verification: `src/cook-web/src/app/login/device/page.test.tsx` asserts the
+- Compatibility: additive; three new names, with `from_link` included in the
+  complete payload of all three events.
+- Verification: `src/web/src/app/login/device/page.test.tsx` asserts the
   exposure fires exactly once, that the pairing code stays out of the payload,
-  that outcomes fire on confirmation, and that a failed decision emits no
-  outcome.
+  that link-opened and manually entered outcomes retain the same `from_link`
+  dimension as their exposure, that outcomes fire on confirmation, and that a
+  failed decision emits no outcome.
 
-| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
-| --- | --- | --- | --- | --- | --- |
-| `device_os` | string | short OS label, e.g. `macOS 15` | low | non-personal | tells whether refusals cluster on one platform |
-| `from_link` | boolean | true/false | low | non-personal | separates prompts opened from the link from codes typed by hand |
+| Field       | Type    | Allowed values                                                                   | Cardinality | Privacy class | Why required                                                    |
+| ----------- | ------- | -------------------------------------------------------------------------------- | ----------- | ------------- | --------------------------------------------------------------- |
+| `device_os` | string  | `android`, `chromeos`, `ios`, `linux`, `macos`, `other`, `unknown`, or `windows` | low         | non-personal  | tells whether refusals cluster on one platform                  |
+| `from_link` | boolean | true/false                                                                       | low         | non-personal  | separates prompts opened from the link from codes typed by hand |
 
 ### session management
 
@@ -70,11 +75,11 @@ rejected unless the terminal states are recorded separately.
 - Consumers: none yet.
 - Compatibility: additive; three new names.
 - Verification:
-  `src/cook-web/src/c-components/Settings/SessionManagerModal.test.tsx`
+  `src/web/src/c-components/Settings/SessionManagerModal.test.tsx`
   asserts that outcomes fire only on confirmed revocations, that a failed
   revocation emits nothing, and that no session identifier reaches a payload.
 
-| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
-| --- | --- | --- | --- | --- | --- |
-| `surface` | string | `learner`, `admin` | low | non-personal | shows which surface people manage sessions from |
-| `source` | string | `web`, `cli`, `` | low | non-personal | distinguishes ending a browser session from ending a CLI one |
+| Field     | Type   | Allowed values     | Cardinality | Privacy class | Why required                                                 |
+| --------- | ------ | ------------------ | ----------- | ------------- | ------------------------------------------------------------ |
+| `surface` | string | `learner`, `admin` | low         | non-personal  | shows which surface people manage sessions from              |
+| `source`  | string | `web`, `cli`, ``   | low         | non-personal  | distinguishes ending a browser session from ending a CLI one |

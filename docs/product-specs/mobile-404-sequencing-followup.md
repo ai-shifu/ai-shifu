@@ -22,9 +22,9 @@ canonical: true
 4. Keep `/404` redirect only for explicit not-found signals.
 
 ## Candidate Files
-- `src/cook-web/src/app/c/[[...id]]/layout.tsx`
-- `src/cook-web/src/store/userProvider.tsx`
-- `src/cook-web/src/c-api/course.ts`
+- `src/web/src/app/c/[[...id]]/layout.tsx`
+- `src/web/src/store/userProvider.tsx`
+- `src/web/src/c-api/course.ts`
 
 ## Acceptance Criteria
 - New users opening `/c/:id` on mobile do not hit false `/404` under weak network.

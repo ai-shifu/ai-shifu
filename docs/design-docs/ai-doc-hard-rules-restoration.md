@@ -44,7 +44,7 @@ The repository will change:
 
 ### Manual AGENTS ownership
 
-- Keep `AGENTS.md`, `src/api/AGENTS.md`, and `src/cook-web/AGENTS.md`
+- Keep `AGENTS.md`, `src/api/AGENTS.md`, and `src/web/AGENTS.md`
   hand-maintained.
 - Keep the standard `Scope`, `Do`, `Avoid`, `Commands`, `Tests`, and
   `Related Skills` headings.
@@ -88,4 +88,4 @@ The repository will change:
 
 - `python scripts/generate_ai_collab_docs.py`
 - `python scripts/check_ai_collab_docs.py`
-- `pre-commit run --files AGENTS.md src/api/AGENTS.md src/cook-web/AGENTS.md docs/design-docs/ai-doc-hard-rules-restoration.md docs/engineering-baseline.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py .claude/rules/global/testing-and-commit.md .claude/rules/backend/python-api.md .claude/rules/frontend/cook-web.md .cursor/rules/repository-ai-collab.mdc src/api/.cursor/rules/backend-api.mdc src/cook-web/.cursor/rules/cook-web.mdc .github/copilot-instructions.md .github/instructions/ai-instructions.instructions.md .github/instructions/backend.instructions.md .github/instructions/frontend.instructions.md`
+- `pre-commit run --files AGENTS.md src/api/AGENTS.md src/web/AGENTS.md docs/design-docs/ai-doc-hard-rules-restoration.md docs/engineering-baseline.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py .claude/rules/global/testing-and-commit.md .claude/rules/backend/python-api.md .claude/rules/frontend/web.md .cursor/rules/repository-ai-collab.mdc src/api/.cursor/rules/backend-api.mdc src/web/.cursor/rules/web.mdc .github/copilot-instructions.md .github/instructions/ai-instructions.instructions.md .github/instructions/backend.instructions.md .github/instructions/frontend.instructions.md`

@@ -1,0 +1,51 @@
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+The `dev` and `build` scripts safely copy a legacy checkout's local frontend
+environment configuration when `src/web` has no env configuration yet. They
+never combine configuration sets or overwrite an existing new-path env file.
+If the helper reports legacy dependencies, run `npm ci` from this directory;
+dependencies are rebuilt rather than migrated.
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Authentication configuration
+
+The Cook Web login page reads authentication options from the backend `/api/config` endpoint. Set the following environment variables (or configure them on the Flask backend) to enable Google OAuth locally:
+
+- `NEXT_PUBLIC_LOGIN_METHODS_ENABLED`: comma-separated list such as `phone,google`.
+- `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`: default tab to show (for Google use `google`).
+
+Ensure the backend exposes `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` so `/api/user/oauth/google` emits the correct authorization URL.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

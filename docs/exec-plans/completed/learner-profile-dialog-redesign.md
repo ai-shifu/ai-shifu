@@ -97,12 +97,12 @@ Collection completion itself does not invoke this optimizer.
 ## Context and Orientation
 
 - Dialog and UI state:
-  `src/cook-web/src/components/profile-onboarding/LearnerProfileDialog.tsx`
+  `src/web/src/components/profile-onboarding/LearnerProfileDialog.tsx`
 - Modern frontend API:
-  `src/cook-web/src/api/learnerProfile.ts`
+  `src/web/src/api/learnerProfile.ts`
 - Learner onboarding and menu entry:
-  `src/cook-web/src/app/c/[[...id]]/page.tsx` and
-  `src/cook-web/src/c-components/NavDrawer/MainMenuModal.tsx`
+  `src/web/src/app/c/[[...id]]/page.tsx` and
+  `src/web/src/c-components/NavDrawer/MainMenuModal.tsx`
 - Canonical persistence, moderation, and account merge:
   `src/api/flaskr/service/profile/learner_profile.py`
 - Optimizer and its admission guard:
