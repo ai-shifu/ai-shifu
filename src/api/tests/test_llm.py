@@ -866,6 +866,20 @@ def test_provider_specific_thinking_params_remain_compatible() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "model_id",
+    ["ZHIPU/GLM-5.3", "ZHIPU/GLM-5.3-Flash"],
+)
+def test_qwen_glm_53_params_use_lowest_supported_reasoning(model_id: object) -> None:
+    assert llm._reload_qwen_params(model_id, 0.4) == {
+        "temperature": 0.4,
+        "extra_body": {
+            "enable_thinking": True,
+            "reasoning_effort": "low",
+        },
+    }
+
+
 def test_provider_thinking_policy_removes_caller_conflicts() -> None:
     kwargs = {
         "reasoning_effort": "high",
@@ -992,6 +1006,31 @@ def test_provider_thinking_policy_preserves_caller_extra_body_fields() -> None:
         "extra_body": {
             "enable_thinking": False,
             "custom_field": "keep",
+        },
+    }
+
+
+def test_qwen_glm_53_thinking_policy_removes_caller_conflicts() -> None:
+    kwargs = {
+        "reasoning_effort": "high",
+        "extra_body": {
+            "enable_thinking": False,
+            "reasoning_effort": "max",
+            "custom_field": "keep",
+        },
+    }
+
+    llm._apply_provider_params(
+        kwargs,
+        llm._reload_qwen_params("ZHIPU/GLM-5.3-Flash", 0.4),
+    )
+
+    assert kwargs == {
+        "temperature": 0.4,
+        "extra_body": {
+            "custom_field": "keep",
+            "enable_thinking": True,
+            "reasoning_effort": "low",
         },
     }
 
@@ -1154,6 +1193,17 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 {"extra_body": {"enable_thinking": False}},
             ),
+            "dashscope_glm_53": adapter_contract(
+                "dashscope",
+                "ZHIPU/GLM-5.3-Flash",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                {
+                    "extra_body": {
+                        "enable_thinking": True,
+                        "reasoning_effort": "low",
+                    }
+                },
+            ),
             "volcengine": adapter_contract(
                 "volcengine",
                 "doubao-seed-2-0-lite-260428",
@@ -1178,6 +1228,12 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 model="gemini-3.6-flash",
                 custom_llm_provider="gemini",
                 reasoning_effort="none",
+                allowed_openai_params=["reasoning_effort"],
+            ),
+            "gemini_37_flash": litellm.get_optional_params(
+                model="gemini-3.7-flash",
+                custom_llm_provider="gemini",
+                reasoning_effort="low",
                 allowed_openai_params=["reasoning_effort"],
             ),
             "gemini_25_pro": litellm.get_optional_params(
@@ -1225,6 +1281,9 @@ def test_litellm_198_native_adapter_contracts() -> None:
         "dashscope": (
             "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
         ),
+        "dashscope_glm_53": (
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+        ),
         "volcengine": ("https://ark.cn-beijing.volces.com/api/v3/chat/completions"),
         "zai": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     }
@@ -1243,6 +1302,8 @@ def test_litellm_198_native_adapter_contracts() -> None:
 
     assert contracts["deepseek"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["dashscope"]["body"]["enable_thinking"] is False
+    assert contracts["dashscope_glm_53"]["body"]["enable_thinking"] is True
+    assert contracts["dashscope_glm_53"]["body"]["reasoning_effort"] == "low"
     assert contracts["volcengine"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}
     assert contracts["zai"]["body"]["thinking"] == {"type": "disabled"}
@@ -1251,6 +1312,10 @@ def test_litellm_198_native_adapter_contracts() -> None:
     assert contracts["gemini_3"]["thinkingConfig"] == {
         "thinkingLevel": "minimal",
         "includeThoughts": False,
+    }
+    assert contracts["gemini_37_flash"]["thinkingConfig"] == {
+        "thinkingLevel": "low",
+        "includeThoughts": True,
     }
     assert contracts["gemini_25_pro"]["thinkingConfig"] == {
         "thinkingBudget": 128,
@@ -1328,6 +1393,16 @@ def test_gemini_3_params_use_none_with_explicit_allowlist() -> None:
         "temperature": 0.3,
         "allowed_openai_params": ["reasoning_effort"],
         "reasoning_effort": "none",
+    }
+
+
+def test_gemini_37_flash_params_use_lowest_supported_reasoning() -> None:
+    params = llm._reload_gemini_params("gemini-3.7-flash", 0.3)
+
+    assert params == {
+        "temperature": 0.3,
+        "allowed_openai_params": ["reasoning_effort"],
+        "reasoning_effort": "low",
     }
 
 

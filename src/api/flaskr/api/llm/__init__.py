@@ -723,6 +723,15 @@ def _reload_openai_params(model_id: str, temperature: float) -> dict[str, object
     }
 
 
+_GEMINI_LOW_REASONING_MODELS = frozenset({"gemini-3.7-flash"})
+_QWEN_REQUIRED_THINKING_MODELS = frozenset(
+    {
+        "zhipu/glm-5.3",
+        "zhipu/glm-5.3-flash",
+    }
+)
+
+
 def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, object]:
     # Gemini thinking is controlled via LiteLLM's reasoning_effort mapping. Some
     # Gemini model ids are not included in LiteLLM's supported-params table yet,
@@ -731,15 +740,20 @@ def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, object
         "temperature": temperature,
         "allowed_openai_params": ["reasoning_effort"],
     }
-    if model_id.startswith("gemini-3"):
+    normalized_model_id = model_id.casefold()
+    if normalized_model_id in _GEMINI_LOW_REASONING_MODELS:
+        # Gemini 3.7 Flash does not support minimal thinking. Low is its
+        # lowest supported thinking level.
+        params["reasoning_effort"] = "low"
+    elif normalized_model_id.startswith("gemini-3"):
         # Gemini 3 cannot fully disable thinking. LiteLLM maps none to the
         # model's lowest supported level and suppresses thought output.
         params["reasoning_effort"] = "none"
-    elif model_id.startswith("gemini-2.5-pro"):
+    elif normalized_model_id.startswith("gemini-2.5-pro"):
         # Gemini 2.5 Pro cannot disable thinking; LiteLLM maps minimal to its
         # minimum supported 128-token thinking budget.
         params["reasoning_effort"] = "minimal"
-    elif model_id.startswith("gemini"):
+    elif normalized_model_id.startswith("gemini"):
         # Older Gemini models can use the cost-optimized no-thinking mapping.
         params["reasoning_effort"] = "none"
     return params
@@ -765,7 +779,16 @@ def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, objec
 
 
 def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, object]:
-    _ = model_id
+    if model_id.casefold() in _QWEN_REQUIRED_THINKING_MODELS:
+        # DashScope's ZHIPU GLM-5.3 models always think. Disabling thinking
+        # returns HTTP 400, while low is their lowest supported thinking level.
+        return {
+            "temperature": temperature,
+            "extra_body": {
+                "enable_thinking": True,
+                "reasoning_effort": "low",
+            },
+        }
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
