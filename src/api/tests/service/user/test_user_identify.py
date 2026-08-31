@@ -303,13 +303,14 @@ def test_email_flow_sets_user_identify(app: object) -> None:
         _reset_user_auth_tables()
         try:
             raw_email = "TestUser@Example.com"
-            token, _created, _ctx = email_flow.verify_email_code(
+            token, _created, context = email_flow.verify_email_code(
                 app, user_id=None, email=raw_email, code="9999"
             )
 
             entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
             assert entity is not None
             assert entity.user_identify == raw_email.lower()
+            assert context["creator_granted_now"] is True
         finally:
             _reset_user_auth_tables()
 
