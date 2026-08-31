@@ -22,6 +22,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/Sheet';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import type {
   AdminOperationCreditNotificationPolicy,
@@ -165,31 +171,35 @@ export function CreditNotificationTemplateManagementTab({
       header: t(
         'module.operationsCreditNotifications.templateManagement.columns.name',
       ),
+      className: 'w-56 min-w-56',
     },
     {
       key: 'status',
       header: t(
         'module.operationsCreditNotifications.templateManagement.columns.status',
       ),
+      className: 'w-28 min-w-28 whitespace-nowrap',
     },
     {
       key: 'type',
       header: t(
         'module.operationsCreditNotifications.templateManagement.columns.type',
       ),
+      className: 'w-24 min-w-24 whitespace-nowrap',
     },
     {
       key: 'bindings',
       header: t(
         'module.operationsCreditNotifications.templateManagement.columns.bindings',
       ),
+      className: 'w-28 min-w-28',
     },
     {
       key: 'content',
       header: t(
         'module.operationsCreditNotifications.templateManagement.columns.content',
       ),
-      className: 'min-w-72',
+      className: 'w-[28rem] min-w-[28rem] max-w-[28rem]',
     },
     {
       key: 'action',
@@ -286,75 +296,95 @@ export function CreditNotificationTemplateManagementTab({
         </p>
       ) : null}
       {rows.length ? (
-        <CreditNotificationConfigOverviewTable
-          columns={columns}
-          rows={rows}
-          renderCell={(row, column) => {
-            if (column.key === 'name')
+        <TooltipProvider delayDuration={150}>
+          <CreditNotificationConfigOverviewTable
+            columns={columns}
+            rows={rows}
+            renderCell={(row, column) => {
+              if (column.key === 'name')
+                return (
+                  <div>
+                    <div className='font-medium'>
+                      {row.template_name || '--'}
+                    </div>
+                    <code className='text-xs text-muted-foreground'>
+                      {row.template_code}
+                    </code>
+                  </div>
+                );
+              if (column.key === 'status')
+                return (
+                  <Badge
+                    variant='secondary'
+                    className='whitespace-nowrap'
+                  >
+                    {statusLabel(row.template_status)}
+                  </Badge>
+                );
+              if (column.key === 'type')
+                return (
+                  <span className='text-sm'>
+                    {typeLabel(row.template_type)}
+                  </span>
+                );
+              if (column.key === 'bindings') {
+                const bindings = bindingsFor(row.template_code);
+                return bindings.length ? (
+                  <div className='flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground'>
+                    {bindings.map(value => (
+                      <span key={value}>
+                        {t(
+                          `module.operationsCreditNotifications.type.${value}`,
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className='text-sm text-muted-foreground'>
+                    {t(
+                      'module.operationsCreditNotifications.templateManagement.unbound',
+                    )}
+                  </span>
+                );
+              }
+              if (column.key === 'content')
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className='line-clamp-2 break-words text-sm leading-5'>
+                        {row.template_content || '--'}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className='max-w-[32rem] whitespace-pre-wrap break-words text-left leading-5'>
+                      {row.template_content || '--'}
+                    </TooltipContent>
+                  </Tooltip>
+                );
               return (
-                <div>
-                  <div className='font-medium'>{row.template_name || '--'}</div>
-                  <code className='text-xs text-muted-foreground'>
-                    {row.template_code}
-                  </code>
-                </div>
-              );
-            if (column.key === 'status')
-              return (
-                <Badge variant='secondary'>
-                  {statusLabel(row.template_status)}
-                </Badge>
-              );
-            if (column.key === 'type')
-              return (
-                <span className='text-sm'>{typeLabel(row.template_type)}</span>
-              );
-            if (column.key === 'bindings') {
-              const bindings = bindingsFor(row.template_code);
-              return bindings.length ? (
-                <div className='flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground'>
-                  {bindings.map(value => (
-                    <span key={value}>
-                      {t(`module.operationsCreditNotifications.type.${value}`)}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <span className='text-sm text-muted-foreground'>
-                  {t(
-                    'module.operationsCreditNotifications.templateManagement.unbound',
-                  )}
-                </span>
-              );
-            }
-            if (column.key === 'content')
-              return (
-                <p className='line-clamp-2 text-sm'>
-                  {row.template_content || '--'}
-                </p>
-              );
-            return (
-              <div className='flex justify-center'>
-                <AdminRowActions
-                  label={t('module.operationsCreditNotifications.actions.more')}
-                  className='whitespace-nowrap'
-                  actions={[
-                    {
-                      key: 'detail',
-                      label: t(
-                        'module.operationsCreditNotifications.actions.detail',
-                      ),
-                      onClick: () => {
-                        setSelectedTemplate(row);
-                        onDetailOpened();
+                <div className='flex justify-center'>
+                  <AdminRowActions
+                    label={t(
+                      'module.operationsCreditNotifications.actions.more',
+                    )}
+                    className='whitespace-nowrap'
+                    actions={[
+                      {
+                        key: 'detail',
+                        label: t(
+                          'module.operationsCreditNotifications.actions.detail',
+                        ),
+                        onClick: () => {
+                          setSelectedTemplate(row);
+                          onDetailOpened();
+                        },
                       },
-                    },
-                  ]}
-                />
-              </div>
-            );
-          }}
-        />
+                    ]}
+                  />
+                </div>
+              );
+            }}
+          />
+        </TooltipProvider>
       ) : (
         <div className='rounded-lg border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground'>
           {loading
