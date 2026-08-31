@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event';
 import api from '@/api';
 import { toast } from '@/hooks/useToast';
 import { useBillingOverview } from '@/hooks/useBillingData';
-import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
+import {
+  rememberStripeBillingOrderForAnalytics,
+  rememberStripeCheckoutSession,
+} from '@/lib/stripe-storage';
 import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { openBillingCheckoutUrl } from '@/lib/billing';
 import { BillingOverviewTab } from './BillingOverviewTab';
@@ -110,6 +113,7 @@ jest.mock('@/hooks/useToast', () => ({
 
 jest.mock('@/lib/stripe-storage', () => ({
   __esModule: true,
+  rememberStripeBillingOrderForAnalytics: jest.fn(),
   rememberStripeCheckoutSession: jest.fn(),
 }));
 
@@ -178,6 +182,8 @@ const mockResumeBillingSubscription =
 const mockSyncBillingOrder = api.syncBillingOrder as jest.Mock;
 const mockRememberStripeCheckoutSession =
   rememberStripeCheckoutSession as jest.Mock;
+const mockRememberStripeBillingOrderForAnalytics =
+  rememberStripeBillingOrderForAnalytics as jest.Mock;
 const mockOpenBillingCheckoutUrl = openBillingCheckoutUrl as jest.Mock;
 const mockToast = toast as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
@@ -409,6 +415,7 @@ describe('BillingOverviewTab', () => {
     mockGetBillingCatalog.mockReset();
     mockResumeBillingSubscription.mockReset();
     mockSyncBillingOrder.mockReset();
+    mockRememberStripeBillingOrderForAnalytics.mockReset();
     mockRememberStripeCheckoutSession.mockReset();
     mockOpenBillingCheckoutUrl.mockReset();
     mockToast.mockReset();
@@ -1871,6 +1878,12 @@ describe('BillingOverviewTab', () => {
       'cs_test_123',
       'order-plan-1',
     );
+    expect(mockRememberStripeBillingOrderForAnalytics).toHaveBeenCalledWith(
+      'order-plan-1',
+    );
+    expect(
+      mockRememberStripeBillingOrderForAnalytics.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0]);
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://stripe.test/checkout',
     );
@@ -2040,6 +2053,7 @@ describe('BillingOverviewTab', () => {
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
     expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockRememberStripeBillingOrderForAnalytics).not.toHaveBeenCalled();
     expect(mockRememberStripeCheckoutSession).not.toHaveBeenCalled();
     expect(
       screen.getByTestId('billing-pingxx-expiration-countdown'),

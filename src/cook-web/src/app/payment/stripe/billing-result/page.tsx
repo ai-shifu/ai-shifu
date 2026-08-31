@@ -15,7 +15,10 @@ import {
   type CreatorBillingFailureCategory,
 } from '@/lib/billingAnalytics';
 import request from '@/lib/request';
-import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
+import {
+  consumeStripeBillingOrderForAnalytics,
+  consumeStripeCheckoutSession,
+} from '@/lib/stripe-storage';
 import { useTranslation } from 'react-i18next';
 
 type BillingResultStatus = 'loading' | 'success' | 'pending' | 'error';
@@ -185,7 +188,9 @@ export default function StripeBillingResultPage() {
 
         if (result.status === 'pending') {
           if (canceled) {
-            reportCheckoutResult('', 'cancelled');
+            if (consumeStripeBillingOrderForAnalytics(orderBid)) {
+              reportCheckoutResult('', 'cancelled');
+            }
           } else {
             reportCheckoutStatus(orderBid, 'pending');
           }
@@ -199,7 +204,9 @@ export default function StripeBillingResultPage() {
 
         if (result.status !== 'paid') {
           if (canceled) {
-            reportCheckoutResult('', 'cancelled');
+            if (consumeStripeBillingOrderForAnalytics(orderBid)) {
+              reportCheckoutResult('', 'cancelled');
+            }
           } else if (result.status === 'refunded') {
             reportCheckoutResult(orderBid, 'failed', 'payment_failed');
           } else {

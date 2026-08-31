@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 import { openBillingCheckoutUrl } from '@/lib/billing';
+import { rememberStripeBillingOrderForAnalytics } from '@/lib/stripe-storage';
 import type {
   BillingPlan,
   BillingSubscription,
@@ -107,6 +108,10 @@ jest.mock('@/lib/billing', () => {
     openBillingCheckoutUrl: jest.fn(),
   };
 });
+
+jest.mock('@/lib/stripe-storage', () => ({
+  rememberStripeBillingOrderForAnalytics: jest.fn(),
+}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => {
@@ -218,6 +223,8 @@ const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockCheckoutSubscription = api.checkoutBillingSubscription as jest.Mock;
 const mockCheckoutTopup = api.checkoutBillingTopup as jest.Mock;
 const mockOpenBillingCheckoutUrl = openBillingCheckoutUrl as jest.Mock;
+const mockRememberStripeBillingOrderForAnalytics =
+  rememberStripeBillingOrderForAnalytics as jest.Mock;
 
 function plan(
   productCode: string,
@@ -291,6 +298,7 @@ describe('GlobalBillingPricing', () => {
     mockTrackEvent.mockReset();
     mockToast.mockReset();
     mockOpenBillingCheckoutUrl.mockReset();
+    mockRememberStripeBillingOrderForAnalytics.mockReset();
     mockBillingSubscription = null;
     mockBillingOverview = {
       subscription: mockBillingSubscription,
@@ -553,6 +561,12 @@ describe('GlobalBillingPricing', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/session',
     );
+    expect(mockRememberStripeBillingOrderForAnalytics).toHaveBeenCalledWith(
+      'order-business-annual',
+    );
+    expect(
+      mockRememberStripeBillingOrderForAnalytics.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0]);
     expect(mockTrackEvent.mock.invocationCallOrder[1]).toBeLessThan(
       mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0],
     );
@@ -802,6 +816,7 @@ describe('GlobalBillingPricing', () => {
       }),
     );
     expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockRememberStripeBillingOrderForAnalytics).not.toHaveBeenCalled();
     expect(mockToast).toHaveBeenCalledWith({
       title: 'This payment method is not available right now.',
       variant: 'destructive',

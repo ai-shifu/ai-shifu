@@ -285,8 +285,11 @@ receipt, and raw failure are excluded.
   each mounted return flow invokes at most one terminal result for an order.
 - Correlation: `bill_order_bid` is the pseudonymous product-owned order key. A
   Stripe return-page value is eligible only after the billing API has confirmed
-  it; cancellation and confirmation-failure events omit an unverified query
-  parameter.
+  it. A cancellation additionally requires the session-local analytics marker
+  written after checkout confirms a Stripe redirect; missing or unavailable
+  storage suppresses the cancellation event without changing synchronization,
+  UI, or retry behavior. Cancellation and confirmation-failure events omit an
+  unverified query parameter.
 - Consumer: billing checkout adoption and provider reliability analysis; the
   billing ledger remains the financial source of truth.
 - Replacement: delete the `creator_billing_checkout_click` producer and

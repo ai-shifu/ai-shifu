@@ -38,6 +38,7 @@ import {
   type CreatorBillingAnalyticsBaseInput,
   type CreatorBillingFailureCategory,
 } from '@/lib/billingAnalytics';
+import { rememberStripeBillingOrderForAnalytics } from '@/lib/stripe-storage';
 import { cn } from '@/lib/utils';
 import type {
   BillingCheckoutResult,
@@ -421,6 +422,9 @@ export function GlobalBillingPricing() {
           phase: 'redirecting',
           retryUrl: result.redirect_url,
         });
+        if (result.provider === 'stripe') {
+          rememberStripeBillingOrderForAnalytics(result.bill_order_bid);
+        }
         failureCategory = 'redirect_failed';
         trackCreatorBillingEventSafely(
           trackEvent,

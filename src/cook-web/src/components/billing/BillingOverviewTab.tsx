@@ -8,7 +8,10 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { toast } from '@/hooks/useToast';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
-import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
+import {
+  rememberStripeBillingOrderForAnalytics,
+  rememberStripeCheckoutSession,
+} from '@/lib/stripe-storage';
 import {
   BILLING_WALLET_BUCKETS_SWR_KEY,
   useBillingOverview,
@@ -502,6 +505,7 @@ export function BillingOverviewTab({
           phase: 'redirecting',
           retryUrl: result.redirect_url,
         });
+        rememberStripeBillingOrderForAnalytics(result.bill_order_bid);
         if (result.checkout_session_id) {
           rememberStripeCheckoutSession(
             result.checkout_session_id,

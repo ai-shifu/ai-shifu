@@ -11,7 +11,10 @@ import StripeBillingResultPage from './page';
 import api from '@/api';
 import { buildBillingSwrKey } from '@/lib/billing';
 import request from '@/lib/request';
-import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
+import {
+  consumeStripeBillingOrderForAnalytics,
+  consumeStripeCheckoutSession,
+} from '@/lib/stripe-storage';
 
 const mockPush = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -90,6 +93,7 @@ jest.mock('@/lib/request', () => ({
 }));
 
 jest.mock('@/lib/stripe-storage', () => ({
+  consumeStripeBillingOrderForAnalytics: jest.fn(),
   consumeStripeCheckoutSession: jest.fn(),
 }));
 
@@ -99,6 +103,8 @@ const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 const mockConsumeStripeCheckoutSession =
   consumeStripeCheckoutSession as jest.Mock;
+const mockConsumeStripeBillingOrderForAnalytics =
+  consumeStripeBillingOrderForAnalytics as jest.Mock;
 
 describe('StripeBillingResultPage', () => {
   beforeEach(() => {
@@ -109,6 +115,7 @@ describe('StripeBillingResultPage', () => {
     mockGetBillingOverview.mockReset();
     mockGetBillingWalletBuckets.mockReset();
     mockGetBillingLedger.mockReset();
+    mockConsumeStripeBillingOrderForAnalytics.mockReset();
     mockConsumeStripeCheckoutSession.mockReset();
     mockGetBillingOverview.mockResolvedValue({});
     mockGetBillingWalletBuckets.mockResolvedValue({});
@@ -243,6 +250,7 @@ describe('StripeBillingResultPage', () => {
     mockSearchParams.set('bill_order_bid', 'private-person@example.test');
     mockSearchParams.set('session_id', 'sess-secret');
     mockSearchParams.set('canceled', '1');
+    mockConsumeStripeBillingOrderForAnalytics.mockReturnValue(true);
     mockRequestPost.mockResolvedValue({ status: 'canceled' });
 
     render(<StripeBillingResultPage />);
@@ -273,6 +281,7 @@ describe('StripeBillingResultPage', () => {
     mockSearchParams.set('bill_order_bid', 'private-person@example.test');
     mockSearchParams.set('session_id', 'sess-secret');
     mockSearchParams.set('canceled', '1');
+    mockConsumeStripeBillingOrderForAnalytics.mockReturnValue(true);
     mockRequestPost.mockResolvedValue({ status: 'pending' });
 
     render(<StripeBillingResultPage />);
@@ -299,6 +308,65 @@ describe('StripeBillingResultPage', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private-person@example.test',
     );
+  });
+
+  test('does not attribute an unassociated cancelled order to Stripe', async () => {
+    mockSearchParams.set('bill_order_bid', 'other-provider-order');
+    mockSearchParams.set('session_id', 'unrelated-stripe-session');
+    mockSearchParams.set('canceled', '1');
+    mockConsumeStripeBillingOrderForAnalytics.mockReturnValue(false);
+    mockRequestPost.mockResolvedValue({ status: 'pending' });
+
+    render(<StripeBillingResultPage />);
+
+    expect(
+      await screen.findByText('Waiting for billing confirmation'),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Payment is still processing'),
+    ).toBeInTheDocument();
+    expect(mockRequestPost).toHaveBeenCalledWith(
+      '/api/billing/orders/other-provider-order/sync',
+      { session_id: 'unrelated-stripe-session' },
+    );
+    expect(mockConsumeStripeBillingOrderForAnalytics).toHaveBeenCalledWith(
+      'other-provider-order',
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Retry sync' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry sync' }));
+
+    await waitFor(() => expect(mockRequestPost).toHaveBeenCalledTimes(2));
+    expect(mockConsumeStripeBillingOrderForAnalytics).toHaveBeenCalledTimes(2);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('does not attribute an unassociated canceled sync result to Stripe', async () => {
+    mockSearchParams.delete('session_id');
+    mockSearchParams.set('bill_order_bid', 'other-provider-canceled-order');
+    mockSearchParams.set('canceled', '1');
+    mockConsumeStripeBillingOrderForAnalytics.mockReturnValue(false);
+    mockRequestPost.mockResolvedValue({ status: 'canceled' });
+
+    render(<StripeBillingResultPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Billing sync failed' }),
+    ).toBeInTheDocument();
+    expect(mockRequestPost).toHaveBeenCalledWith(
+      '/api/billing/orders/other-provider-canceled-order/sync',
+      { session_id: undefined },
+    );
+    expect(mockConsumeStripeBillingOrderForAnalytics).toHaveBeenCalledWith(
+      'other-provider-canceled-order',
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Retry sync' }),
+    ).toBeInTheDocument();
   });
 
   test('keeps a sync failure non-terminal and reports one result after retry', async () => {
