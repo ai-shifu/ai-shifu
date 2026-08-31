@@ -2133,6 +2133,121 @@ class TestHandleAskAdapter:
             assert answer_rows[0].content_text == "hello world"
             assert answer_rows[0].target_element_bid == logical_answer_bid
 
+    def test_process_emits_follow_up_audio_as_ephemeral_stream_events(
+        self, adapter_app: object
+    ) -> None:
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementPayloadDTO,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+        from flaskr.service.learn.models import LearnGeneratedElement
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+            db.session.add(
+                LearnGeneratedElement(
+                    element_bid="anchor_follow_up_audio",
+                    progress_record_bid="pr1",
+                    user_bid="u1",
+                    generated_block_bid="gb1",
+                    outline_item_bid="o1",
+                    shifu_bid="s1",
+                    run_session_bid="rs1",
+                    run_event_seq=1,
+                    event_type="element",
+                    role="teacher",
+                    element_index=0,
+                    element_type="text",
+                    element_type_code=0,
+                    change_type="render",
+                    is_final=1,
+                    content_text="anchor content",
+                    payload=_serialize_payload(ElementPayloadDTO()),
+                    deleted=0,
+                    status=1,
+                )
+            )
+            db.session.flush()
+
+            streamed = list(
+                adapter.process(
+                    [
+                        RunMarkdownFlowDTO(
+                            outline_bid="o1",
+                            generated_block_bid="ask_gb_audio",
+                            type=GeneratedType.ASK,
+                            content="question",
+                            anchor_element_bid="anchor_follow_up_audio",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid="o1",
+                            generated_block_bid="ask_gb_audio",
+                            type=GeneratedType.CONTENT,
+                            content="First sentence.",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid="o1",
+                            generated_block_bid="ask_gb_audio",
+                            type=GeneratedType.AUDIO_SEGMENT,
+                            content=AudioSegmentDTO(
+                                segment_index=0,
+                                audio_data="segment-audio",
+                                duration_ms=300,
+                            ),
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid="o1",
+                            generated_block_bid="ask_gb_audio",
+                            type=GeneratedType.AUDIO_COMPLETE,
+                            content=AudioCompleteDTO(
+                                audio_url="/answer.mp3",
+                                audio_bid="answer-audio",
+                                duration_ms=300,
+                            ),
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid="o1",
+                            generated_block_bid="ask_gb_audio",
+                            type=GeneratedType.BREAK,
+                            content="",
+                        ),
+                    ]
+                )
+            )
+
+            audio_events = [
+                message
+                for message in streamed
+                if message.type
+                in {
+                    GeneratedType.AUDIO_SEGMENT.value,
+                    GeneratedType.AUDIO_COMPLETE.value,
+                }
+            ]
+            assert [message.type for message in audio_events] == [
+                GeneratedType.AUDIO_SEGMENT.value,
+                GeneratedType.AUDIO_COMPLETE.value,
+            ]
+            assert audio_events[0].content.audio_data == "segment-audio"
+            assert audio_events[1].content.audio_url == "/answer.mp3"
+            assert not LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.generated_block_bid == "ask_gb_audio",
+                LearnGeneratedElement.event_type.in_(
+                    [
+                        GeneratedType.AUDIO_SEGMENT.value,
+                        GeneratedType.AUDIO_COMPLETE.value,
+                    ]
+                ),
+            ).count()
+
     def test_process_creates_answer_element_for_patched_anchor_bid(
         self, adapter_app: object
     ) -> None:

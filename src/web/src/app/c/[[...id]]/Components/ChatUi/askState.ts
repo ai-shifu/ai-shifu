@@ -1,6 +1,13 @@
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import type { AudioTrack } from '@/c-utils/audio-utils';
 
+export type AskAnswerAudioPlaybackStatus =
+  | 'pending'
+  | 'playing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
 export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
   content: string;
@@ -14,6 +21,7 @@ export interface AskMessage {
   isAudioStreaming?: boolean;
   isAudioBackfillReady?: boolean;
   listenAudioBackfillMode?: 'listen' | 'block';
+  audioPlaybackStatus?: AskAnswerAudioPlaybackStatus;
 }
 
 interface AskAnchorLike {
@@ -58,7 +66,8 @@ export const areAskMessageListsEqual = (
       item.audioDurationMs === nextItem?.audioDurationMs &&
       item.isAudioStreaming === nextItem?.isAudioStreaming &&
       item.isAudioBackfillReady === nextItem?.isAudioBackfillReady &&
-      item.listenAudioBackfillMode === nextItem?.listenAudioBackfillMode
+      item.listenAudioBackfillMode === nextItem?.listenAudioBackfillMode &&
+      item.audioPlaybackStatus === nextItem?.audioPlaybackStatus
     );
   });
 };

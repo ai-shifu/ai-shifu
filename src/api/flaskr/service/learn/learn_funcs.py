@@ -1666,7 +1666,7 @@ def stream_generated_block_audio(
 
         def _yield_single_block_audio() -> Iterator[object]:
             cleaned_text = preprocess_for_tts(raw_text)
-            if not cleaned_text or len(cleaned_text.strip()) < 2:
+            if not cleaned_text or not has_speakable_text(cleaned_text):
                 raise_error_with_args(
                     "server.common.paramsError",
                     param_message="No speakable text available for TTS synthesis",
@@ -1696,7 +1696,7 @@ def stream_generated_block_audio(
 
         def _yield_preview_single_block_audio() -> Iterator[object]:
             cleaned_text = preprocess_for_tts(raw_text)
-            if not cleaned_text or len(cleaned_text.strip()) < 2:
+            if not cleaned_text or not has_speakable_text(cleaned_text):
                 raise_error_with_args(
                     "server.common.paramsError",
                     param_message="No speakable text available for TTS synthesis",
@@ -2005,7 +2005,7 @@ def stream_preview_tts_audio(
         )
 
         cleaned_text = preprocess_for_tts(text or "")
-        if not cleaned_text or len(cleaned_text.strip()) < 2:
+        if not cleaned_text or not has_speakable_text(cleaned_text):
             raise_error_with_args(
                 "server.common.paramsError",
                 param_message="No speakable text available for TTS synthesis",

@@ -412,6 +412,41 @@ capability check is pending also excludes the initial stored preference from
 restoration reporting. It remains because that question is different from an
 explicit mode-selection transition.
 
+## Listen-mode follow-up narration
+
+- Business question: how often do learners start a spoken follow-up in listen
+  mode, and what share finishes playback rather than failing or being explicitly
+  cancelled?
+- Metric definition: daily `learner_listen_follow_up_result` outcomes divided
+  by `learner_listen_follow_up_attempt` events, grouped by `surface` and course
+  or lesson IDs. There is no attempt ID, so this is an aggregate conversion
+  ratio and not a row-level join.
+- Trigger: `attempt` after a non-empty follow-up passes the in-flight and credit
+  guards and immediately before `/run` starts. `result` is emitted at most once:
+  `success` when the answer media actually ends, `failed` when answer generation,
+  TTS, empty audio, or media playback terminates before success, and `cancelled`
+  when the learner explicitly closes follow-up before success.
+- Actor and population: learners in live listen mode. Course preview, read mode,
+  classroom mode, empty questions, guarded duplicate submissions, render-only
+  updates, and route unmount cleanup are excluded.
+- Count unit and deduplication: one accepted follow-up submission. The active
+  input lock blocks concurrent re-entry; an in-memory attempt guard permits at
+  most one terminal result. A later deliberate follow-up counts again.
+- Consumer: listen-mode follow-up adoption and playback reliability analysis.
+- Compatibility: additive event family with no predecessor, exposure event, or
+  `learner_run_start` alias.
+
+| Event                              | Complete reviewed payload             |
+| ---------------------------------- | ------------------------------------- | ------ | ---------- |
+| `learner_listen_follow_up_attempt` | `shifu_bid`, `outline_bid`, `surface` |
+| `learner_listen_follow_up_result`  | attempt fields plus `outcome=success  | failed | cancelled` |
+
+`surface` is exactly `desktop|mobile|mobile_fullscreen`. Course and lesson BIDs
+are pseudonymous machine identifiers used for aggregate grouping. Questions,
+answers, subtitles, audio data or URLs, model/provider information, raw errors,
+names, descriptions, and route values are excluded. Delivery remains fail-open
+through the shared `useTracking` path.
+
 ## Learner run start
 
 `learner_run_start` is emitted immediately before a live learner SSE run starts

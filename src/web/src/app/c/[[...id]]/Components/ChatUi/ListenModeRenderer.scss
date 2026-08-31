@@ -129,6 +129,38 @@
   background: var(--color-slide-desktop-bg);
 }
 
+.listen-follow-up-narration-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 89;
+  pointer-events: none;
+}
+
+.listen-follow-up-narration-slide {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+  pointer-events: none;
+
+  .reveal,
+  .slide-player,
+  .slide__mobile-header,
+  .slide-mobile-header {
+    visibility: hidden !important;
+  }
+
+  .slide-subtitle-overlay {
+    visibility: visible !important;
+    z-index: 89;
+  }
+}
+
+.listen-slide-shell--follow-up-narrating
+  > .listen-slide-root
+  .slide-subtitle-overlay {
+  visibility: hidden;
+}
+
 .listen-reveal-wrapper:not(.mobile):not(.listen-reveal-wrapper--classroom) {
   --listen-slide-player-bottom-offset: calc(
     var(--chat-footer-height, 40px) + var(--listen-player-footer-gap, 12px)

@@ -221,6 +221,118 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert [record.position for record in records] == [0]
             assert records[0].subtitle_cues[0]["text"] == ("Manual audio backfill.")
 
+    def test_stream_generated_block_audio_narrates_teacher_answer_with_subtitles(
+        self, monkeypatch: object
+    ) -> None:
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+        from flaskr.service.shifu.consts import BLOCK_TYPE_MDANSWER_VALUE
+
+        user_bid = "user-follow-up-answer-1"
+        shifu_bid = "shifu-follow-up-answer-1"
+        generated_block_bid = "generated-follow-up-answer-1"
+        answer_text = "2"
+
+        with self.app.app_context():
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-follow-up-answer-1",
+                    user_bid=user_bid,
+                    block_bid="answer-element-1",
+                    outline_item_bid="outline-follow-up-answer-1",
+                    shifu_bid=shifu_bid,
+                    type=BLOCK_TYPE_MDANSWER_VALUE,
+                    role=1,
+                    generated_content=answer_text,
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=False,
+            )
+        )
+
+        audio_segment_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_SEGMENT
+        ]
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert synthesized_texts == [answer_text]
+        assert len(audio_segment_events) == 1
+        assert len(audio_complete_events) == 1
+        assert audio_segment_events[0].content.audio_data
+        assert audio_complete_events[0].content.audio_url
+        assert [cue.text for cue in audio_complete_events[0].content.subtitle_cues] == [
+            answer_text
+        ]
+
+    def test_stream_preview_tts_audio_finishes_without_persisting_generated_audio(
+        self, monkeypatch: object
+    ) -> None:
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_preview_tts_audio
+
+        captured_finalize: dict[str, object] = {}
+        _patch_run_tts_processor(monkeypatch)
+
+        def _fake_finalize_tts_stream_audio(
+            _app: object, **kwargs: object
+        ) -> tuple[str, int]:
+            captured_finalize.update(kwargs)
+            return "https://example.com/preview-answer.mp3", 1000
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._finalize_tts_stream_audio",
+            _fake_finalize_tts_stream_audio,
+        )
+
+        events = list(
+            stream_preview_tts_audio(
+                self.app,
+                shifu_bid="shifu-preview-answer-1",
+                user_bid="user-preview-answer-1",
+                text="2",
+                preview_mode=True,
+            )
+        )
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert captured_finalize["persist_audio"] is False
+        assert len(audio_complete_events) == 1
+        assert audio_complete_events[0].content.audio_url == (
+            "https://example.com/preview-answer.mp3"
+        )
+        assert audio_complete_events[0].content.subtitle_cues[0].text == ("2")
+
+        with self.app.app_context():
+            assert (
+                db.session.query(self.LearnGeneratedAudio)
+                .filter(
+                    self.LearnGeneratedAudio.user_bid == "user-preview-answer-1",
+                    self.LearnGeneratedAudio.shifu_bid == "shifu-preview-answer-1",
+                )
+                .count()
+                == 0
+            )
+
     def test_stream_generated_block_audio_non_listen_ignores_cache_with_stale_voice(
         self, monkeypatch: object
     ) -> None:

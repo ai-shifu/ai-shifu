@@ -8,6 +8,7 @@
   "classroomTitlePlaceholderTips": "โหมดห้องเรียนจะแสดงเฉพาะสไลด์ กด F เพื่อสลับเต็มหน้าจอ และกดปุ่มลูกศรหรือ Space เพื่อเปลี่ยนหน้า",
   "closeCatalog": "ปิดสารบัญ",
   "contentGenerationUnavailable": "การสร้างเนื้อหาไม่พร้อมใช้งานชั่วคราว โปรดลองอีกครั้งภายหลัง",
+  "followUpAudioFailed": "ไม่สามารถเล่นคำตอบเสียงได้ โดยเก็บคำตอบข้อความไว้แล้ว",
   "generating": "กำลังสร้างภาพประกอบ...",
   "learningModeClassroom": "โหมดห้องเรียน",
   "learningModeClassroomTooltip": "ฉายสไลด์และการโต้ตอบ (สำหรับครูเท่านั้น)",
