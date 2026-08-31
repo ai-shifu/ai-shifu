@@ -5,6 +5,16 @@ import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
 import ProfileOnboardingConversation from '@/components/profile-onboarding/ProfileOnboardingConversation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Switch } from '@/components/ui/Switch';
@@ -26,11 +36,23 @@ export default function ProfileOnboardingAdminPage() {
     updatedBy,
     updatedAt,
     loading,
+    configLoaded,
+    loadFailed,
+    reload,
     saving,
+    generating,
     error,
+    generationNotice,
+    documentChanged,
+    pendingNavigation,
+    navigationStatus,
+    dismissPendingNavigation,
+    discardPendingChanges,
+    saveAndProceed,
     previewOpen,
     previewKey,
     previewDraft,
+    generateAssistantPrompt,
     save,
     startPreview,
     hidePreview,
@@ -62,6 +84,7 @@ export default function ProfileOnboardingAdminPage() {
             <Button
               type='button'
               variant='outline'
+              disabled={!configLoaded || saving || generating}
               onClick={startPreview}
             >
               {previewOpen
@@ -70,8 +93,8 @@ export default function ProfileOnboardingAdminPage() {
             </Button>
             <Button
               type='button'
-              disabled={saving}
-              onClick={save}
+              disabled={!configLoaded || saving || generating}
+              onClick={() => void save()}
             >
               {t('module.profileOnboarding.admin.save')}
             </Button>
@@ -93,6 +116,7 @@ export default function ProfileOnboardingAdminPage() {
             <Switch
               id='profile-onboarding-enabled'
               checked={enabled}
+              disabled={!configLoaded}
               aria-label={t('module.profileOnboarding.admin.enabled')}
               onCheckedChange={setEnabled}
             />
@@ -108,10 +132,48 @@ export default function ProfileOnboardingAdminPage() {
             <Textarea
               id='profile-onboarding-markdownflow'
               value={markdownflow}
-              className='min-h-[360px] font-mono text-sm'
+              className='min-h-[360px] font-mono text-sm focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
               maxRows={24}
+              disabled={!configLoaded}
               onChange={event => setMarkdownflow(event.target.value)}
             />
+            <div className='flex flex-wrap items-center justify-between gap-3 pt-1'>
+              <Button
+                type='button'
+                variant='outline'
+                disabled={!configLoaded || saving || generating}
+                onClick={() => void generateAssistantPrompt()}
+              >
+                {generating
+                  ? t(
+                      'module.profileOnboarding.admin.generatingAssistantPrompt',
+                    )
+                  : assistantPrompt.trim()
+                    ? t(
+                        'module.profileOnboarding.admin.regenerateAssistantPrompt',
+                      )
+                    : t(
+                        'module.profileOnboarding.admin.generateAssistantPrompt',
+                      )}
+              </Button>
+              {generationNotice ? (
+                <p
+                  role='status'
+                  aria-live='polite'
+                  className='text-sm text-muted-foreground'
+                >
+                  {generationNotice}
+                </p>
+              ) : null}
+            </div>
+            {documentChanged ? (
+              <p
+                role='status'
+                className='rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950'
+              >
+                {t('module.profileOnboarding.admin.documentChanged')}
+              </p>
+            ) : null}
           </div>
 
           <div className='space-y-2'>
@@ -127,8 +189,10 @@ export default function ProfileOnboardingAdminPage() {
               placeholder={t(
                 'module.profileOnboarding.admin.assistantPromptEmpty',
               )}
+              className='focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
               minRows={4}
               maxRows={12}
+              disabled={!configLoaded}
               onChange={event => setAssistantPrompt(event.target.value)}
             />
           </div>
@@ -147,7 +211,19 @@ export default function ProfileOnboardingAdminPage() {
               role='alert'
               className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
             >
-              {error}
+              <div className='flex flex-wrap items-center justify-between gap-3'>
+                <span>{error}</span>
+                {loadFailed ? (
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={reload}
+                  >
+                    {t('module.profileOnboarding.admin.reload')}
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </section>
@@ -221,6 +297,66 @@ export default function ProfileOnboardingAdminPage() {
           ) : null}
         </aside>
       </div>
+
+      <AlertDialog
+        open={Boolean(pendingNavigation)}
+        onOpenChange={open => {
+          if (!open) {
+            dismissPendingNavigation();
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('module.profileOnboarding.admin.unsavedDialog.title')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('module.profileOnboarding.admin.unsavedDialog.description')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {error ? (
+            <div
+              role='alert'
+              className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
+            >
+              {error}
+            </div>
+          ) : null}
+          {navigationStatus ? (
+            <div
+              role='status'
+              aria-live='polite'
+              className='rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950'
+            >
+              {navigationStatus}
+            </div>
+          ) : null}
+          <AlertDialogFooter className='gap-2 sm:space-x-0'>
+            <AlertDialogCancel disabled={saving}>
+              {t('module.profileOnboarding.admin.unsavedDialog.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              type='button'
+              disabled={saving}
+              className='border border-input bg-white text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground'
+              onClick={discardPendingChanges}
+            >
+              {t('module.profileOnboarding.admin.unsavedDialog.discard')}
+            </AlertDialogAction>
+            <AlertDialogAction
+              type='button'
+              disabled={saving || generating}
+              onClick={event => {
+                event.preventDefault();
+                void saveAndProceed();
+              }}
+            >
+              {t('module.profileOnboarding.admin.unsavedDialog.save')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
