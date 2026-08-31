@@ -47,6 +47,12 @@ replacement or analytics-backed business metric.
       5 focused review suites / 75 tests and all 211 frontend suites / 1,892
       tests, plus TypeScript, lint, Prettier, repository harness, architecture
       boundaries, and independent scope and correctness reviews.
+- [x] 2026-08-31 09:27 CST: Recorded a rejected Stripe PaymentElement
+      confirmation as an analytics-only pending outcome. The dedicated callback
+      does not invoke product error handling or add a toast. Passed the final 7
+      focused review suites / 108 tests and all 211 frontend suites / 1,896
+      tests, plus TypeScript, lint, Prettier, repository harness, architecture
+      boundaries, and an independent scope review.
 
 ## Surprises & Discoveries
 
@@ -115,16 +121,18 @@ analytics does not suppress duplicate requests, and learning-mode analytics
 does not prevent the existing URL/store update when the current option is
 selected. Stripe cancellation analytics additionally requires provider
 evidence already confirmed by the product API; absent evidence fails closed for
-analytics only.
+analytics only. A rejected Stripe confirmation promise reports a pending
+analytics status because the provider outcome is unknown; it does not invoke
+the product error callback or create a user-visible error.
 
 Historical rows under deleted names are not read or backfilled. Canonical
 series start at deployment, so initial rolling windows may be partial. No live
 Umami dashboard or production deployment is modified by this repository-only
 change.
 
-Final frontend validation passed 211 Jest suites / 1,892 tests. TypeScript and
+Final frontend validation passed 211 Jest suites / 1,896 tests. TypeScript and
 frontend lint completed without errors; the lint run retains existing
-repository warnings. The final focused review suites passed 5 suites / 75
+repository warnings. The final focused review suites passed 7 suites / 108
 tests before the repository-wide run. The repository harness,
 architecture-boundary check, developer-tool verification, and full pre-commit
 gate also passed.
