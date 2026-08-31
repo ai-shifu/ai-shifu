@@ -25,6 +25,10 @@ class CacheLock(Protocol):
         """Release this cache lock."""
         raise NotImplementedError
 
+    def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
+        """Extend this cache lock's lease while retaining ownership."""
+        raise NotImplementedError
+
 
 @runtime_checkable
 class CacheProvider(Protocol):
@@ -73,6 +77,7 @@ class CacheProvider(Protocol):
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
+        thread_local: bool = True,
     ) -> CacheLock:
         """Create a lock for the supplied key."""
         raise NotImplementedError
@@ -135,9 +140,13 @@ class _DynamicRedisCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
+        thread_local: bool = True,
     ) -> CacheLock:
         return self._client().lock(
-            key, timeout=timeout, blocking_timeout=blocking_timeout
+            key,
+            timeout=timeout,
+            blocking_timeout=blocking_timeout,
+            thread_local=thread_local,
         )
 
 
@@ -168,6 +177,10 @@ class _InMemoryLock:
         if self._held:
             self._lock.release()
             self._held = False
+
+    def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
+        _ = (additional_time, replace_ttl)
+        return self._held
 
 
 class InMemoryCacheProvider:
@@ -298,9 +311,10 @@ class InMemoryCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
+        thread_local: bool = True,
     ) -> CacheLock:
         """Create a process-local fallback lock for the supplied key."""
-        _ = (timeout, blocking_timeout)
+        _ = (timeout, blocking_timeout, thread_local)
         with self._mu:
             lock = self._locks.get(key)
             if lock is None:
@@ -381,10 +395,15 @@ class FallbackCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
+        thread_local: bool = True,
     ) -> CacheLock:
         """Create a lock, falling back to process-local scope without Redis."""
         return self._call(
-            "lock", key, timeout=timeout, blocking_timeout=blocking_timeout
+            "lock",
+            key,
+            timeout=timeout,
+            blocking_timeout=blocking_timeout,
+            thread_local=thread_local,
         )
 
 

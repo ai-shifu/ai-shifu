@@ -1,5 +1,6 @@
 """Verify user identify behavior."""
 
+import threading
 import uuid
 
 import pytest
@@ -10,6 +11,8 @@ class _FakeRedisLock:
         self._locks = locks
         self._key = key
         self._held = False
+        self.extend_calls: list[tuple[int, bool]] = []
+        self.extended = threading.Event()
 
     def acquire(
         self, blocking: bool = True, blocking_timeout: int | None = None
@@ -26,12 +29,19 @@ class _FakeRedisLock:
             self._locks.pop(self._key, None)
             self._held = False
 
+    def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
+        self.extend_calls.append((additional_time, replace_ttl))
+        self.extended.set()
+        return self._held
+
 
 class _FakeRedis:
     def __init__(self, values: object = None) -> None:
         self.values = dict(values or {})
         self.deleted = []
         self.locks: dict[str, bool] = {}
+        self.last_lock: _FakeRedisLock | None = None
+        self.lock_thread_local: bool | None = None
 
     def get(self, key: object) -> object:
         return self.values.get(key)
@@ -65,9 +75,12 @@ class _FakeRedis:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
+        thread_local: bool = True,
     ) -> _FakeRedisLock:
         _ = (timeout, blocking_timeout)
-        return _FakeRedisLock(self.locks, key)
+        self.lock_thread_local = thread_local
+        self.last_lock = _FakeRedisLock(self.locks, key)
+        return self.last_lock
 
     def delete(self, *keys: str) -> object:
         self.deleted.extend(keys)
@@ -885,6 +898,45 @@ def test_consume_verification_code_accepts_prefixed_pending_cache_key(
         finally:
             UserVerifyCode.query.filter_by(id=record.id).delete()
             db.session.commit()
+
+
+def test_verification_code_lock_renews_redis_lease(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    fake_redis = _FakeRedis()
+    monkeypatch.setattr(
+        verification_codes,
+        "VERIFICATION_LOCK_RENEW_INTERVAL_SECONDS",
+        0.01,
+    )
+
+    with (
+        app.app_context(),
+        verification_codes.verification_code_lock(
+            app,
+            kind="email",
+            identifier="learner@example.com",
+            cache_provider=fake_redis,
+        ),
+    ):
+        lock = fake_redis.last_lock
+        assert lock is not None
+        assert lock.extended.wait(timeout=1)
+
+    assert fake_redis.lock_thread_local is False
+    assert lock.extend_calls
+    assert all(
+        call
+        == (
+            verification_codes.VERIFICATION_LOCK_TIMEOUT_SECONDS,
+            True,
+        )
+        for call in lock.extend_calls
+    )
+    assert not fake_redis.locks
 
 
 @pytest.mark.parametrize(
