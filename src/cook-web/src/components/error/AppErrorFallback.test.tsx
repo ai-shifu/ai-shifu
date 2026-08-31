@@ -71,7 +71,8 @@ describe('AppErrorFallback chunk load recovery', () => {
 
   it('shows the fallback when session storage cannot save the reload marker', async () => {
     const reload = mockLocationReload();
-    jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    jest.spyOn(Storage.prototype, 'getItem').mockReturnValue(null);
+    jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('Access denied', 'SecurityError');
     });
     const error = new Error('Loading chunk 5365 failed.');
