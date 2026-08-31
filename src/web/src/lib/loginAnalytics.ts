@@ -1,4 +1,4 @@
-export type LoginMethod = 'password' | 'sms' | 'google';
+export type LoginMethod = 'email' | 'google' | 'password' | 'sms';
 export type LoginFailureCategory =
   | 'credentials_rejected'
   | 'request_failed'
