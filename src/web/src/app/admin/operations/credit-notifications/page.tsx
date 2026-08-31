@@ -60,22 +60,14 @@ import {
 } from './creditNotificationUtils';
 import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
 import { useCreditNotificationTemplateSyncState } from './useCreditNotificationTemplateSyncState';
-
-export const NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT =
-  'operator_notification_template_library_viewed';
-export const NOTIFICATION_TEMPLATE_SYNC_ATTEMPT_EVENT =
-  'operator_notification_template_sync_attempt';
-export const NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT =
-  'operator_notification_template_sync_result';
-export const NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT =
-  'operator_notification_template_filter_applied';
-export const NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT =
-  'operator_notification_template_detail_opened';
-
-const NOTIFICATION_TEMPLATE_TRACKING_CONTEXT = {
-  channel: 'sms',
-  provider: 'aliyun',
-} as const;
+import {
+  NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT,
+  NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT,
+  NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT,
+  NOTIFICATION_TEMPLATE_SYNC_ATTEMPT_EVENT,
+  NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT,
+  NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+} from './notificationTemplateTracking';
 
 const normalizeResolvedPolicyLists = (
   payload: unknown,
