@@ -23,7 +23,10 @@ from flaskr.service.user.repository import (
     upsert_credential,
     upsert_wechat_credentials,
 )
-from flaskr.service.user.utils import generate_token
+from flaskr.service.user.utils import (
+    ensure_admin_creator_and_demo_permissions,
+    generate_token,
+)
 from flaskr.service.user.verification_codes import consume_verification_code
 
 if TYPE_CHECKING:
@@ -37,6 +40,7 @@ def verify_email_code(
     code: str,
     course_id: str | None = None,
     language: str | None = None,
+    login_context: str | None = None,
 ) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
     """Verify email code."""
@@ -56,6 +60,7 @@ def verify_email_code(
     normalized_email = email_key.lower() if email_key else ""
 
     created_new_user = False
+    creator_granted_now = False
 
     with transactional_session():
         target_aggregate = load_user_aggregate_by_identifier(
@@ -148,6 +153,13 @@ def verify_email_code(
             verified=True,
         )
 
+        creator_granted_now = ensure_admin_creator_and_demo_permissions(
+            app,
+            target_aggregate.user_bid,
+            target_aggregate.language,
+            login_context,
+        )
+
         refreshed = load_user_aggregate(target_aggregate.user_bid)
         if not refreshed:
             raise_error("USER.USER_NOT_FOUND")
@@ -160,6 +172,7 @@ def verify_email_code(
         created_new_user,
         {
             "course_id": course_id,
+            "creator_granted_now": creator_granted_now,
             "language": language,
             "snapshot": snapshot.to_dict(),
         },
