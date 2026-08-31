@@ -203,12 +203,13 @@ export default function StripeBillingResultPage() {
         }
 
         if (result.status !== 'paid') {
-          if (canceled) {
+          if (result.status === 'refunded') {
+            consumeStripeBillingOrderForAnalytics(orderBid);
+            reportCheckoutResult(orderBid, 'failed', 'payment_failed');
+          } else if (canceled) {
             if (consumeStripeBillingOrderForAnalytics(orderBid)) {
               reportCheckoutResult('', 'cancelled');
             }
-          } else if (result.status === 'refunded') {
-            reportCheckoutResult(orderBid, 'failed', 'payment_failed');
           } else {
             reportCheckoutStatus(orderBid, 'confirmation_failed');
           }
@@ -220,6 +221,7 @@ export default function StripeBillingResultPage() {
           return;
         }
 
+        consumeStripeBillingOrderForAnalytics(orderBid);
         reportCheckoutResult(orderBid, 'success');
         await refreshBillingPageCaches();
 

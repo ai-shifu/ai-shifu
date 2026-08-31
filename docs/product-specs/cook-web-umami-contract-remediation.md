@@ -320,9 +320,12 @@ retry may therefore emit the one terminal success for that order; it must not
 emit an early failed result and a later successful result for the same
 checkout.
 `refunded` cannot transition back to `paid`, so the return page reports it as a
-terminal failed result. An explicit `canceled=1` return is recorded as a user
+terminal failed result even when a stale return URL still contains `canceled=1`.
+Confirmed paid and refunded terminal states consume the session-local Stripe
+analytics marker. An explicit `canceled=1` return is recorded as a user
 cancellation only after the original product synchronization runs and observes
-a non-paid state; the event omits the unverified query order from analytics.
+a non-paid, non-refunded state; the event omits the unverified query order from
+analytics.
 
 ## Course creation
 

@@ -152,6 +152,9 @@ describe('StripeBillingResultPage', () => {
         outcome: 'success',
       },
     );
+    expect(mockConsumeStripeBillingOrderForAnalytics).toHaveBeenCalledWith(
+      'bill-order-1',
+    );
     const resultPayload = mockTrackEvent.mock.calls[0]?.[1];
     expect(resultPayload).not.toHaveProperty('session_id');
     expect(resultPayload).not.toHaveProperty('redirect_url');
@@ -466,6 +469,41 @@ describe('StripeBillingResultPage', () => {
         outcome: 'failed',
         failure_category: 'payment_failed',
       }),
+    );
+    expect(mockConsumeStripeBillingOrderForAnalytics).toHaveBeenCalledWith(
+      'bill-order-refunded',
+    );
+  });
+
+  test('keeps a refunded result ahead of a stale cancellation marker', async () => {
+    mockSearchParams.set('bill_order_bid', 'bill-order-refunded-cancel-url');
+    mockSearchParams.set('session_id', 'sess-refunded-cancel-url');
+    mockSearchParams.set('canceled', '1');
+    mockConsumeStripeBillingOrderForAnalytics.mockReturnValue(true);
+    mockRequestPost.mockResolvedValue({ status: 'refunded' });
+
+    render(<StripeBillingResultPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Billing sync failed' }),
+    ).toBeInTheDocument();
+    expect(mockConsumeStripeBillingOrderForAnalytics).toHaveBeenCalledWith(
+      'bill-order-refunded-cancel-url',
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      {
+        payment_provider: 'stripe',
+        source_surface: 'stripe_return',
+        bill_order_bid: 'bill-order-refunded-cancel-url',
+        outcome: 'failed',
+        failure_category: 'payment_failed',
+      },
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_billing_checkout_result',
+      expect.objectContaining({ outcome: 'cancelled' }),
     );
   });
 
