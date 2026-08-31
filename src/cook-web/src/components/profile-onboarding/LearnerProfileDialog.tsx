@@ -18,6 +18,7 @@ import {
   ProfileDialogConfirmationView,
   ProfileInformationUsageControl,
 } from './LearnerProfileDialogViews';
+import { LearnerProfileRetentionView } from './LearnerProfileRetentionView';
 import type { LearnerProfileDialogProps } from './learnerProfileDialogModel';
 import { useLearnerProfileDialogController } from './useLearnerProfileDialogController';
 
@@ -53,6 +54,8 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     requestCollection,
     continueToSave,
     cancelCollection,
+    requestDeferRetention,
+    continueFromRetention,
     deferOnboarding,
     confirmPendingAction,
   } = useLearnerProfileDialogController(props);
@@ -79,6 +82,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     canSave,
   } = derived;
   const viewHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
+  const collectionViewRef = React.useRef<HTMLElement | null>(null);
   const confirmationHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const contentScrollRef = React.useRef<HTMLDivElement | null>(null);
   const [headerElement, setHeaderElement] = React.useState<HTMLElement | null>(
@@ -90,10 +94,14 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   const collectionContinueButtonRef = React.useRef<HTMLButtonElement | null>(
     null,
   );
+  const retryLoadButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const [chromeHeights, setChromeHeights] = React.useState<{
     header: number | null;
     footer: number | null;
   }>({ header: null, footer: null });
+  const activeDialogView =
+    confirmation ??
+    (loaded ? phase : state.loadStatus === 'error' ? 'load-error' : 'loading');
   const collectionOwnsScroll = loaded && !confirmation && phase === 'collect';
 
   const keepFocusedControlVisible = React.useCallback(
@@ -120,22 +128,27 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   );
 
   React.useEffect(() => {
+    if (activeDialogView === 'loading') return;
     contentScrollRef.current?.scrollTo?.({ top: 0, behavior: 'auto' });
     if (contentScrollRef.current) {
       contentScrollRef.current.scrollTop = 0;
     }
-    if (confirmation) {
-      confirmationHeadingRef.current?.focus();
-    } else {
+    if (activeDialogView === 'collect') {
+      collectionViewRef.current?.focus();
+    } else if (activeDialogView === 'save') {
       viewHeadingRef.current?.focus();
+    } else if (activeDialogView === 'load-error') {
+      retryLoadButtonRef.current?.focus();
+    } else {
+      confirmationHeadingRef.current?.focus();
     }
-  }, [confirmation, loaded, phase]);
+  }, [activeDialogView]);
 
   React.useEffect(() => {
-    if (phase === 'collect' && collectionReady) {
+    if (activeDialogView === 'collect' && collectionReady) {
       collectionContinueButtonRef.current?.focus();
     }
-  }, [collectionReady, phase]);
+  }, [activeDialogView, collectionReady]);
 
   React.useLayoutEffect(() => {
     if (!open || !headerElement || !footerElement) return;
@@ -238,7 +251,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
             } as React.CSSProperties
           }
         >
-          {loading ? (
+          {loading && confirmation !== 'defer-retention' ? (
             <div
               role='status'
               className='flex h-full min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground'
@@ -249,7 +262,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
               />
               {t('module.profileOnboarding.dialog.loading')}
             </div>
-          ) : !loaded ? (
+          ) : !loaded && confirmation !== 'defer-retention' ? (
             <div className='mx-auto max-w-lg space-y-3'>
               {state.error ? (
                 <div
@@ -258,6 +271,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 >
                   <p>{state.error}</p>
                   <Button
+                    ref={retryLoadButtonRef}
                     type='button'
                     variant='outline'
                     className='mt-3 min-h-11 border-destructive/30 bg-background text-foreground'
@@ -269,52 +283,85 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 </div>
               ) : null}
             </div>
-          ) : confirmation ? (
+          ) : confirmation && confirmation !== 'defer-retention' ? (
             <ProfileDialogConfirmationView
               confirmation={confirmation}
               headingRef={confirmationHeadingRef}
             />
-          ) : phase === 'collect' ? (
-            <ProfileCollectionView
-              conversationKey={collectionKey}
-              collectionReady={collectionReady}
-              {...conversationProps}
-            />
           ) : (
-            <LearnerProfileSaveView
-              headingRef={viewHeadingRef}
-              textareaRef={textareaRef}
-              manualFallback={manualFallback}
-              nickname={nickname}
-              profile={profile}
-              loaded={loaded}
-              busy={busy}
-              optimizing={optimizing}
-              nicknameOverLimit={nicknameOverLimit}
-              nicknameLength={nicknameLength}
-              nicknameMaxLength={nicknameMaxLength}
-              maxLength={maxLength}
-              optimizationStatus={optimizationStatus}
-              optimizationDescription={optimizationDescription}
-              optimizationOriginal={optimizationOriginal}
-              optimizeDisabled={optimizeDisabled}
-              guidedAvailable={guidedAvailable}
-              onNicknameChange={value => {
-                setNickname(value);
-                setError('');
-              }}
-              onProfileChange={value => {
-                setProfile(value);
-                resetOptimization();
-                setError('');
-              }}
-              onUndoOptimization={undoOptimization}
-              onOptimize={optimizeProfile}
-              onRequestCollection={requestCollection}
-            />
+            <>
+              <div
+                className={cn(
+                  confirmation === 'defer-retention' ? 'hidden' : 'contents',
+                )}
+                aria-hidden={
+                  confirmation === 'defer-retention' ? true : undefined
+                }
+              >
+                {loaded ? (
+                  phase === 'collect' ? (
+                    <ProfileCollectionView
+                      conversationKey={collectionKey}
+                      collectionReady={collectionReady}
+                      focusRef={collectionViewRef}
+                      {...conversationProps}
+                    />
+                  ) : (
+                    <LearnerProfileSaveView
+                      headingRef={viewHeadingRef}
+                      textareaRef={textareaRef}
+                      manualFallback={manualFallback}
+                      nickname={nickname}
+                      profile={profile}
+                      loaded={loaded}
+                      busy={busy}
+                      optimizing={optimizing}
+                      nicknameOverLimit={nicknameOverLimit}
+                      nicknameLength={nicknameLength}
+                      nicknameMaxLength={nicknameMaxLength}
+                      maxLength={maxLength}
+                      optimizationStatus={optimizationStatus}
+                      optimizationDescription={optimizationDescription}
+                      optimizationOriginal={optimizationOriginal}
+                      optimizeDisabled={optimizeDisabled}
+                      guidedAvailable={guidedAvailable}
+                      onNicknameChange={value => {
+                        setNickname(value);
+                        setError('');
+                      }}
+                      onProfileChange={value => {
+                        setProfile(value);
+                        resetOptimization();
+                        setError('');
+                      }}
+                      onUndoOptimization={undoOptimization}
+                      onOptimize={optimizeProfile}
+                      onRequestCollection={requestCollection}
+                    />
+                  )
+                ) : null}
+              </div>
+              {confirmation === 'defer-retention' ? (
+                <>
+                  <LearnerProfileRetentionView
+                    headingRef={confirmationHeadingRef}
+                    scrollContainerRef={contentScrollRef}
+                    disabled={busy || collectionRunInFlight}
+                  />
+                  <ProfileInformationUsageControl
+                    variant='inline'
+                    summary={t(
+                      'module.profileOnboarding.dialog.retention.trust',
+                    )}
+                    className='mt-6 sm:hidden [@media(max-height:620px)]:block'
+                  />
+                </>
+              ) : null}
+            </>
           )}
 
-          {loaded && combinedDialogError ? (
+          {(loaded || confirmation === 'defer-retention') &&
+          combinedDialogError ? (
             <div
               role='alert'
               className='mt-5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive'
@@ -329,7 +376,38 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
           ref={setFooterElement}
           className="absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 border-t border-slate-300/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-background/55 before:backdrop-blur-md before:content-[''] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3"
         >
-          {confirmation ? (
+          {confirmation === 'defer-retention' ? (
+            <>
+              <div className='hidden min-w-0 items-center justify-start sm:me-auto sm:flex sm:w-auto [@media(max-height:620px)]:hidden'>
+                <ProfileInformationUsageControl
+                  variant='popover'
+                  summary={t('module.profileOnboarding.dialog.retention.trust')}
+                />
+              </div>
+              <div
+                data-testid='learner-profile-dialog-retention-actions'
+                className='ms-auto flex w-full min-w-0 items-center justify-end gap-2 max-[420px]:flex-col max-[420px]:items-stretch sm:w-auto sm:gap-3'
+              >
+                <Button
+                  type='button'
+                  className='h-auto min-h-11 min-w-0 flex-[1.4] !whitespace-normal max-[420px]:w-full max-[420px]:flex-none sm:flex-none'
+                  disabled={busy}
+                  onClick={continueFromRetention}
+                >
+                  {t('module.profileOnboarding.dialog.retention.continueSetup')}
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  className='h-auto min-h-11 min-w-0 flex-1 !whitespace-normal max-[420px]:w-full max-[420px]:flex-none sm:flex-none'
+                  disabled={!onDefer || busy || collectionRunInFlight}
+                  onClick={() => void deferOnboarding()}
+                >
+                  {t('module.profileOnboarding.dialog.retention.defer')}
+                </Button>
+              </div>
+            </>
+          ) : confirmation ? (
             <>
               <div className='hidden min-w-0 items-center justify-start sm:me-auto sm:flex sm:w-auto [@media(max-height:620px)]:hidden'>
                 <ProfileInformationUsageControl variant='popover' />
@@ -397,7 +475,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                       collectionRunInFlight ||
                       externalSubmitting
                     }
-                    onClick={() => void deferOnboarding()}
+                    onClick={requestDeferRetention}
                   >
                     {deferring || externalSubmitting
                       ? t('module.profileOnboarding.skipping')
@@ -454,7 +532,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                       collectionRunInFlight ||
                       externalSubmitting
                     }
-                    onClick={() => void deferOnboarding()}
+                    onClick={requestDeferRetention}
                   >
                     {deferring || externalSubmitting
                       ? t('module.profileOnboarding.skipping')

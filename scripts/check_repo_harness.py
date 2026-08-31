@@ -30,12 +30,24 @@ from generate_ai_collab_docs import (
 ROOT = Path(__file__).resolve().parents[1]
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
 HARNESS_HEALTH = DOCS_ROOT / "generated" / "harness-health.md"
+PR_REVIEW_SCOPE_MARKERS = (
+    "one clearly defined problem",
+    "correctly, safely, completely, and with adequate tests",
+    "responsibility boundary",
+)
+CURSOR_REPOSITORY_AI_RULE = ROOT / ".cursor" / "rules" / "repository-ai-collab.mdc"
+COPILOT_REPOSITORY_AI_INSTRUCTIONS = ROOT / ".github" / "copilot-instructions.md"
 MANUAL_AGENTS = {
     ROOT / "AGENTS.md": (
         "ARCHITECTURE.md",
         "PLANS.md",
         "docs/engineering-baseline.md",
         "docs/exec-plans/active/",
+        "docs/references/frontend-product-analytics.md",
+        "Umami",
+        *PR_REVIEW_SCOPE_MARKERS,
+        "product analytics as a completion requirement",
+        "best-effort",
         "python scripts/check_repo_harness.py",
         "python scripts/check_architecture_boundaries.py",
     ),
@@ -48,9 +60,18 @@ MANUAL_AGENTS = {
     ROOT / "src" / "cook-web" / "AGENTS.md": (
         "../../ARCHITECTURE.md",
         "../../docs/engineering-baseline.md",
+        "../../docs/references/frontend-product-analytics.md",
+        "Umami",
+        "new user-facing Cook Web capability or interaction path",
+        "useTracking",
+        "fail-open",
         "src/lib/request.ts",
         "npm run test:e2e",
     ),
+}
+GENERATED_AI_DOC_MARKERS = {
+    CURSOR_REPOSITORY_AI_RULE: PR_REVIEW_SCOPE_MARKERS,
+    COPILOT_REPOSITORY_AI_INSTRUCTIONS: PR_REVIEW_SCOPE_MARKERS,
 }
 REQUIRED_ROOT_DOCS = (
     ROOT / "ARCHITECTURE.md",
@@ -63,10 +84,18 @@ REQUIRED_ROOT_DOCS = (
     DOCS_ROOT / "exec-plans" / "tech-debt-tracker.md",
     DOCS_ROOT / "design-docs" / "agent-first-harness-phase-2.md",
     DOCS_ROOT / "references" / "architecture-boundaries.md",
+    DOCS_ROOT / "references" / "frontend-product-analytics.md",
     BOUNDARY_BASELINE,
     HARNESS_HEALTH,
     GARDENING_SUMMARY_PATH,
 )
+REQUIRED_DOC_MARKERS = {
+    DOCS_ROOT / "references" / "frontend-product-analytics.md": (
+        "New UI Feature Requirement",
+        "definition of done",
+        "generic SPA pageview does not satisfy this requirement",
+    ),
+}
 REQUIRED_DIRS = (
     DOCS_ROOT / "design-docs",
     DOCS_ROOT / "product-specs",
@@ -115,6 +144,16 @@ def check_ordered_headings(path: Path, text: str, errors: list[str]) -> None:
 def check_generated_ai_docs(errors: list[str]) -> None:
     """Check generated AI docs."""
     expected_docs = build_documents()
+    for path, markers in GENERATED_AI_DOC_MARKERS.items():
+        expected = expected_docs.get(path)
+        if expected is None:
+            errors.append(f"Missing generated AI doc definition: {path}")
+            continue
+        errors.extend(
+            f"Missing marker '{marker}' in generated AI doc definition: {path}"
+            for marker in markers
+            if marker not in expected
+        )
     for path, expected in sorted(expected_docs.items()):
         if not path.exists():
             errors.append(f"Missing generated AI doc: {path}")
@@ -201,6 +240,15 @@ def check_root_docs(errors: list[str]) -> None:
         for path in REQUIRED_DIRS
         if not path.exists()
     )
+    for path, markers in REQUIRED_DOC_MARKERS.items():
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        errors.extend(
+            f"Missing marker '{marker}' in {path}"
+            for marker in markers
+            if marker not in text
+        )
     errors.extend(
         f"Missing required harness workflow: {path}"
         for path in REQUIRED_WORKFLOWS

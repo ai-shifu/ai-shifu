@@ -23,20 +23,13 @@ if TYPE_CHECKING:
     from flask import Flask
 
 _SOURCE_LOCALE_PATTERN = re.compile(r"[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\Z")
+_SUCCESSFUL_FINISH_REASON = "stop"
+_MARKDOWNFLOW_SOURCE_MARKER = "--- UNTRUSTED MARKDOWNFLOW SOURCE DATA STARTS BELOW ---"
 
 
-def _parse_completed_prompt(raw: str) -> str:
-    """Require a complete compiler envelope before exposing its plain text."""
-    payload = json.loads(raw)
-    if (
-        not isinstance(payload, dict)
-        or set(payload) != {"assistant_prompt", "complete"}
-        or payload["complete"] is not True
-        or not isinstance(payload["assistant_prompt"], str)
-    ):
-        message = "Assistant prompt compiler returned an invalid envelope"
-        raise ValueError(message)
-    return payload["assistant_prompt"].strip()
+def _prepare_compiler_input(document: str) -> str:
+    """Mark the start of source data without adding a closable boundary."""
+    return f"{_MARKDOWNFLOW_SOURCE_MARKER}\n{document}"
 
 
 def _json_object_without_duplicate_keys(
@@ -136,6 +129,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
     span = None
     prompt = ""
     truncated = False
+    completed = False
     try:
         trace, span = create_trace_with_root_span(
             client=get_langfuse_client(),
@@ -147,9 +141,9 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
             "",
             span,
             str(app.config.get("DEFAULT_LLM_MODEL", "") or ""),
-            json.dumps({"markdownflow": document}, ensure_ascii=False),
+            _prepare_compiler_input(document),
             system=load_prompt_template("profile_onboarding_assistant_compiler"),
-            json=True,
+            json=False,
             generation_name="profile_onboarding_assistant_compiler",
             temperature=0,
             timeout=120,
@@ -163,15 +157,16 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
         # usage accounting and tracing even for incomplete output.
         for chunk in responses:
             parts.append(chunk.result)
+            finish_reason = getattr(chunk, "finish_reason", None)
+            if finish_reason is not None:
+                completed = finish_reason == _SUCCESSFUL_FINISH_REASON
             truncated = (
                 truncated
                 or bool(getattr(chunk, "is_truncated", False))
-                or (getattr(chunk, "finish_reason", None) == "length")
+                or finish_reason == "length"
             )
-        if not truncated:
-            # The shared wrapper may omit a content-free terminal chunk and
-            # its finish reason. An unfinished JSON envelope still fails here.
-            prompt = _parse_completed_prompt("".join(parts))
+        if completed and not truncated:
+            prompt = "".join(parts).strip()
     except Exception as exc:
         app.logger.warning(
             "Onboarding assistant compilation failed: %s", type(exc).__name__
@@ -186,7 +181,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
                     trace_payload={"output": prompt},
                     root_span_payload={"output": prompt},
                 )
-    if truncated or not prompt:
+    if truncated or not completed or not prompt:
         raise_error("server.profile.profileOnboardingPromptGenerationFailed")
     return prompt
 

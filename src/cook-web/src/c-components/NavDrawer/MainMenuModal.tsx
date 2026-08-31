@@ -29,12 +29,19 @@ import { shifu } from '@/c-service/Shifu';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store/envStore';
 import SetPasswordModal from '../Settings/SetPasswordModal';
+import SessionManagerModal from '../Settings/SessionManagerModal';
 
 import Image from 'next/image';
 import imgPersonal from '@/c-assets/newchat/light/personal.png';
 import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png';
 import imgSignIn from '@/c-assets/newchat/light/signin.png';
-import { Monitor, BookPlus, KeyRound, Compass } from 'lucide-react';
+import {
+  Monitor,
+  MonitorSmartphone,
+  BookPlus,
+  KeyRound,
+  Compass,
+} from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
 
@@ -125,6 +132,34 @@ const MainMenuModal = ({
         size={16}
       />
       <div className={styles.rowTitle}>{t('module.settings.setPassword')}</div>
+    </button>
+  ) : null;
+
+  const [sessionsModalOpen, setSessionsModalOpen] = useState(false);
+  const onSessionsClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    if (!isLoggedIn) {
+      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu_sessions' });
+      shifu.loginTools.openLogin();
+      return;
+    }
+    trackEvent(EVENT_NAMES.SESSION_LIST_OPENED, { surface });
+    setSessionsModalOpen(true);
+    onClose?.(evt);
+  };
+  const sessionsRow = isLoggedIn ? (
+    <button
+      type='button'
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onSessionsClick}
+      title={t('module.settings.sessions')}
+    >
+      <MonitorSmartphone
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>{t('module.settings.sessions')}</div>
     </button>
   ) : null;
 
@@ -249,6 +284,7 @@ const MainMenuModal = ({
             </div>
           </button>
           {setPasswordRow}
+          {sessionsRow}
           {surface === 'learner' ? (
             <button
               type='button'
@@ -335,6 +371,10 @@ const MainMenuModal = ({
           )}
         </div>
       </PopupModal>
+      <SessionManagerModal
+        open={sessionsModalOpen}
+        onClose={() => setSessionsModalOpen(false)}
+      />
       <SetPasswordModal
         open={setPasswordModalOpen}
         onClose={() => setSetPasswordModalOpen(false)}

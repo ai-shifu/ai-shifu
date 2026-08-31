@@ -19,6 +19,16 @@ export const EVENT_NAMES = {
   USER_MENU_SET_PASSWORD: 'user_menu_set_password',
   LESSON_FEEDBACK_SUBMIT: 'lesson_feedback_submit',
   LESSON_FEEDBACK_SKIP: 'lesson_feedback_skip',
+  // Device authorization: an asynchronous workflow, so the exposure and both
+  // terminal outcomes are tracked. One signal alone could not tell an ignored
+  // prompt apart from a rejected one.
+  DEVICE_AUTH_PROMPT_SHOWN: 'device_auth_prompt_shown',
+  DEVICE_AUTH_APPROVED: 'device_auth_approved',
+  DEVICE_AUTH_DENIED: 'device_auth_denied',
+  // Session management: ending a session is the meaningful outcome here.
+  SESSION_LIST_OPENED: 'session_list_opened',
+  SESSION_REVOKED: 'session_revoked',
+  SESSION_REVOKED_OTHERS: 'session_revoked_others',
 };
 
 type UmamiUserInfo = {

@@ -25,13 +25,17 @@ const mockMutateSWRCache = jest.fn(
   },
 );
 
+// next/navigation memoizes both hooks, so their return values keep a stable
+// identity across renders. Returning a fresh object per render makes every
+// effect that depends on them re-run on every render.
+const mockRouter = { push: mockPush };
+const mockReadonlySearchParams = {
+  get: (key: string) => mockSearchParams.get(key),
+};
+
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
-  useSearchParams: () => ({
-    get: (key: string) => mockSearchParams.get(key),
-  }),
+  useRouter: () => mockRouter,
+  useSearchParams: () => mockReadonlySearchParams,
 }));
 
 jest.mock('react-i18next', () => ({

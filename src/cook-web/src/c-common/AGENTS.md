@@ -8,8 +8,8 @@ domain-specific frontend ownership.
 
 ## Scope
 
-- This domain owns small shared hooks and tracking helpers that support the
-  legacy `c` frontend experience.
+- This domain owns small shared hooks and the Umami tracking transport used
+  across the Cook Web frontend, including the legacy `c` experience.
 
 - Representative files in this subtree:
   `src/cook-web/src/c-common/hooks/useDisclosure.ts`,
@@ -27,25 +27,30 @@ domain-specific frontend ownership.
 - Start from the local entry files and preserve how `c-common` currently
   separates route code, shared logic, state, and utilities.
 
-- Keep lightweight legacy helpers centralized so the `c` experience does not
-  grow duplicated micro-utilities.
+- Keep business events on the shared `useTracking` hook and keep raw Umami
+  transport ownership in `tools/tracking.ts` instead of adding page-local
+  analytics entry points.
 
-- Preserve tracking and disclosure behavior because the same patterns can
-  appear across multiple legacy pages.
+- Preserve identify -> queue -> drain ordering and SPA pageview deduplication,
+  including the previous tracked URL as the referrer.
 
-- Treat these helpers as compatibility surfaces until the legacy experience is
-  fully retired or migrated.
+- Keep the transport fail-open and preserve its size and type sanitization
+  bounds; sanitization protects delivery limits but does not make an
+  unapproved payload privacy-safe.
 
 ## Avoid
 
-- Do not fork tracking helpers for one page when a shared legacy hook already
-  exists.
+- Do not call `window.umami`, invoke identify, or implement pageview tracking
+  from business components when the shared hook, transport, and `UmamiLoader`
+  own those responsibilities.
 
-- Do not let these helpers drift from the stores or constants they are
-  expected to coordinate with.
+- Do not treat truncation, stringification, or hashing as privacy review;
+  event and identity callers must pass only explicitly approved flat scalar
+  fields, and changed pageview handling must strip queries and sensitive URL
+  data.
 
-- Do not move shared compatibility behavior into page files where it becomes
-  hard to discover and reuse.
+- Do not let analytics loading, identification, queue draining, or delivery
+  errors block the user action or change its business result.
 
 - Avoid pushing domain-local rules up to shared docs unless another frontend
   subtree truly depends on the same constraint.

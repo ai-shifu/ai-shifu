@@ -5,7 +5,7 @@
     "assistantPromptEmpty": "Write the master prompt in the research document's language, or leave this blank and save to generate it automatically.",
     "assistantPromptHint": "This is the master prompt in the research document's language. Saving generates a corresponding version for every supported language. Sessions already started keep the version frozen when they began. Clear the master prompt and save to regenerate it.",
     "configRevision": "Config revision",
-    "defaultMarkdownflow": "Carry out the following tasks in a warm, friendly tone.\n\nGreet the user very enthusiastically. Then, warmly and with a hint of mystery, tell them that the courses here can use their preferred teaching style and examples they find familiar. Naturally invite them to share a little about themselves so the explanations can relate to their everyday life and interests. Casually let them know that there are 5 short questions ahead, just like having a chat.\n\n?[%{{sys_user_nickname}}...What may I call you?]\n\nDraw a picture expressing a warm welcome, include the user's preferred name, and sincerely compliment it.\n\nFor question 2, ask in words what teaching style the user prefers.\n\n?[ Concise and direct | Patient and guiding | Witty and humorous | Anime-inspired | ...Describe your preferred style ]\n\nUse this style for all subsequent output.\n\nFirst explain your understanding of this style, then create a slide in this style that demonstrates your deep understanding of it.\n\nFor question 3, begin asking about the user's identity and background.\n\n?[ I'd rather not say | ...What is your field of study or profession?]\n\nCompliment this field or profession, then continue with question 4.\n\n?[ I'd rather not say | ...What industry do you work in?]\n\nCompliment this industry, then ask the final question.\n\n?[ I'd rather not say | ...What have you been interested in recently? Is anything puzzling you?]\n\nOffer praise and encouragement.",
+    "defaultMarkdownflow": "You are a teacher. Carry out the following tasks in a warm, friendly tone.\n\nGreet the user warmly. Then tell them that every course here can be explained using examples and approaches that are easier for them to understand, based on their background. To do that, you need to know them well enough. Naturally invite them to spend 1 minute answering 3 short questions about themselves, then ask the first question.\n\n?[%{{sys_user_nickname}}...What would you like me to call you?]\n\nDraw a picture expressing a warm welcome, include the user's preferred name, and sincerely compliment it.\n\nFor question 2, ask in words what teaching style the user prefers.\n\n?[ Natural and friendly | Relaxed and fun | Warm and patient | Professional and rational | ...Customize your preferred style ]\n\nUse this style for all subsequent output.\n\nFirst explain your understanding of this style, then create a slide in this style that demonstrates your deep understanding of it.\n\nFor the final question, ask about the user's identity and background.\n\n?[ I'd rather not say | ...What is your identity, background, and industry?]\n\nBased on the answer, offer praise and encouragement",
     "description": "Configure interactive learning-profile collection. The platform generates a personal introduction draft when collection finishes.",
     "documentRequired": "Add a runnable MarkdownFlow document before enabling the guide.",
     "enabled": "Enable learning-profile collection",
@@ -91,6 +91,96 @@
     "replaceResearchConfirm": "Answer again",
     "replaceResearchDescription": "Answering again will overwrite unsaved personalization settings. Continue?",
     "replaceResearchTitle": "Answer the questions again?",
+    "retention": {
+      "carouselLabel": "Personalized explanation examples",
+      "carouselRoleDescription": "carousel",
+      "continueSetup": "Finish setup",
+      "counter": "{current} / {total} · {topic}",
+      "defer": "Maybe later",
+      "description": "What you learn stays the same. AI adapts the course examples, terminology, and depth of explanation to your background.",
+      "exampleLead": "For example, the same question can be explained like this",
+      "manualAnnouncement": "Now showing {topic}, slide {current} of {total}",
+      "next": "Next explanation example",
+      "previous": "Previous explanation example",
+      "slideLabel": "{topic}, slide {current} of {total}",
+      "slideRoleDescription": "slide",
+      "slides": {
+        "blueSky": {
+          "audiences": {
+            "photographyEnthusiast": {
+              "body": "During the day, blue light scatters across the sky more easily than red light, so the scene appears blue through a lens. At sunset, blue light scatters away first, making the remaining reds and oranges stand out.",
+              "label": "For a photography enthusiast"
+            },
+            "physicsStudent": {
+              "body": "This is Rayleigh scattering, whose intensity is inversely proportional to the fourth power of wavelength. Together with the solar spectrum and the sensitivity of human vision, this makes the sky appear blue.",
+              "label": "For a physics student"
+            },
+            "primarySchoolStudent": {
+              "body": "Sunlight looks white, but it contains many colors. As it passes through the air, blue light is scattered in every direction more easily, so the sky looks blue wherever you look.",
+              "label": "For a primary school student"
+            }
+          },
+          "question": "Why is the sky blue?",
+          "topic": "Why the sky is blue"
+        },
+        "opportunityCost": {
+          "audiences": {
+            "entrepreneur": {
+              "body": "Opportunity cost is the value the best unchosen option could have created. If the team spends a week on feature A, it should also consider the value that delayed feature B might have created.",
+              "label": "For an entrepreneur"
+            },
+            "stayAtHomeParent": {
+              "body": "Time can only be used once, so opportunity cost is the best alternative you give up. If you spend two hours with your child this weekend, the cost may be the rest you needed most.",
+              "label": "For a stay-at-home parent"
+            },
+            "universityStudent": {
+              "body": "Opportunity cost is not the money you spend on a choice, but the best alternative you give up. If you study tonight, the cost may be missing the party you most wanted to attend.",
+              "label": "For a university student"
+            }
+          },
+          "question": "What is opportunity cost?",
+          "topic": "Opportunity cost"
+        },
+        "percentage": {
+          "audiences": {
+            "basketballFan": {
+              "body": "If you make 8 out of 10 shots, your shooting percentage is 80%. It means you make about 8 of every 10 shots on average.",
+              "label": "For a basketball fan"
+            },
+            "shopOwner": {
+              "body": "If 80 of 100 items sell, the sell-through rate is 80%. It helps you compare how quickly different products sell.",
+              "label": "For a shop owner"
+            },
+            "shopper": {
+              "body": "If an item is 20% off, you pay 80% of the original price. An item that originally cost $100 now costs $80.",
+              "label": "For a shopper"
+            }
+          },
+          "question": "What does 80% mean?",
+          "topic": "Percentages"
+        },
+        "warmUp": {
+          "audiences": {
+            "beginnerRunner": {
+              "body": "Starting at full pace suddenly raises your heart rate and muscle temperature. Walk briskly, then jog for a few minutes so your body can gradually match the intensity.",
+              "label": "For a beginner runner"
+            },
+            "danceTeacher": {
+              "body": "Warming up is not just about getting hot; it also activates joint mobility, stability, and movement control. Progress from small to large ranges of motion, and from basic patterns to combinations.",
+              "label": "For a dance teacher"
+            },
+            "officeWorker": {
+              "body": "After sitting all day, your muscles and joints are not ready for large movements right away. Mobilize your neck, shoulders, hips, and ankles first, then gradually increase the pace.",
+              "label": "For an office worker who sits all day"
+            }
+          },
+          "question": "Why should you warm up before exercising?",
+          "topic": "Why warming up matters"
+        }
+      },
+      "title": "Finish setup to make the course fit you better",
+      "trust": "Your information is used only to adapt explanations · Learn more"
+    },
     "retry": "Reload",
     "save": "Save profile",
     "saveAndContinue": "Save and continue",

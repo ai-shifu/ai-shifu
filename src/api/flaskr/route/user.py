@@ -32,6 +32,13 @@ from flaskr.service.user.captcha import (
 )
 from flaskr.service.user.common import update_user_info, validate_user
 from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
+from flaskr.service.user.device_auth import (
+    approve_device_authorization,
+    create_device_authorization,
+    deny_device_authorization,
+    get_device_authorization,
+    poll_device_authorization,
+)
 from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.service.user.onboarding import (
     ONBOARDING_VERSION,
@@ -52,6 +59,11 @@ from flaskr.service.user.repository import (
     load_user_aggregate,
     load_user_aggregate_by_identifier,
     set_password_hash,
+)
+from flaskr.service.user.sessions import (
+    list_user_sessions,
+    revoke_other_user_sessions,
+    revoke_user_session,
 )
 from flaskr.service.user.user import (
     generate_temp_user,
@@ -195,18 +207,26 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     )
 
 
+def _extract_request_token() -> str | None:
+    """Read the request's token from every place a client may supply it."""
+    token = request.cookies.get("token", None)
+    if not token:
+        token = request.args.get("token", None)
+    if not token:
+        token = request.headers.get("Token", None)
+    if not token and request.method.upper() == "POST" and request.is_json:
+        payload = request.get_json(silent=True)
+        if isinstance(payload, dict):
+            token = payload.get("token", None)
+    return token
+
+
 def optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
     """Allow a route to accept an optional authentication token."""
 
     @wraps(f)
     def decorated_function(*args: object, **kwargs: object) -> R:
-        token = request.cookies.get("token", None)
-        if not token:
-            token = request.args.get("token", None)
-        if not token:
-            token = request.headers.get("Token", None)
-        if not token and request.method.upper() == "POST" and request.is_json:
-            token = request.get_json().get("token", None)
+        token = _extract_request_token()
 
         if token:
             token = str(token)
@@ -688,6 +708,164 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
            - user
         """
         return _handle_sms_login()
+
+    @app.route(path_prefix + "/device/authorize", methods=["POST"])
+    @bypass_token_validation
+    def device_authorize_api() -> str:
+        """Start a device authorization request for a command-line client.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            create_device_authorization(
+                app,
+                device_name=payload.get("device_name"),
+                device_os=payload.get("device_os"),
+                client_version=payload.get("client_version"),
+                client_ip=_request_client_ip(),
+            )
+        )
+
+    @app.route(path_prefix + "/device/token", methods=["POST"])
+    @bypass_token_validation
+    def device_token_api() -> str:
+        """Poll a pending device authorization until it is resolved.
+
+        Returns the current status instead of an error while the request is
+        still pending, so the polling client does not have to treat the normal
+        waiting state as a failure.
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            poll_device_authorization(app, device_code=payload.get("device_code"))
+        )
+
+    @app.route(path_prefix + "/device/pending", methods=["GET"])
+    def device_pending_api() -> str:
+        """Describe the pending authorization behind a pairing code.
+
+        ---
+        tags:
+           - user
+        """
+        return make_common_response(
+            get_device_authorization(
+                app,
+                user_code=request.args.get("user_code"),
+                client_ip=_request_client_ip(),
+            )
+        )
+
+    @app.route(path_prefix + "/device/approve", methods=["POST"])
+    def device_approve_api() -> str:
+        """Approve a pending device authorization for the signed-in user.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            approve_device_authorization(
+                app,
+                user_code=payload.get("user_code"),
+                user_id=request.user.user_id,
+                client_ip=_request_client_ip(),
+            )
+        )
+
+    @app.route(path_prefix + "/device/deny", methods=["POST"])
+    def device_deny_api() -> str:
+        """Reject a pending device authorization.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            deny_device_authorization(
+                app,
+                user_code=payload.get("user_code"),
+                client_ip=_request_client_ip(),
+            )
+        )
+
+    def _current_request_token() -> str:
+        """Identify the session making this request, so it can be marked.
+
+        This must follow the same order as token validation, JSON body
+        included. Reading a different source would leave the marker empty for
+        a request authenticated that way, and ending every other session would
+        then end the caller's own session too.
+        """
+        return str(_extract_request_token() or "")
+
+    @app.route(path_prefix + "/sessions", methods=["GET"])
+    def list_sessions_api() -> str:
+        """List the sign-in sessions belonging to the current user.
+
+        ---
+        tags:
+           - user
+        """
+        return make_common_response(
+            list_user_sessions(
+                user_id=request.user.user_id,
+                current_token=_current_request_token(),
+            )
+        )
+
+    @app.route(path_prefix + "/sessions/revoke", methods=["POST"])
+    def revoke_session_api() -> str:
+        """End one of the current user's sign-in sessions.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            revoke_user_session(
+                app,
+                user_id=request.user.user_id,
+                session_bid=payload.get("session_bid"),
+            )
+        )
+
+    @app.route(path_prefix + "/sessions/revoke-others", methods=["POST"])
+    def revoke_other_sessions_api() -> str:
+        """End every session except the one making this request.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        _apply_request_language(payload if isinstance(payload, dict) else {})
+        return make_common_response(
+            revoke_other_user_sessions(
+                app,
+                user_id=request.user.user_id,
+                current_token=_current_request_token(),
+            )
+        )
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile() -> str:

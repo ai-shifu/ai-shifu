@@ -33,8 +33,14 @@ export type LearnerProfileSubmissionStatus =
 export type LearnerProfileDialogConfirmation =
   | 'none'
   | 'discard'
-  | 'replace-collection';
+  | 'replace-collection'
+  | 'defer-retention';
 export type CollectionTriggerSource = 'guided' | 'settings';
+export type LearnerProfileRetentionAnalyticsContext = {
+  source: CollectionTriggerSource;
+  presentation: ProfileOnboardingPresentation;
+  phase: LearnerProfileDialogPhase;
+};
 
 export type ProfileCollectionResult = {
   draft: string;
@@ -92,6 +98,10 @@ export type LearnerProfileDialogState = {
   submissionStatus: LearnerProfileSubmissionStatus;
   confirmation: LearnerProfileDialogConfirmation;
   error: string;
+  deferError: string;
+  externalDeferErrorVisible: boolean;
+  retentionAnalyticsContext: LearnerProfileRetentionAnalyticsContext | null;
+  continuedRetentionAnalyticsContext: LearnerProfileRetentionAnalyticsContext | null;
 };
 
 export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
@@ -125,6 +135,10 @@ export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
   submissionStatus: 'idle',
   confirmation: 'none',
   error: '',
+  deferError: '',
+  externalDeferErrorVisible: false,
+  retentionAnalyticsContext: null,
+  continuedRetentionAnalyticsContext: null,
 };
 
 export type LearnerProfileDialogAction =

@@ -6,6 +6,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 ## Active
 
+- [Account session analytics contract](./active/account-session-analytics.md)
 - [Admin Home Onboarding](./active/admin-home-onboarding.md)
 - [Agent-First Harness Phase 2](./active/agent-first-harness-phase-2.md)
 - [Backend Inventory 2026-07 (Phase 1)](./active/backend-inventory-2026-07.md)
@@ -24,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
+- [Rebuild Course Visit Analytics Without Umami Data Reads](./active/rebuild-course-visit-analytics.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 
@@ -53,6 +55,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Submit AI answers without waiting for a question](./completed/profile-onboarding-assistant-handoff.md)
 - [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
 - [Localize profile-onboarding assistant prompts for every supported language](./completed/profile-onboarding-multilingual-assistant-prompts.md)
+- [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)

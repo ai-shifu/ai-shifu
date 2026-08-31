@@ -554,7 +554,7 @@ Start with these files:
   surfaces.
 - `src/api/AGENTS.md` and the nearest service `AGENTS.md` files constrain
   backend changes. Read the nearest file before editing each Ruff finding.
-- `lefthook.yml` and `.github/workflows/lint.yml` pin Ruff 0.16.3 and run both
+- `lefthook.yml` and `.github/workflows/lint.yml` pin Ruff 0.16.5 and run both
   check and format gates.
 
 The baseline command for currently enforced rules is:
@@ -676,7 +676,7 @@ earliest unmerged branch first, then replay successors in order.
 
 ## Interfaces and Dependencies
 
-- Ruff is pinned at 0.16.3 in `lefthook.yml`,
+- Ruff is pinned at 0.16.5 in `lefthook.yml`,
   `.github/workflows/lint.yml`, `docs/engineering-baseline.md`, and
   `scripts/check_dev_tools.py`, with the contributor install command mirrored
   in `INSTALL_MANUAL.md`. The doctor verifies the binary on `PATH`, so a Ruff

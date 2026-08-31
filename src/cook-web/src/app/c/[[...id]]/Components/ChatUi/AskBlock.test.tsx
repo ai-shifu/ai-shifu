@@ -34,13 +34,19 @@ jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: ({
     content,
     enableTypewriter,
+    typewriterPacing,
+    typingSpeed,
   }: {
     content: string;
     enableTypewriter?: boolean;
+    typewriterPacing?: 'fixed' | 'content-aware';
+    typingSpeed?: number;
   }) => (
     <div
       data-testid='follow-up-answer'
       data-typewriter={String(Boolean(enableTypewriter))}
+      data-typewriter-pacing={typewriterPacing}
+      data-typing-speed={typingSpeed}
     >
       {content}
     </div>
@@ -705,6 +711,14 @@ describe('AskBlock', () => {
         useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[1]
           ?.shouldUseTypewriter,
       ).toBe(true),
+    );
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
+      'data-typewriter-pacing',
+      'content-aware',
+    );
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
+      'data-typing-speed',
+      '30',
     );
 
     rerender(

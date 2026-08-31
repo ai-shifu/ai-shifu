@@ -320,6 +320,7 @@ export default function ProfileOnboardingConversation({
                     )
                   }
                   typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+                  typewriterPacing='content-aware'
                   onTypeFinished={
                     item.elementType === 'text'
                       ? getTypeFinishedCallback(item.elementBid)
@@ -334,6 +335,7 @@ export default function ProfileOnboardingConversation({
                 readonly
                 enableTypewriter={isDocumentVisible}
                 typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+                typewriterPacing='content-aware'
               />
             )}
           </div>
