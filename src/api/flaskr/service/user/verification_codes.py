@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import threading
 from typing import TYPE_CHECKING, Literal
 
-from flaskr.common.cache_provider import CacheProvider
+from flaskr.common.cache_provider import CacheLock, CacheProvider
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix, get_redis_key_prefix
 from flaskr.dao import db
@@ -29,6 +30,25 @@ if TYPE_CHECKING:
 CodeKind = Literal["sms", "email"]
 MAX_VERIFICATION_ATTEMPTS = 5
 VERIFICATION_CODE_CONSUMED_MARKER = MAX_VERIFICATION_ATTEMPTS + 1
+VERIFICATION_LOCK_TIMEOUT_SECONDS = 120
+VERIFICATION_LOCK_RENEW_INTERVAL_SECONDS = 30.0
+
+
+def _renew_verification_lock(
+    app: Flask,
+    lock: CacheLock,
+    stop_event: threading.Event,
+) -> None:
+    while not stop_event.wait(VERIFICATION_LOCK_RENEW_INTERVAL_SECONDS):
+        try:
+            if not lock.extend(
+                VERIFICATION_LOCK_TIMEOUT_SECONDS,
+                replace_ttl=True,
+            ):
+                return
+        except Exception:
+            app.logger.exception("Failed to renew verification code lock")
+            return
 
 
 def _verification_code_settings(app: Flask, kind: CodeKind) -> tuple[str, int]:
@@ -90,15 +110,26 @@ def verification_code_lock(
 
     lock = cache.lock(
         f"{_verification_attempt_key(app, kind, lock_identifier)}:lock",
-        timeout=10,
+        timeout=VERIFICATION_LOCK_TIMEOUT_SECONDS,
         blocking_timeout=5,
+        thread_local=False,
     )
     acquired = bool(lock.acquire(blocking=True, blocking_timeout=5))
     if not acquired:
         raise_error(lock_error)
+    stop_event = threading.Event()
+    renewal_thread = threading.Thread(
+        target=_renew_verification_lock,
+        args=(app, lock, stop_event),
+        daemon=True,
+        name="verification-code-lock-renewer",
+    )
+    renewal_thread.start()
     try:
         yield cache
     finally:
+        stop_event.set()
+        renewal_thread.join(timeout=1)
         with contextlib.suppress(Exception):
             lock.release()
 
