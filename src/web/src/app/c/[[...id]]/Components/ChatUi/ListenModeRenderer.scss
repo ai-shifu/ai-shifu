@@ -393,10 +393,6 @@
   transform: translateX(-50%);
 }
 
-.listen-reveal-wrapper:not(.mobile) .slide-interaction-overlay {
-  --slide-player-notes-arrow-offset: 168px;
-}
-
 .listen-reveal-wrapper--classroom:not(.mobile) {
   .slide-interaction-overlay {
     box-sizing: border-box;
@@ -789,7 +785,7 @@
   }
 
   .listen-slide-player-mobile .slide-player__controls {
-    --slide-player-mobile-control-count: 6 !important;
+    --slide-player-mobile-control-count: 5 !important;
     grid-template-columns: repeat(
       var(--slide-player-mobile-control-count, 4),
       minmax(0, 1fr)
@@ -803,11 +799,6 @@
   }
 }
 
-.slide-player__interaction-arrow {
-  display: none;
-  // left: auto !important;
-  // right: 7px !important;
-}
 .slide-player__ask-arrow {
   display: none;
 }

@@ -30,4 +30,14 @@ describe('ListenModeRenderer styles', () => {
     expect(stylesheet).toContain('&.listen-reveal-wrapper--with-player');
     expect(stylesheet).not.toContain('.slide-ask-overlay--standalone');
   });
+
+  it('uses five mobile player columns after removing the notes action', () => {
+    const stylesheet = readStylesheet();
+
+    expect(stylesheet).toContain(
+      '--slide-player-mobile-control-count: 5 !important;',
+    );
+    expect(stylesheet).not.toContain('--slide-player-notes-arrow-offset');
+    expect(stylesheet).not.toContain('.slide-player__interaction-arrow');
+  });
 });
