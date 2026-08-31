@@ -8,11 +8,12 @@ resetting passwords where we only want to validate ownership of an identifier.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 from typing import TYPE_CHECKING, Literal
 
 from flaskr.common.cache_provider import CacheProvider
 from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_redis_derived_prefix
+from flaskr.common.config import get_redis_derived_prefix, get_redis_key_prefix
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
@@ -43,8 +44,17 @@ def _verification_code_settings(app: Flask, kind: CodeKind) -> tuple[str, int]:
 
 
 def _verification_attempt_key(app: Flask, kind: CodeKind, identifier: str) -> str:
-    prefix, _expire_seconds = _verification_code_settings(app, kind)
-    return f"{prefix}attempts:{identifier}"
+    if kind == "email":
+        normalized_identifier = (identifier or "").strip().lower()
+    else:
+        normalized_identifier = normalize_phone_identifier(identifier)
+    identifier_digest = hashlib.sha256(
+        f"{kind}:{normalized_identifier}".encode()
+    ).hexdigest()
+    return (
+        f"{get_redis_key_prefix(app)}verification_code_state:"
+        f"attempts:{identifier_digest}"
+    )
 
 
 def clear_verification_attempts(

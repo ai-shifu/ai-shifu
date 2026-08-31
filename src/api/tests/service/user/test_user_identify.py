@@ -434,6 +434,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
 
     import flaskr.service.user.utils as user_utils
     from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
 
     from tests.common.fixtures.fake_redis import FakeRedis
 
@@ -449,8 +450,13 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     )
 
     def _capture_record(**kwargs: object) -> object:
-        lock_key = fake_app.config[policy.code_prefix_config] + (
-            f"attempts:{identifier}:lock"
+        lock_key = (
+            verification_codes._verification_attempt_key(
+                fake_app,
+                "email" if policy.verify_code_type == 2 else "sms",
+                identifier,
+            )
+            + ":lock"
         )
         lock_observations.append(fake_redis._locks.get(lock_key, False))
         captured_records.append(kwargs)
@@ -900,9 +906,13 @@ def test_consumed_code_tombstone_blocks_db_fallback_before_commit(
 
     code = "2468"
     code_key = app.config[prefix_config] + identifier
-    attempt_key = f"{app.config[prefix_config]}attempts:{identifier}"
     fake_redis = _FakeRedis({code_key: code})
     verification_codes.redis = fake_redis
+    attempt_key = verification_codes._verification_attempt_key(
+        app,
+        kind,
+        identifier,
+    )
     db_fallback_calls: list[tuple[str, str]] = []
 
     def _consume_without_committing(
@@ -943,6 +953,23 @@ def test_consumed_code_tombstone_blocks_db_fallback_before_commit(
             )
 
     assert db_fallback_calls == [(kind, identifier)]
+
+
+def test_email_challenge_identifier_cannot_overlap_verification_state_keys(
+    app: object,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    victim_email = "victim@example.com"
+    attempt_key = verification_codes._verification_attempt_key(
+        app,
+        "email",
+        victim_email,
+    )
+    mail_code_prefix = app.config["REDIS_KEY_PREFIX_MAIL_CODE"]
+
+    assert mail_code_prefix + f"attempts:{victim_email}" != attempt_key
+    assert mail_code_prefix + f"attempts:{victim_email}:lock" != attempt_key + ":lock"
 
 
 def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app: object) -> None:
@@ -1033,7 +1060,7 @@ def test_email_flow_verifies_code_from_db_when_cache_missing(app: object) -> Non
 def test_email_flow_invalidates_code_after_five_failed_attempts(app: object) -> None:
     from flaskr.dao import db
     from flaskr.service.common.models import ERROR_CODE, AppError
-    from flaskr.service.user import email_flow
+    from flaskr.service.user import email_flow, verification_codes
     from flaskr.service.user.models import UserVerifyCode
 
     with app.app_context():
@@ -1043,9 +1070,14 @@ def test_email_flow_invalidates_code_after_five_failed_attempts(app: object) -> 
         email = "limited@example.com"
         code = "5678"
         code_key = app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email
-        attempt_key = f"{app.config['REDIS_KEY_PREFIX_MAIL_CODE']}attempts:{email}"
         fake_redis = _FakeRedis({code_key: code})
         email_flow.redis = fake_redis
+
+        attempt_key = verification_codes._verification_attempt_key(
+            app,
+            "email",
+            email,
+        )
 
         record = UserVerifyCode(
             phone="",
