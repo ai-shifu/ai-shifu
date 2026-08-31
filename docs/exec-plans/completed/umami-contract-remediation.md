@@ -39,6 +39,14 @@ replacement or analytics-backed business metric.
       tests.
 - [x] 2026-08-31 07:10 CST: Passed the repository harness, architecture
       boundaries, developer-tool verification, and the full pre-commit gate.
+- [x] 2026-08-31 08:02 CST: Required API-confirmed Stripe provider evidence
+      before learner cancellation analytics; Pingxx, Alipay, and WeChat Pay
+      returns retain their product behavior without Stripe attribution.
+- [x] 2026-08-31 08:12 CST: Required a session-local, API-confirmed Stripe
+      checkout marker before creator billing cancellation analytics. Passed the
+      5 focused review suites / 75 tests and all 211 frontend suites / 1,892
+      tests, plus TypeScript, lint, Prettier, repository harness, architecture
+      boundaries, and independent scope and correctness reviews.
 
 ## Surprises & Discoveries
 
@@ -79,6 +87,11 @@ replacement or analytics-backed business metric.
 - Decision: accept less precise attribution when greater precision would
   require changing product behavior.
   Rationale: telemetry quality does not justify workflow changes.
+- Decision: require product-owned provider evidence before attributing a
+  cancellation to Stripe.
+  Rationale: a return-page query parameter alone cannot distinguish a stale or
+  modified cross-provider order; missing session-local evidence suppresses only
+  the event and never the existing product flow.
 
 ## Outcomes & Retrospective
 
@@ -100,17 +113,19 @@ add polling deadlines, synchronization requests, retries, cache refreshes,
 terminal-state guards, redirects, or user-visible messages. Course-creation
 analytics does not suppress duplicate requests, and learning-mode analytics
 does not prevent the existing URL/store update when the current option is
-selected.
+selected. Stripe cancellation analytics additionally requires provider
+evidence already confirmed by the product API; absent evidence fails closed for
+analytics only.
 
 Historical rows under deleted names are not read or backfilled. Canonical
 series start at deployment, so initial rolling windows may be partial. No live
 Umami dashboard or production deployment is modified by this repository-only
 change.
 
-Final frontend validation passed 211 Jest suites / 1,884 tests. TypeScript and
+Final frontend validation passed 211 Jest suites / 1,892 tests. TypeScript and
 frontend lint completed without errors; the lint run retains existing
-repository warnings. The final focused payment and Stripe-return rerun passed
-3 suites / 34 tests before the repository-wide run. The repository harness,
+repository warnings. The final focused review suites passed 5 suites / 75
+tests before the repository-wide run. The repository harness,
 architecture-boundary check, developer-tool verification, and full pre-commit
 gate also passed.
 
