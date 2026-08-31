@@ -53,6 +53,12 @@ replacement or analytics-backed business metric.
       focused review suites / 108 tests and all 211 frontend suites / 1,896
       tests, plus TypeScript, lint, Prettier, repository harness, architecture
       boundaries, and an independent scope review.
+- [x] 2026-08-31 09:37 CST: Prioritized API-confirmed refunded billing state
+      over a stale cancellation URL and consumed the analytics-only Stripe
+      marker on paid and refunded terminal returns. Passed the final 7 focused
+      review suites / 109 tests and all 211 frontend suites / 1,897 tests, plus
+      TypeScript, lint, Prettier, repository harness, architecture boundaries,
+      and an independent scope review.
 
 ## Surprises & Discoveries
 
@@ -123,16 +129,19 @@ selected. Stripe cancellation analytics additionally requires provider
 evidence already confirmed by the product API; absent evidence fails closed for
 analytics only. A rejected Stripe confirmation promise reports a pending
 analytics status because the provider outcome is unknown; it does not invoke
-the product error callback or create a user-visible error.
+the product error callback or create a user-visible error. API-confirmed
+refunded billing state takes precedence over a stale cancellation marker, and
+terminal paid or refunded returns consume that analytics-only marker without
+changing the product state.
 
 Historical rows under deleted names are not read or backfilled. Canonical
 series start at deployment, so initial rolling windows may be partial. No live
 Umami dashboard or production deployment is modified by this repository-only
 change.
 
-Final frontend validation passed 211 Jest suites / 1,896 tests. TypeScript and
+Final frontend validation passed 211 Jest suites / 1,897 tests. TypeScript and
 frontend lint completed without errors; the lint run retains existing
-repository warnings. The final focused review suites passed 7 suites / 108
+repository warnings. The final focused review suites passed 7 suites / 109
 tests before the repository-wide run. The repository harness,
 architecture-boundary check, developer-tool verification, and full pre-commit
 gate also passed.
