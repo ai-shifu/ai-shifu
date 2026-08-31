@@ -805,6 +805,26 @@ def test_list_credit_notification_templates_falls_back_to_local_cache(
     assert payload["items"][0]["last_synced_at"] == "2026-05-22T00:00:00Z"
 
 
+def test_list_credit_notification_templates_returns_all_local_cached_templates(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    for index in range(101):
+        _seed_notification_template(
+            app,
+            template_code=f"TPL-CACHED-{index}",
+        )
+
+    payload = list_credit_notification_templates(app)
+
+    assert payload["source"] == "local"
+    assert payload["provider_available"] is False
+    assert len(payload["items"]) == 101
+    assert {item["template_code"] for item in payload["items"]} == {
+        f"TPL-CACHED-{index}" for index in range(101)
+    }
+
+
 def test_list_credit_notification_templates_syncs_provider_list(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,

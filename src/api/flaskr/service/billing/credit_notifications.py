@@ -830,7 +830,6 @@ def _local_notification_template_options(app: Flask) -> list[dict[str, object]]:
         .order_by(
             NotificationTemplate.updated_at.desc(), NotificationTemplate.id.desc()
         )
-        .limit(100)
         .all()
     )
     return [

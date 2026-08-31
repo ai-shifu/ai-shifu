@@ -774,6 +774,9 @@ export default function AdminOperationCreditNotificationsPage() {
             loading={templateListLoading}
             error={templateListError}
             policy={policy}
+            bindingStatus={
+              configLoaded ? 'ready' : configLoading ? 'loading' : 'unavailable'
+            }
             refresh={() => fetchTemplateOptions('manual')}
             onViewed={() =>
               trackTemplateEventSafely(

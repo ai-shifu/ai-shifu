@@ -440,6 +440,8 @@
   },
   "templateManagement": {
     "allStatuses": "كل حالات المراجعة",
+    "bindingsLoading": "جارٍ تحميل معلومات الربط",
+    "bindingsUnavailable": "معلومات الربط غير متاحة",
     "columns": {
       "action": "الإجراء",
       "bindings": "مستخدم في",

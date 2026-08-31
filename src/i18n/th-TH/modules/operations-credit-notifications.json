@@ -440,6 +440,8 @@
   },
   "templateManagement": {
     "allStatuses": "สถานะการตรวจสอบทั้งหมด",
+    "bindingsLoading": "กำลังโหลดข้อมูลการเชื่อมโยง",
+    "bindingsUnavailable": "ไม่สามารถโหลดข้อมูลการเชื่อมโยงได้",
     "columns": {
       "action": "การดำเนินการ",
       "bindings": "ใช้งานโดย",

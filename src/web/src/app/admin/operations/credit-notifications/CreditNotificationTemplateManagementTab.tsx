@@ -41,6 +41,8 @@ type TemplateColumn = {
   className?: string;
 };
 
+type TemplateBindingStatus = 'loading' | 'ready' | 'unavailable';
+
 const TEMPLATE_STATUS_KEYS: Record<string, string> = {
   AUDIT_SATE_CANCEL:
     'module.operationsCreditNotifications.templateManagement.status.AUDIT_SATE_CANCEL',
@@ -67,6 +69,7 @@ export function CreditNotificationTemplateManagementTab({
   loading,
   error,
   policy,
+  bindingStatus,
   refresh,
   onViewed,
   onFilterApplied,
@@ -77,6 +80,7 @@ export function CreditNotificationTemplateManagementTab({
   loading: boolean;
   error: string;
   policy: AdminOperationCreditNotificationPolicy;
+  bindingStatus: TemplateBindingStatus;
   refresh: () => Promise<void>;
   onViewed: () => void;
   onFilterApplied: (filter: 'keyword' | 'status') => void;
@@ -328,6 +332,24 @@ export function CreditNotificationTemplateManagementTab({
                   </span>
                 );
               if (column.key === 'bindings') {
+                if (bindingStatus === 'loading') {
+                  return (
+                    <span className='text-sm text-muted-foreground'>
+                      {t(
+                        'module.operationsCreditNotifications.templateManagement.bindingsLoading',
+                      )}
+                    </span>
+                  );
+                }
+                if (bindingStatus === 'unavailable') {
+                  return (
+                    <span className='text-sm text-muted-foreground'>
+                      {t(
+                        'module.operationsCreditNotifications.templateManagement.bindingsUnavailable',
+                      )}
+                    </span>
+                  );
+                }
                 const bindings = bindingsFor(row.template_code);
                 return bindings.length ? (
                   <div className='flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground'>

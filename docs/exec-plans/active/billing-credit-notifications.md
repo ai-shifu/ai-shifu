@@ -27,6 +27,7 @@
 - [x] 2026-06-21 16:24 CST: Stopped this follow-up round after the local-state extraction; `dry-run` and template-sync deeper hook splits remain explicitly deferred to a later credit-notification follow-up PR to keep the scope reviewable.
 - [x] 2026-06-21 17:05 CST: A config-tab follow-up extracted `dry-run` and template-sync state into dedicated frontend hooks so their errors stay local to the config area instead of reusing page-level state.
 - [x] 2026-08-31 17:58 CST: Template-management review remediation preserves Aliyun page request IDs, serializes manual library refreshes in the UI, adds provider-template workflow analytics, and completes the Thai detail label.
+- [x] 2026-08-31 18:56 CST: Closed template-management data-integrity gaps: binding relationships now report unavailable when notification config loading fails, and provider-fallback template lists return every synchronized local template instead of silently limiting results to 100.
 
 ## Surprises & Discoveries
 
