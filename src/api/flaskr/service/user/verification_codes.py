@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, Literal
 
+from flaskr.common.cache_provider import CacheProvider
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
@@ -24,6 +25,63 @@ if TYPE_CHECKING:
     from flask import Flask
 
 CodeKind = Literal["sms", "email"]
+MAX_VERIFICATION_ATTEMPTS = 5
+
+
+def _verification_code_settings(app: Flask, kind: CodeKind) -> tuple[str, int]:
+    if kind == "email":
+        return (
+            get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app),
+            int(app.config.get("MAIL_CODE_EXPIRE_TIME", 300)),
+        )
+    return (
+        get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app),
+        int(app.config.get("PHONE_CODE_EXPIRE_TIME", 300)),
+    )
+
+
+def _verification_attempt_key(app: Flask, kind: CodeKind, identifier: str) -> str:
+    prefix, _expire_seconds = _verification_code_settings(app, kind)
+    return f"{prefix}attempts:{identifier}"
+
+
+def clear_verification_attempts(
+    app: Flask,
+    *,
+    kind: CodeKind,
+    identifier: str,
+    cache_provider: CacheProvider | None = None,
+) -> None:
+    """Reset failed attempts when a new verification challenge is issued."""
+    cache = cache_provider or redis
+    cache.delete(_verification_attempt_key(app, kind, identifier))
+
+
+def _record_invalid_attempt(
+    app: Flask,
+    *,
+    kind: CodeKind,
+    identifier: str,
+    cache: CacheProvider,
+    code_keys: list[str],
+) -> None:
+    attempt_key = _verification_attempt_key(app, kind, identifier)
+    _prefix, expire_seconds = _verification_code_settings(app, kind)
+    cache.set(attempt_key, 0, ex=expire_seconds, nx=True)
+    attempts = cache.incr(attempt_key)
+    if attempts >= MAX_VERIFICATION_ATTEMPTS:
+        cache.delete(*code_keys)
+
+
+def _verification_attempts_exhausted(
+    app: Flask,
+    *,
+    kind: CodeKind,
+    identifier: str,
+    cache: CacheProvider,
+) -> bool:
+    attempts = cache.get(_verification_attempt_key(app, kind, identifier))
+    return bool(attempts) and int(attempts) >= MAX_VERIFICATION_ATTEMPTS
 
 
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
@@ -93,8 +151,15 @@ def _decode_cache_value(raw: object) -> str:
     return str(raw)
 
 
-def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None:
+def consume_verification_code(
+    app: Flask,
+    *,
+    identifier: str,
+    code: str,
+    cache_provider: CacheProvider | None = None,
+) -> None:
     """Validate and consume a verification code for an email or phone identifier."""
+    cache = cache_provider or redis
     identifier = (identifier or "").strip()
     code = (code or "").strip()
     # Keep helper-level parameter checks for direct service callers such as
@@ -114,9 +179,7 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     if is_email:
         email_key = identifier
         email_lower = email_key.lower()
-        mail_code_prefix = get_redis_derived_prefix(
-            "REDIS_KEY_PREFIX_MAIL_CODE", app=app
-        )
+        mail_code_prefix, _expire_seconds = _verification_code_settings(app, "email")
 
         cache_keys = [mail_code_prefix + email_key]
         if email_lower != email_key:
@@ -124,12 +187,28 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
 
         cached = None
         for cache_key in cache_keys:
-            cached = redis.get(cache_key)
+            cached = cache.get(cache_key)
             if cached is not None:
                 break
 
+        if _verification_attempts_exhausted(
+            app,
+            kind="email",
+            identifier=email_lower,
+            cache=cache,
+        ):
+            cache.delete(*cache_keys)
+            raise_error("server.user.mailSendExpired")
+
         if cached is not None:
             if code != _decode_cache_value(cached):
+                _record_invalid_attempt(
+                    app,
+                    kind="email",
+                    identifier=email_lower,
+                    cache=cache,
+                    code_keys=cache_keys,
+                )
                 raise_error("server.user.mailCheckError")
             # Best-effort: mark the DB record as used if present.
             status = _consume_latest_code_from_db(
@@ -160,11 +239,21 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
                     code=code,
                 )
             if status == "invalid":
+                _record_invalid_attempt(
+                    app,
+                    kind="email",
+                    identifier=email_lower,
+                    cache=cache,
+                    code_keys=cache_keys,
+                )
                 raise_error("server.user.mailCheckError")
             if status != "ok":
                 raise_error("server.user.mailSendExpired")
 
-        redis.delete(*cache_keys)
+        cache.delete(
+            *cache_keys,
+            _verification_attempt_key(app, "email", email_lower),
+        )
         return
 
     raw_identifier = identifier
@@ -175,7 +264,7 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     lookup_identifiers = [identifier]
     if raw_identifier and raw_identifier not in lookup_identifiers:
         lookup_identifiers.append(raw_identifier)
-    phone_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app)
+    phone_code_prefix, _expire_seconds = _verification_code_settings(app, "sms")
     cache_keys = [
         phone_code_prefix + lookup_identifier
         for lookup_identifier in lookup_identifiers
@@ -186,13 +275,29 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     for cache_key, lookup_identifier in zip(
         cache_keys, lookup_identifiers, strict=False
     ):
-        cached = redis.get(cache_key)
+        cached = cache.get(cache_key)
         if cached is not None:
             cached_identifier = lookup_identifier
             break
 
+    if _verification_attempts_exhausted(
+        app,
+        kind="sms",
+        identifier=identifier,
+        cache=cache,
+    ):
+        cache.delete(*cache_keys)
+        raise_error("server.user.smsSendExpired")
+
     if cached is not None:
         if code != _decode_cache_value(cached):
+            _record_invalid_attempt(
+                app,
+                kind="sms",
+                identifier=identifier,
+                cache=cache,
+                code_keys=cache_keys,
+            )
             raise_error("server.user.smsCheckError")
         status = _consume_latest_code_from_db(
             app,
@@ -221,8 +326,18 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
             if status == "invalid":
                 break
         if status == "invalid":
+            _record_invalid_attempt(
+                app,
+                kind="sms",
+                identifier=identifier,
+                cache=cache,
+                code_keys=cache_keys,
+            )
             raise_error("server.user.smsCheckError")
         if status != "ok":
             raise_error("server.user.smsSendExpired")
 
-    redis.delete(*cache_keys)
+    cache.delete(
+        *cache_keys,
+        _verification_attempt_key(app, "sms", identifier),
+    )

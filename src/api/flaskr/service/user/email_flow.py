@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import contextlib
 import uuid
 from typing import TYPE_CHECKING, Any
 
 from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_redis_derived_prefix
-from flaskr.dao import db
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.user.phone_flow import init_first_course, migrate_user_study_record
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
@@ -28,53 +24,10 @@ from flaskr.service.user.repository import (
     upsert_wechat_credentials,
 )
 from flaskr.service.user.utils import generate_token
-from flaskr.util.datetime import now_utc
+from flaskr.service.user.verification_codes import consume_verification_code
 
 if TYPE_CHECKING:
-    import datetime
-
     from flask import Flask
-
-
-def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
-    if value is None:
-        return False
-    with contextlib.suppress(Exception):
-        if value.tzinfo is not None:
-            value = value.replace(tzinfo=None)
-    now = now_utc()
-    return (now - value).total_seconds() <= seconds
-
-
-def _consume_latest_email_code_from_db(app: Flask, email: str, code: str) -> str:
-    """Consume the latest sent email verification code from the database.
-
-    Returns:
-      - "ok" when the code is valid and is marked as used.
-      - "expired" when no valid code exists (missing/used/expired).
-      - "invalid" when a code exists but does not match.
-
-    """
-    expire_seconds = int(app.config.get("MAIL_CODE_EXPIRE_TIME", 300))
-    latest = (
-        UserVerifyCode.query.filter(
-            UserVerifyCode.mail == email,
-            UserVerifyCode.verify_code_type == 2,
-            UserVerifyCode.verify_code_send == 1,
-        )
-        .order_by(UserVerifyCode.created.desc(), UserVerifyCode.id.desc())
-        .first()
-    )
-    if not latest or int(getattr(latest, "verify_code_used", 0) or 0) == 1:
-        return "expired"
-    created_at = getattr(latest, "created", None)
-    if not created_at or not _is_within_seconds(created_at, seconds=expire_seconds):
-        return "expired"
-    if (latest.verify_code or "") != (code or ""):
-        return "invalid"
-    latest.verify_code_used = 1
-    db.session.flush()
-    return "ok"
 
 
 def verify_email_code(
@@ -92,33 +45,13 @@ def verify_email_code(
         update_user_profile_with_lable,
     )
 
-    fixed_check_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
-
     email_key = (email or "").strip()
-    code_key = (
-        get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app) + email_key
+    consume_verification_code(
+        app,
+        identifier=email_key,
+        code=code,
+        cache_provider=redis,
     )
-    if code != fixed_check_code:
-        cached = redis.get(code_key)
-        if cached is not None:
-            cached_str = (
-                cached.decode("utf-8") if isinstance(cached, bytes) else str(cached)
-            )
-            if code != cached_str:
-                raise_error("server.user.mailCheckError")
-            _consume_latest_email_code_from_db(app, email_key, code)
-        else:
-            status = _consume_latest_email_code_from_db(app, email_key, code)
-            if status != "ok" and email_key.lower() != email_key:
-                status = _consume_latest_email_code_from_db(
-                    app, email_key.lower(), code
-                )
-            if status == "invalid":
-                raise_error("server.user.mailCheckError")
-            if status != "ok":
-                raise_error("server.user.mailSendExpired")
-
-    redis.delete(code_key)
 
     normalized_email = email_key.lower() if email_key else ""
 

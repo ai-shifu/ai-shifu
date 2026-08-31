@@ -29,6 +29,7 @@ from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user.captcha import consume_captcha_ticket
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import SessionMetadata, token_store
+from flaskr.service.user.verification_codes import clear_verification_attempts
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
@@ -452,6 +453,12 @@ def _prepare_verification_challenge(
 
     code = "".join(secrets.choice(string.digits) for _ in range(4))
     expire_in = int(app.config[policy.expire_time_config])
+    clear_verification_attempts(
+        app,
+        kind="email" if policy.verify_code_type == 2 else "sms",
+        identifier=identifier,
+        cache_provider=redis,
+    )
     redis.set(
         _redis_prefix(app, policy.code_prefix_config) + identifier,
         code,
