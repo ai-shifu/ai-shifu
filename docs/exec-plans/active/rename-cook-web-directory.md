@@ -63,6 +63,23 @@ migration explicitly replaces them.
   multilingual typewriter change were preserved exactly under `src/web`, then
   reinstalled the 0.2.20 dependency set and reran the full frontend and
   production-build gates.
+- [x] 2026-08-31 09:55 CST: Rebased onto `origin/main` at `b7951e332`, moved
+  the newly merged account-session and billing-navigation files into
+  `src/web`, preserved `markdown-flow-ui` 0.2.21 and the latest generated review
+  rules, corrected the account-session analytics paths, refreshed repository
+  knowledge, and passed 189 frontend suites with 1,731 tests, focused backend
+  session and Swagger coverage, type-checking, and the production build on
+  Node 22.16.0.
+- [x] 2026-08-31 10:15 CST: Rebased again after `origin/main` advanced to
+  `a52171867`, moved the newly merged stale-chunk recovery component and test
+  into `src/web`, proved their blobs and all five translated messages match
+  main, and passed the new focused tests, type-checking, the production build,
+  and all 190 frontend suites with 1,735 tests on Node 22.16.0.
+- [x] 2026-08-31 10:53 CST: Rebased again after `origin/main` advanced to
+  `aeef771ed`, preserved the profile-prompt-generation frontend files
+  byte-for-byte under `src/web`, rebuilt the generated harness health report
+  with both the active rename plan and the newly completed upstream plan, and
+  passed 3 focused frontend suites with 45 tests.
 
 ## Surprises & Discoveries
 
