@@ -1,6 +1,8 @@
 'use client';
 
+import '@/i18n';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type AppError = Error & {
   digest?: string;
@@ -32,6 +34,8 @@ const FALLBACK_MESSAGE = '未知客户端错误';
 const REFRESH_TEXT = '刷新后重试';
 const COPY_TEXT = '复制错误信息';
 const COPIED_TEXT = '已复制';
+const CHUNK_LOAD_RELOAD_KEY = 'ai-shifu:chunk-load-auto-reload-at';
+const CHUNK_LOAD_RELOAD_TTL_MS = 30_000;
 const STACK_LINE_LIMIT = 30;
 const ERROR_FIELD_LABELS = {
   cause: 'Cause',
@@ -169,6 +173,39 @@ const getErrorDetails = (error: AppError): ErrorDetails => ({
   stack: getTrimmedStack(error.stack),
 });
 
+const isRecoverableChunkLoadError = (details: ErrorDetails): boolean => {
+  const errorText = [
+    details.name,
+    details.message,
+    details.cause,
+    details.stack,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return (
+    /ChunkLoadError/i.test(errorText) ||
+    /Loading (CSS )?chunk \d+ failed/i.test(errorText) ||
+    /failed to fetch dynamically imported module/i.test(errorText) ||
+    /Importing a module script failed/i.test(errorText)
+  );
+};
+
+const shouldReloadForChunkLoadError = (now: number): boolean => {
+  try {
+    const lastReloadAt = Number(
+      window.sessionStorage.getItem(CHUNK_LOAD_RELOAD_KEY) || 0,
+    );
+    if (lastReloadAt && now - lastReloadAt < CHUNK_LOAD_RELOAD_TTL_MS) {
+      return false;
+    }
+    window.sessionStorage.setItem(CHUNK_LOAD_RELOAD_KEY, String(now));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const getClipboardText = (
   details: ErrorDetails,
   pageUrl?: string,
@@ -195,7 +232,9 @@ const reloadPage = () => {
 };
 
 export default function AppErrorFallback({ error }: AppErrorFallbackProps) {
+  const { t } = useTranslation();
   const [canCopy, setCanCopy] = useState(false);
+  const [isRecoveringChunkLoad, setIsRecoveringChunkLoad] = useState(false);
   const [browserDetails, setBrowserDetails] = useState<BrowserDetails>();
   const [copied, setCopied] = useState(false);
   const [pageUrl, setPageUrl] = useState('');
@@ -211,6 +250,24 @@ export default function AppErrorFallback({ error }: AppErrorFallbackProps) {
     setPageUrl(window.location.href);
   }, []);
 
+  useEffect(() => {
+    if (!isRecoverableChunkLoadError(details)) {
+      try {
+        window.sessionStorage.removeItem(CHUNK_LOAD_RELOAD_KEY);
+      } catch {
+        // Ignore storage errors; the visible fallback still works.
+      }
+      return;
+    }
+
+    if (!shouldReloadForChunkLoadError(Date.now())) {
+      return;
+    }
+
+    setIsRecoveringChunkLoad(true);
+    window.location.reload();
+  }, [details]);
+
   const handleCopy = async () => {
     if (!navigator.clipboard) {
       return;
@@ -222,6 +279,18 @@ export default function AppErrorFallback({ error }: AppErrorFallbackProps) {
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   };
+
+  if (isRecoveringChunkLoad) {
+    return (
+      <main className='flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground sm:px-6'>
+        <section className='w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-lg sm:p-8'>
+          <p className='text-sm leading-6 text-muted-foreground'>
+            {t('common.core.pageResourcesUpdatedRefreshing')}
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className='flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground sm:px-6'>

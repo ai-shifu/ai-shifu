@@ -33,6 +33,7 @@
   "operations": "运营",
   "orderManagement": "订单管理",
   "packageManagement": "套餐管理",
+  "pageResourcesUpdatedRefreshing": "页面资源已更新，正在自动刷新...",
   "profileOnboardingManagement": "画像初始化",
   "promotionManagement": "优惠活动",
   "rateManagement": "费率管理",
