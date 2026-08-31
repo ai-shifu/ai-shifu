@@ -971,20 +971,40 @@ describe('AdminLayout', () => {
       screen.getByText('module.billing.sidebar.nonMemberBalanceTitle'),
     ).toBeInTheDocument();
     expect(screen.getByText('12,500')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', {
-        name: 'module.billing.sidebar.usageCta',
-      }),
-    ).toHaveAttribute('href', '/admin/billing?tab=details');
-    expect(screen.getByTestId('admin-billing-sidebar-card')).toHaveAttribute(
-      'data-href',
-      '/admin/billing?tab=packages',
-    );
+    const billingCard = screen.getByTestId('admin-billing-sidebar-card');
+    expect(billingCard).not.toHaveAttribute('role');
+    expect(billingCard).not.toHaveAttribute('tabindex');
+    const packagesLink = screen.getByRole('link', {
+      name: 'module.billing.sidebar.summaryTitle module.billing.sidebar.upgradeCta',
+    });
+    const detailsLink = screen.getByRole('link', {
+      name: 'module.billing.sidebar.usageCta',
+    });
+    expect(packagesLink).toHaveAttribute('href', '/admin/billing?tab=packages');
+    expect(packagesLink).not.toContainElement(detailsLink);
+    expect(detailsLink).toHaveAttribute('href', '/admin/billing?tab=details');
     expect(
       screen.queryByText('module.billing.sidebar.subscriptionStatusLabel'),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText('module.billing.sidebar.cta'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not render the billing card when billing is disabled', () => {
+    mockEnvState.billingEnabled = 'false';
+
+    render(
+      <AdminLayout>
+        <div data-testid='child-content' />
+      </AdminLayout>,
+    );
+
+    expect(
+      screen.queryByTestId('admin-billing-sidebar-card'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('admin-billing-sidebar-primary-link'),
     ).not.toBeInTheDocument();
   });
 
@@ -1044,10 +1064,11 @@ describe('AdminLayout', () => {
     expect(
       screen.getByText('module.billing.sidebar.nonMemberBalanceTitle'),
     ).toBeInTheDocument();
-    expect(screen.getByTestId('admin-billing-sidebar-card')).toHaveAttribute(
-      'data-href',
-      '/admin/billing?tab=packages',
-    );
+    expect(
+      screen.getByRole('link', {
+        name: 'module.billing.sidebar.summaryTitle module.billing.sidebar.upgradeCta',
+      }),
+    ).toHaveAttribute('href', '/admin/billing?tab=packages');
     expect(
       screen.getByTestId('admin-billing-sidebar-balance'),
     ).toHaveTextContent('0');
