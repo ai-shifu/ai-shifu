@@ -750,8 +750,8 @@ def _reload_ark_params(model_id: str, temperature: float) -> dict[str, object]:
     return {
         "temperature": temperature,
         "thinking": {"type": "disabled"},
-        # The follow-up flow relies on JSON mode, but LiteLLM 1.95 omits this
-        # supported Volcengine parameter from its adapter metadata.
+        # The follow-up flow relies on JSON mode; explicitly allow this
+        # Volcengine parameter through the shared adapter boundary.
         "allowed_openai_params": ["response_format"],
     }
 
@@ -802,9 +802,8 @@ def _reload_glm_params(model_id: str, temperature: float) -> dict[str, object]:
     }
     if model_id.lower().startswith(_GLM_THINKING_MODEL_PREFIXES):
         params["allowed_openai_params"].append("thinking")
-        # ZAI still sends chat completions through the OpenAI SDK in LiteLLM
-        # 1.95.0. Keep thinking in extra_body so the SDK forwards it instead
-        # of rejecting the vendor-specific argument before the request is sent.
+        # Keep thinking in extra_body so the OpenAI-compatible SDK forwards the
+        # vendor-specific argument instead of rejecting it before the request.
         params["extra_body"] = {"thinking": {"type": "disabled"}}
     return params
 
