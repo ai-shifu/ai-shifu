@@ -104,7 +104,7 @@ are not backfilled under another name.
 
 Allowed enums are `save_type=auto|manual`, `variant=chapter|lesson`, and
 `learning_permission=normal|trial|guest`, as defined by `LEARNING_PERMISSION` in
-`src/cook-web/src/c-api/studyV2.ts`. Course/chapter/lesson names, descriptions,
+`src/web/src/c-api/studyV2.ts`. Course/chapter/lesson names, descriptions,
 system prompts, provider configuration, URLs, and route text were removed from
 these contracts.
 
