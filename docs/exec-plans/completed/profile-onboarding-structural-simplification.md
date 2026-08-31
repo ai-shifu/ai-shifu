@@ -163,7 +163,7 @@ refactor itself.
 ## Interfaces and Dependencies
 
 - `flaskr.service.profile_research.api` remains the backend public facade.
-- `src/cook-web/src/api/learnerProfile.ts` remains the frontend request owner;
+- `src/web/src/api/learnerProfile.ts` remains the frontend request owner;
   legacy `c-api/user.ts` remains an adapter only.
 - Existing Dialog and Conversation props and named exports remain compatible.
 - Shared Redis, official MarkdownFlow, MarkdownFlow UI, profile onboarding persistence,

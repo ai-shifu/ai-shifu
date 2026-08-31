@@ -78,10 +78,10 @@ jobs:
             image_name_env: "AI_SHIFU_API_IMAGE_NAME"
             context: "."
             dockerfile: "src/api/Dockerfile"
-          - service_name: "build-cook-web"
+          - service_name: "build-web"
             image_name_env: "AI_SHIFU_COOK_WEB_IMAGE_NAME"
             context: "."
-            dockerfile: "src/cook-web/Dockerfile"
+            dockerfile: "src/web/Dockerfile"
 
     env:
       DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -227,7 +227,7 @@ jobs:
             echo '' >> $GITHUB_STEP_SUMMARY
             echo '# Start with Docker Compose (production-ready)' >> $GITHUB_STEP_SUMMARY
             echo 'cd docker' >> $GITHUB_STEP_SUMMARY
-            echo 'docker compose -f docker-compose.prod.yml up -d' >> $GITHUB_STEP_SUMMARY
+            echo 'docker compose -f docker-compose.yml up -d' >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 📦 Image Details" >> $GITHUB_STEP_SUMMARY

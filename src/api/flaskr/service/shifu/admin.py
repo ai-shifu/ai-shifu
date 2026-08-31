@@ -22,7 +22,6 @@ from typing import Any, Dict, Optional, Set
 
 from flask import current_app
 from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.billing.bucket_categories import (
@@ -628,7 +627,6 @@ _OPERATOR_COURSE_FORWARDABLE_NAMES = (
     *_OPERATOR_COURSE_COMPAT_EXPORTS,
     "check_text_with_risk_control",
     "datetime",
-    "get_course_visit_count_30d",
     "run_creator_granted_post_auth",
 )
 
@@ -732,7 +730,6 @@ __all__ = (
     "_validate_operator_target_contact",
     "check_text_with_risk_control",
     "copy_operator_course",
-    "get_course_visit_count_30d",
     "get_operator_course_chapter_detail",
     "get_operator_course_credit_usage_details",
     "get_operator_course_credit_usages",

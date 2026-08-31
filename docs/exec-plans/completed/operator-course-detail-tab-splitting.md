@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Keep `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx` as the route
+Keep `src/web/src/app/admin/operations/[shifu_bid]/page.tsx` as the route
 entry for the operator course detail page, but progressively split heavy tab UI
 into dedicated local components so the page stays reviewable and safe to extend.
 Phase A focuses only on the credit usage tab because it is the newest and most
@@ -32,7 +32,7 @@ without changing backend contracts.
   which makes it a good first split candidate without forcing route-level state
   changes.
 - The repository already contains a reusable `ClearableTextInput` under
-  `src/cook-web/src/app/admin/operations/orders/orderUiShared.tsx`, which can be
+  `src/web/src/app/admin/operations/orders/orderUiShared.tsx`, which can be
   reused instead of adding another one-off input implementation.
 - The current `main` branch already contains the follow-up extraction files:
   `CourseUsersTab.tsx`, `CourseChaptersTab.tsx`, and
@@ -63,13 +63,13 @@ without changing backend contracts.
 
 Relevant files:
 
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/CourseCreditUsageTab.tsx`
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/CourseUsersTab.tsx`
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/CourseChaptersTab.tsx`
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/CourseChapterDetailDialog.tsx`
-- `src/cook-web/src/app/admin/operations/operation-course-types.ts`
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/page.test.tsx`
+- `src/web/src/app/admin/operations/[shifu_bid]/page.tsx`
+- `src/web/src/app/admin/operations/[shifu_bid]/CourseCreditUsageTab.tsx`
+- `src/web/src/app/admin/operations/[shifu_bid]/CourseUsersTab.tsx`
+- `src/web/src/app/admin/operations/[shifu_bid]/CourseChaptersTab.tsx`
+- `src/web/src/app/admin/operations/[shifu_bid]/CourseChapterDetailDialog.tsx`
+- `src/web/src/app/admin/operations/operation-course-types.ts`
+- `src/web/src/app/admin/operations/[shifu_bid]/page.test.tsx`
 - `docs/product-specs/operator-course-detail-page.md`
 - `docs/需求和优化.md`
 
@@ -103,7 +103,7 @@ lives.
 - The credit usage tab still loads on demand and shows the same filters, rows,
   and pagination behavior.
 - The existing focused test at
-  `src/cook-web/src/app/admin/operations/[shifu_bid]/page.test.tsx` passes.
+  `src/web/src/app/admin/operations/[shifu_bid]/page.test.tsx` passes.
 - No new syntax errors are introduced in touched frontend files.
 
 ## Idempotence and Recovery
@@ -117,14 +117,14 @@ lives.
 
 ## Interfaces and Dependencies
 
-- Frontend route entry: `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
+- Frontend route entry: `src/web/src/app/admin/operations/[shifu_bid]/page.tsx`
 - Shared admin UI pieces:
   - `AdminTableShell`
   - `AdminPagination`
   - `AdminDateRangeFilter`
   - `useAdminResizableColumns`
 - Shared typed contract surface:
-  `src/cook-web/src/app/admin/operations/operation-course-types.ts`
+  `src/web/src/app/admin/operations/operation-course-types.ts`
 - Documentation surfaces:
   - `docs/product-specs/operator-course-detail-page.md`
   - `docs/需求和优化.md`

@@ -2,7 +2,7 @@
 """Update shared i18n JSON files based on key usage across backend and frontends.
 
 Default behavior:
-- Scans src/api (Flask) and src/cook-web (Next.js) for translation key usage
+- Scans src/api (Flask) and src/web (Next.js) for translation key usage
 - Computes keys missing from src/i18n across locales
 - For namespaces that already exist (based on en-US mapping), inserts placeholder values for missing keys
 - Does NOT prune by default; use --prune-unused to remove keys not referenced in code
@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
 BACKEND_DIR = ROOT / "src" / "api"
-COOK_WEB_DIR = ROOT / "src" / "cook-web"
+WEB_DIR = ROOT / "src" / "web"
 
 
 def load_json(path: Path) -> dict[str, object]:
@@ -128,11 +128,13 @@ BACKEND_PATTERNS = [
 
 def collect_frontend_keys() -> set[str]:
     """Collect frontend keys."""
+    if not WEB_DIR.is_dir():
+        message = f"Web frontend directory not found: {WEB_DIR}"
+        raise RuntimeError(message)
+
     used: set[str] = set()
     extensions = {".ts", ".tsx", ".js", ".jsx"}
-    if not COOK_WEB_DIR.exists():
-        return used
-    for path in COOK_WEB_DIR.rglob("*"):
+    for path in WEB_DIR.rglob("*"):
         if path.suffix not in extensions:
             continue
         try:
@@ -195,7 +197,7 @@ def prune_unused(obj: dict, valid: set[str], prefix: str) -> dict:
 def main() -> int:
     """Synchronize translation keys across shared locales."""
     parser = argparse.ArgumentParser(
-        description="Update shared i18n JSON based on usage across api and cook-web."
+        description="Update shared i18n JSON based on usage across the API and web frontend."
     )
     parser.add_argument(
         "--prune-unused",

@@ -97,7 +97,7 @@ AI compatibility instruction files.
 
 - `SKILL.md` is the repository-level skill routing index.
 
-- `src/api/SKILL.md` and `src/cook-web/SKILL.md` remain the right entry points
+- `src/api/SKILL.md` and `src/web/SKILL.md` remain the right entry points
   when a workflow change is tightly coupled to backend or frontend behavior.
 
 - Keep durable GitHub automation rules here, and put multi-step debugging or

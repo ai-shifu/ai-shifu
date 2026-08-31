@@ -60,6 +60,7 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
+    render_course_prompt_identity_variables,
 )
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -843,6 +844,11 @@ class RunScriptPreviewContextV2:
         """Stream a preview run without persisting learner progress."""
         outline = self._get_outline_record(shifu_bid, outline_bid)
         shifu = self._get_shifu_record(shifu_bid, has_draft_outline=True)
+        resolved_variables = self._resolve_preview_variables(
+            preview_request=preview_request,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+        )
         document_prompt = self._resolve_document_prompt(
             preview_request,
             outline,
@@ -850,6 +856,7 @@ class RunScriptPreviewContextV2:
             shifu_bid,
             outline_bid,
             user_bid,
+            resolved_variables,
         )
         self.app.logger.info(
             "preview document prompt | shifu_bid=%s | outline_bid=%s | prompt=%s",
@@ -917,11 +924,6 @@ class RunScriptPreviewContextV2:
             BILL_USAGE_SCENE_PREVIEW,
         )
 
-        resolved_variables = self._resolve_preview_variables(
-            preview_request=preview_request,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-        )
         preview_language = resolved_variables.get("language") or resolved_variables.get(
             SYS_USER_LANGUAGE
         )
@@ -1288,6 +1290,7 @@ class RunScriptPreviewContextV2:
         shifu_bid: str,
         outline_bid: str,
         user_bid: str,
+        variables: dict | None,
     ) -> str | None:
         course_prompt: str | None = None
         if preview_request.document_prompt:
@@ -1311,7 +1314,15 @@ class RunScriptPreviewContextV2:
             return course_prompt
 
         learner = self._load_learner_for_course_prompt(user_bid)
-        return build_course_prompt(course_prompt, learner=learner)
+        variable_prompt = build_course_prompt(
+            course_prompt,
+            variables=variables,
+            nickname_identifiers=(
+                user_bid,
+                getattr(learner, "identify", ""),
+            ),
+        )
+        return render_course_prompt_identity_variables(variable_prompt, variables)
 
     def _load_learner_for_course_prompt(
         self,
@@ -1322,11 +1333,11 @@ class RunScriptPreviewContextV2:
         except Exception as exc:  # preview must survive lookup failures
             cleanup_session_after(
                 exc,
-                source="preview learner profile lookup",
+                source="preview learner identity lookup",
                 session=db.session,
             )
             self.app.logger.warning(
-                "learner lookup failed for preview course prompt | "
+                "learner identity lookup failed for preview course prompt | "
                 "user_bid=%s | error_class=%s",
                 user_bid,
                 type(exc).__name__,
@@ -2412,6 +2423,11 @@ class RunScriptContextV2:
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
         app.logger.info("ask_input: %s", ask_input)
+        runtime_profiles = get_user_profiles(
+            app,
+            self._user_info.user_id,
+            self._outline_item_info.shifu_bid,
+        )
         res = handle_input_ask(
             app,
             self,
@@ -2425,6 +2441,7 @@ class RunScriptContextV2:
             self._last_position,
             anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
             parent_observation=self._trace_root_span,
+            runtime_profiles=runtime_profiles,
         )
 
         if self._should_stream_tts():
@@ -2523,6 +2540,18 @@ class RunScriptContextV2:
         user_profile, runtime_output_language = _resolve_runtime_language_context(
             stored_user_profile,
             use_learner_language=bool(self._shifu_info.use_learner_language),
+        )
+        system_prompt = build_course_prompt(
+            system_prompt,
+            variables=user_profile,
+            nickname_identifiers=(
+                getattr(self._user_info, "user_bid", self._user_info.user_id),
+                getattr(self._user_info, "identify", ""),
+            ),
+        )
+        system_prompt = render_course_prompt_identity_variables(
+            system_prompt,
+            user_profile,
         )
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
@@ -3710,7 +3739,7 @@ class RunScriptContextV2:
                 )
                 course_prompt = shifu_info_db.llm_system_prompt
 
-        return build_course_prompt(course_prompt, learner=self._user_info)
+        return course_prompt
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
         """Return the effective LLM settings for this run."""

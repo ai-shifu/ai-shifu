@@ -1,0 +1,293 @@
+'use client';
+
+import styles from './ChatUi.module.scss';
+
+import { memo, useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { cn } from '@/lib/utils';
+import { useShallow } from 'zustand/react/shallow';
+import { useTranslation } from 'react-i18next';
+
+import {
+  FRAME_LAYOUT_MOBILE,
+  FRAME_LAYOUT_PC,
+} from '@/c-constants/uiConstants';
+import { useSystemStore } from '@/c-store/useSystemStore';
+import { useCourseStore, useUiLayoutStore } from '@/c-store';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
+import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
+import CourseHeaderSummary from '../CourseHeaderSummary';
+import LearningModeSwitch from '../LearningModeSwitch';
+import LearnerCourseShareButton from '../LearnerCourseShareButton';
+import PreviewHeaderBanner from '../PreviewHeaderBanner';
+import LessonUpdateNotice from '../LessonUpdateNotice';
+import LessonPdfDownloadButton, {
+  type LessonPdfDownloadAction,
+} from './LessonPdfDownloadButton';
+import type {
+  ChapterNavigationHandler,
+  ChapterUpdateHandler,
+  LessonSelectionUpdater,
+  LessonUpdateHandler,
+  NextLessonIdGetter,
+} from './useChatLogicHook.types';
+
+const ChatComponents = dynamic(() => import('./NewChatComp'), {
+  ssr: false,
+});
+
+interface ChatUiProps {
+  courseId: string;
+  chapterId: string;
+  lessonId?: string;
+  lessonUpdate: LessonUpdateHandler;
+  onGoChapter: ChapterNavigationHandler;
+  onPurchased: () => void;
+  lessonTitle?: string;
+  lessonStatus?: string;
+  lessonHasContentUpdate?: boolean;
+  runtimeReady?: boolean;
+  onMobileSettingClick?: () => void;
+  chapterUpdate: ChapterUpdateHandler;
+  updateSelectedLesson: LessonSelectionUpdater;
+  getNextLessonId: NextLessonIdGetter;
+  isNavOpen?: boolean;
+  onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
+  showGenerateBtn?: boolean;
+  onLessonUpdateNoticeVisibilityChange?: (visible: boolean) => void;
+}
+
+/**
+ * Overall canvas for the chat area
+ */
+export const ChatUi = ({
+  courseId,
+  chapterId,
+  lessonId,
+  lessonUpdate,
+  onGoChapter,
+  onPurchased,
+  lessonTitle = '',
+  lessonStatus = '',
+  lessonHasContentUpdate = false,
+  runtimeReady = true,
+  chapterUpdate,
+  updateSelectedLesson,
+  getNextLessonId,
+  isNavOpen = false,
+  onListenMobileViewModeChange,
+  showGenerateBtn = false,
+  onLessonUpdateNoticeVisibilityChange,
+}: ChatUiProps) => {
+  const { t } = useTranslation();
+  const { frameLayout } = useUiLayoutStore(state => state);
+  const { courseAvatar, courseName } = useCourseStore(
+    useShallow(state => ({
+      courseAvatar: state.courseAvatar,
+      courseName: state.courseName,
+    })),
+  );
+  const { previewMode, learningMode, showLearningModeToggle } = useSystemStore(
+    useShallow(state => ({
+      skip: state.skip,
+      updateSkip: state.updateSkip,
+      previewMode: state.previewMode,
+      learningMode: state.learningMode,
+      showLearningModeToggle: state.showLearningModeToggle,
+    })),
+  );
+
+  const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
+  const showModeToggle = showLearningModeToggle;
+  const isListenMode = learningMode === 'listen';
+  const isClassroomMode = learningMode === 'classroom';
+  const isSlideMode = isListenMode || isClassroomMode;
+  const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
+  const footerSeparator = String.fromCharCode(124);
+  const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
+  const [showLessonUpdateNoticeInHeader, setShowLessonUpdateNoticeInHeader] =
+    useState(false);
+  const [lessonPdfDownloadAction, setLessonPdfDownloadAction] =
+    useState<LessonPdfDownloadAction | null>(null);
+  const currentLessonPdfDownloadAction =
+    lessonPdfDownloadAction?.lessonId === (lessonId || '')
+      ? lessonPdfDownloadAction
+      : null;
+
+  const handleLessonUpdateNoticeVisibilityChange = useCallback(
+    (visible: boolean) => {
+      setShowLessonUpdateNoticeInHeader(visible);
+      onLessonUpdateNoticeVisibilityChange?.(visible);
+    },
+    [onLessonUpdateNoticeVisibilityChange],
+  );
+
+  useEffect(() => {
+    if (!isSlideMode) {
+      setIsListenPlayerVisible(false);
+    }
+  }, [isSlideMode]);
+
+  useEffect(() => {
+    setShowLessonUpdateNoticeInHeader(false);
+    onLessonUpdateNoticeVisibilityChange?.(false);
+  }, [lessonId, onLessonUpdateNoticeVisibilityChange]);
+
+  useEffect(
+    () => () => {
+      onLessonUpdateNoticeVisibilityChange?.(false);
+    },
+    [onLessonUpdateNoticeVisibilityChange],
+  );
+
+  return (
+    <div
+      data-lesson-print-shell='true'
+      className={cn(
+        styles.ChatUi,
+        frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
+        previewMode && frameLayout !== FRAME_LAYOUT_MOBILE
+          ? styles.previewModeDesktop
+          : '',
+        isSlideMode ? styles.listenMode : '',
+        isClassroomMode ? styles.classroomMode : '',
+        isListenMode && isListenPlayerVisible
+          ? styles.listenModeWithPlayer
+          : '',
+        isSlideMode && !isListenPlayerVisible
+          ? styles.listenModeWithoutPlayer
+          : '',
+        hideMobileFooter ? styles.hideMobileFooter : '',
+      )}
+    >
+      {
+        showHeader ? (
+          <div
+            className={cn(
+              styles.header,
+              previewMode ? styles.previewHeader : '',
+            )}
+          >
+            {previewMode ? (
+              <PreviewHeaderBanner
+                courseId={courseId}
+                lessonId={lessonId}
+                className={styles.previewHeaderBanner}
+              />
+            ) : null}
+            <div className={styles.headerMain}>
+              <div className={styles.headerContent}>
+                <CourseHeaderSummary
+                  courseAvatar={courseAvatar}
+                  courseName={courseName}
+                  className={styles.courseSummary}
+                  titleClassName={styles.courseSummaryTitle}
+                />
+              </div>
+              {showLessonUpdateNoticeInHeader ? (
+                <div className={styles.lessonUpdateNoticeTarget}>
+                  <LessonUpdateNotice
+                    chapterId={chapterId}
+                    lessonId={lessonId}
+                    lessonTitle={lessonTitle}
+                  />
+                </div>
+              ) : null}
+              <div className={styles.headerActions}>
+                {previewMode ? null : (
+                  <LearnerCourseShareButton
+                    surface='learner_desktop_header'
+                    className='h-8 w-8 shrink-0 text-gray-600 shadow-none hover:bg-muted/50 hover:text-foreground'
+                    tooltipSide='bottom'
+                  />
+                )}
+                <LessonPdfDownloadButton
+                  isContentReady={Boolean(currentLessonPdfDownloadAction)}
+                  isFollowUpStreaming={
+                    currentLessonPdfDownloadAction?.isFollowUpStreaming ?? false
+                  }
+                  isPreparing={
+                    currentLessonPdfDownloadAction?.isPreparing ?? false
+                  }
+                  onDownload={currentLessonPdfDownloadAction?.onDownload}
+                />
+                {showModeToggle ? (
+                  <LearningModeSwitch
+                    size={
+                      frameLayout === FRAME_LAYOUT_PC ? 'desktop' : 'mobile'
+                    }
+                  />
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null
+        // <div className={styles.headerMobile}></div>
+      }
+      {runtimeReady ? (
+        <ChatComponents
+          chapterId={chapterId}
+          lessonId={lessonId}
+          lessonUpdate={lessonUpdate}
+          onGoChapter={onGoChapter}
+          lessonTitle={lessonTitle}
+          lessonStatus={lessonStatus}
+          lessonHasContentUpdate={lessonHasContentUpdate}
+          className={styles.chatComponents}
+          previewMode={previewMode}
+          onPurchased={onPurchased}
+          chapterUpdate={chapterUpdate}
+          updateSelectedLesson={updateSelectedLesson}
+          getNextLessonId={getNextLessonId}
+          isNavOpen={isNavOpen}
+          onListenMobileViewModeChange={onListenMobileViewModeChange}
+          onListenPlayerVisibilityChange={setIsListenPlayerVisible}
+          showGenerateBtn={showGenerateBtn}
+          onLessonUpdateNoticeVisibilityChange={
+            handleLessonUpdateNoticeVisibilityChange
+          }
+          onLessonPdfActionChange={setLessonPdfDownloadAction}
+        />
+      ) : (
+        <div
+          className={cn(styles.chatComponents, styles.runtimePlaceholder)}
+          data-testid='chat-runtime-placeholder'
+          role='status'
+          aria-busy='true'
+        >
+          <div
+            className={styles.runtimePlaceholderCard}
+            aria-hidden='true'
+          >
+            <div className={styles.runtimePlaceholderLineLong} />
+            <div className={styles.runtimePlaceholderLineMedium} />
+            <div className={styles.runtimePlaceholderLineShort} />
+          </div>
+          <span className='sr-only'>{t('module.chat.loading')}</span>
+        </div>
+      )}
+
+      <div className={styles.footer}>
+        <div
+          id='chat-scroll-target'
+          className={styles.scrollTarget}
+        />
+        <div className={styles.footerContent}>
+          <span className={styles.footerText}>
+            {t('module.chat.aiGenerated')}
+          </span>
+          <span className={styles.separator}>{footerSeparator}</span>
+          <span className={styles.footerText}>
+            <MarkdownFlowLink
+              prefix={t('module.chat.poweredByPrefix')}
+              suffix={t('module.chat.poweredBySuffix')}
+              linkText={t('module.chat.markdownFlow')}
+            />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default memo(ChatUi);

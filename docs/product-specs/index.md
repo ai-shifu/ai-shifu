@@ -12,8 +12,6 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Operator Course Detail Page](../product-specs/operator-course-detail-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-13` | Canonical: `true`
-- [Operator Course Visit Analytics](../product-specs/operator-course-visit-analytics.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Operator Role Design](../product-specs/operator-role.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
 - [Operator User Management](../product-specs/operator-user-management.md)
@@ -24,3 +22,5 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-08-16` | Canonical: `true`
 - [Operator Course Creator Transfer](../product-specs/transfer-course-creator.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
+- [Cook Web Umami Contract Remediation](../product-specs/web-umami-contract-remediation.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-08-31` | Canonical: `true`

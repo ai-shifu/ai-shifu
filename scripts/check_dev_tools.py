@@ -41,9 +41,9 @@ else:
     LEFTHOOK_PKG_INSTALL = (
         "npm install -g @evilmartians/lefthook  # (or use your package manager)"
     )
-PIP_INSTALL = "pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0"
-RUFF_VERSION = "0.16.3"
-NPM_INSTALL = "cd src/cook-web && npm ci"
+PIP_INSTALL = "pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0"
+RUFF_VERSION = "0.16.5"
+NPM_INSTALL = "cd src/web && npm ci"
 LEFTHOOK_INSTALL = "lefthook install"
 NODE_INSTALL = "install Node.js (see INSTALL_MANUAL.md for the supported version)"
 
@@ -61,7 +61,7 @@ PRE_COMMIT_HOOKS_SCRIPTS = (
 )
 
 # Cook Web prettier is installed locally, not on PATH (see lefthook.yml).
-COOK_WEB_PRETTIER = ROOT / "src" / "cook-web" / "node_modules" / ".bin" / "prettier"
+WEB_PRETTIER = ROOT / "src" / "web" / "node_modules" / ".bin" / "prettier"
 
 
 class Check:
@@ -161,7 +161,7 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
         Check("npm", shutil.which("npm") is not None, NODE_INSTALL, required=False),
         Check(
             "Cook Web prettier (node_modules)",
-            COOK_WEB_PRETTIER.is_file(),
+            WEB_PRETTIER.is_file(),
             NPM_INSTALL,
             required=False,
         ),

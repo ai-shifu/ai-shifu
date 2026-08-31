@@ -256,8 +256,7 @@
       "learnerCount": "Apprenants",
       "orderAmount": "Valeur des commandes (codes inclus)",
       "orderCount": "Commandes",
-      "ratingScore": "Note",
-      "visitCount30d": "Visiteurs (30 j)"
+      "ratingScore": "Note"
     },
     "metricsTooltips": {
       "completedUserAvgCredits": "Crédits moyens dépensés par les utilisateurs ayant terminé ce cours et ayant une consommation de crédits facturée enregistrée.",

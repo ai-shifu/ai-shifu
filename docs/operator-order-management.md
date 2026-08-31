@@ -113,7 +113,7 @@ Do not return merchant secrets.
 
 ### Route
 
-- `src/cook-web/src/app/admin/operations/orders/page.tsx`
+- `src/web/src/app/admin/operations/orders/page.tsx`
 
 ### Layout
 

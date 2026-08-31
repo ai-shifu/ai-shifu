@@ -7,11 +7,11 @@ on:
       - "docker/**"
       - "scripts/**"
       - "src/api/**"
-      - "src/cook-web/**"
+      - "src/web/**"
       - "!src/api/tests/**"
-      - "!src/cook-web/**/__tests__/**"
-      - "!src/cook-web/**/*.test.*"
-      - "src/cook-web/e2e/**"
+      - "!src/web/**/__tests__/**"
+      - "!src/web/**/*.test.*"
+      - "src/web/e2e/**"
       - "!**/*.md"
       - "!**/*.mdx"
   push:
@@ -22,11 +22,11 @@ on:
       - "docker/**"
       - "scripts/**"
       - "src/api/**"
-      - "src/cook-web/**"
+      - "src/web/**"
       - "!src/api/tests/**"
-      - "!src/cook-web/**/__tests__/**"
-      - "!src/cook-web/**/*.test.*"
-      - "src/cook-web/e2e/**"
+      - "!src/web/**/__tests__/**"
+      - "!src/web/**/*.test.*"
+      - "src/web/e2e/**"
       - "!**/*.md"
       - "!**/*.mdx"
   workflow_dispatch:
@@ -73,7 +73,7 @@ jobs:
         with:
           node-version: "22.16.0"
           cache: npm
-          cache-dependency-path: src/cook-web/package-lock.json
+          cache-dependency-path: src/web/package-lock.json
 
       - name: Prepare runtime harness env
         run: |
@@ -203,7 +203,7 @@ jobs:
 
       - name: Resolve Playwright version
         id: playwright-version
-        working-directory: src/cook-web
+        working-directory: src/web
         run: echo "version=$(node -p 'require("./package-lock.json").packages["node_modules/playwright"].version')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
@@ -214,7 +214,7 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
       - name: Install frontend dependencies
-        working-directory: src/cook-web
+        working-directory: src/web
         run: |
           python ../../scripts/harness/runtime_timeline.py mark \
             --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
@@ -240,7 +240,7 @@ jobs:
           exit "$exit_code"
 
       - name: Run fast value smoke harness
-        working-directory: src/cook-web
+        working-directory: src/web
         run: |
           python ../../scripts/harness/runtime_timeline.py mark \
             --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
@@ -284,5 +284,5 @@ jobs:
         with:
           name: runtime-harness-artifacts
           path: |
-            src/cook-web/test-results
+            src/web/test-results
             artifacts/runtime-harness

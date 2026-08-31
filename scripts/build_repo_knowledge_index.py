@@ -31,7 +31,7 @@ REQUIRED_HARNESS_WORKFLOWS = (
 REQUIRED_RUNTIME_ASSETS = (
     ROOT / "scripts" / "check_architecture_boundaries.py",
     ROOT / "src" / "api" / "scripts" / "harness_diagnostics.py",
-    ROOT / "src" / "cook-web" / "e2e" / "smoke.spec.ts",
+    ROOT / "src" / "web" / "e2e" / "smoke.spec.ts",
     ROOT / "docker" / "docker-compose.dev.yml",
     ROOT / "docker" / "observability" / "loki-config.yml",
     ROOT / "docker" / "observability" / "tempo-config.yml",

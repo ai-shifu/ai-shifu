@@ -6,12 +6,14 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 ## Active
 
+- [Account session analytics contract](./active/account-session-analytics.md)
 - [Admin Home Onboarding](./active/admin-home-onboarding.md)
 - [Agent-First Harness Phase 2](./active/agent-first-harness-phase-2.md)
 - [Backend Inventory 2026-07 (Phase 1)](./active/backend-inventory-2026-07.md)
 - [Backend Overhaul Master Plan: Inventory and Optimization](./active/backend-overhaul-master.md)
 - [ExecPlan: Billing Credit Notifications](./active/billing-credit-notifications.md)
 - [Speed Up Backend Pull Request Feedback](./active/ci-backend-speed-stack.md)
+- [Course Sharing](./active/course-sharing.md)
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
 - [Creator Dashboard Course Ownership Optimization](./active/creator-dashboard-course-ownership-optimization.md)
 - [Creator Dashboard Course Ratings](./active/creator-dashboard-course-ratings.md)
@@ -24,6 +26,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
+- [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 
 ## Completed
@@ -37,6 +40,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Global Billing Pricing Page](./completed/global-billing-pricing-page.md)
+- [Hide `sys_user_style` From Course Authoring UI](./completed/hide-sys-user-style-from-authoring-ui.md)
 - [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
 - [Learner Profile Dialog](./completed/learner-profile-dialog-redesign.md)
 - [Learner Profile Foundation](./completed/learner-profile-foundation.md)
@@ -49,9 +53,14 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Give operators and learners explicit control of AI-assisted onboarding](./completed/profile-onboarding-assistant-controls.md)
 - [Make AI-assisted onboarding visible before the first question](./completed/profile-onboarding-assistant-discoverability.md)
 - [Submit AI answers without waiting for a question](./completed/profile-onboarding-assistant-handoff.md)
+- [Make profile-onboarding prompt generation explicit](./completed/profile-onboarding-explicit-prompt-generation.md)
 - [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
+- [Localize profile-onboarding assistant prompts for every supported language](./completed/profile-onboarding-multilingual-assistant-prompts.md)
+- [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
+- [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
+- [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 
 ## Supporting Tracker

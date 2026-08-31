@@ -1,0 +1,102 @@
+import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
+import { resetChapter as apiResetChapter } from '@/c-api/lesson';
+import { CourseStoreState } from '@/c-types/store';
+
+export const useCourseStore = create<
+  CourseStoreState,
+  [['zustand/subscribeWithSelector', never]]
+>(
+  subscribeWithSelector((set, get) => ({
+    courseName: '',
+    updateCourseName: courseName => set(() => ({ courseName })),
+    courseDescription: '',
+    updateCourseDescription: courseDescription =>
+      set(() => ({ courseDescription })),
+    courseAvatar: '',
+    updateCourseAvatar: courseAvatar => set(() => ({ courseAvatar })),
+    courseTtsEnabled: null,
+    updateCourseTtsEnabled: courseTtsEnabled =>
+      set(() => ({ courseTtsEnabled })),
+    courseDefaultListenModeEnabled: null,
+    updateCourseDefaultListenModeEnabled: courseDefaultListenModeEnabled =>
+      set(() => ({ courseDefaultListenModeEnabled })),
+    courseSettingsCourseId: null,
+    updateCourseSettings: (
+      courseSettingsCourseId,
+      { ttsEnabled, defaultListenModeEnabled },
+    ) =>
+      set(() => ({
+        courseSettingsCourseId,
+        courseTtsEnabled: ttsEnabled,
+        courseDefaultListenModeEnabled: defaultListenModeEnabled,
+      })),
+    isCurrentUserCourseOwner: null,
+    updateIsCurrentUserCourseOwner: isCurrentUserCourseOwner =>
+      set(() => ({ isCurrentUserCourseOwner })),
+    lessonId: undefined,
+    updateLessonId: lessonId => set(() => ({ lessonId })),
+    chapterId: '',
+    updateChapterId: newChapterId => {
+      const currentChapterId = get().chapterId;
+      if (currentChapterId === newChapterId) {
+        return;
+      }
+
+      return set(() => ({ chapterId: newChapterId }));
+    },
+    purchased: false,
+    changePurchased: purchased => set(() => ({ purchased })),
+    // Used for resetting a chapter
+    resetedChapterId: null,
+    resettingLessonId: '',
+    resetedLessonId: '',
+    updateResettingLessonId: resettingLessonId =>
+      set(() => ({ resettingLessonId })),
+    updateResetedLessonId: resetedLessonId => set(() => ({ resetedLessonId })),
+    updateResetedChapterId: resetedChapterId =>
+      set(() => ({ resetedChapterId })),
+    resetChapter: async lid => {
+      set({ resettingLessonId: lid });
+      try {
+        await apiResetChapter({ lessonId: lid });
+        // set({ chapterId: resetedChapterId });
+        set({ resetedLessonId: lid, lessonId: lid });
+      } finally {
+        set({ resettingLessonId: '' });
+      }
+    },
+    payModalOpen: false,
+    payModalState: {
+      type: '',
+      payload: {},
+    },
+    payModalResult: null,
+    openPayModal: (options = {}) => {
+      const { type = '', payload = {} } = options;
+      set(() => ({
+        payModalOpen: true,
+        payModalState: { type, payload },
+        payModalResult: null,
+      }));
+    },
+    closePayModal: () => {
+      set(() => ({ payModalOpen: false }));
+    },
+    setPayModalState: (state = {}) => {
+      set(current => ({
+        payModalState: {
+          type:
+            state.type !== undefined ? state.type : current.payModalState.type,
+          payload:
+            state.payload !== undefined
+              ? state.payload
+              : current.payModalState.payload,
+        },
+      }));
+    },
+    setPayModalResult: result => {
+      set(() => ({ payModalResult: result }));
+    },
+  })),
+);

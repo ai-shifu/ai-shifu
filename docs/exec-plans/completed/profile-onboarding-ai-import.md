@@ -219,7 +219,7 @@ frontend. Admin previews share the conversation but cannot import AI answers.
 ## Concrete Steps
 
 Run targeted pytest under the existing Python runtime with worktree imports;
-run focused Jest in `src/cook-web`. Then run Ruff, type-check, ESLint, translation
+run focused Jest in `src/web`. Then run Ruff, type-check, ESLint, translation
 checks, architecture checker, repository harness, dev tool checker, and full
 lefthook pre-commit. Generate knowledge indexes after plan changes. Use real
 browser shell checks with controlled API fixtures where live credentials or

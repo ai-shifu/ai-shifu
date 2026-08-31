@@ -7,10 +7,10 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-cd "$REPO_ROOT/src/cook-web"
+cd "$REPO_ROOT/src/web"
 export NODE_ENV=development
 export NEXT_TELEMETRY_DISABLED=1
 export NODE_OPTIONS="--max-old-space-size=2048"
 export NEXT_PUBLIC_LOGIN_METHODS_ENABLED="${NEXT_PUBLIC_LOGIN_METHODS_ENABLED:-phone}"
 export NEXT_PUBLIC_DEFAULT_LOGIN_METHOD="${NEXT_PUBLIC_DEFAULT_LOGIN_METHOD:-phone}"
-exec ./node_modules/.bin/next dev --turbopack -H 0.0.0.0 -p 3000
+exec npm run dev -- -H 0.0.0.0 -p 3000

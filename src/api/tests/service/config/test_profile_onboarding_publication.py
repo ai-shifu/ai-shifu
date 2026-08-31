@@ -7,9 +7,24 @@ from unittest.mock import Mock
 
 import pytest
 from flaskr.dao import db, uow
+from flaskr.i18n import get_i18n_list
 from flaskr.service.common.models import AppError
 from flaskr.service.config import profile_onboarding as module
 from flaskr.service.config.models import Config
+
+
+@pytest.fixture(autouse=True)
+def stub_prompt_localizer(monkeypatch: object) -> None:
+    from flaskr.service.common import profile_onboarding as config
+
+    monkeypatch.setattr(
+        config,
+        "localize_profile_onboarding_assistant_prompt",
+        lambda _app, prompt, *, target_locales=None: {
+            locale: f"{locale}: {prompt}"
+            for locale in (target_locales or get_i18n_list())
+        },
+    )
 
 
 @pytest.fixture
@@ -110,32 +125,43 @@ def test_failed_database_commit_never_updates_cache(
     assert publication.read_profile_onboarding_database(app) is None
 
 
-def test_edit_during_compilation_is_rejected(
+def test_edit_during_localization_is_rejected(
     app: object, publication: object, monkeypatch: object
 ) -> None:
     from flaskr.service.common import profile_onboarding as config
 
     publication.publish_profile_onboarding_database(
-        app, expected_value=None, value='{"revision":1}', updated_by="first"
+        app,
+        expected_value=None,
+        value=(
+            '{"revision":1,"markdownflow":"?[...Old answer]",'
+            '"assistant_prompt":"Old prompt"}'
+        ),
+        updated_by="first",
     )
     old = publication.read_profile_onboarding_database(app)
 
-    def compile_and_race(_app: object, _document: object) -> object:
+    def localize_and_race(_app: object, prompt: str) -> object:
         publication.publish_profile_onboarding_database(
             app,
             expected_value=old,
             value='{"revision":2,"markdownflow":"?[Continue]"}',
             updated_by="second",
         )
-        return "Compiled stale prompt"
+        return {locale: f"{locale}: {prompt}" for locale in get_i18n_list()}
 
     monkeypatch.setattr(
-        config, "compile_profile_onboarding_assistant_prompt", compile_and_race
+        config, "localize_profile_onboarding_assistant_prompt", localize_and_race
     )
     with pytest.raises(AppError):
         config.update_profile_onboarding_config(
             app,
-            payload={"enabled": True, "markdownflow": "?[...Answer]"},
+            payload={
+                "enabled": True,
+                "markdownflow": "?[...Answer]",
+                "assistant_prompt": "Changed prompt",
+                "config_revision": 1,
+            },
             operator_user_bid="first",
         )
     assert (
@@ -277,7 +303,7 @@ def test_manual_prompt_edit_cannot_replace_a_newer_saved_prompt(
     compiler.assert_not_called()
 
 
-def test_failed_reset_keeps_previously_saved_manual_prompt(
+def test_rejected_enabled_prompt_clear_keeps_previously_saved_manual_prompt(
     app: object, publication: object, monkeypatch: object
 ) -> None:
     import json
@@ -294,15 +320,18 @@ def test_failed_reset_keeps_previously_saved_manual_prompt(
     publication.publish_profile_onboarding_database(
         app, expected_value=None, value=old, updated_by="operator"
     )
-    monkeypatch.setattr(
-        config,
-        "compile_profile_onboarding_assistant_prompt",
-        Mock(side_effect=RuntimeError("provider unavailable")),
-    )
-    payload = {"enabled": True, "markdownflow": "?[...Answer]", "assistant_prompt": ""}
-    with pytest.raises(RuntimeError, match="provider unavailable"):
+    compiler = Mock(side_effect=AssertionError("save must never compile the master"))
+    monkeypatch.setattr(config, "compile_profile_onboarding_assistant_prompt", compiler)
+    payload = {
+        "enabled": True,
+        "markdownflow": "?[...Answer]",
+        "assistant_prompt": "",
+        "config_revision": 1,
+    }
+    with pytest.raises(AppError, match="assistant_prompt"):
         config.update_profile_onboarding_config(
             app, payload=payload, operator_user_bid="operator"
         )
     assert publication.read_profile_onboarding_database(app) == old
     assert payload["assistant_prompt"] == ""
+    compiler.assert_not_called()

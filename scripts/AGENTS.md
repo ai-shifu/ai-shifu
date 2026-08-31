@@ -91,7 +91,7 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 
 - `SKILL.md` is the repository-level skill routing index.
 
-- `src/api/SKILL.md` and `src/cook-web/SKILL.md` remain the right entry points
+- `src/api/SKILL.md` and `src/web/SKILL.md` remain the right entry points
   when a shared script change is tightly coupled to backend or frontend
   behavior.
 

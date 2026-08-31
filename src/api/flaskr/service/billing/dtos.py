@@ -646,6 +646,7 @@ class AdminBillingCampaignDTO(BillingBaseDTO):
     product_types: list[str] = Field(default_factory=list)
     product_names: list[str] = Field(default_factory=list)
     has_custom_product_rules: bool = False
+    provider_discount_summary: dict[str, object] = Field(default_factory=dict)
     computed_status: str
     hit_order_count: int = 0
     start_at: datetime | None

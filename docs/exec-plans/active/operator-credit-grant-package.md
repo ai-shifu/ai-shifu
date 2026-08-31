@@ -51,9 +51,9 @@ transaction.
 ## Context and Orientation
 
 - Frontend entry and dialog:
-  - `src/cook-web/src/app/admin/operations/users/page.tsx`
-  - `src/cook-web/src/app/admin/operations/users/UserCreditGrantDialog.tsx`
-  - `src/cook-web/src/app/admin/operations/operation-user-types.ts`
+  - `src/web/src/app/admin/operations/users/page.tsx`
+  - `src/web/src/app/admin/operations/users/UserCreditGrantDialog.tsx`
+  - `src/web/src/app/admin/operations/operation-user-types.ts`
 - Frontend i18n:
   - `src/i18n/zh-CN/modules/operations-user.json`
   - `src/i18n/en-US/modules/operations-user.json`
@@ -127,5 +127,5 @@ transaction.
 
 - New operator routes under `/api/shifu/admin/operations/users/...`.
 - Billing plan projections reuse `BillingPlanDTO`.
-- Frontend plan display reuses `src/cook-web/src/lib/billing.ts` interval and
+- Frontend plan display reuses `src/web/src/lib/billing.ts` interval and
   validity helpers.

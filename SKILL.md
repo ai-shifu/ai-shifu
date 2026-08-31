@@ -9,14 +9,14 @@
 
 - Keep `ai-shifu/SKILL.md` for cross-project skill routing, ownership boundaries, and migration notes.
 - Keep `src/api/SKILL.md` for backend project-level skill entry points and focused skill indexes.
-- Keep `src/cook-web/SKILL.md` for long-lived cook-web constraints and focused skill indexes.
-- Keep `src/api/skills/xxx/SKILL.md` or `src/cook-web/skills/xxx/SKILL.md` for focused skills with triggers, workflows, and regression checklists.
+- Keep `src/web/SKILL.md` for long-lived Cook Web constraints and focused skill indexes.
+- Keep `src/api/skills/xxx/SKILL.md` or `src/web/skills/xxx/SKILL.md` for focused skills with triggers, workflows, and regression checklists.
 
 ## Entry Points
 
 - Backend: `src/api/SKILL.md`
-- Frontend: `src/cook-web/SKILL.md`
-- Frontend skills index: `src/cook-web/skills/README.md`
+- Frontend: `src/web/SKILL.md`
+- Frontend skills index: `src/web/skills/README.md`
 - Backend skills index: `src/api/skills/README.md`
 
 ## Migration Notes

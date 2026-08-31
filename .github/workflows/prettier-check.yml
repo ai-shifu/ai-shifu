@@ -3,12 +3,12 @@ name: Prettier Check
 on:
   pull_request:
     paths:
-      - 'src/cook-web/**'
+      - 'src/web/**'
   push:
     branches:
       - main
     paths:
-      - 'src/cook-web/**'
+      - 'src/web/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -23,14 +23,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js (match Cook Web engines)
+      - name: Setup Node.js (match web frontend engines)
         uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
 
       - name: Install dependencies
         run: |
-          cd src/cook-web
+          cd src/web
           npm ci
 
       - name: Check Prettier formatting for changed files
@@ -38,5 +38,5 @@ jobs:
           PRETTIER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           PRETTIER_HEAD_SHA: ${{ github.sha }}
         run: |
-          cd src/cook-web
+          cd src/web
           npm run format:check:changed

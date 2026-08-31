@@ -2,15 +2,15 @@
 #
 # Replaces pre-commit / pre-commit.ci. Lefthook is a single Go binary that
 # calls the tools already installed on your machine (ruff, the pre-commit-hooks
-# console scripts, prettier/eslint from src/cook-web, commitizen, and the
+# console scripts, prettier/eslint from src/web, commitizen, and the
 # repo's stdlib python check scripts) directly -- no isolated environments and
 # no per-run package downloads.
 #
 # One-time setup (see AGENTS.md / docs/engineering-baseline.md):
 #   macOS: brew install lefthook
 #   Linux/Windows: npm install -g @evilmartians/lefthook
-#   pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
-#   (cd src/cook-web && npm ci)   # provides prettier + eslint
+#   pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0
+#   (cd src/web && npm ci)   # provides prettier + eslint
 #   lefthook install
 #
 # Manual runs:
@@ -64,27 +64,27 @@ pre-commit:
       run: ruff format {staged_files}
       stage_fixed: true
 
-    # --- Frontend (cook-web local tooling) ----------------------------------
-    prettier-cook-web:
-      glob: "src/cook-web/**/*.{js,jsx,ts,tsx,mjs,cjs,css,scss,md,mdx,json}"
-      run: src/cook-web/node_modules/.bin/prettier --write --config src/cook-web/.prettierrc --ignore-path src/cook-web/.prettierignore {staged_files}
+    # --- Frontend (web local tooling) ---------------------------------------
+    prettier-web:
+      glob: "src/web/**/*.{js,jsx,ts,tsx,mjs,cjs,css,scss,md,mdx,json}"
+      run: src/web/node_modules/.bin/prettier --write --config src/web/.prettierrc --ignore-path src/web/.prettierignore {staged_files}
       stage_fixed: true
     eslint:
-      glob: "src/cook-web/**/*.{js,jsx,ts,tsx}"
-      # Strip the src/cook-web/ prefix per argument so `next lint --file` gets
-      # cook-web-relative paths while each file stays a separate shell argument
+      glob: "src/web/**/*.{js,jsx,ts,tsx}"
+      # Strip the src/web/ prefix per argument so `next lint --file` gets
+      # web-relative paths while each file stays a separate shell argument
       # (robust to spaces / glob characters in paths).
-      run: bash -c 'cd src/cook-web && args=(); for f in "$@"; do args+=("${f#src/cook-web/}"); done; npm run lint-file -- "${args[@]}"' -- {staged_files}
+      run: bash -c 'cd src/web && args=(); for f in "$@"; do args+=("${f#src/web/}"); done; npm run lint-file -- "${args[@]}"' -- {staged_files}
       stage_fixed: true
 
     # --- Repo guardrails (stdlib python, run once; glob only gates whether) ---
     check-repo-harness:
-      glob: "{AGENTS.md,CLAUDE.md,ARCHITECTURE.md,PLANS.md,docs/**,.claude/**,.cursor/**,.github/**,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/check_ai_collab_docs.py,scripts/generate_ai_collab_docs.py}"
+      glob: "{.gitignore,.codex/**,AGENTS.md,CLAUDE.md,ARCHITECTURE.md,INSTALL_MANUAL.md,PLANS.md,README.md,docs/**,.claude/**,.cursor/**,.github/**,lefthook.yml,src/web/Dockerfile,src/web/README.md,src/web/package.json,src/web/scripts/migrate-legacy-frontend-env.js,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/check_ai_collab_docs.py,scripts/generate_ai_collab_docs.py}"
       run: python3 scripts/check_repo_harness.py
     check-example-identifiers:
       run: python3 scripts/check_example_identifiers.py --staged
     check-architecture-boundaries:
-      glob: "{docs/generated/architecture-boundary-baseline.json,docs/references/architecture-boundaries.md,scripts/check_architecture_boundaries.py,scripts/testdata/architecture_boundaries/**,src/api/**,src/cook-web/src/**}"
+      glob: "{docs/generated/architecture-boundary-baseline.json,docs/references/architecture-boundaries.md,scripts/check_architecture_boundaries.py,scripts/testdata/architecture_boundaries/**,src/api/**,src/web/src/**}"
       run: python3 scripts/check_architecture_boundaries.py
     check-shared-translations:
       run: python3 scripts/check_translations.py

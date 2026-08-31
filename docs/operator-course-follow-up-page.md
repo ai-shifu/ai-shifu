@@ -11,13 +11,13 @@ the course context.
 
 ### Frontend route
 
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/follow-ups/page.tsx`
+- `src/web/src/app/admin/operations/[shifu_bid]/follow-ups/page.tsx`
 - URL: `/admin/operations/[shifu_bid]/follow-ups`
 
 ### Entry point
 
 - keep the existing operator course detail page at
-  `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
+  `src/web/src/app/admin/operations/[shifu_bid]/page.tsx`
 - make the `追问数` metric card clickable
 - clicking the card navigates to the follow-up page for the current course
 

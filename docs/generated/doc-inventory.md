@@ -22,12 +22,14 @@
 | `docs/design-docs/primary-surface-rules.md` | Primary Surface Rules Completion | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
+| `docs/exec-plans/active/account-session-analytics.md` | Account session analytics contract | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/backend-inventory-2026-07.md` | Backend Inventory 2026-07 (Phase 1) | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/backend-overhaul-master.md` | Backend Overhaul Master Plan: Inventory and Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/billing-credit-notifications.md` | ExecPlan: Billing Credit Notifications | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ci-backend-speed-stack.md` | Speed Up Backend Pull Request Feedback | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-dashboard-course-ownership-optimization.md` | Creator Dashboard Course Ownership Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-dashboard-course-ratings.md` | Creator Dashboard Course Ratings | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -40,6 +42,7 @@
 | `docs/exec-plans/active/operator-promotion-ops-state-rules.md` | ExecPlan: Operator Promotion Ops State Rules | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Minimize the Explicit Ruff Policy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-rate-management-create.md` | Add arbitrary rate entries to Rate Management | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
@@ -50,6 +53,7 @@
 | `docs/exec-plans/completed/course-copy-operator.md` | Operator Course Copy | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/elevenlabs-tts.md` | ElevenLabs TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/global-billing-pricing-page.md` | Global Billing Pricing Page | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/hide-sys-user-style-from-authoring-ui.md` | Hide `sys_user_style` From Course Authoring UI | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learn-run-decomposition.md` | ExecPlan: Learn /run Chain Decomposition (B6) | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-dialog-redesign.md` | Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-foundation.md` | Learner Profile Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
@@ -62,9 +66,14 @@
 | `docs/exec-plans/completed/profile-onboarding-assistant-controls.md` | Give operators and learners explicit control of AI-assisted onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-assistant-discoverability.md` | Make AI-assisted onboarding visible before the first question | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-assistant-handoff.md` | Submit AI answers without waiting for a question | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/profile-onboarding-explicit-prompt-generation.md` | Make profile-onboarding prompt generation explicit | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-guided.md` | Profile onboarding guided questions (PR2) | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/profile-onboarding-multilingual-assistant-prompts.md` | Localize profile-onboarding assistant prompts for every supported language | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/profile-onboarding-retention.md` | Explain personalization before deferring profile setup | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-structural-simplification.md` | Profile Onboarding Structural Simplification | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/runtime-harness-fast-value-gate.md` | Runtime Harness Fast Value Gate | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/umami-contract-remediation.md` | Remediate Cook Web Umami contracts | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/umami-scope-correction.md` | Correct the Umami remediation scope | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/unified-learner-profile-dialog.md` | Unified Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/tech-debt-tracker.md` | Tech Debt Tracker | `exec-plan-support` | `active` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-gardening-summary.md` | Harness Gardening Summary | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
@@ -73,12 +82,13 @@
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `implemented` | `frontend` | `2026-04-17` | `true` |
 | `docs/product-specs/operator-course-detail-page.md` | Operator Course Detail Page | `product-spec` | `implemented` | `shared` | `2026-05-13` | `true` |
-| `docs/product-specs/operator-course-visit-analytics.md` | Operator Course Visit Analytics | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/operator-role.md` | Operator Role Design | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/operator-user-management.md` | Operator User Management | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
+| `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-08-31` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/i18n.md` | Internationalization (i18n) Guide | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/scripts.md` | Scripts Overview | `reference` | `reference` | `repo` | `-` | `true` |

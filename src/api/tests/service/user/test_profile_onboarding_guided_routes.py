@@ -423,10 +423,32 @@ def test_profile_onboarding_skip_ignores_busy_session_cleanup(
     assert _data(response) == {"skipped": True}
 
 
-def test_profile_onboarding_session_start_snapshots_config_and_language(
-    monkeypatch: object, test_client: object
+@pytest.mark.parametrize(
+    (
+        "requested_language",
+        "accept_language",
+        "user_language",
+        "expected_language",
+        "expected_prompt",
+    ),
+    [
+        ("zh_cn", "fr-FR", "ar-SA", "zh-CN", "中文问卷提示词"),
+        ("fr_fr", "ar-SA", "zh-CN", "fr-FR", "Prompt français"),
+        (None, "ar-AE,fr-FR;q=0.9", "fr-FR", "ar-SA", "تعليمات عربية"),
+        (None, None, "fr-FR", "fr-FR", "Prompt français"),
+    ],
+)
+def test_profile_onboarding_session_start_snapshots_localized_prompt_and_language(
+    monkeypatch: object,
+    test_client: object,
+    requested_language: object,
+    accept_language: object,
+    user_language: object,
+    expected_language: object,
+    expected_prompt: object,
 ) -> None:
     user = _authenticate(monkeypatch)
+    user.language = user_language
     calls = []
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_config",
@@ -435,6 +457,84 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
             "markdownflow": "  ?[Continue]  ",
             "config_revision": 12,
             "assistant_prompt": "Shared questionnaire prompt",
+            "assistant_prompts": {
+                "zh-CN": "中文问卷提示词",
+                "en-US": "English questionnaire prompt",
+                "fr-FR": "Prompt français",
+                "ar-SA": "تعليمات عربية",
+                "th-TH": "คำแนะนำภาษาไทย",
+            },
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.route.profile.get_profile_onboarding_status",
+        lambda _app, **_kwargs: {
+            "guided_available": True,
+            "handled": False,
+            "should_show": True,
+            "has_learner_profile": False,
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.start_profile_research_session",
+        lambda _app, **kwargs: (
+            calls.append(kwargs)
+            or {"session_id": "session-started", "config_revision": 12}
+        ),
+    )
+
+    headers = {"Token": "token"}
+    if accept_language is not None:
+        headers["Accept-Language"] = accept_language
+    payload = {"intent": "onboarding"}
+    if requested_language is not None:
+        payload["language"] = requested_language
+    response = test_client.post(
+        "/api/user/profile-onboarding/session", headers=headers, json=payload
+    )
+
+    assert _data(response) == {
+        "session_id": "session-started",
+        "config_revision": 12,
+    }
+    assert calls == [
+        {
+            "user_bid": user.user_id,
+            "document": "?[Continue]",
+            "purpose": "profile-onboarding",
+            "config_revision": 12,
+            "assistant_prompt": expected_prompt,
+            "output_language": expected_language,
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ("assistant_prompts", "legacy_assistant_prompt", "expected_prompt"),
+    [
+        ({"en-US": "English fallback"}, "Legacy prompt", "English fallback"),
+        ({"fr-FR": "Prompt français"}, "Legacy prompt", "Legacy prompt"),
+        ({"fr-FR": "Prompt français"}, "", ""),
+        ({"fr-FR": "Prompt français"}, "   ", ""),
+    ],
+)
+def test_profile_onboarding_session_start_falls_back_to_available_prompt(
+    monkeypatch: object,
+    test_client: object,
+    assistant_prompts: object,
+    legacy_assistant_prompt: object,
+    expected_prompt: object,
+) -> None:
+    user = _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.profile.get_profile_onboarding_config",
+        lambda: {
+            "enabled": True,
+            "markdownflow": "?[Continue]",
+            "config_revision": 12,
+            "assistant_prompt": legacy_assistant_prompt,
+            "assistant_prompts": assistant_prompts,
         },
     )
     monkeypatch.setattr(
@@ -457,7 +557,7 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
     response = test_client.post(
         "/api/user/profile-onboarding/session",
         headers={"Token": "token"},
-        json={"language": "zh_cn", "intent": "onboarding"},
+        json={"language": "zh-CN", "intent": "onboarding"},
     )
 
     assert _data(response) == {
@@ -470,7 +570,7 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
             "document": "?[Continue]",
             "purpose": "profile-onboarding",
             "config_revision": 12,
-            "assistant_prompt": "Shared questionnaire prompt",
+            "assistant_prompt": expected_prompt,
             "output_language": "zh-CN",
         }
     ]
@@ -1002,9 +1102,22 @@ def test_learner_profile_update_rejects_invalid_shapes(
     assert response.get_json(force=True)["code"] != 0
 
 
-@pytest.mark.parametrize("extra_payload", [{}, {"assistant_prompt": " Edited prompt "}])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"enabled": True, "markdownflow": "flow", "config_revision": 3},
+        {
+            "enabled": True,
+            "markdownflow": "flow",
+            "assistant_prompt": " Edited prompt ",
+            "config_revision": 3,
+        },
+        {"enabled": True, "markdownflow": "flow", "assistant_prompt": ""},
+    ],
+    ids=["current", "current-edited-prompt", "legacy-regeneration-sentinel"],
+)
 def test_operator_profile_onboarding_config_routes_delegate(
-    monkeypatch: object, test_client: object, extra_payload: dict
+    monkeypatch: object, test_client: object, payload: dict
 ) -> None:
     user = _authenticate(monkeypatch)
     calls = []
@@ -1027,25 +1140,67 @@ def test_operator_profile_onboarding_config_routes_delegate(
     updated = test_client.post(
         "/api/shifu/admin/operations/profile-onboarding",
         headers={"Token": "token"},
-        json={
-            "enabled": True,
-            "markdownflow": "flow",
-            **extra_payload,
-        },
+        json=payload,
     )
 
     assert _data(fetched) == {"enabled": False, "config_revision": 3}
     assert _data(updated) == {"enabled": True, "config_revision": 4}
     assert calls == [
         {
-            "payload": {
-                "enabled": True,
-                "markdownflow": "flow",
-                **extra_payload,
-            },
+            "payload": payload,
             "operator_user_bid": user.user_id,
         }
     ]
+
+
+def test_operator_profile_onboarding_prompt_generation_delegates_without_saving(
+    monkeypatch: object, test_client: object
+) -> None:
+    _authenticate(monkeypatch)
+    generation_calls = []
+    save_calls = []
+    monkeypatch.setattr(
+        "flaskr.route.admin_profile_onboarding.generate_profile_onboarding_assistant_prompt",
+        lambda _app, **kwargs: (
+            generation_calls.append(kwargs)
+            or {"assistant_prompt": "Generated editable prompt"}
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.admin_profile_onboarding.update_operator_profile_onboarding_config",
+        lambda _app, **kwargs: save_calls.append(kwargs),
+    )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+        headers={"Token": "token"},
+        json={"markdownflow": "  ?[...Unsaved answer]  "},
+    )
+
+    assert _data(response) == {"assistant_prompt": "Generated editable prompt"}
+    assert generation_calls == [{"markdownflow": "?[...Unsaved answer]"}]
+    assert save_calls == []
+
+
+def test_operator_profile_onboarding_prompt_generation_validates_document_before_llm(
+    monkeypatch: object, test_client: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    _authenticate(monkeypatch)
+    compiler = Mock()
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+        headers={"Token": "token"},
+        json={"markdownflow": "?[]"},
+    )
+
+    assert response.get_json(force=True)["code"] != 0
+    compiler.assert_not_called()
 
 
 def test_operator_profile_onboarding_preview_start_is_isolated_and_purpose_scoped(
@@ -1308,6 +1463,9 @@ def test_operator_profile_onboarding_preview_start_maps_busy_error(
 @pytest.mark.parametrize(
     "payload",
     [
+        {},
+        {"markdownflow": "flow"},
+        {"enabled": False},
         None,
         [],
         {"enabled": True, "markdownflow": "?[...Answer]", "assistant_prompt": None},
@@ -1316,7 +1474,24 @@ def test_operator_profile_onboarding_preview_start_maps_busy_error(
         {
             "enabled": True,
             "markdownflow": "flow",
+            "assistant_prompt": "prompt",
+            "config_revision": True,
+        },
+        {
+            "enabled": True,
+            "markdownflow": "flow",
+            "assistant_prompt": "prompt",
+            "config_revision": -1,
+        },
+        {
+            "enabled": True,
+            "markdownflow": "flow",
             "document_prompt": "removed",
+        },
+        {
+            "enabled": False,
+            "markdownflow": "flow",
+            "assistant_prompts": {"en-US": "Read only"},
         },
     ],
 )
@@ -1336,6 +1511,22 @@ def test_operator_profile_onboarding_config_rejects_invalid_shapes(
 @pytest.mark.parametrize(
     ("path", "payload"),
     [
+        (
+            "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+            [],
+        ),
+        (
+            "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+            {"markdownflow": ""},
+        ),
+        (
+            "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+            {"markdownflow": False},
+        ),
+        (
+            "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+            {"markdownflow": "flow", "language": "en-US"},
+        ),
         (
             "/api/shifu/admin/operations/profile-onboarding/preview",
             [],
@@ -1394,7 +1585,7 @@ def test_operator_profile_onboarding_config_rejects_invalid_shapes(
         ),
     ],
 )
-def test_operator_profile_onboarding_preview_rejects_invalid_shapes(
+def test_operator_profile_onboarding_actions_reject_invalid_shapes(
     monkeypatch: object, test_client: object, path: object, payload: object
 ) -> None:
     _authenticate(monkeypatch)
@@ -1421,6 +1612,18 @@ def test_operator_profile_onboarding_config_requires_operator(
             if method == "post"
             else {}
         ),
+    )
+    assert response.get_json(force=True)["code"] != 0
+
+
+def test_operator_profile_onboarding_prompt_generation_requires_operator(
+    monkeypatch: object, test_client: object
+) -> None:
+    _authenticate(monkeypatch, is_operator=False)
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/assistant-prompt/generate",
+        headers={"Token": "token"},
+        json={"markdownflow": "?[...Answer]"},
     )
     assert response.get_json(force=True)["code"] != 0
 

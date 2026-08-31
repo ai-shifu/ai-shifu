@@ -1,0 +1,2010 @@
+'use client';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
+import { Rnd } from 'react-rnd';
+import { useTranslation } from 'react-i18next';
+import {
+  ChevronLeft,
+  Columns2,
+  Info,
+  ListCollapse,
+  Loader2,
+  Plus,
+  Sparkles,
+  X,
+} from 'lucide-react';
+import { useEnvStore } from '@/c-store';
+import api from '@/api';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import { EnvStoreState } from '@/c-types/store';
+import {
+  buildUrlWithLessonId,
+  replaceCurrentUrlWithLessonId,
+} from '@/c-utils/urlUtils';
+import { toast } from '@/hooks/useToast';
+import { normalizeLanguage } from '@/i18n';
+import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
+import { cn } from '@/lib/utils';
+import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { resolveCourseCreditInsufficientAudience } from '@/lib/creditInsufficientToast';
+import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
+import {
+  DraftMeta,
+  LessonCreationSettings,
+  MdflowHistoryItem,
+  MdflowHistoryVersionDetail,
+} from '@/types/shifu';
+import ChapterSettingsDialog from '@/components/chapter-setting';
+import LessonPreview from '@/components/lesson-preview';
+import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
+import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
+import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editorOnboardingSteps';
+import OutlineTree from '@/components/outline-tree';
+import DraftConflictDialog from './DraftConflictDialog';
+import Loading from '../loading';
+import Header from '../header';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
+import { Button } from '@/components/ui/Button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import {
+  useCreatorOnboardingStatus,
+  useOnboarding,
+} from '@/hooks/useOnboarding';
+import { ONBOARDING_TARGET_IDS } from '@/lib/onboardingTargets';
+import './shifuEdit.scss';
+
+const MarkdownFlowEditor = dynamic(
+  () => import('markdown-flow-ui/editor').then(mod => mod.MarkdownFlowEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className='h-40 flex items-center justify-center'>
+        <Loading />
+      </div>
+    ),
+  },
+);
+
+const HIDDEN_SYSTEM_VARIABLE_KEYS = new Set([
+  'sys_user_style',
+  'sys_user_input',
+]);
+
+const OUTLINE_DEFAULT_WIDTH = 256;
+const OUTLINE_COLLAPSED_WIDTH = 60;
+const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
+const SUPPORTED_EDITOR_TRIGGER_SOURCES = new Set([
+  'editor_entry',
+  'manual_create',
+  'lobster_create',
+  'skills_create',
+]);
+const DEFAULT_EDITOR_TRIGGER_SOURCE = 'editor_entry';
+const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
+const PROFILE_RECOVERY_INITIAL_DELAY_MS = 1000;
+const PROFILE_RECOVERY_MAX_DELAY_MS = 10000;
+
+const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
+
+export const resolveEditorOnboardingTriggerSource = (
+  source: string | null | undefined,
+) => {
+  const explicitSource = String(source || '').trim();
+  return SUPPORTED_EDITOR_TRIGGER_SOURCES.has(explicitSource)
+    ? explicitSource
+    : DEFAULT_EDITOR_TRIGGER_SOURCE;
+};
+// Collect variable names that truly exist in current markdown content
+const extractVariableNames = (text?: string | null) => {
+  if (!text) {
+    return [];
+  }
+  const collected = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = VARIABLE_NAME_REGEXP.exec(text)) !== null) {
+    if (match[1]) {
+      collected.add(match[1]);
+    }
+    if (VARIABLE_NAME_REGEXP.lastIndex === match.index) {
+      VARIABLE_NAME_REGEXP.lastIndex += 1;
+    }
+  }
+  VARIABLE_NAME_REGEXP.lastIndex = 0;
+  return Array.from(collected);
+};
+
+type ScriptEditorProps = {
+  id: string;
+  initialLessonId?: string;
+  initialViewMode?: 'edit' | 'history';
+};
+
+type DraftConflictMode = 'other-user' | 'same-user';
+
+const getDraftSyncTargetKey = (shifuBid: string, outlineBid: string) =>
+  `${shifuBid}:${outlineBid}`;
+
+const ScriptEditor = ({
+  id,
+  initialLessonId = '',
+  initialViewMode = 'edit',
+}: ScriptEditorProps) => {
+  const { t, i18n } = useTranslation();
+  const { t: tOnboarding } = useTranslation('module.onboarding');
+  const { trackEvent } = useTracking();
+  const searchParams = useSearchParams();
+  const profile = useUserStore(state => state.userInfo);
+  const isInitialized = useUserStore(state => state.isInitialized);
+  const isGuest = useUserStore(state => state.isGuest);
+  const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
+  const [foldOutlineTree, setFoldOutlineTree] = useState(false);
+  const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
+  const previousOutlineWidthRef = useRef(OUTLINE_DEFAULT_WIDTH);
+  const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
+  const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
+  const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
+  const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
+  const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
+    useState(false);
+  const [draftConflictMode, setDraftConflictMode] =
+    useState<DraftConflictMode>('other-user');
+  const [remoteSyncNotice, setRemoteSyncNotice] = useState<string | null>(null);
+  const [historyItems, setHistoryItems] = useState<MdflowHistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isHistoryRestoring, setIsHistoryRestoring] = useState(false);
+  const [selectedHistoryVersionId, setSelectedHistoryVersionId] = useState<
+    number | null
+  >(null);
+  const [isHistoryRestoreDialogOpen, setIsHistoryRestoreDialogOpen] =
+    useState(false);
+  const [isHistoryVersionDetailLoading, setIsHistoryVersionDetailLoading] =
+    useState(false);
+  const [historyVersionDetail, setHistoryVersionDetail] =
+    useState<MdflowHistoryVersionDetail | null>(null);
+  const [historyVersionLoadError, setHistoryVersionLoadError] = useState<
+    string | null
+  >(null);
+  const historyRequestIdRef = useRef(0);
+  const historyDetailRequestIdRef = useRef(0);
+  const selectedHistoryVersionIdRef = useRef<number | null>(null);
+  const [recentVariables, setRecentVariables] = useState<string[]>([]);
+  const seenVariableNamesRef = useRef<Set<string>>(new Set());
+  const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
+  const currentLessonBidRef = useRef<string | null>(null);
+  const {
+    mdflow,
+    chapters,
+    actions,
+    isLoading,
+    variables,
+    systemVariables,
+    hiddenVariables,
+    unusedVariables,
+    hideUnusedMode,
+    currentShifu,
+    currentNode,
+    baseRevision,
+    latestDraftMeta,
+    hasDraftConflict,
+    autosavePaused,
+  } = useShifu();
+  const currentUserId = profile?.user_bid || profile?.user_id || '';
+  const isCourseOwner = profile
+    ? Boolean(
+        currentShifu?.created_user_bid &&
+        currentUserId &&
+        currentShifu.created_user_bid === currentUserId,
+      )
+    : null;
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: true,
+    isCurrentUserCourseOwner: isCourseOwner,
+  });
+
+  const {
+    items: previewItems,
+    isLoading: previewLoading,
+    error: previewError,
+    startPreview,
+    stopPreview,
+    resetPreview,
+    onRefresh,
+    onSend,
+    persistVariables,
+    onVariableChange,
+    variables: previewVariables,
+    requestAudioForBlock: requestPreviewAudioForBlock,
+    reGenerateConfirm,
+  } = usePreviewChat({ creditInsufficientAudience });
+  const editorScopeKey = useMemo(
+    () => `${currentShifu?.bid || ''}:${currentNode?.bid || ''}`,
+    [currentNode?.bid, currentShifu?.bid],
+  );
+  const [editorContent, setEditorContent] = useState(mdflow);
+  const editorContentScopeRef = useRef(editorScopeKey);
+  const lastLocalEditorContentRef = useRef(mdflow);
+  const skipNextEditorContentSyncRef = useRef(false);
+  const editModeOptions = useMemo(
+    () => [
+      {
+        label: t('module.shifu.creationArea.modeText'),
+        value: 'quickEdit' as EditMode,
+      },
+      {
+        label: t('module.shifu.creationArea.modeCode'),
+        value: 'codeEdit' as EditMode,
+      },
+    ],
+    [t],
+  );
+
+  useEffect(() => {
+    if (profile && profile.language) {
+      const next = normalizeLanguage(profile.language);
+      if ((i18n.resolvedLanguage ?? i18n.language) !== next) {
+        i18n.changeLanguage(next);
+      }
+    }
+  }, [i18n, profile]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const storedWidth = window.localStorage.getItem(OUTLINE_STORAGE_KEY);
+    const parsedWidth = storedWidth ? Number.parseInt(storedWidth, 10) : NaN;
+    if (!Number.isNaN(parsedWidth) && parsedWidth >= OUTLINE_DEFAULT_WIDTH) {
+      setOutlineWidth(parsedWidth);
+      previousOutlineWidthRef.current = parsedWidth;
+    }
+  }, []);
+
+  useEffect(() => {
+    const baseTitle = t('common.core.adminTitle');
+    const suffix = currentShifu?.name ? ` - ${currentShifu.name}` : '';
+    document.title = `${baseTitle}${suffix}`;
+  }, [t, currentShifu?.name]);
+
+  const token = useUserStore(state => state.getToken());
+  const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
+
+  useEffect(() => {
+    if (!isInitialized || isGuest || profile || !token) {
+      return;
+    }
+
+    let cancelled = false;
+    let retryDelay = PROFILE_RECOVERY_INITIAL_DELAY_MS;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const needsProfileRecovery = () => {
+      const state = useUserStore.getState();
+      return (
+        !cancelled &&
+        state.isInitialized &&
+        !state.isGuest &&
+        !state.userInfo &&
+        state.getToken() === token
+      );
+    };
+
+    const recoverProfile = async () => {
+      if (!needsProfileRecovery()) {
+        return;
+      }
+
+      try {
+        // Initialization can complete without a profile after a network failure.
+        // Keep ownership unresolved while quietly recovering that profile.
+        await refreshUserInfo({ skipErrorToast: true });
+      } catch (error) {
+        const { status, code } = (error ?? {}) as {
+          status?: unknown;
+          code?: unknown;
+        };
+        if (
+          [401, 403, 404].includes(Number(status)) ||
+          [401, 403, 404, 1001, 1004, 1005, 9002].includes(Number(code))
+        ) {
+          return;
+        }
+      }
+
+      if (needsProfileRecovery()) {
+        retryDelay = Math.min(retryDelay * 2, PROFILE_RECOVERY_MAX_DELAY_MS);
+        timeoutId = setTimeout(recoverProfile, retryDelay);
+      }
+    };
+
+    // Defer even the first attempt so StrictMode cleanup prevents duplicate work.
+    timeoutId = setTimeout(recoverProfile, retryDelay);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [isGuest, isInitialized, profile, refreshUserInfo, token]);
+
+  const isHistoryPage = initialViewMode === 'history';
+  const editorOnboardingTriggerSource = useMemo(() => {
+    const source =
+      searchParams?.get('onboarding_source') || searchParams?.get('onboarding');
+    return resolveEditorOnboardingTriggerSource(source);
+  }, [searchParams]);
+  const [editorOnboardingReady, setEditorOnboardingReady] = useState(false);
+  useEffect(() => {
+    if (isHistoryPage || !currentShifu?.bid) {
+      setEditorOnboardingReady(false);
+      return;
+    }
+
+    setEditorOnboardingReady(false);
+    const timeoutId = window.setTimeout(() => {
+      setEditorOnboardingReady(true);
+    }, CREATED_COURSE_ONBOARDING_DELAY_MS);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentShifu?.bid, isHistoryPage]);
+  const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
+    useCreatorOnboardingStatus(Boolean(currentUserId));
+  const courseEditorSceneStatus =
+    onboardingStatus?.scenes.course_editor_onboarding;
+  const editorOnboardingSteps = useMemo(
+    () =>
+      buildCourseEditorOnboardingSteps({
+        t: tOnboarding,
+        targetIds: {
+          backHome: ONBOARDING_TARGET_IDS.editorBackHome,
+          settingsEntry: ONBOARDING_TARGET_IDS.editorSettingsEntry,
+          listenMode: ONBOARDING_TARGET_IDS.editorCourseListenMode,
+          publish: ONBOARDING_TARGET_IDS.editorPublish,
+        },
+      }),
+    [tOnboarding],
+  );
+  const shouldShowCourseEditorOnboarding =
+    !isHistoryPage &&
+    editorOnboardingReady &&
+    courseEditorSceneStatus?.eligible === true &&
+    (courseEditorSceneStatus?.status ?? null) === null &&
+    isCourseOwner;
+  const replayScenes = useOnboardingReplayStore(state => state.replayScenes);
+  const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
+  const isCourseEditorReplay = replayScenes.course_editor_onboarding;
+  const courseEditorOnboardingEnabled =
+    !isHistoryPage &&
+    (shouldShowCourseEditorOnboarding || isCourseEditorReplay);
+  const actionsRef = useRef(actions);
+  const baseRevisionRef = useRef<number | null>(null);
+  const conflictStateRef = useRef({
+    hasDraftConflict: false,
+    autosavePaused: false,
+  });
+  const currentUserIdRef = useRef<string | null>(null);
+  const currentShifuBidRef = useRef<string | null>(null);
+  const initializedShifuRef = useRef<string | null>(null);
+  const remoteDraftSyncingTargetsRef = useRef<Set<string>>(new Set());
+  const trackedEditorOnboardingStartRef = useRef(false);
+
+  const persistCourseEditorOnboarding = useCallback(
+    async (status: 'completed' | 'skipped') => {
+      const version = onboardingStatus?.version || 'v1';
+      const language = profile?.language || i18n.language;
+      try {
+        await api.completeCreatorOnboarding({
+          scene_key: 'course_editor_onboarding',
+          version,
+          trigger_source: editorOnboardingTriggerSource,
+          status,
+        });
+        trackEvent(
+          status === 'skipped'
+            ? 'creator_onboarding_skipped'
+            : 'creator_onboarding_completed',
+          {
+            scene_key: 'course_editor_onboarding',
+            version,
+            user_segment: onboardingStatus?.user_segment || 'ineligible',
+            trigger_source: editorOnboardingTriggerSource,
+            language,
+          },
+        );
+      } catch {
+        trackEvent('creator_onboarding_complete_failed', {
+          scene_key: 'course_editor_onboarding',
+          version,
+          user_segment: onboardingStatus?.user_segment || 'ineligible',
+          trigger_source: editorOnboardingTriggerSource,
+          language,
+        });
+      }
+      await mutateOnboardingStatus(current => {
+        if (!current) {
+          return current;
+        }
+        return {
+          ...current,
+          scenes: {
+            ...current.scenes,
+            course_editor_onboarding: {
+              ...current.scenes.course_editor_onboarding,
+              completed: status === 'completed',
+              completed_at: new Date().toISOString(),
+              status,
+            },
+          },
+        };
+      }, false);
+      if (typeof window !== 'undefined') {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('onboarding_source');
+        currentUrl.searchParams.delete('onboarding');
+        window.history.replaceState({}, '', currentUrl.toString());
+      }
+    },
+    [
+      editorOnboardingTriggerSource,
+      i18n.language,
+      mutateOnboardingStatus,
+      onboardingStatus?.user_segment,
+      onboardingStatus?.version,
+      profile?.language,
+      trackEvent,
+    ],
+  );
+
+  const {
+    isOpen: courseEditorOnboardingOpen,
+    currentStep: courseEditorOnboardingStep,
+    currentStepIndex: courseEditorOnboardingStepIndex,
+    totalSteps: courseEditorOnboardingTotalSteps,
+    targetRect: courseEditorOnboardingTargetRect,
+    advance: advanceCourseEditorOnboarding,
+    skip: skipCourseEditorOnboarding,
+  } = useOnboarding({
+    enabled: courseEditorOnboardingEnabled,
+    steps: editorOnboardingSteps,
+    onStepResolved: (step, stepIndex) => {
+      trackEvent('creator_onboarding_step_viewed', {
+        scene_key: 'course_editor_onboarding',
+        version: onboardingStatus?.version || 'v1',
+        user_segment: onboardingStatus?.user_segment || 'ineligible',
+        step_id: step.id,
+        step_index: stepIndex + 1,
+        trigger_source: editorOnboardingTriggerSource,
+        language: profile?.language || i18n.language,
+      });
+    },
+    onComplete: async () => {
+      if (isCourseEditorReplay) {
+        clearReplay('course_editor_onboarding');
+        return;
+      }
+      await persistCourseEditorOnboarding('completed');
+      clearReplay('course_editor_onboarding');
+    },
+    onSkip: async () => {
+      if (isCourseEditorReplay) {
+        clearReplay('course_editor_onboarding');
+        return;
+      }
+      await persistCourseEditorOnboarding('skipped');
+      clearReplay('course_editor_onboarding');
+    },
+  });
+  const shouldRenderCourseEditorOnboardingOverlay = Boolean(
+    courseEditorOnboardingStep &&
+    (!courseEditorOnboardingStep.targetId || courseEditorOnboardingTargetRect),
+  );
+
+  useEffect(() => {
+    actionsRef.current = actions;
+  }, [actions]);
+
+  useEffect(() => {
+    baseRevisionRef.current = baseRevision;
+  }, [baseRevision]);
+
+  useEffect(() => {
+    conflictStateRef.current = { hasDraftConflict, autosavePaused };
+  }, [hasDraftConflict, autosavePaused]);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId || null;
+  }, [currentUserId]);
+
+  useEffect(() => {
+    currentShifuBidRef.current = currentShifu?.bid ?? null;
+  }, [currentShifu?.bid]);
+
+  useEffect(() => {
+    if (
+      !courseEditorOnboardingOpen ||
+      trackedEditorOnboardingStartRef.current
+    ) {
+      return;
+    }
+    trackedEditorOnboardingStartRef.current = true;
+    trackEvent('creator_onboarding_started', {
+      scene_key: 'course_editor_onboarding',
+      version: onboardingStatus?.version || 'v1',
+      user_segment: onboardingStatus?.user_segment || 'ineligible',
+      trigger_source: editorOnboardingTriggerSource,
+      language: profile?.language || i18n.language,
+    });
+  }, [
+    courseEditorOnboardingOpen,
+    editorOnboardingTriggerSource,
+    i18n.language,
+    onboardingStatus?.user_segment,
+    onboardingStatus?.version,
+    profile?.language,
+    trackEvent,
+  ]);
+
+  useEffect(() => {
+    if (courseEditorOnboardingOpen) {
+      return;
+    }
+    trackedEditorOnboardingStartRef.current = false;
+  }, [courseEditorOnboardingOpen]);
+
+  useEffect(() => {
+    const scopeChanged = editorContentScopeRef.current !== editorScopeKey;
+    editorContentScopeRef.current = editorScopeKey;
+    const shouldSkipLocalEcho =
+      !scopeChanged &&
+      skipNextEditorContentSyncRef.current &&
+      mdflow === lastLocalEditorContentRef.current;
+    skipNextEditorContentSyncRef.current = false;
+    if (shouldSkipLocalEcho) {
+      return;
+    }
+    lastLocalEditorContentRef.current = mdflow;
+    setEditorContent(mdflow);
+  }, [editorScopeKey, mdflow]);
+
+  const commitMdflowChange = useCallback(
+    (value: string, options?: { syncEditorContent?: boolean }) => {
+      const shouldSyncEditorContent = options?.syncEditorContent ?? false;
+      lastLocalEditorContentRef.current = value;
+      skipNextEditorContentSyncRef.current = !shouldSyncEditorContent;
+      if (shouldSyncEditorContent) {
+        setEditorContent(value);
+      }
+      setRemoteSyncNotice(null);
+      actions.setCurrentMdflow(value);
+      // Pass snapshot so autosave persists pre-switch content + chapter id
+      actions.autoSaveBlocks({
+        shifu_bid: currentShifu?.bid || '',
+        outline_bid: currentNode?.bid || '',
+        data: value,
+      });
+    },
+    [actions, currentNode?.bid, currentShifu?.bid],
+  );
+
+  const isLessonNode = (currentNode?.depth ?? 0) > 0;
+  const shouldSkipConflictCheck =
+    !currentShifu?.bid || Boolean(currentShifu?.readonly) || !isLessonNode;
+
+  const resolveDraftConflictMode = useCallback(
+    (meta?: DraftMeta | null): DraftConflictMode => {
+      const updatedUser = meta?.updated_user?.user_bid;
+      const currentUser = currentUserIdRef.current;
+      return updatedUser && currentUser && updatedUser === currentUser
+        ? 'same-user'
+        : 'other-user';
+    },
+    [],
+  );
+
+  const resetDraftConflictState = useCallback(() => {
+    actionsRef.current.setDraftConflict(false);
+    actionsRef.current.setAutosavePaused(false);
+    actionsRef.current.setLatestDraftMeta(null);
+    actionsRef.current.setBaseRevision(null);
+    actionsRef.current.cancelAutoSaveBlocks();
+    setIsDraftConflictDialogOpen(false);
+    setRemoteSyncNotice(null);
+  }, []);
+
+  const markDraftConflict = useCallback(
+    (meta?: DraftMeta | null, mode: DraftConflictMode = 'other-user') => {
+      if (
+        conflictStateRef.current.hasDraftConflict ||
+        conflictStateRef.current.autosavePaused
+      ) {
+        return;
+      }
+      if (meta) {
+        actionsRef.current.setLatestDraftMeta(meta);
+      }
+      setDraftConflictMode(mode);
+      actionsRef.current.setDraftConflict(mode === 'other-user');
+      actionsRef.current.setAutosavePaused(true);
+      actionsRef.current.cancelAutoSaveBlocks();
+      setIsDraftConflictDialogOpen(true);
+    },
+    [],
+  );
+
+  const syncDraftFromRemote = useCallback(
+    async (
+      shifuBid: string,
+      outlineBid: string,
+      meta?: DraftMeta | null,
+      options?: {
+        showNotice?: boolean;
+        mode?: DraftConflictMode;
+        forceApply?: boolean;
+      },
+    ) => {
+      const syncTargetKey = getDraftSyncTargetKey(shifuBid, outlineBid);
+      if (
+        !shifuBid ||
+        !outlineBid ||
+        remoteDraftSyncingTargetsRef.current.has(syncTargetKey)
+      ) {
+        return;
+      }
+      const mode = options?.mode ?? resolveDraftConflictMode(meta);
+      remoteDraftSyncingTargetsRef.current.add(syncTargetKey);
+      actionsRef.current.cancelAutoSaveBlocks();
+      try {
+        const didApplyRemote = await actionsRef.current.loadMdflow(
+          outlineBid,
+          shifuBid,
+          options?.forceApply
+            ? undefined
+            : {
+                canApply: () =>
+                  !actionsRef.current.hasUnsavedMdflow(outlineBid),
+              },
+        );
+        const latestMeta =
+          (await actionsRef.current.loadDraftMeta(shifuBid, outlineBid)) ??
+          meta;
+        const latestRevision =
+          latestMeta && typeof latestMeta.revision === 'number'
+            ? latestMeta.revision
+            : typeof meta?.revision === 'number'
+              ? meta.revision
+              : null;
+        const currentBaseRevision = baseRevisionRef.current;
+        const hasKnownBaseRevision = typeof currentBaseRevision === 'number';
+        const remoteRevisionIsNewer =
+          latestRevision != null &&
+          hasKnownBaseRevision &&
+          latestRevision > currentBaseRevision;
+        if (
+          currentShifuBidRef.current !== shifuBid ||
+          currentLessonBidRef.current !== outlineBid
+        ) {
+          return;
+        }
+        if (!didApplyRemote) {
+          if (
+            !options?.forceApply &&
+            remoteRevisionIsNewer &&
+            actionsRef.current.hasUnsavedMdflow(outlineBid)
+          ) {
+            markDraftConflict(latestMeta ?? meta, mode);
+            return;
+          }
+          if (latestRevision != null) {
+            actionsRef.current.setBaseRevision(latestRevision);
+            if (latestMeta) {
+              actionsRef.current.setLatestDraftMeta(latestMeta);
+            }
+          }
+          return;
+        }
+        if (latestMeta && typeof latestMeta.revision === 'number') {
+          actionsRef.current.setBaseRevision(latestMeta.revision);
+          actionsRef.current.setLatestDraftMeta(latestMeta);
+        }
+        actionsRef.current.setDraftConflict(false);
+        actionsRef.current.setAutosavePaused(false);
+        setIsDraftConflictDialogOpen(false);
+        if (options?.showNotice) {
+          const phone =
+            latestMeta?.updated_user?.phone ||
+            t('module.shifuSetting.draftConflictUnknownUser');
+          setRemoteSyncNotice(
+            mode === 'other-user'
+              ? t('module.shifuSetting.draftConflictSynced', { phone })
+              : t('module.shifuSetting.draftSelfUpdateSynced'),
+          );
+        }
+      } catch (error) {
+        console.error('Failed to sync remote draft update', error);
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } finally {
+        remoteDraftSyncingTargetsRef.current.delete(syncTargetKey);
+      }
+    },
+    [markDraftConflict, resolveDraftConflictMode, t],
+  );
+
+  useEffect(() => {
+    return () => {
+      stopPreview();
+      resetPreview();
+    };
+  }, [resetPreview, stopPreview]);
+
+  useEffect(() => {
+    if (!currentNode?.bid) {
+      return;
+    }
+    stopPreview();
+    resetPreview();
+  }, [currentNode?.bid, resetPreview, stopPreview]);
+
+  const handleAddChapterClick = () => {
+    if (currentShifu?.readonly) {
+      return;
+    }
+    actions.insertPlaceholderChapter();
+    // setAddChapterDialogOpen(true);
+  };
+
+  const handleAddChapterConfirm = async (settings: LessonCreationSettings) => {
+    try {
+      await actions.addRootOutline(settings);
+      setAddChapterDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    if (isGuest) {
+      const currentPath = encodeURIComponent(
+        window.location.pathname + window.location.search,
+      );
+      window.location.href = `/login?redirect=${currentPath}`;
+      return;
+    }
+
+    actions.loadModels();
+    if (id) {
+      actions.loadChapters(id, {
+        preferredLessonBid: initialLessonId || undefined,
+      });
+    }
+  }, [id, initialLessonId, isGuest, isInitialized]);
+
+  useEffect(() => {
+    if (!currentShifu?.bid) {
+      return;
+    }
+    if (initializedShifuRef.current === currentShifu.bid) {
+      if (shouldSkipConflictCheck) {
+        resetDraftConflictState();
+      }
+      return;
+    }
+    initializedShifuRef.current = currentShifu.bid;
+    resetDraftConflictState();
+  }, [currentShifu?.bid, resetDraftConflictState, shouldSkipConflictCheck]);
+
+  useEffect(() => {
+    const shifuBid = currentShifu?.bid;
+    const outlineBid = currentNode?.bid;
+    if (!shifuBid || !outlineBid || !isLessonNode) {
+      return;
+    }
+
+    resetDraftConflictState();
+    let isActive = true;
+    const initializeDraftSync = async () => {
+      const meta = await actionsRef.current.loadDraftMeta(shifuBid, outlineBid);
+      if (
+        !isActive ||
+        currentShifuBidRef.current !== shifuBid ||
+        currentLessonBidRef.current !== outlineBid
+      ) {
+        return;
+      }
+      if (shouldSkipConflictCheck) {
+        return;
+      }
+      await syncDraftFromRemote(shifuBid, outlineBid, meta, {
+        showNotice: false,
+        mode: resolveDraftConflictMode(meta),
+      });
+    };
+    void initializeDraftSync();
+    return () => {
+      isActive = false;
+    };
+  }, [
+    currentNode?.bid,
+    currentShifu?.bid,
+    isLessonNode,
+    resetDraftConflictState,
+    resolveDraftConflictMode,
+    shouldSkipConflictCheck,
+    syncDraftFromRemote,
+  ]);
+
+  const detectDraftConflict = useCallback(async () => {
+    const shifuId = currentShifuBidRef.current;
+    const outlineBid = currentLessonBidRef.current;
+    if (!shifuId || !outlineBid || shouldSkipConflictCheck) {
+      return;
+    }
+    if (
+      remoteDraftSyncingTargetsRef.current.has(
+        getDraftSyncTargetKey(shifuId, outlineBid),
+      )
+    ) {
+      return;
+    }
+    if (
+      conflictStateRef.current.hasDraftConflict ||
+      conflictStateRef.current.autosavePaused
+    ) {
+      return;
+    }
+    const meta = await actionsRef.current.loadDraftMeta(shifuId, outlineBid);
+    if (
+      currentShifuBidRef.current !== shifuId ||
+      currentLessonBidRef.current !== outlineBid
+    ) {
+      return;
+    }
+    if (!meta || typeof meta.revision !== 'number') {
+      return;
+    }
+    const baseRev = baseRevisionRef.current;
+    if (typeof baseRev !== 'number') {
+      actionsRef.current.setBaseRevision(meta.revision);
+      return;
+    }
+    if (meta.revision <= baseRev) {
+      return;
+    }
+    const mode = resolveDraftConflictMode(meta);
+    const hasUnsavedChanges = actionsRef.current.hasUnsavedMdflow(outlineBid);
+    if (!hasUnsavedChanges) {
+      await syncDraftFromRemote(shifuId, outlineBid, meta, {
+        showNotice: true,
+        mode,
+      });
+      return;
+    }
+    markDraftConflict(meta, mode);
+  }, [
+    markDraftConflict,
+    resolveDraftConflictMode,
+    shouldSkipConflictCheck,
+    syncDraftFromRemote,
+  ]);
+
+  useEffect(() => {
+    if (shouldSkipConflictCheck) {
+      return;
+    }
+    let isActive = true;
+    const runCheck = async () => {
+      if (!isActive) {
+        return;
+      }
+      await detectDraftConflict();
+    };
+    const handleFocus = () => {
+      void runCheck();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void runCheck();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    const timer = window.setInterval(() => {
+      void runCheck();
+    }, 45000);
+    void runCheck();
+    return () => {
+      isActive = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(timer);
+    };
+  }, [detectDraftConflict, shouldSkipConflictCheck]);
+
+  useEffect(() => {
+    if (hasDraftConflict) {
+      setIsDraftConflictDialogOpen(true);
+    }
+  }, [hasDraftConflict]);
+
+  useEffect(() => {
+    setRemoteSyncNotice(null);
+  }, [currentNode?.bid]);
+
+  const handleDraftConflictRefresh = useCallback(() => {
+    const shifuBid = currentShifuBidRef.current;
+    const outlineBid = currentLessonBidRef.current;
+    if (!shifuBid || !outlineBid) {
+      return;
+    }
+    void syncDraftFromRemote(shifuBid, outlineBid, latestDraftMeta, {
+      mode: draftConflictMode,
+      forceApply: true,
+    });
+  }, [draftConflictMode, latestDraftMeta, syncDraftFromRemote]);
+
+  const handleTogglePreviewPanel = () => {
+    setIsPreviewPanelOpen(prev => !prev);
+  };
+
+  const handleHideUnusedVariables = useCallback(async () => {
+    if (!currentShifu?.bid) return;
+    try {
+      await actions.hideUnusedVariables(currentShifu.bid);
+    } catch (error) {
+      console.error('Failed to hide unused variables', error);
+    }
+  }, [actions, currentShifu?.bid]);
+
+  const handleRestoreHiddenVariables = useCallback(async () => {
+    if (!currentShifu?.bid) return;
+    try {
+      await actions.restoreHiddenVariables(currentShifu.bid);
+    } catch (error) {
+      console.error('Failed to restore hidden variables', error);
+    }
+  }, [actions, currentShifu?.bid]);
+
+  const handleHideSingleVariable = useCallback(
+    async (name: string) => {
+      if (!currentShifu?.bid) return;
+      try {
+        await actions.hideVariableByKey(currentShifu.bid, name);
+      } catch (error) {
+        console.error('Failed to hide variable', error);
+      }
+    },
+    [actions, currentShifu?.bid],
+  );
+
+  useEffect(() => {
+    currentNodeBidRef.current = currentNode?.bid ?? null;
+    currentLessonBidRef.current = isLessonNode
+      ? (currentNode?.bid ?? null)
+      : null;
+  }, [currentNode?.bid, isLessonNode]);
+
+  useEffect(() => {
+    if (!currentNode?.bid || (currentNode.depth ?? 0) <= 0) {
+      return;
+    }
+
+    replaceCurrentUrlWithLessonId(currentNode.bid);
+  }, [currentNode?.bid, currentNode?.depth]);
+
+  useEffect(() => {
+    selectedHistoryVersionIdRef.current = selectedHistoryVersionId;
+  }, [selectedHistoryVersionId]);
+
+  const handleChapterSelect = useCallback(() => {
+    if (!isPreviewPanelOpen) {
+      return;
+    }
+    setIsPreviewPanelOpen(false);
+    stopPreview();
+    resetPreview();
+  }, [isPreviewPanelOpen, stopPreview, resetPreview]);
+
+  const handlePreview = async () => {
+    if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
+      return;
+    }
+    const targetOutline = currentNode.bid;
+    const targetShifu = currentShifu.bid;
+    const targetMdflow = mdflow;
+    const outlineChanged = () => {
+      // `currentNodeBidRef.current` holds the latest outline bid, updated via useEffect.
+      // This check correctly detects if the user has navigated to a different outline item
+      // since the preview was initiated.
+      return targetOutline !== currentNodeBidRef.current;
+    };
+    trackEvent('creator_lesson_preview_click', {
+      shifu_bid: targetShifu,
+      outline_bid: targetOutline,
+    });
+    setIsPreviewPanelOpen(true);
+    setIsPreviewPreparing(true);
+    resetPreview();
+
+    try {
+      if (!currentShifu?.readonly) {
+        await actions.saveMdflow({
+          shifu_bid: targetShifu,
+          outline_bid: targetOutline,
+          data: targetMdflow,
+        });
+        if (outlineChanged()) {
+          return;
+        }
+      }
+      const {
+        variables: parsedVariablesMap,
+        blocksCount,
+        systemVariableKeys,
+        allVariableKeys,
+        unusedKeys,
+      } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
+
+      if (hideUnusedMode) {
+        // In "hide unused" mode, refresh hidden list from full-course usage.
+        await actions.syncHiddenVariablesToUsage(targetShifu, { unusedKeys });
+        if (outlineChanged()) {
+          return;
+        }
+      } else {
+        // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
+        const parsedVariableKeys =
+          allVariableKeys || Object.keys(parsedVariablesMap || {});
+        const mdflowVariableNames = new Set(extractVariableNames(targetMdflow));
+        const usedHiddenKeys = hiddenVariables.filter(
+          key =>
+            parsedVariableKeys.includes(key) && mdflowVariableNames.has(key),
+        );
+        if (usedHiddenKeys.length) {
+          try {
+            await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
+            if (outlineChanged()) {
+              return;
+            }
+            // refresh local visible/hidden lists to reflect the change
+            await actions.refreshProfileDefinitions(targetShifu);
+          } catch (unhideError) {
+            console.error('Failed to auto-unhide variables:', unhideError);
+          }
+        }
+      }
+      if (outlineChanged()) {
+        return;
+      }
+      const previewVariablesMap = {
+        ...parsedVariablesMap,
+        ...previewVariables,
+      };
+      persistVariables({
+        shifuBid: targetShifu,
+        systemVariableKeys,
+        variables: previewVariablesMap,
+      });
+      void startPreview({
+        shifuBid: targetShifu,
+        outlineBid: targetOutline,
+        mdflow: targetMdflow,
+        variables: previewVariablesMap,
+        max_block_count: blocksCount,
+        systemVariableKeys,
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsPreviewPreparing(false);
+    }
+  };
+
+  const loadCurrentMdflowHistory = useCallback(async () => {
+    if (!currentShifu?.bid || !currentNode?.bid) {
+      historyRequestIdRef.current += 1;
+      historyDetailRequestIdRef.current += 1;
+      setIsHistoryLoading(false);
+      setHistoryItems([]);
+      setSelectedHistoryVersionId(null);
+      setHistoryVersionDetail(null);
+      setHistoryVersionLoadError(null);
+      setIsHistoryVersionDetailLoading(false);
+      setIsHistoryRestoreDialogOpen(false);
+      return;
+    }
+    const targetShifuBid = currentShifu.bid;
+    const targetOutlineBid = currentNode.bid;
+    const requestId = historyRequestIdRef.current + 1;
+    historyRequestIdRef.current = requestId;
+    setIsHistoryLoading(true);
+    try {
+      const list = await actionsRef.current.loadMdflowHistory(
+        targetShifuBid,
+        targetOutlineBid,
+      );
+      if (
+        historyRequestIdRef.current !== requestId ||
+        currentShifuBidRef.current !== targetShifuBid ||
+        currentNodeBidRef.current !== targetOutlineBid
+      ) {
+        return;
+      }
+      setHistoryItems(list);
+      setSelectedHistoryVersionId(list.length ? list[0].version_id : null);
+    } finally {
+      if (historyRequestIdRef.current === requestId) {
+        setIsHistoryLoading(false);
+      }
+    }
+  }, [currentNode?.bid, currentShifu?.bid]);
+
+  const resetHistoryRestoreDialog = useCallback(() => {
+    setIsHistoryRestoreDialogOpen(false);
+  }, []);
+
+  const loadSelectedHistoryVersionDetail = useCallback(async () => {
+    if (
+      !currentShifu?.bid ||
+      !currentNode?.bid ||
+      selectedHistoryVersionId == null
+    ) {
+      historyDetailRequestIdRef.current += 1;
+      setHistoryVersionDetail(null);
+      setHistoryVersionLoadError(null);
+      setIsHistoryVersionDetailLoading(false);
+      return;
+    }
+    const targetShifuBid = currentShifu.bid;
+    const targetOutlineBid = currentNode.bid;
+    const targetVersionId = selectedHistoryVersionId;
+    const requestId = historyDetailRequestIdRef.current + 1;
+    historyDetailRequestIdRef.current = requestId;
+    setHistoryVersionDetail(null);
+    setHistoryVersionLoadError(null);
+    setIsHistoryVersionDetailLoading(true);
+    try {
+      const detail = await actions.loadMdflowHistoryVersionDetail(
+        targetShifuBid,
+        targetOutlineBid,
+        targetVersionId,
+      );
+      const stale =
+        historyDetailRequestIdRef.current !== requestId ||
+        currentShifuBidRef.current !== targetShifuBid ||
+        currentNodeBidRef.current !== targetOutlineBid ||
+        selectedHistoryVersionIdRef.current !== targetVersionId;
+      if (stale) {
+        return;
+      }
+      if (!detail) {
+        setHistoryVersionLoadError(t('module.shifu.history.confirmLoadFailed'));
+        return;
+      }
+      setHistoryVersionDetail(detail);
+    } finally {
+      if (historyDetailRequestIdRef.current === requestId) {
+        setIsHistoryVersionDetailLoading(false);
+      }
+    }
+  }, [
+    actions,
+    currentNode?.bid,
+    currentShifu?.bid,
+    selectedHistoryVersionId,
+    t,
+  ]);
+
+  const handleOpenHistoryRestoreDialog = useCallback(() => {
+    if (
+      !currentShifu?.bid ||
+      !currentNode?.bid ||
+      selectedHistoryVersionId == null ||
+      isHistoryRestoring ||
+      currentShifu?.readonly ||
+      !historyVersionDetail ||
+      !!historyVersionLoadError
+    ) {
+      return;
+    }
+    setIsHistoryRestoreDialogOpen(true);
+  }, [
+    currentNode?.bid,
+    currentShifu?.bid,
+    currentShifu?.readonly,
+    historyVersionDetail,
+    historyVersionLoadError,
+    isHistoryRestoring,
+    selectedHistoryVersionId,
+  ]);
+
+  const handleConfirmRestoreMdflowHistory = useCallback(async () => {
+    if (
+      !currentShifu?.bid ||
+      !currentNode?.bid ||
+      isHistoryRestoring ||
+      !historyVersionDetail?.version_id
+    ) {
+      return;
+    }
+    setIsHistoryRestoring(true);
+    try {
+      const result = await actions.restoreMdflowHistory(
+        currentShifu.bid,
+        currentNode.bid,
+        historyVersionDetail.version_id,
+        baseRevisionRef.current,
+      );
+      resetHistoryRestoreDialog();
+      if (!result) {
+        return;
+      }
+      if (result.lesson_deleted) {
+        toast({
+          title: t('module.shifu.history.restoreLessonDeleted'),
+          variant: 'destructive',
+        });
+        if (isHistoryPage && typeof window !== 'undefined') {
+          window.location.assign(`/shifu/${id}`);
+          return;
+        }
+        return;
+      }
+      if (isHistoryPage && typeof window !== 'undefined') {
+        window.location.assign(
+          buildUrlWithLessonId(`/shifu/${id}`, currentNode.bid),
+        );
+        return;
+      }
+      await actions.loadMdflow(currentNode.bid, currentShifu.bid);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsHistoryRestoring(false);
+    }
+  }, [
+    actions,
+    currentNode?.bid,
+    currentShifu?.bid,
+    id,
+    historyVersionDetail?.version_id,
+    isHistoryPage,
+    isHistoryRestoring,
+    resetHistoryRestoreDialog,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (!isHistoryPage) {
+      return;
+    }
+    void loadCurrentMdflowHistory();
+  }, [isHistoryPage, loadCurrentMdflowHistory]);
+
+  const historyVersionContent = historyVersionDetail?.content || '';
+
+  useEffect(() => {
+    if (!isHistoryPage) {
+      return;
+    }
+    void loadSelectedHistoryVersionDetail();
+  }, [isHistoryPage, loadSelectedHistoryVersionDetail]);
+
+  const mdflowVariableNames = useMemo(
+    () => extractVariableNames(mdflow),
+    [mdflow],
+  );
+
+  const resolvedPreviewVariables = useMemo(() => {
+    const candidates = [previewVariables, previewItems[0]?.variables];
+    for (const candidate of candidates) {
+      if (candidate && Object.keys(candidate).length) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }, [previewItems, previewVariables]);
+  useEffect(() => {
+    const previousSeen = seenVariableNamesRef.current;
+    const currentSet = new Set<string>();
+    const newNames: string[] = [];
+    mdflowVariableNames.forEach(name => {
+      if (!name) {
+        return;
+      }
+      currentSet.add(name);
+      if (!previousSeen.has(name)) {
+        newNames.push(name);
+      }
+    });
+    seenVariableNamesRef.current = currentSet;
+    const currentNamesSet = new Set(mdflowVariableNames);
+    if (!newNames.length) {
+      setRecentVariables(prev =>
+        prev.filter(name => currentNamesSet.has(name)),
+      );
+      return;
+    }
+    setRecentVariables(prev => {
+      const filteredPrev = prev.filter(
+        name => !newNames.includes(name) && currentNamesSet.has(name),
+      );
+      return [...newNames, ...filteredPrev];
+    });
+  }, [mdflowVariableNames]);
+
+  const variablesList = useMemo(() => {
+    return (variables || []).map(name => ({ name }));
+  }, [variables]);
+
+  const systemVariablesList = useMemo(() => {
+    return systemVariables
+      .filter(
+        (variable: Record<string, string>) =>
+          !HIDDEN_SYSTEM_VARIABLE_KEYS.has(variable.name),
+      )
+      .map((variable: Record<string, string>) => ({
+        name: variable.name,
+        label: variable.label,
+      }));
+  }, [systemVariables]);
+
+  const previewHiddenVariableKeys = useMemo(
+    () =>
+      Array.from(new Set([...hiddenVariables, ...HIDDEN_SYSTEM_VARIABLE_KEYS])),
+    [hiddenVariables],
+  );
+
+  const visibleSystemVariableKeys = useMemo(
+    () => systemVariablesList.map(variable => variable.name),
+    [systemVariablesList],
+  );
+
+  const variableOrder = useMemo(() => {
+    return [
+      ...visibleSystemVariableKeys,
+      ...variablesList.map(variable => variable.name),
+    ];
+  }, [variablesList, visibleSystemVariableKeys]);
+
+  // Course-level visible variables (system + custom, excluding hidden)
+  const courseVisibleVariableKeys = useMemo(() => {
+    const customVisible = (variables || []).filter(
+      key => !hiddenVariables.includes(key),
+    );
+    return [...visibleSystemVariableKeys, ...customVisible];
+  }, [hiddenVariables, variables, visibleSystemVariableKeys]);
+
+  // Preview variables: start from parsed variables and fill missing course-visible keys with empty values
+  const mergedPreviewVariables = useMemo(() => {
+    const base = resolvedPreviewVariables
+      ? { ...resolvedPreviewVariables }
+      : {};
+    courseVisibleVariableKeys.forEach(key => {
+      if (!(key in base)) {
+        base[key] = '';
+      }
+    });
+    return base;
+  }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
+
+  const unusedVisibleVariables = useMemo(() => {
+    const hiddenSet = new Set(hiddenVariables);
+    return (unusedVariables || []).filter(key => !hiddenSet.has(key));
+  }, [hiddenVariables, unusedVariables]);
+
+  const hasUnusedVisibleVariables = unusedVisibleVariables.length > 0;
+
+  const hasHiddenVariables = hiddenVariables.length > 0;
+  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
+    ? 'hide'
+    : hasHiddenVariables
+      ? 'restore'
+      : 'hide';
+  const hideRestoreActionDisabled =
+    hideRestoreActionType === 'hide'
+      ? !hasUnusedVisibleVariables
+      : !hasHiddenVariables;
+
+  const onChangeMdflow = (value: string) => {
+    commitMdflowChange(value);
+  };
+
+  const uploadProps: UploadProps = useMemo(() => {
+    const endpoint = baseURL || window.location.origin;
+    return {
+      action: `${endpoint}/api/shifu/upfile`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Token: token,
+      },
+    };
+  }, [token, baseURL]);
+
+  const canPreview = Boolean(
+    creditInsufficientAudience !== null &&
+    currentNode?.depth &&
+    currentNode.depth > 0 &&
+    currentShifu?.bid,
+  );
+
+  const previewToggleLabel = isPreviewPanelOpen
+    ? t('module.shifu.previewArea.close')
+    : t('module.shifu.previewArea.open');
+
+  const previewDisabledReason = t('module.shifu.previewArea.disabled');
+  const handleHistoryEntryClick = useCallback(() => {
+    trackEvent('creator_lesson_history_click');
+  }, [trackEvent]);
+  const historyPageUrl = useMemo(() => {
+    return buildUrlWithLessonId(`/shifu/${id}/history`, currentNode?.bid || '');
+  }, [currentNode?.bid, id]);
+  const currentLessonHistoryUrl = isLessonNode ? historyPageUrl : null;
+  const currentLessonHistoryUpdatedAt = useMemo(() => {
+    if (!isLessonNode) {
+      return null;
+    }
+    return parseLessonHistoryDate(latestDraftMeta?.updated_at);
+  }, [isLessonNode, latestDraftMeta?.updated_at]);
+  const documentPageUrl = useMemo(() => {
+    return buildUrlWithLessonId(
+      `/shifu/${id}`,
+      currentNode?.bid || initialLessonId,
+    );
+  }, [currentNode?.bid, id, initialLessonId]);
+
+  const persistOutlineWidth = useCallback((width: number) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const normalizedWidth = Math.max(OUTLINE_DEFAULT_WIDTH, Math.round(width));
+    window.localStorage.setItem(
+      OUTLINE_STORAGE_KEY,
+      normalizedWidth.toString(),
+    );
+  }, []);
+
+  const updateOutlineWidthFromElement = useCallback((element: HTMLElement) => {
+    const width = Math.round(element.getBoundingClientRect().width);
+    const normalizedWidth = Math.max(OUTLINE_DEFAULT_WIDTH, width);
+    setOutlineWidth(normalizedWidth);
+    return normalizedWidth;
+  }, []);
+
+  const handleOutlineResize = useCallback(
+    (_event: unknown, _direction: unknown, ref: HTMLElement) => {
+      updateOutlineWidthFromElement(ref);
+    },
+    [updateOutlineWidthFromElement],
+  );
+
+  const handleOutlineResizeStop = useCallback(
+    (_event: unknown, _direction: unknown, ref: HTMLElement) => {
+      const width = updateOutlineWidthFromElement(ref);
+      previousOutlineWidthRef.current = width;
+      persistOutlineWidth(width);
+    },
+    [persistOutlineWidth, updateOutlineWidthFromElement],
+  );
+
+  // Toggle outline tree collapse/expand
+  const toggle = () => {
+    setFoldOutlineTree(prev => {
+      const next = !prev;
+      if (next) {
+        previousOutlineWidthRef.current =
+          outlineWidth > OUTLINE_COLLAPSED_WIDTH
+            ? outlineWidth
+            : OUTLINE_DEFAULT_WIDTH;
+        setOutlineWidth(OUTLINE_COLLAPSED_WIDTH);
+      } else {
+        const restoredWidth =
+          previousOutlineWidthRef.current > OUTLINE_COLLAPSED_WIDTH
+            ? previousOutlineWidthRef.current
+            : OUTLINE_DEFAULT_WIDTH;
+        setOutlineWidth(restoredWidth);
+      }
+      return next;
+    });
+  };
+
+  if (isHistoryPage) {
+    return (
+      <div className='flex h-screen flex-col bg-gray-50'>
+        <div className='flex flex-1 overflow-hidden p-6'>
+          <div className='flex min-h-0 w-full flex-1 flex-col rounded-2xl border bg-white shadow-sm'>
+            <div className='relative flex items-center border-b px-4 py-3'>
+              <Button
+                asChild
+                variant='ghost'
+                className='h-9 gap-2 px-3 text-sm font-medium text-foreground hover:bg-muted/60'
+              >
+                <Link href={documentPageUrl}>
+                  <ChevronLeft className='h-4 w-4' />
+                  {t('module.shifu.history.backToDocument')}
+                </Link>
+              </Button>
+              <div className='pointer-events-none absolute inset-x-0 flex justify-center'>
+                <div className='pointer-events-auto'>
+                  <Button
+                    type='button'
+                    className='h-9 px-4 text-sm font-semibold'
+                    disabled={
+                      currentShifu?.readonly ||
+                      isHistoryLoading ||
+                      isHistoryRestoring ||
+                      isHistoryVersionDetailLoading ||
+                      selectedHistoryVersionId == null ||
+                      !historyVersionDetail ||
+                      !!historyVersionLoadError
+                    }
+                    onClick={handleOpenHistoryRestoreDialog}
+                  >
+                    {isHistoryRestoring
+                      ? t('module.shifu.history.restoring')
+                      : t('module.shifu.history.restore')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className='flex min-h-0 flex-1 gap-6 p-6'>
+              <div className='flex min-w-0 flex-1 flex-col'>
+                <div className='flex min-w-0 items-baseline gap-2 pb-4'>
+                  <h2 className='shrink-0 whitespace-nowrap text-base font-semibold text-foreground'>
+                    {t('module.shifu.creationArea.title')}
+                  </h2>
+                  <p className='min-w-0 flex-1 truncate text-xs leading-5 text-[rgba(0,0,0,0.45)]'>
+                    <MarkdownFlowLink
+                      prefix={t('module.shifu.creationArea.descriptionPrefix')}
+                      suffix={t('module.shifu.creationArea.descriptionSuffix')}
+                      linkText='MarkdownFlow'
+                      title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
+                      targetUrl='https://markdownflow.ai/docs'
+                    />
+                  </p>
+                </div>
+                <div className='min-h-0 flex-1 overflow-hidden rounded-2xl border bg-white'>
+                  {isHistoryVersionDetailLoading ? (
+                    <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
+                      {t('module.shifu.history.loading')}
+                    </div>
+                  ) : historyVersionLoadError ? (
+                    <div className='flex h-full items-center justify-center px-6 text-center text-sm text-destructive'>
+                      {historyVersionLoadError}
+                    </div>
+                  ) : (
+                    <div className='h-full overflow-auto p-6 whitespace-pre-wrap break-words text-sm leading-7 text-foreground'>
+                      {historyVersionContent ||
+                        t('module.shifu.history.contentEmpty')}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <aside className='flex min-h-0 w-[320px] shrink-0 flex-col border-l pl-6'>
+                <div className='pb-4 text-sm font-semibold text-foreground'>
+                  {t('module.shifu.history.title')}
+                </div>
+                <div className='min-h-0 flex-1 overflow-y-auto'>
+                  {isHistoryLoading ? (
+                    <div className='py-8 text-center text-sm text-muted-foreground'>
+                      {t('module.shifu.history.loading')}
+                    </div>
+                  ) : !historyItems.length ? (
+                    <div className='py-8 text-center text-sm text-muted-foreground'>
+                      {t('module.shifu.history.empty')}
+                    </div>
+                  ) : (
+                    <div className='divide-y divide-border'>
+                      {historyItems.map(item => {
+                        const selected =
+                          selectedHistoryVersionId === item.version_id;
+                        const timeLabel =
+                          formatAdminUtcDateTime(item.updated_at) || '--';
+                        const userName =
+                          item.updated_user_name ||
+                          item.updated_user_bid ||
+                          t('module.shifu.history.unknownUser');
+                        return (
+                          <button
+                            key={item.version_id}
+                            type='button'
+                            className={cn(
+                              'w-full rounded-xl px-4 py-4 text-left transition-colors',
+                              selected
+                                ? 'bg-muted text-foreground'
+                                : 'text-foreground hover:bg-muted/40',
+                            )}
+                            onClick={() =>
+                              setSelectedHistoryVersionId(item.version_id)
+                            }
+                          >
+                            <div className='text-sm leading-6'>{timeLabel}</div>
+                            <div className='mt-1 text-sm text-[rgba(0,0,0,0.65)]'>
+                              {userName}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+        <Dialog
+          open={isHistoryRestoreDialogOpen}
+          onOpenChange={nextOpen => {
+            if (!nextOpen) {
+              resetHistoryRestoreDialog();
+            }
+          }}
+        >
+          <DialogContent className='sm:max-w-[440px]'>
+            <DialogHeader>
+              <DialogTitle>
+                {t('module.shifu.history.confirmTitle')}
+              </DialogTitle>
+            </DialogHeader>
+            <div className='text-sm leading-6 text-muted-foreground'>
+              {t('module.shifu.history.confirmDescription')}
+            </div>
+            <DialogFooter>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={resetHistoryRestoreDialog}
+                disabled={isHistoryRestoring}
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                type='button'
+                onClick={handleConfirmRestoreMdflowHistory}
+                disabled={
+                  currentShifu?.readonly ||
+                  isHistoryRestoring ||
+                  isHistoryVersionDetailLoading ||
+                  !historyVersionDetail ||
+                  !!historyVersionLoadError
+                }
+              >
+                {isHistoryRestoring
+                  ? t('module.shifu.history.restoring')
+                  : t('module.shifu.history.restore')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  return (
+    <div className='flex flex-col h-screen bg-gray-50'>
+      {courseEditorOnboardingStep ? (
+        <OnboardingOverlay
+          open={
+            courseEditorOnboardingOpen &&
+            shouldRenderCourseEditorOnboardingOverlay
+          }
+          advanceAriaLabel={tOnboarding('common.continue')}
+          title={courseEditorOnboardingStep.title}
+          description={courseEditorOnboardingStep.description}
+          stepIndex={courseEditorOnboardingStepIndex}
+          totalSteps={courseEditorOnboardingTotalSteps}
+          continueLabel={tOnboarding('common.continue')}
+          targetRect={courseEditorOnboardingTargetRect}
+          onAdvance={() => {
+            void advanceCourseEditorOnboarding();
+          }}
+          skipLabel={tOnboarding('common.skip')}
+          onSkip={() => {
+            void skipCourseEditorOnboarding();
+          }}
+        />
+      ) : null}
+      <Header
+        backHomeTargetId={ONBOARDING_TARGET_IDS.editorBackHome}
+        settingsTriggerTargetId={ONBOARDING_TARGET_IDS.editorSettingsEntry}
+        settingsOpenSignal={
+          courseEditorOnboardingStep?.panel === 'shifu_settings'
+            ? courseEditorOnboardingStep.id
+            : undefined
+        }
+        settingsShouldStayOpen={
+          courseEditorOnboardingStep?.panel === 'shifu_settings'
+        }
+        publishTargetId={ONBOARDING_TARGET_IDS.editorPublish}
+        lessonHistoryUrl={currentLessonHistoryUrl}
+        lessonHistoryUpdatedAt={currentLessonHistoryUpdatedAt}
+        onLessonHistoryClick={handleHistoryEntryClick}
+      />
+      <div className='flex flex-1 overflow-hidden'>
+        <Rnd
+          id='outline-panel'
+          disableDragging
+          enableResizing={{
+            bottom: false,
+            bottomLeft: false,
+            bottomRight: false,
+            left: false,
+            right: !foldOutlineTree,
+            top: false,
+            topLeft: false,
+            topRight: false,
+          }}
+          size={{
+            width: `${outlineWidth}px`,
+            height: '100%',
+          }}
+          minWidth={`${
+            foldOutlineTree ? OUTLINE_COLLAPSED_WIDTH : OUTLINE_DEFAULT_WIDTH
+          }px`}
+          onResize={handleOutlineResize}
+          onResizeStop={handleOutlineResizeStop}
+          className={cn(
+            'bg-white h-full transition-[width] duration-200 border-r flex-shrink-0 overflow-hidden',
+          )}
+          style={{ position: 'relative' }}
+        >
+          <div className='p-4 flex flex-col h-full'>
+            <div className='flex items-center justify-between gap-3'>
+              <div
+                onClick={toggle}
+                className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
+              >
+                <ListCollapse className='h-5 w-5' />
+              </div>
+              {!foldOutlineTree && (
+                <Button
+                  variant='outline'
+                  className='h-8 bottom-0 left-4 flex-1'
+                  size='sm'
+                  disabled={currentShifu?.readonly}
+                  onClick={handleAddChapterClick}
+                >
+                  <Plus />
+                  {t('module.shifu.newChapter')}
+                </Button>
+              )}
+            </div>
+
+            {!foldOutlineTree && (
+              <div className='mt-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-10'>
+                <ol className='text-sm'>
+                  <OutlineTree
+                    items={chapters}
+                    onChange={newChapters => {
+                      actions.setChapters([...newChapters]);
+                    }}
+                    onChapterSelect={handleChapterSelect}
+                  />
+                </ol>
+              </div>
+            )}
+          </div>
+        </Rnd>
+
+        <ChapterSettingsDialog
+          outlineBid=''
+          open={addChapterDialogOpen}
+          onOpenChange={setAddChapterDialogOpen}
+          variant='chapter'
+          footerActionLabel={t('module.shifu.newChapter')}
+          onFooterAction={handleAddChapterConfirm}
+        />
+
+        <div className='flex flex-1 h-full overflow-hidden text-sm'>
+          <div
+            className={cn(
+              'flex-1 overflow-auto',
+              !isPreviewPanelOpen && 'relative',
+            )}
+          >
+            <div
+              className={cn(
+                'pt-5 px-6 pb-10 flex flex-col h-full w-full mx-auto',
+                isPreviewPanelOpen ? 'pr-0' : 'max-w-[900px] relative',
+              )}
+            >
+              {currentNode?.depth && currentNode.depth > 0 ? (
+                <>
+                  <div className='flex items-center gap-3 pb-2'>
+                    <div className='flex flex-1 min-w-0 items-baseline gap-2'>
+                      <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
+                        {t('module.shifu.creationArea.title')}
+                      </h2>
+                      <p className='flex-1 min-w-0 text-xs leading-5 text-[rgba(0,0,0,0.45)] truncate'>
+                        <MarkdownFlowLink
+                          prefix={t(
+                            'module.shifu.creationArea.descriptionPrefix',
+                          )}
+                          suffix={t(
+                            'module.shifu.creationArea.descriptionSuffix',
+                          )}
+                          linkText='MarkdownFlow'
+                          title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
+                          targetUrl='https://markdownflow.ai/docs'
+                        />
+                      </p>
+                    </div>
+                    <div className='ml-auto mr-2 flex flex-nowrap items-center gap-2 relative shrink-0'>
+                      <Tabs
+                        value={editMode}
+                        onValueChange={value => setEditMode(value as EditMode)}
+                        className='shrink-0'
+                      >
+                        <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
+                          {editModeOptions.map(option => (
+                            <TabsTrigger
+                              key={option.value}
+                              value={option.value}
+                              className={cn(
+                                'mode-btn rounded-full px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground',
+                              )}
+                            >
+                              {option.label}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </Tabs>
+                      <Button
+                        type='button'
+                        size='sm'
+                        className='h-8 px-3 text-xs font-semibold text-[14px] shrink-0'
+                        onClick={handlePreview}
+                        disabled={!canPreview || isPreviewPreparing}
+                        title={!canPreview ? previewDisabledReason : undefined}
+                      >
+                        {isPreviewPreparing ? (
+                          <Loader2 className='h-4 w-4 animate-spin' />
+                        ) : (
+                          <Sparkles className='h-4 w-4' />
+                        )}
+                        {t('module.shifu.previewArea.action')}
+                      </Button>
+                    </div>
+                  </div>
+                  {remoteSyncNotice ? (
+                    <div className='mb-4 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900'>
+                      <Info className='mt-0.5 h-4 w-4 shrink-0' />
+                      <p className='min-w-0 flex-1 leading-6'>
+                        {remoteSyncNotice}
+                      </p>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon'
+                        className='-mr-2 -mt-1 h-7 w-7 shrink-0 rounded-full text-sky-700 hover:bg-sky-100 hover:text-sky-900'
+                        onClick={() => setRemoteSyncNotice(null)}
+                        aria-label={t('common.core.close')}
+                        title={t('common.core.close')}
+                      >
+                        <X className='h-4 w-4' />
+                      </Button>
+                    </div>
+                  ) : null}
+                  {!isPreviewPanelOpen && (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon'
+                      className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
+                      onClick={handleTogglePreviewPanel}
+                      aria-label={previewToggleLabel}
+                      title={previewToggleLabel}
+                    >
+                      <Columns2 className='h-4 w-4' />
+                    </Button>
+                  )}
+                  {isLoading ? (
+                    <div className='h-40 flex items-center justify-center'>
+                      <Loading />
+                    </div>
+                  ) : (
+                    <MarkdownFlowEditor
+                      key={editorScopeKey}
+                      locale={resolveMarkdownFlowLocale(
+                        i18n.resolvedLanguage ?? i18n.language,
+                      )}
+                      disabled={currentShifu?.readonly}
+                      content={editorContent}
+                      variables={variablesList}
+                      systemVariables={systemVariablesList as any[]}
+                      onChange={onChangeMdflow}
+                      editMode={editMode}
+                      uploadProps={uploadProps}
+                    />
+                  )}
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          {isPreviewPanelOpen ? (
+            <div className='shrink-0 px-1 pt-[60px]'>
+              <Button
+                type='button'
+                variant='outline'
+                size='icon'
+                className='h-8 w-8'
+                onClick={handleTogglePreviewPanel}
+                aria-label={previewToggleLabel}
+                title={previewToggleLabel}
+              >
+                <Columns2 className='h-4 w-4' />
+              </Button>
+            </div>
+          ) : null}
+          {isPreviewPanelOpen && creditInsufficientAudience !== null ? (
+            <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
+              <div className='h-full'>
+                <LessonPreview
+                  loading={previewLoading}
+                  errorMessage={previewError || undefined}
+                  items={previewItems}
+                  creditInsufficientAudience={creditInsufficientAudience}
+                  variables={mergedPreviewVariables}
+                  hiddenVariableKeys={previewHiddenVariableKeys}
+                  shifuBid={currentShifu?.bid || ''}
+                  onRefresh={onRefresh}
+                  onSend={onSend}
+                  onVariableChange={onVariableChange}
+                  variableOrder={variableOrder}
+                  systemVariableKeys={visibleSystemVariableKeys}
+                  onRequestAudioForBlock={
+                    currentShifu?.tts_enabled
+                      ? requestPreviewAudioForBlock
+                      : undefined
+                  }
+                  reGenerateConfirm={reGenerateConfirm}
+                  customVariableKeys={variables}
+                  unusedVariableKeys={unusedVisibleVariables}
+                  onHideVariable={handleHideSingleVariable}
+                  onHideOrRestore={
+                    hideRestoreActionType === 'hide'
+                      ? handleHideUnusedVariables
+                      : handleRestoreHiddenVariables
+                  }
+                  actionType={hideRestoreActionType}
+                  actionDisabled={hideRestoreActionDisabled}
+                  showGenerateBtn={Boolean(
+                    currentShifu && !currentShifu.readonly,
+                  )}
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <DraftConflictDialog
+          open={isDraftConflictDialogOpen}
+          mode={draftConflictMode}
+          phone={latestDraftMeta?.updated_user?.phone}
+          onRefresh={handleDraftConflictRefresh}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default ScriptEditor;

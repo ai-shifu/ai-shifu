@@ -37,13 +37,13 @@ data-drift checks easy to collect under one stable run id.
 - Observation: the Playwright smoke suite already writes
   `harness-diagnostics.json` on failure, but only into the Playwright output
   directory and only with a per-test request id.
-  Evidence: `src/cook-web/e2e/smoke.spec.ts`.
+  Evidence: `src/web/e2e/smoke.spec.ts`.
 - Observation: most frontend API calls go through `src/lib/request.ts`, but
   several SSE and upload paths construct `X-Request-ID` by hand.
-  Evidence: `src/cook-web/src/c-api/studyV2.ts`,
-  `src/cook-web/src/components/lesson-preview/usePreviewChat.tsx`,
-  `src/cook-web/src/components/shifu-setting/ShifuSetting.tsx`, and
-  `src/cook-web/src/lib/file.ts`.
+  Evidence: `src/web/src/c-api/studyV2.ts`,
+  `src/web/src/components/lesson-preview/usePreviewChat.tsx`,
+  `src/web/src/components/shifu-setting/ShifuSetting.tsx`, and
+  `src/web/src/lib/file.ts`.
 
 ## Decision Log
 
@@ -69,7 +69,7 @@ Implemented the first observability follow-up slice:
 - `src/api/scripts/observability_consistency_probes.py` runs read-only JSON
   probes for usage-ledger links, wallet/bucket drift, bucket expiration state,
   published model overrides, SMS send failures, and notification template sync.
-- `src/cook-web/src/lib/request-trace.ts` centralizes `X-Request-ID` and
+- `src/web/src/lib/request-trace.ts` centralizes `X-Request-ID` and
   `X-Harness-Run-ID`; request, SSE, upload, proxy, and smoke harness paths now
   share it.
 - `ErrorWithCode` and SSE business fallbacks now carry request/run metadata so
@@ -82,8 +82,8 @@ Validation completed:
 - `cd src/api && python scripts/observability_consistency_probes.py --help`
 - `python scripts/harness/trace_run.py --run-id codex-observability-smoke --request-id codex-test-request --skip-scan --skip-backend-diagnostics`
 - `cd src/api && python scripts/observability_consistency_probes.py --limit 1 --window-hours 1`
-- `cd src/cook-web && npm test -- --runTestsByPath src/lib/request.test.ts`
-- `cd src/cook-web && npm run type-check`
+- `cd src/web && npm test -- --runTestsByPath src/lib/request.test.ts`
+- `cd src/web && npm run type-check`
 - `python scripts/build_repo_knowledge_index.py`
 - `python scripts/check_repo_harness.py`
 - `git diff --check`
@@ -126,9 +126,9 @@ Remaining gaps for this scope:
 
 1. Add `scripts/harness/trace_run.py`.
 2. Add `src/api/scripts/observability_consistency_probes.py`.
-3. Add `src/cook-web/src/lib/request-trace.ts`.
-4. Update `src/cook-web/src/lib/request.ts`, `src/cook-web/src/lib/api.ts`,
-   `src/cook-web/src/lib/file.ts`, the hand-written SSE call sites, and the
+3. Add `src/web/src/lib/request-trace.ts`.
+4. Update `src/web/src/lib/request.ts`, `src/web/src/lib/api.ts`,
+   `src/web/src/lib/file.ts`, the hand-written SSE call sites, and the
    smoke harness.
 5. Extend focused frontend tests for trace metadata and SSE fallback behavior.
 
@@ -136,8 +136,8 @@ Remaining gaps for this scope:
 
 - `python scripts/harness/trace_run.py --help`
 - `cd src/api && python scripts/observability_consistency_probes.py --help`
-- `cd src/cook-web && npm test -- --runTestsByPath src/lib/request.test.ts`
-- `cd src/cook-web && npm run type-check`
+- `cd src/web && npm test -- --runTestsByPath src/lib/request.test.ts`
+- `cd src/web && npm run type-check`
 - `python scripts/check_repo_harness.py`
 
 Acceptance criteria:

@@ -129,11 +129,11 @@ with Umami, and persists per-user completion so each scene shows at most once.
   - `src/api/flaskr/service/shifu/dtos.py`
   - `src/api/flaskr/service/shifu/shifu_draft_funcs.py`
 - Frontend owner paths:
-  - `src/cook-web/src/app/admin/layout.tsx`
-  - `src/cook-web/src/app/admin/page.tsx`
-  - `src/cook-web/src/components/onboarding/*`
-  - `src/cook-web/src/hooks/useOnboarding.ts`
-  - `src/cook-web/src/lib/onboardingTargets.ts`
+  - `src/web/src/app/admin/layout.tsx`
+  - `src/web/src/app/admin/page.tsx`
+  - `src/web/src/components/onboarding/*`
+  - `src/web/src/hooks/useOnboarding.ts`
+  - `src/web/src/lib/onboardingTargets.ts`
 
 ## Plan of Work
 
