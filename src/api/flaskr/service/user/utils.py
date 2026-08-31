@@ -29,7 +29,10 @@ from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user.captcha import consume_captcha_ticket
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import SessionMetadata, token_store
-from flaskr.service.user.verification_codes import clear_verification_attempts
+from flaskr.service.user.verification_codes import (
+    clear_verification_attempts,
+    verification_code_lock,
+)
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
@@ -442,38 +445,44 @@ def _prepare_verification_challenge(
     policy: _VerificationChallengePolicy,
 ) -> _PreparedVerificationChallenge:
     _enforce_verification_ip_limit(app, ip, policy)
-
-    identifier_limit_key = (
-        _redis_prefix(app, policy.identifier_limit_prefix_config) + identifier
-    )
-    last_send_time = redis.get(identifier_limit_key)
-    interval = int(app.config[policy.interval_config])
-    if last_send_time and int(time.time()) - int(last_send_time) < interval:
-        raise_error(policy.rate_limit_error)
-
-    code = "".join(secrets.choice(string.digits) for _ in range(4))
-    expire_in = int(app.config[policy.expire_time_config])
-    clear_verification_attempts(
+    kind = "email" if policy.verify_code_type == 2 else "sms"
+    with verification_code_lock(
         app,
-        kind="email" if policy.verify_code_type == 2 else "sms",
+        kind=kind,
         identifier=identifier,
         cache_provider=redis,
-    )
-    redis.set(
-        _redis_prefix(app, policy.code_prefix_config) + identifier,
-        code,
-        ex=expire_in,
-    )
-    redis.set(identifier_limit_key, int(time.time()), ex=interval)
+    ):
+        identifier_limit_key = (
+            _redis_prefix(app, policy.identifier_limit_prefix_config) + identifier
+        )
+        last_send_time = redis.get(identifier_limit_key)
+        interval = int(app.config[policy.interval_config])
+        if last_send_time and int(time.time()) - int(last_send_time) < interval:
+            raise_error(policy.rate_limit_error)
 
-    is_email = policy.verify_code_type == 2
-    record = create_and_commit_user_verify_code(
-        mail=identifier if is_email else None,
-        phone=None if is_email else identifier,
-        verify_code=code,
-        verify_code_type=policy.verify_code_type,
-        ip=ip,
-    )
+        code = "".join(secrets.choice(string.digits) for _ in range(4))
+        expire_in = int(app.config[policy.expire_time_config])
+        clear_verification_attempts(
+            app,
+            kind=kind,
+            identifier=identifier,
+            cache_provider=redis,
+        )
+        redis.set(
+            _redis_prefix(app, policy.code_prefix_config) + identifier,
+            code,
+            ex=expire_in,
+        )
+        redis.set(identifier_limit_key, int(time.time()), ex=interval)
+
+        is_email = policy.verify_code_type == 2
+        record = create_and_commit_user_verify_code(
+            mail=identifier if is_email else None,
+            phone=None if is_email else identifier,
+            verify_code=code,
+            verify_code_type=policy.verify_code_type,
+            ip=ip,
+        )
     return _PreparedVerificationChallenge(
         code=code,
         expire_in=expire_in,
