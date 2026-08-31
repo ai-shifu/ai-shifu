@@ -108,7 +108,7 @@ tracked on the PR rather than as unchecked implementation milestones here.
 
 ## Context and Orientation
 
-- `src/cook-web/src/components/profile-onboarding/LearnerProfileDialog.tsx`
+- `src/web/src/components/profile-onboarding/LearnerProfileDialog.tsx`
   owns the shared dialog shell, content switching, fixed chrome, and actions.
 - `useLearnerProfileDialogController.ts` owns defer guards, draft/session
   preservation, API submission, and analytics producers.

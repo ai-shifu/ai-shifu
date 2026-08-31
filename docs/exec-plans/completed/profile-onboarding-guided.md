@@ -59,7 +59,7 @@ PR1 is merged and the complete PR2 commit series sits directly on current `main`
 
 ## Context and Orientation
 
-The legacy profile onboarding service lives at `src/api/flaskr/service/profile/onboarding.py`. New MarkdownFlow orchestration is isolated in `src/api/flaskr/service/profile_research/`. HTTP routes and admin configuration are cross-service boundaries. Frontend course gating is in `src/cook-web/src/app/c/[[...id]]`, while reusable dialog UI belongs in `src/cook-web/src/components/profile-onboarding`.
+The legacy profile onboarding service lives at `src/api/flaskr/service/profile/onboarding.py`. New MarkdownFlow orchestration is isolated in `src/api/flaskr/service/profile_research/`. HTTP routes and admin configuration are cross-service boundaries. Frontend course gating is in `src/web/src/app/c/[[...id]]`, while reusable dialog UI belongs in `src/web/src/components/profile-onboarding`.
 
 ## Plan of Work
 

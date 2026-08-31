@@ -42,9 +42,9 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   7 NO-KNOWN-CONSUMER endpoints (needs user authorization).
 - [x] 2026-07-03 13:35 CST: Phase 2 B1 dead code deletion executed: ark
   signer, dead test file, 7 empty service dirs, 12 zero-caller functions
-  (283 lines) + 17 dangling imports, cook-web markFavoriteShifu catalog
+  (283 lines) + 17 dangling imports, web markFavoriteShifu catalog
   entry. A5 re-adjudicated as unused parameters and deferred to B7. Full
-  pytest 1,873 passed; golden fixtures byte-identical; cook-web type-check
+  pytest 1,873 passed; golden fixtures byte-identical; web type-check
   clean.
 - [x] 2026-07-03 14:00 CST: Phase 2 B2 config consolidation: in-package env
   reads now resolve through `flaskr/common/config.py` (3 new declared keys;
@@ -248,7 +248,7 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   imports every `*.py` under `flaskr/service/`, so import-graph reachability
   is a weak dead-code signal inside services; symbol-level and consumer-level
   evidence must carry the weight (see the inventory doc).
-- The endpoint audit found a frontend/backend drift bug: cook-web's catalog
+- The endpoint audit found a frontend/backend drift bug: web's catalog
   defines `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'` with no
   matching backend route; the real favorite route has no frontend caller.
 - Celery is much bigger than TTS: `billing/tasks.py` has ~18 `shared_task`s
@@ -337,11 +337,11 @@ Method (read-only; tools run outside the repo):
    modules = Category A (provably dead). Explicitly adjudicate the two legacy
    learn files and the empty service dirs.
 3. Runtime coverage: pytest coverage plus a second run with the dev server
-   while exercising cook-web smoke flows; zero coverage under both =
+   while exercising web smoke flows; zero coverage under both =
    Category B (suspected dead, needs human sign-off).
 4. Scripted grep audits: commit sites ranked per file, `os.environ` reads,
    pagination duplicates, dual registries, hand-written `__json__` DTOs, and
-   a route inventory cross-referenced against cook-web API calls to find
+   a route inventory cross-referenced against web API calls to find
    frontend-orphaned endpoints.
 5. Hotspot ranking (git churn x file size) to order Phase 2 batches.
 

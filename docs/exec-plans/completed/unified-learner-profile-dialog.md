@@ -205,12 +205,12 @@ unchecked implementation milestone.
 ## Context and Orientation
 
 - The existing editor shell and settings rerun live in
-  `src/cook-web/src/components/profile-onboarding/LearnerProfileDialog.tsx`.
+  `src/web/src/components/profile-onboarding/LearnerProfileDialog.tsx`.
 - The reusable guided conversation remains in
   `ProfileOnboardingConversation.tsx`; the obsolete separate modal shell has
   been removed.
 - Course presentation and runtime blocking live in
-  `src/cook-web/src/app/c/[[...id]]/page.tsx`.
+  `src/web/src/app/c/[[...id]]/page.tsx`.
 - Canonical completion lives in
   `src/api/flaskr/service/profile/onboarding.py` and the learner route.
 

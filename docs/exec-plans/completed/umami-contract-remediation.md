@@ -129,7 +129,7 @@ The remediation deletes generic `visit`, `creator_publish_click`,
 `creator_billing_checkout_click`, `creator_shifu_create_click`, and
 `creator_shifu_create_success`. Generic `visit` has no replacement. The other
 families use their versioned attempt/result/status contracts documented in
-`docs/product-specs/cook-web-umami-contract-remediation.md`.
+`docs/product-specs/web-umami-contract-remediation.md`.
 
 Payment and billing analytics observe the existing product flow. They do not
 add polling deadlines, synchronization requests, retries, cache refreshes,
@@ -163,13 +163,13 @@ gate also passed.
 
 The canonical analytics rules live in
 `docs/references/frontend-product-analytics.md`. Shared producer enrichment is
-in `src/cook-web/src/c-common/hooks/useTracking.ts`; raw Umami identity,
+in `src/web/src/c-common/hooks/useTracking.ts`; raw Umami identity,
 queueing, pageview sanitation, and event delivery are in
-`src/cook-web/src/c-common/tools/tracking.ts`; SPA pageview ownership is in
-`src/cook-web/src/components/analytics/UmamiLoader.tsx`.
+`src/web/src/c-common/tools/tracking.ts`; SPA pageview ownership is in
+`src/web/src/components/analytics/UmamiLoader.tsx`.
 
 Feature-owned typed builders live near their producers or under
-`src/cook-web/src/lib/`. High-risk producers include learner payment, creator
+`src/web/src/lib/`. High-risk producers include learner payment, creator
 billing, publishing, authentication, course creation, learning-mode selection,
 profile onboarding, and authoring settings.
 

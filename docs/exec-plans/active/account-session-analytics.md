@@ -39,7 +39,7 @@ rejected unless the terminal states are recorded separately.
   flow ships.
 - Compatibility: additive; three new names, with `from_link` included in the
   complete payload of all three events.
-- Verification: `src/cook-web/src/app/login/device/page.test.tsx` asserts the
+- Verification: `src/web/src/app/login/device/page.test.tsx` asserts the
   exposure fires exactly once, that the pairing code stays out of the payload,
   that link-opened and manually entered outcomes retain the same `from_link`
   dimension as their exposure, that outcomes fire on confirmation, and that a
@@ -75,7 +75,7 @@ rejected unless the terminal states are recorded separately.
 - Consumers: none yet.
 - Compatibility: additive; three new names.
 - Verification:
-  `src/cook-web/src/c-components/Settings/SessionManagerModal.test.tsx`
+  `src/web/src/c-components/Settings/SessionManagerModal.test.tsx`
   asserts that outcomes fire only on confirmed revocations, that a failed
   revocation emits nothing, and that no session identifier reaches a payload.
 

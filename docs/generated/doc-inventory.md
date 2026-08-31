@@ -42,6 +42,7 @@
 | `docs/exec-plans/active/operator-promotion-ops-state-rules.md` | ExecPlan: Operator Promotion Ops State Rules | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Minimize the Explicit Ruff Policy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-rate-management-create.md` | Add arbitrary rate entries to Rate Management | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
@@ -77,7 +78,6 @@
 | `docs/exec-plans/tech-debt-tracker.md` | Tech Debt Tracker | `exec-plan-support` | `active` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-gardening-summary.md` | Harness Gardening Summary | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-health.md` | Harness Health | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
-| `docs/product-specs/cook-web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-08-31` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page (v2) Technical Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `implemented` | `frontend` | `2026-04-17` | `true` |
@@ -87,6 +87,7 @@
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
+| `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-08-31` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/i18n.md` | Internationalization (i18n) Guide | `reference` | `reference` | `repo` | `-` | `true` |

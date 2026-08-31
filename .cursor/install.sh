@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Idempotent Cloud Agent install for AI-Shifu.
-# Provisions native MySQL + Redis, the Python backend venv, and the cook-web
+# Provisions native MySQL + Redis, the Python backend venv, and the Cook Web
 # frontend dependencies, then applies DB migrations and imports the demo course.
 set -euo pipefail
 
@@ -127,7 +127,7 @@ flask db upgrade
 flask console update_demo_shifu
 
 # 8) Frontend dependencies (exact, from lockfile).
-cd "$REPO_ROOT/src/cook-web"
+cd "$REPO_ROOT/src/web"
 npm ci
 
 echo "[install] done"

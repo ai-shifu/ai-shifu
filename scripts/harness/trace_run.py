@@ -14,7 +14,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts" / "runs"
-DEFAULT_PLAYWRIGHT_OUTPUT_ROOT = ROOT / "src" / "cook-web" / "test-results"
+DEFAULT_PLAYWRIGHT_OUTPUT_ROOT = ROOT / "src" / "web" / "test-results"
 REQUEST_ID_KEYS = {
     "requestid",
     "xrequestid",

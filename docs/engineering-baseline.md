@@ -14,15 +14,15 @@ details behind those rules.
 | Task | Command | Location |
 |------|---------|----------|
 | Start backend dev server | `flask run` | `cd src/api` |
-| Start Cook Web (frontend & CMS) | `npm run dev` | `cd src/cook-web` |
+| Start Cook Web (frontend & CMS) | `npm run dev` | `cd src/web` |
 | Run backend tests | `pytest` | `cd src/api` |
-| Run frontend unit tests | `npm run test:ci` | `cd src/cook-web` |
+| Run frontend unit tests | `npm run test:ci` | `cd src/web` |
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
 | Check code quality | `lefthook run pre-commit --all-files` | Root directory |
 | Start all services (Docker) | `docker compose -f docker-compose.latest.yml up -d` | `cd docker` |
 | Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
-| Build Cook Web dev image | `docker build ../src/cook-web -t ai-shifu-cook-web-dev -f ../src/cook-web/Dockerfile_DEV` | `cd docker` |
+| Build Cook Web dev image | `docker build ../src/web -t ai-shifu-cook-web-dev -f ../src/web/Dockerfile_DEV` | `cd docker` |
 
 ### Essential Environment Variables
 
@@ -30,7 +30,7 @@ details behind those rules.
 # Backend (src/api/.env)
 FLASK_APP=app.py
 
-# Cook Web (src/cook-web/.env.local)
+# Cook Web (src/web/.env.local)
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
@@ -59,7 +59,7 @@ Then install the remaining development tools:
 
 ```bash
 pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0
-(cd src/cook-web && npm ci)   # provides prettier + eslint
+(cd src/web && npm ci)   # provides prettier + eslint
 lefthook install
 ```
 
@@ -110,7 +110,7 @@ maintains control of the narrative progression.
 The project follows a microservices architecture with two main components:
 
 - Backend API (`src/api/`): Flask-based Python API with SQLAlchemy ORM
-- Cook Web (`src/cook-web/`): Next.js-based unified frontend and content
+- Cook Web (`src/web/`): Next.js-based unified frontend and content
   management interface
 
 ### Backend Architecture Notes
@@ -136,8 +136,8 @@ The project follows a microservices architecture with two main components:
 
 - Cook Web uses Next.js, TypeScript, and Tailwind CSS
 - The frontend provides both learner-facing routes and authoring/admin tools
-- Shared request handling lives in `src/cook-web/src/lib/request.ts` and
-  `src/cook-web/src/lib/api.ts`
+- Shared request handling lives in `src/web/src/lib/request.ts` and
+  `src/web/src/lib/api.ts`
 - Legacy `c-*` directories are still active compatibility surfaces
 
 #### Unified Request System

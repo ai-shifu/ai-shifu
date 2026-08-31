@@ -90,8 +90,8 @@ Primary source tables:
 
 ## Frontend Plan
 
-- Add a new route: `src/cook-web/src/app/admin/operations/users/page.tsx`
-- Add a user detail route: `src/cook-web/src/app/admin/operations/users/[user_bid]/page.tsx`
+- Add a new route: `src/web/src/app/admin/operations/users/page.tsx`
+- Add a user detail route: `src/web/src/app/admin/operations/users/[user_bid]/page.tsx`
 - Add a small adjacent type file for payload shapes.
 - Reuse the same page composition patterns as the operator course page:
   - search card
@@ -134,5 +134,5 @@ Filter semantics follow the same resolved role rules.
 - Broad checks after implementation:
   - `cd src/api && pytest -q`
   - `cd src/api && pytest tests/service/shifu/test_admin_users.py -q`
-  - `cd src/cook-web && npm run test -- src/app/admin/operations/users/page.test.tsx src/app/admin/layout.test.tsx`
-  - `cd src/cook-web && npm run type-check && npm run lint`
+  - `cd src/web && npm run test -- src/app/admin/operations/users/page.test.tsx src/app/admin/layout.test.tsx`
+  - `cd src/web && npm run type-check && npm run lint`

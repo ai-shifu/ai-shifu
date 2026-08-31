@@ -87,9 +87,9 @@ Likely backend surfaces:
 
 Likely frontend surfaces:
 
-- Operator menu: `src/cook-web/src/app/admin/admin-menu.tsx`
-- Operator pages and types: `src/cook-web/src/app/admin/operations`
-- Frontend API map: `src/cook-web/src/api/api.ts`
+- Operator menu: `src/web/src/app/admin/admin-menu.tsx`
+- Operator pages and types: `src/web/src/app/admin/operations`
+- Frontend API map: `src/web/src/api/api.ts`
 - User-facing strings: `src/i18n/`
 
 ## Plan of Work

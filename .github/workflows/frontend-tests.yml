@@ -39,7 +39,7 @@ jobs:
           fi
 
           git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/frontend-changed-files.txt
-          if grep -Eq '^(\.github/workflows/frontend-tests\.yml$|src/cook-web/|src/i18n/)' /tmp/frontend-changed-files.txt; then
+          if grep -Eq '^(\.github/workflows/frontend-tests\.yml$|src/web/|src/i18n/)' /tmp/frontend-changed-files.txt; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -51,16 +51,16 @@ jobs:
         with:
           node-version: "22.16.0"
           cache: npm
-          cache-dependency-path: src/cook-web/package-lock.json
+          cache-dependency-path: src/web/package-lock.json
 
       - name: Install frontend dependencies
         if: steps.frontend-changes.outputs.run == 'true'
-        working-directory: src/cook-web
+        working-directory: src/web
         run: npm ci
 
       - name: Run frontend tests
         if: steps.frontend-changes.outputs.run == 'true'
-        working-directory: src/cook-web
+        working-directory: src/web
         run: npm run test:ci
 
       - name: Skip frontend tests

@@ -108,7 +108,7 @@ tracking, error handling, and preserved domestic rendering.
    the packages panel.
 2. Add `GlobalBillingPricing` under the route-local billing components folder.
 3. Add the global pricing namespace to every billing locale and regenerate
-   `src/cook-web/src/types/i18n-keys.d.ts`.
+   `src/web/src/types/i18n-keys.d.ts`.
 4. Add component and page-level tests, then run the focused and frontend-wide
    checks.
 5. Record final verification here and move this ExecPlan to `completed/`.

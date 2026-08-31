@@ -14,7 +14,7 @@ Add an operator-facing course detail page under `运营 -> 课程管理` so oper
 
 ### Scope
 
-- Keep the existing route entry at `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
+- Keep the existing route entry at `src/web/src/app/admin/operations/[shifu_bid]/page.tsx`
 - Add a dedicated operator detail API under the shifu admin surface
 - Show three sections on the page:
   - basic course information
@@ -61,7 +61,7 @@ The backend detail payload should return:
 - Keep the page aligned with the existing admin detail card style used in dashboard pages
 - Use i18n keys in `module.operationsCourse`
 - Keep the bottom section optimized for inspection rather than rich editing
-- Keep `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx` as the route
+- Keep `src/web/src/app/admin/operations/[shifu_bid]/page.tsx` as the route
   entry and orchestration layer, but split heavy bottom-tab UI into dedicated
   local components as the page grows
 

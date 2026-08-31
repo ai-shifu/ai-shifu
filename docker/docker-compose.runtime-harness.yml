@@ -40,7 +40,7 @@ services:
   ai-shifu-cook-web-dev:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.cook-web.runtime-harness
+      dockerfile: docker/Dockerfile.web.runtime-harness
     image: ai-shifu-cook-web-runtime-harness:latest
     env_file:
       - ./.env

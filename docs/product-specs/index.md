@@ -4,8 +4,6 @@
 
 User-facing workflow and page behavior specifications live here.
 
-- [Cook Web Umami Contract Remediation](../product-specs/cook-web-umami-contract-remediation.md)
-  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-08-31` | Canonical: `true`
 - [Dashboard Entry Page (v2) Technical Design](../product-specs/dashboard-entry-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [MDFlow Element Backfill](../product-specs/mdflow-element-backfill.md)
@@ -24,3 +22,5 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-08-16` | Canonical: `true`
 - [Operator Course Creator Transfer](../product-specs/transfer-course-creator.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
+- [Cook Web Umami Contract Remediation](../product-specs/web-umami-contract-remediation.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-08-31` | Canonical: `true`
