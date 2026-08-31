@@ -66,6 +66,10 @@ replacement or analytics-backed business metric.
       review suites / 133 tests and all 212 frontend suites / 1,908 tests, plus
       TypeScript, lint, Prettier, repository harness, architecture boundaries,
       and an independent timing and scope review.
+- [x] 2026-08-31 10:09 CST: Merged the subsequent `main` stale-frontend-chunk
+      recovery without conflicts or overlap, then passed all 213 frontend
+      suites / 1,912 tests. The final focused Umami review count remains 9
+      suites / 133 tests.
 
 ## Surprises & Discoveries
 
@@ -148,7 +152,7 @@ series start at deployment, so initial rolling windows may be partial. No live
 Umami dashboard or production deployment is modified by this repository-only
 change.
 
-Final frontend validation passed 212 Jest suites / 1,908 tests. TypeScript and
+Final frontend validation passed 213 Jest suites / 1,912 tests. TypeScript and
 frontend lint completed without errors; the lint run retains existing
 repository warnings. The final focused review suites passed 9 suites / 133
 tests before the repository-wide run. The repository harness,
