@@ -37,11 +37,9 @@ export type DashboardCourseDetailBasicInfo = {
 export type DashboardCourseDetailMetrics = {
   order_count: number;
   order_amount: string;
-  new_learner_count_last_7_days: number;
   learning_learner_count: number;
   completed_learner_count: number;
   completion_rate: string;
-  active_learner_count_last_7_days: number;
   total_follow_up_count: number;
   rating_score: string;
 };

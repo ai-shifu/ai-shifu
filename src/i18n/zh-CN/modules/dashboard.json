@@ -5,7 +5,7 @@
       "chapterCount": "章节数",
       "courseName": "课程名称",
       "createdAt": "创建时间",
-      "learnerCount": "学员数",
+      "learnerCount": "参与总人数",
       "status": "课程状态",
       "statusLabels": {
         "published": "已发布",
@@ -128,11 +128,9 @@
       "title": "学习形式"
     },
     "metrics": {
-      "activeLearnersLast7Days": "7日内活跃学员",
       "completedLearners": "完课人数",
       "completionRate": "完课率",
       "learningLearners": "在学人数",
-      "newLearnersLast7Days": "7日内新增学员",
       "orderAmount": "订单金额",
       "orderCount": "订单数",
       "rating": "课程评分",
@@ -140,15 +138,13 @@
       "totalQuestions": "追问数"
     },
     "metricsTooltips": {
-      "activeLearnersLast7Days": "最近 7 天有学习行为的人数，用来看近期活跃度。",
-      "completedLearners": "已经学完这门课的人数，用来看课程完成规模。",
-      "completionRate": "完课人数占学习人数的比例，用来看课程整体完成情况。",
-      "learningLearners": "当前还在学习中的人数，用来看课程正在被多少学员持续使用。",
-      "newLearnersLast7Days": "最近 7 天新开始学习或加入课程的人数，用来看近期新增趋势。",
-      "orderAmount": "这门课成功订单的现金实收总额；兑换码订单不计入金额。",
-      "orderCount": "这门课产生的成功订单数，包含付费订单和兑换码订单，用来看课程转化情况。",
-      "rating": "学员给课程章节的平均评分，用来看整体学习体验。",
-      "totalQuestions": "学员围绕这门课提出的追问总数，点击可查看追问明细。"
+      "completedLearners": "已经完成全部课程内容的学员人数。",
+      "completionRate": "参与总人数中，已经完成全部课程内容的占比。",
+      "learningLearners": "已经开始学习、但还没有完成全部课程内容的学员人数。",
+      "orderAmount": "用户实际为这门课支付的金额总和；兑换码订单不计入金额。",
+      "orderCount": "这门课的成功订单总数，包含付费订单和兑换码订单。",
+      "rating": "学员给课程内容打出的平均分，满分 5 分。",
+      "totalQuestions": "学员学习过程中向 AI 继续追问的总次数；点击可查看具体问题。"
     },
     "ratings": {
       "emptyValue": "--",
