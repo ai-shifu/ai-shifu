@@ -523,12 +523,22 @@ describe('GlobalBillingPricing', () => {
     renderPricing();
 
     const studio = await screen.findByTestId('global-plan-studio');
-    expect(within(studio).getByText('$59')).toHaveClass('line-through');
+    const studioOriginalPriceSlot = within(studio).getByTestId(
+      'global-plan-studio-original-price-slot',
+    );
+    expect(within(studioOriginalPriceSlot).getByText('$59')).toHaveClass(
+      'line-through',
+    );
     expect(within(studio).getByText('$49')).toBeInTheDocument();
     expect(within(studio).getByText('Discounted price')).toBeInTheDocument();
     expect(
       within(studio).getByText('First month only. Renews at $59 per month.'),
     ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('global-plan-growth')).getByTestId(
+        'global-plan-growth-original-price-slot',
+      ),
+    ).toBeEmptyDOMElement();
   });
 
   test('shows annual campaign pricing with a neutral annual savings note', async () => {
@@ -545,7 +555,11 @@ describe('GlobalBillingPricing', () => {
     renderPricing();
 
     const growth = await screen.findByTestId('global-plan-growth');
-    expect(within(growth).getByText('$183')).toHaveClass('line-through');
+    expect(
+      within(
+        within(growth).getByTestId('global-plan-growth-original-price-slot'),
+      ).getByText('$183'),
+    ).toHaveClass('line-through');
     expect(within(growth).getByText('$166.58')).toBeInTheDocument();
     expect(within(growth).getByText('Discounted price')).toBeInTheDocument();
     expect(
@@ -553,9 +567,12 @@ describe('GlobalBillingPricing', () => {
         'First 12 months: $1,999. Renews at $2,199 every 12 months.',
       ),
     ).toBeInTheDocument();
-    expect(within(growth).getByText('Save $549 per year (20.0%)')).toHaveClass(
-      'text-muted-foreground',
+    const savingsSlot = within(growth).getByTestId(
+      'global-plan-growth-savings-slot',
     );
+    expect(
+      within(savingsSlot).getByText('Save $549 per year (20.0%)'),
+    ).toHaveClass('text-muted-foreground');
   });
 
   test('shows bonus campaign labels on global plan cards', async () => {

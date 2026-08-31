@@ -956,15 +956,20 @@ function PlanCard({
           className={pricingDetailsClassName}
           data-testid={`global-plan-${tierSpec.tier}-price`}
         >
-          {hasDiscountCampaign ? (
-            <div className='mb-1 min-h-5 text-sm text-muted-foreground line-through'>
-              {formatBillingPrice(
-                originalPriceAmount,
-                product.currency,
-                locale,
-              )}
-            </div>
-          ) : null}
+          <div
+            className='mb-1 min-h-5 text-sm text-muted-foreground'
+            data-testid={`global-plan-${tierSpec.tier}-original-price-slot`}
+          >
+            {hasDiscountCampaign ? (
+              <span className='line-through'>
+                {formatBillingPrice(
+                  originalPriceAmount,
+                  product.currency,
+                  locale,
+                )}
+              </span>
+            ) : null}
+          </div>
           <div className='flex items-end gap-1 text-foreground'>
             {cycle === 'annual' && annualProduct ? (
               <span className='pb-1 text-xs text-muted-foreground 2xl:text-sm'>
@@ -980,7 +985,7 @@ function PlanCard({
           </div>
           {cycle === 'annual' && annualProduct ? (
             <div className='mt-2 space-y-2'>
-              <p className='text-sm text-muted-foreground'>
+              <p className='min-h-10 text-sm text-muted-foreground'>
                 {hasDiscountCampaign
                   ? t('module.billing.globalPricing.campaignAnnualBilling', {
                       price: formatBillingPrice(
@@ -1002,22 +1007,24 @@ function PlanCard({
                       ),
                     })}
               </p>
-              <div className='min-h-7'>
+              <div
+                className='min-h-7'
+                data-testid={`global-plan-${tierSpec.tier}-savings-slot`}
+              >
                 {shouldShowAnnualSavingsBadge ? (
                   <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
                     {annualSavingsLabel}
                   </Badge>
+                ) : campaignLabel ? (
+                  <p className='text-xs font-medium text-muted-foreground'>
+                    {annualSavingsLabel}
+                  </p>
                 ) : null}
               </div>
-              {campaignLabel ? (
-                <p className='text-xs font-medium text-muted-foreground'>
-                  {annualSavingsLabel}
-                </p>
-              ) : null}
             </div>
           ) : (
             <div className='mt-2 space-y-2'>
-              <p className='text-sm text-muted-foreground'>
+              <p className='min-h-10 text-sm text-muted-foreground'>
                 {hasDiscountCampaign
                   ? t('module.billing.globalPricing.campaignMonthlyBilling', {
                       renewalPrice: formatBillingPrice(
@@ -1028,7 +1035,10 @@ function PlanCard({
                     })
                   : t('module.billing.globalPricing.cancelAnytime')}
               </p>
-              <div className='min-h-7' />
+              <div
+                className='min-h-7'
+                data-testid={`global-plan-${tierSpec.tier}-savings-slot`}
+              />
             </div>
           )}
         </div>
