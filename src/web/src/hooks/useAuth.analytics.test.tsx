@@ -18,6 +18,9 @@ const mockUserState = {
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    emailLogin: jest.fn(),
+    sendEmailCode: jest.fn(),
+    sendSmsCode: jest.fn(),
     smsLogin: jest.fn(),
   },
 }));
@@ -53,10 +56,16 @@ jest.mock('@/lib/referral-context', () => ({
 }));
 
 const mockSmsLogin = apiService.smsLogin as jest.Mock;
+const mockEmailLogin = apiService.emailLogin as jest.Mock;
+const mockSendEmailCode = apiService.sendEmailCode as jest.Mock;
+const mockSendSmsCode = apiService.sendSmsCode as jest.Mock;
 
-describe('useAuth SMS analytics contract', () => {
+describe('useAuth login analytics contract', () => {
   beforeEach(() => {
     mockSmsLogin.mockReset();
+    mockEmailLogin.mockReset();
+    mockSendEmailCode.mockReset();
+    mockSendSmsCode.mockReset();
     mockLogin.mockReset().mockResolvedValue(undefined);
     mockLogout.mockReset().mockResolvedValue(undefined);
     mockToast.mockReset();
@@ -232,5 +241,86 @@ describe('useAuth SMS analytics contract', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private network detail',
     );
+  });
+
+  it('emits sanitized email login results and forwards referral context', async () => {
+    const referralMetadata = {
+      invite_code: 'AB12CD34',
+      referral_session_id: 'session-1',
+      referral_entry_source: 'invite_link' as const,
+    };
+    mockBuildReferralLoginPayload.mockReturnValue(referralMetadata);
+    mockEmailLogin.mockResolvedValue({
+      code: 0,
+      data: {
+        userInfo: { user_id: 'email-user-private' },
+        token: 'email-token-private',
+      },
+    });
+    const { result } = renderHook(() => useAuth());
+
+    await act(async () => {
+      await result.current.loginWithEmailCode(
+        'private@example.com',
+        '654321',
+        'en-US',
+        referralMetadata,
+      );
+    });
+
+    expect(mockEmailLogin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'private@example.com',
+        code: '654321',
+        language: 'en-US',
+        ...referralMetadata,
+      }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_attempt', {
+      login_method: 'email',
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_result', {
+      login_method: 'email',
+      outcome: 'success',
+    });
+    expect(mockClearReferralContext).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+      /private@example.com|654321|email-user-private|email-token-private/,
+    );
+  });
+
+  it('surfaces email rate limiting as a stable result without a generic toast', async () => {
+    mockSendEmailCode.mockResolvedValue({
+      code: 1033,
+      message: 'private localized rate-limit detail',
+    });
+    const { result } = renderHook(() => useAuth());
+
+    let sendResult: { rateLimited: boolean } | undefined;
+    await act(async () => {
+      sendResult = await result.current.sendEmailCode('private@example.com');
+    });
+
+    expect(sendResult).toEqual({ rateLimited: true });
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('surfaces SMS rate limiting as the same stable result', async () => {
+    mockSendSmsCode.mockResolvedValue({
+      code: 1012,
+      message: 'private localized rate-limit detail',
+    });
+    const { result } = renderHook(() => useAuth());
+
+    let sendResult: { rateLimited: boolean } | undefined;
+    await act(async () => {
+      sendResult = await result.current.sendSmsCode(
+        '13800138000',
+        'captcha-ticket',
+      );
+    });
+
+    expect(sendResult).toEqual({ rateLimited: true });
+    expect(mockToast).not.toHaveBeenCalled();
   });
 });

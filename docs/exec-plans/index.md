@@ -64,6 +64,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
+- [Reuse Email and SMS Verification Login](./completed/verification-code-login-reuse.md)
 
 ## Supporting Tracker
 
