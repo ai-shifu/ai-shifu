@@ -1168,75 +1168,6 @@ def _load_dashboard_course_last_learning_map(
     }
 
 
-def _load_dashboard_course_joined_at_map(
-    shifu_bid: str,
-    user_bids: Sequence[str],
-) -> dict[str, datetime]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    joined_at_map: dict[str, datetime] = {}
-
-    def _merge_rows(rows: Sequence[tuple[str, datetime | None]]) -> None:
-        for user_bid, joined_at in rows:
-            normalized_user_bid = str(user_bid or "").strip()
-            if not normalized_user_bid or not joined_at:
-                continue
-            current = joined_at_map.get(normalized_user_bid)
-            if current is None or joined_at < current:
-                joined_at_map[normalized_user_bid] = joined_at
-
-    _merge_rows(
-        db.session.query(
-            Order.user_bid,
-            db.func.min(Order.created_at).label("joined_at"),
-        )
-        .filter(
-            Order.shifu_bid == shifu_bid,
-            Order.user_bid.in_(normalized_user_bids),
-            Order.deleted == 0,
-            Order.status == ORDER_STATUS_SUCCESS,
-        )
-        .group_by(Order.user_bid)
-        .all()
-    )
-    _merge_rows(
-        db.session.query(
-            AiCourseAuth.user_id,
-            db.func.min(
-                db.func.coalesce(AiCourseAuth.updated_at, AiCourseAuth.created_at)
-            ).label("joined_at"),
-        )
-        .filter(
-            AiCourseAuth.course_id == shifu_bid,
-            AiCourseAuth.user_id.in_(normalized_user_bids),
-            AiCourseAuth.status == 1,
-        )
-        .group_by(AiCourseAuth.user_id)
-        .all()
-    )
-    _merge_rows(
-        db.session.query(
-            LearnProgressRecord.user_bid,
-            db.func.min(LearnProgressRecord.created_at).label("joined_at"),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.user_bid.in_(normalized_user_bids),
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .all()
-    )
-    return joined_at_map
-
-
 def _load_dashboard_course_learned_lesson_count_map(
     shifu_bid: str,
     user_bids: Sequence[str],
@@ -1314,21 +1245,12 @@ def _load_dashboard_course_follow_up_count_map(
     }
 
 
-def _resolve_dashboard_course_learning_status(
-    *,
-    learned_lesson_count: int,
-    total_lesson_count: int,
-) -> str:
-    if total_lesson_count > 0 and learned_lesson_count >= total_lesson_count:
-        return "completed"
-    if learned_lesson_count > 0:
-        return "learning"
-    return "not_started"
-
-
-def _count_completed_learners(shifu_bid: str, leaf_outline_bids: list[str]) -> int:
+def _load_dashboard_course_completed_learner_bids(
+    shifu_bid: str,
+    leaf_outline_bids: list[str],
+) -> set[str]:
     if not leaf_outline_bids:
-        return 0
+        return set()
 
     progress_rows = (
         db.session.query(
@@ -1386,11 +1308,11 @@ def _count_completed_learners(shifu_bid: str, leaf_outline_bids: list[str]) -> i
         completed_outline_bids.add(outline_item_bid)
 
     leaf_count = len(leaf_outline_bids)
-    return sum(
-        1
-        for completed_outline_bids in completed_leaf_bids_by_user.values()
+    return {
+        user_bid
+        for user_bid, completed_outline_bids in completed_leaf_bids_by_user.items()
         if len(completed_outline_bids) >= leaf_count
-    )
+    }
 
 
 def _collect_dashboard_entry_metrics(
@@ -2814,22 +2736,11 @@ def build_dashboard_course_detail(
         order_count = int(getattr(order_summary, "order_count", 0) or 0)
         order_amount = Decimal(str(getattr(order_summary, "order_amount", 0) or 0))
 
-        completed_learner_count = _count_completed_learners(
+        completed_learner_bids = _load_dashboard_course_completed_learner_bids(
             normalized_shifu_bid,
             leaf_outline_bids,
         )
-
-        active_learner_count_last_7_days = (
-            db.session.query(db.func.count(db.distinct(LearnProgressRecord.user_bid)))
-            .filter(
-                LearnProgressRecord.shifu_bid == normalized_shifu_bid,
-                LearnProgressRecord.deleted == 0,
-                LearnProgressRecord.status != LEARN_STATUS_RESET,
-                LearnProgressRecord.updated_at >= now_utc() - timedelta(days=7),
-            )
-            .scalar()
-            or 0
-        )
+        completed_learner_count = len(completed_learner_bids)
 
         total_follow_up_count = (
             db.session.query(db.func.count(LearnGeneratedBlock.id))
@@ -2853,19 +2764,10 @@ def build_dashboard_course_detail(
         )
 
         created_at = _load_dashboard_course_created_at(normalized_shifu_bid)
-        joined_at_map = _load_dashboard_course_joined_at_map(
-            normalized_shifu_bid,
-            sorted_learner_bids,
-        )
         learned_lesson_count_map = _load_dashboard_course_learned_lesson_count_map(
             normalized_shifu_bid,
             sorted_learner_bids,
             leaf_outline_bids,
-        )
-        new_learner_count_last_7_days = sum(
-            1
-            for joined_at in joined_at_map.values()
-            if joined_at >= now_utc() - timedelta(days=7)
         )
         learning_mode_metrics = _build_dashboard_learning_mode_metrics(
             normalized_shifu_bid
@@ -2873,13 +2775,8 @@ def build_dashboard_course_detail(
         learning_learner_count = sum(
             1
             for learner_bid in sorted_learner_bids
-            if _resolve_dashboard_course_learning_status(
-                learned_lesson_count=int(
-                    learned_lesson_count_map.get(learner_bid, 0) or 0
-                ),
-                total_lesson_count=len(leaf_outline_bids),
-            )
-            == "learning"
+            if learned_lesson_count_map.get(learner_bid, 0) > 0
+            and learner_bid not in completed_learner_bids
         )
 
         return DashboardCourseDetailDTO(
@@ -2894,14 +2791,12 @@ def build_dashboard_course_detail(
             metrics=DashboardCourseDetailMetricsDTO(
                 order_count=order_count,
                 order_amount=_format_money(order_amount),
-                new_learner_count_last_7_days=int(new_learner_count_last_7_days),
                 learning_learner_count=int(learning_learner_count),
                 completed_learner_count=completed_learner_count,
                 completion_rate=_format_percentage(
                     completed_learner_count,
                     learner_count,
                 ),
-                active_learner_count_last_7_days=int(active_learner_count_last_7_days),
                 total_follow_up_count=int(total_follow_up_count),
                 rating_score=_format_average_score(rating_score),
             ),
