@@ -115,6 +115,7 @@ type TopupCardProps = {
   actionLabel: string;
   actionLoading?: boolean;
   campaignLabel?: string;
+  campaignLabelVariant?: 'pill' | 'ribbon';
   creditsLabel: string;
   description?: string;
   disabled?: boolean;
@@ -130,6 +131,7 @@ export function TopupCard({
   actionLabel,
   actionLoading = false,
   campaignLabel,
+  campaignLabelVariant = 'pill',
   creditsLabel,
   description,
   disabled = false,
@@ -144,6 +146,9 @@ export function TopupCard({
       className={cn(styles.topupCard, featured && styles.topupCardFeatured)}
       data-testid={testId}
     >
+      {campaignLabel && campaignLabelVariant === 'ribbon' ? (
+        <div className={styles.topupCardCampaignRibbon}>{campaignLabel}</div>
+      ) : null}
       <div className={styles.topupCardBody}>
         <div className={styles.topupCardHeader}>
           <div className={styles.topupCardHeading}>
@@ -163,7 +168,7 @@ export function TopupCard({
               </div>
             ) : null}
             <div className={styles.topupCardPrice}>{priceLabel}</div>
-            {campaignLabel ? (
+            {campaignLabel && campaignLabelVariant === 'pill' ? (
               <div className={styles.topupCardCampaignLabel}>
                 {campaignLabel}
               </div>

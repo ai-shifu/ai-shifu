@@ -82,6 +82,11 @@ const MarkdownFlowEditor = dynamic(
   },
 );
 
+const HIDDEN_SYSTEM_VARIABLE_KEYS = new Set([
+  'sys_user_style',
+  'sys_user_input',
+]);
+
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
@@ -1351,27 +1356,42 @@ const ScriptEditor = ({
   }, [variables]);
 
   const systemVariablesList = useMemo(() => {
-    return systemVariables.map((variable: Record<string, string>) => ({
-      name: variable.name,
-      label: variable.label,
-    }));
+    return systemVariables
+      .filter(
+        (variable: Record<string, string>) =>
+          !HIDDEN_SYSTEM_VARIABLE_KEYS.has(variable.name),
+      )
+      .map((variable: Record<string, string>) => ({
+        name: variable.name,
+        label: variable.label,
+      }));
   }, [systemVariables]);
+
+  const previewHiddenVariableKeys = useMemo(
+    () =>
+      Array.from(new Set([...hiddenVariables, ...HIDDEN_SYSTEM_VARIABLE_KEYS])),
+    [hiddenVariables],
+  );
+
+  const visibleSystemVariableKeys = useMemo(
+    () => systemVariablesList.map(variable => variable.name),
+    [systemVariablesList],
+  );
 
   const variableOrder = useMemo(() => {
     return [
-      ...systemVariablesList.map(variable => variable.name),
+      ...visibleSystemVariableKeys,
       ...variablesList.map(variable => variable.name),
     ];
-  }, [systemVariablesList, variablesList]);
+  }, [variablesList, visibleSystemVariableKeys]);
 
   // Course-level visible variables (system + custom, excluding hidden)
   const courseVisibleVariableKeys = useMemo(() => {
-    const systemSet = systemVariablesList.map(item => item.name);
     const customVisible = (variables || []).filter(
       key => !hiddenVariables.includes(key),
     );
-    return [...systemSet, ...customVisible];
-  }, [hiddenVariables, systemVariablesList, variables]);
+    return [...visibleSystemVariableKeys, ...customVisible];
+  }, [hiddenVariables, variables, visibleSystemVariableKeys]);
 
   // Preview variables: start from parsed variables and fill missing course-visible keys with empty values
   const mergedPreviewVariables = useMemo(() => {
@@ -1944,12 +1964,13 @@ const ScriptEditor = ({
                   items={previewItems}
                   creditInsufficientAudience={creditInsufficientAudience}
                   variables={mergedPreviewVariables}
-                  hiddenVariableKeys={hiddenVariables}
+                  hiddenVariableKeys={previewHiddenVariableKeys}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
+                  systemVariableKeys={visibleSystemVariableKeys}
                   onRequestAudioForBlock={
                     currentShifu?.tts_enabled
                       ? requestPreviewAudioForBlock

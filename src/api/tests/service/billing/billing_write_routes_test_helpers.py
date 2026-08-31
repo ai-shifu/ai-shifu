@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
     BILLING_INTERVAL_DAY,
     BILLING_MODE_RECURRING,
@@ -112,6 +113,7 @@ __all__ = [
     "BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS",
     "BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT",
     "BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED",
+    "BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT",
     "BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE",
     "BILLING_INTERVAL_DAY",
     "BILLING_MODE_RECURRING",
@@ -442,6 +444,7 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     class FakeStripeProvider:
         def create_payment(self, *, request: object, app: object) -> object:
             _ = app
+            checkout_session_id = f"cs_{request.order_bid}"
             stripe_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -452,16 +455,16 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
                 }
             )
             return PaymentCreationResult(
-                provider_reference="cs_billing_test",
+                provider_reference=checkout_session_id,
                 raw_response={
-                    "id": "cs_billing_test",
+                    "id": checkout_session_id,
                     "url": "https://stripe.test/checkout",
                     "status": "open",
                     "payment_status": "unpaid",
                     "success_url": request.extra.get("success_url"),
                     "cancel_url": request.extra.get("cancel_url"),
                 },
-                checkout_session_id="cs_billing_test",
+                checkout_session_id=checkout_session_id,
                 extra={"url": "https://stripe.test/checkout"},
             )
 
@@ -493,6 +496,32 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
         ) -> object:
             _ = app
             assert reference_type == "checkout_session"
+            stripe_order = StripeOrder.query.filter_by(
+                checkout_session_id=provider_reference,
+                biz_domain="billing",
+                deleted=0,
+            ).first()
+            billing_order = None
+            if stripe_order and stripe_order.bill_order_bid:
+                billing_order = BillingOrder.query.filter_by(
+                    bill_order_bid=stripe_order.bill_order_bid,
+                    deleted=0,
+                ).first()
+            paid_amount = (
+                int(billing_order.payable_amount or 0)
+                if billing_order is not None
+                else int(stripe_order.amount or 0)
+                if stripe_order is not None
+                else 0
+            )
+            paid_currency = (
+                str(billing_order.currency or "CNY").lower()
+                if billing_order is not None
+                else str(stripe_order.currency or "cny").lower()
+                if stripe_order is not None
+                else "cny"
+            )
+            no_payment_required = paid_amount == 0
             return PaymentNotificationResult(
                 order_bid="",
                 status="manual_sync",
@@ -500,14 +529,31 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
                     "checkout_session": {
                         "id": provider_reference,
                         "status": "complete",
-                        "payment_status": "paid",
-                        "payment_intent": "pi_billing_test",
+                        "payment_status": (
+                            "no_payment_required" if no_payment_required else "paid"
+                        ),
+                        "payment_intent": (
+                            None if no_payment_required else "pi_billing_test"
+                        ),
                         "subscription": "sub_provider_test",
                         "customer": "cus_provider_test",
+                        "amount_total": paid_amount,
+                        "currency": paid_currency,
+                        "metadata": {
+                            "bill_order_bid": billing_order.bill_order_bid,
+                            "creator_bid": billing_order.creator_bid,
+                            "product_bid": billing_order.product_bid,
+                        }
+                        if billing_order is not None
+                        else {},
                     },
-                    "payment_intent": {
+                    "payment_intent": {}
+                    if no_payment_required
+                    else {
                         "id": "pi_billing_test",
                         "status": "succeeded",
+                        "amount_received": paid_amount,
+                        "currency": paid_currency,
                     },
                 },
                 charge_id=None,

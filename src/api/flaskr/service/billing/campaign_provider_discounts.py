@@ -516,11 +516,17 @@ def _prepare_discount_row(
             message = "Invalid percent discount"
             raise _error(code, message, binding)
         discount_amount = 0
-        percent_discount_amount = int(
-            (Decimal(list_price_amount) * discount_percent / Decimal(100)).quantize(
-                Decimal(1)
-            )
+        raw_percent_discount_amount = (
+            Decimal(list_price_amount) * discount_percent / Decimal(100)
         )
+        if (
+            raw_percent_discount_amount
+            != raw_percent_discount_amount.to_integral_value()
+        ):
+            code = "fractional_minor_unit_discount"
+            message = "Percent discount must resolve to an exact minor currency unit"
+            raise _error(code, message, binding)
+        percent_discount_amount = int(raw_percent_discount_amount)
         campaign_price_amount = max(list_price_amount - percent_discount_amount, 0)
     else:
         code = "invalid_discount_type"

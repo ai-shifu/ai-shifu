@@ -58,11 +58,12 @@ if TYPE_CHECKING:
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
     "payment_intent.succeeded",
-    "checkout.session.completed",
+    "checkout.session.async_payment_succeeded",
 }
 
 _STRIPE_FAIL_EVENT_TYPES = {
     "payment_intent.payment_failed",
+    "checkout.session.async_payment_failed",
 }
 
 _STRIPE_REFUND_EVENT_TYPES = {
@@ -219,7 +220,17 @@ def _can_transition_billing_order_status(
     return True
 
 
-def _map_stripe_order_status(event_type: str) -> int | None:
+def _map_stripe_order_status(
+    event_type: str,
+    data_object: dict[str, object] | None = None,
+) -> int | None:
+    if event_type == "checkout.session.completed":
+        payment_status = (
+            str((data_object or {}).get("payment_status") or "").strip().lower()
+        )
+        if payment_status in {"paid", "no_payment_required"}:
+            return BILLING_ORDER_STATUS_PAID
+        return None
     if event_type in _STRIPE_SUCCESS_EVENT_TYPES:
         return BILLING_ORDER_STATUS_PAID
     if event_type in _STRIPE_FAIL_EVENT_TYPES:
@@ -374,6 +385,7 @@ def _apply_billing_subscription_provider_update(
     payload: dict[str, object],
     data_object: dict[str, object],
     source: str = "webhook",
+    allow_activation: bool = True,
 ) -> bool:
     event_time = _extract_provider_event_time(payload)
     if not _should_apply_subscription_event(subscription, event_time):
@@ -401,6 +413,11 @@ def _apply_billing_subscription_provider_update(
         mapped_status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
     if event_type == "customer.subscription.deleted":
         mapped_status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+    if not allow_activation and mapped_status in {
+        BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    }:
+        mapped_status = None
     if mapped_status is not None:
         subscription.status = mapped_status
 
@@ -603,9 +620,7 @@ def _is_stripe_checkout_paid(
     session: dict[str, object],
     intent: dict[str, object] | None,
 ) -> bool:
-    if session.get("payment_status") == "paid":
-        return True
-    if session.get("status") == "complete" and not session.get("payment_status"):
+    if session.get("payment_status") in {"paid", "no_payment_required"}:
         return True
     return bool(intent and intent.get("status") == "succeeded")
 

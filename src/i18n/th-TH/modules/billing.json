@@ -776,6 +776,8 @@
     "approximatePricePrefix": "ประมาณ",
     "audienceLabel": "เหมาะสำหรับ",
     "billedAnnually": "ชำระทุก 12 เดือน {price}",
+    "campaignAnnualBilling": "12 เดือนแรก {price} ต่ออายุที่ {renewalPrice} ทุก 12 เดือน",
+    "campaignMonthlyBilling": "เฉพาะเดือนแรก ต่ออายุที่ {renewalPrice} ต่อเดือน",
     "cancelAnytime": "ชำระรายเดือน ยกเลิกได้ทุกเมื่อ",
     "checkoutNotice": "รองรับการชำระเงินออนไลน์ผ่าน Stripe เมื่อคลิกแล้วระบบจะพาไปยัง Stripe เพื่อชำระเงินให้เสร็จสิ้น",
     "comingSoon": {

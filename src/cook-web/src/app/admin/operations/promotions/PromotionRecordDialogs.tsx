@@ -39,7 +39,7 @@ import {
   PROMOTION_USAGE_DIALOG_COLUMN_COUNT,
   renderTooltipText,
   renderUserLabel,
-  resolvePackageCampaignOptionTitle,
+  resolvePackageCampaignProductDisplayTitle,
   resolvePackageCampaignProductTypeLabel,
   TABLE_CELL_CLASS,
   TABLE_HEAD_CLASS,
@@ -214,7 +214,7 @@ export const PackageCampaignProductDetailsDialog = ({
                     <TableRow key={product.product_bid}>
                       <TableCell className={TABLE_CELL_CLASS}>
                         {renderTooltipText(
-                          resolvePackageCampaignOptionTitle(t, product),
+                          resolvePackageCampaignProductDisplayTitle(t, product),
                         )}
                       </TableCell>
                       <TableCell className={TABLE_CELL_CLASS}>

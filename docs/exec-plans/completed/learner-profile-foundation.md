@@ -1,5 +1,9 @@
 # Learner Profile Foundation
 
+> Superseded in part on 2026-08-28: `sys_user_style` is no longer shown in the
+> course editor's variable discovery and preview controls. Its legacy global
+> read, write, parse, storage, and runtime-substitution contracts are unchanged.
+
 ## Purpose / Big Picture
 
 The learner-profile foundation provides one canonical, cross-course learner

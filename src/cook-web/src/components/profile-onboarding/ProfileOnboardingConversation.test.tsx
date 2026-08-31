@@ -1814,6 +1814,34 @@ describe('assistant answers in the existing session', () => {
     expect(result.runSession).toHaveBeenCalledTimes(1);
   });
 
+  test.each([
+    ['zh-CN', '请根据你对我的了解，回答这些问题。'],
+    ['fr-FR', 'Réponds à ces questions selon ce que tu sais de moi.'],
+    ['ar-SA', 'أجب عن هذه الأسئلة بناءً على ما تعرفه عني.'],
+  ])(
+    'displays and copies the exact %s session prompt',
+    async (_locale, prompt) => {
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText },
+      });
+      await begin(prompt, true);
+
+      enter();
+      expect(screen.getByText(prompt)).toBeVisible();
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: 'module.profileOnboarding.assistant.copy',
+          }),
+        );
+      });
+
+      expect(writeText).toHaveBeenCalledWith(prompt);
+    },
+  );
+
   test('accepts one early click and imports at the first content-only boundary', async () => {
     const result = await begin('Shared research questions', true);
     const first = result.runSession.mock.calls[0][0];

@@ -133,6 +133,47 @@ describe('LearningModeSwitch', () => {
     expect(screen.queryByText(/beta/i)).not.toBeInTheDocument();
   });
 
+  it('renders learning modes as accessible icons at responsive sizes', () => {
+    useSystemStore.setState({ canUseClassroomMode: true });
+
+    const modes = [
+      {
+        label: 'module.chat.learningModeRead',
+        iconClass: 'lucide-book-open',
+      },
+      {
+        label: 'module.chat.learningModeListen',
+        iconClass: 'lucide-headphones',
+      },
+      {
+        label: 'module.chat.learningModeClassroom',
+        iconClass: 'lucide-presentation',
+      },
+    ];
+    const { rerender } = render(<LearningModeSwitch />);
+
+    modes.forEach(({ label, iconClass }) => {
+      const button = screen.getByRole('radio', { name: label });
+      const icon = button.querySelector(`svg.${iconClass}`);
+
+      expect(icon).toHaveAttribute('aria-hidden', 'true');
+      expect(icon).toHaveAttribute('width', '12');
+      expect(icon).toHaveAttribute('height', '12');
+      expect(button).toHaveTextContent(/^\s*$/);
+    });
+
+    rerender(<LearningModeSwitch size='desktop' />);
+
+    modes.forEach(({ label, iconClass }) => {
+      const icon = screen
+        .getByRole('radio', { name: label })
+        .querySelector(`svg.${iconClass}`);
+
+      expect(icon).toHaveAttribute('width', '16');
+      expect(icon).toHaveAttribute('height', '16');
+    });
+  });
+
   it('hides classroom mode until preview access is available', () => {
     render(<LearningModeSwitch />);
 

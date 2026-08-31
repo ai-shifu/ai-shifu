@@ -11,6 +11,7 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { shifu } from '@/c-service/Shifu';
 import CourseHeaderSummary from './CourseHeaderSummary';
 import LearningModeSwitch from './LearningModeSwitch';
+import LearnerCourseShareButton from './LearnerCourseShareButton';
 import PreviewHeaderBanner from './PreviewHeaderBanner';
 import LessonUpdateNotice from './LessonUpdateNotice';
 
@@ -67,6 +68,14 @@ export const ChatMobileHeader = ({
 
         <div className={styles.actionGroup}>
           {showLearningModeToggle ? <LearningModeSwitch /> : null}
+
+          {previewMode ? null : (
+            <LearnerCourseShareButton
+              surface='learner_mobile_header'
+              className='h-8 w-8 shrink-0 text-neutral-500 shadow-none hover:bg-muted/50 hover:text-foreground'
+              tooltipSide='bottom'
+            />
+          )}
 
           <button
             type='button'

@@ -53,6 +53,8 @@ import {
   formatLessonRelativeTime,
   parseLessonHistoryDate,
 } from '@/lib/lesson-history-time';
+import { CourseShareButton } from '@/components/course-share';
+import { normalizeCourseShareUrl } from '@/lib/courseShare';
 
 const publishModeIcons: Record<LearningMode, LucideIcon> = {
   read: BookOpen,
@@ -160,6 +162,18 @@ const Header = ({
   const showHistoryEntry = !error && !isSaving && Boolean(lessonHistoryUrl);
   const getCourseUrl = () =>
     buildCourseLearningUrl(currentShifu?.bid || '', currentShifu?.url);
+  const getCourseShareUrl = () => {
+    const shifuBid = currentShifu?.bid;
+    if (!shifuBid || typeof window === 'undefined') {
+      return null;
+    }
+
+    const origin = window.location.origin;
+    return (
+      normalizeCourseShareUrl(currentShifu.url, origin) ||
+      normalizeCourseShareUrl(`/c/${encodeURIComponent(shifuBid)}`, origin)
+    );
+  };
   const getLearningModeUrl = (mode: LearningMode) =>
     buildLearningModeUrl(getCourseUrl(), mode);
   const isLearningModeAvailable = (mode: LearningMode) =>
@@ -469,6 +483,19 @@ const Header = ({
 
       <div className='flex flex-row items-center'>
         <Preivew targetId={previewTargetId} />
+        {currentShifu?.bid ? (
+          <CourseShareButton
+            courseTitle={currentShifu.name || ''}
+            courseDescription={currentShifu.description}
+            shifuBid={currentShifu.bid}
+            resolveShareUrl={getCourseShareUrl}
+            surface='teacher_header'
+            showLabel
+            variant='ghost'
+            size='sm'
+            className='ml-2 h-8 px-2 text-xs font-normal'
+          />
+        ) : null}
         <div className='flex items-center justify-center h-9 rounded-lg cursor-pointer shifu-setting-icon-container ml-2'>
           <DropdownMenu>
             <div className='flex items-center'>

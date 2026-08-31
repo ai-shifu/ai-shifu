@@ -53,21 +53,6 @@ export const getLearningModeLabel = (
   return t('module.chat.learningModeRead');
 };
 
-export const getLearningModeShortLabel = (
-  t: TFunction,
-  learningMode: LearningMode,
-) => {
-  if (learningMode === 'classroom') {
-    return t('module.chat.learningModeClassroomShort');
-  }
-
-  if (learningMode === 'listen') {
-    return t('module.chat.learningModeListenShort');
-  }
-
-  return t('module.chat.learningModeReadShort');
-};
-
 export const getLearningModeTooltip = (
   t: TFunction,
   learningMode: LearningMode,
