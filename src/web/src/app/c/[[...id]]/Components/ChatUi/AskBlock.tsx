@@ -12,9 +12,18 @@ import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
 import {
   getRunMessage,
+  streamGeneratedBlockAudio,
+  streamPreviewTextAudio,
   SSE_INPUT_TYPE,
   SSE_OUTPUT_TYPE,
 } from '@/c-api/studyV2';
+import {
+  normalizeAudioCompletePayload,
+  normalizeAudioSegmentPayload,
+  toAudioSegmentData,
+  upsertAudioComplete,
+  upsertAudioSegment,
+} from '@/c-utils/audio-utils';
 import { fixMarkdownStream } from '@/c-utils/markdownUtils';
 import LoadingBar from './LoadingBar';
 import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
@@ -56,6 +65,9 @@ export interface AskBlockProps {
   preview_mode?: boolean;
   element_bid: string;
   onToggleAskExpanded?: (element_bid: string) => void;
+  narrateAnswers?: boolean;
+  onNarrationAttempt?: () => void;
+  onNarrationFailed?: () => void;
 }
 
 /**
@@ -73,6 +85,9 @@ export default function AskBlock({
   preview_mode = false,
   element_bid,
   onToggleAskExpanded,
+  narrateAnswers = false,
+  onNarrationAttempt,
+  onNarrationFailed,
 }: AskBlockProps) {
   const { t, i18n } = useTranslation();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
@@ -112,9 +127,14 @@ export default function AskBlock({
 
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
+  const ttsSseRef = useRef<any>(null);
   const currentContentRef = useRef<string>('');
   const currentAnswerElementBidRef = useRef<string>('');
+  const currentAnswerGeneratedBlockBidRef = useRef<string>('');
   const isStreamingRef = useRef(false);
+  const cancelExchangeRef = useRef<(() => void) | null>(null);
+  const narrationFailedRef = useRef(false);
+  const isNarrationCancelledRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobileDialog, setShowMobileDialog] = useState(hasDisplayMessages);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
@@ -130,6 +150,14 @@ export default function AskBlock({
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
   const shouldShowMobileDialog =
     showMobileDialog || shouldForceSlideMobileDialog;
+  const latestAnswer = [...displayList]
+    .reverse()
+    .find(item => item.type === BLOCK_TYPE.ANSWER);
+  const isInputLocked = Boolean(
+    latestAnswer?.isStreaming ||
+    latestAnswer?.audioPlaybackStatus === 'pending' ||
+    latestAnswer?.audioPlaybackStatus === 'playing',
+  );
   const showOutputInProgressToast = useCallback(() => {
     toast({
       title: t('module.chat.outputInProgress'),
@@ -158,6 +186,174 @@ export default function AskBlock({
       focusable?.blur();
     });
   }, [mobileStyle]);
+
+  const updateAnswerNarrationStatus = useCallback(
+    (answerElementBid: string, status: AskMessage['audioPlaybackStatus']) => {
+      setAskList(element_bid, prev => {
+        const targetIndex = [...prev]
+          .map((item, index) => ({ item, index }))
+          .reverse()
+          .find(
+            ({ item }) =>
+              item.type === BLOCK_TYPE.ANSWER &&
+              (!answerElementBid || item.element_bid === answerElementBid),
+          )?.index;
+        if (targetIndex === undefined) {
+          return prev;
+        }
+
+        const next = [...prev];
+        next[targetIndex] = {
+          ...next[targetIndex],
+          audioPlaybackStatus: status,
+          ...(status === 'failed' || status === 'cancelled'
+            ? { isAudioStreaming: false }
+            : {}),
+        };
+        return next;
+      });
+    },
+    [element_bid, setAskList],
+  );
+
+  const failAnswerNarration = useCallback(
+    (answerElementBid: string) => {
+      if (narrationFailedRef.current) {
+        return;
+      }
+
+      narrationFailedRef.current = true;
+      ttsSseRef.current?.close();
+      ttsSseRef.current = null;
+      updateAnswerNarrationStatus(answerElementBid, 'failed');
+      onNarrationFailed?.();
+      toast({
+        title: t('module.chat.followUpAudioFailed'),
+      });
+    },
+    [onNarrationFailed, t, updateAnswerNarrationStatus],
+  );
+
+  const startAnswerNarration = useCallback(
+    ({
+      answerElementBid,
+      generatedBlockBid,
+      content,
+    }: {
+      answerElementBid: string;
+      generatedBlockBid: string;
+      content: string;
+    }) => {
+      if (!narrateAnswers) {
+        return;
+      }
+
+      if (
+        creditInsufficientAudience === null ||
+        !answerElementBid ||
+        (!preview_mode && !generatedBlockBid)
+      ) {
+        failAnswerNarration(answerElementBid);
+        return;
+      }
+
+      narrationFailedRef.current = false;
+      isNarrationCancelledRef.current = false;
+      let ttsCompleted = false;
+      const handleTtsMessage = (response: {
+        type?: string;
+        content?: unknown;
+        data?: unknown;
+      }) => {
+        if (isNarrationCancelledRef.current) {
+          return;
+        }
+
+        if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+          const normalizedSegment = normalizeAudioSegmentPayload(
+            response.content ?? response.data,
+          );
+          if (!normalizedSegment) {
+            return;
+          }
+
+          setAskList(element_bid, prev =>
+            upsertAudioSegment(
+              prev.map(item => ({
+                ...item,
+                element_bid: item.element_bid || '',
+              })),
+              answerElementBid,
+              toAudioSegmentData(normalizedSegment),
+            ),
+          );
+          return;
+        }
+
+        if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+          const normalizedComplete = normalizeAudioCompletePayload(
+            response.content ?? response.data,
+          );
+          if (!normalizedComplete) {
+            failAnswerNarration(answerElementBid);
+            return;
+          }
+
+          ttsCompleted = true;
+          setAskList(element_bid, prev =>
+            upsertAudioComplete(
+              prev.map(item => ({
+                ...item,
+                element_bid: item.element_bid || '',
+              })),
+              answerElementBid,
+              normalizedComplete,
+            ),
+          );
+          ttsSseRef.current?.close();
+          ttsSseRef.current = null;
+          return;
+        }
+
+        if (response.type === SSE_OUTPUT_TYPE.ERROR) {
+          failAnswerNarration(answerElementBid);
+        }
+      };
+      const handleTtsError = () => {
+        if (!ttsCompleted && !isNarrationCancelledRef.current) {
+          failAnswerNarration(answerElementBid);
+        }
+      };
+
+      ttsSseRef.current?.close();
+      ttsSseRef.current = preview_mode
+        ? streamPreviewTextAudio({
+            shifu_bid,
+            text: content,
+            creditInsufficientAudience,
+            onMessage: handleTtsMessage,
+            onError: handleTtsError,
+          })
+        : streamGeneratedBlockAudio({
+            shifu_bid,
+            generated_block_bid: generatedBlockBid,
+            preview_mode: false,
+            listen: false,
+            creditInsufficientAudience,
+            onMessage: handleTtsMessage,
+            onError: handleTtsError,
+          });
+    },
+    [
+      creditInsufficientAudience,
+      element_bid,
+      failAnswerNarration,
+      narrateAnswers,
+      preview_mode,
+      setAskList,
+      shifu_bid,
+    ],
+  );
 
   const finalizeStreamingMessage = useCallback(() => {
     isStreamingRef.current = false;
@@ -232,13 +428,18 @@ export default function AskBlock({
     if (creditInsufficientAudience === null) {
       return;
     }
-    if (isStreamingRef.current) {
+    if (isStreamingRef.current || isInputLocked) {
       showOutputInProgressToast();
       return;
     }
 
     if (!question) {
       return;
+    }
+
+    narrationFailedRef.current = false;
+    if (narrateAnswers) {
+      onNarrationAttempt?.();
     }
 
     // Close any previous SSE connection
@@ -266,16 +467,21 @@ export default function AskBlock({
         isStreaming: true,
         element_bid: '',
         shouldUseTypewriter: true,
+        ...(narrateAnswers ? { audioPlaybackStatus: 'pending' as const } : {}),
       },
     ]);
 
     // Reset the streaming content buffer
     currentContentRef.current = '';
     currentAnswerElementBidRef.current = '';
+    currentAnswerGeneratedBlockBidRef.current = '';
+    isNarrationCancelledRef.current = false;
     isStreamingRef.current = true;
 
     let streamSettled = false;
-    const rollbackFailedExchange = () => {
+    let receivedRunNarrationAudio = false;
+    let completedRunNarrationAudio = false;
+    const rollbackFailedExchange = (reportFailure = true) => {
       if (streamSettled) {
         return;
       }
@@ -293,6 +499,11 @@ export default function AskBlock({
         return next;
       });
       setInputValue(question);
+      cancelExchangeRef.current = null;
+      if (reportFailure && narrateAnswers && !narrationFailedRef.current) {
+        narrationFailedRef.current = true;
+        onNarrationFailed?.();
+      }
     };
     const finishSuccessfulExchange = () => {
       if (streamSettled) {
@@ -301,7 +512,23 @@ export default function AskBlock({
 
       streamSettled = true;
       finalizeStreamingMessage();
+      cancelExchangeRef.current = null;
+      if (narrateAnswers) {
+        if (completedRunNarrationAudio) {
+          return;
+        }
+        if (receivedRunNarrationAudio) {
+          failAnswerNarration(currentAnswerElementBidRef.current);
+        } else {
+          startAnswerNarration({
+            answerElementBid: currentAnswerElementBidRef.current,
+            generatedBlockBid: currentAnswerGeneratedBlockBidRef.current,
+            content: currentContentRef.current,
+          });
+        }
+      }
     };
+    cancelExchangeRef.current = () => rollbackFailedExchange(false);
 
     // Initiate the SSE request
     const source = getRunMessage(
@@ -313,12 +540,75 @@ export default function AskBlock({
         input_type: SSE_INPUT_TYPE.ASK,
         reload_generated_block_bid: element_bid,
         reload_element_bid: element_bid,
-        listen: false,
+        listen: narrateAnswers,
       },
       creditInsufficientAudience,
       async response => {
         try {
+          const responseGeneratedBlockBid =
+            typeof response.generated_block_bid === 'string'
+              ? response.generated_block_bid
+              : '';
+          if (responseGeneratedBlockBid) {
+            currentAnswerGeneratedBlockBidRef.current =
+              responseGeneratedBlockBid;
+          }
+
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
+            return;
+          }
+
+          if (
+            narrateAnswers &&
+            response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT
+          ) {
+            const normalizedSegment = normalizeAudioSegmentPayload(
+              response.content ?? response.data,
+            );
+            const answerElementBid = currentAnswerElementBidRef.current;
+            if (!normalizedSegment || !answerElementBid) {
+              return;
+            }
+
+            receivedRunNarrationAudio = true;
+            setAskList(element_bid, prev =>
+              upsertAudioSegment(
+                prev.map(item => ({
+                  ...item,
+                  element_bid: item.element_bid || '',
+                })),
+                answerElementBid,
+                toAudioSegmentData(normalizedSegment),
+              ),
+            );
+            return;
+          }
+
+          if (
+            narrateAnswers &&
+            response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE
+          ) {
+            const normalizedComplete = normalizeAudioCompletePayload(
+              response.content ?? response.data,
+            );
+            const answerElementBid = currentAnswerElementBidRef.current;
+            if (!normalizedComplete || !answerElementBid) {
+              failAnswerNarration(answerElementBid);
+              return;
+            }
+
+            receivedRunNarrationAudio = true;
+            completedRunNarrationAudio = true;
+            setAskList(element_bid, prev =>
+              upsertAudioComplete(
+                prev.map(item => ({
+                  ...item,
+                  element_bid: item.element_bid || '',
+                })),
+                answerElementBid,
+                normalizedComplete,
+              ),
+            );
             return;
           }
 
@@ -397,8 +687,32 @@ export default function AskBlock({
                 typeof elementRecord?.content === 'string'
                   ? elementRecord.content
                   : '';
+              const generatedBlockBid =
+                typeof elementRecord?.generated_block_bid === 'string'
+                  ? elementRecord.generated_block_bid
+                  : responseGeneratedBlockBid;
+
+              if (generatedBlockBid) {
+                currentAnswerGeneratedBlockBidRef.current = generatedBlockBid;
+              }
 
               replaceStreamingAnswerMessage(answerText, answerElementBid);
+              if (generatedBlockBid) {
+                setAskList(element_bid, prev => {
+                  const next = [...prev];
+                  const lastIndex = next.length - 1;
+                  if (
+                    lastIndex >= 0 &&
+                    next[lastIndex].type === BLOCK_TYPE.ANSWER
+                  ) {
+                    next[lastIndex] = {
+                      ...next[lastIndex],
+                      generated_block_bid: generatedBlockBid,
+                    };
+                  }
+                  return next;
+                });
+              }
               return;
             }
           }
@@ -450,11 +764,17 @@ export default function AskBlock({
     creditInsufficientAudience,
     element_bid,
     inputValue,
+    isInputLocked,
+    narrateAnswers,
+    onNarrationAttempt,
+    onNarrationFailed,
     dismissAskInputFocus,
     showOutputInProgressToast,
     finalizeStreamingMessage,
+    failAnswerNarration,
     replaceStreamingAnswerMessage,
     setAskList,
+    startAnswerNarration,
     updateStreamingAnswerMessage,
     t,
   ]);
@@ -464,6 +784,41 @@ export default function AskBlock({
     },
     [],
   );
+
+  const cancelActiveFollowUp = useCallback(() => {
+    isNarrationCancelledRef.current = true;
+    if (isStreamingRef.current) {
+      cancelExchangeRef.current?.();
+      sseRef.current?.close();
+      sseRef.current = null;
+      return;
+    }
+
+    ttsSseRef.current?.close();
+    ttsSseRef.current = null;
+    setAskList(element_bid, prev => {
+      const targetIndex = [...prev]
+        .map((item, index) => ({ item, index }))
+        .reverse()
+        .find(
+          ({ item }) =>
+            item.type === BLOCK_TYPE.ANSWER &&
+            (item.audioPlaybackStatus === 'pending' ||
+              item.audioPlaybackStatus === 'playing'),
+        )?.index;
+      if (targetIndex === undefined) {
+        return prev;
+      }
+
+      const next = [...prev];
+      next[targetIndex] = {
+        ...next[targetIndex],
+        audioPlaybackStatus: 'cancelled',
+        isAudioStreaming: false,
+      };
+      return next;
+    });
+  }, [element_bid, setAskList]);
 
   // Decide which messages to display
   const messagesToShow = printMode
@@ -508,6 +863,10 @@ export default function AskBlock({
       return;
     }
 
+    if (narrateAnswers) {
+      cancelActiveFollowUp();
+    }
+
     setAskList(element_bid, prev => {
       let hasChanges = false;
       const nextList = prev.map(item => {
@@ -528,11 +887,12 @@ export default function AskBlock({
 
       return hasChanges ? nextList : prev;
     });
-  }, [element_bid, expanded, setAskList]);
+  }, [cancelActiveFollowUp, element_bid, expanded, narrateAnswers, setAskList]);
 
   useEffect(() => {
     return () => {
       sseRef.current?.close();
+      ttsSseRef.current?.close();
     };
   }, []);
 
@@ -619,9 +979,11 @@ export default function AskBlock({
 
   const handleClose = useCallback(() => {
     setIsFullscreen(false);
-    // onClose?.();
+    if (narrateAnswers) {
+      cancelActiveFollowUp();
+    }
     onToggleAskExpanded?.(element_bid);
-  }, [onToggleAskExpanded, element_bid]);
+  }, [cancelActiveFollowUp, element_bid, narrateAnswers, onToggleAskExpanded]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -774,9 +1136,10 @@ export default function AskBlock({
           value={inputValue}
           onChange={handleInputChange}
           onSend={handleSendCustomQuestion}
+          disabled={isInputLocked}
           className={cn(
             styles.inputGroup,
-            isStreamingRef.current ? styles.isSending : '',
+            isInputLocked ? styles.isSending : '',
           )}
         />
       </div>

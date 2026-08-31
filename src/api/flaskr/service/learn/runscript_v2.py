@@ -706,7 +706,7 @@ def run_script(
     heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
     lock_key = _get_run_script_lock_key(app, user_bid, outline_bid)
     is_ask = input_type == INPUT_TYPE_ASK
-    runtime_listen = bool(listen) and not is_ask
+    runtime_listen = bool(listen)
     # Learner run SSE now always speaks the element protocol. The listen flag
     # still controls run-time behaviors such as segmented TTS generation.
     use_element_protocol = True

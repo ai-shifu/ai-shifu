@@ -640,6 +640,11 @@ class ListenElementRunStreamMixin:
         if ask_element_bid:
             if not self._state_machine.is_terminated:
                 self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
+            yield self._build_non_element_message(
+                emitted_event_type=GeneratedType.AUDIO_COMPLETE.value,
+                content=content,
+                generated_block_bid=generated_block_bid,
+            )
             return
         target_element_bid = self._resolve_or_buffer_audio_target_element_bid(
             state,
@@ -716,6 +721,11 @@ class ListenElementRunStreamMixin:
             if ask_element_bid:
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
+                yield self._build_non_element_message(
+                    emitted_event_type=GeneratedType.AUDIO_SEGMENT.value,
+                    content=content,
+                    generated_block_bid=generated_block_bid,
+                )
                 return
             target_element_bid = self._resolve_or_buffer_audio_target_element_bid(
                 state,

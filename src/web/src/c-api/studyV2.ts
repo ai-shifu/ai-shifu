@@ -251,6 +251,14 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
+export interface StreamPreviewTextAudioParams {
+  shifu_bid: string;
+  text: string;
+  creditInsufficientAudience: CreditInsufficientAudience;
+  onMessage: (data: any) => void;
+  onError?: (error: unknown) => void;
+}
+
 const getListenFlagFromPageUrl = (): boolean => {
   if (typeof window === 'undefined') {
     return false;
@@ -481,6 +489,24 @@ export const streamGeneratedBlockAudio = ({
   return createSseSource(
     url,
     {},
+    onMessage,
+    onError,
+    creditInsufficientAudience,
+  );
+};
+
+export const streamPreviewTextAudio = ({
+  shifu_bid,
+  text,
+  creditInsufficientAudience,
+  onMessage,
+  onError,
+}: StreamPreviewTextAudioParams) => {
+  const baseURL = getResolvedBaseURL();
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/tts/preview?preview_mode=true`;
+  return createSseSource(
+    url,
+    { text },
     onMessage,
     onError,
     creditInsufficientAudience,

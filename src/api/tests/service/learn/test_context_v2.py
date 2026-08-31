@@ -721,7 +721,10 @@ class StreamTtsGateTests(unittest.TestCase):
 
         ctx._preview_mode = False
         ctx._input_type = "ask"
-        assert not ctx._should_stream_tts()
+        assert ctx._should_stream_tts()
+
+        ctx._preview_mode = True
+        assert ctx._should_stream_tts()
 
     def test_iter_stream_result_with_idle_callback_drains_while_waiting(self) -> None:
         app = Flask("stream-tts-idle-drain")

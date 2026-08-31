@@ -8,6 +8,7 @@
   "classroomTitlePlaceholderTips": "Le mode classe affiche uniquement les diapositives ; appuyez sur F pour passer en plein écran, puis utilisez les touches fléchées ou Espace pour changer de diapositive.",
   "closeCatalog": "Fermer le catalogue",
   "contentGenerationUnavailable": "La génération de contenu est temporairement indisponible. Veuillez réessayer plus tard.",
+  "followUpAudioFailed": "La réponse audio n’a pas pu être lue. La réponse écrite a été conservée.",
   "generating": "Génération du diagramme…",
   "learningModeClassroom": "Classe",
   "learningModeClassroomTooltip": "Présenter les diapositives et les interactions sur un écran partagé (enseignant uniquement)",

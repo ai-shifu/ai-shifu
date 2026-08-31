@@ -55,16 +55,19 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     value,
     onChange,
     onSend,
+    disabled,
   }: {
     value: string;
     onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onSend: () => void;
+    disabled?: boolean;
   }) => (
     <div>
       <textarea
         aria-label='ask-input'
         value={value}
         onChange={onChange}
+        disabled={disabled}
       />
       <button onClick={onSend}>send</button>
     </div>
@@ -127,6 +130,8 @@ jest.mock('@/c-store/useSystemStore', () => ({
 
 const mockCheckIsRunning = jest.fn();
 const mockGetRunMessage = jest.fn();
+const mockStreamGeneratedBlockAudio = jest.fn();
+const mockStreamPreviewTextAudio = jest.fn();
 
 jest.mock('@/c-api/studyV2', () => ({
   BLOCK_TYPE: {
@@ -148,9 +153,15 @@ jest.mock('@/c-api/studyV2', () => ({
     ASK: 'ask',
     TEXT_END: 'done',
     HEARTBEAT: 'heartbeat',
+    AUDIO_SEGMENT: 'audio_segment',
+    AUDIO_COMPLETE: 'audio_complete',
   },
   checkIsRunning: (...args: unknown[]) => mockCheckIsRunning(...args),
   getRunMessage: (...args: unknown[]) => mockGetRunMessage(...args),
+  streamGeneratedBlockAudio: (...args: unknown[]) =>
+    mockStreamGeneratedBlockAudio(...args),
+  streamPreviewTextAudio: (...args: unknown[]) =>
+    mockStreamPreviewTextAudio(...args),
 }));
 
 type Listener = (event?: Event) => void;
@@ -185,6 +196,7 @@ describe('AskBlock', () => {
         onMessage: (response: {
           type: string;
           content?: string | Record<string, unknown>;
+          generated_block_bid?: string;
           is_terminal?: boolean;
         }) => Promise<void> | void;
       }
@@ -211,6 +223,7 @@ describe('AskBlock', () => {
         onMessage: (response: {
           type: string;
           content?: string | Record<string, unknown>;
+          generated_block_bid?: string;
           is_terminal?: boolean;
         }) => Promise<void> | void,
       ) => {
@@ -219,6 +232,8 @@ describe('AskBlock', () => {
         return source;
       },
     );
+    mockStreamGeneratedBlockAudio.mockImplementation(() => new MockRunSource());
+    mockStreamPreviewTextAudio.mockImplementation(() => new MockRunSource());
   });
 
   it.each(['read', 'listen'] as const)(
@@ -926,6 +941,253 @@ describe('AskBlock', () => {
       .forEach(answer =>
         expect(answer).toHaveAttribute('data-typewriter', 'false'),
       );
+  });
+
+  it('accepts streamed answer audio before the text terminal event without starting a second TTS request', async () => {
+    const onNarrationAttempt = jest.fn();
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='anchor-1'
+          askList={[]}
+          narrateAnswers
+          onNarrationAttempt={onNarrationAttempt}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'Why?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    expect(onNarrationAttempt).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('ask-input')).toBeDisabled();
+    expect(mockStreamGeneratedBlockAudio).not.toHaveBeenCalled();
+    expect(mockGetRunMessage.mock.calls[0]?.[3]).toEqual(
+      expect.objectContaining({ listen: true }),
+    );
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        generated_block_bid: 'answer-block-1',
+        content: {
+          element_type: 'answer',
+          element_bid: 'answer-element-1',
+          content: 'Because it works.',
+        },
+      });
+      await activeRun?.onMessage({
+        type: 'audio_segment',
+        content: {
+          segment_index: 0,
+          audio_data: 'segment-audio',
+          duration_ms: 400,
+          is_final: false,
+          subtitle_cues: [
+            {
+              text: 'Because it works.',
+              start_ms: 0,
+              end_ms: 400,
+              segment_index: 0,
+            },
+          ],
+        },
+      });
+    });
+
+    let answer = useAskStateStore
+      .getState()
+      .askListByAnchorElementBid['anchor-1']?.at(-1);
+    expect(answer?.audioTracks?.[0]?.audioSegments).toHaveLength(1);
+    expect(mockStreamGeneratedBlockAudio).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('ask-input')).toBeDisabled();
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: 'audio_complete',
+        content: {
+          audio_url: '/answer.mp3',
+          audio_bid: 'answer-audio-1',
+          duration_ms: 400,
+        },
+      });
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: true,
+      });
+    });
+
+    answer = useAskStateStore
+      .getState()
+      .askListByAnchorElementBid['anchor-1']?.at(-1);
+    expect(answer).toMatchObject({
+      element_bid: 'answer-element-1',
+      generated_block_bid: 'answer-block-1',
+      audioPlaybackStatus: 'pending',
+    });
+    expect(answer?.audioTracks?.[0]?.audioSegments).toHaveLength(1);
+    expect(mockStreamGeneratedBlockAudio).not.toHaveBeenCalled();
+    expect(mockStreamPreviewTextAudio).not.toHaveBeenCalled();
+
+    act(() => {
+      useAskStateStore
+        .getState()
+        .setAskList('anchor-1', previous =>
+          previous.map(message =>
+            message.element_bid === 'answer-element-1'
+              ? { ...message, audioPlaybackStatus: 'completed' }
+              : message,
+          ),
+        );
+    });
+    expect(screen.getByLabelText('ask-input')).not.toBeDisabled();
+  });
+
+  it('uses text preview TTS without requesting generated-block audio', async () => {
+    mockIsCurrentUserCourseOwner = true;
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: true,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded
+          shifu_bid='shifu-preview'
+          outline_bid='lesson-preview'
+          element_bid='anchor-preview'
+          askList={[]}
+          preview_mode
+          narrateAnswers
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'Preview question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_type: 'answer',
+          element_bid: 'preview-answer-1',
+          content: 'Preview answer text',
+        },
+      });
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: true,
+      });
+    });
+
+    expect(mockStreamPreviewTextAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shifu_bid: 'shifu-preview',
+        text: 'Preview answer text',
+      }),
+    );
+    expect(mockStreamGeneratedBlockAudio).not.toHaveBeenCalled();
+  });
+
+  it('keeps the committed text and unlocks input when narration fails', async () => {
+    const onNarrationFailed = jest.fn();
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='anchor-1'
+          askList={[]}
+          narrateAnswers
+          onNarrationFailed={onNarrationFailed}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'Why?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_type: 'answer',
+          element_bid: 'answer-element-1',
+          generated_block_bid: 'answer-block-1',
+          content: 'The text remains available.',
+        },
+      });
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: true,
+      });
+    });
+
+    const ttsHandlers = mockStreamGeneratedBlockAudio.mock.calls[0][0] as {
+      onError: () => void;
+    };
+    act(() => {
+      ttsHandlers.onError();
+    });
+
+    expect(screen.getByText('The text remains available.')).toBeInTheDocument();
+    expect(screen.getByLabelText('ask-input')).not.toBeDisabled();
+    expect(onNarrationFailed).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledWith({
+      title: 'module.chat.followUpAudioFailed',
+    });
+    expect(
+      useAskStateStore.getState().askListByAnchorElementBid['anchor-1']?.at(-1)
+        ?.audioPlaybackStatus,
+    ).toBe('failed');
+
+    const firstRun = activeRun;
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'What if the next text request fails?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+    await waitFor(() => expect(activeRun).not.toBe(firstRun));
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.ERROR,
+        content: 'The second request failed.',
+      });
+    });
+
+    expect(onNarrationFailed).toHaveBeenCalledTimes(2);
   });
 
   describe('when the backend rejects the ask via SSE error', () => {

@@ -8,6 +8,7 @@
   "classroomTitlePlaceholderTips": "Classroom mode only shows slides; press F to toggle fullscreen, and use arrow keys or Space to change slides.",
   "closeCatalog": "Close catalog",
   "contentGenerationUnavailable": "Content generation is temporarily unavailable. Please try again later.",
+  "followUpAudioFailed": "The spoken answer could not be played. The text answer has been kept.",
   "generating": "Generating diagram...",
   "learningModeClassroom": "Classroom",
   "learningModeClassroomTooltip": "Present slides and interactions on a shared screen (teacher only)",

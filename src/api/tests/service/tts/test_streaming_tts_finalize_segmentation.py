@@ -41,6 +41,57 @@ class TestFinalizeSegmentation:
 
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    @patch("flaskr.service.tts.streaming_tts.should_use_minimax_http_stream")
+    def test_follow_up_forces_sentence_submission_for_request_scoped_provider(
+        self,
+        mock_should_use_minimax_stream: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
+        """A completed follow-up sentence starts TTS before answer finalization."""
+        mock_should_use_minimax_stream.return_value = True
+        mock_is_configured.return_value = True
+        submitted_texts = []
+
+        def mock_submit(*args: object, **kwargs: object) -> object:
+            _ = kwargs
+            segment = args[1]
+            submitted_texts.append(segment.text)
+            return MagicMock()
+
+        mock_executor.submit.side_effect = mock_submit
+        processor = create_test_processor(
+            mock_app,
+            tts_provider="minimax",
+            force_sentence_streaming=True,
+        )
+
+        list(processor.process_chunk("The first sentence is ready."))
+
+        assert submitted_texts == ["The first sentence is ready."]
+
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    @patch("flaskr.service.tts.streaming_tts.should_use_minimax_http_stream")
+    def test_lesson_keeps_request_scoped_provider_until_finalize(
+        self,
+        mock_should_use_minimax_stream: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
+        """Normal lesson narration retains its provider-native whole-text path."""
+        mock_should_use_minimax_stream.return_value = True
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="minimax")
+
+        list(processor.process_chunk("The first sentence is ready."))
+
+        mock_executor.submit.assert_not_called()
+
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_process_chunk_submits_only_after_sentence_boundary(
         self,
         mock_is_configured: object,
@@ -174,7 +225,7 @@ class TestFinalizeSegmentation:
         processor = create_test_processor(mock_app)
 
         # Very short text
-        remaining_text = "Hi"
+        remaining_text = "2"
 
         submitted_texts = []
 
@@ -196,7 +247,7 @@ class TestFinalizeSegmentation:
 
         # Should submit the short text as a single segment
         assert len(submitted_texts) == 1
-        assert submitted_texts[0] == "Hi"
+        assert submitted_texts[0] == "2"
 
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")

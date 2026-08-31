@@ -446,7 +446,9 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch: object) -> None:
         assert events[1]["is_terminal"] is True
 
 
-def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
+def test_run_script_ask_mode_forwards_listen_flag_for_streaming_tts(
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -485,7 +487,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
         )
         events = _parse_sse_events(chunks)
 
-        assert observed["listen"] is False
+        assert observed["listen"] is True
         assert [event["type"] for event in events] == ["element", "done"]
         assert events[-1]["is_terminal"] is True
 

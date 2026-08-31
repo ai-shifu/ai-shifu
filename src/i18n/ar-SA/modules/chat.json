@@ -8,6 +8,7 @@
   "classroomTitlePlaceholderTips": "يعرض وضع الفصل الشرائح فقط؛ اضغط F للتبديل إلى ملء الشاشة، واضغط مفاتيح الأسهم أو المسافة لتغيير الصفحة.",
   "closeCatalog": "إغلاق الفهرس",
   "contentGenerationUnavailable": "إنشاء المحتوى غير متاح مؤقتًا، يرجى المحاولة لاحقًا",
+  "followUpAudioFailed": "تعذر تشغيل الإجابة الصوتية. تم الاحتفاظ بالإجابة النصية.",
   "generating": "جارٍ إنشاء الرسم التوضيحي...",
   "learningModeClassroom": "وضع الفصل",
   "learningModeClassroomTooltip": "عرض الشرائح والتفاعلات على الشاشة (للمعلم فقط)",

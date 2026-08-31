@@ -298,6 +298,8 @@ class StreamingTTSProcessor:
         av_contract: dict[str, object] | None = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
         learning_mode: str = "",
+        persist_audio: bool = True,
+        force_sentence_streaming: bool = False,
     ) -> None:
         """Initialize configuration and buffered synthesis state for one TTS block.
 
@@ -332,9 +334,17 @@ class StreamingTTSProcessor:
         if emotion:
             self.voice_settings.emotion = emotion
         self.audio_settings = get_default_audio_settings(tts_provider)
-        self._use_minimax_http_stream = should_use_minimax_http_stream(tts_provider)
-        self._use_volcengine_timestamp_stream = _should_use_volcengine_timestamp_stream(
-            tts_provider
+        # Lesson narration keeps provider-native request-scoped timestamp streams,
+        # but follow-up answers must start synthesis as soon as a sentence closes.
+        # The generic segment path preserves that low-latency behavior across TTS
+        # providers instead of waiting for the whole answer to finalize.
+        self._use_minimax_http_stream = (
+            not force_sentence_streaming
+            and should_use_minimax_http_stream(tts_provider)
+        )
+        self._use_volcengine_timestamp_stream = (
+            not force_sentence_streaming
+            and _should_use_volcengine_timestamp_stream(tts_provider)
         )
 
         # State
@@ -346,6 +356,7 @@ class StreamingTTSProcessor:
         self._word_count_total = 0
         self._output_char_total = 0
         self._usage_scene = usage_scene
+        self._persist_audio = persist_audio
         self.usage_context = UsageContext(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -525,7 +536,7 @@ class StreamingTTSProcessor:
                 not end with sentence punctuation.
 
         """
-        if not remaining_text or len(remaining_text) < 2:
+        if not remaining_text or not has_speakable_text(remaining_text):
             return
 
         logger.debug(
@@ -536,7 +547,7 @@ class StreamingTTSProcessor:
         for match in SENTENCE_ENDINGS.finditer(remaining_text):
             split_pos = match.end()
             segment_text = remaining_text[cursor:split_pos].strip()
-            if segment_text and len(segment_text) >= 2:
+            if segment_text and has_speakable_text(segment_text):
                 self._submit_tts_task(segment_text)
                 logger.debug(
                     "Submitted finalize segment: %s chars, remaining: %s chars",
@@ -547,7 +558,7 @@ class StreamingTTSProcessor:
 
         if include_trailing_fragment:
             tail_text = remaining_text[cursor:].strip()
-            if tail_text and len(tail_text) >= 2:
+            if tail_text and has_speakable_text(tail_text):
                 self._submit_tts_task(tail_text)
                 logger.debug(
                     "Submitted finalize trailing fragment: %s chars", len(tail_text)
@@ -1438,7 +1449,8 @@ class StreamingTTSProcessor:
                 segment_count=len(audio_data_list),
                 subtitle_cues=effective_subtitle_cues,
             )
-            save_audio_record(audio_record, commit=commit)
+            if self._persist_audio:
+                save_audio_record(audio_record, commit=commit)
 
             from flaskr.service.tts.tts_usage_recorder import (
                 record_tts_aggregated_usage,

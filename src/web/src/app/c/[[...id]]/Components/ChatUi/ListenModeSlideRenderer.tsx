@@ -73,6 +73,16 @@ import {
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 import LearnerCourseShareButton from '../LearnerCourseShareButton';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { toast } from '@/hooks/useToast';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  buildListenFollowUpAttemptAnalytics,
+  buildListenFollowUpResultAnalytics,
+  LISTEN_FOLLOW_UP_ATTEMPT_EVENT,
+  LISTEN_FOLLOW_UP_RESULT_EVENT,
+  type ListenFollowUpOutcome,
+  type ListenFollowUpSurface,
+} from './listenFollowUpAnalytics';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -263,6 +273,7 @@ interface ListenSlideAskPlayerActionProps {
   context: SlidePlayerCustomActionContext;
   label: string;
   onBeforeOpen: () => void;
+  onBeforeClose?: () => void;
   onContextChange: (snapshot: PlayerCustomActionContextSnapshot) => void;
   disabled?: boolean;
   renderButton?: boolean;
@@ -274,6 +285,7 @@ const ListenSlideAskPlayerAction = memo(
     context,
     label,
     onBeforeOpen,
+    onBeforeClose,
     onContextChange,
     disabled = false,
     renderButton = true,
@@ -295,10 +307,12 @@ const ListenSlideAskPlayerAction = memo(
 
       if (!isActive) {
         onBeforeOpen();
+      } else {
+        onBeforeClose?.();
       }
 
       toggleActive();
-    }, [disabled, isActive, onBeforeOpen, toggleActive]);
+    }, [disabled, isActive, onBeforeClose, onBeforeOpen, toggleActive]);
 
     if (!renderButton) {
       return null;
@@ -748,6 +762,7 @@ const ListenModeSlideRenderer = ({
   disableInteractionEdits = false,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
@@ -830,13 +845,27 @@ const ListenModeSlideRenderer = ({
     Map<string, ListenSlideElementCacheEntry>
   >(new Map());
   const customAskOverlayRef = useRef<HTMLDivElement | null>(null);
+  const followUpNarrationOverlayRef = useRef<HTMLDivElement | null>(null);
+  const narrationPlayAttemptRef = useRef<{
+    answerElementBid: string;
+    audioElement: HTMLAudioElement;
+  } | null>(null);
+  const narrationEndedCountRef = useRef<{
+    answerElementBid: string;
+    count: number;
+  } | null>(null);
   const slideShellRef = useRef<HTMLDivElement | null>(null);
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const setAskList = useAskStateStore(state => state.setAskList);
   const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
   const storedAskListByAnchorElementBid = useAskStateStore(
     state => state.askListByAnchorElementBid,
   );
+  const activeFollowUpAttemptRef = useRef<{
+    surface: ListenFollowUpSurface;
+    resultReported: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const storedPlaybackSpeed = readListenPlaybackSpeedFromStorage(shifuBid);
@@ -1125,6 +1154,141 @@ const ListenModeSlideRenderer = ({
   const currentAskList = useMemo<AskMessage[]>(() => {
     return resolveAskListByElementBid(renderedMobileAskElementBid);
   }, [renderedMobileAskElementBid, resolveAskListByElementBid]);
+  const activeAskElementBid = mobileStyle
+    ? renderedMobileAskElementBid
+    : renderedPlayerCustomAskElementBid;
+  const activeAskList = mobileStyle ? currentAskList : playerCustomAskList;
+  const isFollowUpPanelActive = mobileStyle
+    ? isMobileAskOpen
+    : playerCustomActionState.isActive;
+  const activeNarrationAnswer = useMemo(
+    () =>
+      [...activeAskList]
+        .reverse()
+        .find(
+          message =>
+            message.type === 'answer' &&
+            (message.audioPlaybackStatus === 'pending' ||
+              message.audioPlaybackStatus === 'playing'),
+        ),
+    [activeAskList],
+  );
+  const resolveFollowUpSurface = useCallback((): ListenFollowUpSurface => {
+    if (!mobileStyle) {
+      return 'desktop';
+    }
+    return mobileViewModeRef.current === 'fullscreen'
+      ? 'mobile_fullscreen'
+      : 'mobile';
+  }, [mobileStyle]);
+  const reportFollowUpResult = useCallback(
+    (outcome: ListenFollowUpOutcome) => {
+      const attempt = activeFollowUpAttemptRef.current;
+      if (previewMode || !attempt || attempt.resultReported) {
+        return;
+      }
+
+      attempt.resultReported = true;
+      try {
+        void trackEvent(
+          LISTEN_FOLLOW_UP_RESULT_EVENT,
+          buildListenFollowUpResultAnalytics({
+            shifuBid,
+            outlineBid: lessonId,
+            surface: attempt.surface,
+            outcome,
+          }),
+        );
+      } catch {}
+    },
+    [lessonId, previewMode, shifuBid, trackEvent],
+  );
+  const handleFollowUpAttempt = useCallback(() => {
+    if (previewMode) {
+      return;
+    }
+
+    const surface = resolveFollowUpSurface();
+    activeFollowUpAttemptRef.current = {
+      surface,
+      resultReported: false,
+    };
+    try {
+      void trackEvent(
+        LISTEN_FOLLOW_UP_ATTEMPT_EVENT,
+        buildListenFollowUpAttemptAnalytics({
+          shifuBid,
+          outlineBid: lessonId,
+          surface,
+        }),
+      );
+    } catch {}
+  }, [lessonId, previewMode, resolveFollowUpSurface, shifuBid, trackEvent]);
+  const handleFollowUpFailure = useCallback(() => {
+    reportFollowUpResult('failed');
+  }, [reportFollowUpResult]);
+  const updateActiveNarrationStatus = useCallback(
+    (status: AskMessage['audioPlaybackStatus']) => {
+      const answerElementBid = activeNarrationAnswer?.element_bid;
+      if (!activeAskElementBid || !answerElementBid) {
+        return;
+      }
+
+      setAskList(activeAskElementBid, prev =>
+        prev.map(message =>
+          message.type === 'answer' && message.element_bid === answerElementBid
+            ? {
+                ...message,
+                audioPlaybackStatus: status,
+                ...(status === 'failed' || status === 'cancelled'
+                  ? { isAudioStreaming: false }
+                  : {}),
+              }
+            : message,
+        ),
+      );
+    },
+    [activeAskElementBid, activeNarrationAnswer?.element_bid, setAskList],
+  );
+  const handleNarrationPlaying = useCallback(() => {
+    updateActiveNarrationStatus('playing');
+  }, [updateActiveNarrationStatus]);
+  const handleNarrationEnded = useCallback(() => {
+    const answerElementBid = activeNarrationAnswer?.element_bid;
+    if (!answerElementBid) {
+      return;
+    }
+
+    const previous = narrationEndedCountRef.current;
+    const endedCount =
+      previous?.answerElementBid === answerElementBid ? previous.count + 1 : 1;
+    narrationEndedCountRef.current = {
+      answerElementBid,
+      count: endedCount,
+    };
+    const segmentCount = (activeNarrationAnswer.audioTracks ?? []).reduce(
+      (count, track) => count + (track.audioSegments?.length ?? 0),
+      0,
+    );
+    if (
+      activeNarrationAnswer.isAudioStreaming ||
+      (segmentCount > 0 && endedCount < segmentCount)
+    ) {
+      return;
+    }
+
+    updateActiveNarrationStatus('completed');
+    reportFollowUpResult('success');
+  }, [
+    activeNarrationAnswer,
+    reportFollowUpResult,
+    updateActiveNarrationStatus,
+  ]);
+  const handleNarrationPlaybackError = useCallback(() => {
+    updateActiveNarrationStatus('failed');
+    reportFollowUpResult('failed');
+    toast({ title: t('module.chat.followUpAudioFailed') });
+  }, [reportFollowUpResult, t, updateActiveNarrationStatus]);
   const currentAskTargetElement = useMemo(() => {
     if (playerCustomActionState.currentElement) {
       return playerCustomActionState.currentElement;
@@ -1193,12 +1357,34 @@ const ListenModeSlideRenderer = ({
     notesToggleButton.click();
   }, []);
 
+  const stopFollowUpNarrationAudio = useCallback(() => {
+    const containers = [
+      slideShellRef.current,
+      fullscreenPortalContainer,
+    ].filter((container): container is HTMLElement => Boolean(container));
+    const narrationAudioElements = new Set<HTMLAudioElement>();
+    containers.forEach(container => {
+      container
+        .querySelectorAll<HTMLAudioElement>(
+          '.listen-follow-up-narration-overlay audio',
+        )
+        .forEach(audioElement => narrationAudioElements.add(audioElement));
+    });
+    narrationAudioElements.forEach(audioElement => {
+      if (!audioElement.paused) {
+        audioElement.pause();
+      }
+    });
+  }, [fullscreenPortalContainer]);
+
   const handleMobileAskToggle = useCallback(() => {
     if (isAskActionDisabled) {
       return;
     }
 
     if (isMobileAskOpen) {
+      stopFollowUpNarrationAudio();
+      reportFollowUpResult('cancelled');
       setIsMobileAskOpen(false);
       playerCustomActionSetActiveRef.current(false);
       return;
@@ -1213,13 +1399,17 @@ const ListenModeSlideRenderer = ({
     closeInteractionOverlayIfOpen,
     isAskActionDisabled,
     isMobileAskOpen,
+    reportFollowUpResult,
     resolvedAskElementBid,
+    stopFollowUpNarrationAudio,
   ]);
 
   const handleMobileAskClose = useCallback(() => {
+    stopFollowUpNarrationAudio();
+    reportFollowUpResult('cancelled');
     setIsMobileAskOpen(false);
     playerCustomActionSetActiveRef.current(false);
-  }, []);
+  }, [reportFollowUpResult, stopFollowUpNarrationAudio]);
 
   const handlePlayerCustomActionContextChange = useCallback(
     ({
@@ -1252,6 +1442,8 @@ const ListenModeSlideRenderer = ({
   );
 
   const handlePlayerCustomActionClose = useCallback(() => {
+    stopFollowUpNarrationAudio();
+    reportFollowUpResult('cancelled');
     setPlayerCustomActionState(prevState => {
       if (!prevState.isActive) {
         return prevState;
@@ -1263,7 +1455,7 @@ const ListenModeSlideRenderer = ({
       };
     });
     playerCustomActionSetActiveRef.current(false);
-  }, []);
+  }, [reportFollowUpResult, stopFollowUpNarrationAudio]);
 
   const resetMobileSlideViewport = useCallback(() => {
     setIsMobileAskOpen(false);
@@ -1505,7 +1697,10 @@ const ListenModeSlideRenderer = ({
 
     const syncAudioElements = () => {
       const nextAudioElements = new Set(
-        Array.from(container.querySelectorAll('audio')),
+        Array.from(container.querySelectorAll('audio')).filter(
+          audioElement =>
+            !audioElement.closest('.listen-follow-up-narration-overlay'),
+        ),
       );
 
       audioListenerCleanupMapRef.current.forEach((cleanup, audioElement) => {
@@ -1880,6 +2075,11 @@ const ListenModeSlideRenderer = ({
     [onLessonFeedbackPromptStateChange, onPlaybackStateChange],
   );
 
+  const handleBeforePlayerAskClose = useCallback(() => {
+    stopFollowUpNarrationAudio();
+    reportFollowUpResult('cancelled');
+  }, [reportFollowUpResult, stopFollowUpNarrationAudio]);
+
   const playerCustomActions = useCallback(
     (context: SlidePlayerCustomActionContext) => {
       const playbackSpeedLabel = formatListenPlaybackSpeed(playbackSpeed);
@@ -1903,6 +2103,7 @@ const ListenModeSlideRenderer = ({
               context={context}
               label={t('module.chat.ask')}
               onBeforeOpen={closeInteractionOverlayIfOpen}
+              onBeforeClose={handleBeforePlayerAskClose}
               onContextChange={handlePlayerCustomActionContextChange}
               disabled={isAskActionDisabled}
               renderButton={false}
@@ -1919,6 +2120,7 @@ const ListenModeSlideRenderer = ({
             context={context}
             label={t('module.chat.ask')}
             onBeforeOpen={closeInteractionOverlayIfOpen}
+            onBeforeClose={handleBeforePlayerAskClose}
             onContextChange={handlePlayerCustomActionContextChange}
             disabled={isAskActionDisabled}
           />
@@ -1929,6 +2131,7 @@ const ListenModeSlideRenderer = ({
       closeInteractionOverlayIfOpen,
       fullscreenPortalContainer,
       handleListenPlaybackSpeedChange,
+      handleBeforePlayerAskClose,
       handlePlayerCustomActionContextChange,
       isAskActionDisabled,
       mobileStyle,
@@ -2091,6 +2294,177 @@ const ListenModeSlideRenderer = ({
     showManualFullscreenButton && !isClassroomFullscreenActive;
   const listenPlayerClassName =
     variant === 'listen' ? 'listen-slide-player' : '';
+  const narrationSlideElement = useMemo<ListenSlideElement | null>(() => {
+    if (
+      variant !== 'listen' ||
+      !isFollowUpPanelActive ||
+      !activeNarrationAnswer?.element_bid
+    ) {
+      return null;
+    }
+
+    const answerAsContentItem = activeNarrationAnswer as ChatContentItem;
+    const { audioUrl, audioSegments, isAudioStreaming } =
+      resolveListenSlideAudioSource(answerAsContentItem);
+    if (!audioUrl && !audioSegments?.length) {
+      return null;
+    }
+
+    return {
+      sequence_number: 1,
+      type: 'text',
+      content: '',
+      is_marker: true,
+      is_renderable: true,
+      is_new: true,
+      is_speakable: true,
+      audio_url: audioUrl,
+      audio_segments: audioSegments,
+      is_audio_streaming: isAudioStreaming,
+      isAudioStreaming,
+      subtitle_cues: resolveListenSlideSubtitleCues(activeNarrationAnswer),
+      blockBid: activeNarrationAnswer.element_bid,
+      page: 0,
+    };
+  }, [activeNarrationAnswer, isFollowUpPanelActive, variant]);
+
+  const isFollowUpNarrationWaiting =
+    variant === 'listen' &&
+    isFollowUpPanelActive &&
+    activeNarrationAnswer?.audioPlaybackStatus === 'pending';
+
+  const renderAudioLoadingOverlay = (
+    source: 'lesson' | 'follow_up',
+    layerClassName: string,
+  ) => (
+    <div
+      className={cn(
+        'pointer-events-none absolute inset-0 flex items-center justify-center backdrop-blur-sm',
+        layerClassName,
+        mobileStyle ? 'bg-white/75' : 'bg-[var(--color-slide-desktop-bg)]/70',
+      )}
+      data-audio-loading-source={source}
+    >
+      <div className='flex flex-col items-center gap-3 text-primary'>
+        <LoadingDots
+          ariaLabel={t('module.chat.audioLoading')}
+          count={4}
+          durationMs={960}
+          dotClassName='bg-primary'
+          gap={5}
+          restOpacity={0.2}
+          size={5}
+        />
+      </div>
+    </div>
+  );
+  const followUpAudioLoadingOverlay = isFollowUpNarrationWaiting
+    ? renderAudioLoadingOverlay('follow_up', 'z-[89]')
+    : null;
+
+  useEffect(() => {
+    const answerElementBid = activeNarrationAnswer?.element_bid;
+    const overlay = followUpNarrationOverlayRef.current;
+    if (!narrationSlideElement || !answerElementBid || !overlay) {
+      narrationPlayAttemptRef.current = null;
+      return;
+    }
+
+    let disposed = false;
+    const tryStartNarration = () => {
+      const audioElement = overlay.querySelector<HTMLAudioElement>('audio');
+      if (
+        !audioElement ||
+        (!audioElement.currentSrc && !audioElement.getAttribute('src'))
+      ) {
+        return;
+      }
+
+      const previousAttempt = narrationPlayAttemptRef.current;
+      if (
+        previousAttempt?.answerElementBid === answerElementBid &&
+        previousAttempt.audioElement === audioElement
+      ) {
+        return;
+      }
+
+      narrationPlayAttemptRef.current = {
+        answerElementBid,
+        audioElement,
+      };
+      applyListenPlaybackSpeedToAudioElement(
+        audioElement,
+        playbackSpeedRef.current,
+      );
+
+      const playResult = audioElement.play();
+      if (!playResult || typeof playResult.catch !== 'function') {
+        return;
+      }
+      void playResult.catch(error => {
+        if (disposed || !audioElement.paused) {
+          return;
+        }
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          narrationPlayAttemptRef.current = null;
+          return;
+        }
+        handleNarrationPlaybackError();
+      });
+    };
+
+    const animationFrame = window.requestAnimationFrame(tryStartNarration);
+    const mutationObserver = new MutationObserver(tryStartNarration);
+    mutationObserver.observe(overlay, {
+      attributes: true,
+      attributeFilter: ['src'],
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      disposed = true;
+      window.cancelAnimationFrame(animationFrame);
+      mutationObserver.disconnect();
+    };
+  }, [
+    activeNarrationAnswer?.element_bid,
+    handleNarrationPlaybackError,
+    narrationSlideElement,
+  ]);
+
+  const followUpNarrationOverlay = narrationSlideElement ? (
+    <div
+      className='listen-follow-up-narration-overlay'
+      data-testid='listen-follow-up-narration'
+      ref={followUpNarrationOverlayRef}
+      onPlayingCapture={event => {
+        if (event.target instanceof HTMLMediaElement) {
+          handleNarrationPlaying();
+        }
+      }}
+      onEndedCapture={event => {
+        if (event.target instanceof HTMLMediaElement) {
+          handleNarrationEnded();
+        }
+      }}
+      onErrorCapture={event => {
+        if (event.target instanceof HTMLMediaElement) {
+          handleNarrationPlaybackError();
+        }
+      }}
+    >
+      <Slide
+        className='listen-follow-up-narration-slide'
+        locale={markdownFlowLocale}
+        elementList={[narrationSlideElement]}
+        playerEnabled={true}
+        playerControlsVisibility='hidden'
+        enableKeyboardShortcuts={false}
+        disableLoadingOverlay={true}
+      />
+    </div>
+  ) : null;
 
   const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
     <div
@@ -2115,6 +2489,9 @@ const ListenModeSlideRenderer = ({
             outline_bid={lessonId}
             preview_mode={previewMode}
             shifu_bid={shifuBid}
+            narrateAnswers={variant === 'listen'}
+            onNarrationAttempt={handleFollowUpAttempt}
+            onNarrationFailed={handleFollowUpFailure}
           />
         </div>
       </div>
@@ -2133,7 +2510,10 @@ const ListenModeSlideRenderer = ({
       ref={chatRef}
     >
       <div
-        className='listen-slide-shell'
+        className={cn(
+          'listen-slide-shell',
+          narrationSlideElement && 'listen-slide-shell--follow-up-narrating',
+        )}
         ref={slideShellRef}
       >
         {isMobileFullscreen && mobileAskEntryButton
@@ -2162,6 +2542,9 @@ const ListenModeSlideRenderer = ({
                     outline_bid={lessonId}
                     preview_mode={previewMode}
                     shifu_bid={shifuBid}
+                    narrateAnswers={variant === 'listen'}
+                    onNarrationAttempt={handleFollowUpAttempt}
+                    onNarrationFailed={handleFollowUpFailure}
                   />
                 </div>,
                 fullscreenPortalContainer,
@@ -2182,6 +2565,9 @@ const ListenModeSlideRenderer = ({
                   outline_bid={lessonId}
                   preview_mode={previewMode}
                   shifu_bid={shifuBid}
+                  narrateAnswers={variant === 'listen'}
+                  onNarrationAttempt={handleFollowUpAttempt}
+                  onNarrationFailed={handleFollowUpFailure}
                 />
               </div>
             )
@@ -2191,6 +2577,19 @@ const ListenModeSlideRenderer = ({
           ? fullscreenPortalContainer
             ? createPortal(desktopAskOverlay, fullscreenPortalContainer)
             : desktopAskOverlay
+          : null}
+        {followUpNarrationOverlay
+          ? fullscreenPortalContainer
+            ? createPortal(followUpNarrationOverlay, fullscreenPortalContainer)
+            : followUpNarrationOverlay
+          : null}
+        {followUpAudioLoadingOverlay
+          ? fullscreenPortalContainer
+            ? createPortal(
+                followUpAudioLoadingOverlay,
+                fullscreenPortalContainer,
+              )
+            : followUpAudioLoadingOverlay
           : null}
         <Slide
           className={cn(
@@ -2239,28 +2638,7 @@ const ListenModeSlideRenderer = ({
             <span>{t('module.chat.classroomEnterFullscreen')}</span>
           </button>
         ) : null}
-        {isLoading ? (
-          <div
-            className={cn(
-              'pointer-events-none absolute inset-0 z-[91] flex items-center justify-center backdrop-blur-sm',
-              mobileStyle
-                ? 'bg-white/75'
-                : 'bg-[var(--color-slide-desktop-bg)]/70',
-            )}
-          >
-            <div className='flex flex-col items-center gap-3 text-primary'>
-              <LoadingDots
-                ariaLabel={t('module.chat.audioLoading')}
-                count={4}
-                durationMs={960}
-                dotClassName='bg-primary'
-                gap={5}
-                restOpacity={0.2}
-                size={5}
-              />
-            </div>
-          </div>
-        ) : null}
+        {isLoading ? renderAudioLoadingOverlay('lesson', 'z-[91]') : null}
       </div>
     </div>
   );

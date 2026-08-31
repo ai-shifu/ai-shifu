@@ -3,7 +3,11 @@ import {
   clearPendingRequestLanguage,
   setPendingRequestLanguage,
 } from '@/lib/request-language';
-import { getRunMessage, streamGeneratedBlockAudio } from './studyV2';
+import {
+  getRunMessage,
+  streamGeneratedBlockAudio,
+  streamPreviewTextAudio,
+} from './studyV2';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 
 jest.mock('sse.js', () => ({
@@ -178,4 +182,29 @@ describe('getRunMessage language snapshot', () => {
       );
     },
   );
+
+  test('posts preview follow-up text to the non-persistent preview TTS route', () => {
+    const source = streamPreviewTextAudio({
+      shifu_bid: 'course-1',
+      text: 'Committed preview answer',
+      creditInsufficientAudience: 'teacher',
+      onMessage: jest.fn(),
+    });
+
+    const [url, options] = (SSE as unknown as jest.Mock).mock.calls[0];
+    expect(url).toBe(
+      'https://api.example.com/api/learn/shifu/course-1/tts/preview?preview_mode=true',
+    );
+    expect(JSON.parse(options.payload)).toEqual({
+      text: 'Committed preview answer',
+    });
+    expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+      source,
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          creditInsufficientAudience: 'teacher',
+        }),
+      }),
+    );
+  });
 });

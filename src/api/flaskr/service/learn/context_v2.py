@@ -1770,11 +1770,14 @@ class RunScriptContextV2:
         )
 
     def _should_stream_tts(self) -> bool:
-        return (
-            (not self._preview_mode)
-            and getattr(self, "_input_type", None) != INPUT_TYPE_ASK
-            and bool(getattr(self, "_listen", False))
-        )
+        if not bool(getattr(self, "_listen", False)):
+            return False
+        # Preview lesson narration keeps using its existing explicit preview
+        # path. Follow-up answers are the exception: they need the same
+        # sentence-by-sentence stream in both published learning and preview.
+        return (not self._preview_mode) or getattr(
+            self, "_input_type", None
+        ) == INPUT_TYPE_ASK
 
     def _try_create_tts_processor(
         self,
@@ -1855,7 +1858,16 @@ class RunScriptContextV2:
                 tts_model=validated.model,
                 stream_element_number=stream_element_number,
                 stream_element_type=stream_element_type,
+                usage_scene=(
+                    BILL_USAGE_SCENE_PREVIEW
+                    if getattr(self, "_preview_mode", False)
+                    else BILL_USAGE_SCENE_PROD
+                ),
                 learning_mode=self._get_learning_mode(),
+                persist_audio=not getattr(self, "_preview_mode", False),
+                force_sentence_streaming=(
+                    getattr(self, "_input_type", None) == INPUT_TYPE_ASK
+                ),
             )
         except Exception as exc:
             self.app.logger.warning(
@@ -2444,11 +2456,55 @@ class RunScriptContextV2:
             runtime_profiles=runtime_profiles,
         )
 
-        if self._should_stream_tts():
+        should_stream_tts = self._should_stream_tts()
+        if should_stream_tts:
             tts_processor = None
             ask_stream_exc: BaseException | None = None
-            try:
+
+            def _drain_ask_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
+                nonlocal tts_processor
+                if not tts_processor or not hasattr(
+                    tts_processor, "drain_ready_segments"
+                ):
+                    return
+                try:
+                    yield from tts_processor.drain_ready_segments()
+                except Exception as exc:
+                    app.logger.warning(
+                        "Idle ask TTS drain failed; disable for this answer: %s",
+                        exc,
+                        exc_info=True,
+                    )
+                    tts_processor = None
+
+            def _iter_committed_ask_stream() -> Iterator[RunMarkdownFlowDTO]:
+                terminal_events: list[RunMarkdownFlowDTO] = []
                 for event in self._iter_until_active(res):
+                    if terminal_events or event.type == GeneratedType.BREAK:
+                        terminal_events.append(event)
+                        continue
+                    yield event
+
+                # The idle-drain adapter owns a thread-local DB session. Commit
+                # ask/answer rows in that same producer thread before it removes
+                # the session, then expose BREAK and any trailing events.
+                self._recorder.commit_pending_step()
+                yield from terminal_events
+
+            try:
+                ask_stream = _iter_committed_ask_stream()
+                idle_poll_interval = float(
+                    app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
+                )
+                for source, payload in self._iter_stream_result_with_idle_callback(
+                    ask_stream,
+                    idle_callback=_drain_ask_tts_ready_events,
+                    idle_poll_interval=idle_poll_interval,
+                ):
+                    if source == "idle":
+                        yield payload
+                        continue
+                    event = payload
                     if event.type == GeneratedType.CONTENT and isinstance(
                         event.content, str
                     ):
@@ -2483,10 +2539,9 @@ class RunScriptContextV2:
             yield from self._iter_until_active(res)
 
         self._can_continue = False
-        # Ask-history rows are written by handle_input_ask with plain
-        # flushes; commit them as one step now that the ask stream has
-        # fully completed (durability moves from the producer's outer
-        # commit to here — same post-stream point of the request).
+        # Non-TTS asks commit their history here. TTS asks already committed
+        # history in the producer session above; this main-session commit
+        # persists any audio sidecars emitted while draining/finalizing.
         self._recorder.commit_pending_step()
 
     def _prepare_step_state(
