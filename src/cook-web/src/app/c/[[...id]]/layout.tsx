@@ -17,12 +17,12 @@ import {
   wechatLogin,
 } from '@/c-constants/uiConstants';
 import { getCourseInfo } from '@/c-api/course';
-import { tracking } from '@/c-common/tools/tracking';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import {
   EnvStoreState,
   SystemStoreState,
   CourseStoreState,
+  LearningMode,
 } from '@/c-types/store';
 
 import { useEnvStore, useCourseStore } from '@/c-store';
@@ -33,6 +33,11 @@ import {
   writeLearningModeToStorage,
 } from './Components/learningModeStorage';
 import { resolveCourseLearningMode } from './Components/learningModePreference';
+import {
+  buildLastLearningModeAnalytics,
+  LAST_LEARNING_MODE_EVENT,
+  shouldTrackLastLearningMode,
+} from './Components/learningModeAnalytics';
 import {
   normalizeLegacyListenModeInUrl,
   parseBooleanQueryParam,
@@ -74,7 +79,6 @@ const getClassroomAccessForCourse = (courseId: string) => {
 
   const accessRequest = getCourseInfo(courseId, true, {
     skipErrorToast: true,
-    trackErrors: false,
   })
     .then(() => true)
     .catch(error => (isDefinitiveClassroomAccessDenial(error) ? false : null))
@@ -91,7 +95,12 @@ export default function ChatLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const trackedLearningModeStorageRef = useRef<string>('');
+  const initializedLearningModeStorageCoursesRef = useRef<Set<string>>(
+    new Set(),
+  );
+  const initialStoredLearningModesRef = useRef<
+    Map<string, LearningMode | null>
+  >(new Map());
   const { i18n, t } = useTranslation();
   const { trackEvent } = useTracking();
   const routeParams = useParams<{ id?: string[] }>();
@@ -383,38 +392,79 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    if (!storageCourseId) {
+    if (
+      !storageCourseId ||
+      initializedLearningModeStorageCoursesRef.current.has(storageCourseId)
+    ) {
       return;
     }
 
-    const trackingKey = [
-      storageCourseId,
-      hasListenModeOverride || urlModeParam ? 'override' : 'default',
-      urlModeParam ||
-        (listenModeParam === null
-          ? 'none'
-          : listenModeParam
-            ? 'listen'
-            : 'read'),
-    ].join(':');
-
-    if (trackedLearningModeStorageRef.current === trackingKey) {
+    // URL overrides and preview routes never count as storage restoration.
+    if (hasListenModeOverride || urlModeParam !== null || isPreviewMode) {
+      initializedLearningModeStorageCoursesRef.current.add(storageCourseId);
       return;
     }
 
-    trackedLearningModeStorageRef.current = trackingKey;
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
+    if (!initialStoredLearningModesRef.current.has(storageCourseId)) {
+      initialStoredLearningModesRef.current.set(
+        storageCourseId,
+        storedLearningMode,
+      );
+    }
+    const initialStoredLearningMode =
+      initialStoredLearningModesRef.current.get(storageCourseId) ?? null;
 
-    if (storedLearningMode === null) {
+    // Capability data can arrive after the stored preference. Wait to classify
+    // the analytics restoration, but reject it if an explicit selection changes
+    // storage in the meantime.
+    if (storedLearningMode !== initialStoredLearningMode) {
+      initializedLearningModeStorageCoursesRef.current.add(storageCourseId);
       return;
     }
-    void trackEvent('learner_last_learning_mode', {
-      shifu_bid: storageCourseId,
-      outline_bid: outlineBid,
-      learning_mode: storedLearningMode,
+    if (
+      (storedLearningMode === 'listen' && courseTtsEnabledForMode === null) ||
+      (storedLearningMode === 'classroom' &&
+        canUseClassroomModeForCourse === null)
+    ) {
+      return;
+    }
+
+    const resolvedLearningMode = resolveCourseLearningMode({
+      courseTtsEnabled: courseTtsEnabledForMode,
+      courseDefaultListenModeEnabled: courseDefaultListenModeEnabledForMode,
+      canUseClassroomMode: canUseClassroomModeForCourse,
+      hasListenModeOverride,
+      listenModeParam,
+      urlModeParam,
+      storedLearningMode,
     });
+    initializedLearningModeStorageCoursesRef.current.add(storageCourseId);
+
+    if (
+      storedLearningMode === null ||
+      !shouldTrackLastLearningMode({
+        previewMode: isPreviewMode,
+        storedLearningMode,
+        resolvedLearningMode,
+      })
+    ) {
+      return;
+    }
+    void trackEvent(
+      LAST_LEARNING_MODE_EVENT,
+      buildLastLearningModeAnalytics({
+        shifuBid: storageCourseId,
+        outlineBid,
+        learningMode: resolvedLearningMode,
+      }),
+    );
   }, [
+    canUseClassroomModeForCourse,
+    courseDefaultListenModeEnabledForMode,
+    courseTtsEnabledForMode,
     hasListenModeOverride,
+    isPreviewMode,
     listenModeParam,
     outlineBid,
     storageCourseId,
@@ -524,7 +574,6 @@ export default function ChatLayout({
             isRetry
               ? {
                   skipErrorToast: true,
-                  trackErrors: false,
                 }
               : undefined,
           );
@@ -591,16 +640,6 @@ export default function ChatLayout({
             httpStatus: (error as { status?: number | string })?.status ?? '',
           });
           if (isCourseNotFound) {
-            tracking('learner_course_404_redirect', {
-              shifu_bid: courseId,
-              preview_mode: isPreviewMode,
-              reason: 'course_not_found',
-              path: window.location.pathname,
-              ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-              is_wechat:
-                typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
-              has_token: Boolean(useUserStore.getState().getToken()),
-            });
             window.location.href = '/404';
             return;
           }
@@ -614,27 +653,6 @@ export default function ChatLayout({
           }
 
           // Keep users on page for transient failures instead of forcing 404.
-          if (!isRetry) {
-            tracking('learner_course_info_non_404_error', {
-              shifu_bid: courseId,
-              preview_mode: isPreviewMode,
-              reason: 'transient_or_unknown_error',
-              path: window.location.pathname,
-              error_code:
-                (error as { code?: number | string })?.code?.toString?.() || '',
-              http_status:
-                (error as { status?: number | string })?.status?.toString?.() ||
-                '',
-              error_type:
-                (error as { status?: number | string })?.status ||
-                (error as { code?: number | string })?.code
-                  ? 'http_error'
-                  : 'unknown_error',
-              is_wechat:
-                typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
-              has_token: Boolean(useUserStore.getState().getToken()),
-            });
-          }
           debugWarn('[course-info] skip 404 redirect for non-notfound error', {
             courseId,
             attempt,

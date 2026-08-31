@@ -47,7 +47,6 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { AppContext } from './Components/AppContext';
 import NavDrawer from './Components/NavDrawer/NavDrawer';
 import FeedbackModal from './Components/FeedbackModal/FeedbackModal';
-import TrackingVisit from '@/c-components/TrackingVisit';
 import ChatUi from './Components/ChatUi/ChatUi';
 import {
   DEFAULT_LISTEN_MOBILE_VIEW_MODE,
@@ -950,8 +949,6 @@ export default function ChatPage() {
             payload={payModalState.payload}
           />
         ) : null}
-
-        {initialized ? <TrackingVisit /> : null}
 
         <LearnerProfileDialog
           key={learnerProfileScope}

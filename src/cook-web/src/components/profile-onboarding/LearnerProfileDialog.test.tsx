@@ -20,6 +20,10 @@ import {
 import { PROFILE_ONBOARDING_EVENTS } from './events';
 import LearnerProfileDialog from './LearnerProfileDialog';
 import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConversation';
+import type {
+  ProfileAssistantFailureCategory,
+  ProfileCollectionRoute,
+} from './profileOnboardingAnalytics';
 
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -91,6 +95,12 @@ type ConversationControl = {
   assistantDraft: () => string | undefined;
   setRunInFlight: (runInFlight: boolean) => void;
   sessionId: () => string;
+  chooseCollectionRoute: (route: ProfileCollectionRoute) => void;
+  startAssistant: () => void;
+  finishAssistant: (
+    outcome: 'success' | 'failed',
+    failureCategory?: ProfileAssistantFailureCategory,
+  ) => void;
 };
 
 const mockConversationControls: ConversationControl[] = [];
@@ -143,6 +153,11 @@ function MockProfileOnboardingConversation(
         }
       },
       sessionId: () => sessionIdRef.current,
+      chooseCollectionRoute: route =>
+        propsRef.current.onCollectionRouteChosen?.(route),
+      startAssistant: () => propsRef.current.onAssistantAttempt?.(),
+      finishAssistant: (outcome, failureCategory) =>
+        propsRef.current.onAssistantResult?.(outcome, failureCategory),
     };
     mockConversationControls.push(control);
 
@@ -1248,6 +1263,58 @@ describe('LearnerProfileDialog', () => {
     expect(
       await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();
+  });
+
+  test('emits bounded route, assistant attempt, and terminal result contracts', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    const { rerender, props } = renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+    });
+    await waitForCollectionSession();
+    const control = mockConversationControls.at(-1)!;
+
+    act(() => {
+      control.chooseCollectionRoute('ai_assistant');
+      control.startAssistant();
+      control.finishAssistant('failed', 'runtime_failed');
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.COLLECTION_ROUTE_CHOSEN,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        route: 'ai_assistant',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.ASSISTANT_ATTEMPT,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.ASSISTANT_RESULT,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+        outcome: 'failed',
+        failure_category: 'runtime_failed',
+      },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('prompt');
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('error');
+
+    mockTrackEventIdentity = jest.fn(() => {
+      throw new Error('tracking unavailable');
+    });
+    rerender(<LearnerProfileDialog {...props} />);
+    expect(() =>
+      control.chooseCollectionRoute('guided_questions'),
+    ).not.toThrow();
   });
 
   test('cancels a clean dismissible save without persisting', async () => {

@@ -16,6 +16,7 @@ const originalRequestFullscreenDescriptor = Object.getOwnPropertyDescriptor(
 const mockCourseStoreState: { courseTtsEnabled: boolean | null } = {
   courseTtsEnabled: true,
 };
+const mockTrackEvent = jest.fn();
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -39,6 +40,10 @@ jest.mock('@/c-store/useCourseStore', () => ({
   ) => (selector ? selector(mockCourseStoreState) : mockCourseStoreState),
 }));
 
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
+
 describe('LearningModeSwitch', () => {
   const requestFullscreen = jest.fn();
   const setMockLocation = (href: string) => {
@@ -57,6 +62,7 @@ describe('LearningModeSwitch', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    mockTrackEvent.mockReset();
     requestFullscreen.mockResolvedValue(undefined);
     Object.defineProperty(document.documentElement, 'requestFullscreen', {
       configurable: true,
@@ -67,6 +73,7 @@ describe('LearningModeSwitch', () => {
     useSystemStore.setState({
       learningMode: 'read',
       canUseClassroomMode: null,
+      previewMode: false,
     });
   });
 
@@ -113,12 +120,79 @@ describe('LearningModeSwitch', () => {
         '',
         '/c/course-1?mode=listen',
       );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_learning_mode_select',
+        {
+          from_learning_mode: 'read',
+          to_learning_mode: 'listen',
+          source: 'mobile_switch',
+        },
+      );
     } finally {
       events.removeEventListener(
         BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
         stopListener,
       );
     }
+  });
+
+  it('keeps the existing update behavior when the active mode is selected again', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+    render(<LearningModeSwitch />);
+
+    fireEvent.click(
+      screen.getByRole('radio', {
+        name: 'module.chat.learningModeRead',
+      }),
+    );
+
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?mode=read',
+    );
+    expect(useSystemStore.getState().learningMode).toBe('read');
+  });
+
+  it('still switches modes when tracking throws', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    render(<LearningModeSwitch />);
+
+    fireEvent.click(
+      screen.getByRole('radio', {
+        name: 'module.chat.learningModeListen',
+      }),
+    );
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?mode=listen',
+    );
+    expect(useSystemStore.getState().learningMode).toBe('listen');
+  });
+
+  it('labels accepted desktop selections with the desktop source', () => {
+    render(<LearningModeSwitch size='desktop' />);
+
+    fireEvent.click(
+      screen.getByRole('radio', {
+        name: 'module.chat.learningModeListen',
+      }),
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_learning_mode_select',
+      {
+        from_learning_mode: 'read',
+        to_learning_mode: 'listen',
+        source: 'desktop_switch',
+      },
+    );
   });
 
   it('renders read mode first without a beta badge', () => {
@@ -297,7 +371,10 @@ describe('LearningModeSwitch', () => {
   it('preserves preview mode when switching to classroom mode', () => {
     const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
     setMockLocation('http://localhost:3000/c/course-1?preview=true');
-    useSystemStore.setState({ canUseClassroomMode: true });
+    useSystemStore.setState({
+      canUseClassroomMode: true,
+      previewMode: true,
+    });
 
     render(<LearningModeSwitch />);
 
@@ -312,5 +389,7 @@ describe('LearningModeSwitch', () => {
       '',
       '/c/course-1?preview=true&mode=classroom',
     );
+    expect(useSystemStore.getState().learningMode).toBe('classroom');
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 });

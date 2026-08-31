@@ -64,14 +64,15 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
       return;
     }
 
+    trackEvent('creator_shifu_preview_click', {
+      shifu_bid: currentShifu?.bid || '',
+    });
+
     try {
       setLoading(true);
       if (!currentShifu?.readonly) {
         await actions.saveMdflow();
       }
-      trackEvent('creator_shifu_preview_click', {
-        shifu_bid: currentShifu?.bid || '',
-      });
       const result = await api.previewShifu(
         {
           shifu_bid: currentShifu?.bid || '',

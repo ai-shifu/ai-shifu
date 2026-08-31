@@ -1680,6 +1680,9 @@ describe('assistant answers in the existing session', () => {
     const onAssistantDraftReady = jest.fn();
     const onDraftReady = jest.fn();
     const onError = jest.fn();
+    const onCollectionRouteChosen = jest.fn();
+    const onAssistantAttempt = jest.fn();
+    const onAssistantResult = jest.fn();
     const renderConversation = (
       draft = 'External answer',
       disabled = false,
@@ -1691,6 +1694,9 @@ describe('assistant answers in the existing session', () => {
         assistantDraft={draft}
         onAssistantDraftChange={jest.fn()}
         onAssistantDraftReady={onAssistantDraftReady}
+        onCollectionRouteChosen={onCollectionRouteChosen}
+        onAssistantAttempt={onAssistantAttempt}
+        onAssistantResult={onAssistantResult}
         onDraftReady={onDraftReady}
         onError={onError}
         disabled={disabled}
@@ -1704,6 +1710,9 @@ describe('assistant answers in the existing session', () => {
       runSession,
       assistantAnswers,
       onAssistantDraftReady,
+      onCollectionRouteChosen,
+      onAssistantAttempt,
+      onAssistantResult,
       onDraftReady,
       onError,
       renderConversation,
@@ -1721,6 +1730,71 @@ describe('assistant answers in the existing session', () => {
         name: 'module.profileOnboarding.assistant.process',
       }),
     );
+
+  test('reports explicit route choices and keeps navigation fail-open', async () => {
+    const result = await begin();
+
+    enter();
+    expect(result.onCollectionRouteChosen).toHaveBeenCalledWith('ai_assistant');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    );
+    expect(result.onCollectionRouteChosen).toHaveBeenCalledWith(
+      'guided_questions',
+    );
+
+    result.onCollectionRouteChosen.mockImplementation(() => {
+      throw new Error('analytics unavailable');
+    });
+    enter();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeVisible();
+  });
+
+  test('reports one assistant attempt and its successful terminal result', async () => {
+    const result = await begin();
+    enter();
+    process();
+
+    expect(result.onAssistantAttempt).toHaveBeenCalledTimes(1);
+    expect(result.onAssistantResult).not.toHaveBeenCalled();
+
+    act(() => {
+      result.assistantAnswers.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: true, profile_draft: 'Imported profile' },
+      });
+    });
+
+    expect(result.onAssistantResult).toHaveBeenCalledTimes(1);
+    expect(result.onAssistantResult).toHaveBeenCalledWith('success', undefined);
+  });
+
+  test('maps assistant runtime failures to a bounded terminal category', async () => {
+    const result = await begin();
+    enter();
+    process();
+
+    act(() => {
+      result.assistantAnswers.mock.calls[0][0].onMessage({
+        event_type: 'error',
+        content: 'private backend detail',
+      });
+    });
+
+    expect(result.onAssistantResult).toHaveBeenCalledTimes(1);
+    expect(result.onAssistantResult).toHaveBeenCalledWith(
+      'failed',
+      'runtime_failed',
+    );
+    expect(JSON.stringify(result.onAssistantResult.mock.calls)).not.toContain(
+      'private backend detail',
+    );
+  });
 
   test('offers copying before the first question and keeps its stream alive when returning', async () => {
     const writeText = jest.fn().mockResolvedValue(undefined);

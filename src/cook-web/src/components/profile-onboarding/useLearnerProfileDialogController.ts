@@ -36,6 +36,13 @@ import {
 } from './learnerProfileDraft';
 import { countUnicodeCodePoints } from './ProfileDraftEditor';
 import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConversation';
+import {
+  buildProfileAssistantAttemptAnalytics,
+  buildProfileAssistantResultAnalytics,
+  buildProfileCollectionRouteAnalytics,
+  type ProfileAssistantFailureCategory,
+  type ProfileCollectionRoute,
+} from './profileOnboardingAnalytics';
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
@@ -122,6 +129,59 @@ export const useLearnerProfileDialogController = ({
   initialOnboardingStatusRef.current = initialOnboardingStatus;
   translationRef.current = t;
   trackEventRef.current = trackEvent;
+
+  const sendProfileAnalytics = React.useCallback(
+    (eventName: string, payload: Record<string, unknown>) => {
+      try {
+        void Promise.resolve(trackEventRef.current(eventName, payload)).catch(
+          () => {},
+        );
+      } catch {}
+    },
+    [],
+  );
+
+  const handleCollectionRouteChosen = React.useCallback(
+    (route: ProfileCollectionRoute) => {
+      sendProfileAnalytics(
+        PROFILE_ONBOARDING_EVENTS.COLLECTION_ROUTE_CHOSEN,
+        buildProfileCollectionRouteAnalytics({
+          intent: stateRef.current.collectionIntent,
+          presentation: presentationRef.current,
+          route,
+        }),
+      );
+    },
+    [sendProfileAnalytics],
+  );
+
+  const handleAssistantAttempt = React.useCallback(() => {
+    sendProfileAnalytics(
+      PROFILE_ONBOARDING_EVENTS.ASSISTANT_ATTEMPT,
+      buildProfileAssistantAttemptAnalytics({
+        intent: stateRef.current.collectionIntent,
+        presentation: presentationRef.current,
+      }),
+    );
+  }, [sendProfileAnalytics]);
+
+  const handleAssistantResult = React.useCallback(
+    (
+      outcome: 'success' | 'failed',
+      failureCategory?: ProfileAssistantFailureCategory,
+    ) => {
+      sendProfileAnalytics(
+        PROFILE_ONBOARDING_EVENTS.ASSISTANT_RESULT,
+        buildProfileAssistantResultAnalytics({
+          intent: stateRef.current.collectionIntent,
+          presentation: presentationRef.current,
+          outcome,
+          failureCategory,
+        }),
+      );
+    },
+    [sendProfileAnalytics],
+  );
 
   const bumpEpoch = React.useCallback((kind: keyof RequestEpochs) => {
     requestEpochRef.current[kind] += 1;
@@ -1251,6 +1311,9 @@ export const useLearnerProfileDialogController = ({
       onRetry: handleCollectionRetry,
       onError: handleCollectionError,
       onSessionCreateRejected: handleSessionCreateRejected,
+      onCollectionRouteChosen: handleCollectionRouteChosen,
+      onAssistantAttempt: handleAssistantAttempt,
+      onAssistantResult: handleAssistantResult,
     } satisfies ProfileOnboardingConversationProps,
     setProfile,
     setNickname,

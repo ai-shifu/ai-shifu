@@ -1,11 +1,8 @@
 import request from '@/lib/request';
-import { inWechat } from '@/c-constants/uiConstants';
-import { tracking } from '@/c-common/tools/tracking';
 import i18n from '@/i18n';
 
 type GetCourseInfoOptions = {
   skipErrorToast?: boolean;
-  trackErrors?: boolean;
 };
 
 const COURSE_NOT_FOUND_MESSAGE_FALLBACKS = ['course not found'];
@@ -105,29 +102,6 @@ export const getCourseInfo = async (
     };
   } catch (rawError: any) {
     const error = new CourseInfoFetchError(rawError);
-    if (options.trackErrors !== false) {
-      const networkType =
-        typeof navigator !== 'undefined' && (navigator as any).connection
-          ? (navigator as any).connection.effectiveType || ''
-          : '';
-      tracking('learner_course_info_fetch_error', {
-        shifu_bid: courseId,
-        preview_mode: previewMode,
-        error_code: error.code ?? '',
-        http_status: error.status ?? '',
-        error_type: error.isCourseNotFound
-          ? 'course_not_found'
-          : error.status
-            ? 'http_error'
-            : 'unknown_error',
-        path: typeof window !== 'undefined' ? window.location.pathname : '',
-        ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-        is_wechat:
-          typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
-        network_type: networkType,
-        is_course_not_found: error.isCourseNotFound,
-      });
-    }
     throw error;
   }
 };

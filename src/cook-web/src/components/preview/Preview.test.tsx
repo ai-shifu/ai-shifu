@@ -12,6 +12,7 @@ import PreviewSettingsModal from './Preview';
 import { showCreditInsufficientToast } from '@/lib/creditInsufficientToast';
 
 const mockSaveMdflow = jest.fn();
+const mockTrackEvent = jest.fn();
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 const mockCurrentNode = {
   bid: 'lesson-1',
@@ -80,7 +81,7 @@ jest.mock('@/store', () => ({
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({
-    trackEvent: jest.fn(),
+    trackEvent: mockTrackEvent,
   }),
 }));
 
@@ -93,6 +94,7 @@ jest.mock('react-i18next', () => ({
 describe('PreviewSettingsModal', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset();
+    mockTrackEvent.mockReset();
     (api.previewShifu as jest.Mock).mockReset();
     mockUseBillingOverview.mockReset();
     (showCreditInsufficientToast as jest.Mock).mockReset();
@@ -201,6 +203,10 @@ describe('PreviewSettingsModal', () => {
 
     await waitFor(() => {
       expect(mockSaveMdflow).toHaveBeenCalled();
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_preview_click',
+        { shifu_bid: 'shifu-1' },
+      );
       expect(api.previewShifu).toHaveBeenCalledWith(
         {
           shifu_bid: 'shifu-1',
@@ -219,6 +225,37 @@ describe('PreviewSettingsModal', () => {
     });
 
     openSpy.mockRestore();
+  });
+
+  it('records the accepted click before saving the draft', async () => {
+    let resolveSave: (() => void) | undefined;
+    mockSaveMdflow.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          resolveSave = resolve;
+        }),
+    );
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        debug_allowed: true,
+      },
+    });
+
+    render(<PreviewSettingsModal />);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module.preview.previewAll/,
+      }),
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('creator_shifu_preview_click', {
+      shifu_bid: 'shifu-1',
+    });
+    expect(api.previewShifu).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveSave?.();
+    });
   });
 
   it('lets collaborators reach the owner-billed preview with collaborator context', async () => {

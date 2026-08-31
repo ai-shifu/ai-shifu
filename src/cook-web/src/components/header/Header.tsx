@@ -353,23 +353,26 @@ const Header = ({
     ) {
       return;
     }
-    trackEvent('creator_publish_click', {
-      shifu_bid: currentShifu?.bid || '',
-      learning_mode: mode || '',
+    trackEvent('creator_publish_attempt', {
+      shifu_bid: currentShifu.bid,
+      learning_mode: mode || 'default',
     });
     // TODO: publish
     // actions.publishScenario();
     // await actions.saveBlocks(currentShifu?.bid || '');
     const pendingWindow = mode ? window.open('about:blank', '_blank') : null;
     setPublishing(true);
+    let failureStage: 'save' | 'publish' = 'save';
     try {
       await actions.saveMdflow();
-      trackEvent('creator_publish_confirm', {
-        shifu_bid: currentShifu?.bid || '',
-        learning_mode: mode || '',
-      });
+      failureStage = 'publish';
       const result = await api.publishShifu({
         shifu_bid: currentShifu?.bid || '',
+      });
+      trackEvent('creator_publish_result', {
+        shifu_bid: currentShifu.bid,
+        learning_mode: mode || 'default',
+        outcome: 'success',
       });
       if (mode) {
         if (openLearningModeUrl(result, mode, pendingWindow)) {
@@ -383,6 +386,12 @@ const Header = ({
       showPublishSuccessAlert(result);
     } catch (error) {
       pendingWindow?.close();
+      trackEvent('creator_publish_result', {
+        shifu_bid: currentShifu.bid,
+        learning_mode: mode || 'default',
+        outcome: 'failed',
+        failure_stage: failureStage,
+      });
       // API errors already surface their specific message through the unified
       // request-layer toast; re-toasting a generic title here would replace it
       // (TOAST_LIMIT is 1). Only unexpected non-API errors need a fallback.

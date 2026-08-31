@@ -1,5 +1,4 @@
 export const EVENT_NAMES = {
-  VISIT: 'visit',
   TRIAL_PROGRESS: 'trial_progress',
   POP_PAY: 'pop_pay',
   POP_LOGIN: 'pop_login',
@@ -33,13 +32,16 @@ export const EVENT_NAMES = {
 
 type UmamiUserInfo = {
   user_id?: string;
-  name?: string;
-  state?: string;
-  language?: string;
+  [key: string]: unknown;
 };
 
 type UmamiEventData = Record<string, unknown>;
 type SanitizedEventData = Record<string, string | number | boolean>;
+
+type IdentifyRequest = {
+  generation: number;
+  userId: string;
+};
 
 type QueuedUmamiCall =
   | {
@@ -59,40 +61,23 @@ const UMAMI_LIMITS = {
   url: 500,
   referrer: 500,
   maxDataFields: 30,
-  maxArrayItems: 10,
+  maxRouteSegments: 8,
+  maxQueuedCalls: 100,
 } as const;
 
 const pageviewState = {
-  lastTrackedUrl: '',
+  lastSourcePath: '',
+  lastTrackedRoute: '',
   lastReferrer: '',
 };
 
 const identifyState = {
-  pendingUserInfo: undefined as UmamiUserInfo | null | undefined,
+  pendingRequest: undefined as IdentifyRequest | undefined,
   prevSnapshot: '',
   ready: false,
   identifying: false,
+  generation: 0,
   queuedCalls: [] as QueuedUmamiCall[],
-};
-
-const buildUserSnapshot = (userInfo: UmamiUserInfo | null) => {
-  return JSON.stringify({
-    user_id: userInfo?.user_id ?? null,
-    name: userInfo?.name ?? null,
-    state: userInfo?.state ?? null,
-    language: userInfo?.language ?? null,
-  });
-};
-
-const getCurrentUrl = () => {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  const origin = window.location.origin || '';
-  const pathname = window.location.pathname || '';
-  const search = window.location.search || '';
-  return `${origin}${pathname}${search}`;
 };
 
 const truncateText = (value: string, maxLength: number) => {
@@ -100,6 +85,151 @@ const truncateText = (value: string, maxLength: number) => {
     return value;
   }
   return value.slice(0, maxLength);
+};
+
+const buildUserSnapshot = (userId: string) =>
+  JSON.stringify({ user_id: userId });
+
+const SAFE_ROUTE_SEGMENTS = new Set([
+  'admin',
+  'agreement',
+  'billing',
+  'billing-result',
+  'c',
+  'config',
+  'credit-notifications',
+  'dashboard',
+  'follow-ups',
+  'google-callback',
+  'history',
+  'invite',
+  'login',
+  'operations',
+  'orders',
+  'payment',
+  'privacy',
+  'profile-onboarding',
+  'promotions',
+  'provider-prices',
+  'ratings',
+  'referral',
+  'referrals',
+  'result',
+  'shifu',
+  'stripe',
+  'unsupported-browser',
+  'users',
+  'voice-clones',
+]);
+
+const STATIC_OPERATION_ROUTES = new Set([
+  'billing',
+  'config',
+  'credit-notifications',
+  'orders',
+  'profile-onboarding',
+  'promotions',
+  'provider-prices',
+  'referrals',
+  'users',
+  'voice-clones',
+]);
+
+const isKnownDynamicRouteSegment = (
+  segments: string[],
+  segmentIndex: number,
+) => {
+  const firstSegment = segments[0]?.toLowerCase();
+  if (firstSegment === 'invite' || firstSegment === 'shifu') {
+    return segmentIndex === 1;
+  }
+
+  if (firstSegment !== 'admin') {
+    return false;
+  }
+
+  const secondSegment = segments[1]?.toLowerCase();
+  if (secondSegment === 'dashboard') {
+    return segmentIndex === 2;
+  }
+
+  if (secondSegment !== 'operations') {
+    return false;
+  }
+
+  const thirdSegment = segments[2]?.toLowerCase();
+  if (!thirdSegment) {
+    return false;
+  }
+  if (segmentIndex === 2) {
+    return !STATIC_OPERATION_ROUTES.has(thirdSegment);
+  }
+
+  return thirdSegment === 'users' && segmentIndex === 3;
+};
+
+const getUrlPathname = (url?: string) => {
+  const fallbackUrl =
+    typeof window === 'undefined' ? '' : window.location.href || '';
+  const candidate =
+    typeof url === 'string' && url.trim() ? url.trim() : fallbackUrl;
+  if (!candidate) {
+    return '';
+  }
+
+  try {
+    return new URL(candidate, 'https://tracking.invalid').pathname || '/';
+  } catch {
+    const withoutFragment = candidate.split('#', 1)[0] ?? '';
+    const withoutQuery = withoutFragment.split('?', 1)[0] ?? '';
+    return withoutQuery.startsWith('/') ? withoutQuery : '/';
+  }
+};
+
+const normalizeSourcePath = (url?: string) => {
+  const pathname = getUrlPathname(url).replace(/\/{2,}/g, '/');
+  return truncateText(pathname || '/', UMAMI_LIMITS.url);
+};
+
+/**
+ * Converts a browser URL into a bounded analytics route. Only reviewed static
+ * route segments survive; dynamic and unknown values become `:dynamic`.
+ * Course catch-all values are collapsed completely. Host, credentials, query,
+ * fragment, and browser/external referrer data never enter the result.
+ */
+export const normalizeTrackingRoute = (url?: string): string => {
+  const pathname = normalizeSourcePath(url);
+  const rawSegments = pathname.split('/').filter(Boolean);
+  if (rawSegments.length === 0) {
+    return '/';
+  }
+
+  if (rawSegments[0]?.toLowerCase() === 'c') {
+    return rawSegments.length === 1 ? '/c' : '/c/:dynamic';
+  }
+
+  const hasOverflow = rawSegments.length > UMAMI_LIMITS.maxRouteSegments;
+  const segmentLimit = hasOverflow
+    ? UMAMI_LIMITS.maxRouteSegments - 1
+    : UMAMI_LIMITS.maxRouteSegments;
+  const normalizedSegments = rawSegments
+    .slice(0, segmentLimit)
+    .map((segment, index) => {
+      if (isKnownDynamicRouteSegment(rawSegments, index)) {
+        return ':dynamic';
+      }
+      const normalized = segment.toLowerCase();
+      return SAFE_ROUTE_SEGMENTS.has(normalized) ? normalized : ':dynamic';
+    });
+  if (hasOverflow) {
+    normalizedSegments.push(':more');
+  }
+
+  return truncateText(`/${normalizedSegments.join('/')}`, UMAMI_LIMITS.url);
+};
+
+const getCurrentUrl = () => {
+  return normalizeTrackingRoute();
 };
 
 const normalizeText = (value: unknown, maxLength: number) => {
@@ -115,50 +245,22 @@ const normalizeText = (value: unknown, maxLength: number) => {
   return truncateText(text, maxLength);
 };
 
-const stringifyUnknown = (value: unknown) => {
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-};
-
-const sanitizeDataValue = (value: unknown): string | number | boolean => {
+const sanitizeDataValue = (
+  value: unknown,
+): string | number | boolean | undefined => {
   if (typeof value === 'string') {
     return truncateText(value, UMAMI_LIMITS.dataValue);
   }
 
   if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0;
+    return Number.isFinite(value) ? value : undefined;
   }
 
   if (typeof value === 'boolean') {
     return value;
   }
 
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      return '';
-    }
-    return truncateText(value.toISOString(), UMAMI_LIMITS.dataValue);
-  }
-
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  if (Array.isArray(value)) {
-    return truncateText(
-      stringifyUnknown(value.slice(0, UMAMI_LIMITS.maxArrayItems)),
-      UMAMI_LIMITS.dataValue,
-    );
-  }
-
-  if (typeof value === 'object') {
-    return truncateText(stringifyUnknown(value), UMAMI_LIMITS.dataValue);
-  }
-
-  return truncateText(String(value), UMAMI_LIMITS.dataValue);
+  return undefined;
 };
 
 const sanitizeEventData = (
@@ -180,9 +282,12 @@ const sanitizeEventData = (
       continue;
     }
     const value = sanitizeDataValue(rawValue);
+    if (value === undefined) {
+      continue;
+    }
     const nextData = { ...safeData, [key]: value };
     if (JSON.stringify(nextData).length > UMAMI_LIMITS.dataJson) {
-      break;
+      continue;
     }
     safeData[key] = value;
   }
@@ -191,7 +296,10 @@ const sanitizeEventData = (
 };
 
 const sanitizeUrlLike = (url: string | undefined, maxLength: number) => {
-  const normalized = normalizeText(url, maxLength);
+  if (typeof url !== 'string' || !url.trim()) {
+    return undefined;
+  }
+  const normalized = truncateText(normalizeTrackingRoute(url), maxLength);
   return normalized || undefined;
 };
 
@@ -209,7 +317,6 @@ function trackUmamiPageview(
   const safeReferrer = sanitizeUrlLike(referrer, UMAMI_LIMITS.referrer);
 
   if (!safeUrl) {
-    umami.track();
     return;
   }
 
@@ -217,10 +324,12 @@ function trackUmamiPageview(
     umami.track((payload: any) => ({
       ...payload,
       url: safeUrl,
-      referrer: safeReferrer || payload.referrer,
+      referrer: safeReferrer,
+      title: undefined,
     }));
   } catch {
-    umami.track();
+    // Do not fall back to auto-context tracking because it can restore the
+    // browser's raw URL, referrer, and document title.
   }
 }
 
@@ -248,22 +357,15 @@ function trackUmamiEvent(
       ...payload,
       name: eventName,
       data: eventData,
-      url: safeUrl || payload.url,
-      referrer: safeReferrer || payload.referrer,
+      url: safeUrl,
+      referrer: safeReferrer,
+      title: undefined,
     }));
   } catch {
-    umami.track(eventName, eventData);
+    // The legacy overload rehydrates unsafe browser context, so delivery is
+    // intentionally skipped when the privacy-safe callback path is unavailable.
   }
 }
-
-const ensureCurrentPageviewTracked = () => {
-  const currentUrl = getCurrentUrl();
-  if (!currentUrl || currentUrl === pageviewState.lastTrackedUrl) {
-    return;
-  }
-
-  trackPageview(currentUrl);
-};
 
 const drainQueuedEvents = (umami: any) => {
   if (identifyState.queuedCalls.length === 0) {
@@ -290,51 +392,49 @@ const drainQueuedEvents = (umami: any) => {
   });
 };
 
-const applyIdentify = async (userInfo: UmamiUserInfo | null) => {
+const enforceQueueLimit = () => {
+  while (identifyState.queuedCalls.length > UMAMI_LIMITS.maxQueuedCalls) {
+    const oldestEventIndex = identifyState.queuedCalls.findIndex(
+      call => call.kind === 'event',
+    );
+    identifyState.queuedCalls.splice(
+      oldestEventIndex >= 0 ? oldestEventIndex : 0,
+      1,
+    );
+  }
+};
+
+const enqueueEvent = (event: Extract<QueuedUmamiCall, { kind: 'event' }>) => {
+  identifyState.queuedCalls.push(event);
+  enforceQueueLimit();
+};
+
+const enqueuePageview = (
+  pageview: Extract<QueuedUmamiCall, { kind: 'pageview' }>,
+) => {
+  identifyState.queuedCalls = identifyState.queuedCalls.filter(
+    call => call.kind !== 'pageview',
+  );
+  identifyState.queuedCalls.unshift(pageview);
+  enforceQueueLimit();
+};
+
+const applyIdentify = async (request: IdentifyRequest) => {
   const umami = (window as any).umami;
   if (!umami) {
     return false;
   }
 
   if (typeof umami.identify !== 'function') {
-    identifyState.ready = true;
-    drainQueuedEvents(umami);
-    return true;
-  }
-
-  const uniqueId =
-    typeof userInfo?.user_id === 'string' && userInfo.user_id.trim()
-      ? userInfo.user_id.trim()
-      : undefined;
-
-  if (!uniqueId) {
     return false;
   }
 
   try {
-    const sessionData: {
-      nickname?: string;
-      user_state?: string;
-      language?: string;
-    } = {};
-
-    if (userInfo?.name) sessionData.nickname = userInfo.name;
-    if (userInfo?.state) sessionData.user_state = userInfo.state;
-    if (userInfo?.language) sessionData.language = userInfo.language;
-
-    const hasSessionData = Object.keys(sessionData).length > 0;
-
-    if (hasSessionData) {
-      await umami.identify(uniqueId, sessionData);
-    } else {
-      await umami.identify(uniqueId);
-    }
+    await umami.identify(request.userId);
   } catch {
     return false;
   }
 
-  identifyState.ready = true;
-  drainQueuedEvents(umami);
   return true;
 };
 
@@ -343,7 +443,11 @@ export const flushUmamiIdentify = () => {
     return;
   }
 
-  if (identifyState.pendingUserInfo === undefined) {
+  if (identifyState.pendingRequest === undefined) {
+    const umami = (window as any).umami;
+    if (identifyState.ready && umami) {
+      drainQueuedEvents(umami);
+    }
     return;
   }
 
@@ -351,15 +455,31 @@ export const flushUmamiIdentify = () => {
     return;
   }
 
+  const request = identifyState.pendingRequest;
   identifyState.identifying = true;
-  void applyIdentify(identifyState.pendingUserInfo)
+  void applyIdentify(request)
     .then(success => {
-      if (success) {
-        identifyState.pendingUserInfo = undefined;
+      const isNewestRequest =
+        identifyState.pendingRequest?.generation === request.generation;
+      if (!success || !isNewestRequest) {
+        return;
+      }
+
+      identifyState.pendingRequest = undefined;
+      identifyState.ready = true;
+      const umami = (window as any).umami;
+      if (umami) {
+        drainQueuedEvents(umami);
       }
     })
     .finally(() => {
       identifyState.identifying = false;
+      if (
+        identifyState.pendingRequest &&
+        identifyState.pendingRequest.generation !== request.generation
+      ) {
+        flushUmamiIdentify();
+      }
     });
 };
 
@@ -376,18 +496,39 @@ export const identifyUmamiUser = (userInfo?: UmamiUserInfo | null) => {
     return;
   }
 
-  if (userInfo && !userInfo.user_id) {
+  const userId =
+    typeof userInfo.user_id === 'string' ? userInfo.user_id.trim() : '';
+  if (!userId) {
     return;
   }
 
-  const snapshot = buildUserSnapshot(userInfo ?? null);
+  const snapshot = buildUserSnapshot(userId);
   if (snapshot === identifyState.prevSnapshot) {
     return;
   }
 
+  const isReplacementIdentity = identifyState.prevSnapshot !== '';
+
+  if (isReplacementIdentity) {
+    // Business events accepted while another identity was pending must never
+    // be replayed under the replacement identity. Preserve only a pending
+    // current pageview, and remove the previous identity's navigation context
+    // from it. A pageview that already drained is not re-created here.
+    const currentPageview = identifyState.queuedCalls.find(
+      call => call.kind === 'pageview',
+    );
+    identifyState.queuedCalls = currentPageview
+      ? [{ ...currentPageview, referrer: undefined }]
+      : [];
+    pageviewState.lastReferrer = '';
+  }
   identifyState.prevSnapshot = snapshot;
   identifyState.ready = false;
-  identifyState.pendingUserInfo = userInfo ?? null;
+  identifyState.generation += 1;
+  identifyState.pendingRequest = {
+    generation: identifyState.generation,
+    userId,
+  };
   flushUmamiIdentify();
 };
 
@@ -400,7 +541,7 @@ const ensureIdentifyReady = () => {
     return;
   }
 
-  if (identifyState.pendingUserInfo === undefined) {
+  if (identifyState.pendingRequest === undefined) {
     return;
   }
 
@@ -412,10 +553,9 @@ export const tracking = async (
   eventData: UmamiEventData = {},
 ) => {
   try {
-    ensureCurrentPageviewTracked();
     ensureIdentifyReady();
     const umami = (window as any).umami;
-    const urlSnapshot = pageviewState.lastTrackedUrl || getCurrentUrl();
+    const urlSnapshot = pageviewState.lastTrackedRoute || getCurrentUrl();
     const referrerSnapshot = pageviewState.lastReferrer || '';
     const safeEventName = sanitizeEventName(eventName);
     const safeEventData = sanitizeEventData(eventData);
@@ -425,7 +565,7 @@ export const tracking = async (
       UMAMI_LIMITS.referrer,
     );
     if (!umami || !identifyState.ready) {
-      identifyState.queuedCalls.push({
+      enqueueEvent({
         kind: 'event',
         eventName: safeEventName,
         eventData: safeEventData,
@@ -449,33 +589,34 @@ export const trackPageview = (url?: string) => {
   try {
     ensureIdentifyReady();
     const umami = (window as any).umami;
-    const urlSnapshot =
-      typeof url === 'string' && url.trim() ? url : getCurrentUrl();
+    const sourcePath = normalizeSourcePath(url);
+    const routeSnapshot = normalizeTrackingRoute(url);
 
-    if (urlSnapshot && urlSnapshot === pageviewState.lastTrackedUrl) {
+    if (sourcePath && sourcePath === pageviewState.lastSourcePath) {
       return;
     }
 
-    const previousUrl = pageviewState.lastTrackedUrl;
+    const previousRoute = pageviewState.lastTrackedRoute;
 
-    if (urlSnapshot) {
-      pageviewState.lastReferrer = previousUrl;
-      pageviewState.lastTrackedUrl = urlSnapshot;
+    if (sourcePath) {
+      pageviewState.lastSourcePath = sourcePath;
+      pageviewState.lastReferrer = previousRoute;
+      pageviewState.lastTrackedRoute = routeSnapshot;
     }
 
     if (!umami || !identifyState.ready) {
       const pageviewCall: QueuedUmamiCall = {
         kind: 'pageview',
-        url: sanitizeUrlLike(urlSnapshot, UMAMI_LIMITS.url),
-        referrer: sanitizeUrlLike(previousUrl, UMAMI_LIMITS.referrer),
+        url: sanitizeUrlLike(routeSnapshot, UMAMI_LIMITS.url),
+        referrer: sanitizeUrlLike(previousRoute, UMAMI_LIMITS.referrer),
       };
-      identifyState.queuedCalls = identifyState.queuedCalls.filter(
-        call => call.kind !== 'pageview',
-      );
-      identifyState.queuedCalls.unshift(pageviewCall);
+      enqueuePageview(pageviewCall);
       return;
     }
-    trackUmamiPageview(umami, { url: urlSnapshot, referrer: previousUrl });
+    trackUmamiPageview(umami, {
+      url: routeSnapshot,
+      referrer: previousRoute,
+    });
   } catch {
     // swallow tracking errors
   }

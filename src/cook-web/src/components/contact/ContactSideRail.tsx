@@ -9,6 +9,12 @@ import { useTranslation } from 'react-i18next';
 export const CONTACT_RAIL_I18N_KEY = 'component.navigation.contactUs';
 export const CONTACT_RAIL_CLICK_EVENT = 'contact_us_click';
 
+export const resolveContactRailSurface = (pathname: string | null) => {
+  if (pathname?.startsWith('/admin')) return 'admin';
+  if (pathname?.startsWith('/invite')) return 'invite';
+  return 'other';
+};
+
 interface ContactSideRailProps {
   className?: string;
   label?: string;
@@ -43,8 +49,7 @@ export function ContactSideRail({ className, label }: ContactSideRailProps) {
         aria-label={resolvedLabel}
         onClick={() => {
           trackEvent(CONTACT_RAIL_CLICK_EVENT, {
-            page_path: pathname || '',
-            target_url: resolvedHref,
+            surface: resolveContactRailSurface(pathname),
           });
         }}
         title={resolvedLabel}

@@ -29,6 +29,16 @@ import {
   formatBillingPrice,
   openBillingCheckoutUrl,
 } from '@/lib/billing';
+import {
+  buildCreatorBillingAttemptAnalytics,
+  buildCreatorBillingResultAnalytics,
+  buildCreatorBillingStatusAnalytics,
+  CREATOR_BILLING_ANALYTICS_EVENTS,
+  trackCreatorBillingEventSafely,
+  type CreatorBillingAnalyticsBaseInput,
+  type CreatorBillingFailureCategory,
+} from '@/lib/billingAnalytics';
+import { rememberStripeBillingOrderForAnalytics } from '@/lib/stripe-storage';
 import { cn } from '@/lib/utils';
 import type {
   BillingCheckoutResult,
@@ -288,14 +298,10 @@ export function GlobalBillingPricing() {
   const handlePaymentClick = React.useCallback(
     async ({
       product,
-      planName,
-      billingInterval,
       sourceTab,
       checkoutAction,
     }: {
       product: GlobalBillingProduct;
-      planName: string;
-      billingInterval: 'month' | 'year' | 'one_time';
       sourceTab: PricingTab;
       checkoutAction?: BillingSubscriptionCheckoutAction;
     }) => {
@@ -307,9 +313,40 @@ export function GlobalBillingPricing() {
         return;
       }
 
+      const analyticsBase: CreatorBillingAnalyticsBaseInput = {
+        billingMarket: 'global',
+        productType: product.product_type,
+        productBid: product.product_bid,
+        productCode: product.product_code,
+        billingInterval:
+          product.product_type === 'plan'
+            ? product.billing_interval
+            : 'one_time',
+        priceAmount: product.price_amount,
+        currency: product.currency,
+        creditAmount: product.credit_amount,
+        paymentProvider: STRIPE_PAYMENT_PROVIDER,
+        checkoutAction:
+          product.product_type === 'topup'
+            ? 'topup'
+            : checkoutAction || 'subscribe',
+        sourceSurface: 'global_pricing',
+        sourceTab,
+      };
+      const attemptPayload = buildCreatorBillingAttemptAnalytics(analyticsBase);
+      trackCreatorBillingEventSafely(
+        trackEvent,
+        CREATOR_BILLING_ANALYTICS_EVENTS.attempt,
+        attemptPayload,
+      );
+
       const loadingKey = buildCheckoutLoadingKey(product);
       setCheckoutLoadingKey(loadingKey);
       setStripeRedirect({ phase: 'creating' });
+      let failureCategory: CreatorBillingFailureCategory =
+        'checkout_request_failed';
+      let catchAnalyticsBase = analyticsBase;
+      let terminalResultReported = false;
       try {
         let result: BillingCheckoutResult;
         if (product.product_type === 'plan') {
@@ -325,18 +362,52 @@ export function GlobalBillingPricing() {
           })) as BillingCheckoutResult;
         }
 
-        void trackEvent('creator_billing_checkout_click', {
-          billing_market: 'global',
-          product_type: product.product_type,
-          product_code: product.product_code,
-          plan_name: planName,
-          billing_interval: billingInterval,
-          price_amount: product.price_amount,
-          currency: normalizeCurrency(product.currency),
-          credit_amount: product.credit_amount,
-          source_tab: sourceTab,
-          checkout_status: result.status,
-        });
+        const resolvedAnalyticsBase = {
+          ...analyticsBase,
+          paymentProvider: result.provider,
+          billOrderBid: result.bill_order_bid,
+        };
+        catchAnalyticsBase = resolvedAnalyticsBase;
+
+        if (result.status === 'paid') {
+          trackCreatorBillingEventSafely(
+            trackEvent,
+            CREATOR_BILLING_ANALYTICS_EVENTS.result,
+            buildCreatorBillingResultAnalytics({
+              ...resolvedAnalyticsBase,
+              outcome: 'success',
+            }),
+          );
+          terminalResultReported = true;
+        } else if (
+          result.status === 'unsupported' ||
+          result.status === 'failed'
+        ) {
+          trackCreatorBillingEventSafely(
+            trackEvent,
+            CREATOR_BILLING_ANALYTICS_EVENTS.result,
+            buildCreatorBillingResultAnalytics({
+              ...resolvedAnalyticsBase,
+              outcome: 'failed',
+              failureCategory:
+                result.status === 'unsupported'
+                  ? 'unsupported'
+                  : 'payment_failed',
+            }),
+          );
+          terminalResultReported = true;
+        } else if (!result.redirect_url) {
+          trackCreatorBillingEventSafely(
+            trackEvent,
+            CREATOR_BILLING_ANALYTICS_EVENTS.result,
+            buildCreatorBillingResultAnalytics({
+              ...resolvedAnalyticsBase,
+              outcome: 'failed',
+              failureCategory: 'missing_redirect',
+            }),
+          );
+          terminalResultReported = true;
+        }
 
         if (result.status === 'unsupported' || !result.redirect_url) {
           setStripeRedirect(null);
@@ -351,8 +422,31 @@ export function GlobalBillingPricing() {
           phase: 'redirecting',
           retryUrl: result.redirect_url,
         });
+        if (result.provider === 'stripe') {
+          rememberStripeBillingOrderForAnalytics(result.bill_order_bid);
+        }
+        failureCategory = 'redirect_failed';
+        trackCreatorBillingEventSafely(
+          trackEvent,
+          CREATOR_BILLING_ANALYTICS_EVENTS.status,
+          buildCreatorBillingStatusAnalytics({
+            ...resolvedAnalyticsBase,
+            status: 'pending',
+          }),
+        );
         openBillingCheckoutUrl(result.redirect_url);
       } catch (error: any) {
+        if (!terminalResultReported) {
+          trackCreatorBillingEventSafely(
+            trackEvent,
+            CREATOR_BILLING_ANALYTICS_EVENTS.result,
+            buildCreatorBillingResultAnalytics({
+              ...catchAnalyticsBase,
+              outcome: 'failed',
+              failureCategory,
+            }),
+          );
+        }
         setStripeRedirect(null);
         toast({
           title: error?.message || t('common.core.requestFailed'),
@@ -549,8 +643,6 @@ export function GlobalBillingPricing() {
                         onAction={() =>
                           handlePaymentClick({
                             product,
-                            planName: packName,
-                            billingInterval: 'one_time',
                             sourceTab: 'credit_packs',
                           })
                         }
@@ -653,8 +745,6 @@ function PlanCard({
   checkoutLoadingKey: string;
   onPaymentClick: (payload: {
     product: GlobalBillingProduct;
-    planName: string;
-    billingInterval: 'month' | 'year' | 'one_time';
     sourceTab: PricingTab;
     checkoutAction?: BillingSubscriptionCheckoutAction;
   }) => void;
@@ -913,9 +1003,6 @@ function PlanCard({
             onClick={() =>
               onPaymentClick({
                 product,
-                planName,
-                billingInterval:
-                  product.billing_interval === 'year' ? 'year' : 'month',
                 sourceTab: 'plans',
                 checkoutAction,
               })

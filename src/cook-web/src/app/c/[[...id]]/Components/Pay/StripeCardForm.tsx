@@ -7,22 +7,36 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
-import type { Stripe } from '@stripe/stripe-js';
+import type { PaymentIntentResult, Stripe } from '@stripe/stripe-js';
 import { Button } from '@/components/ui/Button';
+import type { LearnerPaymentAttemptContext } from '@/lib/paymentAnalytics';
 import { getStripeInstance } from '@/lib/stripe';
 import { useTranslation } from 'react-i18next';
 
 interface StripeCardFormProps {
   clientSecret?: string;
   publishableKey?: string;
-  onConfirmSuccess: () => Promise<void> | void;
-  onError?: (message: string) => void;
+  onAttempt: () => LearnerPaymentAttemptContext | undefined;
+  onConfirmSuccess: (
+    attempt?: LearnerPaymentAttemptContext,
+  ) => Promise<void> | void;
+  onConfirmationUnavailable?: (attempt: LearnerPaymentAttemptContext) => void;
+  onError?: (
+    message: string,
+    status: 'failed' | 'pending',
+    attempt?: LearnerPaymentAttemptContext,
+  ) => void;
 }
 
 const StripeFormInner = ({
+  onAttempt,
   onConfirmSuccess,
+  onConfirmationUnavailable,
   onError,
-}: Pick<StripeCardFormProps, 'onConfirmSuccess' | 'onError'>) => {
+}: Pick<
+  StripeCardFormProps,
+  'onAttempt' | 'onConfirmSuccess' | 'onConfirmationUnavailable' | 'onError'
+>) => {
   const stripe = useStripe();
   const elements = useElements();
   const { t } = useTranslation();
@@ -35,24 +49,42 @@ const StripeFormInner = ({
     }
     setSubmitting(true);
     try {
-      const result = await stripe.confirmPayment({
-        elements,
-        redirect: 'if_required',
-      });
+      let attempt: LearnerPaymentAttemptContext | undefined;
+      try {
+        attempt = onAttempt();
+      } catch {}
+      let result: PaymentIntentResult;
+      try {
+        result = await stripe.confirmPayment({
+          elements,
+          redirect: 'if_required',
+        });
+      } catch {
+        if (attempt) {
+          try {
+            onConfirmationUnavailable?.(attempt);
+          } catch {}
+        }
+        return;
+      }
 
       if (result.error) {
-        onError?.(result.error.message || t('module.pay.stripeError'));
+        onError?.(
+          result.error.message || t('module.pay.stripeError'),
+          'failed',
+          attempt,
+        );
         return;
       }
 
       if (result.paymentIntent) {
         const status = result.paymentIntent.status;
         if (status === 'succeeded') {
-          await onConfirmSuccess();
+          await onConfirmSuccess(attempt);
         } else if (status === 'processing') {
-          onError?.(t('module.pay.stripeProcessing'));
+          onError?.(t('module.pay.stripeProcessing'), 'pending', attempt);
         } else if (status === 'requires_payment_method') {
-          onError?.(t('module.pay.stripeRequiresMethod'));
+          onError?.(t('module.pay.stripeRequiresMethod'), 'failed', attempt);
         }
       }
     } finally {
@@ -80,7 +112,9 @@ const StripeFormInner = ({
 export const StripeCardForm = ({
   clientSecret,
   publishableKey,
+  onAttempt,
   onConfirmSuccess,
+  onConfirmationUnavailable,
   onError,
 }: StripeCardFormProps) => {
   const [stripePromise, setStripePromise] =
@@ -126,7 +160,9 @@ export const StripeCardForm = ({
       options={elementsOptions}
     >
       <StripeFormInner
+        onAttempt={onAttempt}
         onConfirmSuccess={onConfirmSuccess}
+        onConfirmationUnavailable={onConfirmationUnavailable}
         onError={onError}
       />
     </Elements>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEnvStore } from '@/c-store';
 import { useShallow } from 'zustand/react/shallow';
 import { flushUmamiIdentify, trackPageview } from '@/c-common/tools/tracking';
@@ -15,6 +15,7 @@ const ensureUmamiScript = (src: string, websiteId: string) => {
   if (existing) {
     existing.setAttribute('data-website-id', websiteId);
     existing.setAttribute('data-auto-track', AUTO_TRACK_ATTRIBUTE_VALUE);
+    existing.removeAttribute('data-auto-pageview');
     flushUmamiIdentify();
     return;
   }
@@ -39,8 +40,6 @@ export const UmamiLoader = () => {
     })),
   );
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const search = searchParams?.toString();
   const isUserInitialized = useUserStore(state => state.isInitialized);
 
   useEffect(() => {
@@ -59,15 +58,8 @@ export const UmamiLoader = () => {
       return;
     }
 
-    if (typeof window === 'undefined') {
-      trackPageview();
-      return;
-    }
-
-    const origin = window.location.origin || '';
-    const pageUrl = `${origin}${pathname}${search ? `?${search}` : ''}`;
-    trackPageview(pageUrl);
-  }, [pathname, search, umamiScriptSrc, umamiWebsiteId, isUserInitialized]);
+    trackPageview(pathname);
+  }, [pathname, umamiScriptSrc, umamiWebsiteId, isUserInitialized]);
 
   return null;
 };
