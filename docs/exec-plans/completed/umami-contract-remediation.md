@@ -59,6 +59,13 @@ replacement or analytics-backed business metric.
       review suites / 109 tests and all 211 frontend suites / 1,897 tests, plus
       TypeScript, lint, Prettier, repository harness, architecture boundaries,
       and an independent scope review.
+- [x] 2026-08-31 09:54 CST: Required stored learning modes to survive current
+      TTS or classroom capability resolution before reporting restoration, and
+      excluded an explicit selection made while capability was pending. Merged
+      the latest `main` without conflicts, then passed the final 9 focused
+      review suites / 133 tests and all 212 frontend suites / 1,908 tests, plus
+      TypeScript, lint, Prettier, repository harness, architecture boundaries,
+      and an independent timing and scope review.
 
 ## Surprises & Discoveries
 
@@ -132,16 +139,18 @@ analytics status because the provider outcome is unknown; it does not invoke
 the product error callback or create a user-visible error. API-confirmed
 refunded billing state takes precedence over a stale cancellation marker, and
 terminal paid or refunded returns consume that analytics-only marker without
-changing the product state.
+changing the product state. Stored learning-mode analytics now waits for the
+existing capability decision and reports only a mode that the product actually
+restores; fallback and intervening explicit-selection paths remain unreported.
 
 Historical rows under deleted names are not read or backfilled. Canonical
 series start at deployment, so initial rolling windows may be partial. No live
 Umami dashboard or production deployment is modified by this repository-only
 change.
 
-Final frontend validation passed 211 Jest suites / 1,897 tests. TypeScript and
+Final frontend validation passed 212 Jest suites / 1,908 tests. TypeScript and
 frontend lint completed without errors; the lint run retains existing
-repository warnings. The final focused review suites passed 7 suites / 109
+repository warnings. The final focused review suites passed 9 suites / 133
 tests before the repository-wide run. The repository harness,
 architecture-boundary check, developer-tool verification, and full pre-commit
 gate also passed.
