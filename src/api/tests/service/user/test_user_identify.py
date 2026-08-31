@@ -439,6 +439,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
 
     fake_redis = FakeRedis()
     captured_records: list[dict[str, object]] = []
+    lock_observations: list[bool] = []
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
     monkeypatch.setattr(user_utils.time, "time", lambda: 100)
     monkeypatch.setattr(
@@ -448,6 +449,10 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     )
 
     def _capture_record(**kwargs: object) -> object:
+        lock_key = fake_app.config[policy.code_prefix_config] + (
+            f"attempts:{identifier}:lock"
+        )
+        lock_observations.append(fake_redis._locks.get(lock_key, False))
         captured_records.append(kwargs)
         return SimpleNamespace(verify_code_send=0)
 
@@ -506,6 +511,8 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
             "ip": "203.0.113.10",
         }
     ]
+    assert lock_observations == [True]
+    assert fake_redis._locks == {}
 
     with pytest.raises(AppError) as rate_error:
         user_utils._prepare_verification_challenge(

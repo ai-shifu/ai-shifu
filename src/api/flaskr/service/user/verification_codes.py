@@ -21,6 +21,7 @@ from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     import datetime
+    from collections.abc import Iterator
 
     from flask import Flask
 
@@ -56,6 +57,40 @@ def clear_verification_attempts(
     """Reset failed attempts when a new verification challenge is issued."""
     cache = cache_provider or redis
     cache.delete(_verification_attempt_key(app, kind, identifier))
+
+
+@contextlib.contextmanager
+def verification_code_lock(
+    app: Flask,
+    *,
+    kind: CodeKind,
+    identifier: str,
+    cache_provider: CacheProvider | None = None,
+) -> Iterator[CacheProvider]:
+    """Serialize challenge issuance and consumption for one identifier."""
+    cache = cache_provider or redis
+    if kind == "email":
+        lock_identifier = (identifier or "").strip().lower()
+        lock_error = "server.user.mailSendExpired"
+    else:
+        lock_identifier = normalize_phone_identifier(identifier)
+        lock_error = "server.user.smsSendExpired"
+    if not lock_identifier:
+        raise_param_error("identifier")
+
+    lock = cache.lock(
+        f"{_verification_attempt_key(app, kind, lock_identifier)}:lock",
+        timeout=10,
+        blocking_timeout=5,
+    )
+    acquired = bool(lock.acquire(blocking=True, blocking_timeout=5))
+    if not acquired:
+        raise_error(lock_error)
+    try:
+        yield cache
+    finally:
+        with contextlib.suppress(Exception):
+            lock.release()
 
 
 def _record_invalid_attempt(
@@ -195,34 +230,21 @@ def consume_verification_code(
 
     if "@" in identifier:
         kind: CodeKind = "email"
-        lock_identifier = identifier.lower()
-        lock_error = "server.user.mailSendExpired"
     else:
         kind = "sms"
-        lock_identifier = normalize_phone_identifier(identifier)
-        if not lock_identifier:
-            raise_param_error("identifier")
-        lock_error = "server.user.smsSendExpired"
 
-    lock = cache.lock(
-        f"{_verification_attempt_key(app, kind, lock_identifier)}:lock",
-        timeout=10,
-        blocking_timeout=5,
-    )
-    acquired = bool(lock.acquire(blocking=True, blocking_timeout=5))
-    if not acquired:
-        # Fail closed when another verification request holds the identifier lock.
-        raise_error(lock_error)
-    try:
+    with verification_code_lock(
+        app,
+        kind=kind,
+        identifier=identifier,
+        cache_provider=cache,
+    ):
         _consume_verification_code_locked(
             app,
             identifier=identifier,
             code=code,
             cache=cache,
         )
-    finally:
-        with contextlib.suppress(Exception):
-            lock.release()
 
 
 def _consume_verification_code_locked(
