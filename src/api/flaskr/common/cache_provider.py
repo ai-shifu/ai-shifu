@@ -183,6 +183,58 @@ class _InMemoryLock:
         return self._held
 
 
+class _FallbackCacheLock:
+    """Fall back only when the primary lock cannot be acquired due to an error."""
+
+    def __init__(self, primary: CacheLock, fallback: CacheLock) -> None:
+        self._primary = primary
+        self._fallback = fallback
+        self._active: CacheLock | None = None
+
+    def acquire(
+        self, blocking: bool = True, blocking_timeout: int | None = None
+    ) -> bool:
+        if self._active is not None:
+            return bool(
+                self._active.acquire(
+                    blocking=blocking,
+                    blocking_timeout=blocking_timeout,
+                )
+            )
+        try:
+            acquired = bool(
+                self._primary.acquire(
+                    blocking=blocking,
+                    blocking_timeout=blocking_timeout,
+                )
+            )
+        except Exception:
+            self._active = self._fallback
+            return bool(
+                self._fallback.acquire(
+                    blocking=blocking,
+                    blocking_timeout=blocking_timeout,
+                )
+            )
+        if acquired:
+            self._active = self._primary
+        return acquired
+
+    def release(self) -> None:
+        if self._active is not None:
+            self._active.release()
+
+    def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
+        if self._active is None:
+            return False
+        return bool(
+            self._active.extend(
+                additional_time,
+                replace_ttl=replace_ttl,
+            )
+        )
+
+
 class InMemoryCacheProvider:
     """Store cache entries and locks in process memory."""
 
@@ -397,14 +449,20 @@ class FallbackCacheProvider:
         blocking_timeout: int | None = None,
         thread_local: bool = True,
     ) -> CacheLock:
-        """Create a lock, falling back to process-local scope without Redis."""
-        return self._call(
-            "lock",
-            key,
-            timeout=timeout,
-            blocking_timeout=blocking_timeout,
-            thread_local=thread_local,
-        )
+        """Create a lock that also falls back when primary acquisition fails."""
+        lock_kwargs = {
+            "timeout": timeout,
+            "blocking_timeout": blocking_timeout,
+            "thread_local": thread_local,
+        }
+        try:
+            primary_lock = self._primary.lock(key, **lock_kwargs)
+        except CacheUnavailableError:
+            return self._fallback.lock(key, **lock_kwargs)
+        except Exception:
+            return self._fallback.lock(key, **lock_kwargs)
+        fallback_lock = self._fallback.lock(key, **lock_kwargs)
+        return _FallbackCacheLock(primary_lock, fallback_lock)
 
 
 _in_memory_cache = InMemoryCacheProvider()
