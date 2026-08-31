@@ -60,15 +60,16 @@ jest.mock('next/image', () => ({
 
 jest.mock('markdown-flow-ui/slide', () => {
   const ReactRuntime = jest.requireActual('react') as typeof React;
-  const slideCustomActionContext = {
-    currentElement: {
-      blockBid: 'content-1',
-      type: 'content',
-    },
-    currentIndex: 0,
-    isActive: false,
-    setActive: jest.fn(),
-    toggleActive: jest.fn(),
+  const slideCustomActionElement = {
+    blockBid: 'content-1',
+    type: 'content',
+  };
+  type SlideCustomActionContext = {
+    currentElement: typeof slideCustomActionElement;
+    currentIndex: number;
+    isActive: boolean;
+    setActive: (active: boolean) => void;
+    toggleActive: () => void;
   };
 
   return {
@@ -76,10 +77,25 @@ jest.mock('markdown-flow-ui/slide', () => {
       (props: {
         playerClassName?: string;
         fullscreenHeader?: { content?: React.ReactNode };
+        onPlayerVisibilityChange?: (visible: boolean) => void;
         playerCustomActions?:
           | React.ReactNode
-          | ((context: typeof slideCustomActionContext) => React.ReactNode);
+          | ((context: SlideCustomActionContext) => React.ReactNode);
       }) => {
+        const [isActive, setIsActive] = ReactRuntime.useState(false);
+        const toggleActive = ReactRuntime.useCallback(() => {
+          setIsActive(currentActive => !currentActive);
+        }, []);
+        const slideCustomActionContext = ReactRuntime.useMemo(
+          () => ({
+            currentElement: slideCustomActionElement,
+            currentIndex: 0,
+            isActive,
+            setActive: setIsActive,
+            toggleActive,
+          }),
+          [isActive, toggleActive],
+        );
         const mountId = ReactRuntime.useMemo(() => {
           mockSlideMountId += 1;
           return mockSlideMountId;
@@ -370,6 +386,104 @@ describe('ListenModeSlideRenderer', () => {
 
     expect(playerClassTokens).toContain('listen-slide-player');
     expect(playerClassTokens).not.toContain('classroom-slide-player');
+  });
+
+  it('keeps the desktop ask overlay above reserved player space when controls hide', async () => {
+    const onPlayerVisibilityChange = jest.fn();
+    const { container } = render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        onPlayerVisibilityChange={onPlayerVisibilityChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'module.chat.ask' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ask-block')).toHaveAttribute(
+        'data-expanded',
+        'true',
+      );
+    });
+
+    const askOverlay = container.querySelector('.slide-ask-overlay');
+    expect(askOverlay).toHaveClass('slide-ask-overlay--with-player');
+    expect(askOverlay).not.toHaveClass('slide-ask-overlay--standalone');
+
+    const slideCalls = getMockSlide().mock.calls;
+    const slideProps = slideCalls[slideCalls.length - 1]?.[0] as
+      | { onPlayerVisibilityChange?: (visible: boolean) => void }
+      | undefined;
+
+    act(() => {
+      slideProps?.onPlayerVisibilityChange?.(false);
+    });
+
+    expect(onPlayerVisibilityChange).toHaveBeenLastCalledWith(false);
+    expect(askOverlay).toHaveClass('slide-ask-overlay--with-player');
+    expect(askOverlay).not.toHaveClass('slide-ask-overlay--standalone');
+  });
+
+  it('keeps the mobile slide layout reserved when controls hide', () => {
+    const onPlayerVisibilityChange = jest.fn();
+    const { container } = render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+        onPlayerVisibilityChange={onPlayerVisibilityChange}
+      />,
+    );
+
+    const revealWrapper = container.querySelector('.listen-reveal-wrapper');
+    expect(revealWrapper).toHaveClass('listen-reveal-wrapper--with-player');
+
+    const slideCalls = getMockSlide().mock.calls;
+    const slideProps = slideCalls[slideCalls.length - 1]?.[0] as
+      | { onPlayerVisibilityChange?: (visible: boolean) => void }
+      | undefined;
+
+    act(() => {
+      slideProps?.onPlayerVisibilityChange?.(false);
+    });
+
+    expect(onPlayerVisibilityChange).toHaveBeenLastCalledWith(false);
+    expect(revealWrapper).toHaveClass('listen-reveal-wrapper--with-player');
+  });
+
+  it('does not reserve player layout for an empty disabled slide', () => {
+    const { container } = render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    expect(container.querySelector('.listen-reveal-wrapper')).not.toHaveClass(
+      'listen-reveal-wrapper--with-player',
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { playerEnabled?: boolean }
+      | undefined;
+    expect(slideProps?.playerEnabled).toBe(false);
   });
 
   it('passes selected interaction user input to the slide during playback', () => {
