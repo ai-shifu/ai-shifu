@@ -1034,7 +1034,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
             }
 
         now = now_utc()
-        provider_items: list[object] = []
+        provider_items: list[tuple[object, str]] = []
         seen_template_codes: set[str] = set()
         body = None
         page_index = 1
@@ -1062,7 +1062,8 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
                     ),
                 }
             page_items = list(getattr(body, "sms_template_list", None) or [])
-            new_page_items = []
+            page_request_id = _template_body_value(body, "request_id")
+            new_page_items: list[tuple[object, str]] = []
             for provider_item in page_items:
                 template_code = _template_list_body_value(
                     provider_item, "template_code"
@@ -1070,7 +1071,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
                 if not template_code or template_code in seen_template_codes:
                     continue
                 seen_template_codes.add(template_code)
-                new_page_items.append(provider_item)
+                new_page_items.append((provider_item, page_request_id))
             provider_items.extend(new_page_items)
             if (
                 len(page_items) < page_size
@@ -1081,7 +1082,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
             page_index += 1
         template_codes = [
             _template_list_body_value(provider_item, "template_code")
-            for provider_item in provider_items
+            for provider_item, _page_request_id in provider_items
             if _template_list_body_value(provider_item, "template_code")
         ]
         existing_templates: dict[str, NotificationTemplate] = {}
@@ -1102,7 +1103,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
                 if template_code and template_code not in existing_templates:
                     existing_templates[template_code] = template
         templates: list[NotificationTemplate] = []
-        for provider_item in provider_items:
+        for provider_item, page_request_id in provider_items:
             template_code = _template_list_body_value(provider_item, "template_code")
             if not template_code:
                 continue
@@ -1127,7 +1128,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
                 provider_item, "template_type"
             )
             template.provider_response_json = {
-                "request_id": _template_body_value(body, "request_id"),
+                "request_id": page_request_id,
                 "template_code": template_code,
                 "audit_status": template.template_status,
                 "create_date": _template_list_body_value(provider_item, "create_date"),

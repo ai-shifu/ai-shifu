@@ -57,16 +57,24 @@ const TEMPLATE_TYPE_KEYS: Record<string, string> = {
 
 export function CreditNotificationTemplateManagementTab({
   templates,
+  active,
   loading,
   error,
   policy,
   refresh,
+  onViewed,
+  onFilterApplied,
+  onDetailOpened,
 }: {
   templates: AdminOperationCreditNotificationTemplateOption[];
+  active: boolean;
   loading: boolean;
   error: string;
   policy: AdminOperationCreditNotificationPolicy;
-  refresh: () => void;
+  refresh: () => Promise<void>;
+  onViewed: () => void;
+  onFilterApplied: (filter: 'keyword' | 'status') => void;
+  onDetailOpened: () => void;
 }) {
   const { t } = useTranslation();
   const loginMethodsEnabled = useEnvStore(
@@ -83,6 +91,15 @@ export function CreditNotificationTemplateManagementTab({
   const [status, setStatus] = React.useState('');
   const [selectedTemplate, setSelectedTemplate] =
     React.useState<AdminOperationCreditNotificationTemplateOption | null>(null);
+  const hasTrackedViewRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!active || contactMode === 'email' || hasTrackedViewRef.current) {
+      return;
+    }
+    hasTrackedViewRef.current = true;
+    onViewed();
+  }, [active, contactMode, onViewed]);
 
   const statusLabel = React.useCallback(
     (value: string) =>
@@ -201,7 +218,7 @@ export function CreditNotificationTemplateManagementTab({
         <Button
           type='button'
           variant='outline'
-          onClick={refresh}
+          onClick={() => void refresh()}
           disabled={loading}
         >
           <RefreshCw
@@ -216,6 +233,11 @@ export function CreditNotificationTemplateManagementTab({
           <Input
             value={keyword}
             onChange={event => setKeyword(event.target.value)}
+            onBlur={() => {
+              if (keyword.trim()) {
+                onFilterApplied('keyword');
+              }
+            }}
             className='pl-9'
             placeholder={t(
               'module.operationsCreditNotifications.templateManagement.searchPlaceholder',
@@ -224,7 +246,12 @@ export function CreditNotificationTemplateManagementTab({
         </div>
         <Select
           value={status || '__all__'}
-          onValueChange={value => setStatus(value === '__all__' ? '' : value)}
+          onValueChange={value => {
+            setStatus(value === '__all__' ? '' : value);
+            if (value !== '__all__') {
+              onFilterApplied('status');
+            }
+          }}
         >
           <SelectTrigger
             className='h-10 min-w-48 bg-white'
@@ -317,7 +344,10 @@ export function CreditNotificationTemplateManagementTab({
                       label: t(
                         'module.operationsCreditNotifications.actions.detail',
                       ),
-                      onClick: () => setSelectedTemplate(row),
+                      onClick: () => {
+                        setSelectedTemplate(row);
+                        onDetailOpened();
+                      },
                     },
                   ]}
                 />

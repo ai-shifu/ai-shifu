@@ -913,6 +913,15 @@ def test_list_credit_notification_templates_loads_all_provider_pages(
     assert requested_pages == [1, 2]
     assert len(payload["items"]) == 51
     assert payload["items"][-1]["template_code"] == "TPL-2-0"
+    with app.app_context():
+        first_page_template = NotificationTemplate.query.filter_by(
+            template_code="TPL-1-0"
+        ).one()
+        second_page_template = NotificationTemplate.query.filter_by(
+            template_code="TPL-2-0"
+        ).one()
+        assert first_page_template.provider_response_json["request_id"] == "req-list-1"
+        assert second_page_template.provider_response_json["request_id"] == "req-list-2"
 
 
 def test_sync_credit_notification_template_records_provider_exception(
