@@ -1242,7 +1242,7 @@ Feature-owned payload 固定为 `{}`。共享 `useTracking` 仍会自动添加�
 - 详情查看沿用现有订单页的 `Sheet` 交互，不使用新窗口跳转
 - 购买动作统一在 dialog 中确认，再调用 checkout API
 
-#### 7.5.3 API 接入与前端类型
+#### 7.5.4 API 接入与前端类型
 
 需要在 `src/cook-web/src/api/api.ts` 增加：
 
@@ -1278,7 +1278,7 @@ Feature-owned payload 固定为 `{}`。共享 `useTracking` 仍会自动添加�
 - `getBillingLedger` 在 `Details` tab 激活时懒加载；order sync / checkout 由 Stripe result、Pingxx polling 和 checkout dialog 按需触发
 - 写操作成功后只刷新受影响的 SWR key，不全页硬刷新
 
-#### 7.5.4 Stripe 支付回跳
+#### 7.5.5 Stripe 支付回跳
 
 当前现有 Stripe 回跳页 `src/cook-web/src/app/payment/stripe/result/page.tsx` 是学员购课专用，成功后会跳到课程页，不适合 creator billing 直接复用。
 
@@ -1293,7 +1293,7 @@ v1 前端方案：
   - 成功后跳回 `/admin/billing`
   - 待支付或失败时展示明确状态和重试入口
 
-#### 7.5.5 v1.1 前端扩展
+#### 7.5.6 v1.1 前端扩展
 
 v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
@@ -1319,7 +1319,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - admin `/admin/billing/admin`
   - 保留 `Subscriptions`、`Orders`、`Exceptions`、`Entitlements`、`Domains`、`Reports` 六个 ops tab
 
-#### 7.5.6 i18n 与状态展示
+#### 7.5.7 i18n 与状态展示
 
 前端新增文案统一使用 `module.billing.*` 命名空间，至少覆盖：
 
