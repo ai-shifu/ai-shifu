@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 CodeKind = Literal["sms", "email"]
 MAX_VERIFICATION_ATTEMPTS = 5
+VERIFICATION_CODE_CONSUMED_MARKER = MAX_VERIFICATION_ATTEMPTS + 1
 
 
 def _verification_code_settings(app: Flask, kind: CodeKind) -> tuple[str, int]:
@@ -82,6 +83,23 @@ def _verification_attempts_exhausted(
 ) -> bool:
     attempts = cache.get(_verification_attempt_key(app, kind, identifier))
     return bool(attempts) and int(attempts) >= MAX_VERIFICATION_ATTEMPTS
+
+
+def _mark_verification_code_consumed(
+    app: Flask,
+    *,
+    kind: CodeKind,
+    identifier: str,
+    cache: CacheProvider,
+) -> None:
+    """Keep a short-lived tombstone so DB fallback cannot reuse the code."""
+    attempt_key = _verification_attempt_key(app, kind, identifier)
+    _prefix, expire_seconds = _verification_code_settings(app, kind)
+    cache.set(
+        attempt_key,
+        VERIFICATION_CODE_CONSUMED_MARKER,
+        ex=expire_seconds,
+    )
 
 
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
@@ -290,10 +308,13 @@ def _consume_verification_code_locked(
             if status != "ok":
                 raise_error("server.user.mailSendExpired")
 
-        cache.delete(
-            *cache_keys,
-            _verification_attempt_key(app, "email", email_lower),
+        _mark_verification_code_consumed(
+            app,
+            kind="email",
+            identifier=email_lower,
+            cache=cache,
         )
+        cache.delete(*cache_keys)
         return
 
     raw_identifier = identifier
@@ -377,7 +398,10 @@ def _consume_verification_code_locked(
         if status != "ok":
             raise_error("server.user.smsSendExpired")
 
-    cache.delete(
-        *cache_keys,
-        _verification_attempt_key(app, "sms", identifier),
+    _mark_verification_code_consumed(
+        app,
+        kind="sms",
+        identifier=identifier,
+        cache=cache,
     )
+    cache.delete(*cache_keys)

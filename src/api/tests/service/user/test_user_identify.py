@@ -874,6 +874,70 @@ def test_consume_verification_code_accepts_prefixed_pending_cache_key(
             db.session.commit()
 
 
+@pytest.mark.parametrize(
+    ("identifier", "kind", "prefix_config"),
+    [
+        ("claimed@example.com", "email", "REDIS_KEY_PREFIX_MAIL_CODE"),
+        ("15500008888", "sms", "REDIS_KEY_PREFIX_PHONE_CODE"),
+    ],
+)
+def test_consumed_code_tombstone_blocks_db_fallback_before_commit(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    identifier: str,
+    kind: str,
+    prefix_config: str,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
+
+    code = "2468"
+    code_key = app.config[prefix_config] + identifier
+    attempt_key = f"{app.config[prefix_config]}attempts:{identifier}"
+    fake_redis = _FakeRedis({code_key: code})
+    verification_codes.redis = fake_redis
+    db_fallback_calls: list[tuple[str, str]] = []
+
+    def _consume_without_committing(
+        _app: object,
+        *,
+        kind: str,
+        identifier: str,
+        code: str,
+    ) -> str:
+        _ = (_app, code)
+        db_fallback_calls.append((kind, identifier))
+        return "ok"
+
+    monkeypatch.setattr(
+        verification_codes,
+        "_consume_latest_code_from_db",
+        _consume_without_committing,
+    )
+
+    with app.app_context():
+        verification_codes.consume_verification_code(
+            app,
+            identifier=identifier,
+            code=code,
+        )
+
+        assert code_key not in fake_redis.values
+        assert (
+            fake_redis.values[attempt_key]
+            == verification_codes.VERIFICATION_CODE_CONSUMED_MARKER
+        )
+
+        with pytest.raises(AppError):
+            verification_codes.consume_verification_code(
+                app,
+                identifier=identifier,
+                code=code,
+            )
+
+    assert db_fallback_calls == [(kind, identifier)]
+
+
 def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app: object) -> None:
     from flaskr.dao import db
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu
