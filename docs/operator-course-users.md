@@ -6,7 +6,7 @@ Add an operator-facing user data section to the course detail page under `运营
 
 ### Scope
 
-- Keep the existing course detail route at `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
+- Keep the existing course detail route at `src/web/src/app/admin/operations/[shifu_bid]/page.tsx`
 - Add a dedicated backend API under the shifu admin surface for course-related users
 - Reuse existing user, course-permission, order, and learning records; do not add new tables in the first version
 - Keep the UI style aligned with the existing operator course detail and course list pages

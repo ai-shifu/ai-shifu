@@ -26,10 +26,10 @@ jobs:
             image_name_env: AI_SHIFU_API_IMAGE_NAME
             context: .
             dockerfile: src/api/Dockerfile
-          - service_name: cook-web
+          - service_name: web
             image_name_env: AI_SHIFU_COOK_WEB_IMAGE_NAME
             context: .
-            dockerfile: src/cook-web/Dockerfile
+            dockerfile: src/web/Dockerfile
 
     env:
       DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}

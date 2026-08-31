@@ -8,9 +8,9 @@ This generated report summarizes the repository harness control plane.
 
 - Design docs: `12`
 - Product specs: `10`
-- References: `3`
-- Active ExecPlans: `20`
-- Completed ExecPlans: `27`
+- References: `4`
+- Active ExecPlans: `22`
+- Completed ExecPlans: `31`
 
 ## Boundary Baseline
 
@@ -21,7 +21,7 @@ This generated report summarizes the repository harness control plane.
 
 - OK `scripts/check_architecture_boundaries.py`
 - OK `src/api/scripts/harness_diagnostics.py`
-- OK `src/cook-web/e2e/smoke.spec.ts`
+- OK `src/web/e2e/smoke.spec.ts`
 - OK `docker/docker-compose.dev.yml`
 - OK `docker/observability/loki-config.yml`
 - OK `docker/observability/tempo-config.yml`

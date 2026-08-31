@@ -203,16 +203,16 @@ Follow existing convention:
 
 The dashboard uses these admin routes:
 
-- `src/cook-web/src/app/admin/dashboard/page.tsx`
-- `src/cook-web/src/app/admin/dashboard/[shifu_bid]/page.tsx`
-- `src/cook-web/src/app/admin/dashboard/[shifu_bid]/follow-ups/page.tsx`
-- `src/cook-web/src/app/admin/dashboard/[shifu_bid]/ratings/page.tsx`
+- `src/web/src/app/admin/dashboard/page.tsx`
+- `src/web/src/app/admin/dashboard/[shifu_bid]/page.tsx`
+- `src/web/src/app/admin/dashboard/[shifu_bid]/follow-ups/page.tsx`
+- `src/web/src/app/admin/dashboard/[shifu_bid]/ratings/page.tsx`
 
 ### API client integration
 
 Dashboard endpoints are registered in:
 
-- `src/cook-web/src/api/api.ts`
+- `src/web/src/api/api.ts`
 
 Then use the generated functions via `import api from '@/api'`.
 

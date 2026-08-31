@@ -91,22 +91,22 @@ share-sheet QA remains outstanding because it requires real devices.
 
 ## Context and Orientation
 
-The frontend lives under `src/cook-web`. Teacher authoring actions are rendered
-by `src/cook-web/src/components/header/Header.tsx`. Learner desktop actions are
+The frontend lives under `src/web`. Teacher authoring actions are rendered
+by `src/web/src/components/header/Header.tsx`. Learner desktop actions are
 in `Components/ChatUi/ChatUi.tsx`, learner mobile actions are in
 `Components/ChatMobileHeader.tsx`, and the mobile fullscreen listen/classroom
 header is constructed in `Components/ChatUi/ListenModeSlideRenderer.tsx`.
 
-`src/cook-web/src/app/c/[[...id]]/layout.tsx` loads course information. The
-Zustand course store is `src/cook-web/src/c-store/useCourseStore.ts`, with its
-public state contract in `src/cook-web/src/c-types/store.ts`.
+`src/web/src/app/c/[[...id]]/layout.tsx` loads course information. The
+Zustand course store is `src/web/src/c-store/useCourseStore.ts`, with its
+public state contract in `src/web/src/c-types/store.ts`.
 
 Shared share behavior belongs in a small frontend library module and a shared
-button under `src/cook-web/src/components/course-share`. Existing URL cleanup
-in `src/cook-web/src/c-utils/urlUtils.ts` remains the canonical low-level
+button under `src/web/src/components/course-share`. Existing URL cleanup
+in `src/web/src/c-utils/urlUtils.ts` remains the canonical low-level
 course-page sanitizer. User-facing strings live in each locale's
 `common/core.json` and generated key types live in
-`src/cook-web/src/types/i18n-keys.d.ts`.
+`src/web/src/types/i18n-keys.d.ts`.
 
 ## Plan of Work
 
@@ -127,7 +127,7 @@ course-page sanitizer. User-facing strings live in each locale's
 
 ## Concrete Steps
 
-1. Add `src/cook-web/src/lib/courseShare.ts` and unit tests for description
+1. Add `src/web/src/lib/courseShare.ts` and unit tests for description
    variants, payloads, cancellation/fallback outcomes, and URL safety.
 2. Add `CourseShareButton` with icon/label display variants, toast handling,
    re-entry protection, and `course_share_click` / `course_share_result` events.

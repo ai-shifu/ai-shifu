@@ -49,7 +49,7 @@ system.
 
 - Add one repository-wide always-apply rule in `.cursor/rules/`.
 - Add nested rules in `docs/.cursor/rules/`, `src/api/.cursor/rules/`, and
-  `src/cook-web/.cursor/rules/`.
+  `src/web/.cursor/rules/`.
 - Keep the Cursor rules short and aligned with the existing repository
   behavior: inspect first, reuse first, docs/tasks workflow, and backend or
   frontend subsystem guidance.

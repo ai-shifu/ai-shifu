@@ -140,7 +140,7 @@ saved the advanced testmon state under head SHA `28667caf`.
 `.github/workflows/runtime-harness.yml` builds `ai-shifu-api-dev` and
 `ai-shifu-cook-web-dev` with `docker/bake-action`. The services are defined in
 `docker/docker-compose.dev.yml`. The API image uses `src/api/Dockerfile`; the
-Cook Web development image uses `src/cook-web/Dockerfile_DEV`.
+Cook Web development image uses `src/web/Dockerfile_DEV`.
 
 `.github/workflows/backend-tests.yml` restores `src/api/.testmondata` and
 `src/api/.pytest_cache`, installs the backend dependencies, and uses
@@ -168,7 +168,7 @@ sharing the same restore prefix.
 1. Edit `.github/workflows/runtime-harness.yml` on
    `sunner/ci-runtime-cache-scopes` and validate the bake definition.
 2. Stack `sunner/ci-runtime-web-dependency-layer` on the first branch, edit
-   `src/cook-web/Dockerfile_DEV`, and validate the Dockerfile and repository
+   `src/web/Dockerfile_DEV`, and validate the Dockerfile and repository
    harness.
 3. Stack `sunner/ci-testmon-rolling-cache` on the second branch, edit
    `.github/workflows/backend-tests.yml`, and validate the cache expressions and
@@ -189,7 +189,7 @@ sharing the same restore prefix.
         --set ai-shifu-cook-web-dev.cache-from=type=gha,scope=runtime-cook-web \
         --set ai-shifu-cook-web-dev.cache-to=type=gha,scope=runtime-cook-web,mode=min \
         --print
-- `src/cook-web/Dockerfile_DEV` copies package manifests and installs with
+- `src/web/Dockerfile_DEV` copies package manifests and installs with
   `npm ci --ignore-scripts` before copying application source.
 - The Backend Tests exact cache key includes the current commit SHA, and its
   first restore prefix selects the newest cache for the current PR plus the same

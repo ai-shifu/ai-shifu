@@ -56,7 +56,7 @@
 - 计费设计：`docs/billing-subscription-design.md`。
 - 用户认证规则：`src/api/AGENTS.md`、`src/api/flaskr/service/user/AGENTS.md`、`src/api/skills/user-auth-flows/SKILL.md`。
 - 计费规则：`src/api/flaskr/service/billing/AGENTS.md`。
-- 前端规则：`src/cook-web/AGENTS.md`、`src/cook-web/src/app/AGENTS.md`，以及被修改目录下最近的 `AGENTS.md`。
+- 前端规则：`src/web/AGENTS.md`、`src/web/src/app/AGENTS.md`，以及被修改目录下最近的 `AGENTS.md`。
 
 优先复用这些现有代码：
 
@@ -66,7 +66,7 @@
 - `src/api/flaskr/service/billing/manual_plan_grants.py`：手动 paid-order 编排模式。
 - `src/api/flaskr/common/public_urls.py`：公开 origin URL 构造。
 - `src/api/flaskr/service/shifu/admin_operations/route.py`：运营 route namespace 模式。
-- `src/cook-web/src/lib/request.ts` 和 `src/cook-web/src/lib/api.ts`：前端请求栈。
+- `src/web/src/lib/request.ts` 和 `src/web/src/lib/api.ts`：前端请求栈。
 - `src/i18n/*/modules/operations-user.json` 和 billing i18n modules：现有运营文案风格。
 
 不要修改已经应用过的 Alembic migration。Referral 表需要新增 migration。
@@ -343,9 +343,9 @@
 
 文件：
 
-- 修改 `src/cook-web/src/api/api.ts`。
+- 修改 `src/web/src/api/api.ts`。
 - 在现有前端 API 层创建或修改 referral API wrappers。
-- 如果拆分更清晰，增加 `src/cook-web/src/types/referral.ts`。
+- 如果拆分更清晰，增加 `src/web/src/types/referral.ts`。
 - 更新 `src/i18n/zh-CN`、`src/i18n/en-US`、`src/i18n/fr-FR` 下 JSON。
 
 实现要求：
@@ -364,8 +364,8 @@
 
 文件：
 
-- 在 `src/cook-web/src/app/admin/` 的老师/后台区域增加 route。
-- 组件放在 route 附近；如果会复用，再放到 `src/cook-web/src/components/`。
+- 在 `src/web/src/app/admin/` 的老师/后台区域增加 route。
+- 组件放在 route 附近；如果会复用，再放到 `src/web/src/components/`。
 - 只更新现有老师/后台导航路径。
 - 增加页面渲染和复制动作测试。
 
@@ -386,7 +386,7 @@
 
 文件：
 
-- 在 `src/cook-web/src/app/` 下增加 invite route。
+- 在 `src/web/src/app/` 下增加 invite route。
 - 在注册前流程增加手动输入邀请码入口。
 - 修改现有 login/SMS 调用点，携带保存的 invite code 和 referral session id。
 - 增加 payload 传递测试。
@@ -410,7 +410,7 @@
 
 文件：
 
-- 增加 `src/cook-web/src/app/admin/operations/referrals/` 页面。
+- 增加 `src/web/src/app/admin/operations/referrals/` 页面。
 - 更新 operations 菜单 route/nav。
 - 在新页面附近增加测试。
 
@@ -478,8 +478,8 @@
 - `python scripts/build_repo_knowledge_index.py`
 - `python scripts/check_repo_harness.py`
 - `cd src/api && pytest tests/service/referral/ tests/service/user/ tests/service/billing/ -q`
-- `cd src/cook-web && npm run type-check`
-- `cd src/cook-web && npm run lint`
+- `cd src/web && npm run type-check`
+- `cd src/web && npm run lint`
 
 Dev02 验证：
 

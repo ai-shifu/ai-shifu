@@ -8,7 +8,7 @@ This module provides a top-level, provider-agnostic pipeline that:
 
 Cross-Platform Compatibility Note:
 Visual element boundary detection patterns in this module are mirrored in the
-frontend (src/cook-web/src/c-utils/listen-mode/constants.ts) to ensure consistent
+frontend (src/web/src/c-utils/listen-mode/constants.ts) to ensure consistent
 detection of visual blocks (video, table, iframe, svg, img, fence, sandbox) across
 backend and frontend. When modifying boundary detection logic, update both locations.
 """

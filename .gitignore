@@ -177,8 +177,34 @@ src/api/.deps_installed
 src/cook/test*
 src/cook/codesifu-demo.db
 src/cook/auth_config.yml
+src/web/.next/
+src/web/next-env.d.ts
+
+# Legacy frontend artifacts left by existing checkouts after the directory
+# rename. Keep this scoped to generated and local-only assets so a newly
+# introduced legacy source file remains visible to repository checks.
+src/cook-web/node_modules
+src/cook-web/.pnp
+src/cook-web/**/.pnp.*
+src/cook-web/.yarn/*
+!src/cook-web/.yarn/patches
+!src/cook-web/.yarn/plugins
+!src/cook-web/.yarn/releases
+!src/cook-web/.yarn/versions
+src/cook-web/coverage
+src/cook-web/playwright-report
+src/cook-web/playwright/.auth
+src/cook-web/test-results
 src/cook-web/.next/
-src/cook-web/next-env.d.ts
+src/cook-web/out/
+src/cook-web/build
+src/cook-web/**/*.pem
+src/cook-web/**/.env*
+src/cook-web/**/.pnpm-debug.log*
+src/cook-web/**/.vercel
+src/cook-web/**/*.tsbuildinfo
+src/cook-web/**/next-env.d.ts
+src/cook-web/**/.eslintcache
 
 # Docker data directories
 docker/cook_data/

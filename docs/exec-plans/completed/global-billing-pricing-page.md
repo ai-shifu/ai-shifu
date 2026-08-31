@@ -108,7 +108,7 @@ tracking, error handling, and preserved domestic rendering.
    the packages panel.
 2. Add `GlobalBillingPricing` under the route-local billing components folder.
 3. Add the global pricing namespace to every billing locale and regenerate
-   `src/cook-web/src/types/i18n-keys.d.ts`.
+   `src/web/src/types/i18n-keys.d.ts`.
 4. Add component and page-level tests, then run the focused and frontend-wide
    checks.
 5. Record final verification here and move this ExecPlan to `completed/`.
@@ -120,9 +120,9 @@ tracking, error handling, and preserved domestic rendering.
 - Annual is the default, Business has a compact recommendation badge, Studio
   can switch to monthly, and all approved USD amounts and DeepSeek estimates
   are present.
-- Every plan or credit-pack CTA emits exactly one
-  `creator_billing_checkout_click` event with the approved payload and opens
-  the coming-soon dialog without calling checkout APIs.
+- The original click-only instrumentation was later removed. Current checkout
+  analytics use the versioned attempt/result/status family documented in the
+  Cook Web Umami remediation specification.
 - Incomplete or non-USD catalogs display an unavailable state and no payment
   CTA.
 - Focused Jest tests, linting, architecture checks, responsive visual

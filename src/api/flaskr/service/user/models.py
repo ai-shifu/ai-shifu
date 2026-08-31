@@ -74,11 +74,30 @@ class UserToken(db.Model):
 
     __tablename__ = "user_token"
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
-    user_id = Column(String(36), nullable=False, default="", comment="User UUID")
+    user_id = Column(
+        String(36), nullable=False, default="", index=True, comment="User UUID"
+    )
     token = Column(String(255), nullable=False, default="", comment="Token")
     token_type = Column(Integer, nullable=False, default=0, comment="Token type")
     token_expired_at = Column(
         TIMESTAMP, nullable=True, default=now_utc, comment="Token expired time"
+    )
+    # Public identifier for this session. The token itself is a credential and
+    # must never be handed to a client that only needs to name a session.
+    session_bid = Column(
+        String(36), nullable=False, default="", index=True, comment="Session UUID"
+    )
+    source = Column(
+        String(32), nullable=False, default="", comment="How the session began"
+    )
+    device_name = Column(
+        String(64), nullable=False, default="", comment="Device name, display only"
+    )
+    device_os = Column(
+        String(64), nullable=False, default="", comment="Device OS, display only"
+    )
+    created_ip = Column(
+        String(64), nullable=False, default="", comment="Sign-in address"
     )
     created = Column(
         TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"

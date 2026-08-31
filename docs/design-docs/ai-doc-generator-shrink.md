@@ -35,7 +35,7 @@ large root `AGENTS.md`.
 
 ### Core doc ownership
 
-- `AGENTS.md`, `src/api/AGENTS.md`, and `src/cook-web/AGENTS.md` become
+- `AGENTS.md`, `src/api/AGENTS.md`, and `src/web/AGENTS.md` become
   hand-maintained files.
 - These files stay concise and focused on AI collaboration behavior, local
   execution rules, and links to the shared engineering baseline.
@@ -63,7 +63,7 @@ large root `AGENTS.md`.
 - Stop generating:
   - `AGENTS.md`
   - `src/api/AGENTS.md`
-  - `src/cook-web/AGENTS.md`
+  - `src/web/AGENTS.md`
   - `.claude/rules/**`
 
 ### Validation model
@@ -96,4 +96,4 @@ Agents still interact with:
 - `python scripts/check_ai_collab_docs.py`
 - `python scripts/generate_ai_collab_docs.py`
 - `python scripts/check_ai_collab_docs.py`
-- `pre-commit run --files AGENTS.md src/api/AGENTS.md src/cook-web/AGENTS.md docs/engineering-baseline.md docs/README.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py`
+- `pre-commit run --files AGENTS.md src/api/AGENTS.md src/web/AGENTS.md docs/engineering-baseline.md docs/README.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py`

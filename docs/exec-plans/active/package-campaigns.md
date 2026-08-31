@@ -79,15 +79,15 @@ eligibility is captured as a follow-up business-rule iteration.
 ## Context and Orientation
 
 - Frontend operator promotions surface:
-  - `src/cook-web/src/app/admin/operations/promotions/page.tsx`
-  - `src/cook-web/src/app/admin/operations/promotions/page.test.tsx`
-  - `src/cook-web/src/app/admin/operations/operation-promotion-types.ts`
+  - `src/web/src/app/admin/operations/promotions/page.tsx`
+  - `src/web/src/app/admin/operations/promotions/page.test.tsx`
+  - `src/web/src/app/admin/operations/operation-promotion-types.ts`
 - Frontend billing creator surfaces:
-  - `src/cook-web/src/components/billing/BillingOverviewShowcase.tsx`
-  - `src/cook-web/src/components/billing/BillingPlanComparisonTable.tsx`
-  - `src/cook-web/src/components/billing/BillingOverviewCards.tsx`
-  - `src/cook-web/src/types/billing.ts`
-  - `src/cook-web/src/lib/billing.ts`
+  - `src/web/src/components/billing/BillingOverviewShowcase.tsx`
+  - `src/web/src/components/billing/BillingPlanComparisonTable.tsx`
+  - `src/web/src/components/billing/BillingOverviewCards.tsx`
+  - `src/web/src/types/billing.ts`
+  - `src/web/src/lib/billing.ts`
 - Backend billing routes and read models:
   - `src/api/flaskr/service/billing/routes.py`
   - `src/api/flaskr/service/billing/read_models.py`

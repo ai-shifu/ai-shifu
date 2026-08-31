@@ -9,6 +9,9 @@ from flask import Flask, Response, request
 from flaskr.i18n import get_current_language, get_i18n_list
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
+from flaskr.service.common.profile_onboarding import (
+    generate_profile_onboarding_assistant_prompt,
+)
 from flaskr.service.common.profile_research_request_validation import (
     normalize_profile_research_session_id,
     parse_profile_research_run_request,
@@ -92,7 +95,12 @@ def register_operator_profile_onboarding_routes(
         payload = _profile_onboarding_json_object("profile_onboarding_config")
         _reject_profile_onboarding_unknown_fields(
             payload,
-            allowed_fields={"enabled", "markdownflow", "assistant_prompt"},
+            allowed_fields={
+                "enabled",
+                "markdownflow",
+                "assistant_prompt",
+                "config_revision",
+            },
             parameter_name="profile_onboarding_config",
         )
         return make_common_response(
@@ -100,6 +108,28 @@ def register_operator_profile_onboarding_routes(
                 app,
                 payload=payload,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/profile-onboarding/assistant-prompt/generate",
+        methods=["POST"],
+    )
+    def admin_operation_generate_profile_onboarding_assistant_prompt() -> str:
+        """Generate an editable prompt draft without publishing configuration."""
+        _require_operator()
+        payload = _profile_onboarding_json_object("profile_onboarding_assistant_prompt")
+        _reject_profile_onboarding_unknown_fields(
+            payload,
+            allowed_fields={"markdownflow"},
+            parameter_name="profile_onboarding_assistant_prompt",
+        )
+        markdownflow = payload.get("markdownflow")
+        if not isinstance(markdownflow, str) or not markdownflow.strip():
+            raise_param_error("markdownflow")
+        return make_common_response(
+            generate_profile_onboarding_assistant_prompt(
+                app, markdownflow=markdownflow.strip()
             )
         )
 

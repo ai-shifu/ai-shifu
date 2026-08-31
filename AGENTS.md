@@ -26,7 +26,7 @@ to.
 - Whenever creating a Git worktree for this repository, copy existing local
   `.env` files from the source checkout into the matching paths in the new
   worktree before starting services, including the repository-root `.env` and
-  `src/cook-web/.env` when present. Preserve file permissions, never commit
+  `src/web/.env` when present. Preserve file permissions, never commit
   these copies, and do not overwrite an environment file already customized
   in the new worktree.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
@@ -43,9 +43,35 @@ to.
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
+- Keep every pull request focused on one clearly defined problem. Include all
+  code, tests, docs, migrations, and compatibility work required to solve that
+  problem, but move unrelated fixes, cleanup, and follow-up work to separate
+  pull requests.
+- During code review, evaluate only whether the pull request solves its stated
+  problem correctly, safely, completely, and with adequate tests, including
+  regressions or contract effects introduced by the change.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
   touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
   `.github` instructions in the same change.
+- Treat product analytics as a completion requirement for every new user-facing
+  Cook Web capability or interaction path. In the same change, define or extend
+  a decision-relevant Umami event family, implement its producer, and add
+  focused regression coverage according to
+  `docs/references/frontend-product-analytics.md`; the feature is not complete
+  while that analytics contract is missing. Pure visual styling, copy-only,
+  performance-only, test-only, and behavior-preserving refactoring changes do
+  not require a new event. Any new user-observable action, state transition, or
+  invocation path, including one introduced for accessibility, does; changed
+  behavior already covered by analytics must update its existing contract.
+- Treat new or changed Cook Web Umami events as versioned product-analytics
+  contracts. Before implementation, define the decision or metric, exact
+  trigger, eligible population and exclusions, deduplication scope, stable
+  payload schema, and downstream consumer according to
+  `docs/references/frontend-product-analytics.md`.
+- Keep product analytics best-effort and independent from the user-visible
+  operation. When an event name, meaning, eligibility rule, deduplication rule,
+  or payload contract changes, update its producers, consumers, canonical
+  product documentation, compatibility plan, and regression tests together.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
 - Store and compute all timestamps in UTC. On the backend, use the shared
@@ -77,7 +103,20 @@ to.
   discoverable from versioned files.
 - Do not start modifying code from guesswork when the local implementation and
   neighboring tests have not been inspected.
+- Do not raise review findings about unrelated or pre-existing problems
+  outside the current pull request's responsibility boundary.
 - Do not hardcode user-facing strings, secrets, or environment-specific URLs.
+- Do not add free-form or user-authored text, prompts or model output, names,
+  contact details, profile content, titles or descriptions, coupon codes,
+  tokens, raw errors, or complete URLs, queries, or referrers to new or changed
+  Umami events or identity metadata. Use an explicit allowlist of necessary
+  stable machine IDs, booleans, numbers, durations, and low-cardinality enums;
+  truncation or hashing does not make a sensitive field safe to collect. New or
+  changed pageview handling must strip query strings, fragments, credentials,
+  and sensitive path data before tracking.
+- Do not use best-effort Umami data as the source of truth for billing,
+  permissions, auditing, or another correctness-sensitive business decision,
+  and do not block or alter a user action when analytics is unavailable.
 - Do not create new root `tasks.md` checklists. Complex execution now belongs
   in ExecPlans under `docs/exec-plans/`.
 - Do not let shared guidance drift from generated mirrors or from the current
@@ -159,7 +198,7 @@ prod**.
 | Library            | Kind             | Pinned in                                            | Published from                                                            |
 | ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
 | `markdown-flow`    | Python (backend) | `src/api/requirements.txt` (`markdown-flow==<ver>`)  | [markdown-flow-agent-py](https://github.com/ai-shifu/markdown-flow-agent-py) (PyPI) |
-| `markdown-flow-ui` | npm (frontend)   | `src/cook-web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
+| `markdown-flow-ui` | npm (frontend)   | `src/web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
 
 ### Trying a library change against this project
 
@@ -168,13 +207,13 @@ prod**.
    throwaway test package. Wait for the run to pass; the version is now published.
 2. Point this project at that version:
    - **Locally (uncommitted)**: edit the pin in `src/api/requirements.txt`
-     (backend) or `src/cook-web/package.json` (frontend).
+     (backend) or `src/web/package.json` (frontend).
    - **On an already-pushed feature branch**: run the matching bump action —
      **Bump markdown-flow** (`bump-markdown-flow.yml`) or **Bump markdown-flow-ui**
      (`bump-markdown-flow-ui.yml`). Each validates the version is published,
      updates the pin, and pushes the bump back to the branch. Both refuse to run
      on `main`. (The frontend bump pins an exact version and refreshes
-     `src/cook-web/package-lock.json` so CI's `npm ci` stays green.)
+     `src/web/package-lock.json` so CI's `npm ci` stays green.)
 
 ### Rule: `main` must pin RELEASE versions of both libraries
 
@@ -184,7 +223,7 @@ in `repo-harness.yml` enforces this on every PR into `main` and fails on a
 pre-release/dev pin:
 
 - The `markdown-flow` release pin is checked in `src/api/requirements.txt`.
-- The `markdown-flow-ui` release pin is checked in `src/cook-web/package.json`.
+- The `markdown-flow-ui` release pin is checked in `src/web/package.json`.
 
 Pin release versions of both before merging.
 
@@ -194,15 +233,19 @@ Pin release versions of both before merging.
   widen only when the change crosses a shared contract or multiple surfaces.
 - When a task touches only docs or instruction files, at minimum run
   `python scripts/check_repo_harness.py`.
+- When a task adds or changes a frontend Umami event, test the exact name and
+  payload, negatively assert that sensitive fields are absent, cover trigger
+  timing, eligibility, deduplication and terminal outcomes, and prove that a
+  tracking failure does not change the user-visible result.
 - When a Ruff-driven rewrite changes runtime behavior or a public/internal
   contract, add or identify a focused regression test; a clean lint result is
   not behavior coverage.
 - When a task changes shared boundaries or introduces new app/service
   dependencies, run `python scripts/check_architecture_boundaries.py`.
-- When a task touches the browser harness, run `cd src/cook-web && npm run test:e2e`.
+- When a task touches the browser harness, run `cd src/web && npm run test:e2e`.
 
 ## Related Skills
 
 - `SKILL.md` is the repository-level skill routing index.
 - `src/api/SKILL.md` owns backend workflow skills.
-- `src/cook-web/SKILL.md` owns frontend workflow skills.
+- `src/web/SKILL.md` owns frontend workflow skills.

@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = REPO_ROOT / "src/cook-web/scripts/prettier-check-changed.mjs"
+SCRIPT_PATH = REPO_ROOT / "src/web/scripts/prettier-check-changed.mjs"
 
 
 def run(
@@ -32,15 +32,15 @@ class PrettierCheckChangedTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.repo = Path(self.tempdir.name)
-        self.cook_web = self.repo / "src/cook-web"
-        (self.cook_web / "src").mkdir(parents=True)
+        self.web = self.repo / "src/web"
+        (self.web / "src").mkdir(parents=True)
         (self.repo / "src/api").mkdir(parents=True)
 
         run(["git", "init"], self.repo)
         run(["git", "config", "user.email", "test@example.com"], self.repo)
         run(["git", "config", "user.name", "Test User"], self.repo)
 
-        (self.cook_web / "src/existing.ts").write_text("const value = 1;\n")
+        (self.web / "src/existing.ts").write_text("const value = 1;\n")
         (self.repo / "src/api/app.py").write_text("print('hello')\n")
         run(["git", "add", "."], self.repo)
         run(["git", "commit", "-m", "base"], self.repo)
@@ -69,16 +69,16 @@ class PrettierCheckChangedTest(unittest.TestCase):
         assert result.returncode == 0, result.stderr
         return run(["git", "rev-parse", "HEAD"], self.repo).stdout.strip()
 
-    def test_checks_only_changed_cook_web_files(self) -> None:
-        (self.cook_web / "src/existing.ts").write_text("const value = 2;\n")
-        (self.cook_web / "docs").mkdir()
-        (self.cook_web / "docs/notes.md").write_text("# Notes\n")
-        (self.repo / "src/api/app.py").write_text("print('outside cook web')\n")
-        head = self.commit_changes("change cook web and backend")
+    def test_checks_only_changed_web_files(self) -> None:
+        (self.web / "src/existing.ts").write_text("const value = 2;\n")
+        (self.web / "docs").mkdir()
+        (self.web / "docs/notes.md").write_text("# Notes\n")
+        (self.repo / "src/api/app.py").write_text("print('outside web')\n")
+        head = self.commit_changes("change web frontend and backend")
 
         result = run(
             ["node", str(SCRIPT_PATH), "--base", self.base, "--head", head],
-            self.cook_web,
+            self.web,
             self.script_env(),
         )
 
@@ -87,13 +87,13 @@ class PrettierCheckChangedTest(unittest.TestCase):
         assert args[:4] == ["prettier", "--check", "--ignore-unknown", "--"]
         assert sorted(args[4:]) == sorted(["docs/notes.md", "src/existing.ts"])
 
-    def test_skips_prettier_when_no_cook_web_files_changed(self) -> None:
+    def test_skips_prettier_when_no_web_files_changed(self) -> None:
         (self.repo / "src/api/app.py").write_text("print('outside only')\n")
         head = self.commit_changes("change backend only")
 
         result = run(
             ["node", str(SCRIPT_PATH), "--base", self.base, "--head", head],
-            self.cook_web,
+            self.web,
             self.script_env(),
         )
 

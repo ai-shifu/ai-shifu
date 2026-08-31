@@ -3,6 +3,9 @@
   "__flat__": {
     "checkCodeError": "图形验证码错误",
     "checkCodeExpired": "图形验证码已过期",
+    "deviceAuthAlreadyHandled": "该授权请求已经处理过了",
+    "deviceAuthTooManyRequests": "授权请求过于频繁，请稍后再试",
+    "deviceCodeInvalid": "配对码无效或已过期，请在命令行重新发起授权",
     "emailSendFailed": "邮件发送失败",
     "emailSendTooFrequent": "邮件发送过于频繁",
     "emailVerificationExpiry": "验证码将在 {expiry_duration}后失效。",
@@ -31,6 +34,8 @@
     "passwordNeedsDigit": "密码需包含至少一个数字",
     "passwordNeedsLetter": "密码需包含至少一个字母",
     "passwordTooShort": "密码长度至少为8位",
+    "sessionNotFound": "该登录会话不存在或已失效",
+    "sessionRevokeIncomplete": "会话已结束，但缓存清理失败，可能需要几分钟才完全失效",
     "smsCheckError": "短信验证码错误",
     "smsSendExpired": "短信验证码过期",
     "smsSendTooFrequent": "短信发送过于频繁",

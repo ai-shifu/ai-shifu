@@ -7,11 +7,11 @@ behavior, but the shared logic still lives inside individual pages today.
 
 Current repetition exists across:
 
-- `src/cook-web/src/app/admin/operations/page.tsx`
-- `src/cook-web/src/app/admin/orders/page.tsx`
-- `src/cook-web/src/app/admin/operations/users/page.tsx`
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
-- `src/cook-web/src/app/admin/operations/users/[user_bid]/page.tsx`
+- `src/web/src/app/admin/operations/page.tsx`
+- `src/web/src/app/admin/orders/page.tsx`
+- `src/web/src/app/admin/operations/users/page.tsx`
+- `src/web/src/app/admin/operations/[shifu_bid]/page.tsx`
+- `src/web/src/app/admin/operations/users/[user_bid]/page.tsx`
 
 The repeated patterns include:
 
@@ -40,7 +40,7 @@ as runtime dependencies in the migrated admin pages.
 
 ## Non-Goals
 
-- Do not replace `src/cook-web/src/components/ui/Table.tsx` with an admin-only
+- Do not replace `src/web/src/components/ui/Table.tsx` with an admin-only
   implementation.
 - Do not merge pagination, tooltip text, and admin table shell into one
   monolithic component.
@@ -53,10 +53,10 @@ as runtime dependencies in the migrated admin pages.
 The current and target layering should remain:
 
 1. Base UI table primitives
-   - `src/cook-web/src/components/ui/Table.tsx`
+   - `src/web/src/components/ui/Table.tsx`
 2. Independent admin utilities
-   - `src/cook-web/src/app/admin/components/AdminPagination.tsx`
-   - `src/cook-web/src/app/admin/components/AdminTooltipText.tsx`
+   - `src/web/src/app/admin/components/AdminPagination.tsx`
+   - `src/web/src/app/admin/components/AdminTooltipText.tsx`
 3. New admin table capability layer
    - `AdminTableShell`
    - `useAdminResizableColumns`
@@ -74,7 +74,7 @@ The current and target layering should remain:
 
 Suggested path:
 
-- `src/cook-web/src/app/admin/components/AdminTableShell.tsx`
+- `src/web/src/app/admin/components/AdminTableShell.tsx`
 
 Responsibilities:
 
@@ -109,7 +109,7 @@ It only provides the stable outer structure.
 
 Suggested path:
 
-- `src/cook-web/src/app/admin/hooks/useAdminResizableColumns.ts`
+- `src/web/src/app/admin/hooks/useAdminResizableColumns.ts`
 
 Responsibilities:
 
@@ -143,7 +143,7 @@ Design requirements:
 
 Suggested path:
 
-- `src/cook-web/src/app/admin/components/adminTableStyles.ts`
+- `src/web/src/app/admin/components/adminTableStyles.ts`
   or a similarly named local helper file
 
 Responsibilities:
@@ -243,8 +243,8 @@ These shared capabilities are now used by the migrated admin pages below.
 
 Migrated first in this rollout:
 
-- `src/cook-web/src/app/admin/operations/page.tsx`
-- `src/cook-web/src/app/admin/orders/page.tsx`
+- `src/web/src/app/admin/operations/page.tsx`
+- `src/web/src/app/admin/orders/page.tsx`
 
 Reasons:
 
@@ -258,7 +258,7 @@ Reasons:
 
 Migrated next:
 
-- `src/cook-web/src/app/admin/operations/users/page.tsx`
+- `src/web/src/app/admin/operations/users/page.tsx`
 
 This page is more complex but still follows the same list-page structure.
 
@@ -266,7 +266,7 @@ This page is more complex but still follows the same list-page structure.
 
 Migrated last:
 
-- `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
+- `src/web/src/app/admin/operations/[shifu_bid]/page.tsx`
 
 Reasons this page was left for the final migration step:
 
@@ -283,20 +283,20 @@ For each migrated page:
 
 Required checks after meaningful frontend implementation work:
 
-- `cd src/cook-web && npm run type-check`
-- `cd src/cook-web && npm run lint`
+- `cd src/web && npm run type-check`
+- `cd src/web && npm run lint`
 - `pre-commit run -a`
 
-For `src/cook-web/**/*.{js,ts,tsx,jsx}` changes, the frontend baseline remains:
+For `src/web/**/*.{js,ts,tsx,jsx}` changes, the frontend baseline remains:
 
-- `cd src/cook-web && npm run type-check && npm run lint`
+- `cd src/web && npm run type-check && npm run lint`
 
 Current note for this branch:
 
 - `npm run type-check` still reports known unrelated failures outside this PR
-  under `src/cook-web/src/__tests__/...`,
-  `src/cook-web/src/app/c/[[...id]]/...`, and
-  `src/cook-web/src/components/shifu-edit/ShifuEdit.test.tsx`
+  under `src/web/src/__tests__/...`,
+  `src/web/src/app/c/[[...id]]/...`, and
+  `src/web/src/components/shifu-edit/ShifuEdit.test.tsx`
 
 Likely focused tests during rollout:
 

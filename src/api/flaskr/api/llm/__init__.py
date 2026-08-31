@@ -126,6 +126,7 @@ MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
 PROVIDER_STATES: dict[str, ProviderState] = {}
 MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
+_INCOMPLETE_FINISH_REASONS = frozenset({"content_filter", "length"})
 
 
 def _log(level: str, message: str) -> None:
@@ -1111,17 +1112,21 @@ def invoke_llm(
             if start_completion_time is None:
                 start_completion_time = now_utc()
             if len(res.choices):
-                reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
-            if len(res.choices) and res.choices[0].delta.content:
-                response_text += res.choices[0].delta.content
-                yield LLMStreamResponse(
-                    res.id,
-                    bool(res.choices[0].finish_reason),
-                    is_truncated=False,
-                    result=res.choices[0].delta.content,
-                    finish_reason=res.choices[0].finish_reason,
-                    usage=None,
-                )
+                choice = res.choices[0]
+                reasoning_text += _extract_reasoning_delta(choice.delta)
+                content = choice.delta.content or ""
+                if content:
+                    response_text += content
+                is_truncated = choice.finish_reason in _INCOMPLETE_FINISH_REASONS
+                if content or choice.finish_reason is not None:
+                    yield LLMStreamResponse(
+                        res.id,
+                        bool(choice.finish_reason),
+                        is_truncated=is_truncated,
+                        result=content,
+                        finish_reason=choice.finish_reason,
+                        usage=None,
+                    )
             res_usage = getattr(res, "usage", None)
             if res_usage:
                 input_cache_tokens = _extract_input_cache(res_usage)
