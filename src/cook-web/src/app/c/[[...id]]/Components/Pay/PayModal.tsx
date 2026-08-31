@@ -727,6 +727,13 @@ export const PayModal = ({
     [t, toast, trackPaymentPending, trackPaymentResult],
   );
 
+  const handleStripeConfirmationUnavailable = useCallback(
+    (attempt: LearnerPaymentAttemptContext) => {
+      trackPaymentPending(attempt);
+    },
+    [trackPaymentPending],
+  );
+
   const handleWechatJsapiPay = useCallback(async () => {
     const jsapiParams = nativePayload.jsapi_params;
     if (!jsapiParams || typeof window === 'undefined') {
@@ -1070,6 +1077,9 @@ export const PayModal = ({
                                 trackPaymentAttempt(PAY_CHANNEL_STRIPE)
                               }
                               onConfirmSuccess={handleStripeSuccess}
+                              onConfirmationUnavailable={
+                                handleStripeConfirmationUnavailable
+                              }
                               onError={handleStripeError}
                             />
                           )}

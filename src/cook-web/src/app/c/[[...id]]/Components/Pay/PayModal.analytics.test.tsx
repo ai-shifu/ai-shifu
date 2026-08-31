@@ -179,10 +179,12 @@ jest.mock('./StripeCardForm', () => ({
   default: ({
     onAttempt,
     onConfirmSuccess,
+    onConfirmationUnavailable,
     onError,
   }: {
     onAttempt: () => LearnerPaymentAttemptContext;
     onConfirmSuccess: (attempt: LearnerPaymentAttemptContext) => Promise<void>;
+    onConfirmationUnavailable: (attempt: LearnerPaymentAttemptContext) => void;
     onError: (
       message: string,
       status: 'failed' | 'pending',
@@ -204,6 +206,14 @@ jest.mock('./StripeCardForm', () => ({
           const attempt = onAttempt();
           mockLastStripeAttempt = attempt;
           onError('private-stripe-provider-error', 'failed', attempt);
+        }}
+      />
+      <button
+        data-testid='stripe-reject'
+        onClick={() => {
+          const attempt = onAttempt();
+          mockLastStripeAttempt = attempt;
+          onConfirmationUnavailable(attempt);
         }}
       />
       <button
@@ -1063,6 +1073,41 @@ describe('learner payment modal analytics producers', () => {
       expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
         'private-stripe-payment-cancelled',
       );
+    },
+  );
+
+  it.each(['desktop', 'mobile'] as const)(
+    'keeps a rejected %s Stripe confirmation nonterminal without a product error',
+    async surface => {
+      renderStripePaymentModal(surface);
+
+      fireEvent.click(await screen.findByTestId('stripe-reject'));
+
+      expect(eventCalls('learner_payment_attempt')).toEqual([
+        [
+          'learner_payment_attempt',
+          {
+            shifu_bid: 'course-1',
+            order_id: 'order-1',
+            channel: 'stripe',
+            surface,
+          },
+        ],
+      ]);
+      expect(eventCalls('learner_payment_status')).toEqual([
+        [
+          'learner_payment_status',
+          {
+            shifu_bid: 'course-1',
+            order_id: 'order-1',
+            channel: 'stripe',
+            surface,
+            status: 'pending',
+          },
+        ],
+      ]);
+      expect(eventCalls('learner_payment_result')).toHaveLength(0);
+      expect(mockToast).not.toHaveBeenCalled();
     },
   );
 

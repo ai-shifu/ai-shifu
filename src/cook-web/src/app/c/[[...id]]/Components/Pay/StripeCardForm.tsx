@@ -7,7 +7,7 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
-import type { Stripe } from '@stripe/stripe-js';
+import type { PaymentIntentResult, Stripe } from '@stripe/stripe-js';
 import { Button } from '@/components/ui/Button';
 import type { LearnerPaymentAttemptContext } from '@/lib/paymentAnalytics';
 import { getStripeInstance } from '@/lib/stripe';
@@ -20,6 +20,7 @@ interface StripeCardFormProps {
   onConfirmSuccess: (
     attempt?: LearnerPaymentAttemptContext,
   ) => Promise<void> | void;
+  onConfirmationUnavailable?: (attempt: LearnerPaymentAttemptContext) => void;
   onError?: (
     message: string,
     status: 'failed' | 'pending',
@@ -30,8 +31,12 @@ interface StripeCardFormProps {
 const StripeFormInner = ({
   onAttempt,
   onConfirmSuccess,
+  onConfirmationUnavailable,
   onError,
-}: Pick<StripeCardFormProps, 'onAttempt' | 'onConfirmSuccess' | 'onError'>) => {
+}: Pick<
+  StripeCardFormProps,
+  'onAttempt' | 'onConfirmSuccess' | 'onConfirmationUnavailable' | 'onError'
+>) => {
   const stripe = useStripe();
   const elements = useElements();
   const { t } = useTranslation();
@@ -48,10 +53,20 @@ const StripeFormInner = ({
       try {
         attempt = onAttempt();
       } catch {}
-      const result = await stripe.confirmPayment({
-        elements,
-        redirect: 'if_required',
-      });
+      let result: PaymentIntentResult;
+      try {
+        result = await stripe.confirmPayment({
+          elements,
+          redirect: 'if_required',
+        });
+      } catch {
+        if (attempt) {
+          try {
+            onConfirmationUnavailable?.(attempt);
+          } catch {}
+        }
+        return;
+      }
 
       if (result.error) {
         onError?.(
@@ -99,6 +114,7 @@ export const StripeCardForm = ({
   publishableKey,
   onAttempt,
   onConfirmSuccess,
+  onConfirmationUnavailable,
   onError,
 }: StripeCardFormProps) => {
   const [stripePromise, setStripePromise] =
@@ -146,6 +162,7 @@ export const StripeCardForm = ({
       <StripeFormInner
         onAttempt={onAttempt}
         onConfirmSuccess={onConfirmSuccess}
+        onConfirmationUnavailable={onConfirmationUnavailable}
         onError={onError}
       />
     </Elements>

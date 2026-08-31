@@ -263,7 +263,10 @@ string, user identity, and raw errors are excluded.
 | `learner_coupon_apply`      | `shifu_bid`, `outcome=success`                                                                                                                                      |
 
 The coupon value, checkout URL, client secret, provider payload, payment method,
-receipt, and raw failure are excluded.
+receipt, and raw failure are excluded. A Stripe SDK or network rejection after
+an accepted PaymentElement attempt records `status=pending` because the payment
+outcome is unconfirmed; it does not invoke product error handling or expose the
+raw rejection.
 
 ## Creator billing checkout
 

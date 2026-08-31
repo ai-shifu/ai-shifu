@@ -40,6 +40,7 @@ describe('StripeCardForm payment outcomes', () => {
       publishableKey: 'publishable-key',
       onAttempt: jest.fn(() => attempt),
       onConfirmSuccess: jest.fn(),
+      onConfirmationUnavailable: jest.fn(),
       onError: jest.fn(),
       ...overrides,
     };
@@ -119,6 +120,44 @@ describe('StripeCardForm payment outcomes', () => {
 
     await waitFor(() => expect(mockConfirmPayment).toHaveBeenCalledTimes(1));
     expect(props.onConfirmSuccess).toHaveBeenCalledWith(undefined);
+    await waitFor(() => expect(screen.getByRole('button')).toBeEnabled());
+  });
+
+  it('reports a rejected confirmation without invoking product error handling', async () => {
+    mockConfirmPayment.mockRejectedValue(
+      new Error('private Stripe SDK or network failure'),
+    );
+    const props = renderForm();
+
+    fireEvent.click(await screen.findByRole('button'));
+
+    await waitFor(() =>
+      expect(props.onConfirmationUnavailable).toHaveBeenCalledWith(
+        props.attempt,
+      ),
+    );
+    expect(props.onAttempt).toHaveBeenCalledTimes(1);
+    expect(props.onError).not.toHaveBeenCalled();
+    expect(props.onConfirmSuccess).not.toHaveBeenCalled();
+    expect(
+      JSON.stringify(props.onConfirmationUnavailable.mock.calls),
+    ).not.toContain('private Stripe SDK or network failure');
+    await waitFor(() => expect(screen.getByRole('button')).toBeEnabled());
+  });
+
+  it('restores submission when rejection analytics throws', async () => {
+    mockConfirmPayment.mockRejectedValue(new Error('confirmation unavailable'));
+    const props = renderForm({
+      onConfirmationUnavailable: jest.fn(() => {
+        throw new Error('tracking unavailable');
+      }),
+    });
+
+    fireEvent.click(await screen.findByRole('button'));
+
+    await waitFor(() => expect(mockConfirmPayment).toHaveBeenCalledTimes(1));
+    expect(props.onError).not.toHaveBeenCalled();
+    expect(props.onConfirmSuccess).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByRole('button')).toBeEnabled());
   });
 });

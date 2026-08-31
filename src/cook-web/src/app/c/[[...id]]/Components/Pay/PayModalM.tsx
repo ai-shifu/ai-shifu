@@ -807,6 +807,13 @@ export const PayModalM = ({
     [t, trackPaymentPending, trackPaymentResult],
   );
 
+  const handleStripeConfirmationUnavailable = useCallback(
+    (attempt: LearnerPaymentAttemptContext) => {
+      trackPaymentPending(attempt);
+    },
+    [trackPaymentPending],
+  );
+
   const handleStripeCheckout = useCallback(() => {
     if (stripeCheckoutUrl) {
       trackPaymentAttempt(PAY_CHANNEL_STRIPE);
@@ -1065,6 +1072,9 @@ export const PayModalM = ({
                                   trackPaymentAttempt(PAY_CHANNEL_STRIPE)
                                 }
                                 onConfirmSuccess={handleStripeSuccess}
+                                onConfirmationUnavailable={
+                                  handleStripeConfirmationUnavailable
+                                }
                                 onError={handleStripeError}
                               />
                             )}
