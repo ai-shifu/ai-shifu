@@ -5,10 +5,33 @@ import uuid
 import pytest
 
 
+class _FakeRedisLock:
+    def __init__(self, locks: dict[str, bool], key: str) -> None:
+        self._locks = locks
+        self._key = key
+        self._held = False
+
+    def acquire(
+        self, blocking: bool = True, blocking_timeout: int | None = None
+    ) -> bool:
+        _ = (blocking, blocking_timeout)
+        if self._locks.get(self._key, False):
+            return False
+        self._locks[self._key] = True
+        self._held = True
+        return True
+
+    def release(self) -> None:
+        if self._held:
+            self._locks.pop(self._key, None)
+            self._held = False
+
+
 class _FakeRedis:
     def __init__(self, values: object = None) -> None:
         self.values = dict(values or {})
         self.deleted = []
+        self.locks: dict[str, bool] = {}
 
     def get(self, key: object) -> object:
         return self.values.get(key)
@@ -36,6 +59,15 @@ class _FakeRedis:
         value = int(self.values.get(key, 0)) + amount
         self.values[key] = value
         return value
+
+    def lock(
+        self,
+        key: str,
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
+    ) -> _FakeRedisLock:
+        _ = (timeout, blocking_timeout)
+        return _FakeRedisLock(self.locks, key)
 
     def delete(self, *keys: str) -> object:
         self.deleted.extend(keys)
