@@ -208,22 +208,6 @@
       flex: 1 1 auto;
       padding: 0 !important;
     }
-
-    &.listenModeWithPlayer {
-      .chatComponents {
-        :global(
-          .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content
-        ) {
-          min-height: 100%;
-        }
-
-        :global(
-          .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer
-        ) {
-          padding-bottom: 0;
-        }
-      }
-    }
   }
 
   .chatComponents {
