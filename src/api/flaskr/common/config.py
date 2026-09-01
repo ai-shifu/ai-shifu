@@ -589,6 +589,17 @@ Default: "phone".""",
         description="Optional Google Gemini API base URL (leave blank to use default)",
         group="llm",
     ),
+    "GEMINI_LIVE_ENABLED": EnvVar(
+        name="GEMINI_LIVE_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Expose the allowlisted Gemini Live model for voice follow-up sessions. "
+            "Keep disabled until the WebSocket infrastructure is ready."
+        ),
+        group="llm",
+        required=False,
+    ),
     "QWEN_API_KEY": EnvVar(
         name="QWEN_API_KEY",
         default="",

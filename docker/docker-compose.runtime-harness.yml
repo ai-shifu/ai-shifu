@@ -13,7 +13,7 @@ services:
         && flask db upgrade
         && flask console update_demo_shifu
         && cd /app
-        && exec gunicorn -k gevent -w 1 -b 0.0.0.0:5800 'app:app'
+        && exec gunicorn -k gthread --threads 16 -w 4 -b 0.0.0.0:5800 'app:app'
         --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
     env_file:
       - ./.env
@@ -31,6 +31,7 @@ services:
       SKIP_LOAD_DOTENV: "1"
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
+      GEMINI_LIVE_ENABLED: "${GEMINI_LIVE_ENABLED:-false}"
     ports:
       - "127.0.0.1:${AI_SHIFU_API_PORT:-5800}:5800"
     depends_on:
