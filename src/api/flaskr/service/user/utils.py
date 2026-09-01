@@ -450,7 +450,6 @@ def _prepare_verification_challenge(
         app,
         kind=kind,
         identifier=identifier,
-        cache_provider=redis,
     ):
         identifier_limit_key = (
             _redis_prefix(app, policy.identifier_limit_prefix_config) + identifier
