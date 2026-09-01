@@ -57,6 +57,7 @@
 | `docs/exec-plans/completed/learn-run-decomposition.md` | ExecPlan: Learn /run Chain Decomposition (B6) | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-dialog-redesign.md` | Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-foundation.md` | Learner Profile Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/llm-provider-parameter-policies.md` | LiteLLM-First Minimum-Thinking Parameters | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/markdown-flow-scroll-controls.md` | MarkdownFlow Scroll Controls | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/mobile-personalization-dialog.md` | Mobile Learner Personalization Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/operator-course-b-optimization.md` | Operator Course B Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
