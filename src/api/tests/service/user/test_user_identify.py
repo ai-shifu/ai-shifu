@@ -116,6 +116,58 @@ class _FakeRedis:
         return len(keys)
 
 
+@pytest.mark.parametrize(
+    ("flow_name", "verify_name", "credentials"),
+    [
+        (
+            "email_flow",
+            "verify_email_code",
+            {"email": "user@example.com", "code": "1234"},
+        ),
+        (
+            "phone_flow",
+            "verify_phone_code",
+            {"phone": "15500001111", "code": "1234"},
+        ),
+    ],
+)
+def test_login_flows_do_not_override_distributed_verification_lock(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    flow_name: str,
+    verify_name: str,
+    credentials: dict[str, str],
+) -> None:
+    from flaskr.service.user import email_flow, phone_flow
+
+    flow = {"email_flow": email_flow, "phone_flow": phone_flow}[flow_name]
+    captured_kwargs: dict[str, object] = {}
+
+    class _VerificationCapturedError(Exception):
+        pass
+
+    def _stop_after_verification(*_args: object, **kwargs: object) -> None:
+        captured_kwargs.update(kwargs)
+        raise _VerificationCapturedError
+
+    monkeypatch.setattr(flow, "consume_verification_code", _stop_after_verification)
+
+    with pytest.raises(_VerificationCapturedError):
+        getattr(flow, verify_name)(app, user_id=None, **credentials)
+
+    assert "cache_provider" not in captured_kwargs
+
+
+def _use_verification_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    cache: _FakeRedis,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    monkeypatch.setattr(verification_codes, "redis", cache)
+    monkeypatch.setattr(verification_codes, "distributed_lock_cache", cache)
+
+
 def _reset_user_auth_tables() -> None:
     from flaskr.dao import db
     from flaskr.service.user.models import (
@@ -302,7 +354,9 @@ def test_email_flow_marks_temp_email_claim_as_created_new_user(
         assert credential is not None
 
 
-def test_phone_flow_sets_user_identify(app: object) -> None:
+def test_phone_flow_sets_user_identify(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
@@ -311,8 +365,7 @@ def test_phone_flow_sets_user_identify(app: object) -> None:
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
 
-        # Monkeypatch redis in module scope
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         try:
@@ -331,14 +384,16 @@ def test_phone_flow_sets_user_identify(app: object) -> None:
             _reset_user_auth_tables()
 
 
-def test_email_flow_sets_user_identify(app: object) -> None:
+def test_email_flow_sets_user_identify(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.service.user import email_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        email_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         try:
@@ -762,7 +817,9 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
             db.session.commit()
 
 
-def test_phone_flow_verifies_code_from_db_when_cache_missing(app: object) -> None:
+def test_phone_flow_verifies_code_from_db_when_cache_missing(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserVerifyCode
@@ -770,7 +827,7 @@ def test_phone_flow_verifies_code_from_db_when_cache_missing(app: object) -> Non
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         phone = "15500002222"
         code = "1234"
@@ -796,7 +853,9 @@ def test_phone_flow_verifies_code_from_db_when_cache_missing(app: object) -> Non
         assert updated.verify_code_used == 1
 
 
-def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app: object) -> None:
+def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import AuthCredential, UserVerifyCode
@@ -805,7 +864,7 @@ def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app: object) -> 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         phone = "15500005555"
@@ -844,7 +903,9 @@ def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app: object) -> 
             _reset_user_auth_tables()
 
 
-def test_phone_flow_accepts_prefixed_pending_db_code(app: object) -> None:
+def test_phone_flow_accepts_prefixed_pending_db_code(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import AuthCredential, UserVerifyCode
@@ -853,7 +914,7 @@ def test_phone_flow_accepts_prefixed_pending_db_code(app: object) -> None:
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         phone = "15500006666"
@@ -1124,7 +1185,9 @@ def test_email_challenge_identifier_cannot_overlap_verification_state_keys(
     assert mail_code_prefix + f"attempts:{victim_email}:lock" != attempt_key + ":lock"
 
 
-def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app: object) -> None:
+def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu
     from flaskr.service.user import phone_flow
@@ -1135,7 +1198,7 @@ def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app: object) -
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         _reset_shifu_tables()
@@ -1175,7 +1238,9 @@ def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app: object) -
             _reset_user_auth_tables()
 
 
-def test_email_flow_verifies_code_from_db_when_cache_missing(app: object) -> None:
+def test_email_flow_verifies_code_from_db_when_cache_missing(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
     from flaskr.service.user import email_flow
     from flaskr.service.user.models import UserVerifyCode
@@ -1183,7 +1248,7 @@ def test_email_flow_verifies_code_from_db_when_cache_missing(app: object) -> Non
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        email_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         email = "test.user@example.com"
         code = "5678"
@@ -1209,7 +1274,9 @@ def test_email_flow_verifies_code_from_db_when_cache_missing(app: object) -> Non
         assert updated.verify_code_used == 1
 
 
-def test_email_flow_invalidates_code_after_five_failed_attempts(app: object) -> None:
+def test_email_flow_invalidates_code_after_five_failed_attempts(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
     from flaskr.service.common.models import ERROR_CODE, AppError
     from flaskr.service.user import email_flow, verification_codes
@@ -1223,7 +1290,7 @@ def test_email_flow_invalidates_code_after_five_failed_attempts(app: object) -> 
         code = "5678"
         code_key = app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email
         fake_redis = _FakeRedis({code_key: code})
-        email_flow.redis = fake_redis
+        _use_verification_cache(monkeypatch, fake_redis)
 
         attempt_key = verification_codes._verification_attempt_key(
             app,

@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -241,7 +240,6 @@ def verify_phone_code(
         app,
         identifier=raw_phone,
         code=code,
-        cache_provider=redis,
     )
 
     created_new_user = False

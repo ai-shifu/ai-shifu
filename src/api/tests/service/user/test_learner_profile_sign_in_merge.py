@@ -51,6 +51,28 @@ class _FakeRedis:
     def delete(self, *_keys: str) -> None:
         return None
 
+    def lock(self, *_args: object, **_kwargs: object) -> _FakeRedisLock:
+        return _FakeRedisLock()
+
+
+class _FakeRedisLock:
+    def acquire(self, *_args: object, **_kwargs: object) -> bool:
+        return True
+
+    def release(self) -> None:
+        return None
+
+    def extend(self, *_args: object, **_kwargs: object) -> bool:
+        return True
+
+
+def _use_verification_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    from flaskr.service.user import verification_codes
+
+    cache = _FakeRedis()
+    monkeypatch.setattr(verification_codes, "redis", cache)
+    monkeypatch.setattr(verification_codes, "distributed_lock_cache", cache)
+
 
 class _FakeGoogleResponse:
     def __init__(self, payload: object) -> None:
@@ -708,7 +730,7 @@ def test_phone_sign_in_merges_profile_without_course_id(
     from flaskr.service.user import phone_flow
 
     caplog.set_level(logging.INFO)
-    monkeypatch.setattr(phone_flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(phone_flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(
@@ -758,7 +780,7 @@ def test_email_sign_in_transfers_cleared_state_without_course_id(
 ) -> None:
     from flaskr.service.user import email_flow
 
-    monkeypatch.setattr(email_flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(email_flow, "init_first_course", lambda *_args: False)
     with app.app_context():
@@ -793,7 +815,7 @@ def test_legacy_profile_migration_preserves_target_nickname(
     from flaskr.service.user import email_flow, phone_flow
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
-    monkeypatch.setattr(flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
@@ -854,7 +876,7 @@ def test_sign_in_generic_label_migration_ignores_historical_background(
     from flaskr.service.user import email_flow, phone_flow
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
-    monkeypatch.setattr(flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
@@ -927,7 +949,7 @@ def test_legacy_profile_migration_transfers_guest_nickname_when_target_has_none(
     from flaskr.service.user import email_flow, phone_flow
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
-    monkeypatch.setattr(flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
