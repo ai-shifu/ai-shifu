@@ -8,9 +8,8 @@ Move the Next.js frontend from `src/cook-web/` to the shorter, clearer
 `src/web/` path without changing product behavior or breaking repository
 automation. After the migration, contributors, coding agents, CI jobs, release
 workflows, Docker builds, local environments, generators, checkers, and
-documentation must all resolve the frontend through `src/web/`, and stale
-`src/cook-web` path assumptions must fail fast instead of silently skipping
-work.
+documentation must all resolve the current frontend through `src/web/`; only
+the release workflow's bounded historical-tag lookup may read the old path.
 
 The product and deployed container are still named Cook Web. Stable deployment
 contracts such as the `ai-shifu-cook-web` image/service names and
@@ -81,9 +80,9 @@ migration explicitly replaces them.
   with both the active rename plan and the newly completed upstream plan, and
   passed 3 focused frontend suites with 45 tests.
 - [x] 2026-09-01: Retired the legacy checkout compatibility layer by removing
-  the frontend environment migration helper, old-path ignore rules, release
-  lockfile fallback, and legacy-path Codex setup. Current checkouts now use
-  `src/web` directly.
+  the frontend environment migration helper, old-path ignore rules, and
+  legacy-path Codex setup. Current checkouts now use `src/web` directly while
+  the release workflow retains a bounded fallback for pre-rename tags.
 
 ## Surprises & Discoveries
 
@@ -153,9 +152,9 @@ migration explicitly replaces them.
   and should not carry stale platform-specific artifacts into the new path.
   Date/Author: 2026-08-30 / Codex
 - Decision: retire the legacy checkout compatibility layer after the frontend
-  directory migration.
-  Rationale: supported checkouts now use `src/web` directly; retaining
-  migration-only paths and fallbacks kept obsolete repository contracts alive.
+  directory migration while retaining the historical release-tag lookup.
+  Rationale: supported checkouts now use `src/web` directly; the release
+  workflow still needs one bounded fallback for tags created before the rename.
   Date/Author: 2026-09-01 / Codex
 
 ## Outcomes & Retrospective
@@ -166,7 +165,8 @@ contexts, local helpers, Codex actions, generators, checkers, skills, and
 documentation all resolve that path. The deployment-facing Cook Web image,
 service, cache-scope, and environment-variable names remain unchanged.
 
-The release workflow reads the current MarkdownFlow UI lockfile path directly.
+The release workflow reads the current MarkdownFlow UI lockfile path first and
+uses one historical path fallback for release tags created before the rename.
 Codex worktree setup copies environment files from the current `src/web`
 checkout and reuses compatible dependencies from that same path. Legacy
 checkout migration and old-path artifact compatibility are intentionally no
@@ -245,7 +245,7 @@ The migration is accepted only when all of the following are true:
 
 - `src/web/` exists and no tracked file remains under `src/cook-web/`.
 - No tracked file or tracked filename contains a stale `src/cook-web` path
-  outside this migration record.
+  outside this migration record and the bounded historical release-tag lookup.
 - GitHub workflow path filters, cache inputs, working directories, release bump
   paths, and runtime artifact paths all use `src/web`.
 - Repository generators run successfully and a second run is deterministic.
