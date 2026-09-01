@@ -25,6 +25,7 @@ copy_frontend_env() {
   python3 -c 'import os
 import stat
 import sys
+import tempfile
 
 ENV_FILENAMES = (
     ".env",
@@ -65,6 +66,8 @@ class ConcurrentEnvironmentChange(Exception):
 
 source_names = {filename for filename, _, _ in source_files}
 reservations = []
+staged_files = []
+staging_directory = None
 
 
 def unreserved_target_exists():
@@ -75,15 +78,15 @@ def unreserved_target_exists():
 
 
 def reservation_path_matches(reservation):
-    _, _, _, target_path, file_descriptor = reservation
+    _, _, _, target_path, staging_path = reservation
     try:
         path_stat = os.lstat(target_path)
+        staging_stat = os.lstat(staging_path)
     except FileNotFoundError:
         return False
-    descriptor_stat = os.fstat(file_descriptor)
     return (
-        path_stat.st_dev == descriptor_stat.st_dev
-        and path_stat.st_ino == descriptor_stat.st_ino
+        path_stat.st_dev == staging_stat.st_dev
+        and path_stat.st_ino == staging_stat.st_ino
     )
 
 
@@ -95,61 +98,77 @@ def reservations_changed():
 
 def clean_up_reservations():
     for reservation in reservations:
-        _, _, _, target_path, file_descriptor = reservation
+        _, _, _, target_path, _ = reservation
         try:
             if reservation_path_matches(reservation):
                 os.unlink(target_path)
         except FileNotFoundError:
             pass
-        finally:
-            os.close(file_descriptor)
+
+
+def clean_up_staging():
+    for _, _, _, staging_path in staged_files:
+        try:
+            os.unlink(staging_path)
+        except FileNotFoundError:
+            pass
+    if staging_directory is not None:
+        try:
+            os.rmdir(staging_directory)
+        except FileNotFoundError:
+            pass
 
 
 try:
+    staging_directory = tempfile.mkdtemp(prefix=".codex-env-", dir=target_root)
     for filename, source_path, source_stat in source_files:
+        staging_path = os.path.join(staging_directory, filename)
         file_descriptor = os.open(
-            target_paths[filename],
+            staging_path,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL,
             stat.S_IMODE(source_stat.st_mode),
         )
+        staged_files.append((filename, source_path, source_stat, staging_path))
+        try:
+            with open(source_path, "rb") as source:
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    offset = 0
+                    while offset < len(chunk):
+                        written = os.write(file_descriptor, chunk[offset:])
+                        if written <= 0:
+                            raise OSError("failed to write frontend environment file")
+                        offset += written
+            os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
+        finally:
+            os.close(file_descriptor)
+
+    for filename, source_path, source_stat, staging_path in staged_files:
+        os.link(staging_path, target_paths[filename], follow_symlinks=False)
         reservations.append(
             (
                 filename,
                 source_path,
                 source_stat,
                 target_paths[filename],
-                file_descriptor,
+                staging_path,
             )
         )
 
     if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
-
-    for _, source_path, source_stat, _, file_descriptor in reservations:
-        with open(source_path, "rb") as source:
-            while True:
-                chunk = source.read(1024 * 1024)
-                if not chunk:
-                    break
-                offset = 0
-                while offset < len(chunk):
-                    written = os.write(file_descriptor, chunk[offset:])
-                    if written <= 0:
-                        raise OSError("failed to write frontend environment file")
-                    offset += written
-        os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
-
-    if reservations_changed() or unreserved_target_exists():
-        raise ConcurrentEnvironmentChange()
 except (ConcurrentEnvironmentChange, FileExistsError):
     clean_up_reservations()
+    clean_up_staging()
     raise SystemExit(0)
 except BaseException:
     clean_up_reservations()
+    clean_up_staging()
     raise
 else:
-    for _, _, _, _, file_descriptor in reservations:
-        os.close(file_descriptor)
+    clean_up_staging()
 ' \
     "$source_tree/src/web" \
     "$worktree_path/src/web"
@@ -213,6 +232,7 @@ copy_frontend_env() {
   python3 -c 'import os
 import stat
 import sys
+import tempfile
 
 ENV_FILENAMES = (
     ".env",
@@ -253,6 +273,8 @@ class ConcurrentEnvironmentChange(Exception):
 
 source_names = {filename for filename, _, _ in source_files}
 reservations = []
+staged_files = []
+staging_directory = None
 
 
 def unreserved_target_exists():
@@ -263,15 +285,15 @@ def unreserved_target_exists():
 
 
 def reservation_path_matches(reservation):
-    _, _, _, target_path, file_descriptor = reservation
+    _, _, _, target_path, staging_path = reservation
     try:
         path_stat = os.lstat(target_path)
+        staging_stat = os.lstat(staging_path)
     except FileNotFoundError:
         return False
-    descriptor_stat = os.fstat(file_descriptor)
     return (
-        path_stat.st_dev == descriptor_stat.st_dev
-        and path_stat.st_ino == descriptor_stat.st_ino
+        path_stat.st_dev == staging_stat.st_dev
+        and path_stat.st_ino == staging_stat.st_ino
     )
 
 
@@ -283,61 +305,77 @@ def reservations_changed():
 
 def clean_up_reservations():
     for reservation in reservations:
-        _, _, _, target_path, file_descriptor = reservation
+        _, _, _, target_path, _ = reservation
         try:
             if reservation_path_matches(reservation):
                 os.unlink(target_path)
         except FileNotFoundError:
             pass
-        finally:
-            os.close(file_descriptor)
+
+
+def clean_up_staging():
+    for _, _, _, staging_path in staged_files:
+        try:
+            os.unlink(staging_path)
+        except FileNotFoundError:
+            pass
+    if staging_directory is not None:
+        try:
+            os.rmdir(staging_directory)
+        except FileNotFoundError:
+            pass
 
 
 try:
+    staging_directory = tempfile.mkdtemp(prefix=".codex-env-", dir=target_root)
     for filename, source_path, source_stat in source_files:
+        staging_path = os.path.join(staging_directory, filename)
         file_descriptor = os.open(
-            target_paths[filename],
+            staging_path,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL,
             stat.S_IMODE(source_stat.st_mode),
         )
+        staged_files.append((filename, source_path, source_stat, staging_path))
+        try:
+            with open(source_path, "rb") as source:
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    offset = 0
+                    while offset < len(chunk):
+                        written = os.write(file_descriptor, chunk[offset:])
+                        if written <= 0:
+                            raise OSError("failed to write frontend environment file")
+                        offset += written
+            os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
+        finally:
+            os.close(file_descriptor)
+
+    for filename, source_path, source_stat, staging_path in staged_files:
+        os.link(staging_path, target_paths[filename], follow_symlinks=False)
         reservations.append(
             (
                 filename,
                 source_path,
                 source_stat,
                 target_paths[filename],
-                file_descriptor,
+                staging_path,
             )
         )
 
     if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
-
-    for _, source_path, source_stat, _, file_descriptor in reservations:
-        with open(source_path, "rb") as source:
-            while True:
-                chunk = source.read(1024 * 1024)
-                if not chunk:
-                    break
-                offset = 0
-                while offset < len(chunk):
-                    written = os.write(file_descriptor, chunk[offset:])
-                    if written <= 0:
-                        raise OSError("failed to write frontend environment file")
-                    offset += written
-        os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
-
-    if reservations_changed() or unreserved_target_exists():
-        raise ConcurrentEnvironmentChange()
 except (ConcurrentEnvironmentChange, FileExistsError):
     clean_up_reservations()
+    clean_up_staging()
     raise SystemExit(0)
 except BaseException:
     clean_up_reservations()
+    clean_up_staging()
     raise
 else:
-    for _, _, _, _, file_descriptor in reservations:
-        os.close(file_descriptor)
+    clean_up_staging()
 ' \
     "$source_tree/src/web" \
     "$worktree_path/src/web"

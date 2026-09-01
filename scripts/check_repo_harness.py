@@ -583,10 +583,12 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                         lockfile_content, encoding="utf-8"
                     )
                     occupied_env = occupied_frontend / ".env"
+                    occupied_env_link_target = None
                     if occupancy_mode == "customized":
                         occupied_env.write_text("CUSTOMIZED=1\n", encoding="utf-8")
                     else:
                         occupied_env.symlink_to(occupied_frontend / "missing.env")
+                        occupied_env_link_target = occupied_env.readlink()
 
                     occupied_environment = command_environment.copy()
                     occupied_environment["CODEX_WORKTREE_PATH"] = str(occupied_worktree)
@@ -629,6 +631,10 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                     elif not occupied_env.is_symlink():
                         errors.append(
                             f"{occupied_label} did not preserve the dangling symlink"
+                        )
+                    elif occupied_env.readlink() != occupied_env_link_target:
+                        errors.append(
+                            f"{occupied_label} changed the dangling symlink target"
                         )
 
 
