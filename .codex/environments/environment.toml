@@ -69,6 +69,7 @@ source_names = {filename for filename, _, _ in source_files}
 reservations = []
 staged_files = []
 staging_directory = None
+cleanup_directory = None
 
 
 def unreserved_target_exists():
@@ -119,19 +120,14 @@ def reservations_changed():
 
 
 def clean_up_reservations():
-    if not reservations:
-        return
-    try:
-        cleanup_directory = tempfile.mkdtemp(
-            prefix=".codex-env-cleanup-", dir=target_root
-        )
-    except OSError:
+    if cleanup_directory is None:
         return
 
     for index, reservation in enumerate(reservations):
         target_path = reservation[3]
         cleanup_path = os.path.join(
-            cleanup_directory, f"{index}-{reservation[0]}"
+            cleanup_directory,
+            f"{reservation[0]}.codex-env-cleanup-{index}",
         )
         try:
             os.rename(target_path, cleanup_path)
@@ -155,6 +151,14 @@ def clean_up_reservations():
         os.rmdir(cleanup_directory)
     except OSError:
         pass
+
+
+def clean_up_cleanup_directory():
+    if cleanup_directory is not None:
+        try:
+            os.rmdir(cleanup_directory)
+        except OSError:
+            pass
 
 
 def clean_up_staging():
@@ -208,6 +212,9 @@ try:
         finally:
             os.close(file_descriptor)
 
+    cleanup_directory = tempfile.mkdtemp(
+        prefix=".codex-env-cleanup-", dir=target_root
+    )
     for filename, source_path, source_stat, staging_path, content_digest in staged_files:
         os.link(staging_path, target_paths[filename], follow_symlinks=False)
         reservations.append(
@@ -242,6 +249,7 @@ except BaseException:
     raise
 else:
     clean_up_staging()
+    clean_up_cleanup_directory()
 ' \
     "$source_tree/src/web" \
     "$worktree_path/src/web"
@@ -349,6 +357,7 @@ source_names = {filename for filename, _, _ in source_files}
 reservations = []
 staged_files = []
 staging_directory = None
+cleanup_directory = None
 
 
 def unreserved_target_exists():
@@ -399,19 +408,14 @@ def reservations_changed():
 
 
 def clean_up_reservations():
-    if not reservations:
-        return
-    try:
-        cleanup_directory = tempfile.mkdtemp(
-            prefix=".codex-env-cleanup-", dir=target_root
-        )
-    except OSError:
+    if cleanup_directory is None:
         return
 
     for index, reservation in enumerate(reservations):
         target_path = reservation[3]
         cleanup_path = os.path.join(
-            cleanup_directory, f"{index}-{reservation[0]}"
+            cleanup_directory,
+            f"{reservation[0]}.codex-env-cleanup-{index}",
         )
         try:
             os.rename(target_path, cleanup_path)
@@ -435,6 +439,14 @@ def clean_up_reservations():
         os.rmdir(cleanup_directory)
     except OSError:
         pass
+
+
+def clean_up_cleanup_directory():
+    if cleanup_directory is not None:
+        try:
+            os.rmdir(cleanup_directory)
+        except OSError:
+            pass
 
 
 def clean_up_staging():
@@ -488,6 +500,9 @@ try:
         finally:
             os.close(file_descriptor)
 
+    cleanup_directory = tempfile.mkdtemp(
+        prefix=".codex-env-cleanup-", dir=target_root
+    )
     for filename, source_path, source_stat, staging_path, content_digest in staged_files:
         os.link(staging_path, target_paths[filename], follow_symlinks=False)
         reservations.append(
@@ -522,6 +537,7 @@ except BaseException:
     raise
 else:
     clean_up_staging()
+    clean_up_cleanup_directory()
 ' \
     "$source_tree/src/web" \
     "$worktree_path/src/web"
