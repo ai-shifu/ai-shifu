@@ -393,7 +393,7 @@ def test_expire_notification_fires_after_commit_and_drops_on_rollback(
     monkeypatch.setattr(
         billing_renewal,
         "_stage_preorder_credit_release_notification",
-        lambda *_args, **_kwargs: "notif-uow-1",
+        lambda *_args, **_kwargs: ("notif-uow-1",),
     )
     enqueued: list[str] = []
     monkeypatch.setattr(
