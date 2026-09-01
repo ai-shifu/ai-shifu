@@ -420,6 +420,10 @@ export const normalizePolicy = (
           ) {
             return null;
           }
+          const ruleBid = readString(value.rule_bid);
+          if (!ruleBid) {
+            return null;
+          }
           const conditions = readRecord(value, 'conditions');
           const thresholds = Array.isArray(conditions.thresholds)
             ? conditions.thresholds
@@ -429,7 +433,7 @@ export const normalizePolicy = (
                 )
             : undefined;
           return {
-            rule_bid: readString(value.rule_bid),
+            rule_bid: ruleBid,
             name: readString(value.name),
             trigger_event: triggerEvent as KnownNotificationType,
             channel: 'sms',

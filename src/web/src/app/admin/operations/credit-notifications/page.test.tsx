@@ -13,6 +13,12 @@ import {
 } from '@/lib/admin-date-time';
 import { toast } from '@/hooks/useToast';
 import AdminOperationCreditNotificationsPage from './page';
+import { normalizePolicy } from './creditNotificationUtils';
+
+Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+  configurable: true,
+  value: jest.fn(),
+});
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -199,10 +205,16 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   DropdownMenuItem: ({
     children,
     onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+    disabled = false,
+  }: React.PropsWithChildren<{ onClick?: () => void; disabled?: boolean }>) => (
     <button
       type='button'
-      onClick={onClick}
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) {
+          onClick?.();
+        }
+      }}
     >
       {children}
     </button>
@@ -1199,6 +1211,139 @@ describe('AdminOperationCreditNotificationsPage', () => {
         name: 'module.operationsCreditNotifications.ruleManagement.saveRule',
       }),
     ).toBeEnabled();
+  });
+
+  it('keeps an in-progress comma-separated expiry window list visible while editing', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-expiring',
+          name: 'Expiry follow-up',
+          trigger_event: 'credit_expiring',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: { windows: ['7d'] },
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    const windowsInput = within(dialog).getByLabelText(
+      'module.operationsCreditNotifications.ruleManagement.fields.windows',
+    );
+    fireEvent.change(windowsInput, { target: { value: '7d,' } });
+    expect(windowsInput).toHaveValue('7d,');
+    fireEvent.change(windowsInput, { target: { value: '7d,3d' } });
+    fireEvent.blur(windowsInput);
+    expect(windowsInput).toHaveValue('7d, 3d');
+  });
+
+  it('clears a rule template when its trigger event changes', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    const [triggerSelect] = within(dialog).getAllByRole('combobox');
+    fireEvent.click(triggerSelect);
+    fireEvent.click(await screen.findByRole('option', { name: 'low_balance' }));
+    fireEvent.click(
+      within(dialog).getByRole('switch', {
+        name: 'module.operationsCreditNotifications.ruleManagement.fields.enabled',
+      }),
+    );
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.saveRule',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rules: [
+            expect.objectContaining({
+              trigger_event: 'low_balance',
+              template_code: '',
+              enabled: false,
+            }),
+          ],
+        }),
+      );
+    });
+  });
+
+  it('does not allow a synthesized legacy rule to be deleted', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      types: {
+        credit_expiring: {
+          enabled: false,
+          template_code: '',
+          windows: ['7d'],
+          merge_same_creator: false,
+        },
+        credit_granted: { enabled: false, template_code: '' },
+        low_balance: {
+          enabled: false,
+          template_code: '',
+          thresholds: [],
+        },
+      },
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'common.core.more' })[0],
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.delete',
+      }),
+    ).toBeDisabled();
+  });
+
+  it('rejects managed rules without a stable rule business id', () => {
+    const policy = normalizePolicy({
+      rules: [
+        {
+          rule_bid: ' ',
+          name: 'Invalid rule',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+
+    expect(policy.rules).toEqual([]);
   });
 
   it('requires confirmation before deleting a managed rule', async () => {
