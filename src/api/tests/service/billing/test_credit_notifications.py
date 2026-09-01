@@ -282,6 +282,7 @@ def _seed_notification_template(
     placeholders: list[str] | None = None,
     template_content: str | None = None,
     sync_status: str = "synced",
+    template_status: str = "AUDIT_STATE_PASS",
 ) -> None:
     resolved_placeholders = placeholders or []
     resolved_content = template_content
@@ -304,7 +305,7 @@ def _seed_notification_template(
             )
         existing.template_name = f"Template {template_code}"
         existing.template_content = resolved_content
-        existing.template_status = "AUDIT_STATE_PASS"
+        existing.template_status = template_status
         existing.template_type = "0"
         existing.variable_attribute_json = {}
         existing.provider_response_json = {"code": "OK"}
@@ -1112,6 +1113,37 @@ def test_credit_notification_policy_allows_synced_template_missing_variables(
     assert policy["types"][CREDIT_NOTIFICATION_TYPE_GRANTED]["template_code"] == (
         "TPL-GRANT-PARTIAL"
     )
+
+
+def test_credit_notification_policy_rejects_unapproved_sms_template(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-PENDING",
+        placeholders=["credits"],
+        template_status="AUDIT_STATE_INIT",
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "rule-grant-pending",
+                        "name": "Grant pending template",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                        "channel": "sms",
+                        "template_code": "TPL-GRANT-PENDING",
+                        "enabled": True,
+                        "conditions": {},
+                    }
+                ],
+            },
+        )
 
 
 def test_credit_notification_policy_revalidates_cached_template_with_provider(

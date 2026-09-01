@@ -1363,6 +1363,10 @@ def _validate_credit_notification_policy_templates(
             raise_param_error(
                 f"rules.{rule.get('rule_bid')}.template_code:{error_code}"
             )
+        if str(result.get("template_status") or "").strip() != "AUDIT_STATE_PASS":
+            raise_param_error(
+                f"rules.{rule.get('rule_bid')}.template_code:template_not_approved"
+            )
         unsupported = [
             str(item or "").strip()
             for item in result.get("unsupported_placeholders", [])

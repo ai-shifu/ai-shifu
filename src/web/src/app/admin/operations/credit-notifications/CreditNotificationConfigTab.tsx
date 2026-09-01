@@ -148,17 +148,13 @@ export function CreditNotificationConfigTab({
           </div>
         </ConfigSection>
 
-        <ConfigSection
-          title={t('module.operationsCreditNotifications.ruleManagement.title')}
-        >
-          <CreditNotificationRuleManagementSection
-            policy={policy}
-            templateOptions={templateOptions}
-            resolveTypeLabel={resolveTypeLabel}
-            updatePolicy={updatePolicy}
-            onRuleAction={onRuleAction}
-          />
-        </ConfigSection>
+        <CreditNotificationRuleManagementSection
+          policy={policy}
+          templateOptions={templateOptions}
+          resolveTypeLabel={resolveTypeLabel}
+          updatePolicy={updatePolicy}
+          onRuleAction={onRuleAction}
+        />
 
         <CreditNotificationDeliveryRulesSection
           policy={policy}
