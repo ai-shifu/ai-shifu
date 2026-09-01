@@ -1051,7 +1051,7 @@ describe('ListenModeSlideRenderer', () => {
     render(
       <ListenModeSlideRenderer
         variant='classroom'
-        followUpMode='live_voice'
+        followUpMode='disabled'
         onLiveVoiceFollowUpStart={onLiveVoiceFollowUpStart}
         items={[
           {
