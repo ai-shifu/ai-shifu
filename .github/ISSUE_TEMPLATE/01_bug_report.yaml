@@ -37,7 +37,6 @@ body:
       description: Please select the product you are experiencing the bug with
       options:
         - AI-Shifu web
-        - AI-Shifu cook
   - type: input
     attributes:
       label: AI-Shifu version

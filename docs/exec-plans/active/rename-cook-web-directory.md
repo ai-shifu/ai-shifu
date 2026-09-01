@@ -80,6 +80,10 @@ migration explicitly replaces them.
   byte-for-byte under `src/web`, rebuilt the generated harness health report
   with both the active rename plan and the newly completed upstream plan, and
   passed 3 focused frontend suites with 45 tests.
+- [x] 2026-09-01: Retired the legacy checkout compatibility layer by removing
+  the frontend environment migration helper, old-path ignore rules, release
+  lockfile fallback, and legacy-path Codex setup. Current checkouts now use
+  `src/web` directly.
 
 ## Surprises & Discoveries
 
@@ -148,6 +152,11 @@ migration explicitly replaces them.
   without overwriting a filename, while dependencies can be recreated safely
   and should not carry stale platform-specific artifacts into the new path.
   Date/Author: 2026-08-30 / Codex
+- Decision: retire the legacy checkout compatibility layer after the frontend
+  directory migration.
+  Rationale: supported checkouts now use `src/web` directly; retaining
+  migration-only paths and fallbacks kept obsolete repository contracts alive.
+  Date/Author: 2026-09-01 / Codex
 
 ## Outcomes & Retrospective
 
@@ -157,37 +166,22 @@ contexts, local helpers, Codex actions, generators, checkers, skills, and
 documentation all resolve that path. The deployment-facing Cook Web image,
 service, cache-scope, and environment-variable names remain unchanged.
 
-The first release after this migration can still compare its MarkdownFlow UI
-pin against a pre-migration tag: `prepare-release.yml` tries the new lockfile
-path first and then the exact historical path. Codex worktree setup accepts
-current, pre-migration, and upgraded source checkouts while always targeting
-`src/web`. The same zero-dependency helper also protects ordinary in-place
-upgrades: when the new path has no supported runtime env file, it copies one
-complete source configuration set with permissions preserved and retains the
-source for rollback. It never mixes sources or overwrites any occupied target
-set, including a dangling symlink. `node_modules` remains an independent,
-manifest-checked Codex worktree optimization; in-place upgrades receive a
-clear `cd src/web && npm ci` hint instead of migrating stale dependencies. Ten
-durable Darwin/Linux fixtures cover current, legacy, upgraded, and mixed-asset
-layouts. The private npm package name remains `cook-web` so old and new
-lockfiles stay byte-identical and compatible dependencies can be reused safely.
+The release workflow reads the current MarkdownFlow UI lockfile path directly.
+Codex worktree setup copies environment files from the current `src/web`
+checkout and reuses compatible dependencies from that same path. Legacy
+checkout migration and old-path artifact compatibility are intentionally no
+longer supported; users must update their checkout and install dependencies
+under `src/web`. The private npm package name remains `cook-web` so the
+deployment-facing package contract stays compatible.
 
-The repository harness now rejects a missing `src/web`, any reintroduced
-tracked legacy path or filename, and every unapproved old-path occurrence. It
-intentionally tolerates ignored legacy artifacts left by existing checkouts.
-The five required compatibility surfaces are checked by exact line and
-occurrence count, so deleting a needed fallback or hiding a new stale path in
-the same file both fail validation. Narrow root ignore rules retain the former
-frontend-local treatment of generated and machine-local artifacts without
-ignoring the legacy directory wholesale; a fixture proves an ordinary source
-file, nested bare `.pnp`, and the four Yarn exception directories remain
-visible.
+The repository harness requires `src/web` and verifies the direct frontend
+development and build entry points. It no longer maintains checks or fixtures
+for legacy checkout migration and old-path artifact ignores.
 
 The local pre-commit trigger includes the ignore rules, Codex environment
-setup, manual and frontend guidance, frontend package and migration inputs,
+setup, manual and frontend guidance, frontend package and Codex setup inputs,
 and its own lefthook configuration in addition to the existing harness
-sources. Future changes to any of the legacy-checkout compatibility inputs now
-run the same path-contract validation locally that CI runs.
+sources.
 
 Verification passed for the full pre-commit hook suite, repository harness,
 architecture fixtures and baseline, YAML/JSON syntax, embedded release Python,
@@ -249,11 +243,9 @@ own generators rather than hand-maintained independently.
 
 The migration is accepted only when all of the following are true:
 
-- `src/web/` exists and no tracked file remains under `src/cook-web/`; ignored
-  local artifacts left by an existing checkout do not invalidate the commit.
+- `src/web/` exists and no tracked file remains under `src/cook-web/`.
 - No tracked file or tracked filename contains a stale `src/cook-web` path
-  outside the explicitly documented source-checkout compatibility fallback,
-  historical release-tag fallback, and this migration record.
+  outside this migration record.
 - GitHub workflow path filters, cache inputs, working directories, release bump
   paths, and runtime artifact paths all use `src/web`.
 - Repository generators run successfully and a second run is deterministic.
@@ -271,10 +263,11 @@ The migration is accepted only when all of the following are true:
 ## Idempotence and Recovery
 
 The path replacement and generators must be safe to rerun. If a generator
-reintroduces `src/cook-web`, fix its source template and regenerate instead of
-editing only the output. If a runtime validation fails because local services
-or secrets are unavailable, preserve the repository changes, capture the exact
-failure, and distinguish an environment blocker from a path regression.
+reintroduces a removed migration-only surface, fix its source template and
+regenerate instead of editing only the output. If a runtime validation fails
+because local services or secrets are unavailable, preserve the repository
+changes, capture the exact failure, and distinguish an environment blocker
+from a path regression.
 
 The rename is recoverable through Git because it is performed as a tracked
 move on a dedicated branch. Local ignored frontend assets such as `.env`,

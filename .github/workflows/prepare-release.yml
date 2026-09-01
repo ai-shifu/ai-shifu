@@ -556,7 +556,6 @@ jobs:
                   "name": "markdown-flow-ui",
                   "repo": "ai-shifu/markdown-flow-ui",
                   "path": "src/web/package-lock.json",
-                  "legacy_path": "src/cook-web/package-lock.json",
                   "type": "package_lock",
                   "registry": "npm",
               },
@@ -868,15 +867,6 @@ jobs:
               repo = dependency["repo"]
               path = dependency["path"]
               previous_source = git_show(PREV_TAG, path)
-              legacy_path = dependency.get("legacy_path", "")
-              if not previous_source and legacy_path:
-                  previous_source = git_show(PREV_TAG, legacy_path)
-                  if previous_source:
-                      print(
-                          f"Using legacy dependency path {legacy_path} "
-                          f"for {name} at {PREV_TAG}",
-                          file=sys.stderr,
-                      )
               previous_version = extract_version(previous_source, dependency)
               current_version = extract_version(read_current(path), dependency)
 
