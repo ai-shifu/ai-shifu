@@ -108,8 +108,11 @@ GEMINI_LIVE_ENABLED=true
 
 Production ingress must preserve WebSocket `Upgrade` and `Connection` headers,
 allow at least 75 seconds of idle read/write time, and use HTTPS so the
-microphone and Secure session cookie are available. Disable the flag to roll
-back Live without changing courses that use text follow-up models.
+microphone and Secure session cookie are available. It must expose both the
+Live session POST and WebSocket path through the Cook Web browser origin; the
+strict, exact-path HttpOnly ticket is intentionally never sent through a
+cross-site browser connection. Disable the flag to roll back Live without
+changing courses that use text follow-up models.
 
 ### Step 4: Build Latest Docker Images & Start the Stack
 

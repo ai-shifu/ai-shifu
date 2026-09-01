@@ -19,6 +19,8 @@ import { useToast } from '@/hooks/useToast';
 import type { ModelOption } from '@/types/shifu';
 import type { FollowUpVoice } from '@/lib/liveVoiceFollowUp';
 
+import { getLiveVoiceStyleI18nKey } from './live-voice-style';
+
 type AskPreviewMeta = {
   provider: string;
   requestedProvider: string;
@@ -162,16 +164,23 @@ export default function AskSettingsSection({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {liveVoices.map(voice => (
-                      <SelectItem
-                        key={voice.voice_id}
-                        value={voice.voice_id}
-                      >
-                        {voice.voice_id}
-                        {VOICE_STYLE_SEPARATOR}
-                        {voice.style}
-                      </SelectItem>
-                    ))}
+                    {liveVoices.map(voice => {
+                      const styleKey = getLiveVoiceStyleI18nKey(voice.style);
+                      return (
+                        <SelectItem
+                          key={voice.voice_id}
+                          value={voice.voice_id}
+                        >
+                          {voice.voice_id}
+                          {styleKey && (
+                            <>
+                              {VOICE_STYLE_SEPARATOR}
+                              {t(styleKey)}
+                            </>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

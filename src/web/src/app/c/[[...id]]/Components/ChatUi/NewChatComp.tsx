@@ -109,6 +109,7 @@ import { LiveVoiceFollowUpDialog } from '@/components/live-follow-up/LiveVoiceFo
 import { useLiveVoiceFollowUp } from '@/components/live-follow-up/useLiveVoiceFollowUp';
 import {
   hasLiveVoiceFollowUpHistory,
+  resolveFollowUpPresentationMode,
   resolveLiveVoiceFollowUpAvailability,
   shouldPauseCourseAudioForLiveVoice,
 } from './liveVoiceFollowUpMode';
@@ -1402,10 +1403,15 @@ export const NewChatComponents = ({
               onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
               pausePlaybackWhen={reGenerateConfirm.open}
               disableInteractionEdits={isOutputInProgress}
-              followUpMode={
-                isLiveVoiceFollowUpConfigured ? 'live_voice' : 'text'
+              followUpMode={resolveFollowUpPresentationMode({
+                configured: isLiveVoiceFollowUpConfigured,
+                supported: isLiveVoiceFollowUpSupported,
+              })}
+              onLiveVoiceFollowUpStart={
+                isLiveVoiceFollowUpSupported
+                  ? handleListenLiveVoiceStart
+                  : undefined
               }
-              onLiveVoiceFollowUpStart={handleListenLiveVoiceStart}
               pausePlaybackForLiveVoice={shouldPauseCourseAudioForLiveVoice({
                 open: liveVoiceFollowUp.open,
                 state: liveVoiceFollowUp.state,

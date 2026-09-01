@@ -86,16 +86,38 @@ export type LiveFollowUpServerMessage =
       reason: string;
     };
 
+const resolveLiveFollowUpTransportBaseUrl = (): URL => {
+  const rawBaseUrl =
+    typeof window !== 'undefined'
+      ? window.location?.origin
+      : getResolvedBaseURL();
+
+  if (!rawBaseUrl) {
+    throw new Error('Live follow-up transport origin is unavailable');
+  }
+
+  const baseUrl = new URL(rawBaseUrl);
+  if (baseUrl.protocol !== 'http:' && baseUrl.protocol !== 'https:') {
+    throw new Error('Live follow-up transport origin is invalid');
+  }
+  return new URL(baseUrl.origin);
+};
+
 export const createLiveFollowUpSession = (
   shifuBid: string,
   outlineBid: string,
   payload: LiveFollowUpSessionRequest,
-): Promise<LiveFollowUpSession> =>
-  request.post(
-    `/api/learn/shifu/${encodeURIComponent(shifuBid)}/live-follow-up/${encodeURIComponent(outlineBid)}/session`,
-    payload,
-    { skipErrorToast: true, credentials: 'include' },
-  ) as Promise<LiveFollowUpSession>;
+): Promise<LiveFollowUpSession> => {
+  const sessionPath = `/api/learn/shifu/${encodeURIComponent(shifuBid)}/live-follow-up/${encodeURIComponent(outlineBid)}/session`;
+  const sessionUrl = new URL(
+    sessionPath,
+    resolveLiveFollowUpTransportBaseUrl(),
+  ).toString();
+  return request.post(sessionUrl, payload, {
+    skipErrorToast: true,
+    credentials: 'include',
+  }) as Promise<LiveFollowUpSession>;
+};
 
 export const getFollowUpModelCatalog = (): Promise<
   FollowUpModelCatalogItem[]
@@ -105,10 +127,7 @@ export const getFollowUpModelCatalog = (): Promise<
   }) as Promise<FollowUpModelCatalogItem[]>;
 
 export const resolveLiveFollowUpWebSocketUrl = (wsPath: string): string => {
-  const apiBaseUrl = getResolvedBaseURL();
-  const fallbackBaseUrl =
-    typeof window !== 'undefined' ? window.location.origin : '';
-  const baseUrl = new URL(apiBaseUrl || fallbackBaseUrl);
+  const baseUrl = resolveLiveFollowUpTransportBaseUrl();
   const url = new URL(wsPath, baseUrl);
   if (
     !url.pathname.startsWith('/api/learn/live-follow-up/ws/') ||

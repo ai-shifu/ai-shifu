@@ -43,6 +43,11 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
       `lefthook run pre-commit --all-files` gate passed, including generated
       documentation, shared translation, architecture, Ruff, ESLint, and
       Prettier checks.
+- [x] 2026-09-02 07:18 CST: Hardened review-discovered browser edges: the Live
+      POST and WebSocket now form one same-origin transport pair, microphone
+      PCM waits for upstream readiness, classroom mode exposes no inert or
+      text-fallback entry, and all official voice styles use five-locale keys;
+      the integrated focused frontend suite now passes 146 tests.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and
@@ -81,6 +86,11 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
   transcription, and can attach final usage to a `GoAway` envelope. Interim
   hypotheses replace the browser draft but never enter history; every envelope
   is reconciled before recovery or termination.
+- A host-only `SameSite=Strict` ticket cannot authenticate a browser WebSocket
+  on a genuinely different site. Cook Web therefore resolves both the session
+  POST and WebSocket path against its browser origin and relies on the ingress
+  to proxy both paths. The bundled Nginx already owns that topology; custom
+  production ingress verification remains a rollout gate.
 
 ## Decision Log
 
@@ -115,6 +125,11 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
   is fail-closed only for Live.
   - Why: a WebSocket cannot rely on the ordinary bearer-header flow, and the
     raw credential must never enter URLs, JavaScript, logs, or analytics.
+- Decision: treat the session POST and browser WebSocket as a same-origin
+  transport pair even when ordinary API requests use a configured API origin.
+  - Why: this preserves the exact-path HttpOnly `SameSite=Strict` ticket and
+    Origin binding without exposing it to JavaScript or weakening it to a
+    third-party cookie; custom ingress must proxy both Live paths together.
 - Decision: run Gunicorn gthread with four workers and 16 threads per worker;
   cap Live at six sessions per worker, 24 globally, and one per user using
   Redis leases renewed every 15 seconds with a 45-second expiry.
@@ -149,7 +164,7 @@ tickets, capacity leases, recovery safeguards, deterministic persistence, and
 explicit analytics/privacy contracts.
 
 Automated evidence currently consists of 247 focused backend tests (one
-skipped), 142 focused frontend tests, TypeScript, frontend lint, i18n key
+skipped), 146 focused frontend tests, TypeScript, frontend lint, i18n key
 generation, Ruff, the repository architecture boundary check, and the complete
 repository pre-commit gate. Production
 enablement remains intentionally blocked on the unchecked environment gates

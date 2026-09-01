@@ -440,7 +440,11 @@ export const useLiveVoiceFollowUp = ({
       try {
         audioPromise = LiveVoiceFollowUpAudio.activate({
           onInputFrame: frame => {
-            if (attemptRef.current?.generation === generation) {
+            const currentAttempt = attemptRef.current;
+            if (
+              currentAttempt?.generation === generation &&
+              currentAttempt.serverVoiceState !== null
+            ) {
               sendWebSocketPayload(websocketRef.current, frame);
             }
           },

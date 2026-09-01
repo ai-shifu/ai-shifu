@@ -384,6 +384,30 @@ describe('useLiveVoiceFollowUp', () => {
     ).toHaveLength(1);
   });
 
+  it('drops microphone frames until the server is ready for live audio', async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+
+    const callbacks = mockActivateAudio.mock.calls[0][0] as {
+      onInputFrame: (frame: ArrayBuffer) => void;
+    };
+    const setupFrame = new ArrayBuffer(8);
+    act(() => callbacks.onInputFrame(setupFrame));
+
+    expect(mockSockets[0].send).not.toHaveBeenCalled();
+
+    const readyFrame = new ArrayBuffer(16);
+    act(() => {
+      mockSockets[0].message({ type: 'state', state: 'listening' });
+      callbacks.onInputFrame(readyFrame);
+    });
+
+    expect(mockSockets[0].send).toHaveBeenCalledTimes(1);
+    expect(mockSockets[0].send).toHaveBeenCalledWith(readyFrame);
+  });
+
   it('reports failure when transport opens but the server rejects the session', async () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'start' }));

@@ -6,6 +6,7 @@ import {
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
 import {
   hasLiveVoiceFollowUpHistory,
+  resolveFollowUpPresentationMode,
   resolveLiveVoiceFollowUpAvailability,
   shouldPauseCourseAudioForLiveVoice,
 } from './liveVoiceFollowUpMode';
@@ -85,12 +86,17 @@ describe('NewChatComp mode projections', () => {
   });
 
   it('keeps classroom Live follow-up configured but unsupported without text fallback', () => {
-    expect(
-      resolveLiveVoiceFollowUpAvailability({
-        followUpMode: 'live_voice',
-        isClassroomMode: true,
-      }),
-    ).toEqual({ configured: true, supported: false });
+    const classroomLiveAvailability = resolveLiveVoiceFollowUpAvailability({
+      followUpMode: 'live_voice',
+      isClassroomMode: true,
+    });
+    expect(classroomLiveAvailability).toEqual({
+      configured: true,
+      supported: false,
+    });
+    expect(resolveFollowUpPresentationMode(classroomLiveAvailability)).toBe(
+      'disabled',
+    );
     expect(
       resolveLiveVoiceFollowUpAvailability({
         followUpMode: 'text',

@@ -12,6 +12,21 @@ export const resolveLiveVoiceFollowUpAvailability = ({
   };
 };
 
+export type FollowUpPresentationMode = 'text' | 'live_voice' | 'disabled';
+
+export const resolveFollowUpPresentationMode = ({
+  configured,
+  supported,
+}: {
+  configured: boolean;
+  supported: boolean;
+}): FollowUpPresentationMode => {
+  if (!configured) {
+    return 'text';
+  }
+  return supported ? 'live_voice' : 'disabled';
+};
+
 export const hasLiveVoiceFollowUpHistory = (askList: unknown): boolean =>
   Array.isArray(askList) && askList.length > 0;
 

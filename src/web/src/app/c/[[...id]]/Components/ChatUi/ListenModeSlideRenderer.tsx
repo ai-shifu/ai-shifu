@@ -73,6 +73,7 @@ import {
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 import LearnerCourseShareButton from '../LearnerCourseShareButton';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import type { FollowUpPresentationMode } from './liveVoiceFollowUpMode';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -192,7 +193,7 @@ interface ListenModeSlideRendererProps {
   pausePlaybackForLiveVoice?: boolean;
   restorePlaybackAfterLiveVoice?: boolean;
   disableInteractionEdits?: boolean;
-  followUpMode?: 'text' | 'live_voice';
+  followUpMode?: FollowUpPresentationMode;
   onLiveVoiceFollowUpStart?: (elementBid: string) => void;
 }
 
@@ -1156,6 +1157,7 @@ const ListenModeSlideRenderer = ({
   ]);
   const isAskActionDisabled = currentAskTargetElement?.type === 'interaction';
   const isLiveVoiceFollowUp = followUpMode === 'live_voice';
+  const isFollowUpDisabled = followUpMode === 'disabled';
 
   const pauseCourseAudioForLiveVoice = useCallback(() => {
     const audioContainers = [
@@ -1933,6 +1935,10 @@ const ListenModeSlideRenderer = ({
         />
       );
 
+      if (isFollowUpDisabled) {
+        return playbackSpeedAction;
+      }
+
       if (mobileStyle) {
         return (
           <>
@@ -1974,6 +1980,7 @@ const ListenModeSlideRenderer = ({
       handleListenPlaybackSpeedChange,
       handlePlayerCustomActionContextChange,
       isAskActionDisabled,
+      isFollowUpDisabled,
       isLiveVoiceFollowUp,
       mobileStyle,
       playbackSpeed,
@@ -1983,7 +1990,10 @@ const ListenModeSlideRenderer = ({
   );
 
   const shouldRenderMobileAskEntry =
-    showMobileAskEntry && mobileStyle && !shouldRenderEmptyPpt;
+    showMobileAskEntry &&
+    !isFollowUpDisabled &&
+    mobileStyle &&
+    !shouldRenderEmptyPpt;
   const isMobileFullscreen = mobileViewMode === 'fullscreen';
   const fullscreenHeaderContent = useMemo(() => {
     if (!courseName && !sectionTitle) {
@@ -2131,12 +2141,14 @@ const ListenModeSlideRenderer = ({
 
   const shouldRenderDesktopAskOverlay =
     showAskOverlays &&
+    !isFollowUpDisabled &&
     !isLiveVoiceFollowUp &&
     isDesktopAskPanelMounted &&
     !mobileStyle &&
     !shouldRenderEmptyPpt;
   const shouldRenderMobileAskPanel =
     showAskOverlays &&
+    !isFollowUpDisabled &&
     !isLiveVoiceFollowUp &&
     isMobileAskPanelMounted &&
     !shouldRenderEmptyPpt;
