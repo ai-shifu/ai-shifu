@@ -330,7 +330,8 @@ def _stale_path_is_in_allowed_context(
     step_end = len(lines)
     for index in range(step_start + 1, len(lines)):
         line = lines[index]
-        if line.startswith(" " * step_indent) and line.strip().startswith("- name:"):
+        line_indent = len(line) - len(line.lstrip())
+        if line_indent == step_indent and line.strip().startswith("- name:"):
             step_end = index
             break
 
@@ -370,8 +371,6 @@ def check_frontend_path_contract(errors: list[str]) -> None:
             text = path.read_bytes().decode("utf-8", errors="surrogateescape")
         except OSError as error:
             errors.append(f"Unable to scan tracked file {path}: {error}")
-            continue
-        if STALE_FRONTEND_PATH not in text:
             continue
 
         actual_occurrences: dict[str, int] = {}
