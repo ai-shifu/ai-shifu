@@ -36,6 +36,15 @@ from generate_ai_collab_docs import (
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = ROOT / "src" / "web"
 CODEX_ENVIRONMENT = ROOT / ".codex" / "environments" / "environment.toml"
+STALE_FRONTEND_PATH = "src/" + "cook-web"
+STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
+    Path("docs/exec-plans/active/rename-cook-web-directory.md"),
+}
+STALE_FRONTEND_PATH_LINE_ALLOWLIST = {
+    Path(".github/workflows/prepare-release.yml"): {
+        f'"legacy_path": "{STALE_FRONTEND_PATH}/package-lock.json",': 1,
+    },
+}
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
 HARNESS_HEALTH = DOCS_ROOT / "generated" / "harness-health.md"
 PR_REVIEW_SCOPE_MARKERS = (
@@ -295,9 +304,53 @@ def check_root_docs(errors: list[str]) -> None:
 
 
 def check_frontend_path_contract(errors: list[str]) -> None:
-    """Require the current web frontend path."""
+    """Require the current web frontend path and guard stale path additions."""
     if not FRONTEND_ROOT.is_dir():
         errors.append(f"Missing web frontend directory: {FRONTEND_ROOT}")
+
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        errors.append(f"Unable to enumerate tracked files for path validation: {error}")
+        return
+
+    for raw_path in result.stdout.split(b"\0"):
+        if not raw_path:
+            continue
+        relative_path = Path(raw_path.decode("utf-8", errors="surrogateescape"))
+        if STALE_FRONTEND_PATH in relative_path.as_posix():
+            errors.append(f"Stale frontend path in tracked filename: {relative_path}")
+
+        path = ROOT / relative_path
+        if not path.is_file():
+            continue
+        if relative_path in STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if STALE_FRONTEND_PATH not in text:
+            continue
+
+        actual_occurrences: dict[str, int] = {}
+        for line in text.splitlines():
+            if STALE_FRONTEND_PATH in line:
+                stripped_line = line.strip()
+                actual_occurrences[stripped_line] = (
+                    actual_occurrences.get(stripped_line, 0) + 1
+                )
+        expected_occurrences = STALE_FRONTEND_PATH_LINE_ALLOWLIST.get(relative_path, {})
+        if actual_occurrences != expected_occurrences:
+            errors.append(
+                f"Unexpected stale frontend path occurrences in {path}: "
+                f"expected {expected_occurrences}, got {actual_occurrences}"
+            )
 
 
 def check_frontend_runtime_contract(errors: list[str]) -> None:
