@@ -289,6 +289,37 @@ describe('useAuth login analytics contract', () => {
     );
   });
 
+  it.each([1013, 1014])(
+    'classifies rejected email verification error %s as rejected credentials',
+    async businessCode => {
+      const rejectedError = Object.assign(
+        new Error('private email verification detail'),
+        { code: businessCode },
+      );
+      mockEmailLogin.mockRejectedValue(rejectedError);
+      const { result } = renderHook(() => useAuth());
+
+      await act(async () => {
+        await expect(
+          result.current.loginWithEmailCode(
+            'private@example.com',
+            '0000',
+            'en-US',
+          ),
+        ).rejects.toBe(rejectedError);
+      });
+
+      expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_result', {
+        login_method: 'email',
+        outcome: 'failed',
+        failure_category: 'credentials_rejected',
+      });
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'private email verification detail',
+      );
+    },
+  );
+
   it('surfaces email rate limiting as a stable result without a generic toast', async () => {
     mockSendEmailCode.mockResolvedValue({
       code: 1033,

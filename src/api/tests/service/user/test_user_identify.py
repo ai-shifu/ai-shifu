@@ -1251,7 +1251,7 @@ def test_email_flow_invalidates_code_after_five_failed_attempts(app: object) -> 
                     email=email,
                     code="0000",
                 )
-            assert exc_info.value.code == ERROR_CODE["server.common.unknownError"]
+            assert exc_info.value.code == ERROR_CODE["server.user.mailCheckError"]
 
         assert fake_redis.values[attempt_key] == 5
         assert code_key not in fake_redis.values
@@ -1263,7 +1263,7 @@ def test_email_flow_invalidates_code_after_five_failed_attempts(app: object) -> 
                 email=email,
                 code=code,
             )
-        assert exc_info.value.code == ERROR_CODE["server.common.unknownError"]
+        assert exc_info.value.code == ERROR_CODE["server.user.mailSendExpired"]
 
         updated = UserVerifyCode.query.filter_by(id=record.id).first()
         assert updated is not None

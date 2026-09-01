@@ -9,6 +9,8 @@
   "server.user.smsSendTooFrequent": 1012,
   "server.user.smsSendExpired": 1013,
   "server.user.smsCheckError": 1014,
+  "server.user.mailSendExpired": 1013,
+  "server.user.mailCheckError": 1014,
   "server.user.googleOAuthStateInvalid": 1015,
   "server.user.invalidCredentials": 1016,
   "server.user.passwordAlreadySet": 1017,
