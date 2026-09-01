@@ -11,6 +11,9 @@ set -eu
 
 source_tree="${CODEX_SOURCE_TREE_PATH:-}"
 worktree_path="${CODEX_WORKTREE_PATH:-$(pwd)}"
+frontend_env_filenames=".env .env.local .env.development .env.development.local .env.production .env.production.local .env.test .env.test.local"
+source_env_files=""
+reserved_env_files=""
 
 copy_local_env() {
   source_file="$1"
@@ -21,17 +24,34 @@ copy_local_env() {
   fi
 }
 
+cleanup_frontend_env_reservations() {
+  for env_filename in $reserved_env_files
+  do
+    target_file="$worktree_path/src/web/$env_filename"
+    if [ -f "$target_file" ] && [ ! -L "$target_file" ]; then
+      rm -f "$target_file"
+    fi
+  done
+}
+
+check_unreserved_frontend_env_files() {
+  for env_filename in $frontend_env_filenames
+  do
+    case " $source_env_files " in
+      *" $env_filename "*) ;;
+      *)
+        target_file="$worktree_path/src/web/$env_filename"
+        if [ -e "$target_file" ] || [ -L "$target_file" ]; then
+          return 1
+        fi
+        ;;
+    esac
+  done
+}
+
 copy_frontend_env() {
   source_env_files=""
-  for env_filename in \
-    .env \
-    .env.local \
-    .env.development \
-    .env.development.local \
-    .env.production \
-    .env.production.local \
-    .env.test \
-    .env.test.local
+  for env_filename in $frontend_env_filenames
   do
     source_file="$source_tree/src/web/$env_filename"
     if [ -f "$source_file" ]; then
@@ -39,15 +59,11 @@ copy_frontend_env() {
     fi
   done
 
-  for env_filename in \
-    .env \
-    .env.local \
-    .env.development \
-    .env.development.local \
-    .env.production \
-    .env.production.local \
-    .env.test \
-    .env.test.local
+  if [ -z "$source_env_files" ]; then
+    return
+  fi
+
+  for env_filename in $frontend_env_filenames
   do
     target_file="$worktree_path/src/web/$env_filename"
     if [ -e "$target_file" ] || [ -L "$target_file" ]; then
@@ -55,12 +71,42 @@ copy_frontend_env() {
     fi
   done
 
+  reserved_env_files=""
   for env_filename in $source_env_files
   do
-    copy_local_env \
-      "$source_tree/src/web/$env_filename" \
-      "$worktree_path/src/web/$env_filename"
+    target_file="$worktree_path/src/web/$env_filename"
+    if ! (set -C; : > "$target_file") 2>/dev/null; then
+      cleanup_frontend_env_reservations
+      reserved_env_files=""
+      return
+    fi
+    reserved_env_files="$reserved_env_files $env_filename"
   done
+
+  if ! check_unreserved_frontend_env_files; then
+    cleanup_frontend_env_reservations
+    reserved_env_files=""
+    return
+  fi
+
+  for env_filename in $source_env_files
+  do
+    if ! cp -p \
+      "$source_tree/src/web/$env_filename" \
+      "$worktree_path/src/web/$env_filename"; then
+      cleanup_frontend_env_reservations
+      reserved_env_files=""
+      return 1
+    fi
+  done
+
+  if ! check_unreserved_frontend_env_files; then
+    cleanup_frontend_env_reservations
+    reserved_env_files=""
+    return
+  fi
+
+  reserved_env_files=""
 }
 
 reuse_directory_if_compatible() {
@@ -107,6 +153,9 @@ set -eu
 
 source_tree="${CODEX_SOURCE_TREE_PATH:-}"
 worktree_path="${CODEX_WORKTREE_PATH:-$(pwd)}"
+frontend_env_filenames=".env .env.local .env.development .env.development.local .env.production .env.production.local .env.test .env.test.local"
+source_env_files=""
+reserved_env_files=""
 
 copy_local_env() {
   source_file="$1"
@@ -117,17 +166,34 @@ copy_local_env() {
   fi
 }
 
+cleanup_frontend_env_reservations() {
+  for env_filename in $reserved_env_files
+  do
+    target_file="$worktree_path/src/web/$env_filename"
+    if [ -f "$target_file" ] && [ ! -L "$target_file" ]; then
+      rm -f "$target_file"
+    fi
+  done
+}
+
+check_unreserved_frontend_env_files() {
+  for env_filename in $frontend_env_filenames
+  do
+    case " $source_env_files " in
+      *" $env_filename "*) ;;
+      *)
+        target_file="$worktree_path/src/web/$env_filename"
+        if [ -e "$target_file" ] || [ -L "$target_file" ]; then
+          return 1
+        fi
+        ;;
+    esac
+  done
+}
+
 copy_frontend_env() {
   source_env_files=""
-  for env_filename in \
-    .env \
-    .env.local \
-    .env.development \
-    .env.development.local \
-    .env.production \
-    .env.production.local \
-    .env.test \
-    .env.test.local
+  for env_filename in $frontend_env_filenames
   do
     source_file="$source_tree/src/web/$env_filename"
     if [ -f "$source_file" ]; then
@@ -135,15 +201,11 @@ copy_frontend_env() {
     fi
   done
 
-  for env_filename in \
-    .env \
-    .env.local \
-    .env.development \
-    .env.development.local \
-    .env.production \
-    .env.production.local \
-    .env.test \
-    .env.test.local
+  if [ -z "$source_env_files" ]; then
+    return
+  fi
+
+  for env_filename in $frontend_env_filenames
   do
     target_file="$worktree_path/src/web/$env_filename"
     if [ -e "$target_file" ] || [ -L "$target_file" ]; then
@@ -151,12 +213,42 @@ copy_frontend_env() {
     fi
   done
 
+  reserved_env_files=""
   for env_filename in $source_env_files
   do
-    copy_local_env \
-      "$source_tree/src/web/$env_filename" \
-      "$worktree_path/src/web/$env_filename"
+    target_file="$worktree_path/src/web/$env_filename"
+    if ! (set -C; : > "$target_file") 2>/dev/null; then
+      cleanup_frontend_env_reservations
+      reserved_env_files=""
+      return
+    fi
+    reserved_env_files="$reserved_env_files $env_filename"
   done
+
+  if ! check_unreserved_frontend_env_files; then
+    cleanup_frontend_env_reservations
+    reserved_env_files=""
+    return
+  fi
+
+  for env_filename in $source_env_files
+  do
+    if ! cp -p \
+      "$source_tree/src/web/$env_filename" \
+      "$worktree_path/src/web/$env_filename"; then
+      cleanup_frontend_env_reservations
+      reserved_env_files=""
+      return 1
+    fi
+  done
+
+  if ! check_unreserved_frontend_env_files; then
+    cleanup_frontend_env_reservations
+    reserved_env_files=""
+    return
+  fi
+
+  reserved_env_files=""
 }
 
 reuse_directory_if_compatible() {
