@@ -131,8 +131,16 @@ def clean_up_reservations():
         )
         try:
             os.rename(target_path, cleanup_path)
-        except OSError:
+        except FileNotFoundError:
+            if os.path.lexists(target_path):
+                raise RuntimeError(
+                    "failed to quarantine a frontend environment file"
+                )
             continue
+        except OSError as error:
+            raise RuntimeError(
+                "failed to quarantine a frontend environment file"
+            ) from error
         if reservation_matches_path(reservation, cleanup_path):
             try:
                 os.unlink(cleanup_path)
@@ -425,8 +433,16 @@ def clean_up_reservations():
         )
         try:
             os.rename(target_path, cleanup_path)
-        except OSError:
+        except FileNotFoundError:
+            if os.path.lexists(target_path):
+                raise RuntimeError(
+                    "failed to quarantine a frontend environment file"
+                )
             continue
+        except OSError as error:
+            raise RuntimeError(
+                "failed to quarantine a frontend environment file"
+            ) from error
         if reservation_matches_path(reservation, cleanup_path):
             try:
                 os.unlink(cleanup_path)
