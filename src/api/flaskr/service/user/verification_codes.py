@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal
 
 from flaskr.common.cache_provider import CacheLock, CacheProvider
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.cache_provider import redis_cache as distributed_lock_cache
 from flaskr.common.config import get_redis_derived_prefix, get_redis_key_prefix
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -102,6 +103,7 @@ def verification_code_lock(
 ) -> Iterator[CacheProvider]:
     """Serialize challenge issuance and consumption for one identifier."""
     cache = cache_provider or redis
+    lock_provider = cache_provider or distributed_lock_cache
     if kind == "email":
         lock_identifier = (identifier or "").strip().lower()
         lock_error = "server.user.mailSendExpired"
@@ -111,13 +113,17 @@ def verification_code_lock(
     if not lock_identifier:
         raise_param_error("identifier")
 
-    lock = cache.lock(
-        f"{_verification_attempt_key(app, kind, lock_identifier)}:lock",
-        timeout=VERIFICATION_LOCK_TIMEOUT_SECONDS,
-        blocking_timeout=5,
-        thread_local=False,
-    )
-    acquired = bool(lock.acquire(blocking=True, blocking_timeout=5))
+    try:
+        lock = lock_provider.lock(
+            f"{_verification_attempt_key(app, kind, lock_identifier)}:lock",
+            timeout=VERIFICATION_LOCK_TIMEOUT_SECONDS,
+            blocking_timeout=5,
+            thread_local=False,
+        )
+        acquired = bool(lock.acquire(blocking=True, blocking_timeout=5))
+    except Exception:
+        app.logger.exception("Failed to acquire distributed verification code lock")
+        raise_error(lock_error)
     if not acquired:
         raise_error(lock_error)
     stop_event = threading.Event()
@@ -286,7 +292,7 @@ def consume_verification_code(
         app,
         kind=kind,
         identifier=identifier,
-        cache_provider=cache,
+        cache_provider=cache_provider,
     ):
         _consume_verification_code_locked(
             app,

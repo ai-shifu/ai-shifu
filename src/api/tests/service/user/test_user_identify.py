@@ -11,10 +11,12 @@ class _FakeRedisLock:
         self,
         locks: dict[str, bool],
         key: str,
+        acquire_outcome: bool | Exception = True,
         extend_outcome: bool | Exception = True,
     ) -> None:
         self._locks = locks
         self._key = key
+        self._acquire_outcome = acquire_outcome
         self._extend_outcome = extend_outcome
         self._held = False
         self.extend_calls: list[tuple[int, bool]] = []
@@ -24,6 +26,10 @@ class _FakeRedisLock:
         self, blocking: bool = True, blocking_timeout: int | None = None
     ) -> bool:
         _ = (blocking, blocking_timeout)
+        if isinstance(self._acquire_outcome, Exception):
+            raise self._acquire_outcome
+        if not self._acquire_outcome:
+            return False
         if self._locks.get(self._key, False):
             return False
         self._locks[self._key] = True
@@ -48,9 +54,11 @@ class _FakeRedis:
         self,
         values: object = None,
         *,
+        lock_acquire_outcome: bool | Exception = True,
         lock_extend_outcome: bool | Exception = True,
     ) -> None:
         self.values = dict(values or {})
+        self.lock_acquire_outcome = lock_acquire_outcome
         self.lock_extend_outcome = lock_extend_outcome
         self.deleted = []
         self.locks: dict[str, bool] = {}
@@ -96,6 +104,7 @@ class _FakeRedis:
         self.last_lock = _FakeRedisLock(
             self.locks,
             key,
+            self.lock_acquire_outcome,
             self.lock_extend_outcome,
         )
         return self.last_lock
@@ -473,6 +482,11 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     captured_records: list[dict[str, object]] = []
     lock_observations: list[bool] = []
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(
+        verification_codes,
+        "distributed_lock_cache",
+        fake_redis,
+    )
     monkeypatch.setattr(user_utils.time, "time", lambda: 100)
     monkeypatch.setattr(
         user_utils.secrets,
@@ -955,6 +969,37 @@ def test_verification_code_lock_renews_redis_lease(
         for call in lock.extend_calls
     )
     assert not fake_redis.locks
+
+
+def test_verification_code_lock_does_not_use_process_local_fallback(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
+
+    email = "learner@example.com"
+    code = "2468"
+    fallback_cache = _FakeRedis(
+        {app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email: code}
+    )
+    distributed_cache = _FakeRedis(lock_acquire_outcome=ConnectionError())
+    monkeypatch.setattr(verification_codes, "redis", fallback_cache)
+    monkeypatch.setattr(
+        verification_codes,
+        "distributed_lock_cache",
+        distributed_cache,
+    )
+
+    with app.app_context(), pytest.raises(AppError):
+        verification_codes.consume_verification_code(
+            app,
+            identifier=email,
+            code=code,
+        )
+
+    assert distributed_cache.last_lock is not None
+    assert fallback_cache.last_lock is None
 
 
 @pytest.mark.parametrize(
