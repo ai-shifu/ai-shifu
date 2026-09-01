@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from flaskr.common.cache_provider import cache as redis
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
@@ -54,7 +53,6 @@ def verify_email_code(
         app,
         identifier=email_key,
         code=code,
-        cache_provider=redis,
     )
 
     normalized_email = email_key.lower() if email_key else ""
