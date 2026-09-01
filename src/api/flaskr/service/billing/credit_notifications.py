@@ -85,6 +85,7 @@ LOW_BALANCE_ESTIMATED_DAYS_MAX_LOOKBACK_DAYS = 365
 NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN = "aliyun"
 ALIYUN_TEMPLATE_LIST_PAGE_SIZE = 50
 ALIYUN_TEMPLATE_LIST_MAX_PAGES = 100
+NOTIFICATION_TEMPLATE_APPROVAL_MAX_AGE = timedelta(hours=24)
 NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED = "synced"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER = "failed_provider"
 CREDIT_NOTIFICATION_STATUS_SKIPPED = "skipped"
@@ -1040,6 +1041,22 @@ def _serialize_notification_template(
     }
 
 
+def _has_current_template_approval(
+    template: NotificationTemplate,
+    *,
+    now: datetime,
+) -> bool:
+    last_synced_at = template.last_synced_at
+    if last_synced_at is None:
+        return False
+    if now.tzinfo is not None:
+        now = now.astimezone(UTC).replace(tzinfo=None)
+    if last_synced_at.tzinfo is not None:
+        last_synced_at = last_synced_at.astimezone(UTC).replace(tzinfo=None)
+    approval_age = now - last_synced_at
+    return timedelta(0) <= approval_age <= NOTIFICATION_TEMPLATE_APPROVAL_MAX_AGE
+
+
 def _mark_template_sync_failed(
     template: NotificationTemplate,
     *,
@@ -1328,6 +1345,7 @@ def _ensure_credit_notification_template_compatible(
             template is not None
             and template.sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
             and not _aliyun_sms_credentials_configured(app)
+            and _has_current_template_approval(template, now=now_utc())
         ):
             return _serialize_notification_template(
                 app,

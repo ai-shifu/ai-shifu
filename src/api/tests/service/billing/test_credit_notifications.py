@@ -68,6 +68,7 @@ from flaskr.service.user.repository import (
     mark_user_roles,
     upsert_credential,
 )
+from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -283,6 +284,7 @@ def _seed_notification_template(
     template_content: str | None = None,
     sync_status: str = "synced",
     template_status: str = "AUDIT_STATE_PASS",
+    last_synced_at: datetime | None = None,
 ) -> None:
     resolved_placeholders = placeholders or []
     resolved_content = template_content
@@ -313,7 +315,7 @@ def _seed_notification_template(
         existing.sync_status = sync_status
         existing.error_code = ""
         existing.error_message = ""
-        existing.last_synced_at = datetime(2026, 5, 22, 0, 0, 0)
+        existing.last_synced_at = last_synced_at or now_utc()
         existing.metadata_json = {}
         dao.db.session.add(existing)
         dao.db.session.commit()
@@ -909,7 +911,7 @@ def test_list_credit_notification_templates_falls_back_to_local_cache(
     assert payload["error_code"] == "missing_credentials"
     assert [item["template_code"] for item in payload["items"]] == ["TPL-CACHED"]
     assert payload["items"][0]["source"] == "local"
-    assert payload["items"][0]["last_synced_at"] == "2026-05-22T00:00:00Z"
+    assert payload["items"][0]["last_synced_at"].endswith("Z")
 
 
 def test_list_credit_notification_templates_returns_all_local_cached_templates(
@@ -1144,6 +1146,101 @@ def test_credit_notification_policy_rejects_unapproved_sms_template(
                 ],
             },
         )
+
+
+def test_credit_notification_policy_rejects_stale_cached_template_without_credentials(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-STALE",
+        placeholders=["credits"],
+        last_synced_at=now_utc() - timedelta(hours=25),
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "rule-grant-stale",
+                        "name": "Grant stale template",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                        "channel": "sms",
+                        "template_code": "TPL-GRANT-STALE",
+                        "enabled": True,
+                        "conditions": {},
+                    }
+                ],
+            },
+        )
+
+    with app.app_context():
+        template = NotificationTemplate.query.filter_by(
+            template_code="TPL-GRANT-STALE"
+        ).one()
+        assert template.sync_status == "missing_credentials"
+
+
+def test_credit_notification_policy_rejects_provider_unapproved_template(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=f"test-key-{secrets.token_hex(4)}",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=secrets.token_urlsafe(24),
+    )
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-REVOKED",
+        placeholders=["credits"],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.get_sms_template_ali",
+        lambda _app, *, template_code: SimpleNamespace(
+            body=SimpleNamespace(
+                code="OK",
+                message="OK",
+                request_id="req-revoked",
+                template_code=template_code,
+                template_name="Grant revoked",
+                template_content="Credits ${credits}",
+                template_status="AUDIT_STATE_INIT",
+                template_type="0",
+                variable_attribute={},
+            )
+        ),
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "rule-grant-revoked",
+                        "name": "Grant revoked template",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                        "channel": "sms",
+                        "template_code": "TPL-GRANT-REVOKED",
+                        "enabled": True,
+                        "conditions": {},
+                    }
+                ],
+            },
+        )
+
+    with app.app_context():
+        template = NotificationTemplate.query.filter_by(
+            template_code="TPL-GRANT-REVOKED"
+        ).one()
+        assert template.sync_status == "synced"
+        assert template.template_status == "AUDIT_STATE_INIT"
 
 
 def test_credit_notification_policy_revalidates_cached_template_with_provider(

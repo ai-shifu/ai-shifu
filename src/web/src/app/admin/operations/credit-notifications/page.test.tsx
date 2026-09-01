@@ -1055,7 +1055,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
   });
 
-  it('only offers approved Aliyun SMS templates when editing a rule', async () => {
+  it('only offers approved and synced Aliyun SMS templates when editing a rule', async () => {
     mockGetConfig.mockResolvedValueOnce({
       enabled: false,
       rules: [
@@ -1085,6 +1085,20 @@ describe('AdminOperationCreditNotificationsPage', () => {
           error_message: '',
           last_synced_at: '2026-05-22T00:00:00Z',
           source: 'provider',
+        },
+        {
+          channel: 'sms',
+          provider: 'aliyun',
+          template_code: 'TPL-FAILED',
+          template_name: 'Failed sync',
+          template_content: 'Credits ${credits}',
+          template_status: 'AUDIT_STATE_PASS',
+          template_type: '0',
+          sync_status: 'failed_provider',
+          error_code: 'provider_exception',
+          error_message: 'provider_exception',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'local',
         },
         {
           channel: 'sms',
@@ -1119,6 +1133,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('option', { name: 'Pending' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'Failed sync' }),
     ).not.toBeInTheDocument();
   });
 

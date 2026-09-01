@@ -702,6 +702,7 @@ function RuleTemplateSelector({
     option =>
       option.channel === 'sms' &&
       option.provider === 'aliyun' &&
+      option.sync_status === 'synced' &&
       option.template_status === 'AUDIT_STATE_PASS' &&
       (!option.compatible_notification_types ||
         option.compatible_notification_types.includes(rule.trigger_event)),
