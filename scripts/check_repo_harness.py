@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import subprocess
 import sys
 import tempfile
@@ -405,7 +406,12 @@ def check_frontend_path_contract(errors: list[str]) -> None:
             except (OSError, UnicodeError, subprocess.CalledProcessError) as error:
                 errors.append(f"Unable to scan tracked symlink {path}: {error}")
                 continue
-            if _contains_stale_frontend_path(Path(symlink_target.rstrip("\n")).parts):
+            resolved_symlink_target = posixpath.normpath(
+                posixpath.join(
+                    relative_path.parent.as_posix(), symlink_target.rstrip("\n")
+                )
+            )
+            if _contains_stale_frontend_path(Path(resolved_symlink_target).parts):
                 errors.append(
                     f"Stale frontend path in tracked symlink target: "
                     f"{relative_path} -> {symlink_target}"

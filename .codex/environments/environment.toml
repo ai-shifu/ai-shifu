@@ -78,9 +78,9 @@ def unreserved_target_exists():
     )
 
 
-def reservation_path_matches(reservation):
+def reservation_matches_path(reservation, candidate_path):
     source_stat = reservation[2]
-    target_path = reservation[3]
+    target_path = candidate_path
     staging_path = reservation[4]
     expected_mode = reservation[5]
     expected_digest = reservation[6]
@@ -108,6 +108,10 @@ def reservation_path_matches(reservation):
     return digest.digest() == expected_digest
 
 
+def reservation_path_matches(reservation):
+    return reservation_matches_path(reservation, reservation[3])
+
+
 def reservations_changed():
     return any(
         not reservation_path_matches(reservation) for reservation in reservations
@@ -115,13 +119,42 @@ def reservations_changed():
 
 
 def clean_up_reservations():
-    for reservation in reservations:
+    if not reservations:
+        return
+    try:
+        cleanup_directory = tempfile.mkdtemp(
+            prefix=".codex-env-cleanup-", dir=target_root
+        )
+    except OSError:
+        return
+
+    for index, reservation in enumerate(reservations):
         target_path = reservation[3]
+        cleanup_path = os.path.join(
+            cleanup_directory, f"{index}-{reservation[0]}"
+        )
         try:
-            if reservation_path_matches(reservation):
-                os.unlink(target_path)
+            os.rename(target_path, cleanup_path)
+        except OSError:
+            continue
+        if reservation_matches_path(reservation, cleanup_path):
+            try:
+                os.unlink(cleanup_path)
+            except FileNotFoundError:
+                pass
+            continue
+        try:
+            os.link(cleanup_path, target_path, follow_symlinks=False)
+        except OSError:
+            continue
+        try:
+            os.unlink(cleanup_path)
         except FileNotFoundError:
             pass
+    try:
+        os.rmdir(cleanup_directory)
+    except OSError:
+        pass
 
 
 def clean_up_staging():
@@ -325,9 +358,9 @@ def unreserved_target_exists():
     )
 
 
-def reservation_path_matches(reservation):
+def reservation_matches_path(reservation, candidate_path):
     source_stat = reservation[2]
-    target_path = reservation[3]
+    target_path = candidate_path
     staging_path = reservation[4]
     expected_mode = reservation[5]
     expected_digest = reservation[6]
@@ -355,6 +388,10 @@ def reservation_path_matches(reservation):
     return digest.digest() == expected_digest
 
 
+def reservation_path_matches(reservation):
+    return reservation_matches_path(reservation, reservation[3])
+
+
 def reservations_changed():
     return any(
         not reservation_path_matches(reservation) for reservation in reservations
@@ -362,13 +399,42 @@ def reservations_changed():
 
 
 def clean_up_reservations():
-    for reservation in reservations:
+    if not reservations:
+        return
+    try:
+        cleanup_directory = tempfile.mkdtemp(
+            prefix=".codex-env-cleanup-", dir=target_root
+        )
+    except OSError:
+        return
+
+    for index, reservation in enumerate(reservations):
         target_path = reservation[3]
+        cleanup_path = os.path.join(
+            cleanup_directory, f"{index}-{reservation[0]}"
+        )
         try:
-            if reservation_path_matches(reservation):
-                os.unlink(target_path)
+            os.rename(target_path, cleanup_path)
+        except OSError:
+            continue
+        if reservation_matches_path(reservation, cleanup_path):
+            try:
+                os.unlink(cleanup_path)
+            except FileNotFoundError:
+                pass
+            continue
+        try:
+            os.link(cleanup_path, target_path, follow_symlinks=False)
+        except OSError:
+            continue
+        try:
+            os.unlink(cleanup_path)
         except FileNotFoundError:
             pass
+    try:
+        os.rmdir(cleanup_directory)
+    except OSError:
+        pass
 
 
 def clean_up_staging():
