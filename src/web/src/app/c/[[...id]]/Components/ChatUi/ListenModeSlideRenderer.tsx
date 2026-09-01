@@ -262,7 +262,6 @@ interface ListenSlideAskPlayerActionProps {
   actionRef?: React.MutableRefObject<HTMLButtonElement | null>;
   context: SlidePlayerCustomActionContext;
   label: string;
-  onBeforeOpen: () => void;
   onContextChange: (snapshot: PlayerCustomActionContextSnapshot) => void;
   disabled?: boolean;
   renderButton?: boolean;
@@ -273,7 +272,6 @@ const ListenSlideAskPlayerAction = memo(
     actionRef,
     context,
     label,
-    onBeforeOpen,
     onContextChange,
     disabled = false,
     renderButton = true,
@@ -293,12 +291,8 @@ const ListenSlideAskPlayerAction = memo(
         return;
       }
 
-      if (!isActive) {
-        onBeforeOpen();
-      }
-
       toggleActive();
-    }, [disabled, isActive, onBeforeOpen, toggleActive]);
+    }, [disabled, toggleActive]);
 
     if (!renderButton) {
       return null;
@@ -1168,31 +1162,6 @@ const ListenModeSlideRenderer = ({
     [disableInteractionEdits, onSend],
   );
 
-  const closeInteractionOverlayIfOpen = useCallback(() => {
-    const shellElement = slideShellRef.current;
-    if (!shellElement) {
-      return;
-    }
-
-    const notesToggleButton =
-      shellElement.querySelector<HTMLButtonElement>(
-        'button[aria-label="Notes"].slide-player__action',
-      ) ??
-      shellElement.querySelector<HTMLButtonElement>(
-        '.slide-player__controls .slide-player__group:last-of-type > .slide-player__action:last-of-type',
-      );
-
-    if (
-      !notesToggleButton ||
-      !notesToggleButton.classList.contains('slide-player__action--active')
-    ) {
-      return;
-    }
-
-    // Reuse the player toggle path so the default overlay closes first.
-    notesToggleButton.click();
-  }, []);
-
   const handleMobileAskToggle = useCallback(() => {
     if (isAskActionDisabled) {
       return;
@@ -1204,17 +1173,11 @@ const ListenModeSlideRenderer = ({
       return;
     }
 
-    closeInteractionOverlayIfOpen();
     setMobileAskPanelElementBid(resolvedAskElementBid);
     setIsMobileAskPanelMounted(true);
     setIsMobileAskOpen(true);
     playerCustomActionSetActiveRef.current(true);
-  }, [
-    closeInteractionOverlayIfOpen,
-    isAskActionDisabled,
-    isMobileAskOpen,
-    resolvedAskElementBid,
-  ]);
+  }, [isAskActionDisabled, isMobileAskOpen, resolvedAskElementBid]);
 
   const handleMobileAskClose = useCallback(() => {
     setIsMobileAskOpen(false);
@@ -1894,7 +1857,6 @@ const ListenModeSlideRenderer = ({
             <ListenSlideAskPlayerAction
               context={context}
               label={t('module.chat.ask')}
-              onBeforeOpen={closeInteractionOverlayIfOpen}
               onContextChange={handlePlayerCustomActionContextChange}
               disabled={isAskActionDisabled}
               renderButton={false}
@@ -1910,7 +1872,6 @@ const ListenModeSlideRenderer = ({
             actionRef={desktopAskActionRef}
             context={context}
             label={t('module.chat.ask')}
-            onBeforeOpen={closeInteractionOverlayIfOpen}
             onContextChange={handlePlayerCustomActionContextChange}
             disabled={isAskActionDisabled}
           />
@@ -1918,7 +1879,6 @@ const ListenModeSlideRenderer = ({
       );
     },
     [
-      closeInteractionOverlayIfOpen,
       fullscreenPortalContainer,
       handleListenPlaybackSpeedChange,
       handlePlayerCustomActionContextChange,

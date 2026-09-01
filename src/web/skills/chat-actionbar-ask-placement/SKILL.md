@@ -26,13 +26,13 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 重生成判定不能直接依赖“列表最后一项”；应忽略 `LIKE_STATUS`/`ASK` 等辅助行，按“最后可操作元素”判断，避免点击末尾交互块误弹重生成确认框。
 - 预览链路里 `updateContentListWithUserOperate` 在截断列表时，也要保留当前 `interaction` 关联的 `LIKE_STATUS/ASK`（按 `parent_block_bid/parent_element_bid` 匹配），避免选择后追问入口消失。
 - interaction 提交值组装时要去重并保序（如 `selectedValues + buttonText` 同值场景），避免变量被写成 `ENFJ,ENFJ` 这类重复值。
-- Slide 播放器里的追问入口若通过 `playerCustomActions` 注入，桌面端要和播放器 notes 浮层互斥，移动端则单独提供悬浮入口并复用 `AskBlock` 的弹层展示。
+- Slide 播放器里的追问入口若通过 `playerCustomActions` 注入，桌面端和移动端都要依赖 `Slide` 的 custom-action active 状态与 interaction 浮层互斥；宿主层不要查询或点击播放器内部 DOM。移动端仍单独提供悬浮入口并复用 `AskBlock` 的弹层展示。
 - 听课模式桌面端若 `markdown-flow-ui/slide` 已支持函数式 `playerCustomActions`，优先直接消费 `currentElement / isActive / toggleActive / setActive` 上下文，不要在 `ai-shifu` 里再额外维护一套追问按钮高亮、展开收起和暂停播放状态；只保留浮层渲染与 outside click 关闭这类业务层收口。
 - 听课模式移动端若追问按钮仍需放在 player 外部，也应继续透传 `playerCustomActions`，在播放器内部只做上下文桥接、不渲染实际按钮；外部按钮只负责位置与样式，点击后调用同一套 active 状态，确保自动暂停、当前元素命中和关闭行为与桌面端一致。
 - 听课模式里的 `AskBlock` 若在前端本地先拿到新追问/新回答，父层也要同步维护一份按锚点 `element_bid` 索引的 `ask_list` 覆盖表，并并回 `elementList`；不要只让 `AskBlock` 自己持有本地状态，否则调试时会看到对应 slide element 的 `ask_list` 仍是 `undefined`。
 - 听课模式里的追问若需要在切回阅读模式后继续展示，不能只同步 `ListenModeSlideRenderer` 的本地 `ask_list` 覆盖；还要把同一份 ask history 写回 `useChatLogicHook` 的 `items`，按 `parent_element_bid` 更新或补建 `ASK` block，并保留用户已主动展开的状态。
 - `AskBlock` 若内部维护了 `displayList` 一类本地展示态，就不能只在初次挂载时用 `askList` 初始化；当 `askList` 或锚点 `element_bid` 变化时，必须把新的追问列表同步回本地状态，否则控制台里已经有 `ask_list`，浮层里仍会显示空列表。
-- 若移动端通过 `playerCustomActions` 挂一个“只桥接 context、不实际渲染按钮”的隐藏节点，`Slide` 仍可能把它计入 mobile control count，导致播放器底部按钮列数从 4 变成 5；此时要么从组件层避免占位，要么在业务侧显式跟随 `--slide-player-mobile-control-count`。不要在业务样式里把 `grid-template-columns` 写死成 `repeat(4, ...)`，否则真实有 5 个按钮时最后一个会被挤到下一行。
+- 若移动端通过 `playerCustomActions` 挂一个“只桥接 context、不实际渲染按钮”的隐藏节点，`Slide` 仍可能把它计入 mobile control count，导致播放器底部列数比实际按钮多 1；此时要么从组件层避免占位，要么在业务侧显式跟随 `--slide-player-mobile-control-count`。不要在业务样式里写死列数，否则真实按钮数量变化时会留下空位或把末尾按钮挤到下一行。
 - 若听课模式 PC 端的追问浮层需要与移动端追问弹层保持一致，优先让 `listen-slide-ask-block` 在桌面端也走“标题栏 + 独立滚动消息区 + 底部固定输入区”的面板结构，并把 ask/answer 气泡样式收敛到该作用域，避免影响普通阅读模式的 `AskBlock`。
 - 听课模式桌面端关闭追问浮层时，不能只依赖 `Slide` 侧的 `setActive(false)` 回推状态；若 player 已隐藏或上下文更新延迟，业务层也要同步把本地 `playerCustomActionState.isActive` 置为 `false`，避免只暂停音频但浮层不收起。
 - 听课模式下若 `playerCustomActions` 命中的 `currentElement` 是 `interaction`，则追问入口在 PC 和移动端都应禁用，并在切入交互块时主动关闭已展开的追问浮层；交互块不允许追问。
