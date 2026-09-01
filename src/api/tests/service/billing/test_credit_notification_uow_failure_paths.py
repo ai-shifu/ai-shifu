@@ -58,6 +58,7 @@ from flaskr.service.user.repository import (
     mark_user_roles,
     upsert_credential,
 )
+from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture
@@ -160,7 +161,7 @@ def _seed_notification_template(
         sync_status="synced",
         error_code="",
         error_message="",
-        last_synced_at=datetime(2026, 5, 22, 0, 0, 0),
+        last_synced_at=now_utc(),
         metadata_json={},
     )
     dao.db.session.add(template)
