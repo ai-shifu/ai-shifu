@@ -44,6 +44,7 @@ from flaskr.service.learn.const import (
     ROLE_TEACHER,
 )
 from flaskr.service.learn.exceptions import PaidError
+from flaskr.service.learn.follow_up_context import resolve_course_system_prompt
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
@@ -3694,52 +3695,19 @@ class RunScriptContextV2:
 
     def get_system_prompt(self, outline_item_bid: str) -> str | None:
         """Build the system prompt for the current lesson run."""
-        path = _find_outline_path_or_raise(self._struct, outline_item_bid)
-        path = list(reversed(path))
-        outline_ids = [item.id for item in path if item.type == "outline"]
-        shifu_ids = [item.id for item in path if item.type == "shifu"]
-        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
-            self._outline_model.query.filter(
-                self._outline_model.id.in_(outline_ids),
-                self._outline_model.deleted == 0,
-            ).all()
+        outline_path = _find_outline_path_or_raise(self._struct, outline_item_bid)
+        return resolve_course_system_prompt(
+            self.app,
+            shifu_bid=str(
+                getattr(getattr(self, "_outline_item_info", None), "shifu_bid", "")
+                or ""
+            ),
+            outline_item_bid=outline_item_bid,
+            preview_mode=bool(getattr(self, "_preview_mode", False)),
+            outline_path=outline_path,
+            outline_model=self._outline_model,
+            shifu_model=self._shifu_model,
         )
-        outline_item_info_map: dict[str, DraftOutlineItem | PublishedOutlineItem] = {
-            o.id: o for o in outline_item_info_db
-        }
-        course_prompt: str | None = None
-        for outline_id in outline_ids:
-            outline_item_info = outline_item_info_map.get(outline_id)
-            if (
-                outline_item_info
-                and outline_item_info.llm_system_prompt
-                and outline_item_info.llm_system_prompt != ""
-            ):
-                self.app.logger.info(
-                    "outline_item_info.llm_system_prompt: %s",
-                    outline_item_info.llm_system_prompt,
-                )
-                course_prompt = outline_item_info.llm_system_prompt
-                break
-
-        if not course_prompt:
-            shifu_info_db: DraftShifu | PublishedShifu = (
-                self._shifu_model.query.filter(
-                    self._shifu_model.id.in_(shifu_ids),
-                    self._shifu_model.deleted == 0,
-                )
-                .order_by(self._shifu_model.id.desc())
-                .first()
-            )
-            self.app.logger.info("shifu_info_db: %s", shifu_info_db)
-            if shifu_info_db and shifu_info_db.llm_system_prompt:
-                self.app.logger.info(
-                    "shifu_info_db.llm_system_prompt: %s",
-                    shifu_info_db.llm_system_prompt,
-                )
-                course_prompt = shifu_info_db.llm_system_prompt
-
-        return course_prompt
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
         """Return the effective LLM settings for this run."""

@@ -49,6 +49,7 @@ export interface AskBlockProps {
   askList?: AskMessage[];
   className?: string;
   isExpanded?: boolean;
+  readonlyHistory?: boolean;
   printMode?: boolean;
   forceDesktopSlidePanel?: boolean;
   shifu_bid: string;
@@ -66,6 +67,7 @@ export default function AskBlock({
   askList = [],
   className,
   isExpanded = undefined,
+  readonlyHistory = false,
   printMode = false,
   forceDesktopSlidePanel = false,
   shifu_bid,
@@ -123,7 +125,9 @@ export default function AskBlock({
   const isDesktopSlideAskBlock = Boolean(isSlideAskBlock) && !mobileStyle;
   const isLandscapeSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && forceDesktopSlidePanel;
-  const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
+  const expanded = readonlyHistory
+    ? hasDisplayMessages
+    : (isExpanded ?? (!mobileStyle && hasDisplayMessages));
   const expandedRef = useRef(expanded);
   const previousExpandedRef = useRef(expanded);
   const shouldForceSlideMobileDialog =
@@ -473,6 +477,7 @@ export default function AskBlock({
       : displayList.slice(0, 1);
   const hasAskAnswerMessages = messagesToShow.length > 0;
   const shouldRenderMobileDialog =
+    !readonlyHistory &&
     mobileStyle &&
     shouldShowMobileDialog &&
     (hasAskAnswerMessages || shouldForceSlideMobileDialog);
@@ -692,6 +697,7 @@ export default function AskBlock({
           const messageRenderKey = `${message.type}-${message.element_bid || index}`;
           const shouldEnableMessageTypewriter =
             !printMode &&
+            !readonlyHistory &&
             message.type === BLOCK_TYPE.ANSWER &&
             message.shouldUseTypewriter === true;
           // if (message.type === BLOCK_TYPE.ANSWER) {
@@ -759,7 +765,7 @@ export default function AskBlock({
   };
 
   const renderInput = (extraClass?: string) => {
-    if (printMode || !expanded) {
+    if (readonlyHistory || printMode || !expanded) {
       return null;
     }
 

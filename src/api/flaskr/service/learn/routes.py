@@ -197,6 +197,11 @@ def _normalize_learning_mode(value: object, *, listen: bool = False) -> str:
 def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     """Register learn routes."""
     app.logger.info("register learn routes %s", path_prefix)
+    from flaskr.service.learn.live_follow_up_routes import (
+        register_live_follow_up_routes,
+    )
+
+    register_live_follow_up_routes(app, path_prefix)
     preview_service = RunScriptPreviewContextV2(app)
 
     def _require_shifu_owner(shifu_bid: str) -> str:

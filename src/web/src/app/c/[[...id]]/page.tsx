@@ -590,6 +590,23 @@ export default function ChatPage() {
     return false;
   }, [resolvedLessonId, tree]);
 
+  const currentLessonFollowUpMode = useMemo(() => {
+    if (!tree || !resolvedLessonId) {
+      return 'text' as const;
+    }
+    for (const catalog of tree.catalogs || []) {
+      const lesson = (catalog.lessons || []).find(
+        entry => entry.id === resolvedLessonId,
+      );
+      if (lesson) {
+        return lesson.follow_up_mode === 'live_voice'
+          ? ('live_voice' as const)
+          : ('text' as const);
+      }
+    }
+    return 'text' as const;
+  }, [resolvedLessonId, tree]);
+
   const onLessonSelect = ({ id }) => {
     const selection = applyLessonSelection({
       lessonId: id,
@@ -888,6 +905,7 @@ export default function ChatPage() {
             lessonTitle={currentLessonTitle}
             lessonStatus={currentLessonStatus}
             lessonHasContentUpdate={currentLessonHasContentUpdate}
+            followUpMode={currentLessonFollowUpMode}
             lessonUpdate={onLessonUpdate}
             onGoChapter={onGoChapter}
             onPurchased={onPurchased}

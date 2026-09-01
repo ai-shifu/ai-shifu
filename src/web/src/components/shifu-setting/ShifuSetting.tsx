@@ -127,6 +127,10 @@ import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
+import {
+  getFollowUpModelCatalog,
+  type FollowUpModelCatalogItem,
+} from '@/lib/liveVoiceFollowUp';
 
 interface Shifu {
   description: string;
@@ -144,6 +148,7 @@ interface Shifu {
   ask_model?: string;
   ask_temperature?: number;
   ask_system_prompt?: string;
+  follow_up_mode?: 'text' | 'live_voice';
   ask_provider_config?: {
     provider?: string;
     mode?: string;
@@ -174,11 +179,24 @@ const ASK_PROVIDER_LLM = 'llm';
 const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
 const ASK_TEMPERATURE_MIN = 0;
 const ASK_TEMPERATURE_MAX = 2;
+const DEFAULT_LIVE_VOICE = 'Kore';
 const TTS_PREVIEW_CURRENT_TARGET = 'tts-current';
 type TtsPreviewOptions = {
   voiceId?: string;
   targetKey?: string;
   demoAudioUrl?: string;
+};
+
+type FollowUpCatalogStatus = 'idle' | 'loading' | 'ready' | 'failed';
+
+type InitialAskConfiguration = {
+  model: string;
+  interactionMode: 'text' | 'live_voice';
+  providerConfig: {
+    provider: string;
+    mode: string;
+    config: Record<string, unknown>;
+  };
 };
 
 export default function ShifuSettingDialog({
@@ -230,6 +248,14 @@ export default function ShifuSettingDialog({
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   // Ask configuration state
   const [askModel, setAskModel] = useState('');
+  const [followUpModels, setFollowUpModels] = useState<
+    FollowUpModelCatalogItem[]
+  >([]);
+  const [followUpCatalogStatus, setFollowUpCatalogStatus] =
+    useState<FollowUpCatalogStatus>('idle');
+  const initialAskConfigurationRef = useRef<InitialAskConfiguration | null>(
+    null,
+  );
   const [askTemperature, setAskTemperature] =
     useState<number>(ASK_TEMPERATURE_MIN);
   const [askTemperatureInput, setAskTemperatureInput] = useState<string>(
@@ -279,6 +305,37 @@ export default function ShifuSettingDialog({
   const updateOpen = useCallback((nextOpen: boolean) => {
     setInternalOpen(nextOpen);
   }, []);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    let cancelled = false;
+    setFollowUpCatalogStatus('loading');
+    setFollowUpModels([]);
+    void getFollowUpModelCatalog()
+      .then(items => {
+        if (cancelled) {
+          return;
+        }
+        if (Array.isArray(items)) {
+          setFollowUpModels(items);
+          setFollowUpCatalogStatus('ready');
+          return;
+        }
+        setFollowUpModels([]);
+        setFollowUpCatalogStatus('failed');
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFollowUpModels([]);
+          setFollowUpCatalogStatus('failed');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!openSignal) {
@@ -742,7 +799,38 @@ export default function ShifuSettingDialog({
       value: item.provider,
       label: item.title || item.provider,
     })) || [];
+  const followUpModelOptions = useMemo(
+    () =>
+      followUpModels.map(item => ({
+        value: item.model,
+        label: item.display_name,
+        creditMultiplier: item.credit_multiplier ?? null,
+        creditMultiplierLabel: item.credit_multiplier_label || '',
+        isDefault: item.is_default,
+        disabled: !debugAllowed && item.interaction_mode !== 'live_voice',
+      })),
+    [debugAllowed, followUpModels],
+  );
+  const selectedFollowUpModel = followUpModels.find(
+    item => item.model === askModel,
+  );
+  const preservedAskConfiguration = initialAskConfigurationRef.current;
+  const isUncataloguedExistingAskModel = Boolean(
+    askModel &&
+    preservedAskConfiguration?.model === askModel &&
+    !selectedFollowUpModel,
+  );
+  const isLiveVoiceFollowUp =
+    selectedFollowUpModel?.interaction_mode === 'live_voice' ||
+    (isUncataloguedExistingAskModel &&
+      preservedAskConfiguration?.interactionMode === 'live_voice');
+  const selectedLiveVoice = String(
+    askProviderConfig.live_voice || DEFAULT_LIVE_VOICE,
+  );
   const resolvedAskProvider = (() => {
+    if (isLiveVoiceFollowUp) {
+      return ASK_PROVIDER_LLM;
+    }
     const provider = (askProvider || '').trim().toLowerCase();
     if (!provider) {
       return askConfigMeta?.providers?.[0]?.provider || ASK_PROVIDER_LLM;
@@ -760,12 +848,20 @@ export default function ShifuSettingDialog({
       item => item.provider === resolvedAskProvider,
     ) || askConfigMeta?.providers?.[0];
   const askProviderFieldEntries = useMemo(
-    () => Object.entries(currentAskProviderMeta?.json_schema?.properties || {}),
-    [currentAskProviderMeta],
+    () =>
+      isLiveVoiceFollowUp
+        ? []
+        : Object.entries(currentAskProviderMeta?.json_schema?.properties || {}),
+    [currentAskProviderMeta, isLiveVoiceFollowUp],
   );
   const askProviderRequiredFields = useMemo(
-    () => new Set(currentAskProviderMeta?.json_schema?.required || []),
-    [currentAskProviderMeta],
+    () =>
+      new Set(
+        isLiveVoiceFollowUp
+          ? []
+          : currentAskProviderMeta?.json_schema?.required || [],
+      ),
+    [currentAskProviderMeta, isLiveVoiceFollowUp],
   );
   const getAskProviderDefaultConfig = useCallback(
     (provider: string) => {
@@ -785,6 +881,34 @@ export default function ShifuSettingDialog({
       setAskProviderObjectInputs({});
     },
     [getAskProviderDefaultConfig],
+  );
+
+  const handleAskModelChange = useCallback(
+    (value: string) => {
+      setAskModel(value);
+      const selectedModel = followUpModels.find(item => item.model === value);
+      const isLive = selectedModel?.interaction_mode === 'live_voice';
+      if (isLive) {
+        setAskProvider(ASK_PROVIDER_LLM);
+      }
+      setAskProviderConfig(previous => {
+        const next = { ...previous };
+        if (isLive) {
+          const allowedVoiceIds = new Set(
+            (selectedModel?.voices || []).map(voice => voice.voice_id),
+          );
+          next.live_voice = allowedVoiceIds.has(String(next.live_voice || ''))
+            ? next.live_voice
+            : DEFAULT_LIVE_VOICE;
+        } else {
+          delete next.live_voice;
+        }
+        return next;
+      });
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    },
+    [followUpModels],
   );
 
   const applyMinimaxManualVoiceId = useCallback(() => {
@@ -833,11 +957,18 @@ export default function ShifuSettingDialog({
 
   const buildAskProviderConfigForSubmit = useCallback(() => {
     try {
-      return buildAskProviderConfigBySchema({
+      const config = buildAskProviderConfigBySchema({
         schema: currentAskProviderMeta?.json_schema,
         providerConfig: askProviderConfig as Record<string, unknown>,
         objectInputs: askProviderObjectInputs,
       });
+      if (isLiveVoiceFollowUp) {
+        return {
+          ...config,
+          live_voice: selectedLiveVoice,
+        };
+      }
+      return config;
     } catch (error) {
       if (error instanceof AskProviderSchemaValidationError) {
         const fieldSchema =
@@ -871,7 +1002,14 @@ export default function ShifuSettingDialog({
 
       throw error;
     }
-  }, [askProviderConfig, askProviderObjectInputs, currentAskProviderMeta, t]);
+  }, [
+    askProviderConfig,
+    askProviderObjectInputs,
+    currentAskProviderMeta,
+    isLiveVoiceFollowUp,
+    selectedLiveVoice,
+    t,
+  ]);
 
   const clampTemperature = useCallback((value: number) => {
     return Math.min(Math.max(value, 0), 2);
@@ -1087,7 +1225,12 @@ export default function ShifuSettingDialog({
         const askTemperatureForSubmit = normalizeAskTemperature(
           Number(askTemperatureInput || askTemperature || 0),
         );
-        const askConfigForSubmit = buildAskProviderConfigForSubmit();
+        const shouldPreserveExistingAskConfiguration = Boolean(
+          isUncataloguedExistingAskModel && preservedAskConfiguration,
+        );
+        const askConfigForSubmit = shouldPreserveExistingAskConfiguration
+          ? preservedAskConfiguration!.providerConfig.config
+          : buildAskProviderConfigForSubmit();
 
         if (ttsEnabled && !providerForSubmit) {
           if (!ttsProviderToastShownRef.current && saveType === 'manual') {
@@ -1116,8 +1259,12 @@ export default function ShifuSettingDialog({
           ask_temperature: askTemperatureForSubmit,
           ask_system_prompt: '',
           ask_provider_config: {
-            provider: askProviderForSubmit,
-            mode: askModeForSubmit,
+            provider: shouldPreserveExistingAskConfiguration
+              ? preservedAskConfiguration!.providerConfig.provider
+              : askProviderForSubmit,
+            mode: shouldPreserveExistingAskConfiguration
+              ? preservedAskConfiguration!.providerConfig.mode
+              : askModeForSubmit,
             config: askConfigForSubmit,
           },
           // TTS Configuration
@@ -1137,16 +1284,23 @@ export default function ShifuSettingDialog({
         await api.saveShifuDetail({
           ...payload,
         });
-        trackEvent(
-          'creator_shifu_setting_save',
-          buildShifuSettingSaveAnalytics({
-            shifuBid: shifuId,
-            saveType,
-            ttsEnabled,
-            defaultListenModeEnabled,
-            useLearnerLanguage,
-          }),
-        );
+        try {
+          void Promise.resolve(
+            trackEvent(
+              'creator_shifu_setting_save',
+              buildShifuSettingSaveAnalytics({
+                shifuBid: shifuId,
+                saveType,
+                ttsEnabled,
+                defaultListenModeEnabled,
+                useLearnerLanguage,
+                followUpMode: isLiveVoiceFollowUp ? 'live_voice' : 'text',
+              }),
+            ),
+          ).catch(() => {});
+        } catch {
+          // Analytics is best-effort and must never affect a successful save.
+        }
         if (onSave) {
           onSave();
         }
@@ -1180,6 +1334,9 @@ export default function ShifuSettingDialog({
       speedValue,
       defaultListenModeEnabled,
       useLearnerLanguage,
+      isLiveVoiceFollowUp,
+      isUncataloguedExistingAskModel,
+      preservedAskConfiguration,
       askConfigMeta,
       askModel,
       askTemperature,
@@ -1199,6 +1356,7 @@ export default function ShifuSettingDialog({
     const isActiveRequest = () => settingsRequestSeqRef.current === requestSeq;
 
     ttsProviderToastShownRef.current = false;
+    initialAskConfigurationRef.current = null;
     setSettingsLoading(true);
     try {
       const result = normalizeShifuDetail(
@@ -1232,6 +1390,33 @@ export default function ShifuSettingDialog({
           !Array.isArray(rawAskProviderConfig.config)
             ? rawAskProviderConfig.config
             : {};
+        const normalizedInitialProvider = String(
+          rawAskProviderConfig.provider || ASK_PROVIDER_LLM,
+        ).toLowerCase();
+        const normalizedInitialMode = String(
+          rawAskProviderConfig.mode || ASK_PROVIDER_MODE_PROVIDER_ONLY,
+        ).toLowerCase();
+        const hasPersistedLiveVoiceContract =
+          normalizedInitialProvider === ASK_PROVIDER_LLM &&
+          normalizedInitialMode === ASK_PROVIDER_MODE_PROVIDER_ONLY &&
+          typeof rawAskProviderInnerConfig.live_voice === 'string' &&
+          Boolean(rawAskProviderInnerConfig.live_voice.trim());
+        initialAskConfigurationRef.current = {
+          model: result.ask_model || '',
+          interactionMode:
+            result.follow_up_mode === 'live_voice'
+              ? 'live_voice'
+              : result.follow_up_mode === 'text'
+                ? 'text'
+                : hasPersistedLiveVoiceContract
+                  ? 'live_voice'
+                  : 'text',
+          providerConfig: {
+            provider: normalizedInitialProvider,
+            mode: normalizedInitialMode,
+            config: { ...rawAskProviderInnerConfig },
+          },
+        };
         setAskModel(result.ask_model || '');
         setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
         setAskTemperatureInput(
@@ -1515,6 +1700,15 @@ export default function ShifuSettingDialog({
         }
         return false;
       }
+      if (
+        followUpCatalogStatus === 'idle' ||
+        followUpCatalogStatus === 'loading'
+      ) {
+        if (needClose) {
+          updateOpen(true);
+        }
+        return false;
+      }
       const isNameValid = await form.trigger('name');
       const isPriceValid = await form.trigger('price');
       if (!isPriceValid) {
@@ -1545,7 +1739,15 @@ export default function ShifuSettingDialog({
       await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [form, onSubmit, updateOpen, t, currentShifu?.readonly, settingsLoading],
+    [
+      currentShifu?.readonly,
+      followUpCatalogStatus,
+      form,
+      onSubmit,
+      settingsLoading,
+      t,
+      updateOpen,
+    ],
   );
 
   useEffect(() => {
@@ -2008,12 +2210,23 @@ export default function ShifuSettingDialog({
 
                 <div>
                   <AskSettingsSection
-                    readonly={currentShifu?.readonly || !debugAllowed}
+                    readonly={currentShifu?.readonly}
+                    textDebugAllowed={debugAllowed}
                     askProviderOptions={askProviderOptions}
                     resolvedAskProvider={resolvedAskProvider}
                     askProviderLlmValue={ASK_PROVIDER_LLM}
                     askModel={askModel}
-                    onAskModelChange={setAskModel}
+                    onAskModelChange={handleAskModelChange}
+                    askModelOptions={followUpModelOptions}
+                    isLiveVoiceFollowUp={isLiveVoiceFollowUp}
+                    liveVoices={selectedFollowUpModel?.voices || []}
+                    liveVoice={selectedLiveVoice}
+                    onLiveVoiceChange={value =>
+                      setAskProviderConfig(previous => ({
+                        ...previous,
+                        live_voice: value,
+                      }))
+                    }
                     askTemperature={askTemperature}
                     askTemperatureInput={askTemperatureInput}
                     setAskTemperature={setAskTemperature}

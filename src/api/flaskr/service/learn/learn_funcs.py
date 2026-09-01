@@ -51,6 +51,10 @@ from flaskr.service.learn.lesson_feedback import (
 from flaskr.service.learn.listen_element_matching import (
     get_speakable_text_elements,
 )
+from flaskr.service.learn.live_follow_up_config import (
+    get_follow_up_interaction_mode,
+    resolve_course_follow_up_model,
+)
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
@@ -71,6 +75,7 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.order.models import BannerInfo, Order
 from flaskr.service.shifu.consts import (
+    ASK_MODE_DEFAULT,
     UNIT_TYPE_VALUE_GUEST,
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_TRIAL,
@@ -305,14 +310,14 @@ def get_outline_item_tree(
             outline_item_model = PublishedOutlineItem
             struct_model = LogPublishedStruct
             shifu_model = PublishedShifu
-        if not is_paid:
-            shifu = (
-                shifu_model.query.filter(
-                    shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
-                )
-                .order_by(shifu_model.id.desc())
-                .first()
+        shifu = (
+            shifu_model.query.filter(
+                shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
             )
+            .order_by(shifu_model.id.desc())
+            .first()
+        )
+        if not is_paid:
             if not shifu:
                 raise_error("server.shifu.shifuNotFound")
             buy_record = (
@@ -351,6 +356,30 @@ def get_outline_item_tree(
             outline_item_model.id.in_(outline_items_ids),
             outline_item_model.deleted == 0,
         ).all()
+        outline_items_db_map = {item.id: item for item in outline_items_dbs}
+        course_follow_up_model = (
+            resolve_course_follow_up_model(
+                getattr(shifu, "llm", ""),
+                getattr(shifu, "ask_llm", ""),
+            )
+            if shifu
+            else ""
+        )
+
+        def resolve_follow_up_mode(item: HistoryItem) -> str:
+            effective_model = course_follow_up_model
+            path = find_node_with_parents(struct, item.bid) or []
+            for path_item in reversed(path):
+                if path_item.type != "outline":
+                    continue
+                configured_item = outline_items_db_map.get(path_item.id)
+                if not configured_item:
+                    continue
+                if configured_item.ask_enabled_status != ASK_MODE_DEFAULT:
+                    effective_model = configured_item.ask_llm or course_follow_up_model
+                    break
+            return get_follow_up_interaction_mode(effective_model)
+
         progress_records = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
@@ -400,8 +429,8 @@ def get_outline_item_tree(
         def build_outline_item_tree(
             item: HistoryItem,
         ) -> LearnOutlineItemInfoDTO | None:
-            outline_item: DraftOutlineItem | PublishedOutlineItem = next(
-                (i for i in outline_items_dbs if i.id == item.id), None
+            outline_item: DraftOutlineItem | PublishedOutlineItem = (
+                outline_items_db_map.get(item.id)
             )
             if not outline_item or outline_item.hidden == 1:
                 return None
@@ -440,6 +469,7 @@ def get_outline_item_tree(
                 type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
                 is_paid=is_paid,
                 has_content_update_for_current_user=has_content_update_for_current_user,
+                follow_up_mode=resolve_follow_up_mode(item),
                 children=[],
             )
             if item.children:

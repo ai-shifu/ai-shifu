@@ -17,8 +17,16 @@ from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common.dtos import PageNationDTO
-from flaskr.service.common.models import raise_error, raise_error_with_args
+from flaskr.service.common.models import (
+    raise_error,
+    raise_error_with_args,
+    raise_param_error,
+)
 from flaskr.service.config import get_config
+from flaskr.service.learn.api import (
+    is_live_follow_up_model,
+    normalize_live_follow_up_provider_config,
+)
 
 # Deprecation-window shim: the ask-provider constants moved to their canonical
 # home in flaskr/service/learn/ask_provider_adapters/consts.py. They are
@@ -162,6 +170,14 @@ def return_shifu_draft_dto(
     ask_provider_config = normalize_ask_provider_config(
         getattr(shifu_draft, "ask_provider_config", "")
     )
+    resolved_ask_provider_config, live_config_error = (
+        normalize_live_follow_up_provider_config(
+            getattr(shifu_draft, "ask_llm", "") or "",
+            ask_provider_config,
+        )
+    )
+    if live_config_error is None:
+        ask_provider_config = resolved_ask_provider_config
 
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
@@ -202,6 +218,11 @@ def return_shifu_draft_dto(
         ask_temperature=float(getattr(shifu_draft, "ask_llm_temperature", 0.0) or 0.0),
         ask_system_prompt=getattr(shifu_draft, "ask_llm_system_prompt", "") or "",
         ask_provider_config=ask_provider_config,
+        follow_up_mode=(
+            "live_voice"
+            if is_live_follow_up_model(getattr(shifu_draft, "ask_llm", "") or "")
+            else "text"
+        ),
     )
 
 
@@ -261,6 +282,8 @@ def create_shifu_draft(
             )
         if len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
+        if is_live_follow_up_model(shifu_model):
+            raise_param_error("model")
 
         # create a new DraftShifu object
         shifu_draft: DraftShifu = DraftShifu(
@@ -454,6 +477,13 @@ def save_shifu_draft_info(
         # so we merge the incoming (non-None) values with the existing draft
         # before validation, rather than validating partial data.
         shifu_draft = get_latest_shifu_draft(shifu_id)
+        effective_shifu_model = (
+            shifu_model
+            if shifu_model is not None
+            else (getattr(shifu_draft, "llm", "") if shifu_draft else "")
+        )
+        if is_live_follow_up_model(effective_shifu_model):
+            raise_param_error("model")
 
         # Resolve the effective TTS enabled flag: caller-provided value wins,
         # otherwise keep what the draft already has.
@@ -552,16 +582,37 @@ def save_shifu_draft_info(
             ask_system_prompt = shifu_draft.ask_llm_system_prompt if shifu_draft else ""
         ask_system_prompt = ask_system_prompt or ""
 
-        if ask_provider_config is None:
-            if shifu_draft:
-                serialized_ask_provider_config = (
-                    getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
-                )
-            else:
-                serialized_ask_provider_config = "{}"
+        if ask_provider_config is None and not is_live_follow_up_model(ask_model):
+            serialized_ask_provider_config = (
+                getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+                if shifu_draft
+                else "{}"
+            )
         else:
+            raw_ask_provider_config = ask_provider_config
+            if raw_ask_provider_config is None:
+                raw_ask_provider_config = (
+                    getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+                    if shifu_draft
+                    else "{}"
+                )
+            normalized_ask_provider_config = normalize_ask_provider_config(
+                raw_ask_provider_config
+            )
+            normalized_ask_provider_config, live_config_error = (
+                normalize_live_follow_up_provider_config(
+                    ask_model,
+                    normalized_ask_provider_config,
+                )
+            )
+            if live_config_error:
+                raise_param_error(
+                    f"ask_provider_config.{live_config_error}"
+                    if live_config_error in {"provider", "mode"}
+                    else f"ask_provider_config.config.{live_config_error}"
+                )
             serialized_ask_provider_config = serialize_ask_provider_config(
-                ask_provider_config
+                normalized_ask_provider_config
             )
 
         min_shifu_price = get_config("MIN_SHIFU_PRICE")

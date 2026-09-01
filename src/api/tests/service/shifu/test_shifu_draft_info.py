@@ -207,6 +207,223 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(
     assert detail.ask_provider_config == ask_provider_config
 
 
+def test_save_live_follow_up_defaults_voice_and_persists_provider_contract(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-save-shifu-live-default-voice"
+    owner_bid = "owner-live-default-voice"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    result = shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Test Shifu",
+        shifu_description="desc",
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model="gpt-test",
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+        ask_model=GEMINI_LIVE_MODEL_ID,
+        ask_provider_config={
+            "provider": "llm",
+            "mode": "provider_only",
+            "config": {},
+        },
+    )
+
+    assert result.ask_provider_config["config"]["live_voice"] == "Kore"
+    assert result.follow_up_mode == "live_voice"
+    with app.app_context():
+        latest = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert json.loads(latest.ask_provider_config) == {
+            "provider": "llm",
+            "mode": "provider_only",
+            "config": {"live_voice": "Kore"},
+        }
+
+    detail = shifu_draft_funcs.get_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        base_url="http://localhost:5000",
+    )
+    assert detail.follow_up_mode == "live_voice"
+    assert detail.__json__()["follow_up_mode"] == "live_voice"
+
+
+@pytest.mark.parametrize(
+    ("provider", "mode", "config"),
+    [
+        ("dify", "provider_only", {"live_voice": "Kore"}),
+        ("coze", "provider_only", {"live_voice": "Kore"}),
+        ("get_biji_knowledge", "provider_only", {"live_voice": "Kore"}),
+        ("llm", "provider_then_llm", {"live_voice": "Kore"}),
+        ("llm", "provider_only", {"live_voice": "NotARealVoice"}),
+    ],
+)
+def test_save_live_follow_up_rejects_external_or_invalid_config(
+    app: object,
+    monkeypatch: object,
+    provider: str,
+    mode: str,
+    config: dict[str, object],
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+    from flaskr.service.common.models import AppError
+    from flaskr.service.shifu import shifu_draft_funcs
+
+    shifu_bid = f"test-save-live-invalid-{provider}-{mode}-{len(config)}"
+    owner_bid = "owner-live-invalid"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    with pytest.raises(AppError):
+        shifu_draft_funcs.save_shifu_draft_info(
+            app=app,
+            user_id=owner_bid,
+            shifu_id=shifu_bid,
+            shifu_name="Test Shifu",
+            shifu_description="desc",
+            shifu_avatar="res",
+            shifu_keywords=["test"],
+            shifu_model="gpt-test",
+            shifu_temperature=0.3,
+            shifu_price=1.23,
+            shifu_system_prompt="",
+            base_url="http://localhost:5000",
+            ask_model=GEMINI_LIVE_MODEL_ID,
+            ask_provider_config={
+                "provider": provider,
+                "mode": mode,
+                "config": config,
+            },
+        )
+
+
+def test_save_rejects_live_model_as_primary_course_model(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+    from flaskr.service.common.models import AppError
+    from flaskr.service.shifu import shifu_draft_funcs
+
+    shifu_bid = "test-save-live-primary-model"
+    owner_bid = "owner-live-primary-model"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    with pytest.raises(AppError):
+        shifu_draft_funcs.save_shifu_draft_info(
+            app=app,
+            user_id=owner_bid,
+            shifu_id=shifu_bid,
+            shifu_name="Test Shifu",
+            shifu_description="desc",
+            shifu_avatar="res",
+            shifu_keywords=["test"],
+            shifu_model=GEMINI_LIVE_MODEL_ID,
+            shifu_temperature=0.3,
+            shifu_price=1.23,
+            shifu_system_prompt="",
+            base_url="http://localhost:5000",
+        )
+
+
+def test_create_rejects_live_model_as_primary_course_model(app: object) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+    from flaskr.service.common.models import AppError
+    from flaskr.service.shifu import shifu_draft_funcs
+
+    with pytest.raises(AppError):
+        shifu_draft_funcs.create_shifu_draft(
+            app=app,
+            user_id="owner-live-create",
+            shifu_name="Invalid Live primary",
+            shifu_description="desc",
+            shifu_image="",
+            shifu_model=GEMINI_LIVE_MODEL_ID,
+        )
+
+
+def test_patch_rejects_omitted_legacy_live_primary_model(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+    from flaskr.service.common.models import AppError
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-patch-legacy-live-primary"
+    owner_bid = "owner-legacy-live-primary"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+    with app.app_context():
+        latest = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        latest.llm = GEMINI_LIVE_MODEL_ID
+        dao.db.session.commit()
+
+    with pytest.raises(AppError):
+        shifu_draft_funcs.save_shifu_draft_info(
+            app=app,
+            user_id=owner_bid,
+            shifu_id=shifu_bid,
+            shifu_name="Updated title",
+            shifu_description="desc",
+            shifu_avatar="res",
+            shifu_keywords=["test"],
+            shifu_model=None,
+            shifu_temperature=0.3,
+            shifu_price=1.23,
+            shifu_system_prompt="",
+            base_url="http://localhost:5000",
+        )
+
+
+def test_draft_read_resolves_default_voice_for_legacy_live_config(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-read-live-default-voice"
+    owner_bid = "owner-read-live-default-voice"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"), "{}")
+    _mock_shifu_permissions(monkeypatch)
+    with app.app_context():
+        latest = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        latest.ask_llm = GEMINI_LIVE_MODEL_ID
+        dao.db.session.commit()
+
+    result = shifu_draft_funcs.get_shifu_draft_info(
+        app,
+        owner_bid,
+        shifu_bid,
+        "http://localhost:5000",
+    )
+
+    assert result.ask_provider_config == {
+        "provider": "llm",
+        "mode": "provider_only",
+        "config": {"live_voice": "Kore"},
+    }
+
+
 def test_save_shifu_draft_info_normalizes_removed_tts_fields(
     app: object, monkeypatch: object
 ) -> None:

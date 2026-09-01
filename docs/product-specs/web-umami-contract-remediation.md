@@ -79,10 +79,12 @@ are not backfilled under another name.
 ## Creator authoring interactions
 
 - Business question: which successful authoring operations and accepted editor
-  actions are used, without collecting course content?
+  actions are used, and which follow-up interaction mode is saved, without
+  collecting course content or provider configuration?
 - Metric definition: raw successful saves/creates and accepted actions per day,
-  grouped only by the documented enums or stable business IDs. These are usage
-  counts, not exact user funnels.
+  grouped only by the documented enums or stable business IDs. The follow-up
+  adoption view groups successful `creator_shifu_setting_save` rows by
+  `follow_up_mode`. These are usage counts, not exact user funnels.
 - Actor and surface: authenticated teachers in Cook Web authoring surfaces.
 - Population: normal and read-only-aware producer eligibility as implemented by
   each control; failed validation, rejected API calls, and disabled controls are
@@ -91,22 +93,26 @@ are not backfilled under another name.
   handler invocation is one count; render and React re-renders emit nothing.
 - Consumer: authoring adoption queries owned by product analytics.
 - Consumer change: the listed event names are retained with payloads narrowed
-  in place. Queries using removed free-form fields must migrate.
+  in place. Queries using removed free-form fields must migrate. The
+  2026-09-02 contract revision adds `follow_up_mode` to
+  `creator_shifu_setting_save`; historical rows are not backfilled and a
+  missing value must be treated as `legacy_unknown`, never inferred as `text`.
 
-| Event                          | Exact trigger                                                                | Complete payload                                                                               |
-| ------------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language` |
-| `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`      |
-| `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`                                                        |
-| `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                       |
-| `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                    |
-| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                     |
+| Event                          | Exact trigger                                                                | Complete payload                                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language`, `follow_up_mode` |
+| `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`                        |
+| `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`                                                                          |
+| `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                                         |
+| `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                                      |
+| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                                       |
 
-Allowed enums are `save_type=auto|manual`, `variant=chapter|lesson`, and
-`learning_permission=normal|trial|guest`, as defined by `LEARNING_PERMISSION` in
-`src/web/src/c-api/studyV2.ts`. Course/chapter/lesson names, descriptions,
-system prompts, provider configuration, URLs, and route text were removed from
-these contracts.
+Allowed enums are `save_type=auto|manual`, `follow_up_mode=text|live_voice`,
+`variant=chapter|lesson`, and `learning_permission=normal|trial|guest`, as
+defined by `LEARNING_PERMISSION` in `src/web/src/c-api/studyV2.ts`.
+Course/chapter/lesson names, descriptions, system prompts, model names, voice
+IDs, provider configuration, URLs, and route text are excluded from these
+contracts.
 
 ## Learner navigation and shared interactions
 

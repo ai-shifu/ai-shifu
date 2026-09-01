@@ -144,6 +144,150 @@ def test_get_outline_item_tree_preview_mode(app: object) -> None:
     assert result.outline_items[0].bid == "outline-learn-1"
     assert result.outline_items[0].is_paid is True
     assert result.outline_items[0].has_content_update_for_current_user is False
+    assert result.outline_items[0].follow_up_mode == "text"
+
+
+def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
+    app: object,
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+
+    shifu_bid = "shifu-live-follow-up-tree"
+    with app.app_context():
+        course = DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Live Follow-up Course",
+            description="Desc",
+            price=Decimal("1.00"),
+            llm="gpt-main",
+            ask_llm=GEMINI_LIVE_MODEL_ID,
+            ask_enabled_status=5103,
+        )
+        text_chapter = DraftOutlineItem(
+            outline_item_bid="chapter-text-follow-up",
+            shifu_bid=shifu_bid,
+            title="Text Chapter",
+            position="1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5103,
+            ask_llm="gpt-text-follow-up",
+        )
+        inherited_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-inherited-text-follow-up",
+            shifu_bid=shifu_bid,
+            title="Inherited Text Lesson",
+            position="1.1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        live_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-live-follow-up",
+            shifu_bid=shifu_bid,
+            title="Live Lesson",
+            position="2",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        db.session.add_all([course, text_chapter, inherited_lesson, live_lesson])
+        db.session.commit()
+
+        struct = HistoryItem(
+            bid=shifu_bid,
+            id=0,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid=text_chapter.outline_item_bid,
+                    id=text_chapter.id,
+                    type="outline",
+                    children=[
+                        HistoryItem(
+                            bid=inherited_lesson.outline_item_bid,
+                            id=inherited_lesson.id,
+                            type="outline",
+                            children=[],
+                        )
+                    ],
+                ),
+                HistoryItem(
+                    bid=live_lesson.outline_item_bid,
+                    id=live_lesson.id,
+                    type="outline",
+                    children=[],
+                ),
+            ],
+        ).to_json()
+        db.session.add(
+            LogDraftStruct(
+                struct_bid="struct-live-follow-up-tree",
+                shifu_bid=shifu_bid,
+                struct=struct,
+            )
+        )
+        db.session.commit()
+
+    result = get_outline_item_tree(app, shifu_bid, "teacher-1", preview_mode=True)
+
+    assert result.outline_items[0].follow_up_mode == "text"
+    assert result.outline_items[0].children[0].follow_up_mode == "text"
+    assert result.outline_items[1].follow_up_mode == "live_voice"
+
+
+def test_get_outline_item_tree_never_infers_live_mode_from_primary_model(
+    app: object,
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+
+    shifu_bid = "shifu-invalid-live-primary-tree"
+    with app.app_context():
+        course = DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Legacy invalid Live primary",
+            description="Desc",
+            price=Decimal("1.00"),
+            llm=GEMINI_LIVE_MODEL_ID,
+            ask_llm="",
+            ask_enabled_status=5103,
+        )
+        lesson = DraftOutlineItem(
+            outline_item_bid="legacy-live-primary-lesson",
+            shifu_bid=shifu_bid,
+            title="Lesson",
+            position="1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        db.session.add_all([course, lesson])
+        db.session.commit()
+        struct = HistoryItem(
+            bid=shifu_bid,
+            id=course.id,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid=lesson.outline_item_bid,
+                    id=lesson.id,
+                    type="outline",
+                    children=[],
+                )
+            ],
+        ).to_json()
+        db.session.add(
+            LogDraftStruct(
+                struct_bid="struct-invalid-live-primary-tree",
+                shifu_bid=shifu_bid,
+                struct=struct,
+            )
+        )
+        db.session.commit()
+
+    result = get_outline_item_tree(app, shifu_bid, "teacher-1", preview_mode=True)
+
+    assert result.outline_items[0].follow_up_mode == "text"
 
 
 def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(
