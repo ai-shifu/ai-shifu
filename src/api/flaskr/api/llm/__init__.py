@@ -107,7 +107,6 @@ class ProviderConfig:
         ]
         | None
     ) = None
-    reload_params: Callable[[str, float], dict[str, Any]] | None = None
 
 
 @dataclass
@@ -119,7 +118,6 @@ class ProviderState:
     models: list[str]
     prefix: str = ""
     wildcard_prefixes: tuple[str, ...] = ()
-    reload_params: Callable[[str, float], dict[str, Any]] | None = None
 
 
 MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
@@ -369,7 +367,6 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
             models=[],
             prefix=config.prefix,
             wildcard_prefixes=config.wildcard_prefixes,
-            reload_params=config.reload_params,
         )
     base_url = None
     if config.base_url_env:
@@ -410,7 +407,6 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
         models=display_models,
         prefix=config.prefix,
         wildcard_prefixes=config.wildcard_prefixes,
-        reload_params=config.reload_params,
     )
 
 
@@ -656,233 +652,322 @@ DEEPSEEK_FALLBACK_MODELS = [
 ]
 
 
-def _reload_openai_params(model_id: str, temperature: float) -> dict[str, object]:
-    if model_id.startswith("gpt-5"):
-        try:
-            model_info = litellm.get_model_info(
-                model=model_id,
-                custom_llm_provider="openai",
-            )
-        except Exception as exc:
-            # Keep the existing prefix-based behavior for model aliases that
-            # have not reached LiteLLM's bundled model map yet.
-            logger.debug(
-                "LiteLLM model info unavailable for %s: %s",
-                model_id,
-                exc,
-            )
-        else:
-            if model_info.get("supports_none_reasoning_effort") is True:
-                return {
-                    "reasoning_effort": "none",
-                    "temperature": temperature,
-                }
-            if model_info.get("supports_minimal_reasoning_effort") is True:
-                reasoning_effort = "minimal"
-            elif model_info.get("supports_low_reasoning_effort") is True:
-                reasoning_effort = "low"
-            elif all(
-                model_info.get(key) is False
-                for key in (
-                    "supports_none_reasoning_effort",
-                    "supports_minimal_reasoning_effort",
-                    "supports_low_reasoning_effort",
-                )
-            ):
-                reasoning_effort = "medium"
-            else:
-                reasoning_effort = None
-            if reasoning_effort is not None:
-                return {
-                    "reasoning_effort": reasoning_effort,
-                    "temperature": 1,
-                }
-
-    if model_id.startswith("gpt-5.2"):
-        return {
-            "reasoning_effort": "none",
-            "temperature": temperature,
-        }
-    if model_id.startswith("gpt-5.1"):
-        return {
-            "reasoning_effort": "none",
-            "temperature": 1,
-        }
-    if model_id.startswith("gpt-5-pro"):
-        return {
-            "reasoning_effort": "none",
-        }
-
-    if model_id.startswith("gpt-5"):
-        return {
-            "reasoning_effort": "minimal",
-            "temperature": 1,
-        }
-    return {
-        "temperature": temperature,
-    }
-
-
-_GEMINI_LOW_REASONING_MODELS = frozenset({"gemini-3.7-flash"})
-_QWEN_REQUIRED_THINKING_MODELS = frozenset(
-    {
-        "zhipu/glm-5.3",
-        "zhipu/glm-5.3-flash",
-    }
+_REASONING_EFFORT_CAPABILITIES = (
+    ("none", "supports_none_reasoning_effort"),
+    ("minimal", "supports_minimal_reasoning_effort"),
+    ("low", "supports_low_reasoning_effort"),
 )
-
-
-def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, object]:
-    # Gemini thinking is controlled via LiteLLM's reasoning_effort mapping. Some
-    # Gemini model ids are not included in LiteLLM's supported-params table yet,
-    # so explicitly allow reasoning_effort for Gemini requests.
-    params: dict[str, Any] = {
-        "temperature": temperature,
-        "allowed_openai_params": ["reasoning_effort"],
-    }
-    normalized_model_id = model_id.casefold()
-    if normalized_model_id in _GEMINI_LOW_REASONING_MODELS:
-        # Gemini 3.7 Flash does not support minimal thinking. Low is its
-        # lowest supported thinking level.
-        params["reasoning_effort"] = "low"
-    elif normalized_model_id.startswith("gemini-3"):
-        # Gemini 3 cannot fully disable thinking. LiteLLM maps none to the
-        # model's lowest supported level and suppresses thought output.
-        params["reasoning_effort"] = "none"
-    elif normalized_model_id.startswith("gemini-2.5-pro"):
-        # Gemini 2.5 Pro cannot disable thinking; LiteLLM maps minimal to its
-        # minimum supported 128-token thinking budget.
-        params["reasoning_effort"] = "minimal"
-    elif normalized_model_id.startswith("gemini"):
-        # Older Gemini models can use the cost-optimized no-thinking mapping.
-        params["reasoning_effort"] = "none"
-    return params
-
-
-def _reload_ark_params(model_id: str, temperature: float) -> dict[str, object]:
-    _ = model_id
-    return {
-        "temperature": temperature,
-        "thinking": {"type": "disabled"},
-        # The follow-up flow relies on JSON mode; explicitly allow this
-        # Volcengine parameter through the shared adapter boundary.
-        "allowed_openai_params": ["response_format"],
-    }
-
-
-def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, object]:
-    _ = model_id
-    return {
-        "temperature": temperature,
-        "extra_body": {"enable_thinking": False},
-    }
-
-
-def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, object]:
-    if model_id.casefold() in _QWEN_REQUIRED_THINKING_MODELS:
-        # DashScope's ZHIPU GLM-5.3 models always think and default to enabled.
-        # Only set their lowest supported thinking level; the provider-policy
-        # merge removes any conflicting enable_thinking value from callers.
-        return {
-            "temperature": temperature,
-            "extra_body": {
-                "reasoning_effort": "low",
-            },
-        }
-    return {
-        "temperature": temperature,
-        "extra_body": {"enable_thinking": False},
-    }
-
-
-def _reload_deepseek_params(model_id: str, temperature: float) -> dict[str, object]:
-    _ = model_id
-    return {
-        "temperature": temperature,
-        "reasoning_effort": "none",
-    }
-
-
-_GLM_THINKING_MODEL_PREFIXES = ("glm-4.5", "glm-4.6", "glm-4.7", "glm-5")
-_THINKING_CONTROL_KEYS = (
+_THINKING_CONTROL_KEYS = ("reasoning_effort", "thinking", "enable_thinking")
+_LIST_PATCH_KEYS = frozenset({"allowed_openai_params", "additional_drop_params"})
+_THINKING_CONFLICT_PATHS = (
     "reasoning_effort",
+    "reasoning",
     "thinking",
     "enable_thinking",
     "thinkingConfig",
     "thinking_config",
+    "extra_body.reasoning_effort",
+    "extra_body.reasoning",
+    "extra_body.thinking",
+    "extra_body.enable_thinking",
+    "extra_body.thinkingConfig",
+    "extra_body.thinking_config",
+    "generationConfig.thinkingConfig",
+    "generationConfig.thinking_config",
+    "generation_config.thinkingConfig",
+    "generation_config.thinking_config",
+    "extra_body.generationConfig.thinkingConfig",
+    "extra_body.generationConfig.thinking_config",
+    "extra_body.generation_config.thinkingConfig",
+    "extra_body.generation_config.thinking_config",
 )
-_GEMINI_GENERATION_CONFIG_KEYS = ("generation_config", "generationConfig")
-_GEMINI_THINKING_CONFIG_KEYS = ("thinkingConfig", "thinking_config")
+
+# These entries cover confirmed gaps in LiteLLM 1.98.0. The normal path is
+# capability-driven; upgrading LiteLLM should make individual rows removable
+# when their contract tests start passing without the row.
+_ZAI_DISABLED_THINKING_PATCH: dict[str, object] = {
+    # LiteLLM 1.98 sends top-level thinking to the OpenAI SDK for ZAI, where it
+    # is rejected. extra_body reaches the provider wire format.
+    "extra_body": {"thinking": {"type": "disabled"}},
+}
+_LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
+    ("qwen", None): {"extra_body": {"enable_thinking": False}},
+    ("silicon", None): {"extra_body": {"enable_thinking": False}},
+    ("ark", None): {"allowed_openai_params": ["response_format"]},
+    ("glm", None): {"allowed_openai_params": ["response_format"]},
+    ("glm", "glm-4.5"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-4.5v"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-4.5-air"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-4.5-x"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-4.5-airx"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-4.5-flash"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-4.6"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-4.7"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-4.7-flash"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-5"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-5.1"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-5-code"): _ZAI_DISABLED_THINKING_PATCH,
+    ("glm", "glm-5.2"): _ZAI_DISABLED_THINKING_PATCH,
+    ("qwen", "zhipu/glm-5.3"): {
+        "reasoning_effort": "low",
+        "allowed_openai_params": ["reasoning_effort"],
+        "additional_drop_params": ["enable_thinking"],
+    },
+    ("qwen", "zhipu/glm-5.3-flash"): {
+        "reasoning_effort": "low",
+        "allowed_openai_params": ["reasoning_effort"],
+        "additional_drop_params": ["enable_thinking"],
+    },
+    ("gemini", "gemini-3.7-flash"): {"reasoning_effort": "low"},
+    ("gemini", "gemini-2.5-pro"): {"reasoning_effort": "minimal"},
+    ("openai", "gpt-5-pro"): {"reasoning_effort": "high"},
+    ("openai", "gpt-5-pro-2025-10-06"): {"reasoning_effort": "high"},
+    ("openai", "gpt-5.2-pro"): {"reasoning_effort": "medium"},
+    ("openai", "gpt-5.2-pro-2025-12-11"): {"reasoning_effort": "medium"},
+    ("openai", "gpt-5.4-pro"): {"reasoning_effort": "medium"},
+    ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
+    ("openai", "gpt-5.5-pro"): {"reasoning_effort": "medium"},
+    ("openai", "gpt-5.5-pro-2026-04-23"): {"reasoning_effort": "medium"},
+}
 
 
-def _reload_glm_params(model_id: str, temperature: float) -> dict[str, object]:
-    params: dict[str, Any] = {
-        "temperature": temperature,
-        # LiteLLM's ZAI adapter currently gates thinking on model metadata and
-        # omits response_format from its supported list. Keep JSON output
-        # compatible without allowing thinking on legacy GLM models.
-        "allowed_openai_params": ["response_format"],
-    }
-    if model_id.lower().startswith(_GLM_THINKING_MODEL_PREFIXES):
-        params["allowed_openai_params"].append("thinking")
-        # Keep thinking in extra_body so the OpenAI-compatible SDK forwards the
-        # vendor-specific argument instead of rejecting it before the request.
-        params["extra_body"] = {"thinking": {"type": "disabled"}}
-    return params
+def _ordered_param_union(*values: object) -> list[object]:
+    merged: list[object] = []
+    for value in values:
+        if not isinstance(value, (list, tuple)):
+            continue
+        for item in value:
+            if item not in merged:
+                merged.append(item)
+    return merged
 
 
-def _apply_provider_params(
-    kwargs: dict[str, object], provider_params: dict[str, object]
-) -> None:
-    provider_extra_body = provider_params.get("extra_body")
-    has_thinking_policy = any(
-        key in provider_params for key in _THINKING_CONTROL_KEYS
-    ) or (
-        isinstance(provider_extra_body, dict)
-        and any(key in provider_extra_body for key in _THINKING_CONTROL_KEYS)
-    )
-    if has_thinking_policy:
-        for key in _THINKING_CONTROL_KEYS:
-            kwargs.pop(key, None)
-        caller_extra_body = kwargs.get("extra_body")
-        if isinstance(caller_extra_body, dict):
-            sanitized_extra_body = {
-                key: value
-                for key, value in caller_extra_body.items()
-                if key not in _THINKING_CONTROL_KEYS
+def _merge_litellm_param_patch(
+    base: dict[str, object], patch: dict[str, object]
+) -> dict[str, object]:
+    """Shallow-merge one request patch without inventing a policy language."""
+    merged = dict(base)
+    for key, value in patch.items():
+        if key in _LIST_PATCH_KEYS:
+            merged[key] = _ordered_param_union(merged.get(key), value)
+        elif key == "extra_body" and isinstance(value, dict):
+            current = merged.get(key)
+            merged[key] = {
+                **(current if isinstance(current, dict) else {}),
+                **value,
             }
-            # Gemini merges these native blocks after mapping reasoning_effort,
-            # so a caller-supplied thinking config would otherwise win.
-            normalized_generation_config: dict[str, Any] = {}
-            for generation_config_key in _GEMINI_GENERATION_CONFIG_KEYS:
-                generation_config = sanitized_extra_body.pop(
-                    generation_config_key,
-                    None,
-                )
-                if not isinstance(generation_config, dict):
-                    continue
-                normalized_generation_config.update(
-                    {
-                        key: value
-                        for key, value in generation_config.items()
-                        if key not in _GEMINI_THINKING_CONFIG_KEYS
-                    }
-                )
-            if normalized_generation_config:
-                sanitized_extra_body["generationConfig"] = normalized_generation_config
-            if sanitized_extra_body:
-                kwargs["extra_body"] = sanitized_extra_body
-            else:
-                kwargs.pop("extra_body", None)
+        elif isinstance(value, dict):
+            merged[key] = dict(value)
+        elif isinstance(value, list):
+            merged[key] = list(value)
+        else:
+            merged[key] = value
+    return merged
 
-    applied_params = dict(provider_params)
-    if isinstance(provider_extra_body, dict):
-        caller_extra_body = kwargs.get("extra_body")
-        applied_params["extra_body"] = {
-            **(caller_extra_body if isinstance(caller_extra_body, dict) else {}),
-            **provider_extra_body,
-        }
-    kwargs.update(applied_params)
+
+def _litellm_provider_name(provider_key: str, provider_params: dict[str, str]) -> str:
+    configured_provider = provider_params.get("custom_llm_provider")
+    if configured_provider:
+        return configured_provider
+    for config in LITELLM_PROVIDER_CONFIGS:
+        if config.key == provider_key and config.custom_llm_provider:
+            return config.custom_llm_provider
+    return provider_key
+
+
+def _litellm_minimum_thinking_params(
+    model_id: str, custom_llm_provider: str
+) -> dict[str, object]:
+    """Use LiteLLM's declared adapter capabilities for the product minimum."""
+    try:
+        supported_params = litellm.get_supported_openai_params(
+            model=model_id,
+            custom_llm_provider=custom_llm_provider,
+        )
+    except Exception as exc:
+        logger.debug(
+            "LiteLLM supported params unavailable for %s/%s: %s",
+            custom_llm_provider,
+            model_id,
+            exc,
+        )
+        supported_params = None
+
+    if supported_params and "reasoning_effort" in supported_params:
+        try:
+            model_info = litellm.get_model_info(
+                model=model_id,
+                custom_llm_provider=custom_llm_provider,
+            )
+        except Exception as exc:
+            logger.debug(
+                "LiteLLM model info unavailable for %s/%s: %s",
+                custom_llm_provider,
+                model_id,
+                exc,
+            )
+            model_info = {}
+
+        for effort, capability in _REASONING_EFFORT_CAPABILITIES:
+            if model_info.get(capability) is True:
+                return {"reasoning_effort": effort}
+        if all(
+            model_info.get(capability) is False
+            for _effort, capability in _REASONING_EFFORT_CAPABILITIES
+        ):
+            return {"reasoning_effort": "medium"}
+        # The adapter supports the standard parameter but the model metadata is
+        # incomplete. LiteLLM maps none to each provider's native minimum.
+        return {"reasoning_effort": "none"}
+
+    if supported_params and "thinking" in supported_params:
+        return {"thinking": {"type": "disabled"}}
+    return {}
+
+
+def _find_thinking_control(
+    params: dict[str, object],
+) -> tuple[str, str] | None:
+    for key in _THINKING_CONTROL_KEYS:
+        if key in params:
+            return "root", key
+    extra_body = params.get("extra_body")
+    if isinstance(extra_body, dict):
+        for key in _THINKING_CONTROL_KEYS:
+            if key in extra_body:
+                return "extra_body", key
+    return None
+
+
+def _keep_primary_thinking_control(
+    params: dict[str, object], primary: tuple[str, str] | None
+) -> dict[str, object]:
+    if primary is None:
+        return params
+    kept = dict(params)
+    for key in _THINKING_CONTROL_KEYS:
+        if primary != ("root", key):
+            kept.pop(key, None)
+    extra_body = kept.get("extra_body")
+    if isinstance(extra_body, dict):
+        kept_extra_body = dict(extra_body)
+        for key in _THINKING_CONTROL_KEYS:
+            if primary != ("extra_body", key):
+                kept_extra_body.pop(key, None)
+        if kept_extra_body:
+            kept["extra_body"] = kept_extra_body
+        else:
+            kept.pop("extra_body", None)
+    return kept
+
+
+def _thinking_conflict_drop_params(primary: tuple[str, str]) -> list[object]:
+    if primary[0] == "root":
+        protected_paths = {primary[1]}
+        if primary[1] == "thinking":
+            # OpenAI-compatible adapters can map standard thinking into
+            # extra_body, so dropping that path would remove the policy value.
+            protected_paths.add("extra_body.thinking")
+    else:
+        # A flat drop also removes an extra_body field with the same name.
+        protected_paths = {primary[1], f"extra_body.{primary[1]}"}
+    return [path for path in _THINKING_CONFLICT_PATHS if path not in protected_paths]
+
+
+def _drop_path_overlaps_primary(path: object, primary: tuple[str, str]) -> bool:
+    if not isinstance(path, str):
+        return False
+    target_path = primary[1] if primary[0] == "root" else f"extra_body.{primary[1]}"
+    protected_paths = {target_path}
+    if primary == ("root", "thinking"):
+        protected_paths.add("extra_body.thinking")
+    if primary[0] == "extra_body":
+        # LiteLLM also treats the flat field name as an extra_body filter.
+        protected_paths.add(primary[1])
+    return any(
+        path == protected
+        or path.startswith(f"{protected}.")
+        or protected.startswith(f"{path}.")
+        for protected in protected_paths
+    )
+
+
+def _should_inject_default_temperature(
+    provider_key: str,
+    model_id: str,
+    primary: tuple[str, str] | None,
+    policy_params: dict[str, object],
+) -> bool:
+    normalized_model = model_id.casefold()
+    if provider_key == "gemini" and normalized_model.startswith("gemini-3"):
+        return False
+    return not (
+        provider_key == "openai"
+        and primary == ("root", "reasoning_effort")
+        and policy_params.get("reasoning_effort") != "none"
+    )
+
+
+def _prepare_litellm_request_kwargs(
+    provider_key: str,
+    model_id: str,
+    provider_params: dict[str, str],
+    kwargs: dict[str, object],
+) -> dict[str, object]:
+    """Resolve minimum thinking controls once for both invocation paths."""
+    provider_key = provider_key.casefold()
+    custom_llm_provider = _litellm_provider_name(provider_key, provider_params)
+    stages = [
+        _litellm_minimum_thinking_params(model_id, custom_llm_provider),
+        _LITELLM_198_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
+        _LITELLM_198_COMPATIBILITY_PATCHES.get((provider_key, model_id.casefold()), {}),
+    ]
+    primary = None
+    policy_params: dict[str, object] = {}
+    for stage in stages:
+        policy_params = _merge_litellm_param_patch(policy_params, stage)
+        stage_control = _find_thinking_control(stage)
+        if stage_control is not None:
+            primary = stage_control
+    policy_params = _keep_primary_thinking_control(policy_params, primary)
+
+    prepared = dict(kwargs)
+    if "temperature" in prepared:
+        prepared["temperature"] = float(prepared["temperature"])
+    elif _should_inject_default_temperature(
+        provider_key, model_id, primary, policy_params
+    ):
+        prepared["temperature"] = 0.3
+
+    if primary is not None:
+        if primary == ("root", "thinking"):
+            caller_extra_body = prepared.get("extra_body")
+            if isinstance(caller_extra_body, dict):
+                sanitized_extra_body = dict(caller_extra_body)
+                sanitized_extra_body.pop("thinking", None)
+                if sanitized_extra_body:
+                    prepared["extra_body"] = sanitized_extra_body
+                else:
+                    prepared.pop("extra_body", None)
+        if primary[0] == "extra_body":
+            # None prevents the caller's top-level vendor field from
+            # overwriting the patch when LiteLLM builds extra_body.
+            prepared[primary[1]] = None
+        caller_drop_params = prepared.get("additional_drop_params")
+        if isinstance(caller_drop_params, (list, tuple)):
+            prepared["additional_drop_params"] = [
+                path
+                for path in caller_drop_params
+                if not _drop_path_overlaps_primary(path, primary)
+            ]
+        policy_params = _merge_litellm_param_patch(
+            policy_params,
+            {
+                "additional_drop_params": _thinking_conflict_drop_params(primary),
+            },
+        )
+
+    return _merge_litellm_param_patch(prepared, policy_params)
 
 
 LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
@@ -895,7 +980,6 @@ LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
         wildcard_prefixes=("gpt",),
         config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
         custom_llm_provider="openai",
-        reload_params=_reload_openai_params,
     ),
     ProviderConfig(
         key="qwen",
@@ -907,7 +991,6 @@ LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
         wildcard_prefixes=(QWEN_PREFIX,),
         config_hint="QWEN_API_KEY,QWEN_API_URL",
         custom_llm_provider="dashscope",
-        reload_params=_reload_qwen_params,
     ),
     ProviderConfig(
         key="ernie_v2",
@@ -925,7 +1008,6 @@ LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
         config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
         custom_llm_provider="deepseek",
         model_loader=_load_deepseek_models,
-        reload_params=_reload_deepseek_params,
     ),
     ProviderConfig(
         key="gemini",
@@ -938,7 +1020,6 @@ LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
         config_hint="GEMINI_API_KEY,GEMINI_API_URL",
         custom_llm_provider="gemini",
         model_loader=_load_gemini_models,
-        reload_params=_reload_gemini_params,
     ),
     ProviderConfig(
         key="glm",
@@ -947,7 +1028,6 @@ LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
         prefix=GLM_PREFIX,
         config_hint="BIGMODEL_API_KEY",
         custom_llm_provider="zai",
-        reload_params=_reload_glm_params,
     ),
     ProviderConfig(
         key="silicon",
@@ -956,7 +1036,6 @@ LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
         prefix=SILICON_PREFIX,
         config_hint="SILICON_API_KEY,SILICON_API_URL",
         custom_llm_provider="openai",
-        reload_params=_reload_silicon_params,
     ),
     ProviderConfig(
         key="ark",
@@ -965,7 +1044,6 @@ LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
         prefix="ark/",
         config_hint="ARK_API_KEY",
         custom_llm_provider="volcengine",
-        reload_params=_reload_ark_params,
     ),
 ]
 
@@ -1024,15 +1102,14 @@ def get_litellm_params_and_model(
 ) -> tuple[
     dict[str, str] | None,
     str,
-    Callable[[str, float], dict[str, Any]] | None,
+    str | None,
 ]:
-    """Return litellm params and model."""
+    """Return LiteLLM params, actual model, and application provider key."""
     requested_model = model
     provider_key, invoke_model = _resolve_provider_for_model(model)
     if provider_key:
         state = PROVIDER_STATES.get(provider_key)
         params = state.params if state else None
-        reload_params = state.reload_params if state else None
         if not params:
             raise_error_with_args(
                 "server.llm.specifiedLlmNotConfigured",
@@ -1041,7 +1118,7 @@ def get_litellm_params_and_model(
                     provider_key, provider_key.upper()
                 ),
             )
-        return params, invoke_model, reload_params
+        return params, invoke_model, provider_key
     return None, model, None
 
 
@@ -1098,10 +1175,9 @@ def invoke_llm(
     input_cache_tokens = 0
     provider_name = ""
     start_time = time.monotonic()
-    params, invoke_model, reload_params = get_litellm_params_and_model(model)
+    params, invoke_model, provider_key = get_litellm_params_and_model(model)
     start_completion_time = None
     if params:
-        provider_key, _normalized = _resolve_provider_for_model(model)
         provider_name = provider_key or ""
         messages = []
         if system:
@@ -1110,17 +1186,12 @@ def invoke_llm(
         if json:
             kwargs["response_format"] = {"type": "json_object"}
         kwargs["stream_options"] = {"include_usage": True}
-        if reload_params:
-            _apply_provider_params(
-                kwargs,
-                reload_params(invoke_model, float(kwargs.get("temperature", 0.3))),
-            )
-        else:
-            kwargs.update(
-                {
-                    "temperature": float(kwargs.get("temperature", 0.3)),
-                }
-            )
+        kwargs = _prepare_litellm_request_kwargs(
+            provider_name,
+            invoke_model,
+            params,
+            kwargs,
+        )
         response = _iter_stream_with_precontent_retry(
             app,
             model,
@@ -1287,22 +1358,16 @@ def chat_llm(
     provider_name = ""
     start_time = time.monotonic()
     start_completion_time = None
-    params, invoke_model, reload_params = get_litellm_params_and_model(model)
+    params, invoke_model, provider_key = get_litellm_params_and_model(model)
     if params:
-        provider_key, _normalized = _resolve_provider_for_model(model)
         provider_name = provider_key or ""
-        if reload_params:
-            _apply_provider_params(
-                kwargs,
-                reload_params(invoke_model, float(kwargs.get("temperature", 0.3))),
-            )
-        else:
-            kwargs.update(
-                {
-                    "temperature": float(kwargs.get("temperature", 0.3)),
-                }
-            )
         kwargs["stream_options"] = {"include_usage": True}
+        kwargs = _prepare_litellm_request_kwargs(
+            provider_name,
+            invoke_model,
+            params,
+            kwargs,
+        )
         response = _iter_stream_with_precontent_retry(
             app,
             model,
