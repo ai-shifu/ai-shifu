@@ -11,9 +11,6 @@ set -eu
 
 source_tree="${CODEX_SOURCE_TREE_PATH:-}"
 worktree_path="${CODEX_WORKTREE_PATH:-$(pwd)}"
-frontend_env_filenames=".env .env.local .env.development .env.development.local .env.production .env.production.local .env.test .env.test.local"
-source_env_files=""
-reserved_env_files=""
 
 copy_local_env() {
   source_file="$1"
@@ -24,169 +21,123 @@ copy_local_env() {
   fi
 }
 
-close_frontend_env_file() {
-  case "$1" in
-    .env) exec 3>&- ;;
-    .env.local) exec 4>&- ;;
-    .env.development) exec 5>&- ;;
-    .env.development.local) exec 6>&- ;;
-    .env.production) exec 7>&- ;;
-    .env.production.local) exec 8>&- ;;
-    .env.test) exec 9>&- ;;
-    .env.test.local) exec 10>&- ;;
-    *) return 1 ;;
-  esac
-}
-
-reserve_frontend_env_file() {
-  env_filename="$1"
-  target_file="$worktree_path/src/web/$env_filename"
-  case "$env_filename" in
-    .env)
-      if ! exec 3>"$target_file"; then return 1; fi
-      ;;
-    .env.local)
-      if ! exec 4>"$target_file"; then return 1; fi
-      ;;
-    .env.development)
-      if ! exec 5>"$target_file"; then return 1; fi
-      ;;
-    .env.development.local)
-      if ! exec 6>"$target_file"; then return 1; fi
-      ;;
-    .env.production)
-      if ! exec 7>"$target_file"; then return 1; fi
-      ;;
-    .env.production.local)
-      if ! exec 8>"$target_file"; then return 1; fi
-      ;;
-    .env.test)
-      if ! exec 9>"$target_file"; then return 1; fi
-      ;;
-    .env.test.local)
-      if ! exec 10>"$target_file"; then return 1; fi
-      ;;
-    *) return 1 ;;
-  esac
-  reserved_env_files="$reserved_env_files $env_filename"
-}
-
-write_frontend_env_file() {
-  env_filename="$1"
-  source_file="$source_tree/src/web/$env_filename"
-  case "$env_filename" in
-    .env) file_descriptor=3 ;;
-    .env.local) file_descriptor=4 ;;
-    .env.development) file_descriptor=5 ;;
-    .env.development.local) file_descriptor=6 ;;
-    .env.production) file_descriptor=7 ;;
-    .env.production.local) file_descriptor=8 ;;
-    .env.test) file_descriptor=9 ;;
-    .env.test.local) file_descriptor=10 ;;
-    *) return 1 ;;
-  esac
+copy_frontend_env() {
   python3 -c 'import os
 import stat
 import sys
 
-file_descriptor = int(sys.argv[1])
-source_path = sys.argv[2]
-source_stat = os.stat(source_path)
-with open(source_path, "rb") as source, os.fdopen(os.dup(file_descriptor), "wb") as target:
-    while True:
-        chunk = source.read(1024 * 1024)
-        if not chunk:
-            break
-        target.write(chunk)
-os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
-' "$file_descriptor" "$source_file"
+ENV_FILENAMES = (
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.development.local",
+    ".env.production",
+    ".env.production.local",
+    ".env.test",
+    ".env.test.local",
+)
+source_root = sys.argv[1]
+target_root = sys.argv[2]
+
+source_files = []
+for filename in ENV_FILENAMES:
+    source_path = os.path.join(source_root, filename)
+    try:
+        source_stat = os.stat(source_path)
+    except FileNotFoundError:
+        continue
+    if stat.S_ISREG(source_stat.st_mode):
+        source_files.append((filename, source_path, source_stat))
+
+if not source_files:
+    raise SystemExit(0)
+
+target_paths = {
+    filename: os.path.join(target_root, filename) for filename in ENV_FILENAMES
 }
+if any(os.path.lexists(target_path) for target_path in target_paths.values()):
+    raise SystemExit(0)
 
-cleanup_frontend_env_reservations() {
-  for env_filename in $reserved_env_files
-  do
-    close_frontend_env_file "$env_filename"
-  done
-  for env_filename in $reserved_env_files
-  do
-    target_file="$worktree_path/src/web/$env_filename"
-    if [ -f "$target_file" ] && [ ! -L "$target_file" ]; then
-      rm -f "$target_file"
-    fi
-  done
-}
 
-check_unreserved_frontend_env_files() {
-  for env_filename in $frontend_env_filenames
-  do
-    case " $source_env_files " in
-      *" $env_filename "*) ;;
-      *)
-        target_file="$worktree_path/src/web/$env_filename"
-        if [ -e "$target_file" ] || [ -L "$target_file" ]; then
-          return 1
-        fi
-        ;;
-    esac
-  done
-}
+class ConcurrentEnvironmentChange(Exception):
+    pass
 
-copy_frontend_env() {
-  source_env_files=""
-  for env_filename in $frontend_env_filenames
-  do
-    source_file="$source_tree/src/web/$env_filename"
-    if [ -f "$source_file" ]; then
-      source_env_files="$source_env_files $env_filename"
-    fi
-  done
 
-  if [ -z "$source_env_files" ]; then
-    return
-  fi
+source_names = {filename for filename, _, _ in source_files}
+reservations = []
 
-  for env_filename in $frontend_env_filenames
-  do
-    target_file="$worktree_path/src/web/$env_filename"
-    if [ -e "$target_file" ] || [ -L "$target_file" ]; then
-      return
-    fi
-  done
 
-  (
-    set -C
-    reserved_env_files=""
-    for env_filename in $source_env_files
-    do
-      if ! reserve_frontend_env_file "$env_filename"; then
-        cleanup_frontend_env_reservations
-        exit 0
-      fi
-    done
+def unreserved_target_exists():
+    return any(
+        filename not in source_names and os.path.lexists(target_path)
+        for filename, target_path in target_paths.items()
+    )
 
-    if ! check_unreserved_frontend_env_files; then
-      cleanup_frontend_env_reservations
-      exit 0
-    fi
 
-    for env_filename in $source_env_files
-    do
-      if ! write_frontend_env_file "$env_filename"; then
-        cleanup_frontend_env_reservations
-        exit 1
-      fi
-    done
+def clean_up_reservations():
+    for _, _, _, target_path, file_descriptor in reservations:
+        try:
+            path_stat = os.lstat(target_path)
+            descriptor_stat = os.fstat(file_descriptor)
+            if (
+                path_stat.st_dev == descriptor_stat.st_dev
+                and path_stat.st_ino == descriptor_stat.st_ino
+            ):
+                os.unlink(target_path)
+        except FileNotFoundError:
+            pass
+        finally:
+            os.close(file_descriptor)
 
-    if ! check_unreserved_frontend_env_files; then
-      cleanup_frontend_env_reservations
-      exit 0
-    fi
 
-    for env_filename in $reserved_env_files
-    do
-      close_frontend_env_file "$env_filename"
-    done
-  )
+try:
+    for filename, source_path, source_stat in source_files:
+        file_descriptor = os.open(
+            target_paths[filename],
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            stat.S_IMODE(source_stat.st_mode),
+        )
+        reservations.append(
+            (
+                filename,
+                source_path,
+                source_stat,
+                target_paths[filename],
+                file_descriptor,
+            )
+        )
+
+    if unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+
+    for _, source_path, source_stat, _, file_descriptor in reservations:
+        with open(source_path, "rb") as source:
+            while True:
+                chunk = source.read(1024 * 1024)
+                if not chunk:
+                    break
+                offset = 0
+                while offset < len(chunk):
+                    written = os.write(file_descriptor, chunk[offset:])
+                    if written <= 0:
+                        raise OSError("failed to write frontend environment file")
+                    offset += written
+        os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
+
+    if unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+except (ConcurrentEnvironmentChange, FileExistsError):
+    clean_up_reservations()
+    raise SystemExit(0)
+except BaseException:
+    clean_up_reservations()
+    raise
+else:
+    for _, _, _, _, file_descriptor in reservations:
+        os.close(file_descriptor)
+' \
+    "$source_tree/src/web" \
+    "$worktree_path/src/web"
 }
 
 reuse_directory_if_compatible() {
@@ -233,9 +184,6 @@ set -eu
 
 source_tree="${CODEX_SOURCE_TREE_PATH:-}"
 worktree_path="${CODEX_WORKTREE_PATH:-$(pwd)}"
-frontend_env_filenames=".env .env.local .env.development .env.development.local .env.production .env.production.local .env.test .env.test.local"
-source_env_files=""
-reserved_env_files=""
 
 copy_local_env() {
   source_file="$1"
@@ -246,169 +194,123 @@ copy_local_env() {
   fi
 }
 
-close_frontend_env_file() {
-  case "$1" in
-    .env) exec 3>&- ;;
-    .env.local) exec 4>&- ;;
-    .env.development) exec 5>&- ;;
-    .env.development.local) exec 6>&- ;;
-    .env.production) exec 7>&- ;;
-    .env.production.local) exec 8>&- ;;
-    .env.test) exec 9>&- ;;
-    .env.test.local) exec 10>&- ;;
-    *) return 1 ;;
-  esac
-}
-
-reserve_frontend_env_file() {
-  env_filename="$1"
-  target_file="$worktree_path/src/web/$env_filename"
-  case "$env_filename" in
-    .env)
-      if ! exec 3>"$target_file"; then return 1; fi
-      ;;
-    .env.local)
-      if ! exec 4>"$target_file"; then return 1; fi
-      ;;
-    .env.development)
-      if ! exec 5>"$target_file"; then return 1; fi
-      ;;
-    .env.development.local)
-      if ! exec 6>"$target_file"; then return 1; fi
-      ;;
-    .env.production)
-      if ! exec 7>"$target_file"; then return 1; fi
-      ;;
-    .env.production.local)
-      if ! exec 8>"$target_file"; then return 1; fi
-      ;;
-    .env.test)
-      if ! exec 9>"$target_file"; then return 1; fi
-      ;;
-    .env.test.local)
-      if ! exec 10>"$target_file"; then return 1; fi
-      ;;
-    *) return 1 ;;
-  esac
-  reserved_env_files="$reserved_env_files $env_filename"
-}
-
-write_frontend_env_file() {
-  env_filename="$1"
-  source_file="$source_tree/src/web/$env_filename"
-  case "$env_filename" in
-    .env) file_descriptor=3 ;;
-    .env.local) file_descriptor=4 ;;
-    .env.development) file_descriptor=5 ;;
-    .env.development.local) file_descriptor=6 ;;
-    .env.production) file_descriptor=7 ;;
-    .env.production.local) file_descriptor=8 ;;
-    .env.test) file_descriptor=9 ;;
-    .env.test.local) file_descriptor=10 ;;
-    *) return 1 ;;
-  esac
+copy_frontend_env() {
   python3 -c 'import os
 import stat
 import sys
 
-file_descriptor = int(sys.argv[1])
-source_path = sys.argv[2]
-source_stat = os.stat(source_path)
-with open(source_path, "rb") as source, os.fdopen(os.dup(file_descriptor), "wb") as target:
-    while True:
-        chunk = source.read(1024 * 1024)
-        if not chunk:
-            break
-        target.write(chunk)
-os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
-' "$file_descriptor" "$source_file"
+ENV_FILENAMES = (
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.development.local",
+    ".env.production",
+    ".env.production.local",
+    ".env.test",
+    ".env.test.local",
+)
+source_root = sys.argv[1]
+target_root = sys.argv[2]
+
+source_files = []
+for filename in ENV_FILENAMES:
+    source_path = os.path.join(source_root, filename)
+    try:
+        source_stat = os.stat(source_path)
+    except FileNotFoundError:
+        continue
+    if stat.S_ISREG(source_stat.st_mode):
+        source_files.append((filename, source_path, source_stat))
+
+if not source_files:
+    raise SystemExit(0)
+
+target_paths = {
+    filename: os.path.join(target_root, filename) for filename in ENV_FILENAMES
 }
+if any(os.path.lexists(target_path) for target_path in target_paths.values()):
+    raise SystemExit(0)
 
-cleanup_frontend_env_reservations() {
-  for env_filename in $reserved_env_files
-  do
-    close_frontend_env_file "$env_filename"
-  done
-  for env_filename in $reserved_env_files
-  do
-    target_file="$worktree_path/src/web/$env_filename"
-    if [ -f "$target_file" ] && [ ! -L "$target_file" ]; then
-      rm -f "$target_file"
-    fi
-  done
-}
 
-check_unreserved_frontend_env_files() {
-  for env_filename in $frontend_env_filenames
-  do
-    case " $source_env_files " in
-      *" $env_filename "*) ;;
-      *)
-        target_file="$worktree_path/src/web/$env_filename"
-        if [ -e "$target_file" ] || [ -L "$target_file" ]; then
-          return 1
-        fi
-        ;;
-    esac
-  done
-}
+class ConcurrentEnvironmentChange(Exception):
+    pass
 
-copy_frontend_env() {
-  source_env_files=""
-  for env_filename in $frontend_env_filenames
-  do
-    source_file="$source_tree/src/web/$env_filename"
-    if [ -f "$source_file" ]; then
-      source_env_files="$source_env_files $env_filename"
-    fi
-  done
 
-  if [ -z "$source_env_files" ]; then
-    return
-  fi
+source_names = {filename for filename, _, _ in source_files}
+reservations = []
 
-  for env_filename in $frontend_env_filenames
-  do
-    target_file="$worktree_path/src/web/$env_filename"
-    if [ -e "$target_file" ] || [ -L "$target_file" ]; then
-      return
-    fi
-  done
 
-  (
-    set -C
-    reserved_env_files=""
-    for env_filename in $source_env_files
-    do
-      if ! reserve_frontend_env_file "$env_filename"; then
-        cleanup_frontend_env_reservations
-        exit 0
-      fi
-    done
+def unreserved_target_exists():
+    return any(
+        filename not in source_names and os.path.lexists(target_path)
+        for filename, target_path in target_paths.items()
+    )
 
-    if ! check_unreserved_frontend_env_files; then
-      cleanup_frontend_env_reservations
-      exit 0
-    fi
 
-    for env_filename in $source_env_files
-    do
-      if ! write_frontend_env_file "$env_filename"; then
-        cleanup_frontend_env_reservations
-        exit 1
-      fi
-    done
+def clean_up_reservations():
+    for _, _, _, target_path, file_descriptor in reservations:
+        try:
+            path_stat = os.lstat(target_path)
+            descriptor_stat = os.fstat(file_descriptor)
+            if (
+                path_stat.st_dev == descriptor_stat.st_dev
+                and path_stat.st_ino == descriptor_stat.st_ino
+            ):
+                os.unlink(target_path)
+        except FileNotFoundError:
+            pass
+        finally:
+            os.close(file_descriptor)
 
-    if ! check_unreserved_frontend_env_files; then
-      cleanup_frontend_env_reservations
-      exit 0
-    fi
 
-    for env_filename in $reserved_env_files
-    do
-      close_frontend_env_file "$env_filename"
-    done
-  )
+try:
+    for filename, source_path, source_stat in source_files:
+        file_descriptor = os.open(
+            target_paths[filename],
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            stat.S_IMODE(source_stat.st_mode),
+        )
+        reservations.append(
+            (
+                filename,
+                source_path,
+                source_stat,
+                target_paths[filename],
+                file_descriptor,
+            )
+        )
+
+    if unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+
+    for _, source_path, source_stat, _, file_descriptor in reservations:
+        with open(source_path, "rb") as source:
+            while True:
+                chunk = source.read(1024 * 1024)
+                if not chunk:
+                    break
+                offset = 0
+                while offset < len(chunk):
+                    written = os.write(file_descriptor, chunk[offset:])
+                    if written <= 0:
+                        raise OSError("failed to write frontend environment file")
+                    offset += written
+        os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
+
+    if unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+except (ConcurrentEnvironmentChange, FileExistsError):
+    clean_up_reservations()
+    raise SystemExit(0)
+except BaseException:
+    clean_up_reservations()
+    raise
+else:
+    for _, _, _, _, file_descriptor in reservations:
+        os.close(file_descriptor)
+' \
+    "$source_tree/src/web" \
+    "$worktree_path/src/web"
 }
 
 reuse_directory_if_compatible() {

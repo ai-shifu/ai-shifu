@@ -36,6 +36,16 @@ from generate_ai_collab_docs import (
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = ROOT / "src" / "web"
 CODEX_ENVIRONMENT = ROOT / ".codex" / "environments" / "environment.toml"
+FRONTEND_ENV_FILENAMES = (
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.development.local",
+    ".env.production",
+    ".env.production.local",
+    ".env.test",
+    ".env.test.local",
+)
 STALE_FRONTEND_PATH = "src/" + "cook-web"
 STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
     Path("docs/exec-plans/active/rename-cook-web-directory.md"),
@@ -474,13 +484,17 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                 source_manifest.write_text(lockfile_content, encoding="utf-8")
 
                 source_envs: dict[str, Path] = {}
-                for env_filename in (".env", ".env.local"):
+                source_env_modes: dict[str, int] = {}
+                for env_filename in FRONTEND_ENV_FILENAMES:
                     source_env = source_tree / env_directory / env_filename
                     source_env.parent.mkdir(parents=True, exist_ok=True)
                     source_env.write_text(
                         f"FIXTURE={fixture_name}:{env_filename}\n", encoding="utf-8"
                     )
+                    source_mode = 0o600 if env_filename.endswith(".local") else 0o640
+                    source_env.chmod(source_mode)
                     source_envs[env_filename] = source_env
+                    source_env_modes[env_filename] = source_mode
 
                 source_modules = source_tree / modules_directory / "node_modules"
                 source_modules.mkdir(parents=True, exist_ok=True)
@@ -524,6 +538,13 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                     ) != source_env.read_text(encoding="utf-8"):
                         errors.append(
                             f"{fixture_label} did not copy the expected {env_filename}"
+                        )
+                    if (
+                        target_env.stat().st_mode & 0o777
+                        != source_env_modes[env_filename]
+                    ):
+                        errors.append(
+                            f"{fixture_label} did not preserve the mode of {env_filename}"
                         )
 
                 target_modules = target_frontend / "node_modules"
@@ -570,11 +591,18 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                         )
                         continue
 
-                    occupied_local_env = occupied_frontend / ".env.local"
-                    if occupied_local_env.exists() or occupied_local_env.is_symlink():
-                        errors.append(
-                            f"{occupied_label} copied another frontend env file"
-                        )
+                    for env_filename in FRONTEND_ENV_FILENAMES:
+                        if env_filename == ".env":
+                            continue
+                        occupied_local_env = occupied_frontend / env_filename
+                        if (
+                            occupied_local_env.exists()
+                            or occupied_local_env.is_symlink()
+                        ):
+                            errors.append(
+                                f"{occupied_label} copied another frontend env file: "
+                                f"{env_filename}"
+                            )
                     if occupancy_mode == "customized":
                         if occupied_env.read_text(encoding="utf-8") != "CUSTOMIZED=1\n":
                             errors.append(
