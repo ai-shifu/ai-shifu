@@ -352,6 +352,15 @@ def _stale_path_is_in_allowed_context(
     ) and all(step_start <= line_number - 1 < step_end for line_number in line_numbers)
 
 
+def _contains_stale_frontend_path(parts: tuple[str, ...]) -> bool:
+    """Match the retired frontend path as complete path components."""
+    return any(
+        parts[index : index + len(STALE_FRONTEND_PATH_PARTS)]
+        == STALE_FRONTEND_PATH_PARTS
+        for index in range(len(parts) - len(STALE_FRONTEND_PATH_PARTS) + 1)
+    )
+
+
 def check_frontend_path_contract(errors: list[str]) -> None:
     """Require the current web frontend path and guard stale path additions."""
     if not FRONTEND_ROOT.is_dir():
@@ -373,25 +382,36 @@ def check_frontend_path_contract(errors: list[str]) -> None:
             continue
         try:
             raw_metadata, raw_filename = raw_path.split(b"\t", 1)
-            index_mode = raw_metadata.split(b" ", 1)[0]
+            index_mode, object_id, _stage = raw_metadata.split(b" ", 2)
         except ValueError as error:
             errors.append(f"Unable to parse tracked file entry {raw_path!r}: {error}")
             continue
 
         relative_path = Path(raw_filename.decode("utf-8", errors="surrogateescape"))
-        if any(
-            relative_path.parts[index : index + len(STALE_FRONTEND_PATH_PARTS)]
-            == STALE_FRONTEND_PATH_PARTS
-            for index in range(
-                len(relative_path.parts) - len(STALE_FRONTEND_PATH_PARTS) + 1
-            )
-        ):
+        if _contains_stale_frontend_path(relative_path.parts):
             errors.append(f"Stale frontend path in tracked filename: {relative_path}")
 
-        if index_mode in {b"120000", b"160000"}:
+        path = ROOT / relative_path
+        if index_mode == b"160000":
+            continue
+        if index_mode == b"120000":
+            try:
+                symlink_target = subprocess.run(
+                    ["git", "cat-file", "blob", object_id.decode("ascii")],
+                    cwd=ROOT,
+                    check=True,
+                    capture_output=True,
+                ).stdout.decode("utf-8", errors="surrogateescape")
+            except (OSError, UnicodeError, subprocess.CalledProcessError) as error:
+                errors.append(f"Unable to scan tracked symlink {path}: {error}")
+                continue
+            if _contains_stale_frontend_path(Path(symlink_target.rstrip("\n")).parts):
+                errors.append(
+                    f"Stale frontend path in tracked symlink target: "
+                    f"{relative_path} -> {symlink_target}"
+                )
             continue
 
-        path = ROOT / relative_path
         if relative_path in STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST:
             continue
         try:

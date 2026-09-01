@@ -22,7 +22,8 @@ copy_local_env() {
 }
 
 copy_frontend_env() {
-  python3 -c 'import os
+  python3 -c 'import hashlib
+import os
 import stat
 import sys
 import tempfile
@@ -78,16 +79,33 @@ def unreserved_target_exists():
 
 
 def reservation_path_matches(reservation):
-    _, _, _, target_path, staging_path = reservation
+    source_stat = reservation[2]
+    target_path = reservation[3]
+    staging_path = reservation[4]
+    expected_mode = reservation[5]
+    expected_digest = reservation[6]
     try:
         path_stat = os.lstat(target_path)
         staging_stat = os.lstat(staging_path)
+        if (
+            path_stat.st_dev != staging_stat.st_dev
+            or path_stat.st_ino != staging_stat.st_ino
+            or stat.S_IMODE(path_stat.st_mode) != expected_mode
+            or path_stat.st_size != source_stat.st_size
+        ):
+            return False
+        digest = hashlib.sha256()
+        with open(target_path, "rb") as target:
+            while True:
+                chunk = target.read(1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
     except FileNotFoundError:
         return False
-    return (
-        path_stat.st_dev == staging_stat.st_dev
-        and path_stat.st_ino == staging_stat.st_ino
-    )
+    except OSError:
+        return False
+    return digest.digest() == expected_digest
 
 
 def reservations_changed():
@@ -98,7 +116,7 @@ def reservations_changed():
 
 def clean_up_reservations():
     for reservation in reservations:
-        _, _, _, target_path, _ = reservation
+        target_path = reservation[3]
         try:
             if reservation_path_matches(reservation):
                 os.unlink(target_path)
@@ -107,7 +125,7 @@ def clean_up_reservations():
 
 
 def clean_up_staging():
-    for _, _, _, staging_path in staged_files:
+    for _, _, _, staging_path, _ in staged_files:
         try:
             os.unlink(staging_path)
         except FileNotFoundError:
@@ -128,7 +146,8 @@ try:
             os.O_WRONLY | os.O_CREAT | os.O_EXCL,
             stat.S_IMODE(source_stat.st_mode),
         )
-        staged_files.append((filename, source_path, source_stat, staging_path))
+        staged_files.append((filename, source_path, source_stat, staging_path, None))
+        digest = hashlib.sha256()
         try:
             with open(source_path, "rb") as source:
                 while True:
@@ -140,22 +159,43 @@ try:
                         written = os.write(file_descriptor, chunk[offset:])
                         if written <= 0:
                             raise OSError("failed to write frontend environment file")
+                        digest.update(chunk[offset : offset + written])
                         offset += written
-            os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
+            os.fchmod(
+                file_descriptor,
+                stat.S_IMODE(source_stat.st_mode) & ~0o222,
+            )
+            staged_files[-1] = (
+                filename,
+                source_path,
+                source_stat,
+                staging_path,
+                digest.digest(),
+            )
         finally:
             os.close(file_descriptor)
 
-    for filename, source_path, source_stat, staging_path in staged_files:
+    for filename, source_path, source_stat, staging_path, content_digest in staged_files:
         os.link(staging_path, target_paths[filename], follow_symlinks=False)
         reservations.append(
-            (
+            [
                 filename,
                 source_path,
                 source_stat,
                 target_paths[filename],
                 staging_path,
-            )
+                stat.S_IMODE(source_stat.st_mode) & ~0o222,
+                content_digest,
+            ]
         )
+
+    if reservations_changed() or unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+
+    for reservation in reservations:
+        source_stat = reservation[2]
+        os.chmod(reservation[4], stat.S_IMODE(source_stat.st_mode))
+        reservation[5] = stat.S_IMODE(source_stat.st_mode)
 
     if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
@@ -229,7 +269,8 @@ copy_local_env() {
 }
 
 copy_frontend_env() {
-  python3 -c 'import os
+  python3 -c 'import hashlib
+import os
 import stat
 import sys
 import tempfile
@@ -285,16 +326,33 @@ def unreserved_target_exists():
 
 
 def reservation_path_matches(reservation):
-    _, _, _, target_path, staging_path = reservation
+    source_stat = reservation[2]
+    target_path = reservation[3]
+    staging_path = reservation[4]
+    expected_mode = reservation[5]
+    expected_digest = reservation[6]
     try:
         path_stat = os.lstat(target_path)
         staging_stat = os.lstat(staging_path)
+        if (
+            path_stat.st_dev != staging_stat.st_dev
+            or path_stat.st_ino != staging_stat.st_ino
+            or stat.S_IMODE(path_stat.st_mode) != expected_mode
+            or path_stat.st_size != source_stat.st_size
+        ):
+            return False
+        digest = hashlib.sha256()
+        with open(target_path, "rb") as target:
+            while True:
+                chunk = target.read(1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
     except FileNotFoundError:
         return False
-    return (
-        path_stat.st_dev == staging_stat.st_dev
-        and path_stat.st_ino == staging_stat.st_ino
-    )
+    except OSError:
+        return False
+    return digest.digest() == expected_digest
 
 
 def reservations_changed():
@@ -305,7 +363,7 @@ def reservations_changed():
 
 def clean_up_reservations():
     for reservation in reservations:
-        _, _, _, target_path, _ = reservation
+        target_path = reservation[3]
         try:
             if reservation_path_matches(reservation):
                 os.unlink(target_path)
@@ -314,7 +372,7 @@ def clean_up_reservations():
 
 
 def clean_up_staging():
-    for _, _, _, staging_path in staged_files:
+    for _, _, _, staging_path, _ in staged_files:
         try:
             os.unlink(staging_path)
         except FileNotFoundError:
@@ -335,7 +393,8 @@ try:
             os.O_WRONLY | os.O_CREAT | os.O_EXCL,
             stat.S_IMODE(source_stat.st_mode),
         )
-        staged_files.append((filename, source_path, source_stat, staging_path))
+        staged_files.append((filename, source_path, source_stat, staging_path, None))
+        digest = hashlib.sha256()
         try:
             with open(source_path, "rb") as source:
                 while True:
@@ -347,22 +406,43 @@ try:
                         written = os.write(file_descriptor, chunk[offset:])
                         if written <= 0:
                             raise OSError("failed to write frontend environment file")
+                        digest.update(chunk[offset : offset + written])
                         offset += written
-            os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
+            os.fchmod(
+                file_descriptor,
+                stat.S_IMODE(source_stat.st_mode) & ~0o222,
+            )
+            staged_files[-1] = (
+                filename,
+                source_path,
+                source_stat,
+                staging_path,
+                digest.digest(),
+            )
         finally:
             os.close(file_descriptor)
 
-    for filename, source_path, source_stat, staging_path in staged_files:
+    for filename, source_path, source_stat, staging_path, content_digest in staged_files:
         os.link(staging_path, target_paths[filename], follow_symlinks=False)
         reservations.append(
-            (
+            [
                 filename,
                 source_path,
                 source_stat,
                 target_paths[filename],
                 staging_path,
-            )
+                stat.S_IMODE(source_stat.st_mode) & ~0o222,
+                content_digest,
+            ]
         )
+
+    if reservations_changed() or unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+
+    for reservation in reservations:
+        source_stat = reservation[2]
+        os.chmod(reservation[4], stat.S_IMODE(source_stat.st_mode))
+        reservation[5] = stat.S_IMODE(source_stat.st_mode)
 
     if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
