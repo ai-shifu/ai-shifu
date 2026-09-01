@@ -398,6 +398,38 @@
   "records": {
     "totalCount": "إجمالي {count} سجل إشعار"
   },
+  "ruleManagement": {
+    "cancel": "إلغاء",
+    "columns": {
+      "actions": "إجراءات",
+      "conditions": "الشروط",
+      "enabled": "الحالة",
+      "name": "اسم القاعدة",
+      "template": "قالب SMS",
+      "trigger": "حدث التشغيل"
+    },
+    "delete": "حذف",
+    "deleteDescription": "يسري الحذف بعد حفظ إعدادات الإشعارات. هل تريد المتابعة؟",
+    "deleteTitle": "حذف قاعدة الإشعار",
+    "description": "اضبط قواعد إشعار مستقلة حسب حدث التشغيل وقالب الرسالة والشروط.",
+    "dialogDescription": "بعد حفظ الإعدادات، تنطبق هذه القاعدة على الإشعارات المستقبلية.",
+    "edit": "تعديل",
+    "editRule": "تعديل قاعدة الإشعار",
+    "empty": "لا توجد قواعد إشعار مهيأة.",
+    "fields": {
+      "enabled": "تفعيل القاعدة",
+      "name": "اسم القاعدة",
+      "template": "قالب SMS",
+      "thresholds": "حدود الرصيد المنخفض",
+      "trigger": "حدث التشغيل",
+      "windows": "نوافذ تذكير الانتهاء"
+    },
+    "newRule": "قاعدة جديدة",
+    "noConditions": "لا توجد شروط إضافية",
+    "saveRule": "حفظ القاعدة",
+    "selectTemplate": "اختر قالب SMS",
+    "title": "قواعد الإشعار"
+  },
   "skipReason": {
     "contact": "خلل في معلومات التواصل",
     "duplicate": "إشعار مكرر",

@@ -398,6 +398,38 @@
   "records": {
     "totalCount": "{count} notification records"
   },
+  "ruleManagement": {
+    "cancel": "Cancel",
+    "columns": {
+      "actions": "Actions",
+      "conditions": "Conditions",
+      "enabled": "Status",
+      "name": "Rule name",
+      "template": "SMS template",
+      "trigger": "Trigger event"
+    },
+    "delete": "Delete",
+    "deleteDescription": "This change takes effect after the notification configuration is saved. Continue?",
+    "deleteTitle": "Delete notification rule",
+    "description": "Configure independently enabled notification rules by trigger event, SMS template, and conditions.",
+    "dialogDescription": "After saving the configuration, this rule applies to future notification delivery.",
+    "edit": "Edit",
+    "editRule": "Edit notification rule",
+    "empty": "No notification rules configured yet.",
+    "fields": {
+      "enabled": "Enable rule",
+      "name": "Rule name",
+      "template": "SMS template",
+      "thresholds": "Low-balance thresholds",
+      "trigger": "Trigger event",
+      "windows": "Expiry reminder windows"
+    },
+    "newRule": "New rule",
+    "noConditions": "No additional conditions",
+    "saveRule": "Save rule",
+    "selectTemplate": "Select SMS template",
+    "title": "Notification Rules"
+  },
   "skipReason": {
     "contact": "Contact issue",
     "duplicate": "Duplicate notification",

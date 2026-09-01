@@ -398,6 +398,38 @@
   "records": {
     "totalCount": "共 {count} 条通知记录"
   },
+  "ruleManagement": {
+    "cancel": "取消",
+    "columns": {
+      "actions": "操作",
+      "conditions": "触发条件",
+      "enabled": "状态",
+      "name": "规则名称",
+      "template": "短信模板",
+      "trigger": "触发事件"
+    },
+    "delete": "删除",
+    "deleteDescription": "删除后需保存通知配置才会生效，是否继续？",
+    "deleteTitle": "删除通知规则",
+    "description": "按触发事件、短信模板和条件配置可独立启停的通知规则。",
+    "dialogDescription": "保存配置后，规则将用于后续通知投递。",
+    "edit": "编辑",
+    "editRule": "编辑通知规则",
+    "empty": "尚未配置通知规则。",
+    "fields": {
+      "enabled": "启用规则",
+      "name": "规则名称",
+      "template": "短信模板",
+      "thresholds": "余额提醒阈值",
+      "trigger": "触发事件",
+      "windows": "到期提醒窗口"
+    },
+    "newRule": "新建规则",
+    "noConditions": "无需额外条件",
+    "saveRule": "保存规则",
+    "selectTemplate": "选择短信模板",
+    "title": "通知规则"
+  },
   "skipReason": {
     "contact": "联系方式异常",
     "duplicate": "重复通知",
