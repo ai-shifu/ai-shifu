@@ -74,15 +74,30 @@ def unreserved_target_exists():
     )
 
 
+def reservation_path_matches(reservation):
+    _, _, _, target_path, file_descriptor = reservation
+    try:
+        path_stat = os.lstat(target_path)
+    except FileNotFoundError:
+        return False
+    descriptor_stat = os.fstat(file_descriptor)
+    return (
+        path_stat.st_dev == descriptor_stat.st_dev
+        and path_stat.st_ino == descriptor_stat.st_ino
+    )
+
+
+def reservations_changed():
+    return any(
+        not reservation_path_matches(reservation) for reservation in reservations
+    )
+
+
 def clean_up_reservations():
-    for _, _, _, target_path, file_descriptor in reservations:
+    for reservation in reservations:
+        _, _, _, target_path, file_descriptor = reservation
         try:
-            path_stat = os.lstat(target_path)
-            descriptor_stat = os.fstat(file_descriptor)
-            if (
-                path_stat.st_dev == descriptor_stat.st_dev
-                and path_stat.st_ino == descriptor_stat.st_ino
-            ):
+            if reservation_path_matches(reservation):
                 os.unlink(target_path)
         except FileNotFoundError:
             pass
@@ -107,7 +122,7 @@ try:
             )
         )
 
-    if unreserved_target_exists():
+    if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
 
     for _, source_path, source_stat, _, file_descriptor in reservations:
@@ -124,7 +139,7 @@ try:
                     offset += written
         os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
 
-    if unreserved_target_exists():
+    if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
 except (ConcurrentEnvironmentChange, FileExistsError):
     clean_up_reservations()
@@ -247,15 +262,30 @@ def unreserved_target_exists():
     )
 
 
+def reservation_path_matches(reservation):
+    _, _, _, target_path, file_descriptor = reservation
+    try:
+        path_stat = os.lstat(target_path)
+    except FileNotFoundError:
+        return False
+    descriptor_stat = os.fstat(file_descriptor)
+    return (
+        path_stat.st_dev == descriptor_stat.st_dev
+        and path_stat.st_ino == descriptor_stat.st_ino
+    )
+
+
+def reservations_changed():
+    return any(
+        not reservation_path_matches(reservation) for reservation in reservations
+    )
+
+
 def clean_up_reservations():
-    for _, _, _, target_path, file_descriptor in reservations:
+    for reservation in reservations:
+        _, _, _, target_path, file_descriptor = reservation
         try:
-            path_stat = os.lstat(target_path)
-            descriptor_stat = os.fstat(file_descriptor)
-            if (
-                path_stat.st_dev == descriptor_stat.st_dev
-                and path_stat.st_ino == descriptor_stat.st_ino
-            ):
+            if reservation_path_matches(reservation):
                 os.unlink(target_path)
         except FileNotFoundError:
             pass
@@ -280,7 +310,7 @@ try:
             )
         )
 
-    if unreserved_target_exists():
+    if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
 
     for _, source_path, source_stat, _, file_descriptor in reservations:
@@ -297,7 +327,7 @@ try:
                     offset += written
         os.fchmod(file_descriptor, stat.S_IMODE(source_stat.st_mode))
 
-    if unreserved_target_exists():
+    if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
 except (ConcurrentEnvironmentChange, FileExistsError):
     clean_up_reservations()
