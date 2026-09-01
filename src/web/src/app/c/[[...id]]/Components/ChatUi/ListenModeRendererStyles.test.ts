@@ -7,6 +7,9 @@ const readStylesheet = () =>
 const readChatUiStylesheet = () =>
   readFileSync(path.join(__dirname, 'ChatUi.module.scss'), 'utf8');
 
+const normalizeStylesheet = (stylesheet: string) =>
+  stylesheet.replace(/\s+/g, ' ');
+
 describe('ListenModeRenderer styles', () => {
   it('keeps mobile landscape interaction overlays compatible with slide drag offsets', () => {
     const stylesheet = readStylesheet();
@@ -37,21 +40,27 @@ describe('ListenModeRenderer styles', () => {
   it('aligns desktop listen controls to the footer through one shared offset', () => {
     const stylesheet = readStylesheet();
     const chatUiStylesheet = readChatUiStylesheet();
+    const normalizedStylesheet = normalizeStylesheet(stylesheet);
+    const desktopWrapperSelector =
+      '.listen-reveal-wrapper:not(.mobile):not(.listen-reveal-wrapper--classroom)';
+    const browserFullscreenExcludedSelector =
+      '.listen-slide-root:not(.slide--browser-fullscreen)';
 
     expect(chatUiStylesheet).toContain('--listen-player-footer-gap: 0px');
-    expect(stylesheet).toMatch(
-      /\.listen-slide-player\s*\{\s*bottom:\s*var\(--listen-slide-player-bottom-offset\)/,
+    expect(normalizedStylesheet).toContain(
+      `${desktopWrapperSelector} ${browserFullscreenExcludedSelector} .listen-slide-player { bottom: var(--listen-slide-player-bottom-offset);`,
     );
-    expect(stylesheet).toMatch(
-      /\.slide-ask-overlay,[\s\S]*?\.slide-interaction-overlay\s*\{\s*--slide-player-bottom-offset:\s*var\(--listen-slide-player-bottom-offset\)/,
+    expect(normalizedStylesheet).toContain(
+      [
+        `${desktopWrapperSelector} .listen-slide-shell > .slide-ask-overlay`,
+        `${desktopWrapperSelector} ${browserFullscreenExcludedSelector} .slide-ask-overlay`,
+        `${desktopWrapperSelector} ${browserFullscreenExcludedSelector} .slide-interaction-overlay`,
+      ].join(', ') +
+        ' { --slide-player-bottom-offset: var(--listen-slide-player-bottom-offset);',
     );
-    expect(stylesheet).toMatch(
-      /\.slide-subtitle-overlay\s*\{\s*--slide-player-bottom-offset:\s*var\(--listen-slide-player-bottom-offset\)/,
+    expect(normalizedStylesheet).toContain(
+      `${desktopWrapperSelector} ${browserFullscreenExcludedSelector} .slide-subtitle-overlay { --slide-player-bottom-offset: var(--listen-slide-player-bottom-offset);`,
     );
-    expect(stylesheet).toContain(
-      ':not(.mobile):not(.listen-reveal-wrapper--classroom)',
-    );
-    expect(stylesheet).toContain(':not(.slide--browser-fullscreen)');
   });
 
   it('lets Slide size the mobile player grid from its rendered actions', () => {
