@@ -30,4 +30,15 @@ describe('ListenModeRenderer styles', () => {
     expect(stylesheet).toContain('&.listen-reveal-wrapper--with-player');
     expect(stylesheet).not.toContain('.slide-ask-overlay--standalone');
   });
+
+  it('lets Slide size the mobile player grid from its rendered actions', () => {
+    const stylesheet = readStylesheet();
+
+    expect(stylesheet).not.toContain('--slide-player-mobile-control-count');
+    expect(stylesheet).not.toContain(
+      '.listen-slide-player-mobile .slide-player__controls',
+    );
+    expect(stylesheet).not.toContain('--slide-player-notes-arrow-offset');
+    expect(stylesheet).not.toContain('.slide-player__interaction-arrow');
+  });
 });
