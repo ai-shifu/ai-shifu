@@ -97,7 +97,7 @@ type ConversationControl = {
   sessionId: () => string;
   chooseCollectionRoute: (route: ProfileCollectionRoute) => void;
   openAssistant: () => void;
-  copyAssistantPrompt: () => void;
+  copyAssistantPrompt: (originScope: string) => void;
   startAssistant: () => void;
   finishAssistant: (
     outcome: 'success' | 'failed',
@@ -158,7 +158,8 @@ function MockProfileOnboardingConversation(
       chooseCollectionRoute: route =>
         propsRef.current.onCollectionRouteChosen?.(route),
       openAssistant: () => propsRef.current.onAssistantOpened?.(),
-      copyAssistantPrompt: () => propsRef.current.onAssistantPromptCopied?.(),
+      copyAssistantPrompt: originScope =>
+        propsRef.current.onAssistantPromptCopied?.(originScope),
       startAssistant: () => propsRef.current.onAssistantAttempt?.(),
       finishAssistant: (outcome, failureCategory) =>
         propsRef.current.onAssistantResult?.(outcome, failureCategory),
@@ -1282,7 +1283,7 @@ describe('LearnerProfileDialog', () => {
     act(() => {
       control.chooseCollectionRoute('ai_assistant');
       control.openAssistant();
-      control.copyAssistantPrompt();
+      control.copyAssistantPrompt('user-a');
       control.startAssistant();
       control.finishAssistant('failed', 'runtime_failed');
     });
@@ -1338,6 +1339,7 @@ describe('LearnerProfileDialog', () => {
     expect(() =>
       control.chooseCollectionRoute('guided_questions'),
     ).not.toThrow();
+    expect(() => control.copyAssistantPrompt('user-a')).not.toThrow();
   });
 
   test('cancels a clean dismissible save without persisting', async () => {

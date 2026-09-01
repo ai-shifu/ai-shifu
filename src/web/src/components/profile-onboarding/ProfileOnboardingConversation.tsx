@@ -66,7 +66,8 @@ export type ProfileOnboardingConversationProps = {
   questionScrollFooter?: React.ReactNode;
   onCollectionRouteChosen?: (route: ProfileCollectionRoute) => void;
   onAssistantOpened?: () => void;
-  onAssistantPromptCopied?: () => void;
+  assistantAnalyticsScope?: string;
+  onAssistantPromptCopied?: (originScope: string) => void;
   onAssistantAttempt?: () => void;
   onAssistantResult?: (
     outcome: 'success' | 'failed',
@@ -98,6 +99,7 @@ export default function ProfileOnboardingConversation({
   questionScrollFooter,
   onCollectionRouteChosen,
   onAssistantOpened,
+  assistantAnalyticsScope,
   onAssistantPromptCopied,
   onAssistantAttempt,
   onAssistantResult,
@@ -412,6 +414,7 @@ export default function ProfileOnboardingConversation({
           unresolved={uncertainRequest}
           onChange={assistantView.onChange}
           onSubmit={submitAssistantAnswers}
+          analyticsScope={assistantAnalyticsScope}
           onPromptCopied={onAssistantPromptCopied}
           onBack={() => {
             if (resumeQuestions()) {

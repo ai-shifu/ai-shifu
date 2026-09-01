@@ -40,6 +40,7 @@ import {
   buildProfileAssistantAttemptAnalytics,
   buildProfileAssistantResultAnalytics,
   buildProfileCollectionRouteAnalytics,
+  isCurrentProfileAnalyticsScope,
   type ProfileAssistantFailureCategory,
   type ProfileCollectionRoute,
 } from './profileOnboardingAnalytics';
@@ -175,15 +176,20 @@ export const useLearnerProfileDialogController = ({
     );
   }, [sendProfileAnalytics]);
 
-  const handleAssistantPromptCopied = React.useCallback(() => {
-    sendProfileAnalytics(
-      PROFILE_ONBOARDING_EVENTS.ASSISTANT_PROMPT_COPIED,
-      buildProfileAssistantAttemptAnalytics({
-        intent: stateRef.current.collectionIntent,
-        presentation: presentationRef.current,
-      }),
-    );
-  }, [sendProfileAnalytics]);
+  const handleAssistantPromptCopied = React.useCallback(
+    (originScope: string) => {
+      if (!isCurrentProfileAnalyticsScope(originScope, scopeRef.current))
+        return;
+      sendProfileAnalytics(
+        PROFILE_ONBOARDING_EVENTS.ASSISTANT_PROMPT_COPIED,
+        buildProfileAssistantAttemptAnalytics({
+          intent: stateRef.current.collectionIntent,
+          presentation: presentationRef.current,
+        }),
+      );
+    },
+    [sendProfileAnalytics],
+  );
 
   const handleAssistantResult = React.useCallback(
     (
@@ -1333,6 +1339,7 @@ export const useLearnerProfileDialogController = ({
       onSessionCreateRejected: handleSessionCreateRejected,
       onCollectionRouteChosen: handleCollectionRouteChosen,
       onAssistantOpened: handleAssistantOpened,
+      assistantAnalyticsScope: draftStorageScope,
       onAssistantPromptCopied: handleAssistantPromptCopied,
       onAssistantAttempt: handleAssistantAttempt,
       onAssistantResult: handleAssistantResult,

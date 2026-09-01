@@ -11,6 +11,14 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(resolvePromise => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
+
 const setup = (initialValue = '') => {
   const onSubmit = jest.fn();
   const onBack = jest.fn();
@@ -26,6 +34,7 @@ const setup = (initialValue = '') => {
         onChange={setValue}
         onSubmit={onSubmit}
         onBack={onBack}
+        analyticsScope='user-a'
         onPromptCopied={onPromptCopied}
       />
     );
@@ -221,7 +230,7 @@ test('copy uses the exact frozen prompt and offers manual copying on clipboard f
     fireEvent.click(copyButton);
   });
   expect(writeText).toHaveBeenCalledWith('Public prompt');
-  expect(onPromptCopied).toHaveBeenCalledTimes(1);
+  expect(onPromptCopied).toHaveBeenCalledWith('user-a');
   expect(
     screen.getByRole('button', {
       name: 'module.profileOnboarding.assistant.copied',
@@ -245,6 +254,69 @@ test('copy uses the exact frozen prompt and offers manual copying on clipboard f
   ).toBeEnabled();
   expect(screen.getByText('Public prompt')).toBeVisible();
   expect(onPromptCopied).toHaveBeenCalledTimes(1);
+});
+
+test('keeps a delayed successful copy bound to its originating account scope', async () => {
+  const clipboardRequest = deferred<void>();
+  const writeText = jest.fn().mockReturnValue(clipboardRequest.promise);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  });
+  const onPromptCopied = jest.fn();
+  const renderView = (analyticsScope: string) => (
+    <ProfileAssistantAnswersView
+      prompt='Public prompt'
+      value=''
+      disabled={false}
+      unresolved={false}
+      onChange={jest.fn()}
+      onSubmit={jest.fn()}
+      onBack={jest.fn()}
+      analyticsScope={analyticsScope}
+      onPromptCopied={onPromptCopied}
+    />
+  );
+  const { rerender } = render(renderView('user-a'));
+
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.copy',
+    }),
+  );
+  rerender(renderView('user-b'));
+  await act(async () => clipboardRequest.resolve());
+
+  expect(onPromptCopied).toHaveBeenCalledTimes(1);
+  expect(onPromptCopied).toHaveBeenCalledWith('user-a');
+});
+
+test('counts each concurrent successful clipboard write', async () => {
+  const firstCopy = deferred<void>();
+  const secondCopy = deferred<void>();
+  const writeText = jest
+    .fn()
+    .mockReturnValueOnce(firstCopy.promise)
+    .mockReturnValueOnce(secondCopy.promise);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  });
+  const { onPromptCopied } = setup();
+  const copyButton = screen.getByRole('button', {
+    name: 'module.profileOnboarding.assistant.copy',
+  });
+
+  fireEvent.click(copyButton);
+  fireEvent.click(copyButton);
+  await act(async () => {
+    secondCopy.resolve();
+    firstCopy.resolve();
+  });
+
+  expect(onPromptCopied).toHaveBeenCalledTimes(2);
+  expect(onPromptCopied).toHaveBeenNthCalledWith(1, 'user-a');
+  expect(onPromptCopied).toHaveBeenNthCalledWith(2, 'user-a');
 });
 
 test('restores only the same account draft and clears legacy, previous-account and logout data', () => {

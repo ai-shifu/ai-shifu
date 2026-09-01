@@ -1756,6 +1756,7 @@ describe('assistant answers in the existing session', () => {
     expect(
       screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
     ).toBeVisible();
+    expect(result.onAssistantOpened).toHaveBeenCalledTimes(2);
   });
 
   test('reports one assistant attempt and its successful terminal result', async () => {
