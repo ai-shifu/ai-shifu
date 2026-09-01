@@ -583,6 +583,30 @@ describe('AdminOperationCreditNotificationsPage', () => {
     );
   });
 
+  it('does not mark templates unbound when the binding config fails to load', async () => {
+    mockGetConfig.mockRejectedValueOnce(new Error('config unavailable'));
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+
+    expect(await screen.findByText('Grant')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.templateManagement.bindingsUnavailable',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsCreditNotifications.templateManagement.unbound',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows email template positioning without SMS templates on email sites', async () => {
     mockLoginMethodsEnabled = ['email'];
     mockDefaultLoginMethod = 'email';

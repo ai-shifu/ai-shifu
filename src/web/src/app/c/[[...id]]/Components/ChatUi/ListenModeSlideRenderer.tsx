@@ -800,7 +800,6 @@ const ListenModeSlideRenderer = ({
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isMobileAskPanelMounted, setIsMobileAskPanelMounted] = useState(false);
   const [mobileAskPanelElementBid, setMobileAskPanelElementBid] = useState('');
-  const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [isClassroomFullscreenActive, setIsClassroomFullscreenActive] =
     useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
@@ -1068,6 +1067,7 @@ const ListenModeSlideRenderer = ({
     !isLoading &&
     elementList.length === 1 &&
     elementList[0]?.blockBid === 'empty-ppt';
+  const playerLayoutReserved = !shouldRenderEmptyPpt;
 
   const fallbackAskElementBid = firstContentItem?.element_bid ?? '';
   const currentPlayerElementBid = useMemo(() => {
@@ -1299,14 +1299,6 @@ const ListenModeSlideRenderer = ({
     mobileStyle,
     playerCustomActionState.isActive,
   ]);
-
-  const handlePlayerVisibilityChange = useCallback(
-    (visible: boolean) => {
-      setIsPlayerVisible(visible);
-      onPlayerVisibilityChange?.(visible);
-    },
-    [onPlayerVisibilityChange],
-  );
 
   const requestClassroomFullscreen = useCallback(async () => {
     const slideShellElement = slideShellRef.current;
@@ -2094,12 +2086,7 @@ const ListenModeSlideRenderer = ({
 
   const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
     <div
-      className={cn(
-        'slide-ask-overlay',
-        isPlayerVisible
-          ? 'slide-ask-overlay--with-player'
-          : 'slide-ask-overlay--standalone',
-      )}
+      className='slide-ask-overlay slide-ask-overlay--with-player'
       aria-hidden={!playerCustomActionState.isActive}
       ref={customAskOverlayRef}
       style={playerCustomActionState.isActive ? undefined : { display: 'none' }}
@@ -2128,6 +2115,7 @@ const ListenModeSlideRenderer = ({
         'listen-reveal-wrapper',
         previewMode && !mobileStyle && 'listen-reveal-wrapper--preview',
         variant === 'classroom' && 'listen-reveal-wrapper--classroom',
+        playerLayoutReserved && 'listen-reveal-wrapper--with-player',
         mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
       ref={chatRef}
@@ -2205,7 +2193,7 @@ const ListenModeSlideRenderer = ({
           bufferingText={{
             waitingForAudio: t('module.chat.thinking'),
           }}
-          onPlayerVisibilityChange={handlePlayerVisibilityChange}
+          onPlayerVisibilityChange={onPlayerVisibilityChange}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions

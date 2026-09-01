@@ -996,7 +996,7 @@ def test_provider_thinking_policy_preserves_caller_extra_body_fields() -> None:
     }
 
 
-LITELLM_CONTRACT_VERSION = "1.95.0"
+LITELLM_CONTRACT_VERSION = "1.98.0"
 
 
 def _installed_litellm_version() -> str | None:
@@ -1015,7 +1015,7 @@ def _installed_litellm_version() -> str | None:
         "install requirements.txt to run it"
     ),
 )
-def test_litellm_195_native_adapter_contracts() -> None:
+def test_litellm_198_native_adapter_contracts() -> None:
     script = textwrap.dedent(
         """
         import importlib.metadata
@@ -1218,7 +1218,7 @@ def test_litellm_195_native_adapter_contracts() -> None:
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     contracts = json.loads(completed.stdout.strip().splitlines()[-1])
-    assert contracts["version"] == "1.95.0"
+    assert contracts["version"] == "1.98.0"
 
     expected_urls = {
         "deepseek": "https://api.deepseek.com/chat/completions",
@@ -1263,8 +1263,8 @@ def test_litellm_195_native_adapter_contracts() -> None:
     assert contracts["max_tokens"] == {
         "gpt-5.6-luna": 128000,
         "gemini-3.6-flash": 65536,
-        "deepseek-v4-pro": 8192,
-        "deepseek-v4-flash": 8192,
+        "deepseek-v4-pro": 393216,
+        "deepseek-v4-flash": 393216,
     }
 
 

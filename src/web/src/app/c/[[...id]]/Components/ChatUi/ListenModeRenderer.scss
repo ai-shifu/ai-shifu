@@ -594,10 +594,6 @@
   );
 }
 
-.slide-ask-overlay--standalone {
-  bottom: var(--slide-player-bottom-offset);
-}
-
 .slide-player__ask-card {
   position: relative;
   overflow: hidden;
@@ -679,6 +675,16 @@
 .listen-reveal-wrapper.mobile {
   min-width: 0;
   max-width: 100%;
+
+  &.listen-reveal-wrapper--with-player {
+    .listen-slide-root .slide-stage__content {
+      min-height: 100%;
+    }
+
+    .listen-slide-root .slide-stage__layer {
+      padding-bottom: 0;
+    }
+  }
 
   .listen-slide-shell {
     display: flex;
@@ -794,13 +800,6 @@
     width: 44px !important;
     min-width: 44px;
     padding: 0;
-  }
-
-  .listen-slide-root .slide-ask-overlay--with-player {
-  }
-
-  .listen-slide-root .slide-ask-overlay--standalone {
-    bottom: 52px;
   }
 }
 

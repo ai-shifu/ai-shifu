@@ -363,13 +363,83 @@ def _normalize_policy_list_group(
     }
 
 
-def _validate_policy_for_save(payload: dict[str, object]) -> dict[str, object]:
+def _normalize_notification_rules(app: Flask, value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise_param_error("rules")
+    rules: list[dict[str, object]] = []
+    for index, raw_rule in enumerate(value):
+        rule = _require_mapping(raw_rule, f"rules.{index}")
+        trigger_event = str(rule.get("trigger_event") or "").strip()
+        if trigger_event not in CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS:
+            raise_param_error(f"rules.{index}.trigger_event")
+        name = str(rule.get("name") or "").strip()
+        if not name or len(name) > 128:
+            raise_param_error(f"rules.{index}.name")
+        rule_bid = str(rule.get("rule_bid") or "").strip() or generate_id(app)
+        if len(rule_bid) > 64:
+            raise_param_error(f"rules.{index}.rule_bid")
+        legacy = bool(rule.get("legacy") and rule_bid == f"legacy-{trigger_event}")
+        channel = str(rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
+        if channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
+            raise_param_error(f"rules.{index}.channel")
+        enabled = _coerce_bool(rule.get("enabled"))
+        template_code = str(rule.get("template_code") or "").strip()
+        if enabled and not template_code:
+            raise_param_error(f"rules.{index}.template_code")
+        conditions = _require_mapping(
+            rule.get("conditions") or {}, f"rules.{index}.conditions"
+        )
+        normalized_conditions: dict[str, object] = {}
+        if trigger_event == CREDIT_NOTIFICATION_TYPE_EXPIRING:
+            windows = _normalize_string_list(
+                conditions.get("windows", []), f"rules.{index}.conditions.windows"
+            )
+            if (not windows and not legacy) or any(
+                _parse_window_days(window) is None for window in windows
+            ):
+                raise_param_error(f"rules.{index}.conditions.windows")
+            normalized_conditions = {
+                "windows": windows,
+                "merge_same_creator": _coerce_bool(
+                    conditions.get("merge_same_creator", True)
+                ),
+            }
+        elif trigger_event == CREDIT_NOTIFICATION_TYPE_LOW_BALANCE:
+            thresholds = _normalize_low_balance_thresholds(
+                conditions.get("thresholds", []),
+                f"rules.{index}.conditions.thresholds",
+            )
+            if enabled and not thresholds:
+                raise_param_error(f"rules.{index}.conditions.thresholds")
+            normalized_conditions = {"thresholds": thresholds}
+        rules.append(
+            {
+                "rule_bid": rule_bid,
+                "name": name,
+                "trigger_event": trigger_event,
+                "channel": channel,
+                "template_code": template_code,
+                "enabled": enabled,
+                "conditions": normalized_conditions,
+                **({"legacy": True} if legacy else {}),
+            }
+        )
+    if len({str(rule["rule_bid"]) for rule in rules}) != len(rules):
+        raise_param_error("rules.rule_bid")
+    return rules
+
+
+def _validate_policy_for_save(
+    app: Flask, payload: dict[str, object]
+) -> dict[str, object]:
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, payload)
     channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
     if channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
         raise_param_error("channel")
     policy["channel"] = CREDIT_NOTIFICATION_CHANNEL_SMS
     policy["enabled"] = _coerce_bool(policy.get("enabled"))
+    if "rules" in payload:
+        policy["rules"] = _normalize_notification_rules(app, payload["rules"])
 
     type_policies = _require_mapping(policy.get("types"), "types")
     for notification_type in (
@@ -483,6 +553,7 @@ def load_credit_notification_policy() -> dict[str, object]:
             type_policies[notification_type] = current
         current["enabled"] = _coerce_bool(current.get("enabled"))
         current["template_code"] = str(current.get("template_code") or "").strip()
+    policy["rules"] = _notification_rules(policy)
     return policy
 
 
@@ -603,7 +674,17 @@ def save_credit_notification_policy(
     """Persist credit notification policy."""
     if not isinstance(payload, dict):
         raise_param_error("policy")
-    policy = _validate_policy_for_save(payload)
+    if "rules" not in payload:
+        try:
+            existing_raw = get_config(
+                BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG, ""
+            )
+            existing = json.loads(str(existing_raw)) if existing_raw else {}
+        except (KeyError, TypeError, ValueError):
+            existing = {}
+        if isinstance(existing, dict) and "rules" in existing:
+            payload = {**payload, "rules": existing["rules"]}
+    policy = _validate_policy_for_save(app, payload)
     if preserve_opt_out:
         existing_policy = load_credit_notification_policy()
         policy["opt_out"] = _normalize_policy_list_group(
@@ -643,11 +724,89 @@ def _type_policy(
     return item if isinstance(item, dict) else {}
 
 
+def _legacy_notification_rules(policy: dict[str, object]) -> list[dict[str, object]]:
+    """Expose the fixed legacy policy as managed rules without persisting it."""
+    rules: list[dict[str, object]] = []
+    for notification_type in (
+        CREDIT_NOTIFICATION_TYPE_EXPIRING,
+        CREDIT_NOTIFICATION_TYPE_GRANTED,
+        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+    ):
+        type_policy = _type_policy(policy, notification_type)
+        conditions: dict[str, object] = {}
+        if notification_type == CREDIT_NOTIFICATION_TYPE_EXPIRING:
+            conditions = {
+                "windows": list(type_policy.get("windows") or []),
+                "merge_same_creator": _coerce_bool(
+                    type_policy.get("merge_same_creator", True)
+                ),
+            }
+        elif notification_type == CREDIT_NOTIFICATION_TYPE_LOW_BALANCE:
+            conditions = {"thresholds": list(type_policy.get("thresholds") or [])}
+        rules.append(
+            {
+                "rule_bid": f"legacy-{notification_type}",
+                "name": notification_type,
+                "trigger_event": notification_type,
+                "channel": CREDIT_NOTIFICATION_CHANNEL_SMS,
+                "template_code": str(type_policy.get("template_code") or "").strip(),
+                "enabled": _coerce_bool(type_policy.get("enabled")),
+                "conditions": conditions,
+                "legacy": True,
+            }
+        )
+    return rules
+
+
+def _notification_rules(policy: dict[str, object]) -> list[dict[str, object]]:
+    """Return configured rules, falling back to the legacy fixed policy."""
+    configured_rules = policy.get("rules")
+    if isinstance(configured_rules, list):
+        return [item for item in configured_rules if isinstance(item, dict)]
+    return _legacy_notification_rules(policy)
+
+
+def _matching_notification_rules(
+    policy: dict[str, object], trigger_event: str
+) -> list[dict[str, object]]:
+    if not _coerce_bool(policy.get("enabled")):
+        return []
+    return [
+        rule
+        for rule in _notification_rules(policy)
+        if str(rule.get("trigger_event") or "").strip() == trigger_event
+        and _coerce_bool(rule.get("enabled"))
+    ]
+
+
+def _rule_dedupe_key(base_key: str, rule: dict[str, object]) -> str:
+    if _coerce_bool(rule.get("legacy")):
+        return base_key
+    return f"{base_key}:rule:{str(rule.get('rule_bid') or '').strip()}"
+
+
 def _notification_type_enabled(
     policy: dict[str, object], notification_type: str
 ) -> bool:
     return _coerce_bool(policy.get("enabled")) and _coerce_bool(
         _type_policy(policy, notification_type).get("enabled")
+    )
+
+
+def _notification_record_rule_enabled(
+    policy: dict[str, object], notification: NotificationRecord
+) -> bool:
+    if not _coerce_bool(policy.get("enabled")):
+        return False
+    snapshot = notification.policy_snapshot_json
+    matched_rule = snapshot.get("matched_rule") if isinstance(snapshot, dict) else None
+    if not isinstance(matched_rule, dict):
+        return _notification_type_enabled(policy, notification.notification_type)
+    rule_bid = str(matched_rule.get("rule_bid") or "").strip()
+    return any(
+        str(rule.get("rule_bid") or "").strip() == rule_bid
+        and _coerce_bool(rule.get("enabled"))
+        for rule in _notification_rules(policy)
     )
 
 
@@ -830,7 +989,6 @@ def _local_notification_template_options(app: Flask) -> list[dict[str, object]]:
         .order_by(
             NotificationTemplate.updated_at.desc(), NotificationTemplate.id.desc()
         )
-        .limit(100)
         .all()
     )
     return [
@@ -1188,14 +1346,11 @@ def _validate_credit_notification_policy_templates(
 ) -> None:
     if not _coerce_bool(policy.get("enabled")):
         return
-    for notification_type in (
-        CREDIT_NOTIFICATION_TYPE_EXPIRING,
-        CREDIT_NOTIFICATION_TYPE_GRANTED,
-        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
-    ):
-        if not _notification_type_enabled(policy, notification_type):
+    for rule in _notification_rules(policy):
+        notification_type = str(rule.get("trigger_event") or "").strip()
+        if not _coerce_bool(rule.get("enabled")):
             continue
-        template_code = _template_code(policy, notification_type)
+        template_code = str(rule.get("template_code") or "").strip()
         if not template_code:
             continue
         result = _ensure_credit_notification_template_compatible(
@@ -1205,7 +1360,9 @@ def _validate_credit_notification_policy_templates(
         )
         if result.get("sync_status") != NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED:
             error_code = str(result.get("error_code") or "sync_failed")
-            raise_param_error(f"types.{notification_type}.template_code:{error_code}")
+            raise_param_error(
+                f"rules.{rule.get('rule_bid')}.template_code:{error_code}"
+            )
         unsupported = [
             str(item or "").strip()
             for item in result.get("unsupported_placeholders", [])
@@ -1213,8 +1370,8 @@ def _validate_credit_notification_policy_templates(
         ]
         if unsupported:
             raise_param_error(
-                "types."
-                f"{notification_type}.template_code unsupported placeholders: "
+                "rules."
+                f"{rule.get('rule_bid')}.template_code unsupported placeholders: "
                 f"{','.join(sorted(unsupported))}"
             )
 
@@ -1406,6 +1563,7 @@ def _stage_notification_record(
     template_params: dict[str, object],
     metadata: dict[str, object] | None = None,
     policy: dict[str, object] | None = None,
+    rule: dict[str, object] | None = None,
 ) -> CreditNotificationStageResult:
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_source_bid = _normalize_bid(source_bid)
@@ -1425,7 +1583,13 @@ def _stage_notification_record(
         )
 
     resolved_policy = policy or load_credit_notification_policy()
-    if not _notification_type_enabled(resolved_policy, notification_type):
+    resolved_rule = rule
+    if resolved_rule is None:
+        matching_rules = _matching_notification_rules(
+            resolved_policy, notification_type
+        )
+        resolved_rule = matching_rules[0] if matching_rules else None
+    if resolved_rule is None:
         return CreditNotificationStageResult(
             status="noop_disabled",
             notification_type=notification_type,
@@ -1502,11 +1666,11 @@ def _stage_notification_record(
         source_bid=normalized_source_bid,
         dedupe_key=normalized_dedupe_key,
         status=notification_status,
-        template_code=_template_code(resolved_policy, notification_type),
+        template_code=str(resolved_rule.get("template_code") or "").strip(),
         template_params_json={
             key: str(value or "").strip() for key, value in template_params.items()
         },
-        policy_snapshot_json=resolved_policy,
+        policy_snapshot_json={**resolved_policy, "matched_rule": resolved_rule},
         provider_response_json={},
         error_code=error_code,
         error_message=error_message,
@@ -1572,6 +1736,7 @@ def _stage_scan_notification_isolated(
     template_params: dict[str, object],
     metadata: dict[str, object] | None,
     policy: dict[str, object],
+    rule: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Stage one scan candidate in its own transaction.
 
@@ -1592,6 +1757,7 @@ def _stage_scan_notification_isolated(
                 template_params=template_params,
                 metadata=metadata,
                 policy=policy,
+                rule=rule,
             )
     except Exception:
         # exc_info carries the exception; keep provider error strings (which
@@ -1667,14 +1833,19 @@ def stage_credit_granted_notification(
         if ledger is None:
             return CreditNotificationStageResult(status="not_found").to_payload()
 
-        def _stage() -> CreditNotificationStageResult:
+        policy = load_credit_notification_policy()
+        rules = _matching_notification_rules(policy, CREDIT_NOTIFICATION_TYPE_GRANTED)
+
+        def _stage(rule: dict[str, object]) -> CreditNotificationStageResult:
             return _stage_notification_record(
                 app,
                 notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
                 creator_bid=ledger.creator_bid,
                 source_type=SOURCE_TYPE_LEDGER,
                 source_bid=ledger.ledger_bid,
-                dedupe_key=build_credit_granted_dedupe_key(ledger.ledger_bid),
+                dedupe_key=_rule_dedupe_key(
+                    build_credit_granted_dedupe_key(ledger.ledger_bid), rule
+                ),
                 template_params={
                     "credits": _amount_text(ledger.amount),
                     "source": str(
@@ -1687,30 +1858,46 @@ def stage_credit_granted_notification(
                     "wallet_bucket_bid": ledger.wallet_bucket_bid,
                     "ledger_bid": ledger.ledger_bid,
                 },
+                policy=policy,
+                rule=rule,
             )
 
         if commit:
             # This call owns the transaction for the staged row.
             with unit_of_work():
-                result = _stage()
+                results = [_stage(rule) for rule in rules]
         else:
             # Legacy contract: with commit=False the CALLER owns the
             # transaction boundary. The staged row is only flushed here and
             # commits or rolls back with the caller's flow (renewal, trials,
             # paid_side_effects, and manual_plan_grants all pass commit=False
             # and persist it themselves).
-            result = _stage()
-        payload = result.to_payload()
+            results = [_stage(rule) for rule in rules]
+        if not results:
+            return CreditNotificationStageResult(
+                status="noop_disabled",
+                notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+                creator_bid=ledger.creator_bid,
+                source_type=SOURCE_TYPE_LEDGER,
+                source_bid=ledger.ledger_bid,
+            ).to_payload()
+        payload = results[0].to_payload()
+        payload["notifications"] = [result.to_payload() for result in results]
     if enqueue:
-        if payload.get("status") == CREDIT_NOTIFICATION_STATUS_PENDING:
-            notification_bid = str(payload.get("notification_bid") or "")
+        for result in payload.get("notifications", [payload]):
+            if result.get("status") != CREDIT_NOTIFICATION_STATUS_PENDING:
+                continue
+            notification_bid = str(result.get("notification_bid") or "")
 
-            def _dispatch() -> None:
+            def _dispatch(
+                notification_bid: str = notification_bid,
+                notification_payload: dict[str, object] = result,
+            ) -> None:
                 enqueue_result = enqueue_credit_notification(
                     app,
                     notification_bid=notification_bid,
                 )
-                payload["enqueued"] = bool(enqueue_result.get("enqueued"))
+                notification_payload["enqueued"] = bool(enqueue_result.get("enqueued"))
 
             # External celery dispatch. Outside any unit of work this runs
             # immediately, so the payload reports the real enqueue outcome
@@ -1718,8 +1905,9 @@ def stage_credit_granted_notification(
             # work it is deferred until the staged row is durable and dropped
             # on rollback (the payload then still reports enqueued=False).
             uow.on_commit(_dispatch)
-        else:
-            payload["enqueued"] = False
+        payload["enqueued"] = bool(
+            payload.get("notifications", [payload])[0].get("enqueued")
+        )
     return payload
 
 
@@ -1755,6 +1943,20 @@ def stage_credit_granted_notification_for_order(
         ledger_bid=ledger_bid,
         commit=commit,
         enqueue=enqueue,
+    )
+
+
+def pending_credit_notification_bids(payload: dict[str, object]) -> tuple[str, ...]:
+    """Return every pending notification bid from a staging result."""
+    candidates = payload.get("notifications")
+    if not isinstance(candidates, list):
+        candidates = [payload]
+    return tuple(
+        notification_bid
+        for item in candidates
+        if isinstance(item, dict)
+        and item.get("status") == CREDIT_NOTIFICATION_STATUS_PENDING
+        and (notification_bid := str(item.get("notification_bid") or "").strip())
     )
 
 
@@ -1872,13 +2074,19 @@ def scan_credit_expiring_notifications(
     now: datetime | None = None,
     creator_bid: str = "",
     dry_run: bool = False,
+    _rule: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Scan expiring credits and create or preview eligible notifications."""
     scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with _maybe_app_context(app):
         policy = load_credit_notification_policy()
-        if not _notification_type_enabled(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING):
+        rules = (
+            [_rule]
+            if _rule is not None
+            else _matching_notification_rules(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING)
+        )
+        if not rules:
             return {
                 "status": "noop_disabled",
                 "candidate_count": 0,
@@ -1887,7 +2095,52 @@ def scan_credit_expiring_notifications(
                 "dry_run": dry_run,
                 "notifications": [],
             }
-        type_policy = _type_policy(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING)
+        if _rule is None and len(rules) > 1:
+            results = [
+                scan_credit_expiring_notifications(
+                    app,
+                    now=scan_now,
+                    creator_bid=normalized_creator_bid,
+                    dry_run=dry_run,
+                    _rule=rule,
+                )
+                for rule in rules
+            ]
+            notifications = [
+                item for result in results for item in result.get("notifications", [])
+            ]
+            candidate_count = sum(
+                int(result.get("candidate_count") or 0) for result in results
+            )
+            return {
+                "status": "created" if candidate_count else "noop",
+                "candidate_count": candidate_count,
+                "created_count": sum(
+                    int(result.get("created_count") or 0) for result in results
+                ),
+                "enqueued_count": sum(
+                    int(result.get("enqueued_count") or 0) for result in results
+                ),
+                "estimated_sms_cost": str(
+                    _quantize_credit_amount(
+                        sum(
+                            (
+                                _to_decimal(result.get("estimated_sms_cost"))
+                                for result in results
+                            ),
+                            start=_ZERO,
+                        )
+                    )
+                )
+                if dry_run
+                else "0",
+                "dry_run": dry_run,
+                "notifications": notifications,
+            }
+        rule = rules[0]
+        type_policy = rule.get("conditions")
+        if not isinstance(type_policy, dict):
+            type_policy = {}
         windows = type_policy.get("windows")
         if not isinstance(windows, list):
             windows = ["7d", "3d", "1d", "0d"]
@@ -1956,17 +2209,20 @@ def scan_credit_expiring_notifications(
                         group["wallet_bid"] = bucket.wallet_bid
 
                 for group in grouped.values():
-                    dedupe_key = build_credit_expiring_creator_dedupe_key(
-                        str(group.get("creator_bid") or ""),
-                        window,
-                        scan_now.date(),
+                    dedupe_key = _rule_dedupe_key(
+                        build_credit_expiring_creator_dedupe_key(
+                            str(group.get("creator_bid") or ""),
+                            window,
+                            scan_now.date(),
+                        ),
+                        rule,
                     )
                     existing = _find_credit_expiring_creator_window_record(
                         creator_bid=str(group.get("creator_bid") or ""),
                         window=window,
                         now=scan_now,
                     )
-                    if existing is not None:
+                    if existing is not None and _coerce_bool(rule.get("legacy")):
                         notifications.append(
                             _suppressed_duplicate_result(existing).to_payload()
                         )
@@ -2009,6 +2265,7 @@ def scan_credit_expiring_notifications(
                                 "window": window,
                             },
                             policy=policy,
+                            rule=rule,
                         )
                     )
                 continue
@@ -2019,9 +2276,12 @@ def scan_credit_expiring_notifications(
                     creator_eligibility_cache,
                 ):
                     continue
-                dedupe_key = build_credit_expiring_dedupe_key(
-                    bucket.wallet_bucket_bid,
-                    window,
+                dedupe_key = _rule_dedupe_key(
+                    build_credit_expiring_dedupe_key(
+                        bucket.wallet_bucket_bid,
+                        window,
+                    ),
+                    rule,
                 )
                 if dry_run:
                     notifications.append(
@@ -2053,6 +2313,7 @@ def scan_credit_expiring_notifications(
                             "window": window,
                         },
                         policy=policy,
+                        rule=rule,
                     )
                 )
     _dispatch_scan_notification_enqueues(app, notifications, dry_run=dry_run)
@@ -2239,13 +2500,21 @@ def scan_low_balance_notifications(
     now: datetime | None = None,
     creator_bid: str = "",
     dry_run: bool = False,
+    _rule: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Scan low balances and create or preview eligible notifications."""
     scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with _maybe_app_context(app):
         policy = load_credit_notification_policy()
-        if not _notification_type_enabled(policy, CREDIT_NOTIFICATION_TYPE_LOW_BALANCE):
+        rules = (
+            [_rule]
+            if _rule is not None
+            else _matching_notification_rules(
+                policy, CREDIT_NOTIFICATION_TYPE_LOW_BALANCE
+            )
+        )
+        if not rules:
             return {
                 "status": "noop_disabled",
                 "candidate_count": 0,
@@ -2254,7 +2523,55 @@ def scan_low_balance_notifications(
                 "dry_run": dry_run,
                 "notifications": [],
             }
-        thresholds = _load_low_balance_thresholds(policy)
+        if _rule is None and len(rules) > 1:
+            results = [
+                scan_low_balance_notifications(
+                    app,
+                    now=scan_now,
+                    creator_bid=normalized_creator_bid,
+                    dry_run=dry_run,
+                    _rule=rule,
+                )
+                for rule in rules
+            ]
+            notifications = [
+                item for result in results for item in result.get("notifications", [])
+            ]
+            candidate_count = sum(
+                int(result.get("candidate_count") or 0) for result in results
+            )
+            return {
+                "status": "created" if candidate_count else "noop",
+                "candidate_count": candidate_count,
+                "created_count": sum(
+                    int(result.get("created_count") or 0) for result in results
+                ),
+                "enqueued_count": sum(
+                    int(result.get("enqueued_count") or 0) for result in results
+                ),
+                "estimated_sms_cost": str(
+                    _quantize_credit_amount(
+                        sum(
+                            (
+                                _to_decimal(result.get("estimated_sms_cost"))
+                                for result in results
+                            ),
+                            start=_ZERO,
+                        )
+                    )
+                )
+                if dry_run
+                else "0",
+                "dry_run": dry_run,
+                "notifications": notifications,
+            }
+        rule = rules[0]
+        conditions = rule.get("conditions")
+        thresholds = (
+            conditions.get("thresholds") if isinstance(conditions, dict) else None
+        )
+        if not isinstance(thresholds, list):
+            thresholds = _load_low_balance_thresholds(policy)
         query = CreditWallet.query.filter(
             CreditWallet.deleted == 0,
             CreditWallet.creator_bid != "",
@@ -2488,11 +2805,9 @@ def scan_low_balance_notifications(
                 else:
                     continue
 
+                dedupe_key = _rule_dedupe_key(dedupe_key, rule)
                 missing_template_params = _missing_template_params(
-                    template_code=_template_code(
-                        policy,
-                        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
-                    ),
+                    template_code=str(rule.get("template_code") or "").strip(),
                     template_params=template_params,
                 )
                 if missing_template_params:
@@ -2552,6 +2867,7 @@ def scan_low_balance_notifications(
                         template_params=template_params,
                         metadata=metadata,
                         policy=policy,
+                        rule=rule,
                     )
                 )
     _dispatch_scan_notification_enqueues(app, notifications, dry_run=dry_run)
@@ -2794,7 +3110,7 @@ def deliver_credit_notification(
 
         now = now_utc()
         policy = load_credit_notification_policy()
-        if not _notification_type_enabled(policy, notification.notification_type):
+        if not _notification_record_rule_enabled(policy, notification):
             _finalize_notification(
                 notification,
                 status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,

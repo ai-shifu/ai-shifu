@@ -440,6 +440,8 @@
   },
   "templateManagement": {
     "allStatuses": "All review statuses",
+    "bindingsLoading": "Loading bindings",
+    "bindingsUnavailable": "Binding information unavailable",
     "columns": {
       "action": "Action",
       "bindings": "Used by",

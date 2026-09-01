@@ -440,6 +440,8 @@
   },
   "templateManagement": {
     "allStatuses": "Tous les statuts de validation",
+    "bindingsLoading": "Chargement des liaisons",
+    "bindingsUnavailable": "Informations de liaison indisponibles",
     "columns": {
       "action": "Action",
       "bindings": "Utilisé par",

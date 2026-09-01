@@ -336,6 +336,112 @@ def _seed_default_notification_templates(app: Flask) -> None:
     )
 
 
+def test_managed_rules_stage_each_matching_notification_once(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 0, 0, 0)
+    _seed_creator(app)
+    _seed_default_notification_templates(app)
+    with app.app_context():
+        _seed_credit_ledger()
+        _seed_wallet(available_credits="1")
+        _seed_bucket(effective_to=now + timedelta(days=1, hours=2))
+        dao.db.session.commit()
+
+    save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "frequency": {
+                "per_mobile_per_day": 0,
+                "per_creator_per_type_per_day": 0,
+            },
+            "rules": [
+                {
+                    "rule_bid": "grant-one",
+                    "name": "Grant one",
+                    "trigger_event": "credit_granted",
+                    "channel": "sms",
+                    "template_code": "TPL-GRANT",
+                    "enabled": True,
+                    "conditions": {},
+                },
+                {
+                    "rule_bid": "grant-two",
+                    "name": "Grant two",
+                    "trigger_event": "credit_granted",
+                    "channel": "sms",
+                    "template_code": "TPL-GRANT",
+                    "enabled": True,
+                    "conditions": {},
+                },
+                *[
+                    {
+                        "rule_bid": f"expiring-{index}",
+                        "name": f"Expiring {index}",
+                        "trigger_event": "credit_expiring",
+                        "channel": "sms",
+                        "template_code": "TPL-EXPIRING",
+                        "enabled": True,
+                        "conditions": {"windows": ["1d"]},
+                    }
+                    for index in ("one", "two")
+                ],
+                *[
+                    {
+                        "rule_bid": f"low-{index}",
+                        "name": f"Low {index}",
+                        "trigger_event": "low_balance",
+                        "channel": "sms",
+                        "template_code": "TPL-LOW",
+                        "enabled": True,
+                        "conditions": {"thresholds": [{"kind": "fixed", "value": "3"}]},
+                    }
+                    for index in ("one", "two")
+                ],
+            ],
+        },
+    )
+
+    granted = stage_credit_granted_notification(
+        app, ledger_bid="ledger-1", enqueue=False
+    )
+    expiring = scan_credit_expiring_notifications(app, now=now)
+    low_balance = scan_low_balance_notifications(app, now=now)
+
+    assert len(granted["notifications"]) == 2
+    assert expiring["created_count"] == 2
+    assert low_balance["created_count"] == 2
+    with app.app_context():
+        rows = NotificationRecord.query.order_by(NotificationRecord.id.asc()).all()
+        assert len(rows) == 6
+        assert len({row.dedupe_key for row in rows}) == 6
+        assert {
+            row.policy_snapshot_json["matched_rule"]["rule_bid"] for row in rows
+        } == {
+            "grant-one",
+            "grant-two",
+            "expiring-one",
+            "expiring-two",
+            "low-one",
+            "low-two",
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            body=SimpleNamespace(code="OK", message="", request_id="request-1")
+        ),
+    )
+    delivered = deliver_credit_notification(
+        app,
+        notification_bid=str(granted["notifications"][0]["notification_bid"]),
+    )
+    assert delivered["notification_status"] == CREDIT_NOTIFICATION_STATUS_SENT
+
+
 def test_credit_granted_notification_stages_once_and_delivers_sms(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -803,6 +909,26 @@ def test_list_credit_notification_templates_falls_back_to_local_cache(
     assert [item["template_code"] for item in payload["items"]] == ["TPL-CACHED"]
     assert payload["items"][0]["source"] == "local"
     assert payload["items"][0]["last_synced_at"] == "2026-05-22T00:00:00Z"
+
+
+def test_list_credit_notification_templates_returns_all_local_cached_templates(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    for index in range(101):
+        _seed_notification_template(
+            app,
+            template_code=f"TPL-CACHED-{index}",
+        )
+
+    payload = list_credit_notification_templates(app)
+
+    assert payload["source"] == "local"
+    assert payload["provider_available"] is False
+    assert len(payload["items"]) == 101
+    assert {item["template_code"] for item in payload["items"]} == {
+        f"TPL-CACHED-{index}" for index in range(101)
+    }
 
 
 def test_list_credit_notification_templates_syncs_provider_list(

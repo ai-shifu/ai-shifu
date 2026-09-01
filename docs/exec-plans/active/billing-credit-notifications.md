@@ -27,6 +27,14 @@
 - [x] 2026-06-21 16:24 CST: Stopped this follow-up round after the local-state extraction; `dry-run` and template-sync deeper hook splits remain explicitly deferred to a later credit-notification follow-up PR to keep the scope reviewable.
 - [x] 2026-06-21 17:05 CST: A config-tab follow-up extracted `dry-run` and template-sync state into dedicated frontend hooks so their errors stay local to the config area instead of reusing page-level state.
 - [x] 2026-08-31 17:58 CST: Template-management review remediation preserves Aliyun page request IDs, serializes manual library refreshes in the UI, adds provider-template workflow analytics, and completes the Thai detail label.
+- [x] 2026-08-31 18:56 CST: Closed template-management data-integrity gaps: binding relationships now report unavailable when notification config loading fails, and provider-fallback template lists return every synchronized local template instead of silently limiting results to 100.
+- [ ] 2026-08-31 19:35 CST: Replace the fixed three-row notification-type configuration with a managed notification-rule list. Operators create a named rule, select a supported trigger event, template, conditions, and enabled state; runtime continues to own the event sources and delivery protections.
+
+### Managed Notification Rules PR Split
+
+- **PR 1: rule runtime and API contract** stays on `feat/notification-rule-management`. It owns `rules[]` validation, legacy `types` compatibility, rule-aware template validation, multi-rule matching for `credit_granted`, `credit_expiring`, and `low_balance`, rule-scoped dedupe keys, notification-record rule snapshots, and focused backend regression coverage. It does not change the operator configuration UI.
+- **PR 2: operator rule management UI** starts only after PR 1 merges to `main`. It replaces the fixed notification-type editor with a rule list and create/edit/enable/delete interactions, while retaining the separate global delivery-protection controls. It includes i18n, analytics, and focused frontend coverage.
+- Keep each PR as one polished feature commit before pushing. Do not push intermediate implementation checkpoints.
 
 ## Surprises & Discoveries
 

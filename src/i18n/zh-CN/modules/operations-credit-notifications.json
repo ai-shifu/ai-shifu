@@ -440,6 +440,8 @@
   },
   "templateManagement": {
     "allStatuses": "全部审核状态",
+    "bindingsLoading": "正在加载绑定关系",
+    "bindingsUnavailable": "绑定关系加载失败",
     "columns": {
       "action": "操作",
       "bindings": "使用场景",
