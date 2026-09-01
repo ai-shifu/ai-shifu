@@ -1243,6 +1243,38 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(windowsInput).toHaveValue('7d, 3d');
   });
 
+  it('keeps an in-progress comma-separated fixed threshold list visible while editing', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-low-balance',
+          name: 'Balance follow-up',
+          trigger_event: 'low_balance',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {
+            thresholds: [{ kind: 'fixed', value: '100' }],
+          },
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    const thresholdsInput = within(dialog).getByLabelText(
+      'module.operationsCreditNotifications.ruleManagement.fields.thresholds',
+    );
+    fireEvent.change(thresholdsInput, { target: { value: '100,' } });
+    expect(thresholdsInput).toHaveValue('100,');
+    fireEvent.change(thresholdsInput, { target: { value: '100,50' } });
+    fireEvent.blur(thresholdsInput);
+    expect(thresholdsInput).toHaveValue('100, 50');
+  });
+
   it('clears a rule template when its trigger event changes', async () => {
     mockGetConfig.mockResolvedValueOnce({
       enabled: false,
@@ -1326,6 +1358,56 @@ describe('AdminOperationCreditNotificationsPage', () => {
         name: 'module.operationsCreditNotifications.ruleManagement.delete',
       }),
     ).toBeDisabled();
+  });
+
+  it('does not allow an incomplete disabled rule to be enabled inline', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-incomplete',
+          name: 'Incomplete rule',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: '',
+          enabled: false,
+          conditions: {},
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    expect(
+      screen.getByRole('switch', { name: 'Incomplete rule' }),
+    ).toBeDisabled();
+  });
+
+  it('keeps rule controls usable when analytics tracking fails', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+    mockTrackEvent.mockImplementationOnce(() => {
+      throw new Error('analytics unavailable');
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    const ruleSwitch = screen.getByRole('switch', { name: 'Grant follow-up' });
+    fireEvent.click(ruleSwitch);
+
+    expect(ruleSwitch).not.toBeChecked();
   });
 
   it('rejects managed rules without a stable rule business id', () => {

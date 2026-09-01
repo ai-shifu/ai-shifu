@@ -251,7 +251,13 @@ export function CreditNotificationRuleManagementSection({
                 return (
                   <Switch
                     checked={rule.enabled}
+                    disabled={
+                      !rule.enabled && !canSaveRule({ ...rule, enabled: true })
+                    }
                     onCheckedChange={checked => {
+                      if (checked && !canSaveRule({ ...rule, enabled: true })) {
+                        return;
+                      }
                       updatePolicy(draft => {
                         const target = draft.rules.find(
                           item => item.rule_bid === rule.rule_bid,
