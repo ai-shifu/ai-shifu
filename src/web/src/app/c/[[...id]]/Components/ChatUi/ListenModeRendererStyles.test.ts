@@ -31,11 +31,12 @@ describe('ListenModeRenderer styles', () => {
     expect(stylesheet).not.toContain('.slide-ask-overlay--standalone');
   });
 
-  it('uses five mobile player columns after removing the notes action', () => {
+  it('lets Slide size the mobile player grid from its rendered actions', () => {
     const stylesheet = readStylesheet();
 
-    expect(stylesheet).toContain(
-      '--slide-player-mobile-control-count: 5 !important;',
+    expect(stylesheet).not.toContain('--slide-player-mobile-control-count');
+    expect(stylesheet).not.toContain(
+      '.listen-slide-player-mobile .slide-player__controls',
     );
     expect(stylesheet).not.toContain('--slide-player-notes-arrow-offset');
     expect(stylesheet).not.toContain('.slide-player__interaction-arrow');

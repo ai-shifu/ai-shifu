@@ -784,14 +784,6 @@
     overflow-x: auto;
   }
 
-  .listen-slide-player-mobile .slide-player__controls {
-    --slide-player-mobile-control-count: 5 !important;
-    grid-template-columns: repeat(
-      var(--slide-player-mobile-control-count, 4),
-      minmax(0, 1fr)
-    ) !important;
-  }
-
   .listen-playback-speed-action {
     width: 44px !important;
     min-width: 44px;
