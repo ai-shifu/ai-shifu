@@ -4,6 +4,9 @@ import path from 'path';
 const readStylesheet = () =>
   readFileSync(path.join(__dirname, 'ListenModeRenderer.scss'), 'utf8');
 
+const readChatUiStylesheet = () =>
+  readFileSync(path.join(__dirname, 'ChatUi.module.scss'), 'utf8');
+
 describe('ListenModeRenderer styles', () => {
   it('keeps mobile landscape interaction overlays compatible with slide drag offsets', () => {
     const stylesheet = readStylesheet();
@@ -29,6 +32,26 @@ describe('ListenModeRenderer styles', () => {
     expect(askRuleBody).toContain('var(--slide-player-height)');
     expect(stylesheet).toContain('&.listen-reveal-wrapper--with-player');
     expect(stylesheet).not.toContain('.slide-ask-overlay--standalone');
+  });
+
+  it('aligns desktop listen controls to the footer through one shared offset', () => {
+    const stylesheet = readStylesheet();
+    const chatUiStylesheet = readChatUiStylesheet();
+
+    expect(chatUiStylesheet).toContain('--listen-player-footer-gap: 0px');
+    expect(stylesheet).toMatch(
+      /\.listen-slide-player\s*\{\s*bottom:\s*var\(--listen-slide-player-bottom-offset\)/,
+    );
+    expect(stylesheet).toMatch(
+      /\.slide-ask-overlay,[\s\S]*?\.slide-interaction-overlay\s*\{\s*--slide-player-bottom-offset:\s*var\(--listen-slide-player-bottom-offset\)/,
+    );
+    expect(stylesheet).toMatch(
+      /\.slide-subtitle-overlay\s*\{\s*--slide-player-bottom-offset:\s*var\(--listen-slide-player-bottom-offset\)/,
+    );
+    expect(stylesheet).toContain(
+      ':not(.mobile):not(.listen-reveal-wrapper--classroom)',
+    );
+    expect(stylesheet).toContain(':not(.slide--browser-fullscreen)');
   });
 
   it('lets Slide size the mobile player grid from its rendered actions', () => {
