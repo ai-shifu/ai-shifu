@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 import type {
   AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationPolicy,
+  CreditNotificationRule,
   CreditNotificationEstimatedDaysThreshold,
   CreditNotificationFixedThreshold,
   CreditNotificationThreshold,
@@ -127,6 +128,7 @@ export const createDefaultPolicy =
   (): AdminOperationCreditNotificationPolicy => ({
     enabled: false,
     channel: 'sms',
+    rules: [],
     types: {
       credit_expiring: {
         enabled: false,
@@ -406,12 +408,112 @@ export const normalizePolicy = (
   const defaults = createDefaultPolicy();
   const source = isRecord(payload) ? payload : {};
   const types = readRecord(source, 'types');
+  const rules = Array.isArray(source.rules)
+    ? source.rules
+        .map((value): CreditNotificationRule | null => {
+          if (!isRecord(value)) {
+            return null;
+          }
+          const triggerEvent = readString(value.trigger_event);
+          if (
+            !NOTIFICATION_TYPES.includes(triggerEvent as KnownNotificationType)
+          ) {
+            return null;
+          }
+          const conditions = readRecord(value, 'conditions');
+          const thresholds = Array.isArray(conditions.thresholds)
+            ? conditions.thresholds
+                .map(readLowBalanceThreshold)
+                .filter(
+                  (item): item is CreditNotificationThreshold => item !== null,
+                )
+            : undefined;
+          return {
+            rule_bid: readString(value.rule_bid),
+            name: readString(value.name),
+            trigger_event: triggerEvent as KnownNotificationType,
+            channel: 'sms',
+            template_code: readString(value.template_code),
+            enabled: readBoolean(value.enabled, false),
+            conditions: {
+              ...(triggerEvent === 'credit_expiring'
+                ? {
+                    windows: readStringArray(conditions.windows, []),
+                    merge_same_creator: readBoolean(
+                      conditions.merge_same_creator,
+                      false,
+                    ),
+                  }
+                : {}),
+              ...(triggerEvent === 'low_balance' && thresholds
+                ? { thresholds }
+                : {}),
+            },
+            ...(readBoolean(value.legacy, false) ? { legacy: true } : {}),
+          };
+        })
+        .filter((rule): rule is CreditNotificationRule => rule !== null)
+    : [];
   const expiring = readRecord(types, 'credit_expiring');
   const granted = readRecord(types, 'credit_granted');
   const lowBalance = readRecord(types, 'low_balance');
   const lowBalanceThresholds = Array.isArray(lowBalance.thresholds)
     ? lowBalance.thresholds
     : defaults.types.low_balance.thresholds || [];
+  const legacyRules: CreditNotificationRule[] = [
+    {
+      rule_bid: 'legacy-credit_expiring',
+      name: 'credit_expiring',
+      trigger_event: 'credit_expiring',
+      channel: 'sms',
+      template_code: readString(expiring.template_code),
+      enabled: readBoolean(
+        expiring.enabled,
+        defaults.types.credit_expiring.enabled,
+      ),
+      conditions: {
+        windows: readStringArray(
+          expiring.windows,
+          defaults.types.credit_expiring.windows || [],
+        ),
+        merge_same_creator: readBoolean(
+          expiring.merge_same_creator,
+          defaults.types.credit_expiring.merge_same_creator || false,
+        ),
+      },
+      legacy: true,
+    },
+    {
+      rule_bid: 'legacy-credit_granted',
+      name: 'credit_granted',
+      trigger_event: 'credit_granted',
+      channel: 'sms',
+      template_code: readString(granted.template_code),
+      enabled: readBoolean(
+        granted.enabled,
+        defaults.types.credit_granted.enabled,
+      ),
+      conditions: {},
+      legacy: true,
+    },
+    {
+      rule_bid: 'legacy-low_balance',
+      name: 'low_balance',
+      trigger_event: 'low_balance',
+      channel: 'sms',
+      template_code: readString(lowBalance.template_code),
+      enabled: readBoolean(
+        lowBalance.enabled,
+        defaults.types.low_balance.enabled,
+      ),
+      conditions: {
+        thresholds: lowBalanceThresholds
+          .map(readLowBalanceThreshold)
+          .filter((item): item is CreditNotificationThreshold => item !== null),
+      },
+      legacy: true,
+    },
+  ];
   const softlimit = readRecord(source, 'softlimit');
   const frequency = readRecord(source, 'frequency');
   const quietHours = readRecord(source, 'quiet_hours');
@@ -423,6 +525,7 @@ export const normalizePolicy = (
     ...defaults,
     enabled: readBoolean(source.enabled, defaults.enabled),
     channel: 'sms',
+    rules: Array.isArray(source.rules) ? rules : legacyRules,
     types: {
       credit_expiring: {
         enabled: readBoolean(
