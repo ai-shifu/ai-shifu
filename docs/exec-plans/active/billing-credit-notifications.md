@@ -28,7 +28,7 @@
 - [x] 2026-06-21 17:05 CST: A config-tab follow-up extracted `dry-run` and template-sync state into dedicated frontend hooks so their errors stay local to the config area instead of reusing page-level state.
 - [x] 2026-08-31 17:58 CST: Template-management review remediation preserves Aliyun page request IDs, serializes manual library refreshes in the UI, adds provider-template workflow analytics, and completes the Thai detail label.
 - [x] 2026-08-31 18:56 CST: Closed template-management data-integrity gaps: binding relationships now report unavailable when notification config loading fails, and provider-fallback template lists return every synchronized local template instead of silently limiting results to 100.
-- [ ] 2026-08-31 19:35 CST: Replace the fixed three-row notification-type configuration with a managed notification-rule list. Operators create a named rule, select a supported trigger event, template, conditions, and enabled state; runtime continues to own the event sources and delivery protections.
+- [x] 2026-09-01 16:10 CST: Replaced the fixed three-row notification-type configuration with a managed notification-rule list. Operators can create, edit, enable, disable, and delete named SMS rules with a supported trigger event, template, and event-specific conditions; global delivery protections remain separate.
 
 ### Managed Notification Rules PR Split
 
@@ -83,6 +83,15 @@ Implemented v1 of the积分通知中心:
 - Trigger and deduplication: exposure fires once per mounted eligible tab view; sync attempt fires after the refresh guard accepts a click; a result fires once after that request settles; filter and detail events are not deduplicated because repeated operator actions are meaningful.
 - Payload allowlist: `channel` (`sms`), `provider` (`aliyun`), `source` (`provider` or `local`), `outcome` (`success` or `failed`), and `filter` (`keyword` or `status`). Do not emit template content, template codes, names, user identifiers, contact information, or provider request IDs.
 - Consumers: operator notification-center adoption and provider synchronization reliability reporting. This is a new additive event family.
+
+## PR2 Managed Rule Analytics Contract
+
+- Business question: whether operators are configuring and maintaining managed SMS notification rules.
+- Event name: `operator_notification_rule_action`.
+- Actor and surface: authenticated operators in the credit-notification configuration tab.
+- Trigger: emit after an operator creates, edits, deletes, or changes a rule's enabled state in the local policy draft. The event does not represent a persisted save.
+- Payload allowlist: `channel` (`sms`), `action` (`created`, `edited`, `deleted`, or `toggled`), and `trigger_event` (one of the three supported events). Do not emit rule IDs, rule names, template codes or content, user identifiers, phone numbers, or policy conditions.
+- Consumers: operator configuration adoption reporting. This is additive and must never block the configuration workflow.
 - Verification: focused frontend tests cover eligible exposure, accepted sync attempts and outcomes, filter/detail events, payload allowlists, and analytics failures that do not alter the user workflow.
 
 ## Context and Orientation

@@ -124,11 +124,29 @@ export function CreditNotificationTemplateManagementTab({
     [t],
   );
   const bindingsFor = React.useCallback(
-    (templateCode: string) =>
-      Object.entries(policy.types)
+    (templateCode: string) => {
+      if (policy.rules.length) {
+        return policy.rules
+          .filter(rule => rule.template_code === templateCode)
+          .map(rule => ({
+            key: rule.rule_bid,
+            label: rule.legacy
+              ? t(
+                  `module.operationsCreditNotifications.type.${rule.trigger_event}`,
+                )
+              : rule.name || '--',
+          }));
+      }
+      return Object.entries(policy.types)
         .filter(([, config]) => config.template_code === templateCode)
-        .map(([notificationType]) => notificationType),
-    [policy.types],
+        .map(([notificationType]) => ({
+          key: notificationType,
+          label: t(
+            `module.operationsCreditNotifications.type.${notificationType}`,
+          ),
+        }));
+    },
+    [policy.rules, policy.types, t],
   );
 
   const statuses = React.useMemo(
@@ -353,12 +371,8 @@ export function CreditNotificationTemplateManagementTab({
                 const bindings = bindingsFor(row.template_code);
                 return bindings.length ? (
                   <div className='flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground'>
-                    {bindings.map(value => (
-                      <span key={value}>
-                        {t(
-                          `module.operationsCreditNotifications.type.${value}`,
-                        )}
-                      </span>
+                    {bindings.map(binding => (
+                      <span key={binding.key}>{binding.label}</span>
                     ))}
                   </div>
                 ) : (
