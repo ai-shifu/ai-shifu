@@ -79,7 +79,7 @@ migration explicitly replaces them.
   byte-for-byte under `src/web`, rebuilt the generated harness health report
   with both the active rename plan and the newly completed upstream plan, and
   passed 3 focused frontend suites with 45 tests.
-- [x] 2026-09-01: Retired the legacy checkout compatibility layer by removing
+- [x] 2026-09-01 13:06 CST: Retired the legacy checkout compatibility layer by removing
   the frontend environment migration helper, old-path ignore rules, and
   legacy-path Codex setup. Current checkouts now use `src/web` directly while
   the release workflow retains a bounded fallback for pre-rename tags.

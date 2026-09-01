@@ -45,6 +45,14 @@ STALE_FRONTEND_PATH_LINE_ALLOWLIST = {
         f'"legacy_path": "{STALE_FRONTEND_PATH}/package-lock.json",': 1,
     },
 }
+STALE_FRONTEND_PATH_CONTEXT_ALLOWLIST = {
+    Path(".github/workflows/prepare-release.yml"): (
+        "- name: Generate MarkdownFlow dependency changelog",
+        '"name": "markdown-flow-ui",',
+        '"path": "src/web/package-lock.json",',
+        "def build_dependency_section",
+    ),
+}
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
 HARNESS_HEALTH = DOCS_ROOT / "generated" / "harness-health.md"
 PR_REVIEW_SCOPE_MARKERS = (
@@ -303,6 +311,35 @@ def check_root_docs(errors: list[str]) -> None:
             )
 
 
+def _stale_path_is_in_allowed_context(
+    relative_path: Path, lines: list[str], line_numbers: list[int]
+) -> bool:
+    """Keep an allowed stale path inside its owning workflow step."""
+    context_markers = STALE_FRONTEND_PATH_CONTEXT_ALLOWLIST.get(relative_path)
+    if not context_markers:
+        return True
+
+    step_starts = [
+        index for index, line in enumerate(lines) if line.strip() == context_markers[0]
+    ]
+    if len(step_starts) != 1:
+        return False
+
+    step_start = step_starts[0]
+    step_indent = len(lines[step_start]) - len(lines[step_start].lstrip())
+    step_end = len(lines)
+    for index in range(step_start + 1, len(lines)):
+        line = lines[index]
+        if line.startswith(" " * step_indent) and line.strip().startswith("- name:"):
+            step_end = index
+            break
+
+    step_lines = lines[step_start:step_end]
+    return all(
+        any(marker in line for line in step_lines) for marker in context_markers
+    ) and all(step_start <= line_number - 1 < step_end for line_number in line_numbers)
+
+
 def check_frontend_path_contract(errors: list[str]) -> None:
     """Require the current web frontend path and guard stale path additions."""
     if not FRONTEND_ROOT.is_dir():
@@ -327,29 +364,37 @@ def check_frontend_path_contract(errors: list[str]) -> None:
             errors.append(f"Stale frontend path in tracked filename: {relative_path}")
 
         path = ROOT / relative_path
-        if not path.is_file():
-            continue
         if relative_path in STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST:
             continue
         try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            text = path.read_bytes().decode("utf-8", errors="surrogateescape")
+        except OSError as error:
+            errors.append(f"Unable to scan tracked file {path}: {error}")
             continue
         if STALE_FRONTEND_PATH not in text:
             continue
 
         actual_occurrences: dict[str, int] = {}
-        for line in text.splitlines():
+        stale_line_numbers: list[int] = []
+        for line_number, line in enumerate(text.splitlines(), start=1):
             if STALE_FRONTEND_PATH in line:
                 stripped_line = line.strip()
                 actual_occurrences[stripped_line] = (
                     actual_occurrences.get(stripped_line, 0) + 1
                 )
+                stale_line_numbers.append(line_number)
         expected_occurrences = STALE_FRONTEND_PATH_LINE_ALLOWLIST.get(relative_path, {})
         if actual_occurrences != expected_occurrences:
             errors.append(
                 f"Unexpected stale frontend path occurrences in {path}: "
                 f"expected {expected_occurrences}, got {actual_occurrences}"
+            )
+        elif not _stale_path_is_in_allowed_context(
+            relative_path, text.splitlines(), stale_line_numbers
+        ):
+            errors.append(
+                f"Allowed stale frontend path in {path} is outside its "
+                "historical release lookup step"
             )
 
 
