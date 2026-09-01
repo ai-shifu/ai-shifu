@@ -35,6 +35,9 @@ from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
 )
 from .credit_notifications import (
+    pending_credit_notification_bids as _pending_credit_notification_bids,
+)
+from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
 from .dtos import BillingTrialOfferDTO, BillingTrialWelcomeAckDTO
@@ -454,13 +457,12 @@ def _bootstrap_trial_subscription(
         commit=False,
         enqueue=False,
     )
-    if grant_notification.get("status") == "pending":
+    notification_bids = _pending_credit_notification_bids(grant_notification)
+    if notification_bids:
         order_metadata = (
-            order.metadata_json if isinstance(order.metadata_json, dict) else {}
+            dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
         )
-        order_metadata["credit_granted_notification_bid"] = str(
-            grant_notification.get("notification_bid") or ""
-        ).strip()
+        order_metadata["credit_granted_notification_bids"] = list(notification_bids)
         order.metadata_json = order_metadata
         db.session.add(order)
 
@@ -481,13 +483,22 @@ def _enqueue_trial_credit_notification(app: Flask, creator_bid: str) -> None:
             .first()
         )
         metadata = order.metadata_json if order is not None else {}
-        notification_bid = (
-            str((metadata or {}).get("credit_granted_notification_bid") or "").strip()
+        notification_bids = (
+            tuple(
+                str(item or "").strip()
+                for item in (metadata or {}).get("credit_granted_notification_bids", [])
+                if str(item or "").strip()
+            )
             if isinstance(metadata, dict)
-            else ""
+            else ()
         )
-    if notification_bid:
-        _enqueue_credit_notification(app, notification_bid=notification_bid)
+        if not notification_bids and isinstance(metadata, dict):
+            notification_bids = (
+                str(metadata.get("credit_granted_notification_bid") or "").strip(),
+            )
+    for notification_bid in notification_bids:
+        if notification_bid:
+            _enqueue_credit_notification(app, notification_bid=notification_bid)
 
 
 def _resolve_trial_bootstrap_status(
