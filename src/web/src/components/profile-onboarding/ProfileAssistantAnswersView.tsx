@@ -16,6 +16,7 @@ export function ProfileAssistantAnswersView({
   onChange,
   onSubmit,
   onBack,
+  onPromptCopied,
 }: {
   headingRef?: React.Ref<HTMLHeadingElement>;
   prompt: string;
@@ -26,6 +27,7 @@ export function ProfileAssistantAnswersView({
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
   onBack: () => void;
+  onPromptCopied?: () => void;
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = React.useState(false);
@@ -50,6 +52,9 @@ export function ProfileAssistantAnswersView({
   const copyPrompt = async () => {
     try {
       await navigator.clipboard.writeText(prompt);
+      try {
+        onPromptCopied?.();
+      } catch {}
       setCopyError(false);
       setCopied(true);
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);

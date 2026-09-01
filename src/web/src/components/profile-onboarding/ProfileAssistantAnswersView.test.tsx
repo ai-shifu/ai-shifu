@@ -14,6 +14,7 @@ jest.mock('react-i18next', () => ({
 const setup = (initialValue = '') => {
   const onSubmit = jest.fn();
   const onBack = jest.fn();
+  const onPromptCopied = jest.fn();
   function Harness() {
     const [value, setValue] = React.useState(initialValue);
     return (
@@ -25,6 +26,7 @@ const setup = (initialValue = '') => {
         onChange={setValue}
         onSubmit={onSubmit}
         onBack={onBack}
+        onPromptCopied={onPromptCopied}
       />
     );
   }
@@ -32,6 +34,7 @@ const setup = (initialValue = '') => {
   return {
     onSubmit,
     onBack,
+    onPromptCopied,
     input: screen.getByLabelText(
       'module.profileOnboarding.assistant.resultLabel',
     ),
@@ -196,7 +199,7 @@ test('copy uses the exact frozen prompt and offers manual copying on clipboard f
     configurable: true,
     value: { writeText },
   });
-  setup();
+  const { onPromptCopied } = setup();
   const copyButton = screen.getByRole('button', {
     name: 'module.profileOnboarding.assistant.copy',
   });
@@ -218,6 +221,7 @@ test('copy uses the exact frozen prompt and offers manual copying on clipboard f
     fireEvent.click(copyButton);
   });
   expect(writeText).toHaveBeenCalledWith('Public prompt');
+  expect(onPromptCopied).toHaveBeenCalledTimes(1);
   expect(
     screen.getByRole('button', {
       name: 'module.profileOnboarding.assistant.copied',
@@ -240,6 +244,7 @@ test('copy uses the exact frozen prompt and offers manual copying on clipboard f
     }),
   ).toBeEnabled();
   expect(screen.getByText('Public prompt')).toBeVisible();
+  expect(onPromptCopied).toHaveBeenCalledTimes(1);
 });
 
 test('restores only the same account draft and clears legacy, previous-account and logout data', () => {

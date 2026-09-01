@@ -96,6 +96,8 @@ type ConversationControl = {
   setRunInFlight: (runInFlight: boolean) => void;
   sessionId: () => string;
   chooseCollectionRoute: (route: ProfileCollectionRoute) => void;
+  openAssistant: () => void;
+  copyAssistantPrompt: () => void;
   startAssistant: () => void;
   finishAssistant: (
     outcome: 'success' | 'failed',
@@ -155,6 +157,8 @@ function MockProfileOnboardingConversation(
       sessionId: () => sessionIdRef.current,
       chooseCollectionRoute: route =>
         propsRef.current.onCollectionRouteChosen?.(route),
+      openAssistant: () => propsRef.current.onAssistantOpened?.(),
+      copyAssistantPrompt: () => propsRef.current.onAssistantPromptCopied?.(),
       startAssistant: () => propsRef.current.onAssistantAttempt?.(),
       finishAssistant: (outcome, failureCategory) =>
         propsRef.current.onAssistantResult?.(outcome, failureCategory),
@@ -1277,6 +1281,8 @@ describe('LearnerProfileDialog', () => {
 
     act(() => {
       control.chooseCollectionRoute('ai_assistant');
+      control.openAssistant();
+      control.copyAssistantPrompt();
       control.startAssistant();
       control.finishAssistant('failed', 'runtime_failed');
     });
@@ -1287,6 +1293,20 @@ describe('LearnerProfileDialog', () => {
         source: 'guided',
         presentation: 'blocking',
         route: 'ai_assistant',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.ASSISTANT_OPENED,
+      {
+        source: 'guided',
+        presentation: 'blocking',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.ASSISTANT_PROMPT_COPIED,
+      {
+        source: 'guided',
+        presentation: 'blocking',
       },
     );
     expect(mockTrackEvent).toHaveBeenCalledWith(
@@ -1305,8 +1325,11 @@ describe('LearnerProfileDialog', () => {
         failure_category: 'runtime_failed',
       },
     );
-    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('prompt');
-    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('error');
+    const analyticsPayloads = mockTrackEvent.mock.calls.map(
+      ([, payload]) => payload,
+    );
+    expect(JSON.stringify(analyticsPayloads)).not.toContain('prompt');
+    expect(JSON.stringify(analyticsPayloads)).not.toContain('error');
 
     mockTrackEventIdentity = jest.fn(() => {
       throw new Error('tracking unavailable');

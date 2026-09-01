@@ -1681,6 +1681,7 @@ describe('assistant answers in the existing session', () => {
     const onDraftReady = jest.fn();
     const onError = jest.fn();
     const onCollectionRouteChosen = jest.fn();
+    const onAssistantOpened = jest.fn();
     const onAssistantAttempt = jest.fn();
     const onAssistantResult = jest.fn();
     const renderConversation = (
@@ -1695,6 +1696,7 @@ describe('assistant answers in the existing session', () => {
         onAssistantDraftChange={jest.fn()}
         onAssistantDraftReady={onAssistantDraftReady}
         onCollectionRouteChosen={onCollectionRouteChosen}
+        onAssistantOpened={onAssistantOpened}
         onAssistantAttempt={onAssistantAttempt}
         onAssistantResult={onAssistantResult}
         onDraftReady={onDraftReady}
@@ -1711,6 +1713,7 @@ describe('assistant answers in the existing session', () => {
       assistantAnswers,
       onAssistantDraftReady,
       onCollectionRouteChosen,
+      onAssistantOpened,
       onAssistantAttempt,
       onAssistantResult,
       onDraftReady,
@@ -1736,6 +1739,7 @@ describe('assistant answers in the existing session', () => {
 
     enter();
     expect(result.onCollectionRouteChosen).toHaveBeenCalledWith('ai_assistant');
+    expect(result.onAssistantOpened).toHaveBeenCalledTimes(1);
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.assistant.back',

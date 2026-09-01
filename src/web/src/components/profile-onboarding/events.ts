@@ -12,6 +12,8 @@ export const PROFILE_ONBOARDING_EVENTS = {
   SETTINGS_CLEARED: 'learner_profile_settings_cleared',
   SETTINGS_RERUN_STARTED: 'learner_profile_settings_rerun_started',
   COLLECTION_ROUTE_CHOSEN: 'learner_profile_collection_route_chosen',
+  ASSISTANT_OPENED: 'learner_profile_assistant_opened',
+  ASSISTANT_PROMPT_COPIED: 'learner_profile_assistant_prompt_copied',
   ASSISTANT_ATTEMPT: 'learner_profile_assistant_attempt',
   ASSISTANT_RESULT: 'learner_profile_assistant_result',
 } as const;
