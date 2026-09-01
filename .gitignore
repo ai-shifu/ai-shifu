@@ -170,6 +170,9 @@ celerybeat.pid
 dev.sh
 dev.http
 
+# Retired Cook Web directories
+cook-web/
+
 # Local dependency-install marker created by external dev launcher (task/start-dev.sh)
 src/api/.deps_installed
 
