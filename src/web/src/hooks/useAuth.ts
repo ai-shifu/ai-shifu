@@ -41,6 +41,7 @@ type SendVerificationCodeResult = {
 
 const SMS_SEND_TOO_FREQUENT_CODE = 1012;
 const EMAIL_SEND_TOO_FREQUENT_CODE = 1033;
+const VERIFICATION_CREDENTIAL_ERROR_CODES = new Set([1013, 1014]);
 
 interface UseAuthOptions {
   onSuccess?: (userInfo: UserInfo) => void;
@@ -223,9 +224,14 @@ export function useAuth(options: UseAuthOptions = {}) {
       return response;
     } catch (error: any) {
       if (!loginCommitted) {
+        const failureCategory = VERIFICATION_CREDENTIAL_ERROR_CODES.has(
+          error?.code,
+        )
+          ? 'credentials_rejected'
+          : 'request_failed';
         trackEvent(
           'learner_login_result',
-          buildLoginResultAnalytics(method, 'failed', 'request_failed'),
+          buildLoginResultAnalytics(method, 'failed', failureCategory),
         );
       }
       toast({
