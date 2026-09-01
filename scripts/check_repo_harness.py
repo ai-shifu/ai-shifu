@@ -358,7 +358,7 @@ def check_frontend_path_contract(errors: list[str]) -> None:
 
     try:
         result = subprocess.run(
-            ["git", "ls-files", "-z"],
+            ["git", "ls-files", "--stage", "-z"],
             cwd=ROOT,
             check=True,
             capture_output=True,
@@ -370,9 +370,19 @@ def check_frontend_path_contract(errors: list[str]) -> None:
     for raw_path in result.stdout.split(b"\0"):
         if not raw_path:
             continue
-        relative_path = Path(raw_path.decode("utf-8", errors="surrogateescape"))
+        try:
+            raw_metadata, raw_filename = raw_path.split(b"\t", 1)
+            index_mode = raw_metadata.split(b" ", 1)[0]
+        except ValueError as error:
+            errors.append(f"Unable to parse tracked file entry {raw_path!r}: {error}")
+            continue
+
+        relative_path = Path(raw_filename.decode("utf-8", errors="surrogateescape"))
         if STALE_FRONTEND_PATH in relative_path.as_posix():
             errors.append(f"Stale frontend path in tracked filename: {relative_path}")
+
+        if index_mode in {b"120000", b"160000"}:
+            continue
 
         path = ROOT / relative_path
         if relative_path in STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST:
@@ -539,6 +549,7 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                         errors.append(
                             f"{fixture_label} did not copy the expected {env_filename}"
                         )
+                        continue
                     if (
                         target_env.stat().st_mode & 0o777
                         != source_env_modes[env_filename]
