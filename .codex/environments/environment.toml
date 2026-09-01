@@ -141,8 +141,10 @@ def clean_up_reservations():
             continue
         try:
             os.link(cleanup_path, target_path, follow_symlinks=False)
-        except OSError:
-            continue
+        except OSError as error:
+            raise RuntimeError(
+                "failed to restore a frontend environment file"
+            ) from error
         try:
             os.unlink(cleanup_path)
         except FileNotFoundError:
@@ -240,12 +242,16 @@ try:
     if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
 except (ConcurrentEnvironmentChange, FileExistsError):
-    clean_up_reservations()
-    clean_up_staging()
+    try:
+        clean_up_reservations()
+    finally:
+        clean_up_staging()
     raise SystemExit(0)
 except BaseException:
-    clean_up_reservations()
-    clean_up_staging()
+    try:
+        clean_up_reservations()
+    finally:
+        clean_up_staging()
     raise
 else:
     clean_up_staging()
@@ -429,8 +435,10 @@ def clean_up_reservations():
             continue
         try:
             os.link(cleanup_path, target_path, follow_symlinks=False)
-        except OSError:
-            continue
+        except OSError as error:
+            raise RuntimeError(
+                "failed to restore a frontend environment file"
+            ) from error
         try:
             os.unlink(cleanup_path)
         except FileNotFoundError:
@@ -528,12 +536,16 @@ try:
     if reservations_changed() or unreserved_target_exists():
         raise ConcurrentEnvironmentChange()
 except (ConcurrentEnvironmentChange, FileExistsError):
-    clean_up_reservations()
-    clean_up_staging()
+    try:
+        clean_up_reservations()
+    finally:
+        clean_up_staging()
     raise SystemExit(0)
 except BaseException:
-    clean_up_reservations()
-    clean_up_staging()
+    try:
+        clean_up_reservations()
+    finally:
+        clean_up_staging()
     raise
 else:
     clean_up_staging()
