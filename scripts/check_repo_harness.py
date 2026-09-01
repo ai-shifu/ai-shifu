@@ -47,6 +47,7 @@ FRONTEND_ENV_FILENAMES = (
     ".env.test.local",
 )
 STALE_FRONTEND_PATH = "src/" + "cook-web"
+STALE_FRONTEND_PATH_PARTS = tuple(STALE_FRONTEND_PATH.split("/"))
 STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
     Path("docs/exec-plans/active/rename-cook-web-directory.md"),
 }
@@ -378,7 +379,13 @@ def check_frontend_path_contract(errors: list[str]) -> None:
             continue
 
         relative_path = Path(raw_filename.decode("utf-8", errors="surrogateescape"))
-        if STALE_FRONTEND_PATH in relative_path.as_posix():
+        if any(
+            relative_path.parts[index : index + len(STALE_FRONTEND_PATH_PARTS)]
+            == STALE_FRONTEND_PATH_PARTS
+            for index in range(
+                len(relative_path.parts) - len(STALE_FRONTEND_PATH_PARTS) + 1
+            )
+        ):
             errors.append(f"Stale frontend path in tracked filename: {relative_path}")
 
         if index_mode in {b"120000", b"160000"}:
