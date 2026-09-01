@@ -492,6 +492,55 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                         f"{fixture_label} reused node_modules from the wrong path"
                     )
 
+                for occupancy_mode in ("customized", "dangling"):
+                    occupied_worktree = fixture_root / f"{occupancy_mode}-worktree"
+                    occupied_frontend = occupied_worktree / current_frontend
+                    occupied_frontend.mkdir(parents=True)
+                    (occupied_frontend / "package-lock.json").write_text(
+                        lockfile_content, encoding="utf-8"
+                    )
+                    occupied_env = occupied_frontend / ".env"
+                    if occupancy_mode == "customized":
+                        occupied_env.write_text("CUSTOMIZED=1\n", encoding="utf-8")
+                    else:
+                        occupied_env.symlink_to(occupied_frontend / "missing.env")
+
+                    occupied_environment = command_environment.copy()
+                    occupied_environment["CODEX_WORKTREE_PATH"] = str(occupied_worktree)
+                    occupied_result = subprocess.run(
+                        ["sh"],
+                        cwd=occupied_worktree,
+                        env=occupied_environment,
+                        input=script,
+                        text=True,
+                        capture_output=True,
+                        timeout=10,
+                        check=False,
+                    )
+                    occupied_label = f"{fixture_label} {occupancy_mode} env fixture"
+                    if occupied_result.returncode != 0:
+                        errors.append(
+                            f"{occupied_label} failed with exit "
+                            f"{occupied_result.returncode}: "
+                            f"{occupied_result.stderr.strip()}"
+                        )
+                        continue
+
+                    occupied_local_env = occupied_frontend / ".env.local"
+                    if occupied_local_env.exists() or occupied_local_env.is_symlink():
+                        errors.append(
+                            f"{occupied_label} copied another frontend env file"
+                        )
+                    if occupancy_mode == "customized":
+                        if occupied_env.read_text(encoding="utf-8") != "CUSTOMIZED=1\n":
+                            errors.append(
+                                f"{occupied_label} overwrote the customized env file"
+                            )
+                    elif not occupied_env.is_symlink():
+                        errors.append(
+                            f"{occupied_label} did not preserve the dangling symlink"
+                        )
+
 
 def check_frontmatter_docs(errors: list[str]) -> None:
     """Check frontmatter docs."""

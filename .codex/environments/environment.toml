@@ -15,12 +15,14 @@ worktree_path="${CODEX_WORKTREE_PATH:-$(pwd)}"
 copy_local_env() {
   source_file="$1"
   target_file="$2"
-  if [ -f "$source_file" ] && [ ! -e "$target_file" ]; then
+  if [ -f "$source_file" ] && [ ! -e "$target_file" ] && \
+    [ ! -L "$target_file" ]; then
     cp -p "$source_file" "$target_file"
   fi
 }
 
 copy_frontend_env() {
+  source_env_files=""
   for env_filename in \
     .env \
     .env.local \
@@ -30,6 +32,30 @@ copy_frontend_env() {
     .env.production.local \
     .env.test \
     .env.test.local
+  do
+    source_file="$source_tree/src/web/$env_filename"
+    if [ -f "$source_file" ]; then
+      source_env_files="$source_env_files $env_filename"
+    fi
+  done
+
+  for env_filename in \
+    .env \
+    .env.local \
+    .env.development \
+    .env.development.local \
+    .env.production \
+    .env.production.local \
+    .env.test \
+    .env.test.local
+  do
+    target_file="$worktree_path/src/web/$env_filename"
+    if [ -e "$target_file" ] || [ -L "$target_file" ]; then
+      return
+    fi
+  done
+
+  for env_filename in $source_env_files
   do
     copy_local_env \
       "$source_tree/src/web/$env_filename" \
@@ -85,12 +111,14 @@ worktree_path="${CODEX_WORKTREE_PATH:-$(pwd)}"
 copy_local_env() {
   source_file="$1"
   target_file="$2"
-  if [ -f "$source_file" ] && [ ! -e "$target_file" ]; then
+  if [ -f "$source_file" ] && [ ! -e "$target_file" ] && \
+    [ ! -L "$target_file" ]; then
     cp -p "$source_file" "$target_file"
   fi
 }
 
 copy_frontend_env() {
+  source_env_files=""
   for env_filename in \
     .env \
     .env.local \
@@ -100,6 +128,30 @@ copy_frontend_env() {
     .env.production.local \
     .env.test \
     .env.test.local
+  do
+    source_file="$source_tree/src/web/$env_filename"
+    if [ -f "$source_file" ]; then
+      source_env_files="$source_env_files $env_filename"
+    fi
+  done
+
+  for env_filename in \
+    .env \
+    .env.local \
+    .env.development \
+    .env.development.local \
+    .env.production \
+    .env.production.local \
+    .env.test \
+    .env.test.local
+  do
+    target_file="$worktree_path/src/web/$env_filename"
+    if [ -e "$target_file" ] || [ -L "$target_file" ]; then
+      return
+    fi
+  done
+
+  for env_filename in $source_env_files
   do
     copy_local_env \
       "$source_tree/src/web/$env_filename" \
