@@ -18,7 +18,6 @@ def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
         ---
         tags:
             - llm
-            - cook
         responses:
             200:
                 description: model list

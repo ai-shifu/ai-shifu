@@ -156,23 +156,10 @@ flask db upgrade
 gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 ```
 
-#### Step 5.4: Start Cook Web Frontend & CMS
-
-If an existing checkout still has ignored frontend env files under `src/cook-web/`,
-run `cd src/web && npm run migrate:legacy-env` once after pulling this change.
-The `dev` and `build` commands also run this migration automatically. It copies
-the legacy configuration set only when `src/web` has no supported env file,
-preserves file permissions, and keeps the legacy files for rollback.
+#### Step 5.4: Start Web Frontend & CMS
 
 ```bash
 cd src/web
-# Migrate an existing checkout before considering the new-install default.
-npm run migrate:legacy-env
-
-# New checkouts only: safely seed from docker/.env when no frontend env
-# configuration exists. The helper also treats dangling symlinks as occupied.
-npm run migrate:legacy-env -- --source ../../docker --target .
-
 # Install Node.js dependencies
 npm install  # or use pnpm install
 

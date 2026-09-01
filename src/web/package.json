@@ -6,10 +6,9 @@
     "node": "22.16.0"
   },
   "scripts": {
-    "migrate:legacy-env": "node scripts/migrate-legacy-frontend-env.js",
-    "dev": "node scripts/migrate-legacy-frontend-env.js && next dev --turbopack",
+    "dev": "next dev --turbopack",
     "dev-web300": "NEXT_PUBLIC_API_BASE_URL=https://web.dev.pillowai.cn npm run dev",
-    "build": "node scripts/migrate-legacy-frontend-env.js && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint --cache-location .eslintcache",
     "lint-file": "next lint --fix --file",

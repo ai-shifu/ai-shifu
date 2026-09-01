@@ -15,9 +15,258 @@ worktree_path="${CODEX_WORKTREE_PATH:-$(pwd)}"
 copy_local_env() {
   source_file="$1"
   target_file="$2"
-  if [ -f "$source_file" ] && [ ! -e "$target_file" ]; then
+  if [ -f "$source_file" ] && [ ! -e "$target_file" ] && \
+    [ ! -L "$target_file" ]; then
     cp -p "$source_file" "$target_file"
   fi
+}
+
+copy_frontend_env() {
+  python3 -c 'import hashlib
+import os
+import stat
+import sys
+import tempfile
+
+ENV_FILENAMES = (
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.development.local",
+    ".env.production",
+    ".env.production.local",
+    ".env.test",
+    ".env.test.local",
+)
+source_root = sys.argv[1]
+target_root = sys.argv[2]
+
+source_files = []
+for filename in ENV_FILENAMES:
+    source_path = os.path.join(source_root, filename)
+    try:
+        source_stat = os.stat(source_path)
+    except FileNotFoundError:
+        continue
+    if stat.S_ISREG(source_stat.st_mode):
+        source_files.append((filename, source_path, source_stat))
+
+if not source_files:
+    raise SystemExit(0)
+
+target_paths = {
+    filename: os.path.join(target_root, filename) for filename in ENV_FILENAMES
+}
+if any(os.path.lexists(target_path) for target_path in target_paths.values()):
+    raise SystemExit(0)
+
+
+class ConcurrentEnvironmentChange(Exception):
+    pass
+
+
+source_names = {filename for filename, _, _ in source_files}
+reservations = []
+staged_files = []
+staging_directory = None
+cleanup_directory = None
+
+
+def unreserved_target_exists():
+    return any(
+        filename not in source_names and os.path.lexists(target_path)
+        for filename, target_path in target_paths.items()
+    )
+
+
+def reservation_matches_path(reservation, candidate_path):
+    source_stat = reservation[2]
+    target_path = candidate_path
+    staging_path = reservation[4]
+    expected_mode = reservation[5]
+    expected_digest = reservation[6]
+    try:
+        path_stat = os.lstat(target_path)
+        staging_stat = os.lstat(staging_path)
+        if (
+            path_stat.st_dev != staging_stat.st_dev
+            or path_stat.st_ino != staging_stat.st_ino
+            or stat.S_IMODE(path_stat.st_mode) != expected_mode
+            or path_stat.st_size != source_stat.st_size
+        ):
+            return False
+        digest = hashlib.sha256()
+        with open(target_path, "rb") as target:
+            while True:
+                chunk = target.read(1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+    return digest.digest() == expected_digest
+
+
+def reservation_path_matches(reservation):
+    return reservation_matches_path(reservation, reservation[3])
+
+
+def reservations_changed():
+    return any(
+        not reservation_path_matches(reservation) for reservation in reservations
+    )
+
+
+def clean_up_reservations():
+    if cleanup_directory is None:
+        return
+
+    for index, reservation in enumerate(reservations):
+        target_path = reservation[3]
+        cleanup_path = os.path.join(
+            cleanup_directory,
+            f"{reservation[0]}.codex-env-cleanup-{index}",
+        )
+        try:
+            os.rename(target_path, cleanup_path)
+        except FileNotFoundError:
+            if os.path.lexists(target_path):
+                raise RuntimeError(
+                    "failed to quarantine a frontend environment file"
+                )
+            continue
+        except OSError as error:
+            raise RuntimeError(
+                "failed to quarantine a frontend environment file"
+            ) from error
+        if reservation_matches_path(reservation, cleanup_path):
+            try:
+                os.unlink(cleanup_path)
+            except FileNotFoundError:
+                pass
+            continue
+        try:
+            os.link(cleanup_path, target_path, follow_symlinks=False)
+        except OSError as error:
+            raise RuntimeError(
+                "failed to restore a frontend environment file"
+            ) from error
+        try:
+            os.unlink(cleanup_path)
+        except FileNotFoundError:
+            pass
+    try:
+        os.rmdir(cleanup_directory)
+    except OSError:
+        pass
+
+
+def clean_up_cleanup_directory():
+    if cleanup_directory is not None:
+        try:
+            os.rmdir(cleanup_directory)
+        except OSError:
+            pass
+
+
+def clean_up_staging():
+    for _, _, _, staging_path, _ in staged_files:
+        try:
+            os.unlink(staging_path)
+        except FileNotFoundError:
+            pass
+    if staging_directory is not None:
+        try:
+            os.rmdir(staging_directory)
+        except FileNotFoundError:
+            pass
+
+
+try:
+    staging_directory = tempfile.mkdtemp(prefix=".codex-env-", dir=target_root)
+    for filename, source_path, source_stat in source_files:
+        staging_path = os.path.join(staging_directory, filename)
+        file_descriptor = os.open(
+            staging_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            stat.S_IMODE(source_stat.st_mode),
+        )
+        staged_files.append((filename, source_path, source_stat, staging_path, None))
+        digest = hashlib.sha256()
+        try:
+            with open(source_path, "rb") as source:
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    offset = 0
+                    while offset < len(chunk):
+                        written = os.write(file_descriptor, chunk[offset:])
+                        if written <= 0:
+                            raise OSError("failed to write frontend environment file")
+                        digest.update(chunk[offset : offset + written])
+                        offset += written
+            os.fchmod(
+                file_descriptor,
+                stat.S_IMODE(source_stat.st_mode) & ~0o222,
+            )
+            staged_files[-1] = (
+                filename,
+                source_path,
+                source_stat,
+                staging_path,
+                digest.digest(),
+            )
+        finally:
+            os.close(file_descriptor)
+
+    cleanup_directory = tempfile.mkdtemp(
+        prefix=".codex-env-cleanup-", dir=target_root
+    )
+    for filename, source_path, source_stat, staging_path, content_digest in staged_files:
+        os.link(staging_path, target_paths[filename], follow_symlinks=False)
+        reservations.append(
+            [
+                filename,
+                source_path,
+                source_stat,
+                target_paths[filename],
+                staging_path,
+                stat.S_IMODE(source_stat.st_mode) & ~0o222,
+                content_digest,
+            ]
+        )
+
+    if reservations_changed() or unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+
+    for reservation in reservations:
+        source_stat = reservation[2]
+        os.chmod(reservation[4], stat.S_IMODE(source_stat.st_mode))
+        reservation[5] = stat.S_IMODE(source_stat.st_mode)
+
+    if reservations_changed() or unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+except (ConcurrentEnvironmentChange, FileExistsError):
+    try:
+        clean_up_reservations()
+    finally:
+        clean_up_staging()
+    raise SystemExit(0)
+except BaseException:
+    try:
+        clean_up_reservations()
+    finally:
+        clean_up_staging()
+    raise
+else:
+    clean_up_staging()
+    clean_up_cleanup_directory()
+' \
+    "$source_tree/src/web" \
+    "$worktree_path/src/web"
 }
 
 reuse_directory_if_compatible() {
@@ -33,44 +282,21 @@ reuse_directory_if_compatible() {
 
 reuse_frontend_node_modules() {
   current_frontend_directory="$1"
-  legacy_frontend_directory="$2"
-  target_frontend_directory="$3"
+  target_frontend_directory="$2"
 
   reuse_directory_if_compatible \
     "$current_frontend_directory/node_modules" \
     "$target_frontend_directory/node_modules" \
     "$current_frontend_directory/package-lock.json" \
     "$target_frontend_directory/package-lock.json"
-  if [ -e "$target_frontend_directory/node_modules" ]; then
-    return
-  fi
-
-  legacy_manifest="$legacy_frontend_directory/package-lock.json"
-  if [ ! -f "$legacy_manifest" ]; then
-    # After Git applies the tracked rename, ignored node_modules can remain at
-    # the legacy path while its package-lock.json has moved to src/web.
-    legacy_manifest="$current_frontend_directory/package-lock.json"
-  fi
-
-  reuse_directory_if_compatible \
-    "$legacy_frontend_directory/node_modules" \
-    "$target_frontend_directory/node_modules" \
-    "$legacy_manifest" \
-    "$target_frontend_directory/package-lock.json"
 }
 
 if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
-  # Git moves tracked files but can leave ignored assets at the legacy path,
-  # so resolve the frontend environment and dependencies independently.
   current_frontend_directory="$source_tree/src/web"
-  legacy_frontend_directory="$source_tree/src/cook-web"
   target_frontend_directory="$worktree_path/src/web"
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
-  node "$target_frontend_directory/scripts/migrate-legacy-frontend-env.js" \
-    --target "$target_frontend_directory" \
-    --source "$current_frontend_directory" \
-    --source "$legacy_frontend_directory"
+  copy_frontend_env
   reuse_directory_if_compatible \
     "$source_tree/.venv" \
     "$worktree_path/.venv" \
@@ -78,7 +304,6 @@ if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
     "$worktree_path/src/api/requirements.txt"
   reuse_frontend_node_modules \
     "$current_frontend_directory" \
-    "$legacy_frontend_directory" \
     "$target_frontend_directory"
 fi'''
 
@@ -92,9 +317,258 @@ worktree_path="${CODEX_WORKTREE_PATH:-$(pwd)}"
 copy_local_env() {
   source_file="$1"
   target_file="$2"
-  if [ -f "$source_file" ] && [ ! -e "$target_file" ]; then
+  if [ -f "$source_file" ] && [ ! -e "$target_file" ] && \
+    [ ! -L "$target_file" ]; then
     cp -p "$source_file" "$target_file"
   fi
+}
+
+copy_frontend_env() {
+  python3 -c 'import hashlib
+import os
+import stat
+import sys
+import tempfile
+
+ENV_FILENAMES = (
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.development.local",
+    ".env.production",
+    ".env.production.local",
+    ".env.test",
+    ".env.test.local",
+)
+source_root = sys.argv[1]
+target_root = sys.argv[2]
+
+source_files = []
+for filename in ENV_FILENAMES:
+    source_path = os.path.join(source_root, filename)
+    try:
+        source_stat = os.stat(source_path)
+    except FileNotFoundError:
+        continue
+    if stat.S_ISREG(source_stat.st_mode):
+        source_files.append((filename, source_path, source_stat))
+
+if not source_files:
+    raise SystemExit(0)
+
+target_paths = {
+    filename: os.path.join(target_root, filename) for filename in ENV_FILENAMES
+}
+if any(os.path.lexists(target_path) for target_path in target_paths.values()):
+    raise SystemExit(0)
+
+
+class ConcurrentEnvironmentChange(Exception):
+    pass
+
+
+source_names = {filename for filename, _, _ in source_files}
+reservations = []
+staged_files = []
+staging_directory = None
+cleanup_directory = None
+
+
+def unreserved_target_exists():
+    return any(
+        filename not in source_names and os.path.lexists(target_path)
+        for filename, target_path in target_paths.items()
+    )
+
+
+def reservation_matches_path(reservation, candidate_path):
+    source_stat = reservation[2]
+    target_path = candidate_path
+    staging_path = reservation[4]
+    expected_mode = reservation[5]
+    expected_digest = reservation[6]
+    try:
+        path_stat = os.lstat(target_path)
+        staging_stat = os.lstat(staging_path)
+        if (
+            path_stat.st_dev != staging_stat.st_dev
+            or path_stat.st_ino != staging_stat.st_ino
+            or stat.S_IMODE(path_stat.st_mode) != expected_mode
+            or path_stat.st_size != source_stat.st_size
+        ):
+            return False
+        digest = hashlib.sha256()
+        with open(target_path, "rb") as target:
+            while True:
+                chunk = target.read(1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+    return digest.digest() == expected_digest
+
+
+def reservation_path_matches(reservation):
+    return reservation_matches_path(reservation, reservation[3])
+
+
+def reservations_changed():
+    return any(
+        not reservation_path_matches(reservation) for reservation in reservations
+    )
+
+
+def clean_up_reservations():
+    if cleanup_directory is None:
+        return
+
+    for index, reservation in enumerate(reservations):
+        target_path = reservation[3]
+        cleanup_path = os.path.join(
+            cleanup_directory,
+            f"{reservation[0]}.codex-env-cleanup-{index}",
+        )
+        try:
+            os.rename(target_path, cleanup_path)
+        except FileNotFoundError:
+            if os.path.lexists(target_path):
+                raise RuntimeError(
+                    "failed to quarantine a frontend environment file"
+                )
+            continue
+        except OSError as error:
+            raise RuntimeError(
+                "failed to quarantine a frontend environment file"
+            ) from error
+        if reservation_matches_path(reservation, cleanup_path):
+            try:
+                os.unlink(cleanup_path)
+            except FileNotFoundError:
+                pass
+            continue
+        try:
+            os.link(cleanup_path, target_path, follow_symlinks=False)
+        except OSError as error:
+            raise RuntimeError(
+                "failed to restore a frontend environment file"
+            ) from error
+        try:
+            os.unlink(cleanup_path)
+        except FileNotFoundError:
+            pass
+    try:
+        os.rmdir(cleanup_directory)
+    except OSError:
+        pass
+
+
+def clean_up_cleanup_directory():
+    if cleanup_directory is not None:
+        try:
+            os.rmdir(cleanup_directory)
+        except OSError:
+            pass
+
+
+def clean_up_staging():
+    for _, _, _, staging_path, _ in staged_files:
+        try:
+            os.unlink(staging_path)
+        except FileNotFoundError:
+            pass
+    if staging_directory is not None:
+        try:
+            os.rmdir(staging_directory)
+        except FileNotFoundError:
+            pass
+
+
+try:
+    staging_directory = tempfile.mkdtemp(prefix=".codex-env-", dir=target_root)
+    for filename, source_path, source_stat in source_files:
+        staging_path = os.path.join(staging_directory, filename)
+        file_descriptor = os.open(
+            staging_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            stat.S_IMODE(source_stat.st_mode),
+        )
+        staged_files.append((filename, source_path, source_stat, staging_path, None))
+        digest = hashlib.sha256()
+        try:
+            with open(source_path, "rb") as source:
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    offset = 0
+                    while offset < len(chunk):
+                        written = os.write(file_descriptor, chunk[offset:])
+                        if written <= 0:
+                            raise OSError("failed to write frontend environment file")
+                        digest.update(chunk[offset : offset + written])
+                        offset += written
+            os.fchmod(
+                file_descriptor,
+                stat.S_IMODE(source_stat.st_mode) & ~0o222,
+            )
+            staged_files[-1] = (
+                filename,
+                source_path,
+                source_stat,
+                staging_path,
+                digest.digest(),
+            )
+        finally:
+            os.close(file_descriptor)
+
+    cleanup_directory = tempfile.mkdtemp(
+        prefix=".codex-env-cleanup-", dir=target_root
+    )
+    for filename, source_path, source_stat, staging_path, content_digest in staged_files:
+        os.link(staging_path, target_paths[filename], follow_symlinks=False)
+        reservations.append(
+            [
+                filename,
+                source_path,
+                source_stat,
+                target_paths[filename],
+                staging_path,
+                stat.S_IMODE(source_stat.st_mode) & ~0o222,
+                content_digest,
+            ]
+        )
+
+    if reservations_changed() or unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+
+    for reservation in reservations:
+        source_stat = reservation[2]
+        os.chmod(reservation[4], stat.S_IMODE(source_stat.st_mode))
+        reservation[5] = stat.S_IMODE(source_stat.st_mode)
+
+    if reservations_changed() or unreserved_target_exists():
+        raise ConcurrentEnvironmentChange()
+except (ConcurrentEnvironmentChange, FileExistsError):
+    try:
+        clean_up_reservations()
+    finally:
+        clean_up_staging()
+    raise SystemExit(0)
+except BaseException:
+    try:
+        clean_up_reservations()
+    finally:
+        clean_up_staging()
+    raise
+else:
+    clean_up_staging()
+    clean_up_cleanup_directory()
+' \
+    "$source_tree/src/web" \
+    "$worktree_path/src/web"
 }
 
 reuse_directory_if_compatible() {
@@ -110,44 +584,21 @@ reuse_directory_if_compatible() {
 
 reuse_frontend_node_modules() {
   current_frontend_directory="$1"
-  legacy_frontend_directory="$2"
-  target_frontend_directory="$3"
+  target_frontend_directory="$2"
 
   reuse_directory_if_compatible \
     "$current_frontend_directory/node_modules" \
     "$target_frontend_directory/node_modules" \
     "$current_frontend_directory/package-lock.json" \
     "$target_frontend_directory/package-lock.json"
-  if [ -e "$target_frontend_directory/node_modules" ]; then
-    return
-  fi
-
-  legacy_manifest="$legacy_frontend_directory/package-lock.json"
-  if [ ! -f "$legacy_manifest" ]; then
-    # After Git applies the tracked rename, ignored node_modules can remain at
-    # the legacy path while its package-lock.json has moved to src/web.
-    legacy_manifest="$current_frontend_directory/package-lock.json"
-  fi
-
-  reuse_directory_if_compatible \
-    "$legacy_frontend_directory/node_modules" \
-    "$target_frontend_directory/node_modules" \
-    "$legacy_manifest" \
-    "$target_frontend_directory/package-lock.json"
 }
 
 if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
-  # Git moves tracked files but can leave ignored assets at the legacy path,
-  # so resolve the frontend environment and dependencies independently.
   current_frontend_directory="$source_tree/src/web"
-  legacy_frontend_directory="$source_tree/src/cook-web"
   target_frontend_directory="$worktree_path/src/web"
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
-  node "$target_frontend_directory/scripts/migrate-legacy-frontend-env.js" \
-    --target "$target_frontend_directory" \
-    --source "$current_frontend_directory" \
-    --source "$legacy_frontend_directory"
+  copy_frontend_env
   reuse_directory_if_compatible \
     "$source_tree/.venv" \
     "$worktree_path/.venv" \
@@ -155,7 +606,6 @@ if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
     "$worktree_path/src/api/requirements.txt"
   reuse_frontend_node_modules \
     "$current_frontend_directory" \
-    "$legacy_frontend_directory" \
     "$target_frontend_directory"
 fi'''
 
