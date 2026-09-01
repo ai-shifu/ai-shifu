@@ -156,7 +156,7 @@ flask db upgrade
 gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 ```
 
-#### Step 5.4: Start Cook Web Frontend & CMS
+#### Step 5.4: Start Web Frontend & CMS
 
 ```bash
 cd src/web
