@@ -91,9 +91,11 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
     super();
     this.samples = [];
     this.turnIndexes = [];
+    this.readOffset = 0;
     this.position = 0;
     this.step = OUTPUT_SAMPLE_RATE / sampleRate;
     this.playedBytesByTurn = new Map();
+    this.queuedSamplesByTurn = new Map();
     this.dirtyProgressTurns = new Set();
     this.finishedTurns = new Set();
     this.progressSamplesSincePost = 0;
@@ -102,8 +104,10 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
         this.flushPlaybackProgress();
         this.samples = [];
         this.turnIndexes = [];
+        this.readOffset = 0;
         this.position = 0;
         this.playedBytesByTurn.clear();
+        this.queuedSamplesByTurn.clear();
         this.finishedTurns.clear();
         this.progressSamplesSincePost = 0;
         if (Number.isInteger(event.data.requestId)) {
@@ -118,8 +122,10 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
         this.flushPlaybackProgress();
         this.samples = [];
         this.turnIndexes = [];
+        this.readOffset = 0;
         this.position = 0;
         this.playedBytesByTurn.clear();
+        this.queuedSamplesByTurn.clear();
         this.finishedTurns.clear();
         this.progressSamplesSincePost = 0;
         return;
@@ -142,6 +148,10 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
       const turnIndex = Number.isInteger(event.data.turnIndex)
         ? event.data.turnIndex
         : -1;
+      if (turnIndex >= 0) {
+        const queuedSamples = this.queuedSamplesByTurn.get(turnIndex) || 0;
+        this.queuedSamplesByTurn.set(turnIndex, queuedSamples + pcm.length);
+      }
       for (let index = 0; index < pcm.length; index += 1) {
         this.samples.push(pcm[index] / 0x8000);
         this.turnIndexes.push(turnIndex);
@@ -154,15 +164,29 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
       return;
     }
 
+    const consumedSamplesByTurn = new Map();
     for (let index = 0; index < consumed; index += 1) {
-      const turnIndex = this.turnIndexes[index];
+      const turnIndex = this.turnIndexes[this.readOffset + index];
       if (turnIndex < 0) {
         continue;
       }
-      const nextBytes = (this.playedBytesByTurn.get(turnIndex) || 0) + 2;
-      this.playedBytesByTurn.set(turnIndex, nextBytes);
-      this.dirtyProgressTurns.add(turnIndex);
+      const consumedSamples = consumedSamplesByTurn.get(turnIndex) || 0;
+      consumedSamplesByTurn.set(turnIndex, consumedSamples + 1);
     }
+
+    consumedSamplesByTurn.forEach((consumedSamples, turnIndex) => {
+      const nextBytes =
+        (this.playedBytesByTurn.get(turnIndex) || 0) + consumedSamples * 2;
+      this.playedBytesByTurn.set(turnIndex, nextBytes);
+      const queuedSamples =
+        (this.queuedSamplesByTurn.get(turnIndex) || 0) - consumedSamples;
+      if (queuedSamples > 0) {
+        this.queuedSamplesByTurn.set(turnIndex, queuedSamples);
+      } else {
+        this.queuedSamplesByTurn.delete(turnIndex);
+      }
+      this.dirtyProgressTurns.add(turnIndex);
+    });
 
     this.progressSamplesSincePost += consumed;
     if (this.progressSamplesSincePost < 960) {
@@ -192,7 +216,7 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
   completeTurnIfDrained(turnIndex) {
     if (
       !this.finishedTurns.has(turnIndex) ||
-      this.turnIndexes.includes(turnIndex)
+      (this.queuedSamplesByTurn.get(turnIndex) || 0) > 0
     ) {
       return;
     }
@@ -203,6 +227,19 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
     });
     this.finishedTurns.delete(turnIndex);
     this.playedBytesByTurn.delete(turnIndex);
+    this.queuedSamplesByTurn.delete(turnIndex);
+  }
+
+  compactPlaybackQueue() {
+    if (
+      this.readOffset < OUTPUT_SAMPLE_RATE ||
+      this.readOffset * 2 < this.samples.length
+    ) {
+      return;
+    }
+    this.samples = this.samples.slice(this.readOffset);
+    this.turnIndexes = this.turnIndexes.slice(this.readOffset);
+    this.readOffset = 0;
   }
 
   process(_inputs, outputs) {
@@ -212,33 +249,38 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
     }
 
     output.fill(0);
+    const logicalLength = this.samples.length - this.readOffset;
     for (let index = 0; index < output.length; index += 1) {
-      if (this.position >= this.samples.length) {
+      if (this.position >= logicalLength) {
         break;
       }
       const leftIndex = Math.floor(this.position);
       const fraction = this.position - leftIndex;
-      const left = this.samples[leftIndex];
+      const left = this.samples[this.readOffset + leftIndex];
       const right =
-        this.samples[Math.min(leftIndex + 1, this.samples.length - 1)];
+        this.samples[
+          this.readOffset + Math.min(leftIndex + 1, logicalLength - 1)
+        ];
       output[index] = left + (right - left) * fraction;
       this.position += this.step;
     }
 
-    const consumed = Math.min(Math.floor(this.position), this.samples.length);
+    const consumed = Math.min(Math.floor(this.position), logicalLength);
     if (consumed > 0) {
       const consumedTurnIndexes = new Set(
-        this.turnIndexes.slice(0, consumed).filter(turnIndex => turnIndex >= 0),
+        this.turnIndexes
+          .slice(this.readOffset, this.readOffset + consumed)
+          .filter(turnIndex => turnIndex >= 0),
       );
       this.reportConsumedSamples(consumed);
-      this.samples.splice(0, consumed);
-      this.turnIndexes.splice(0, consumed);
+      this.readOffset += consumed;
       this.position -= consumed;
       consumedTurnIndexes.forEach(turnIndex => {
         // MessagePort ordering guarantees the final progress update reaches
         // the browser before completion for this turn.
         this.completeTurnIfDrained(turnIndex);
       });
+      this.compactPlaybackQueue();
     }
     return true;
   }
