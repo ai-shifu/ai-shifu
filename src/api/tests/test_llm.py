@@ -20,7 +20,12 @@ def _install_litellm_stub() -> None:
         return
 
     litellm_stub = types.ModuleType("litellm")
+    litellm_stub.__path__ = []
     litellm_stub.model_cost = {}
+    litellm_types_stub = types.ModuleType("litellm.types")
+    litellm_types_stub.__path__ = []
+    litellm_utils_stub = types.ModuleType("litellm.types.utils")
+    litellm_utils_stub.ModelResponseStream = type("ModelResponseStream", (), {})
 
     def register_model(model_map: object) -> None:
         litellm_stub.model_cost.update(model_map)
@@ -33,8 +38,11 @@ def _install_litellm_stub() -> None:
     litellm_stub.register_model = register_model
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
+    litellm_stub.get_supported_openai_params = lambda **_kwargs: []
     litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
+    sys.modules["litellm.types"] = litellm_types_stub
+    sys.modules["litellm.types.utils"] = litellm_utils_stub
 
 
 def _install_openai_responses_stub() -> None:
@@ -167,6 +175,18 @@ class FakeModelsResponse:
         return None
 
     def json(self) -> object:
+        return self.payload
+
+
+class FakeOpenAIResponse:
+    """Simulate one serializable OpenAI-compatible response or chunk."""
+
+    def __init__(self, payload: dict[str, object], usage: object = None) -> None:
+        """Store one serialized payload and its optional usage object."""
+        self.payload = payload
+        self.usage = usage
+
+    def model_dump(self, **_kwargs: object) -> dict[str, object]:
         return self.payload
 
 
@@ -2252,3 +2272,174 @@ def test_stream_retry_noop_when_exception_types_unavailable(
         _collect_retry_stream(app)
 
     assert calls["count"] == 1
+
+
+def test_gateway_token_count_and_default_output_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "token_counter",
+        lambda **_kwargs: 12,
+        raising=False,
+    )
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"rated-model": 8192})
+
+    assert (
+        llm.count_llm_chat_input_tokens(
+            "rated-model", [{"role": "user", "content": "hello"}]
+        )
+        == 12
+    )
+    assert llm.resolve_llm_max_output_tokens("rated-model") == 4096
+    assert llm.resolve_llm_max_output_tokens("rated-model", 2048) == 2048
+
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"small-model": 2048})
+    assert llm.resolve_llm_max_output_tokens("small-model") == 2048
+
+
+def test_non_stream_gateway_completion_records_usage_without_async_settlement(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+) -> None:
+    recorded: dict[str, object] = {}
+    usage = SimpleNamespace(
+        prompt_tokens=3,
+        completion_tokens=2,
+        total_tokens=5,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=1),
+    )
+    response = FakeOpenAIResponse(
+        {
+            "id": "chatcmpl-1",
+            "object": "chat.completion",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hello"},
+                    "finish_reason": "stop",
+                }
+            ],
+        },
+        usage,
+    )
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(llm.litellm, "completion", lambda **_kwargs: response)
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda *_args, **kwargs: recorded.update(kwargs),
+    )
+
+    payload = llm.complete_openai_chat_completion(
+        app,
+        user_id="gateway-user",
+        span=DummySpan(),
+        usage_bid="gateway-usage",
+        model="rated-model",
+        messages=[{"role": "user", "content": "hello"}],
+        request_id="gateway-request",
+        fallback_input_tokens=3,
+        max_tokens=32,
+    )
+
+    assert payload["id"] == "chatcmpl-1"
+    assert recorded["usage_bid"] == "gateway-usage"
+    assert recorded["enqueue_settlement"] is False
+    assert recorded["input"] == 3
+    assert recorded["input_cache"] == 1
+    assert recorded["output"] == 2
+
+
+def test_stream_gateway_completion_preserves_tool_call_chunks(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+) -> None:
+    recorded: dict[str, object] = {}
+    usage = SimpleNamespace(prompt_tokens=4, completion_tokens=3, total_tokens=7)
+    chunks = [
+        FakeOpenAIResponse(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call-1",
+                                    "function": {
+                                        "name": "lookup",
+                                        "arguments": "{}",
+                                    },
+                                }
+                            ]
+                        },
+                    }
+                ],
+            }
+        ),
+        FakeOpenAIResponse(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "choices": [],
+            },
+            usage,
+        ),
+    ]
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm,
+        "_iter_stream_with_precontent_retry",
+        lambda *_args, **_kwargs: iter(chunks),
+    )
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda *_args, **kwargs: recorded.update(kwargs),
+    )
+
+    payloads = list(
+        llm.stream_openai_chat_completion(
+            app,
+            user_id="gateway-user",
+            span=DummySpan(),
+            usage_bid="gateway-stream-usage",
+            model="rated-model",
+            messages=[{"role": "user", "content": "use a tool"}],
+            request_id="gateway-stream-request",
+            fallback_input_tokens=4,
+            max_tokens=32,
+        )
+    )
+
+    assert payloads[0]["choices"][0]["delta"]["tool_calls"][0]["id"] == "call-1"
+    assert recorded["usage_bid"] == "gateway-stream-usage"
+    assert recorded["input"] == 4
+    assert recorded["output"] == 3

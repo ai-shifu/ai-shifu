@@ -1,6 +1,8 @@
 """LLM invocation wrappers built on LiteLLM."""
 
 import asyncio
+import contextlib
+import json
 import logging
 import os
 import time
@@ -1483,6 +1485,329 @@ def chat_llm(
         metadata=kwargs,
         completion_start_time=start_completion_time,
     )
+
+
+def count_llm_chat_input_tokens(
+    model: str,
+    messages: list[dict[str, object]],
+    *,
+    tools: list[dict[str, object]] | None = None,
+) -> int:
+    """Count one gateway chat request with the configured model tokenizer."""
+    _params, invoke_model, _provider_key = get_litellm_params_and_model(model)
+    count = litellm.token_counter(
+        model=invoke_model,
+        messages=messages,
+        tools=tools or None,
+    )
+    normalized = int(count or 0)
+    if normalized <= 0:
+        raise_error_with_args("server.llm.modelNotSupported", model=model)
+    return normalized
+
+
+def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int:
+    """Resolve the gateway output limit without silently exceeding model limits."""
+    _params, invoke_model, _provider_key = get_litellm_params_and_model(model)
+    configured = MODEL_MAX_OUTPUT_TOKENS.get(model)
+    if configured is None:
+        try:
+            configured = int(litellm.get_max_tokens(invoke_model) or 0)
+        except Exception as exc:
+            _log_warning(f"get max tokens for {invoke_model} failed: {exc}")
+            configured = 0
+    if configured <= 0:
+        raise_error_with_args("server.llm.modelNotSupported", model=model)
+
+    resolved = min(4096, configured) if requested is None else requested
+    if not isinstance(resolved, int) or isinstance(resolved, bool) or resolved <= 0:
+        raise_error_with_args(
+            "server.llm.requestFailed", model=model, message="max_tokens"
+        )
+    if resolved > configured:
+        raise_error_with_args(
+            "server.llm.requestFailed",
+            model=model,
+            message=f"max_tokens exceeds model limit {configured}",
+        )
+    return resolved
+
+
+def _gateway_output_token_count(invoke_model: str, output: str) -> int:
+    if not output:
+        return 0
+    try:
+        return max(int(litellm.token_counter(model=invoke_model, text=output) or 0), 0)
+    except Exception:
+        return 0
+
+
+def _gateway_usage_values(
+    usage: object,
+    *,
+    invoke_model: str,
+    fallback_input_tokens: int,
+    output_capture: str,
+) -> tuple[dict[str, int], int, str]:
+    if usage is not None:
+        values = {
+            "input": _extract_usage_value(usage, "prompt_tokens"),
+            "output": _extract_usage_value(usage, "completion_tokens"),
+            "total": _extract_usage_value(usage, "total_tokens"),
+        }
+        return values, _extract_input_cache(usage), "litellm"
+
+    output_tokens = _gateway_output_token_count(invoke_model, output_capture)
+    return (
+        {
+            "input": max(int(fallback_input_tokens or 0), 0),
+            "output": output_tokens,
+            "total": max(int(fallback_input_tokens or 0), 0) + output_tokens,
+        },
+        0,
+        "estimated",
+    )
+
+
+def _record_gateway_llm_usage(
+    app: Flask,
+    *,
+    user_id: str,
+    request_id: str,
+    trace_id: str,
+    usage_bid: str,
+    provider: str,
+    model: str,
+    is_stream: bool,
+    usage: object,
+    invoke_model: str,
+    fallback_input_tokens: int,
+    output_capture: str,
+    latency_ms: int,
+    status: int,
+    error_message: str,
+    usage_metadata: dict[str, object] | None,
+) -> None:
+    values, input_cache, usage_source = _gateway_usage_values(
+        usage,
+        invoke_model=invoke_model,
+        fallback_input_tokens=fallback_input_tokens,
+        output_capture=output_capture,
+    )
+    metadata = _attach_usage_output_text(
+        {**dict(usage_metadata or {}), "usage_source": usage_source},
+        output_capture,
+    )
+    record_llm_usage(
+        app,
+        UsageContext(
+            user_bid=user_id,
+            request_id=request_id,
+            trace_id=trace_id,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            billable=1,
+        ),
+        provider=provider,
+        model=model,
+        is_stream=is_stream,
+        input=values["input"],
+        input_cache=input_cache,
+        output=values["output"],
+        total=values["total"],
+        latency_ms=latency_ms,
+        status=status,
+        error_message=error_message,
+        extra=metadata,
+        usage_bid=usage_bid,
+        enqueue_settlement=False,
+    )
+
+
+def complete_openai_chat_completion(
+    app: Flask,
+    *,
+    user_id: str,
+    span: LangfuseObservationHandle,
+    usage_bid: str,
+    model: str,
+    messages: list[dict[str, object]],
+    request_id: str,
+    fallback_input_tokens: int,
+    usage_metadata: dict[str, object] | None = None,
+    **kwargs: object,
+) -> dict[str, object]:
+    """Return one raw OpenAI-compatible completion and persist its usage."""
+    requested_model = str(model or "").strip()
+    params, invoke_model, provider_key = get_litellm_params_and_model(requested_model)
+    if not params:
+        raise_error_with_args("server.llm.modelNotSupported", model=requested_model)
+
+    completion_kwargs = dict(kwargs)
+    completion_kwargs.pop("stream", None)
+    completion_kwargs = _prepare_litellm_request_kwargs(
+        provider_key or "",
+        invoke_model,
+        params,
+        completion_kwargs,
+    )
+    trace_id = resolve_langfuse_trace_id(span)
+    generation = span.generation(
+        model=requested_model,
+        input=messages,
+        name="model_gateway_chat_completion",
+        **build_langfuse_observation_link(span, trace_id),
+    )
+    started_at = time.monotonic()
+    response = None
+    payload: dict[str, object] = {}
+    output_capture = ""
+    status = 0
+    error_message = ""
+    try:
+        response = litellm.completion(
+            model=invoke_model,
+            messages=messages,
+            stream=False,
+            **params,
+            **completion_kwargs,
+        )
+        if hasattr(response, "model_dump"):
+            payload = response.model_dump(exclude_none=True)
+        else:
+            payload = dict(response)
+        output_capture = json.dumps(
+            payload.get("choices") or [], ensure_ascii=False, separators=(",", ":")
+        )
+    except Exception as exc:
+        status = 1
+        error_message = str(exc)
+        raise
+    finally:
+        usage = getattr(response, "usage", None) if response is not None else None
+        latency_ms = int((time.monotonic() - started_at) * 1000)
+        _record_gateway_llm_usage(
+            app,
+            user_id=user_id,
+            request_id=request_id,
+            trace_id=trace_id,
+            usage_bid=usage_bid,
+            provider=provider_key or "",
+            model=requested_model,
+            is_stream=False,
+            usage=usage,
+            invoke_model=invoke_model,
+            fallback_input_tokens=fallback_input_tokens,
+            output_capture=output_capture,
+            latency_ms=latency_ms,
+            status=status,
+            error_message=error_message,
+            usage_metadata=usage_metadata,
+        )
+        with contextlib.suppress(Exception):
+            generation.end(
+                input=messages,
+                output=output_capture,
+                usage=usage,
+                metadata=completion_kwargs,
+            )
+    return payload
+
+
+def stream_openai_chat_completion(
+    app: Flask,
+    *,
+    user_id: str,
+    span: LangfuseObservationHandle,
+    usage_bid: str,
+    model: str,
+    messages: list[dict[str, object]],
+    request_id: str,
+    fallback_input_tokens: int,
+    usage_metadata: dict[str, object] | None = None,
+    **kwargs: object,
+) -> Generator[dict[str, object], None, None]:
+    """Yield raw OpenAI-compatible chunks and persist final stream usage."""
+    requested_model = str(model or "").strip()
+    params, invoke_model, provider_key = get_litellm_params_and_model(requested_model)
+    if not params:
+        raise_error_with_args("server.llm.modelNotSupported", model=requested_model)
+
+    stream_kwargs = dict(kwargs)
+    stream_kwargs.pop("stream", None)
+    stream_kwargs["stream_options"] = {"include_usage": True}
+    stream_kwargs = _prepare_litellm_request_kwargs(
+        provider_key or "",
+        invoke_model,
+        params,
+        stream_kwargs,
+    )
+    trace_id = resolve_langfuse_trace_id(span)
+    generation = span.generation(
+        model=requested_model,
+        input=messages,
+        name="model_gateway_chat_completion",
+        **build_langfuse_observation_link(span, trace_id),
+    )
+    started_at = time.monotonic()
+    usage = None
+    output_parts: list[str] = []
+    status = 0
+    error_message = ""
+    try:
+        response = _iter_stream_with_precontent_retry(
+            app,
+            requested_model,
+            invoke_model,
+            messages,
+            params,
+            stream_kwargs,
+        )
+        for chunk in response:
+            chunk_usage = getattr(chunk, "usage", None)
+            if chunk_usage is not None:
+                usage = chunk_usage
+            if hasattr(chunk, "model_dump"):
+                payload = chunk.model_dump(exclude_none=True)
+            else:
+                payload = dict(chunk)
+            choices = payload.get("choices")
+            if choices:
+                output_parts.append(
+                    json.dumps(choices, ensure_ascii=False, separators=(",", ":"))
+                )
+            yield payload
+    except Exception as exc:
+        status = 1
+        error_message = str(exc)
+        raise
+    finally:
+        output_capture = "".join(output_parts)
+        latency_ms = int((time.monotonic() - started_at) * 1000)
+        _record_gateway_llm_usage(
+            app,
+            user_id=user_id,
+            request_id=request_id,
+            trace_id=trace_id,
+            usage_bid=usage_bid,
+            provider=provider_key or "",
+            model=requested_model,
+            is_stream=True,
+            usage=usage,
+            invoke_model=invoke_model,
+            fallback_input_tokens=fallback_input_tokens,
+            output_capture=output_capture,
+            latency_ms=latency_ms,
+            status=status,
+            error_message=error_message,
+            usage_metadata=usage_metadata,
+        )
+        with contextlib.suppress(Exception):
+            generation.end(
+                input=messages,
+                output=output_capture,
+                usage=usage,
+                metadata=stream_kwargs,
+            )
 
 
 def _build_model_options(

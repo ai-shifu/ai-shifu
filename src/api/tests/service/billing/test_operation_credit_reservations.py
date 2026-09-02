@@ -10,6 +10,9 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_CACHE_TOKENS,
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
@@ -32,8 +35,11 @@ from flaskr.service.billing.models import (
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
     BILL_USAGE_TYPE_TTS,
 )
+from flaskr.service.metering.models import BillUsageRecord
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -109,6 +115,146 @@ def _seed_voice_clone_rate(credits_per_unit: str = "3.0000000000") -> None:
             status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
         )
     )
+
+
+def _seed_llm_rates(model: str = "rated-model") -> None:
+    for metric, credit_value in (
+        (BILLING_METRIC_LLM_INPUT_TOKENS, "0.1000000000"),
+        (BILLING_METRIC_LLM_CACHE_TOKENS, "0.0500000000"),
+        (BILLING_METRIC_LLM_OUTPUT_TOKENS, "0.2000000000"),
+    ):
+        dao.db.session.add(
+            CreditUsageRate(
+                rate_bid=f"rate-{model}-{metric}",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="*",
+                model=model,
+                usage_scene=BILL_USAGE_SCENE_PROD,
+                billing_metric=metric,
+                unit_size=1,
+                credits_per_unit=Decimal(credit_value),
+                rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+                effective_from=datetime(2026, 1, 1, 0, 0, 0),
+                effective_to=None,
+                status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            )
+        )
+
+
+def test_llm_estimate_requires_complete_rates(operation_credit_app: Flask) -> None:
+    from flaskr.service.billing.operation_credits import (
+        estimate_llm_operation_credits,
+        has_complete_llm_operation_rates,
+    )
+
+    with operation_credit_app.app_context():
+        _seed_llm_rates()
+        dao.db.session.commit()
+
+    estimate = estimate_llm_operation_credits(
+        operation_credit_app,
+        model="rated-model",
+        input_tokens=2,
+        max_output_tokens=3,
+    )
+
+    assert estimate.status == "rated"
+    assert estimate.consumed_credits == Decimal("0.8000000000")
+    assert has_complete_llm_operation_rates(operation_credit_app, model="rated-model")
+    assert not has_complete_llm_operation_rates(
+        operation_credit_app, model="unrated-model"
+    )
+
+
+def test_partial_capture_releases_unused_reservation(
+    operation_credit_app: Flask,
+) -> None:
+    from flaskr.service.billing.operation_credits import (
+        capture_reserved_operation_credits,
+        reserve_operation_credits,
+    )
+
+    with operation_credit_app.app_context():
+        _seed_wallet("creator-partial", "10.0000000000")
+        dao.db.session.commit()
+
+    reservation = reserve_operation_credits(
+        operation_credit_app,
+        creator_bid="creator-partial",
+        amount=Decimal("5.0000000000"),
+        operation_type="model_gateway_llm",
+        operation_bid="request-partial",
+        metadata={},
+    )
+    captured = capture_reserved_operation_credits(
+        operation_credit_app,
+        reservation_bid=reservation.reservation_bid,
+        usage_bid="usage-partial",
+        amount=Decimal("2.0000000000"),
+        metadata={},
+    )
+
+    assert captured.amount == Decimal("2.0000000000")
+    assert captured.released_amount == Decimal("3.0000000000")
+    assert captured.release_ledger_bid
+    with operation_credit_app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-partial").one()
+        bucket = CreditWalletBucket.query.filter_by(creator_bid="creator-partial").one()
+        assert wallet.available_credits == Decimal("8.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")
+        assert wallet.lifetime_consumed_credits == Decimal("2.0000000000")
+        assert bucket.available_credits == Decimal("8.0000000000")
+        assert bucket.reserved_credits == Decimal("0E-10")
+        assert bucket.consumed_credits == Decimal("2.0000000000")
+
+
+def test_metered_capture_uses_persisted_llm_usage(
+    operation_credit_app: Flask,
+) -> None:
+    from flaskr.service.billing.operation_credits import (
+        capture_metered_operation_credits,
+        reserve_operation_credits,
+    )
+
+    with operation_credit_app.app_context():
+        _seed_wallet("creator-metered", "10.0000000000")
+        _seed_llm_rates()
+        dao.db.session.add(
+            BillUsageRecord(
+                usage_bid="usage-metered",
+                user_bid="creator-metered",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                usage_scene=BILL_USAGE_SCENE_PROD,
+                provider="test",
+                model="rated-model",
+                input=3,
+                input_cache=1,
+                output=2,
+                total=5,
+                billable=1,
+                status=0,
+                extra={"usage_source": "litellm"},
+            )
+        )
+        dao.db.session.commit()
+
+    reservation = reserve_operation_credits(
+        operation_credit_app,
+        creator_bid="creator-metered",
+        amount=Decimal("2.0000000000"),
+        operation_type="model_gateway_llm",
+        operation_bid="request-metered",
+        metadata={},
+    )
+    captured = capture_metered_operation_credits(
+        operation_credit_app,
+        reservation_bid=reservation.reservation_bid,
+        usage_bid="usage-metered",
+    )
+
+    # 2 uncached input * 0.1 + 1 cache * 0.05 + 2 output * 0.2
+    assert captured.amount == Decimal("0.6500000000")
+    assert captured.released_amount == Decimal("1.3500000000")
 
 
 def test_estimate_voice_clone_cost_uses_configured_rate(
