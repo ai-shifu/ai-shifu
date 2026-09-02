@@ -951,3 +951,62 @@ def test_pending_turn_retries_before_acknowledging_persistence(
     assert len(session_removals) == 2
     assert commits == []
     assert _json_frames(ws) == [{"type": "turn_committed", "turn_index": 1}]
+
+
+def test_turn_persistence_worker_keeps_socket_loop_non_blocking(
+    monkeypatch: object,
+) -> None:
+    app = Flask("live-turn-worker-test")
+    ws = _CaptureWebSocket()
+    persistence_started = threading.Event()
+    allow_persistence = threading.Event()
+
+    def slow_persistence(*_args: object, **_kwargs: object) -> object:
+        persistence_started.set()
+        assert allow_persistence.wait(timeout=2)
+        return SimpleNamespace(usage_bid="usage-1")
+
+    monkeypatch.setattr(routes, "persist_live_follow_up_turn", slow_persistence)
+    monkeypatch.setattr(routes.db.session, "remove", lambda: None)
+    context = routes.LiveTurnPersistenceContext(
+        session_bid="session-1",
+        user_bid="user-1",
+        shifu_bid="course-1",
+        outline_item_bid="chapter-1",
+        progress_record_bid="progress-1",
+        anchor_element_bid="element-1",
+        preview_mode=False,
+        learning_mode="read",
+    )
+    commit = routes.LiveTurnCommit(
+        session_bid="session-1",
+        turn_index=1,
+        user_transcript="Question",
+        answer_transcript="Answer",
+        full_answer_transcript="Answer",
+        interrupted=False,
+        terminal_reason="turn_complete",
+        usage_metadata={"totalTokenCount": 2},
+        audio_sent_bytes=2,
+        audio_played_bytes=2,
+    )
+    sender = routes._BrowserSender(ws)
+    worker = routes._TurnPersistenceWorker(
+        app,
+        persistence_context=context,
+        trace=_FakeTrace(),  # type: ignore[arg-type]
+        sender=sender,
+        turn_started_at={1: 1.0},
+        turn_started_lock=threading.Lock(),
+    )
+
+    assert worker.enqueue([commit])
+    assert persistence_started.wait(timeout=1)
+    # The producer remains free to receive more browser frames while the
+    # database write is still blocked on the worker thread.
+    assert not worker.failed
+
+    allow_persistence.set()
+    assert worker.close(drain=True)
+    sender.close()
+    assert _json_frames(ws) == [{"type": "turn_committed", "turn_index": 1}]

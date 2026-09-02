@@ -99,6 +99,7 @@ _BROWSER_QUEUE_MAX_BYTES = 256 * 1024
 _BROWSER_QUEUE_MAX_FRAMES = 256
 _BROWSER_SEND_TIMEOUT_SECONDS = 5.0
 _WRITER_DRAIN_TIMEOUT_SECONDS = 1.0
+_PERSISTENCE_QUEUE_MAX_TURNS = 32
 _ALLOWED_LEARNING_MODES = frozenset({"read", "listen"})
 _ALLOWED_SURFACES = frozenset({"read_content", "listen_player", "teacher_preview"})
 
@@ -861,6 +862,98 @@ def _commit_pending_turns(
     return True
 
 
+class _TurnPersistenceWorker:
+    """Persist completed turns without pausing browser socket reads."""
+
+    _SENTINEL = object()
+
+    def __init__(
+        self,
+        app: Flask,
+        *,
+        persistence_context: LiveTurnPersistenceContext,
+        trace: LiveFollowUpTrace,
+        sender: _BrowserSender,
+        turn_started_at: dict[int, float],
+        turn_started_lock: threading.Lock,
+    ) -> None:
+        self._app = app
+        self._persistence_context = persistence_context
+        self._trace = trace
+        self._sender = sender
+        self._turn_started_at = turn_started_at
+        self._turn_started_lock = turn_started_lock
+        self._queue: queue.Queue[LiveTurnCommit | object] = queue.Queue(
+            maxsize=_PERSISTENCE_QUEUE_MAX_TURNS
+        )
+        self._accepting = True
+        self._failed = threading.Event()
+        self._thread = threading.Thread(
+            target=self._run,
+            name=f"gemini-live-persistence-{persistence_context.session_bid[:8]}",
+            daemon=True,
+        )
+        self._thread.start()
+
+    @property
+    def failed(self) -> bool:
+        return self._failed.is_set()
+
+    def enqueue(self, commits: list[LiveTurnCommit]) -> bool:
+        if not self._accepting or self.failed:
+            return False
+        for commit in commits:
+            try:
+                self._queue.put_nowait(commit)
+            except queue.Full:
+                self._failed.set()
+                _send_error(self._sender, code="persistence_failed", retryable=True)
+                return False
+        return True
+
+    def close(self, *, drain: bool) -> bool:
+        self._accepting = False
+        if not drain:
+            self._discard_queued_turns()
+        if self._thread.is_alive():
+            self._queue.put(self._SENTINEL)
+            # Persistence already had to finish synchronously before this
+            # worker existed. Keep that durability guarantee at shutdown,
+            # while leaving the active browser receive loop non-blocking.
+            self._thread.join()
+        return not self.failed
+
+    def _run(self) -> None:
+        while True:
+            item = self._queue.get()
+            try:
+                if item is self._SENTINEL:
+                    return
+                commits = [item]
+                if not _commit_pending_turns(
+                    self._app,
+                    commits=commits,
+                    persistence_context=self._persistence_context,
+                    trace=self._trace,
+                    sender=self._sender,
+                    turn_started_at=self._turn_started_at,
+                    turn_started_lock=self._turn_started_lock,
+                ):
+                    self._failed.set()
+                    self._discard_queued_turns()
+                    return
+            finally:
+                self._queue.task_done()
+
+    def _discard_queued_turns(self) -> None:
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                return
+            self._queue.task_done()
+
+
 def _process_control_message(
     raw_message: str,
     *,
@@ -1024,6 +1117,7 @@ def _run_live_websocket(
     provider: GeminiLiveProvider | None = None
     reader: threading.Thread | None = None
     upstream_writer: _UpstreamWriter | None = None
+    persistence_worker: _TurnPersistenceWorker | None = None
     stop_event = threading.Event()
     upstream_ready = threading.Event()
     upstream_connection_lock = threading.Lock()
@@ -1033,7 +1127,6 @@ def _run_live_websocket(
     turn_started_lock = threading.Lock()
     end_reason = "service_error"
     trace: LiveFollowUpTrace | None = None
-    pending_commits: list[LiveTurnCommit] = []
     input_rate_limiter = _PcmInputRateLimiter()
 
     try:
@@ -1109,6 +1202,14 @@ def _run_live_websocket(
             request_id=get_request_id(),
             trace_id=trace.trace_id,
         )
+        persistence_worker = _TurnPersistenceWorker(
+            app,
+            persistence_context=persistence_context,
+            trace=trace,
+            sender=sender,
+            turn_started_at=turn_started_at,
+            turn_started_lock=turn_started_lock,
+        )
         reader = threading.Thread(
             target=_reader_loop,
             kwargs={
@@ -1138,6 +1239,9 @@ def _run_live_websocket(
             if sender.failed:
                 end_reason = "client_disconnected"
                 break
+            if persistence_worker.failed:
+                end_reason = "service_error"
+                break
             if stop_event.is_set():
                 failure = (
                     failures.get_nowait()
@@ -1164,16 +1268,7 @@ def _run_live_websocket(
                     break
                 next_lease_renewal = now + LIVE_FOLLOW_UP_LEASE_RENEW_INTERVAL_SECONDS
 
-            pending_commits.extend(accumulator.pop_ready(now=now))
-            if not _commit_pending_turns(
-                app,
-                commits=pending_commits,
-                persistence_context=persistence_context,
-                trace=trace,
-                sender=sender,
-                turn_started_at=turn_started_at,
-                turn_started_lock=turn_started_lock,
-            ):
+            if not persistence_worker.enqueue(accumulator.pop_ready(now=now)):
                 end_reason = "service_error"
                 break
 
@@ -1243,17 +1338,10 @@ def _run_live_websocket(
         upstream_writer.wait_closed()
         if reader is not None:
             reader.join(timeout=2)
-        pending_commits.extend(accumulator.finish_session())
-        final_commit_succeeded = _commit_pending_turns(
-            app,
-            commits=pending_commits,
-            persistence_context=persistence_context,
-            trace=trace,
-            sender=sender,
-            turn_started_at=turn_started_at,
-            turn_started_lock=turn_started_lock,
-            attempts=2,
-        )
+        final_commit_succeeded = persistence_worker.enqueue(
+            accumulator.finish_session()
+        ) and persistence_worker.close(drain=True)
+        persistence_worker = None
         if not final_commit_succeeded:
             end_reason = "service_error"
         if end_reason != "client_disconnected":
@@ -1281,6 +1369,8 @@ def _run_live_websocket(
         stop_event.set()
         if upstream_writer is not None:
             upstream_writer.close(drain=False)
+        if persistence_worker is not None:
+            persistence_worker.close(drain=False)
         if provider is not None:
             _abort_provider(provider)
         if upstream_writer is not None:
