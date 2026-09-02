@@ -48,6 +48,9 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
       PCM waits for upstream readiness, classroom mode exposes no inert or
       text-fallback entry, and all official voice styles use five-locale keys;
       the integrated focused frontend suite now passes 146 tests.
+- [x] 2026-09-02 12:11 CST: Preserved the browser Host authority, including a
+      non-default port, across the bundled Nginx session POST and WebSocket
+      proxy paths without trusting caller-supplied forwarded authority headers.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and
@@ -130,6 +133,11 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
   - Why: this preserves the exact-path HttpOnly `SameSite=Strict` ticket and
     Origin binding without exposing it to JavaScript or weakening it to a
     third-party cookie; custom ingress must proxy both Live paths together.
+- Decision: preserve the raw browser Host authority at the bundled Nginx
+  boundary and keep Live origin validation independent of `X-Forwarded-Host`
+  and `X-Forwarded-Port`.
+  - Why: `$host` strips non-default ports, while trusting client-forwarded
+    authority headers would weaken the existing anti-spoofing boundary.
 - Decision: run Gunicorn gthread with four workers and 16 threads per worker;
   cap Live at six sessions per worker, 24 globally, and one per user using
   Redis leases renewed every 15 seconds with a 45-second expiry.
