@@ -599,9 +599,13 @@ export default function ChatPage() {
         entry => entry.id === resolvedLessonId,
       );
       if (lesson) {
-        return lesson.follow_up_mode === 'live_voice'
-          ? ('live_voice' as const)
-          : ('text' as const);
+        if (lesson.follow_up_mode === 'live_voice') {
+          return 'live_voice' as const;
+        }
+        if (lesson.follow_up_mode === 'disabled') {
+          return 'disabled' as const;
+        }
+        return 'text' as const;
       }
     }
     return 'text' as const;

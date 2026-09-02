@@ -11,6 +11,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
+from flaskr.api.llm import is_live_follow_up_model_available
 from flaskr.api.tts import (
     AudioSettings,
     VoiceSettings,
@@ -378,7 +379,13 @@ def get_outline_item_tree(
                 if configured_item.ask_enabled_status != ASK_MODE_DEFAULT:
                     effective_model = configured_item.ask_llm or course_follow_up_model
                     break
-            return get_follow_up_interaction_mode(effective_model)
+            interaction_mode = get_follow_up_interaction_mode(effective_model)
+            if (
+                interaction_mode == "live_voice"
+                and not is_live_follow_up_model_available(effective_model)
+            ):
+                return "disabled"
+            return interaction_mode
 
         progress_records = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,

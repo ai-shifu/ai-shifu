@@ -1376,6 +1376,48 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
+  it('hides listen-mode follow-up entries when configured Live is unavailable', () => {
+    const onLiveVoiceFollowUpStart = jest.fn();
+    const items = [
+      {
+        type: 'content' as const,
+        content: 'Hello',
+        element_bid: 'content-1',
+        is_speakable: true,
+      },
+    ];
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        followUpMode='disabled'
+        onLiveVoiceFollowUpStart={onLiveVoiceFollowUpStart}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.ask' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+        followUpMode='disabled'
+        onLiveVoiceFollowUpStart={onLiveVoiceFollowUpStart}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.ask' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+    expect(onLiveVoiceFollowUpStart).not.toHaveBeenCalled();
+  });
+
   it('starts desktop Live voice directly without opening a text ask block', async () => {
     const onLiveVoiceFollowUpStart = jest.fn();
     render(

@@ -51,6 +51,11 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
 - [x] 2026-09-02 12:11 CST: Preserved the browser Host authority, including a
       non-default port, across the bundled Nginx session POST and WebSocket
       proxy paths without trusting caller-supplied forwarded authority headers.
+- [x] 2026-09-02 12:33 CST: Made learner follow-up availability explicit:
+      configured Live lessons now resolve to `disabled` when the kill switch
+      or discovered bidirectional capability is unavailable, and Cook Web
+      hides new read/listen entries without exposing a text fallback while
+      retaining persisted transcript history.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and
@@ -94,6 +99,10 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
   POST and WebSocket path against its browser origin and relies on the ingress
   to proxy both paths. The bundled Nginx already owns that topology; custom
   production ingress verification remains a rollout gate.
+- A saved Live configuration and a currently available Live runtime are
+  different states. The teacher setting must remain intact across a kill-switch
+  rollback, while the learner tree must suppress the unusable entry rather than
+  advertise Live or silently reinterpret it as text.
 
 ## Decision Log
 
@@ -138,6 +147,12 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
   and `X-Forwarded-Port`.
   - Why: `$host` strips non-default ports, while trusting client-forwarded
     authority headers would weaken the existing anti-spoofing boundary.
+- Decision: extend only the learner lesson-tree presentation contract with a
+  `disabled` state when a configured Live model is not currently available.
+  Keep teacher settings and model interaction metadata as `text | live_voice`.
+  - Why: rollout rollback or lost provider capability must hide an unusable
+    learner action without erasing configuration or falling back to the text
+    provider and safety path.
 - Decision: run Gunicorn gthread with four workers and 16 threads per worker;
   cap Live at six sessions per worker, 24 globally, and one per user using
   Redis leases renewed every 15 seconds with a 45-second expiry.

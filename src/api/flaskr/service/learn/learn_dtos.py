@@ -305,9 +305,9 @@ class LearnOutlineItemInfoDTO(BaseModel):
         description="Whether the published lesson content is newer than this user's latest learning progress",
         required=False,
     )
-    follow_up_mode: Literal["text", "live_voice"] = Field(
+    follow_up_mode: Literal["text", "live_voice", "disabled"] = Field(
         default="text",
-        description="Backend-resolved follow-up interaction mode",
+        description="Backend-resolved learner follow-up presentation mode",
         required=False,
     )
     children: list[LearnOutlineItemInfoDTO] = Field(
@@ -324,7 +324,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         is_paid: bool,
         children: list[LearnOutlineItemInfoDTO],
         has_content_update_for_current_user: bool = False,
-        follow_up_mode: Literal["text", "live_voice"] = "text",
+        follow_up_mode: Literal["text", "live_voice", "disabled"] = "text",
     ) -> None:
         """Build a learner-facing outline item payload."""
         super().__init__(
