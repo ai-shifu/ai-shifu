@@ -348,13 +348,14 @@ def test_get_or_create_notification_template_recovers_from_unique_conflict(
     _seed_notification_template(app, template_code="TPL-CONCURRENT")
 
     with app.app_context():
-        existing = NotificationTemplate.query.filter_by(
+        expected = NotificationTemplate.query.filter_by(
             channel="sms",
             provider="aliyun",
             template_code="TPL-CONCURRENT",
             deleted=0,
         ).one()
         load_calls: list[bool] = []
+        original_load_template = credit_notifications._load_notification_template
 
         def load_template(
             template_code: str,
@@ -363,7 +364,9 @@ def test_get_or_create_notification_template_recovers_from_unique_conflict(
         ) -> NotificationTemplate | None:
             assert template_code == "TPL-CONCURRENT"
             load_calls.append(for_update)
-            return existing if for_update else None
+            if len(load_calls) == 1:
+                return None
+            return original_load_template(template_code, for_update=for_update)
 
         monkeypatch.setattr(
             credit_notifications,
@@ -377,7 +380,7 @@ def test_get_or_create_notification_template_recovers_from_unique_conflict(
             now=now_utc(),
         )
 
-    assert actual is existing
+    assert actual is expected
     assert load_calls == [False, True]
 
 
