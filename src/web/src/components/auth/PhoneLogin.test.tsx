@@ -274,13 +274,16 @@ describe('PhoneLogin captcha flow', () => {
     fireEvent.keyDown(otpInput, { key: 'Enter' });
 
     await waitFor(() =>
-      expect(apiService.smsLogin).toHaveBeenCalledWith({
-        mobile: '13800138000',
-        sms_code: '9999',
-        language: 'en-US',
-        login_context: 'admin',
-        course_id: 'course-1',
-      }),
+      expect(apiService.smsLogin).toHaveBeenCalledWith(
+        {
+          mobile: '13800138000',
+          sms_code: '9999',
+          language: 'en-US',
+          login_context: 'admin',
+          course_id: 'course-1',
+        },
+        { skipErrorToast: true },
+      ),
     );
     expect((useUserStore as any).getState().login).toHaveBeenCalled();
     expect(onLoginSuccess).toHaveBeenCalled();
@@ -325,6 +328,7 @@ describe('PhoneLogin captcha flow', () => {
           referral_session_id: 'session-1',
           referral_entry_source: 'invite_link',
         }),
+        { skipErrorToast: true },
       ),
     );
   });
