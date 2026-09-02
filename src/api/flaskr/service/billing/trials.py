@@ -483,13 +483,18 @@ def _enqueue_trial_credit_notification(app: Flask, creator_bid: str) -> None:
             .first()
         )
         metadata = order.metadata_json if order is not None else {}
+        stored_notification_bids = (
+            metadata.get("credit_granted_notification_bids")
+            if isinstance(metadata, dict)
+            else None
+        )
         notification_bids = (
             tuple(
                 str(item or "").strip()
-                for item in (metadata or {}).get("credit_granted_notification_bids", [])
+                for item in stored_notification_bids
                 if str(item or "").strip()
             )
-            if isinstance(metadata, dict)
+            if isinstance(stored_notification_bids, list)
             else ()
         )
         if not notification_bids and isinstance(metadata, dict):

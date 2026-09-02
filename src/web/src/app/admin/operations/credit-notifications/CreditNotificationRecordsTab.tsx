@@ -313,7 +313,7 @@ export function CreditNotificationRecordsTab({
                   >
                     <div className='flex min-w-0 flex-col items-center gap-0.5 text-center leading-tight'>
                       {renderTooltipText(
-                        item.mobile_snapshot,
+                        item.recipient_snapshot || item.mobile_snapshot,
                         'block max-w-full text-foreground',
                       )}
                       {item.creator_nickname ? (

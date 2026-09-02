@@ -38,8 +38,10 @@ from .consts import (
     BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_NOTIFICATION_CHANNEL_EMAIL,
     CREDIT_NOTIFICATION_CHANNEL_SMS,
     CREDIT_NOTIFICATION_PROCESSABLE_STATUSES,
+    CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
     CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
     CREDIT_NOTIFICATION_STATUS_PENDING,
     CREDIT_NOTIFICATION_STATUS_SENT,
@@ -85,17 +87,23 @@ LOW_BALANCE_ESTIMATED_DAYS_MAX_LOOKBACK_DAYS = 365
 NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN = "aliyun"
 ALIYUN_TEMPLATE_LIST_PAGE_SIZE = 50
 ALIYUN_TEMPLATE_LIST_MAX_PAGES = 100
+NOTIFICATION_TEMPLATE_APPROVAL_MAX_AGE = timedelta(hours=24)
 NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED = "synced"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER = "failed_provider"
 CREDIT_NOTIFICATION_STATUS_SKIPPED = "skipped"
 CREDIT_NOTIFICATION_DELIVERY_STATUS_FAILED = "failed"
 CREDIT_NOTIFICATION_DELIVERY_STATUS_NOT_SENT = "not_sent"
 CREDIT_NOTIFICATION_SKIP_REASON_CONTACT = "contact"
+CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL = "channel"
 CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE = "duplicate"
 CREDIT_NOTIFICATION_SKIP_REASON_POLICY = "policy"
 CREDIT_NOTIFICATION_SKIP_REASON_STALE = "stale"
 CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS = "template_params"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_MISSING_CREDENTIALS = "missing_credentials"
+_SUPPORTED_NOTIFICATION_CHANNELS = {
+    CREDIT_NOTIFICATION_CHANNEL_SMS,
+    CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+}
 _TEMPLATE_PLACEHOLDER_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
     CREDIT_NOTIFICATION_TYPE_GRANTED: ("credits", "source", "expires_at"),
@@ -380,9 +388,11 @@ def _normalize_notification_rules(app: Flask, value: object) -> list[dict[str, o
             raise_param_error(f"rules.{index}.rule_bid")
         legacy = bool(rule.get("legacy") and rule_bid == f"legacy-{trigger_event}")
         channel = str(rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
-        if channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
+        if channel not in _SUPPORTED_NOTIFICATION_CHANNELS:
             raise_param_error(f"rules.{index}.channel")
         enabled = _coerce_bool(rule.get("enabled"))
+        if channel != CREDIT_NOTIFICATION_CHANNEL_SMS and enabled:
+            raise_param_error(f"rules.{index}.channel")
         template_code = str(rule.get("template_code") or "").strip()
         if enabled and not template_code:
             raise_param_error(f"rules.{index}.template_code")
@@ -537,7 +547,12 @@ def load_credit_notification_policy() -> dict[str, object]:
             parsed = candidate
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, parsed)
     policy["enabled"] = _coerce_bool(policy.get("enabled"))
-    policy["channel"] = CREDIT_NOTIFICATION_CHANNEL_SMS
+    channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
+    policy["channel"] = (
+        channel
+        if channel in _SUPPORTED_NOTIFICATION_CHANNELS
+        else CREDIT_NOTIFICATION_CHANNEL_SMS
+    )
     type_policies = policy.get("types")
     if not isinstance(type_policies, dict):
         type_policies = {}
@@ -922,16 +937,28 @@ def _format_operator_datetime(app: Flask, value: datetime | None) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _load_notification_template(template_code: str) -> NotificationTemplate | None:
-    return (
-        NotificationTemplate.query.filter(
-            NotificationTemplate.deleted == 0,
-            NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
-            NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
-            NotificationTemplate.template_code == template_code,
-        )
-        .order_by(NotificationTemplate.id.desc())
-        .first()
+def _load_notification_template(
+    template_code: str,
+    *,
+    for_update: bool = False,
+) -> NotificationTemplate | None:
+    query = NotificationTemplate.query.filter(
+        NotificationTemplate.deleted == 0,
+        NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
+        NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+        NotificationTemplate.template_code == template_code,
+    )
+    if for_update:
+        query = query.with_for_update()
+    return query.order_by(NotificationTemplate.id.desc()).first()
+
+
+def _is_notification_template_unique_constraint_error(exc: IntegrityError) -> bool:
+    error_message = str(getattr(exc, "orig", exc)).lower()
+    return "uq_notification_templates_channel_provider_code" in error_message or (
+        "notification_templates.channel" in error_message
+        and "notification_templates.provider" in error_message
+        and "notification_templates.template_code" in error_message
     )
 
 
@@ -944,7 +971,22 @@ def _get_or_create_notification_template(
     template = _load_notification_template(template_code)
     if template is not None:
         return template
-    return _create_notification_template(app, template_code=template_code, now=now)
+    try:
+        with db.session.begin_nested():
+            template = _create_notification_template(
+                app,
+                template_code=template_code,
+                now=now,
+            )
+            db.session.flush()
+            return template
+    except IntegrityError as exc:
+        if not _is_notification_template_unique_constraint_error(exc):
+            raise
+        template = _load_notification_template(template_code, for_update=True)
+        if template is not None:
+            return template
+        raise
 
 
 def _create_notification_template(
@@ -1038,6 +1080,22 @@ def _serialize_notification_template(
         "compatible": sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
         and not unsupported,
     }
+
+
+def _has_current_template_approval(
+    template: NotificationTemplate,
+    *,
+    now: datetime,
+) -> bool:
+    last_synced_at = template.last_synced_at
+    if last_synced_at is None:
+        return False
+    if now.tzinfo is not None:
+        now = now.astimezone(UTC).replace(tzinfo=None)
+    if last_synced_at.tzinfo is not None:
+        last_synced_at = last_synced_at.astimezone(UTC).replace(tzinfo=None)
+    approval_age = now - last_synced_at
+    return timedelta(0) <= approval_age <= NOTIFICATION_TEMPLATE_APPROVAL_MAX_AGE
 
 
 def _mark_template_sync_failed(
@@ -1267,7 +1325,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
                 continue
             template = existing_templates.get(template_code)
             if template is None:
-                template = _create_notification_template(
+                template = _get_or_create_notification_template(
                     app,
                     template_code=template_code,
                     now=now,
@@ -1328,6 +1386,7 @@ def _ensure_credit_notification_template_compatible(
             template is not None
             and template.sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
             and not _aliyun_sms_credentials_configured(app)
+            and _has_current_template_approval(template, now=now_utc())
         ):
             return _serialize_notification_template(
                 app,
@@ -1362,6 +1421,10 @@ def _validate_credit_notification_policy_templates(
             error_code = str(result.get("error_code") or "sync_failed")
             raise_param_error(
                 f"rules.{rule.get('rule_bid')}.template_code:{error_code}"
+            )
+        if str(result.get("template_status") or "").strip() != "AUDIT_STATE_PASS":
+            raise_param_error(
+                f"rules.{rule.get('rule_bid')}.template_code:template_not_approved"
             )
         unsupported = [
             str(item or "").strip()
@@ -1658,9 +1721,13 @@ def _stage_notification_record(
     notification = NotificationRecord(
         notification_bid=generate_id(app),
         notification_type=notification_type,
-        channel=CREDIT_NOTIFICATION_CHANNEL_SMS,
+        channel=str(
+            resolved_rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS
+        ).strip(),
         creator_bid=normalized_creator_bid,
         target_user_bid=normalized_creator_bid,
+        recipient_type=CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
+        recipient_snapshot=mobile,
         mobile_snapshot=mobile,
         source_type=source_type,
         source_bid=normalized_source_bid,
@@ -3047,6 +3114,11 @@ def _finalize_notification(
 ) -> None:
     notification.status = status
     notification.mobile_snapshot = mobile or notification.mobile_snapshot or ""
+    if notification.channel == CREDIT_NOTIFICATION_CHANNEL_SMS:
+        notification.recipient_type = CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE
+        notification.recipient_snapshot = (
+            mobile or notification.recipient_snapshot or notification.mobile_snapshot
+        )
     notification.attempted_at = now
     if status == CREDIT_NOTIFICATION_STATUS_SENT:
         notification.sent_at = now
@@ -3120,6 +3192,20 @@ def deliver_credit_notification(
             )
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                "notification_bid": notification.notification_bid,
+                "notification_status": notification.status,
+            }
+
+        if notification.channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
+            _finalize_notification(
+                notification,
+                status=CREDIT_NOTIFICATION_STATUS_SKIPPED,
+                now=now,
+                error_code="unsupported_channel",
+                error_message="Notification channel is not available.",
+            )
+            return {
+                "status": CREDIT_NOTIFICATION_STATUS_SKIPPED,
                 "notification_bid": notification.notification_bid,
                 "notification_status": notification.status,
             }
@@ -3480,6 +3566,8 @@ def _resolve_notification_delivery_status(status: str) -> str:
 def _resolve_notification_skip_reason(status: str, error_code: str = "") -> str:
     normalized_status = str(status or "").strip()
     normalized_error_code = str(error_code or "").strip()
+    if normalized_error_code == "unsupported_channel":
+        return CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL
     if normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE:
         return CREDIT_NOTIFICATION_SKIP_REASON_CONTACT
     if normalized_status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE:
@@ -3521,14 +3609,23 @@ def _notification_skip_reason_condition(
     duplicate_condition = (
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE
     )
+    channel_condition = NotificationRecord.error_code == "unsupported_channel"
     stale_condition = or_(
-        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED,
+        (NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED)
+        & ~channel_condition,
         NotificationRecord.error_code == "expiry_extended",
     )
     template_params_condition = (
         NotificationRecord.error_code == "missing_template_params"
-    ) & ~or_(contact_condition, duplicate_condition, stale_condition)
+    ) & ~or_(
+        contact_condition,
+        duplicate_condition,
+        channel_condition,
+        stale_condition,
+    )
 
+    if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL:
+        return channel_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_CONTACT:
         return contact_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE:
@@ -3541,6 +3638,7 @@ def _notification_skip_reason_condition(
         return _notification_not_sent_condition() & ~or_(
             contact_condition,
             duplicate_condition,
+            channel_condition,
             stale_condition,
             template_params_condition,
         )
@@ -3760,6 +3858,9 @@ def _serialize_notification_record_summary(
         "creator_bid": row.creator_bid,
         "creator_nickname": creator_nickname,
         "target_user_bid": row.target_user_bid,
+        "recipient_type": row.recipient_type
+        or CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
+        "recipient_snapshot": row.recipient_snapshot or row.mobile_snapshot,
         "mobile_snapshot": row.mobile_snapshot,
         "source_type": row.source_type,
         "source_bid": row.source_bid,
@@ -3795,6 +3896,9 @@ def _serialize_notification_record(
         "creator_bid": row.creator_bid,
         "creator_nickname": creator_nickname,
         "target_user_bid": row.target_user_bid,
+        "recipient_type": row.recipient_type
+        or CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
+        "recipient_snapshot": row.recipient_snapshot or row.mobile_snapshot,
         "mobile_snapshot": row.mobile_snapshot,
         "source_type": row.source_type,
         "source_bid": row.source_bid,

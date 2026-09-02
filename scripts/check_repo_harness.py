@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
+import posixpath
 import subprocess
 import sys
 import tempfile
@@ -36,58 +36,33 @@ from generate_ai_collab_docs import (
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = ROOT / "src" / "web"
-FRONTEND_ENV_MIGRATION_SCRIPT = (
-    FRONTEND_ROOT / "scripts" / "migrate-legacy-frontend-env.js"
-)
 CODEX_ENVIRONMENT = ROOT / ".codex" / "environments" / "environment.toml"
-LEGACY_FRONTEND_PATH = "src/" + "cook-web"
-LEGACY_FRONTEND_FILENAME_TOKEN = "cook-" + "web"
-LEGACY_FRONTEND_FILENAME_ALLOWLIST = {
+FRONTEND_ENV_FILENAMES = (
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.development.local",
+    ".env.production",
+    ".env.production.local",
+    ".env.test",
+    ".env.test.local",
+)
+STALE_FRONTEND_PATH = "src/" + "cook-web"
+STALE_FRONTEND_PATH_PARTS = tuple(STALE_FRONTEND_PATH.split("/"))
+STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
     Path("docs/exec-plans/active/rename-cook-web-directory.md"),
 }
-LEGACY_FRONTEND_IGNORE_PATTERNS = (
-    f"{LEGACY_FRONTEND_PATH}/node_modules",
-    f"{LEGACY_FRONTEND_PATH}/.pnp",
-    f"{LEGACY_FRONTEND_PATH}/**/.pnp.*",
-    f"{LEGACY_FRONTEND_PATH}/.yarn/*",
-    f"!{LEGACY_FRONTEND_PATH}/.yarn/patches",
-    f"!{LEGACY_FRONTEND_PATH}/.yarn/plugins",
-    f"!{LEGACY_FRONTEND_PATH}/.yarn/releases",
-    f"!{LEGACY_FRONTEND_PATH}/.yarn/versions",
-    f"{LEGACY_FRONTEND_PATH}/coverage",
-    f"{LEGACY_FRONTEND_PATH}/playwright-report",
-    f"{LEGACY_FRONTEND_PATH}/playwright/.auth",
-    f"{LEGACY_FRONTEND_PATH}/test-results",
-    f"{LEGACY_FRONTEND_PATH}/.next/",
-    f"{LEGACY_FRONTEND_PATH}/out/",
-    f"{LEGACY_FRONTEND_PATH}/build",
-    f"{LEGACY_FRONTEND_PATH}/**/*.pem",
-    f"{LEGACY_FRONTEND_PATH}/**/.env*",
-    f"{LEGACY_FRONTEND_PATH}/**/.pnpm-debug.log*",
-    f"{LEGACY_FRONTEND_PATH}/**/.vercel",
-    f"{LEGACY_FRONTEND_PATH}/**/*.tsbuildinfo",
-    f"{LEGACY_FRONTEND_PATH}/**/next-env.d.ts",
-    f"{LEGACY_FRONTEND_PATH}/**/.eslintcache",
-)
-LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST = {
-    Path("INSTALL_MANUAL.md"): {
-        "If an existing checkout still has ignored frontend env files under "
-        f"`{LEGACY_FRONTEND_PATH}/`,": 1,
-    },
-    Path(".gitignore"): dict.fromkeys(LEGACY_FRONTEND_IGNORE_PATTERNS, 1),
-    Path(".codex/environments/environment.toml"): {
-        f'legacy_frontend_directory="$source_tree/{LEGACY_FRONTEND_PATH}"': 2,
-    },
+STALE_FRONTEND_PATH_LINE_ALLOWLIST = {
     Path(".github/workflows/prepare-release.yml"): {
-        f'"legacy_path": "{LEGACY_FRONTEND_PATH}/package-lock.json",': 1,
-    },
-    Path("src/web/scripts/migrate-legacy-frontend-env.js"): {
-        f"const LEGACY_FRONTEND_RELATIVE_PATH = '{LEGACY_FRONTEND_PATH}';": 1,
+        f'"legacy_path": "{STALE_FRONTEND_PATH}/package-lock.json",': 1,
     },
 }
-LEGACY_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
-    Path("docs/exec-plans/active/rename-cook-web-directory.md"): (
-        "Rename The Cook Web Directory"
+STALE_FRONTEND_PATH_CONTEXT_ALLOWLIST = {
+    Path(".github/workflows/prepare-release.yml"): (
+        "- name: Generate MarkdownFlow dependency changelog",
+        '"name": "markdown-flow-ui",',
+        '"path": "src/web/package-lock.json",',
+        "def build_dependency_section",
     ),
 }
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
@@ -348,49 +323,53 @@ def check_root_docs(errors: list[str]) -> None:
             )
 
 
+def _stale_path_is_in_allowed_context(
+    relative_path: Path, lines: list[str], line_numbers: list[int]
+) -> bool:
+    """Keep an allowed stale path inside its owning workflow step."""
+    context_markers = STALE_FRONTEND_PATH_CONTEXT_ALLOWLIST.get(relative_path)
+    if not context_markers:
+        return True
+
+    step_starts = [
+        index for index, line in enumerate(lines) if line.strip() == context_markers[0]
+    ]
+    if len(step_starts) != 1:
+        return False
+
+    step_start = step_starts[0]
+    step_indent = len(lines[step_start]) - len(lines[step_start].lstrip())
+    step_end = len(lines)
+    for index in range(step_start + 1, len(lines)):
+        line = lines[index]
+        line_indent = len(line) - len(line.lstrip())
+        if line_indent == step_indent and line.strip().startswith("- name:"):
+            step_end = index
+            break
+
+    step_lines = lines[step_start:step_end]
+    return all(
+        any(marker in line for line in step_lines) for marker in context_markers
+    ) and all(step_start <= line_number - 1 < step_end for line_number in line_numbers)
+
+
+def _contains_stale_frontend_path(parts: tuple[str, ...]) -> bool:
+    """Match the retired frontend path as complete path components."""
+    return any(
+        parts[index : index + len(STALE_FRONTEND_PATH_PARTS)]
+        == STALE_FRONTEND_PATH_PARTS
+        for index in range(len(parts) - len(STALE_FRONTEND_PATH_PARTS) + 1)
+    )
+
+
 def check_frontend_path_contract(errors: list[str]) -> None:
-    """Require the web path and reject stale tracked path assumptions."""
+    """Require the current web frontend path and guard stale path additions."""
     if not FRONTEND_ROOT.is_dir():
         errors.append(f"Missing web frontend directory: {FRONTEND_ROOT}")
 
-    # Existing checkouts can retain ignored .env, node_modules, or build output
-    # under the old directory after Git applies the tracked rename. The tracked
-    # file inventory below is the repository contract; ignored local residue
-    # must not make the same commit pass in CI but fail for an existing checkout.
-
-    for (
-        relative_path,
-        expected_occurrences,
-    ) in LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST.items():
-        path = ROOT / relative_path
-        if not path.is_file():
-            errors.append(f"Missing legacy-path compatibility surface: {path}")
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as error:
-            errors.append(
-                f"Unable to validate legacy path compatibility in {path}: {error}"
-            )
-            continue
-
-        actual_occurrences: dict[str, int] = {}
-        for line in text.splitlines():
-            if LEGACY_FRONTEND_PATH not in line:
-                continue
-            stripped_line = line.strip()
-            actual_occurrences[stripped_line] = (
-                actual_occurrences.get(stripped_line, 0) + 1
-            )
-        if actual_occurrences != expected_occurrences:
-            errors.append(
-                f"Unexpected legacy frontend path occurrences in {path}: "
-                f"expected {expected_occurrences}, got {actual_occurrences}"
-            )
-
     try:
         result = subprocess.run(
-            ["git", "ls-files", "-z"],
+            ["git", "ls-files", "--stage", "-z"],
             cwd=ROOT,
             check=True,
             capture_output=True,
@@ -402,36 +381,77 @@ def check_frontend_path_contract(errors: list[str]) -> None:
     for raw_path in result.stdout.split(b"\0"):
         if not raw_path:
             continue
-        relative_path = Path(raw_path.decode("utf-8", errors="surrogateescape"))
-        if (
-            LEGACY_FRONTEND_FILENAME_TOKEN in relative_path.as_posix()
-            and relative_path not in LEGACY_FRONTEND_FILENAME_ALLOWLIST
-        ):
-            errors.append(f"Stale frontend name in tracked path: {relative_path}")
-        path = ROOT / relative_path
-        if not path.is_file():
-            continue
         try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        if relative_path in LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST:
-            continue
-        if LEGACY_FRONTEND_PATH not in text:
+            raw_metadata, raw_filename = raw_path.split(b"\t", 1)
+            index_mode, object_id, _stage = raw_metadata.split(b" ", 2)
+        except ValueError as error:
+            errors.append(f"Unable to parse tracked file entry {raw_path!r}: {error}")
             continue
 
-        whole_file_marker = LEGACY_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST.get(relative_path)
-        if whole_file_marker is None:
-            errors.append(f"Stale frontend path '{LEGACY_FRONTEND_PATH}' in {path}")
-        elif whole_file_marker not in text:
+        relative_path = Path(raw_filename.decode("utf-8", errors="surrogateescape"))
+        if _contains_stale_frontend_path(relative_path.parts):
+            errors.append(f"Stale frontend path in tracked filename: {relative_path}")
+
+        path = ROOT / relative_path
+        if index_mode == b"160000":
+            continue
+        if index_mode == b"120000":
+            try:
+                symlink_target = subprocess.run(
+                    ["git", "cat-file", "blob", object_id.decode("ascii")],
+                    cwd=ROOT,
+                    check=True,
+                    capture_output=True,
+                ).stdout.decode("utf-8", errors="surrogateescape")
+            except (OSError, UnicodeError, subprocess.CalledProcessError) as error:
+                errors.append(f"Unable to scan tracked symlink {path}: {error}")
+                continue
+            resolved_symlink_target = posixpath.normpath(
+                posixpath.join(
+                    relative_path.parent.as_posix(), symlink_target.rstrip("\n")
+                )
+            )
+            if _contains_stale_frontend_path(Path(resolved_symlink_target).parts):
+                errors.append(
+                    f"Stale frontend path in tracked symlink target: "
+                    f"{relative_path} -> {symlink_target}"
+                )
+            continue
+
+        if relative_path in STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST:
+            continue
+        try:
+            text = path.read_bytes().decode("utf-8", errors="surrogateescape")
+        except OSError as error:
+            errors.append(f"Unable to scan tracked file {path}: {error}")
+            continue
+
+        actual_occurrences: dict[str, int] = {}
+        stale_line_numbers: list[int] = []
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if STALE_FRONTEND_PATH in line:
+                stripped_line = line.strip()
+                actual_occurrences[stripped_line] = (
+                    actual_occurrences.get(stripped_line, 0) + 1
+                )
+                stale_line_numbers.append(line_number)
+        expected_occurrences = STALE_FRONTEND_PATH_LINE_ALLOWLIST.get(relative_path, {})
+        if actual_occurrences != expected_occurrences:
             errors.append(
-                f"Legacy frontend path allowlist marker '{whole_file_marker}' "
-                f"is missing in {path}"
+                f"Unexpected stale frontend path occurrences in {path}: "
+                f"expected {expected_occurrences}, got {actual_occurrences}"
+            )
+        elif not _stale_path_is_in_allowed_context(
+            relative_path, text.splitlines(), stale_line_numbers
+        ):
+            errors.append(
+                f"Allowed stale frontend path in {path} is outside its "
+                "historical release lookup step"
             )
 
 
-def check_frontend_env_migration_contract(errors: list[str]) -> None:
-    """Keep in-place env migration wired into safe development entry points."""
+def check_frontend_runtime_contract(errors: list[str]) -> None:
+    """Keep the frontend development and production entry points direct."""
     package_path = FRONTEND_ROOT / "package.json"
     try:
         package = json.loads(package_path.read_text(encoding="utf-8"))
@@ -441,28 +461,14 @@ def check_frontend_env_migration_contract(errors: list[str]) -> None:
 
     scripts = package.get("scripts", {})
     expected_scripts = {
-        "migrate:legacy-env": "node scripts/migrate-legacy-frontend-env.js",
-        "dev": ("node scripts/migrate-legacy-frontend-env.js && next dev --turbopack"),
-        "build": "node scripts/migrate-legacy-frontend-env.js && next build",
+        "dev": "next dev --turbopack",
+        "build": "next build",
     }
     for script_name, expected_command in expected_scripts.items():
         if scripts.get(script_name) != expected_command:
             errors.append(
                 f"Frontend package script '{script_name}' must be '{expected_command}'"
             )
-
-    prestart = scripts.get("prestart", "")
-    if any(
-        migration_reference in prestart
-        for migration_reference in (
-            "migrate:legacy-env",
-            "migrate-legacy-frontend-env.js",
-        )
-    ):
-        errors.append(
-            "Frontend prestart must not invoke the local env migration helper; "
-            "the production runner image does not include development scripts"
-        )
 
     run_web_path = ROOT / ".cursor" / "run-web.sh"
     try:
@@ -471,21 +477,11 @@ def check_frontend_env_migration_contract(errors: list[str]) -> None:
         errors.append(f"Unable to load Cursor frontend launcher: {error}")
         return
     if "exec npm run dev -- -H 0.0.0.0 -p 3000" not in run_web:
-        errors.append(
-            f"{run_web_path} must launch through 'npm run dev' so the shared "
-            "helper migrates legacy frontend env files"
-        )
+        errors.append(f"{run_web_path} must launch through 'npm run dev'")
 
 
 def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
-    """Exercise current, legacy, and upgraded Codex source checkout layouts."""
-    if not FRONTEND_ENV_MIGRATION_SCRIPT.is_file():
-        errors.append(
-            f"Missing frontend environment migration helper: "
-            f"{FRONTEND_ENV_MIGRATION_SCRIPT}"
-        )
-        return
-
+    """Exercise current Codex source checkout asset reuse."""
     try:
         environment = tomllib.loads(CODEX_ENVIRONMENT.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as error:
@@ -494,23 +490,8 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
 
     setup = environment.get("setup", {})
     current_frontend = Path("src") / "web"
-    legacy_frontend = Path("src") / LEGACY_FRONTEND_FILENAME_TOKEN
     fixtures = (
         ("current assets", current_frontend, current_frontend, current_frontend),
-        ("legacy revision", legacy_frontend, legacy_frontend, legacy_frontend),
-        ("upgraded checkout", legacy_frontend, legacy_frontend, current_frontend),
-        (
-            "current env with legacy modules",
-            current_frontend,
-            legacy_frontend,
-            current_frontend,
-        ),
-        (
-            "legacy env with current modules",
-            legacy_frontend,
-            current_frontend,
-            current_frontend,
-        ),
     )
 
     for platform in ("darwin", "linux"):
@@ -536,11 +517,6 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                 worktree = fixture_root / "worktree"
                 target_frontend = worktree / current_frontend
                 target_frontend.mkdir(parents=True)
-                target_migration_script = (
-                    target_frontend / "scripts" / FRONTEND_ENV_MIGRATION_SCRIPT.name
-                )
-                target_migration_script.parent.mkdir()
-                shutil.copy2(FRONTEND_ENV_MIGRATION_SCRIPT, target_migration_script)
 
                 lockfile_content = "compatible-lockfile\n"
                 target_manifest = target_frontend / "package-lock.json"
@@ -551,13 +527,17 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                 source_manifest.write_text(lockfile_content, encoding="utf-8")
 
                 source_envs: dict[str, Path] = {}
-                for env_filename in (".env", ".env.local"):
+                source_env_modes: dict[str, int] = {}
+                for env_filename in FRONTEND_ENV_FILENAMES:
                     source_env = source_tree / env_directory / env_filename
                     source_env.parent.mkdir(parents=True, exist_ok=True)
                     source_env.write_text(
                         f"FIXTURE={fixture_name}:{env_filename}\n", encoding="utf-8"
                     )
+                    source_mode = 0o600 if env_filename.endswith(".local") else 0o640
+                    source_env.chmod(source_mode)
                     source_envs[env_filename] = source_env
+                    source_env_modes[env_filename] = source_mode
 
                 source_modules = source_tree / modules_directory / "node_modules"
                 source_modules.mkdir(parents=True, exist_ok=True)
@@ -602,6 +582,14 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                         errors.append(
                             f"{fixture_label} did not copy the expected {env_filename}"
                         )
+                        continue
+                    if (
+                        target_env.stat().st_mode & 0o777
+                        != source_env_modes[env_filename]
+                    ):
+                        errors.append(
+                            f"{fixture_label} did not preserve the mode of {env_filename}"
+                        )
 
                 target_modules = target_frontend / "node_modules"
                 if not target_modules.is_symlink():
@@ -613,114 +601,67 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
                         f"{fixture_label} reused node_modules from the wrong path"
                     )
 
+                for occupancy_mode in ("customized", "dangling"):
+                    occupied_worktree = fixture_root / f"{occupancy_mode}-worktree"
+                    occupied_frontend = occupied_worktree / current_frontend
+                    occupied_frontend.mkdir(parents=True)
+                    (occupied_frontend / "package-lock.json").write_text(
+                        lockfile_content, encoding="utf-8"
+                    )
+                    occupied_env = occupied_frontend / ".env"
+                    occupied_env_link_target = None
+                    if occupancy_mode == "customized":
+                        occupied_env.write_text("CUSTOMIZED=1\n", encoding="utf-8")
+                    else:
+                        occupied_env.symlink_to(occupied_frontend / "missing.env")
+                        occupied_env_link_target = occupied_env.readlink()
 
-def check_legacy_frontend_artifact_ignores(errors: list[str]) -> None:
-    """Keep migrated local artifacts ignored without hiding legacy source files."""
-    legacy_frontend = Path("src") / LEGACY_FRONTEND_FILENAME_TOKEN
-    artifact_paths = {
-        legacy_frontend / relative_path
-        for relative_path in (
-            "node_modules/package/index.js",
-            ".pnp",
-            "cache/.pnp.cjs",
-            ".yarn/cache/package.zip",
-            "coverage/lcov.info",
-            "playwright-report/index.html",
-            "playwright/.auth/state.json",
-            "test-results/results.json",
-            ".next/cache/data",
-            "out/index.html",
-            "build/index.html",
-            "certificates/local.pem",
-            "config/.env.preview",
-            ".pnpm-debug.log.1",
-            "logs/.pnpm-debug.log.2",
-            "deployment/.vercel/project.json",
-            "cache/tsconfig.tsbuildinfo",
-            "generated/next-env.d.ts",
-            "cache/.eslintcache",
-        )
-    }
-    visible_paths = {
-        legacy_frontend / "src" / "app" / "page.tsx",
-        legacy_frontend / "cache" / ".pnp",
-        legacy_frontend / ".yarn" / "patches" / "package.patch",
-        legacy_frontend / ".yarn" / "plugins" / "plugin.cjs",
-        legacy_frontend / ".yarn" / "releases" / "yarn.cjs",
-        legacy_frontend / ".yarn" / "versions" / "version.yml",
-    }
-    candidates = sorted((*artifact_paths, *visible_paths))
-    fixture_environment = {
-        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
-    }
+                    occupied_environment = command_environment.copy()
+                    occupied_environment["CODEX_WORKTREE_PATH"] = str(occupied_worktree)
+                    occupied_result = subprocess.run(
+                        ["sh"],
+                        cwd=occupied_worktree,
+                        env=occupied_environment,
+                        input=script,
+                        text=True,
+                        capture_output=True,
+                        timeout=10,
+                        check=False,
+                    )
+                    occupied_label = f"{fixture_label} {occupancy_mode} env fixture"
+                    if occupied_result.returncode != 0:
+                        errors.append(
+                            f"{occupied_label} failed with exit "
+                            f"{occupied_result.returncode}: "
+                            f"{occupied_result.stderr.strip()}"
+                        )
+                        continue
 
-    try:
-        ignore_text = (ROOT / ".gitignore").read_text(encoding="utf-8")
-        with tempfile.TemporaryDirectory(
-            prefix="ai-shifu-legacy-ignore-"
-        ) as temporary_directory:
-            fixture_root = Path(temporary_directory)
-            empty_template = fixture_root / "empty-template"
-            repository = fixture_root / "repository"
-            empty_template.mkdir()
-            repository.mkdir()
-            init_result = subprocess.run(
-                ["git", "init", "--quiet", f"--template={empty_template}"],
-                cwd=repository,
-                env=fixture_environment,
-                text=True,
-                capture_output=True,
-                timeout=10,
-                check=False,
-            )
-            if init_result.returncode != 0:
-                errors.append(
-                    "Unable to initialize legacy ignore fixture: "
-                    f"{init_result.stderr.strip() or f'git exited {init_result.returncode}'}"
-                )
-                return
-            (repository / ".gitignore").write_text(ignore_text, encoding="utf-8")
-            result = subprocess.run(
-                [
-                    "git",
-                    "-c",
-                    f"core.excludesFile={os.devnull}",
-                    "check-ignore",
-                    "--no-index",
-                    "--stdin",
-                ],
-                cwd=repository,
-                env=fixture_environment,
-                input="".join(f"{path.as_posix()}\n" for path in candidates),
-                text=True,
-                capture_output=True,
-                timeout=10,
-                check=False,
-            )
-    except (OSError, subprocess.TimeoutExpired) as error:
-        errors.append(f"Unable to validate legacy frontend ignores: {error}")
-        return
-
-    if result.returncode not in (0, 1):
-        errors.append(
-            "Unable to validate legacy frontend ignores: "
-            f"{result.stderr.strip() or f'git exited {result.returncode}'}"
-        )
-        return
-
-    ignored_paths = {Path(line) for line in result.stdout.splitlines() if line}
-    missing_ignores = sorted(artifact_paths - ignored_paths)
-    if missing_ignores:
-        errors.append(
-            "Legacy frontend artifacts are not ignored: "
-            + ", ".join(path.as_posix() for path in missing_ignores)
-        )
-    hidden_visible_paths = sorted(visible_paths & ignored_paths)
-    if hidden_visible_paths:
-        errors.append(
-            "Legacy frontend ignore compatibility hides visible paths: "
-            + ", ".join(path.as_posix() for path in hidden_visible_paths)
-        )
+                    for env_filename in FRONTEND_ENV_FILENAMES:
+                        if env_filename == ".env":
+                            continue
+                        occupied_local_env = occupied_frontend / env_filename
+                        if (
+                            occupied_local_env.exists()
+                            or occupied_local_env.is_symlink()
+                        ):
+                            errors.append(
+                                f"{occupied_label} copied another frontend env file: "
+                                f"{env_filename}"
+                            )
+                    if occupancy_mode == "customized":
+                        if occupied_env.read_text(encoding="utf-8") != "CUSTOMIZED=1\n":
+                            errors.append(
+                                f"{occupied_label} overwrote the customized env file"
+                            )
+                    elif not occupied_env.is_symlink():
+                        errors.append(
+                            f"{occupied_label} did not preserve the dangling symlink"
+                        )
+                    elif occupied_env.readlink() != occupied_env_link_target:
+                        errors.append(
+                            f"{occupied_label} changed the dangling symlink target"
+                        )
 
 
 def check_frontmatter_docs(errors: list[str]) -> None:
@@ -751,9 +692,8 @@ def main() -> int:
     check_manual_rules(errors)
     check_root_docs(errors)
     check_frontend_path_contract(errors)
-    check_frontend_env_migration_contract(errors)
+    check_frontend_runtime_contract(errors)
     check_codex_frontend_asset_reuse(errors)
-    check_legacy_frontend_artifact_ignores(errors)
     check_frontmatter_docs(errors)
     check_example_identifiers(errors)
 

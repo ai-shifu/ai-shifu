@@ -50,6 +50,7 @@ export const NOTIFICATION_DELIVERY_STATUSES = [
 ] as const;
 export const NOTIFICATION_SKIP_REASONS = [
   'contact',
+  'channel',
   'policy',
   'duplicate',
   'stale',
@@ -219,6 +220,14 @@ export const resolveCreditNotificationErrorText = (
   const reasonCode = resolveErrorReasonCode(errorCode, errorMessage);
   if (reasonCode) {
     const fallback = String(errorMessage || errorCode || '').trim();
+    if (reasonCode === 'unsupported_channel') {
+      return String(
+        t(
+          'module.operationsCreditNotifications.errorReason.unsupported_channel',
+          { defaultValue: fallback },
+        ),
+      );
+    }
     return String(
       t(`module.operationsCreditNotifications.errorReason.${reasonCode}`, {
         defaultValue: fallback,
@@ -264,6 +273,9 @@ export const resolveNotificationSkipReason = (
   }
   const normalizedStatus = String(item.status || '').trim();
   const normalizedErrorCode = String(item.error_code || '').trim();
+  if (normalizedErrorCode === 'unsupported_channel') {
+    return 'channel';
+  }
   if (normalizedStatus === 'skipped_no_mobile') {
     return 'contact';
   }
@@ -420,7 +432,13 @@ export const normalizePolicy = (
           ) {
             return null;
           }
+          const ruleBid = readString(value.rule_bid);
+          if (!ruleBid) {
+            return null;
+          }
           const conditions = readRecord(value, 'conditions');
+          const channel =
+            readString(value.channel) === 'email' ? 'email' : 'sms';
           const thresholds = Array.isArray(conditions.thresholds)
             ? conditions.thresholds
                 .map(readLowBalanceThreshold)
@@ -429,10 +447,10 @@ export const normalizePolicy = (
                 )
             : undefined;
           return {
-            rule_bid: readString(value.rule_bid),
+            rule_bid: ruleBid,
             name: readString(value.name),
             trigger_event: triggerEvent as KnownNotificationType,
-            channel: 'sms',
+            channel,
             template_code: readString(value.template_code),
             enabled: readBoolean(value.enabled, false),
             conditions: {

@@ -56,13 +56,6 @@ export const SSE_INPUT_TYPE = {
 export type SSE_INPUT_TYPE =
   (typeof SSE_INPUT_TYPE)[keyof typeof SSE_INPUT_TYPE];
 
-// export const PREVIEW_MODE = {
-//   COOK: 'cook',
-//   PREVIEW: 'preview',
-//   NORMAL: 'normal',
-// } as const;
-// export type PreviewMode = (typeof PREVIEW_MODE)[keyof typeof PREVIEW_MODE];
-
 export const LEARNING_PERMISSION = {
   NORMAL: 'normal',
   TRIAL: 'trial',
@@ -492,7 +485,7 @@ export const streamGeneratedBlockAudio = ({
  * @param {*} lessonId
  *  shifu_bid : shifu bid
     outline_bid: outline bid
-    preview_mode: whether preview mode is enabled; possible values: cook | preview | normal (default is normal)
+    preview_mode: whether preview mode is enabled
  * @returns
  */
 export const getLessonStudyRecord = async ({
