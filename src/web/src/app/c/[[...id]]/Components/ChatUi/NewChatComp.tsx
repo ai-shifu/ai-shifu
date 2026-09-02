@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { runWithConcurrency } from '@/lib/runWithConcurrency';
+import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
@@ -312,6 +313,42 @@ export const NewChatComponents = ({
   const previousListenModeActiveRef = useRef(isListenModeActive);
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
+  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
+  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const setAskList = useAskStateStore(state => state.setAskList);
+  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
+  const storedAskListByAnchorElementBid = useAskStateStore(
+    state => state.askListByAnchorElementBid,
+  );
+  const handleLiveTurnCommitted = useCallback(
+    ({
+      anchorElementBid,
+      userTranscript,
+      assistantTranscript,
+    }: {
+      anchorElementBid: string;
+      turnIndex: number;
+      userTranscript: string;
+      assistantTranscript: string;
+    }) => {
+      setAskList(anchorElementBid, previous => [
+        ...previous,
+        ...(userTranscript
+          ? [
+              {
+                type: BLOCK_TYPE.ASK,
+                content: userTranscript,
+              },
+            ]
+          : []),
+        {
+          type: BLOCK_TYPE.ANSWER,
+          content: assistantTranscript,
+        },
+      ]);
+    },
+    [setAskList],
+  );
   const liveVoiceFollowUp = useLiveVoiceFollowUp({
     shifuBid,
     outlineBid: resolvedLessonId,
@@ -322,6 +359,7 @@ export const NewChatComponents = ({
       : isListenModeActive
         ? 'listen'
         : 'read',
+    onTurnCommitted: handleLiveTurnCommitted,
   });
   const {
     configured: isLiveVoiceFollowUpConfigured,
@@ -344,13 +382,6 @@ export const NewChatComponents = ({
     !isPreviewReadMode;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
-  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
-  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
-  const setAskList = useAskStateStore(state => state.setAskList);
-  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
-  const storedAskListByAnchorElementBid = useAskStateStore(
-    state => state.askListByAnchorElementBid,
-  );
 
   useEffect(() => {
     listenAudioBackfillLessonIdRef.current = resolvedLessonId;

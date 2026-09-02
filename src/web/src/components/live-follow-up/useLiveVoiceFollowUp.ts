@@ -89,6 +89,12 @@ type UseLiveVoiceFollowUpOptions = {
   previewMode: boolean;
   learningMode: LiveFollowUpLearningMode;
   sessionScope: LiveFollowUpLearningMode | 'classroom';
+  onTurnCommitted?: (turn: {
+    anchorElementBid: string;
+    turnIndex: number;
+    userTranscript: string;
+    assistantTranscript: string;
+  }) => void;
 };
 
 const initialState: LiveVoiceFollowUpViewState = {
@@ -170,6 +176,7 @@ export const useLiveVoiceFollowUp = ({
   previewMode,
   learningMode,
   sessionScope,
+  onTurnCommitted,
 }: UseLiveVoiceFollowUpOptions): LiveVoiceFollowUpController => {
   const { trackEvent } = useTracking();
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
@@ -183,6 +190,8 @@ export const useLiveVoiceFollowUp = ({
   const mutedRef = useRef(false);
   const outputTurnIndexRef = useRef<number | null>(null);
   const reconnectingRef = useRef(false);
+  const transcriptsRef = useRef<LiveVoiceTranscript[]>([]);
+  const committedTurnIndexesRef = useRef<Set<number>>(new Set());
   const warningTimerRef = useRef<number | null>(null);
   const timeoutTimerRef = useRef<number | null>(null);
   const unmountedRef = useRef(false);
@@ -384,6 +393,8 @@ export const useLiveVoiceFollowUp = ({
       attemptRef.current = attempt;
       mutedRef.current = false;
       reconnectingRef.current = false;
+      transcriptsRef.current = [];
+      committedTurnIndexesRef.current.clear();
 
       if (analyticsEnabled) {
         trackSafely(
@@ -626,19 +637,24 @@ export const useLiveVoiceFollowUp = ({
                 if (message.role === 'assistant') {
                   outputTurnIndexRef.current = message.turn_index;
                 }
-                setViewState(previous => {
-                  const next = previous.transcripts.filter(
+                transcriptsRef.current = sortTranscripts([
+                  ...transcriptsRef.current.filter(
                     transcript =>
                       transcript.turnIndex !== message.turn_index ||
                       transcript.role !== message.role,
-                  );
-                  next.push({
+                  ),
+                  {
                     role: message.role,
                     turnIndex: message.turn_index,
                     text: message.text,
                     final: message.final,
-                  });
-                  return { ...previous, transcripts: sortTranscripts(next) };
+                  },
+                ]);
+                setViewState(previous => {
+                  return {
+                    ...previous,
+                    transcripts: transcriptsRef.current,
+                  };
                 });
                 break;
               case 'interrupted':
@@ -652,6 +668,28 @@ export const useLiveVoiceFollowUp = ({
               case 'turn_committed':
                 if (attemptRef.current) {
                   attemptRef.current.hadExchange = true;
+                  if (
+                    !committedTurnIndexesRef.current.has(message.turn_index)
+                  ) {
+                    committedTurnIndexesRef.current.add(message.turn_index);
+                    const turnTranscripts = transcriptsRef.current.filter(
+                      transcript => transcript.turnIndex === message.turn_index,
+                    );
+                    try {
+                      onTurnCommitted?.({
+                        anchorElementBid: attemptRef.current.anchorElementBid,
+                        turnIndex: message.turn_index,
+                        userTranscript:
+                          turnTranscripts.find(
+                            transcript => transcript.role === 'user',
+                          )?.text ?? '',
+                        assistantTranscript:
+                          turnTranscripts.find(
+                            transcript => transcript.role === 'assistant',
+                          )?.text ?? '',
+                      });
+                    } catch {}
+                  }
                 }
                 break;
               case 'error': {
@@ -725,6 +763,7 @@ export const useLiveVoiceFollowUp = ({
       analyticsEnabled,
       finishAttempt,
       learningMode,
+      onTurnCommitted,
       outlineBid,
       previewMode,
       reportAttemptResult,
