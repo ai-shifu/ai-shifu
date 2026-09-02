@@ -212,6 +212,12 @@ const api = {
     'POST /shifu/admin/operations/credit-notifications/templates/sync',
   getAdminOperationCreditNotificationTemplates:
     'GET /shifu/admin/operations/credit-notifications/templates',
+  getAdminOperationCreditNotificationEmailTemplates:
+    'GET /shifu/admin/operations/credit-notifications/email-templates',
+  createAdminOperationCreditNotificationEmailTemplate:
+    'POST /shifu/admin/operations/credit-notifications/email-templates',
+  updateAdminOperationCreditNotificationEmailTemplate:
+    'PUT /shifu/admin/operations/credit-notifications/email-templates/{notification_template_bid}',
   dryRunAdminOperationCreditNotifications:
     'POST /shifu/admin/operations/credit-notifications/dry-run',
   requeueAdminOperationCreditNotification:

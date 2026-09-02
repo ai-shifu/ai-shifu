@@ -1,4 +1,4 @@
-import { RefreshCw, Search } from 'lucide-react';
+import { Plus, RefreshCw, Search } from 'lucide-react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
@@ -8,6 +8,7 @@ import type { EnvStoreState } from '@/c-types/store';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
 import {
   Select,
   SelectContent,
@@ -22,6 +23,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/Sheet';
+import { Textarea } from '@/components/ui/Textarea';
+import { toast } from '@/hooks/useToast';
 import {
   Tooltip,
   TooltipContent,
@@ -74,6 +77,7 @@ export function CreditNotificationTemplateManagementTab({
   onViewed,
   onFilterApplied,
   onDetailOpened,
+  saveEmailTemplate,
 }: {
   templates: AdminOperationCreditNotificationTemplateOption[];
   active: boolean;
@@ -85,6 +89,10 @@ export function CreditNotificationTemplateManagementTab({
   onViewed: () => void;
   onFilterApplied: (filter: 'keyword' | 'status') => void;
   onDetailOpened: () => void;
+  saveEmailTemplate: (
+    payload: Record<string, string>,
+    notificationTemplateBid?: string,
+  ) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const loginMethodsEnabled = useEnvStore(
@@ -101,10 +109,14 @@ export function CreditNotificationTemplateManagementTab({
   const [status, setStatus] = React.useState('');
   const [selectedTemplate, setSelectedTemplate] =
     React.useState<AdminOperationCreditNotificationTemplateOption | null>(null);
+  const [editingTemplate, setEditingTemplate] =
+    React.useState<AdminOperationCreditNotificationTemplateOption | null>(null);
+  const [emailTemplateStatus, setEmailTemplateStatus] = React.useState('draft');
+  const [savingEmailTemplate, setSavingEmailTemplate] = React.useState(false);
   const hasTrackedViewRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (!active || contactMode === 'email' || hasTrackedViewRef.current) {
+    if (!active || hasTrackedViewRef.current) {
       return;
     }
     hasTrackedViewRef.current = true;
@@ -122,6 +134,13 @@ export function CreditNotificationTemplateManagementTab({
     (value: string) =>
       TEMPLATE_TYPE_KEYS[value] ? t(TEMPLATE_TYPE_KEYS[value]) : value || '--',
     [t],
+  );
+  const openEmailTemplate = React.useCallback(
+    (template: AdminOperationCreditNotificationTemplateOption) => {
+      setEditingTemplate(template);
+      setEmailTemplateStatus(template.template_status || 'draft');
+    },
+    [],
   );
   const bindingsFor = React.useCallback(
     (templateCode: string) => {
@@ -170,23 +189,6 @@ export function CreditNotificationTemplateManagementTab({
       .map(item => ({ ...item, key: item.template_code }));
   }, [keyword, status, templates]);
 
-  if (contactMode === 'email') {
-    return (
-      <div className='rounded-lg border border-border bg-white p-6'>
-        <h2 className='text-base font-semibold'>
-          {t(
-            'module.operationsCreditNotifications.templateManagement.emailTitle',
-          )}
-        </h2>
-        <p className='mt-2 text-sm text-muted-foreground'>
-          {t(
-            'module.operationsCreditNotifications.templateManagement.emailComingSoon',
-          )}
-        </p>
-      </div>
-    );
-  }
-
   const columns: TemplateColumn[] = [
     {
       key: 'name',
@@ -231,33 +233,122 @@ export function CreditNotificationTemplateManagementTab({
       className: 'w-24 min-w-24 whitespace-nowrap text-center',
     },
   ];
+  const templateTitle =
+    contactMode === 'email'
+      ? t('module.operationsCreditNotifications.templateManagement.emailTitle')
+      : t('module.operationsCreditNotifications.templateManagement.smsTitle');
+  const templateDescription =
+    contactMode === 'email'
+      ? t(
+          'module.operationsCreditNotifications.templateManagement.emailDescription',
+        )
+      : t(
+          'module.operationsCreditNotifications.templateManagement.smsDescription',
+        );
+  const refreshLabel =
+    contactMode === 'email'
+      ? t('module.operationsCreditNotifications.templateManagement.reload')
+      : t('module.operationsCreditNotifications.templateManagement.refresh');
+  const emailInputFields = [
+    {
+      name: 'template_name',
+      label: t(
+        'module.operationsCreditNotifications.templateManagement.emailFields.name',
+      ),
+      value: editingTemplate?.template_name || '',
+    },
+    {
+      name: 'template_code',
+      label: t(
+        'module.operationsCreditNotifications.templateManagement.emailFields.code',
+      ),
+      value: editingTemplate?.template_code || '',
+    },
+    {
+      name: 'locale',
+      label: t(
+        'module.operationsCreditNotifications.templateManagement.emailFields.locale',
+      ),
+      value: editingTemplate?.locale || 'en-US',
+    },
+    {
+      name: 'email_subject',
+      label: t(
+        'module.operationsCreditNotifications.templateManagement.emailFields.subject',
+      ),
+      value: editingTemplate?.email_subject || '',
+    },
+  ];
+  const emailBodyFields = [
+    {
+      name: 'template_content',
+      label: t(
+        'module.operationsCreditNotifications.templateManagement.emailFields.plainBody',
+      ),
+      value: editingTemplate?.template_content || '',
+    },
+    {
+      name: 'email_html_body',
+      label: t(
+        'module.operationsCreditNotifications.templateManagement.emailFields.htmlBody',
+      ),
+      value: editingTemplate?.email_html_body || '',
+    },
+  ];
 
   return (
     <div className='space-y-4 pb-6'>
       <div className='flex flex-wrap items-end justify-between gap-3'>
         <div>
-          <h2 className='text-base font-semibold'>
-            {t(
-              'module.operationsCreditNotifications.templateManagement.smsTitle',
-            )}
-          </h2>
+          <h2 className='text-base font-semibold'>{templateTitle}</h2>
           <p className='mt-1 text-sm text-muted-foreground'>
-            {t(
-              'module.operationsCreditNotifications.templateManagement.smsDescription',
-            )}
+            {templateDescription}
           </p>
         </div>
-        <Button
-          type='button'
-          variant='outline'
-          onClick={() => void refresh()}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-          />
-          {t('module.operationsCreditNotifications.templateManagement.refresh')}
-        </Button>
+        <div className='flex gap-2'>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            {contactMode !== 'email' ? (
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+              />
+            ) : null}
+            {refreshLabel}
+          </Button>
+          {contactMode === 'email' ? (
+            <Button
+              type='button'
+              onClick={() =>
+                openEmailTemplate({
+                  channel: 'email',
+                  provider: 'smtp',
+                  template_code: '',
+                  template_name: '',
+                  template_content: '',
+                  email_subject: '',
+                  email_html_body: '',
+                  locale: 'en-US',
+                  template_status: 'draft',
+                  template_type: 'email',
+                  sync_status: 'local',
+                  error_code: '',
+                  error_message: '',
+                  last_synced_at: '',
+                  source: 'local',
+                })
+              }
+            >
+              <Plus className='mr-2 h-4 w-4' />
+              {t(
+                'module.operationsCreditNotifications.templateManagement.create',
+              )}
+            </Button>
+          ) : null}
+        </div>
       </div>
       <div className='flex flex-wrap gap-3'>
         <div className='relative min-w-64 flex-1'>
@@ -414,6 +505,17 @@ export function CreditNotificationTemplateManagementTab({
                           onDetailOpened();
                         },
                       },
+                      ...(contactMode === 'email'
+                        ? [
+                            {
+                              key: 'edit',
+                              label: t(
+                                'module.operationsCreditNotifications.ruleManagement.edit',
+                              ),
+                              onClick: () => openEmailTemplate(row),
+                            },
+                          ]
+                        : []),
                     ]}
                   />
                 </div>
@@ -527,6 +629,120 @@ export function CreditNotificationTemplateManagementTab({
                 </div>
               ) : null}
             </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+      <Sheet
+        open={Boolean(editingTemplate)}
+        onOpenChange={open => {
+          if (!open && !savingEmailTemplate) setEditingTemplate(null);
+        }}
+      >
+        <SheetContent className='w-full overflow-auto bg-white sm:max-w-xl'>
+          <SheetHeader>
+            <SheetTitle>
+              {t(
+                'module.operationsCreditNotifications.templateManagement.emailTitle',
+              )}
+            </SheetTitle>
+            <SheetDescription>
+              {t(
+                'module.operationsCreditNotifications.templateManagement.emailDescription',
+              )}
+            </SheetDescription>
+          </SheetHeader>
+          {editingTemplate ? (
+            <form
+              className='mt-6 space-y-4'
+              onSubmit={event => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const payload = Object.fromEntries(form.entries()) as Record<
+                  string,
+                  string
+                >;
+                payload.template_status = emailTemplateStatus;
+                setSavingEmailTemplate(true);
+                void saveEmailTemplate(
+                  payload,
+                  editingTemplate.notification_template_bid,
+                )
+                  .then(() => setEditingTemplate(null))
+                  .catch(() => {
+                    toast({
+                      title: t(
+                        'module.operationsCreditNotifications.templateManagement.emailSaveError',
+                      ),
+                      variant: 'destructive',
+                    });
+                  })
+                  .finally(() => setSavingEmailTemplate(false));
+              }}
+            >
+              {emailInputFields.map(({ name, label, value }) => (
+                <div key={name}>
+                  <Label htmlFor={`email-template-${name}`}>{label}</Label>
+                  <Input
+                    id={`email-template-${name}`}
+                    name={name}
+                    defaultValue={value}
+                    disabled={
+                      name === 'template_code' &&
+                      Boolean(editingTemplate.notification_template_bid)
+                    }
+                    required
+                  />
+                </div>
+              ))}
+              {emailBodyFields.map(({ name, label, value }) => (
+                <div key={name}>
+                  <Label htmlFor={`email-template-${name}`}>{label}</Label>
+                  <Textarea
+                    id={`email-template-${name}`}
+                    name={name}
+                    defaultValue={value}
+                    required
+                    rows={6}
+                  />
+                </div>
+              ))}
+              <div>
+                <Label htmlFor='email-template-status'>
+                  {t(
+                    'module.operationsCreditNotifications.templateManagement.emailFields.status',
+                  )}
+                </Label>
+                <Select
+                  value={emailTemplateStatus}
+                  onValueChange={setEmailTemplateStatus}
+                >
+                  <SelectTrigger
+                    id='email-template-status'
+                    className='mt-2 bg-white'
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='draft'>
+                      {t(
+                        'module.operationsCreditNotifications.templateManagement.emailStatus.draft',
+                      )}
+                    </SelectItem>
+                    <SelectItem value='active'>
+                      {t(
+                        'module.operationsCreditNotifications.templateManagement.emailStatus.active',
+                      )}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type='submit'
+                disabled={savingEmailTemplate}
+              >
+                {t('common.core.save')}
+              </Button>
+            </form>
           ) : null}
         </SheetContent>
       </Sheet>

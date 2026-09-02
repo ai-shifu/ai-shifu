@@ -484,6 +484,7 @@
       "status": "审核状态",
       "type": "模板类型"
     },
+    "create": "新建模板",
     "detail": {
       "code": "模板 Code",
       "content": "完整内容",
@@ -494,12 +495,27 @@
       "variables": "变量"
     },
     "detailDescription": "查看供应商模板详情及当前业务使用情况。",
-    "emailComingSoon": "邮件发送供应商配置完成后，将在此管理邮件模板。",
+    "emailDescription": "管理可供海外通知规则使用的 SMTP 邮件模板。",
+    "emailFields": {
+      "code": "模板 Code",
+      "htmlBody": "HTML 正文",
+      "locale": "语言",
+      "name": "模板名称",
+      "plainBody": "纯文本正文",
+      "status": "模板状态",
+      "subject": "邮件主题"
+    },
+    "emailSaveError": "邮件模板保存失败，请稍后重试。",
+    "emailStatus": {
+      "active": "已启用",
+      "draft": "草稿"
+    },
     "emailTitle": "邮件模板",
     "empty": "没有符合当前筛选条件的模板。",
     "loadError": "无法加载阿里云模板列表；如有本地缓存，将继续展示缓存模板。",
     "loading": "正在加载模板...",
     "refresh": "同步阿里云短信模板",
+    "reload": "重新加载模板",
     "searchPlaceholder": "搜索模板名称、Code 或内容",
     "smsDescription": "展示从阿里云同步的全部短信模板，包括尚未绑定积分通知的模板。",
     "smsTitle": "阿里云短信模板",

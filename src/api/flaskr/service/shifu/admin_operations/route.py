@@ -78,9 +78,11 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     get_operator_credit_notification_config,
     get_operator_credit_notification_detail,
     get_operator_credit_notification_overview,
+    list_operator_credit_notification_email_templates,
     list_operator_credit_notification_templates,
     list_operator_credit_notifications,
     requeue_operator_credit_notification,
+    save_operator_credit_notification_email_template,
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
 )
@@ -1067,6 +1069,57 @@ def register_admin_operations_routes(
         """List SMS templates for operator credit notification config."""
         _require_operator()
         return make_common_response(list_operator_credit_notification_templates(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/email-templates",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notification_email_templates() -> str:
+        """List operator-managed notification email templates."""
+        _require_operator()
+        return make_common_response(
+            list_operator_credit_notification_email_templates(app)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/email-templates",
+        methods=["POST"],
+    )
+    def admin_operation_create_credit_notification_email_template() -> str:
+        """Create an operator-managed notification email template."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_email_template")
+        return make_common_response(
+            save_operator_credit_notification_email_template(
+                app,
+                payload=payload,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/credit-notifications/email-templates/<notification_template_bid>",
+        methods=["PUT"],
+    )
+    def admin_operation_update_credit_notification_email_template(
+        notification_template_bid: str,
+    ) -> str:
+        """Update an operator-managed notification email template."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_email_template")
+        return make_common_response(
+            save_operator_credit_notification_email_template(
+                app,
+                payload=payload,
+                notification_template_bid=notification_template_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
 
     @app.route(
         path_prefix + "/admin/operations/credit-notifications/dry-run",
