@@ -270,6 +270,21 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
     assert unavailable_result.outline_items[1].follow_up_mode == "disabled"
     assert unavailable_result.outline_items[2].follow_up_mode == "disabled"
 
+    live_availability["enabled"] = True
+    with app.app_context():
+        stored_course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        stored_course.ask_enabled_status = 5102
+        db.session.commit()
+
+    course_disabled_result = get_outline_item_tree(
+        app, shifu_bid, "teacher-1", preview_mode=True
+    )
+
+    assert course_disabled_result.outline_items[0].follow_up_mode == "text"
+    assert course_disabled_result.outline_items[0].children[0].follow_up_mode == "text"
+    assert course_disabled_result.outline_items[1].follow_up_mode == "disabled"
+    assert course_disabled_result.outline_items[2].follow_up_mode == "disabled"
+
 
 def test_get_outline_item_tree_never_infers_live_mode_from_primary_model(
     app: object,
