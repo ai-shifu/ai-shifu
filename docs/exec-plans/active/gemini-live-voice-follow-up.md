@@ -56,9 +56,10 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
       or discovered bidirectional capability is unavailable, and Cook Web
       hides new read/listen entries without exposing a text fallback while
       retaining persisted transcript history.
-- [x] 2026-09-02 12:58 CST: Aligned the learner presentation with effective
-      lesson settings: an outline that explicitly disables follow-up now
-      resolves to `disabled` before inheriting any course-level Live model.
+- [x] 2026-09-02 13:08 CST: Aligned learner presentation with effective
+      settings: an explicit outline disable resolves to `disabled`; without a
+      nearer outline override, a course-level disable does too, before any
+      inherited Live model is presented.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and
