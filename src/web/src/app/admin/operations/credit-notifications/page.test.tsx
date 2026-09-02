@@ -1055,6 +1055,90 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
   });
 
+  it('only offers approved and synced Aliyun SMS templates when editing a rule', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: false,
+          conditions: {},
+        },
+      ],
+    });
+    mockGetTemplates.mockResolvedValueOnce({
+      items: [
+        {
+          channel: 'sms',
+          provider: 'aliyun',
+          template_code: 'TPL-GRANT',
+          template_name: 'Grant',
+          template_content: 'Credits ${credits}',
+          template_status: 'AUDIT_STATE_PASS',
+          template_type: '0',
+          sync_status: 'synced',
+          error_code: '',
+          error_message: '',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'provider',
+        },
+        {
+          channel: 'sms',
+          provider: 'aliyun',
+          template_code: 'TPL-FAILED',
+          template_name: 'Failed sync',
+          template_content: 'Credits ${credits}',
+          template_status: 'AUDIT_STATE_PASS',
+          template_type: '0',
+          sync_status: 'failed_provider',
+          error_code: 'provider_exception',
+          error_message: 'provider_exception',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'local',
+        },
+        {
+          channel: 'sms',
+          provider: 'aliyun',
+          template_code: 'TPL-PENDING',
+          template_name: 'Pending',
+          template_content: 'Credits ${credits}',
+          template_status: 'AUDIT_STATE_INIT',
+          template_type: '0',
+          sync_status: 'synced',
+          error_code: '',
+          error_message: '',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'provider',
+        },
+      ],
+      source: 'provider',
+      provider_available: true,
+      error_code: '',
+      error_message: '',
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    const templateSelect = within(dialog).getAllByRole('combobox')[1];
+    fireEvent.click(templateSelect);
+
+    expect(
+      await screen.findByRole('option', { name: 'Grant' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'Pending' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'Failed sync' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('preserves legacy type settings as rules when the API has no rules field', async () => {
     mockGetConfig.mockResolvedValueOnce({
       enabled: true,

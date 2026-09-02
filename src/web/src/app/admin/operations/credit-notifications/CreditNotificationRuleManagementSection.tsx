@@ -38,6 +38,7 @@ import type {
   CreditNotificationThreshold,
 } from '../operation-credit-notification-types';
 import { CreditNotificationConfigOverviewTable } from './CreditNotificationConfigOverviewTable';
+import { CreditNotificationConfigSection } from './CreditNotificationFormPrimitives';
 import {
   type KnownNotificationType,
   NOTIFICATION_TYPES,
@@ -202,20 +203,22 @@ export function CreditNotificationRuleManagementSection({
 
   return (
     <>
-      <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
-        <p className='text-xs leading-5 text-muted-foreground'>
-          {t('module.operationsCreditNotifications.ruleManagement.description')}
-        </p>
-        <Button
-          type='button'
-          size='sm'
-          onClick={openNewRule}
-        >
-          <Plus className='mr-1.5 h-4 w-4' />
-          {t('module.operationsCreditNotifications.ruleManagement.newRule')}
-        </Button>
-      </div>
-      <div className='mt-4'>
+      <CreditNotificationConfigSection
+        title={t('module.operationsCreditNotifications.ruleManagement.title')}
+        description={t(
+          'module.operationsCreditNotifications.ruleManagement.description',
+        )}
+        action={
+          <Button
+            type='button'
+            size='sm'
+            onClick={openNewRule}
+          >
+            <Plus className='mr-1.5 h-4 w-4' />
+            {t('module.operationsCreditNotifications.ruleManagement.newRule')}
+          </Button>
+        }
+      >
         {rows.length ? (
           <CreditNotificationConfigOverviewTable
             columns={columns}
@@ -303,7 +306,7 @@ export function CreditNotificationRuleManagementSection({
             {t('module.operationsCreditNotifications.ruleManagement.empty')}
           </div>
         )}
-      </div>
+      </CreditNotificationConfigSection>
       <Dialog
         open={editingRule !== null}
         onOpenChange={open => !open && setEditingRule(null)}
@@ -433,11 +436,6 @@ function RuleEditor({
       ),
     );
   }, [rule.rule_bid, rule.trigger_event]); // eslint-disable-line react-hooks/exhaustive-deps -- Keep partially typed list input until blur.
-  const compatibleTemplates = templateOptions.filter(
-    option =>
-      !option.compatible_notification_types ||
-      option.compatible_notification_types.includes(rule.trigger_event),
-  );
   const fixedThresholds = (rule.conditions.thresholds || []).filter(
     (value): value is Extract<CreditNotificationThreshold, { kind: 'fixed' }> =>
       value.kind === 'fixed',
@@ -521,35 +519,11 @@ function RuleEditor({
           </SelectContent>
         </Select>
       </div>
-      <div>
-        <Label>
-          {t(
-            'module.operationsCreditNotifications.ruleManagement.fields.template',
-          )}
-        </Label>
-        <Select
-          value={rule.template_code}
-          onValueChange={template_code => update({ template_code })}
-        >
-          <SelectTrigger className='mt-1'>
-            <SelectValue
-              placeholder={t(
-                'module.operationsCreditNotifications.ruleManagement.selectTemplate',
-              )}
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {compatibleTemplates.map(template => (
-              <SelectItem
-                key={template.template_code}
-                value={template.template_code}
-              >
-                {template.template_name || template.template_code}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <RuleTemplateSelector
+        rule={rule}
+        templateOptions={templateOptions}
+        onChange={template_code => update({ template_code })}
+      />
       {rule.trigger_event === 'credit_expiring' ? (
         <div className='sm:col-span-2'>
           <Label htmlFor='notification-rule-windows'>
@@ -710,6 +684,59 @@ function RuleEditor({
           onCheckedChange={enabled => update({ enabled })}
         />
       </div>
+    </div>
+  );
+}
+
+function RuleTemplateSelector({
+  rule,
+  templateOptions,
+  onChange,
+}: {
+  rule: CreditNotificationRule;
+  templateOptions: AdminOperationCreditNotificationTemplateOption[];
+  onChange: (templateCode: string) => void;
+}) {
+  const { t } = useTranslation();
+  const compatibleTemplates = templateOptions.filter(
+    option =>
+      option.channel === 'sms' &&
+      option.provider === 'aliyun' &&
+      option.sync_status === 'synced' &&
+      option.template_status === 'AUDIT_STATE_PASS' &&
+      (!option.compatible_notification_types ||
+        option.compatible_notification_types.includes(rule.trigger_event)),
+  );
+
+  return (
+    <div>
+      <Label>
+        {t(
+          'module.operationsCreditNotifications.ruleManagement.fields.template',
+        )}
+      </Label>
+      <Select
+        value={rule.template_code}
+        onValueChange={onChange}
+      >
+        <SelectTrigger className='mt-1'>
+          <SelectValue
+            placeholder={t(
+              'module.operationsCreditNotifications.ruleManagement.selectTemplate',
+            )}
+          />
+        </SelectTrigger>
+        <SelectContent>
+          {compatibleTemplates.map(template => (
+            <SelectItem
+              key={template.template_code}
+              value={template.template_code}
+            >
+              {template.template_name || template.template_code}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
