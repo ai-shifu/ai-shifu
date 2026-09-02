@@ -129,7 +129,7 @@ interface NewChatComponentsProps {
   lessonTitle?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
-  followUpMode?: 'text' | 'live_voice';
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
   onPurchased: () => void;
   chapterUpdate: ChapterUpdateHandler;
   updateSelectedLesson: LessonSelectionUpdater;
@@ -330,6 +330,7 @@ export const NewChatComponents = ({
     followUpMode,
     isClassroomMode,
   });
+  const isFollowUpUnavailable = followUpMode === 'disabled';
   const startLiveVoiceFollowUp = liveVoiceFollowUp.start;
   const promptContextKey = `${resolvedLessonId}:${
     isClassroomMode ? 'classroom' : isListenModeActive ? 'listen' : 'read'
@@ -573,8 +574,15 @@ export const NewChatComponents = ({
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
         askButtonMarkup,
+        followUpDisabled: isFollowUpUnavailable,
       }),
-    [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
+    [
+      askButtonMarkup,
+      isFollowUpUnavailable,
+      items,
+      mobileStyle,
+      scopedAskListByAnchorElementBid,
+    ],
   );
   const readModeItemsRef = useRef(readModeItems);
   readModeItemsRef.current = readModeItems;
@@ -1614,7 +1622,9 @@ export const NewChatComponents = ({
                               : undefined
                           }
                           readonly={item.readonly}
-                          disableAskButton={isInteractionFollowUp}
+                          disableAskButton={
+                            isInteractionFollowUp || isFollowUpUnavailable
+                          }
                           onRefresh={onRefresh}
                           onToggleAskExpanded={handleClickAskButton}
                           askButtonVariant={

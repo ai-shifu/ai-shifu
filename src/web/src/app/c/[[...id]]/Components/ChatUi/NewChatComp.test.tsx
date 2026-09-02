@@ -103,6 +103,37 @@ describe('NewChatComp mode projections', () => {
         isClassroomMode: true,
       }),
     ).toEqual({ configured: false, supported: false });
+
+    const unavailableLiveAvailability = resolveLiveVoiceFollowUpAvailability({
+      followUpMode: 'disabled',
+      isClassroomMode: false,
+    });
+    expect(unavailableLiveAvailability).toEqual({
+      configured: true,
+      supported: false,
+    });
+    expect(resolveFollowUpPresentationMode(unavailableLiveAvailability)).toBe(
+      'disabled',
+    );
+  });
+
+  it('removes the read-mode follow-up entry when Live is unavailable', () => {
+    const readItems = projectReadModeItems({
+      items: [
+        {
+          element_bid: 'content-1',
+          content: `Lesson content${askButtonMarkup}`,
+          isHistory: true,
+          type: ChatContentItemType.CONTENT,
+        },
+      ],
+      askListByAnchorElementBid: {},
+      mobileStyle: true,
+      askButtonMarkup,
+      followUpDisabled: true,
+    });
+
+    expect(readItems[0].content).toBe('Lesson content');
   });
 
   it('shows only persisted Live follow-up history rows', () => {

@@ -2,13 +2,13 @@ export const resolveLiveVoiceFollowUpAvailability = ({
   followUpMode,
   isClassroomMode,
 }: {
-  followUpMode: 'text' | 'live_voice';
+  followUpMode: 'text' | 'live_voice' | 'disabled';
   isClassroomMode: boolean;
 }) => {
-  const configured = followUpMode === 'live_voice';
+  const configured = followUpMode !== 'text';
   return {
     configured,
-    supported: configured && !isClassroomMode,
+    supported: followUpMode === 'live_voice' && !isClassroomMode,
   };
 };
 

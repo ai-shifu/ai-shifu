@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+import pytest
 from flaskr.dao import db
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, get_shifu_info
 from flaskr.service.learn.models import LearnProgressRecord
@@ -149,8 +150,15 @@ def test_get_outline_item_tree_preview_mode(app: object) -> None:
 
 def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
     app: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+
+    live_availability = {"enabled": True}
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.is_live_follow_up_model_available",
+        lambda model: live_availability["enabled"] and model == GEMINI_LIVE_MODEL_ID,
+    )
 
     shifu_bid = "shifu-live-follow-up-tree"
     with app.app_context():
@@ -234,6 +242,14 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
     assert result.outline_items[0].follow_up_mode == "text"
     assert result.outline_items[0].children[0].follow_up_mode == "text"
     assert result.outline_items[1].follow_up_mode == "live_voice"
+
+    live_availability["enabled"] = False
+    unavailable_result = get_outline_item_tree(
+        app, shifu_bid, "teacher-1", preview_mode=True
+    )
+
+    assert unavailable_result.outline_items[0].follow_up_mode == "text"
+    assert unavailable_result.outline_items[1].follow_up_mode == "disabled"
 
 
 def test_get_outline_item_tree_never_infers_live_mode_from_primary_model(

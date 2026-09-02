@@ -23,7 +23,7 @@ type LessonTreeApiLesson = {
   type: string;
   is_paid: boolean;
   has_content_update_for_current_user?: boolean;
-  follow_up_mode?: 'text' | 'live_voice';
+  follow_up_mode?: 'text' | 'live_voice' | 'disabled';
 };
 
 type LessonTreeApiCatalog = {
@@ -47,7 +47,7 @@ export type LessonTreeLesson = {
   type: string;
   is_paid: boolean;
   has_content_update_for_current_user?: boolean;
-  follow_up_mode: 'text' | 'live_voice';
+  follow_up_mode: 'text' | 'live_voice' | 'disabled';
   status_value: string;
   canLearning: boolean;
   user_input?: string;
@@ -260,7 +260,10 @@ export const useLessonTree = () => {
               has_content_update_for_current_user:
                 c.has_content_update_for_current_user,
               follow_up_mode:
-                c.follow_up_mode === 'live_voice' ? 'live_voice' : 'text',
+                c.follow_up_mode === 'live_voice' ||
+                c.follow_up_mode === 'disabled'
+                  ? c.follow_up_mode
+                  : 'text',
               status_value: c.status, // TODO: DELETE status_value
               canLearning: checkChapterCanLearning({ status_value: c.status }),
             };

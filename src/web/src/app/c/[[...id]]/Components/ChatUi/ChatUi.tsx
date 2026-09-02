@@ -46,7 +46,7 @@ interface ChatUiProps {
   lessonTitle?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
-  followUpMode?: 'text' | 'live_voice';
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
   onMobileSettingClick?: () => void;
   chapterUpdate: ChapterUpdateHandler;
