@@ -62,6 +62,9 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
       inherited Live model is presented.
 - [x] 2026-09-02 13:24 CST: Preserved a teacher's selected Gemini voice when
       temporarily switching the follow-up model to text and back to Live.
+- [x] 2026-09-02 13:25 CST: Replaced per-render-quantum playback queue shifts
+      with cursor-based consumption, per-turn sample accounting, and bounded
+      occasional compaction.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and

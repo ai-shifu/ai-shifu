@@ -6,6 +6,9 @@ type WorkletPort = {
 type WorkletProcessorInstance = {
   port: WorkletPort;
   process: (inputs: Float32Array[][], outputs: Float32Array[][]) => boolean;
+  samples?: number[];
+  turnIndexes?: number[];
+  readOffset?: number;
 };
 
 type WorkletProcessorConstructor = new () => WorkletProcessorInstance;
@@ -125,6 +128,28 @@ describe('Live follow-up AudioWorklet', () => {
     expect(processor.port.postMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'playback_complete' }),
     );
+  });
+
+  it('consumes buffered playback through a cursor without shifting the backlog', () => {
+    const PlaybackProcessor = processors['live-follow-up-playback'];
+    const processor = new PlaybackProcessor();
+    const pcm = new Int16Array(24000);
+    processor.port.onmessage?.({
+      data: { type: 'audio', buffer: pcm.buffer, turnIndex: 4 },
+    });
+
+    for (let index = 0; index < 15; index += 1) {
+      processor.process([], [[new Float32Array(128)]]);
+    }
+
+    expect(processor.readOffset).toBe(960);
+    expect(processor.samples).toHaveLength(24000);
+    expect(processor.turnIndexes).toHaveLength(24000);
+    expect(processor.port.postMessage).toHaveBeenCalledWith({
+      type: 'playback_progress',
+      turnIndex: 4,
+      playedBytes: 1920,
+    });
   });
 
   it('acknowledges a final progress flush after posting the checkpoint', () => {
