@@ -38,8 +38,10 @@ from .consts import (
     BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_NOTIFICATION_CHANNEL_EMAIL,
     CREDIT_NOTIFICATION_CHANNEL_SMS,
     CREDIT_NOTIFICATION_PROCESSABLE_STATUSES,
+    CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
     CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
     CREDIT_NOTIFICATION_STATUS_PENDING,
     CREDIT_NOTIFICATION_STATUS_SENT,
@@ -97,6 +99,10 @@ CREDIT_NOTIFICATION_SKIP_REASON_POLICY = "policy"
 CREDIT_NOTIFICATION_SKIP_REASON_STALE = "stale"
 CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS = "template_params"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_MISSING_CREDENTIALS = "missing_credentials"
+_SUPPORTED_NOTIFICATION_CHANNELS = {
+    CREDIT_NOTIFICATION_CHANNEL_SMS,
+    CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+}
 _TEMPLATE_PLACEHOLDER_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
     CREDIT_NOTIFICATION_TYPE_GRANTED: ("credits", "source", "expires_at"),
@@ -381,9 +387,11 @@ def _normalize_notification_rules(app: Flask, value: object) -> list[dict[str, o
             raise_param_error(f"rules.{index}.rule_bid")
         legacy = bool(rule.get("legacy") and rule_bid == f"legacy-{trigger_event}")
         channel = str(rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
-        if channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
+        if channel not in _SUPPORTED_NOTIFICATION_CHANNELS:
             raise_param_error(f"rules.{index}.channel")
         enabled = _coerce_bool(rule.get("enabled"))
+        if channel != CREDIT_NOTIFICATION_CHANNEL_SMS and enabled:
+            raise_param_error(f"rules.{index}.channel")
         template_code = str(rule.get("template_code") or "").strip()
         if enabled and not template_code:
             raise_param_error(f"rules.{index}.template_code")
@@ -435,9 +443,9 @@ def _validate_policy_for_save(
 ) -> dict[str, object]:
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, payload)
     channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
-    if channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
+    if channel not in _SUPPORTED_NOTIFICATION_CHANNELS:
         raise_param_error("channel")
-    policy["channel"] = CREDIT_NOTIFICATION_CHANNEL_SMS
+    policy["channel"] = channel
     policy["enabled"] = _coerce_bool(policy.get("enabled"))
     if "rules" in payload:
         policy["rules"] = _normalize_notification_rules(app, payload["rules"])
@@ -538,7 +546,12 @@ def load_credit_notification_policy() -> dict[str, object]:
             parsed = candidate
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, parsed)
     policy["enabled"] = _coerce_bool(policy.get("enabled"))
-    policy["channel"] = CREDIT_NOTIFICATION_CHANNEL_SMS
+    channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
+    policy["channel"] = (
+        channel
+        if channel in _SUPPORTED_NOTIFICATION_CHANNELS
+        else CREDIT_NOTIFICATION_CHANNEL_SMS
+    )
     type_policies = policy.get("types")
     if not isinstance(type_policies, dict):
         type_policies = {}
@@ -1707,9 +1720,13 @@ def _stage_notification_record(
     notification = NotificationRecord(
         notification_bid=generate_id(app),
         notification_type=notification_type,
-        channel=CREDIT_NOTIFICATION_CHANNEL_SMS,
+        channel=str(
+            resolved_rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS
+        ).strip(),
         creator_bid=normalized_creator_bid,
         target_user_bid=normalized_creator_bid,
+        recipient_type=CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
+        recipient_snapshot=mobile,
         mobile_snapshot=mobile,
         source_type=source_type,
         source_bid=normalized_source_bid,
@@ -3096,6 +3113,11 @@ def _finalize_notification(
 ) -> None:
     notification.status = status
     notification.mobile_snapshot = mobile or notification.mobile_snapshot or ""
+    if notification.channel == CREDIT_NOTIFICATION_CHANNEL_SMS:
+        notification.recipient_type = CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE
+        notification.recipient_snapshot = (
+            mobile or notification.recipient_snapshot or notification.mobile_snapshot
+        )
     notification.attempted_at = now
     if status == CREDIT_NOTIFICATION_STATUS_SENT:
         notification.sent_at = now
@@ -3169,6 +3191,20 @@ def deliver_credit_notification(
             )
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                "notification_bid": notification.notification_bid,
+                "notification_status": notification.status,
+            }
+
+        if notification.channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
+            _finalize_notification(
+                notification,
+                status=CREDIT_NOTIFICATION_STATUS_SKIPPED,
+                now=now,
+                error_code="unsupported_channel",
+                error_message="Notification channel is not available.",
+            )
+            return {
+                "status": CREDIT_NOTIFICATION_STATUS_SKIPPED,
                 "notification_bid": notification.notification_bid,
                 "notification_status": notification.status,
             }
@@ -3809,6 +3845,9 @@ def _serialize_notification_record_summary(
         "creator_bid": row.creator_bid,
         "creator_nickname": creator_nickname,
         "target_user_bid": row.target_user_bid,
+        "recipient_type": row.recipient_type
+        or CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
+        "recipient_snapshot": row.recipient_snapshot or row.mobile_snapshot,
         "mobile_snapshot": row.mobile_snapshot,
         "source_type": row.source_type,
         "source_bid": row.source_bid,
@@ -3844,6 +3883,9 @@ def _serialize_notification_record(
         "creator_bid": row.creator_bid,
         "creator_nickname": creator_nickname,
         "target_user_bid": row.target_user_bid,
+        "recipient_type": row.recipient_type
+        or CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
+        "recipient_snapshot": row.recipient_snapshot or row.mobile_snapshot,
         "mobile_snapshot": row.mobile_snapshot,
         "source_type": row.source_type,
         "source_bid": row.source_bid,

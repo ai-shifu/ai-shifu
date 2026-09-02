@@ -560,6 +560,75 @@ def test_credit_granted_notification_stages_once_and_delivers_sms(
         ).one()
         assert notification.status == CREDIT_NOTIFICATION_STATUS_SENT
         assert notification.mobile_snapshot == "13800000000"
+        assert notification.recipient_type == "mobile"
+        assert notification.recipient_snapshot == "13800000000"
+
+
+def test_credit_notification_skips_unsupported_channel_without_sending_sms(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        lambda *_args, **_kwargs: pytest.fail("email notification must not send SMS"),
+    )
+    monkeypatch.setattr(
+        credit_notifications,
+        "load_credit_notification_policy",
+        lambda: {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "email-rule",
+                    "enabled": True,
+                    "channel": "email",
+                }
+            ],
+        },
+    )
+    with app.app_context():
+        dao.db.session.add(
+            NotificationRecord(
+                notification_bid="notification-unsupported-channel",
+                notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+                channel="email",
+                creator_bid="creator-1",
+                target_user_bid="creator-1",
+                recipient_type="email",
+                recipient_snapshot="creator@example.com",
+                mobile_snapshot="",
+                source_type="ledger",
+                source_bid="ledger-email",
+                dedupe_key="credit_granted:ledger-email",
+                status=CREDIT_NOTIFICATION_STATUS_PENDING,
+                template_code="EMAIL-GRANT",
+                template_params_json={},
+                policy_snapshot_json={
+                    "matched_rule": {"rule_bid": "email-rule", "channel": "email"}
+                },
+                provider_response_json={},
+                error_code="",
+                error_message="",
+                requested_at=datetime(2026, 5, 21, 8, 0, 0),
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    delivered = deliver_credit_notification(
+        app,
+        notification_bid="notification-unsupported-channel",
+    )
+
+    assert delivered["status"] == "skipped"
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid="notification-unsupported-channel"
+        ).one()
+        assert notification.status == "skipped"
+        assert notification.error_code == "unsupported_channel"
 
 
 def test_credit_notification_policy_blocks_creator_by_email_identifier(
@@ -701,6 +770,56 @@ def test_credit_notification_policy_rejects_invalid_windows(
                         "windows": ["soon"],
                     }
                 },
+            },
+        )
+
+
+def test_credit_notification_policy_allows_disabled_email_rule(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+
+    policy = save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "email-grant",
+                    "name": "Email grant",
+                    "trigger_event": "credit_granted",
+                    "channel": "email",
+                    "template_code": "",
+                    "enabled": False,
+                    "conditions": {},
+                }
+            ],
+        },
+    )
+
+    assert policy["rules"] == [
+        {
+            "rule_bid": "email-grant",
+            "name": "Email grant",
+            "trigger_event": "credit_granted",
+            "channel": "email",
+            "template_code": "",
+            "enabled": False,
+            "conditions": {},
+        }
+    ]
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        **policy["rules"][0],
+                        "enabled": True,
+                    }
+                ],
             },
         )
 
