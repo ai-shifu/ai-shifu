@@ -102,6 +102,13 @@ describe('useAuth login analytics contract', () => {
     expect(mockTrackEvent.mock.invocationCallOrder[0]).toBeLessThan(
       mockSmsLogin.mock.invocationCallOrder[0],
     );
+    expect(mockSmsLogin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mobile: '13800138000',
+        sms_code: '123456',
+      }),
+      { skipErrorToast: true },
+    );
     expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_result', {
       login_method: 'sms',
       outcome: 'success',
@@ -275,6 +282,7 @@ describe('useAuth login analytics contract', () => {
         language: 'en-US',
         ...referralMetadata,
       }),
+      { skipErrorToast: true },
     );
     expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_attempt', {
       login_method: 'email',
@@ -314,6 +322,14 @@ describe('useAuth login analytics contract', () => {
         outcome: 'failed',
         failure_category: 'credentials_rejected',
       });
+      expect(mockEmailLogin).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'private@example.com',
+          code: '0000',
+        }),
+        { skipErrorToast: true },
+      );
+      expect(mockToast).toHaveBeenCalledTimes(1);
       expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
         'private email verification detail',
       );
