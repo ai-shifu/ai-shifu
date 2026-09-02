@@ -56,6 +56,9 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
       or discovered bidirectional capability is unavailable, and Cook Web
       hides new read/listen entries without exposing a text fallback while
       retaining persisted transcript history.
+- [x] 2026-09-02 12:58 CST: Aligned the learner presentation with effective
+      lesson settings: an outline that explicitly disables follow-up now
+      resolves to `disabled` before inheriting any course-level Live model.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and
@@ -503,7 +506,7 @@ The follow-up model catalog returns these stable fields for every option:
 `interaction_mode`, `allowed_roles`, and `billing_mode`. A Live option also
 returns `voices: [{voice_id, style}]`. Course settings store
 `ask_provider_config.config.live_voice`; lesson nodes return resolved
-`follow_up_mode: text | live_voice`.
+`follow_up_mode: text | live_voice | disabled`.
 
 `POST /api/learn/shifu/{shifu_bid}/live-follow-up/{outline_bid}/session`
 returns a stable `session_bid`, same-origin WebSocket path, and expiry while

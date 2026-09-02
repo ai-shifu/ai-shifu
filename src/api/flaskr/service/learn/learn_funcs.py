@@ -77,6 +77,7 @@ from flaskr.service.order.consts import (
 from flaskr.service.order.models import BannerInfo, Order
 from flaskr.service.shifu.consts import (
     ASK_MODE_DEFAULT,
+    ASK_MODE_DISABLE,
     UNIT_TYPE_VALUE_GUEST,
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_TRIAL,
@@ -376,6 +377,8 @@ def get_outline_item_tree(
                 configured_item = outline_items_db_map.get(path_item.id)
                 if not configured_item:
                     continue
+                if configured_item.ask_enabled_status == ASK_MODE_DISABLE:
+                    return "disabled"
                 if configured_item.ask_enabled_status != ASK_MODE_DEFAULT:
                     effective_model = configured_item.ask_llm or course_follow_up_model
                     break
