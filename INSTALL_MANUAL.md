@@ -106,13 +106,14 @@ tickets and capacity leases, and then set:
 GEMINI_LIVE_ENABLED=true
 ```
 
-Production ingress must preserve WebSocket `Upgrade` and `Connection` headers,
-allow at least 75 seconds of idle read/write time, and use HTTPS so the
-microphone and Secure session cookie are available. It must expose both the
-Live session POST and WebSocket path through the Cook Web browser origin; the
-strict, exact-path HttpOnly ticket is intentionally never sent through a
-cross-site browser connection. Disable the flag to roll back Live without
-changing courses that use text follow-up models.
+Production ingress must preserve the original `Host` authority, including any
+non-default port, together with `X-Forwarded-Proto`, WebSocket `Upgrade`, and
+`Connection` headers. It must allow at least 75 seconds of idle read/write time
+and use HTTPS so the microphone and Secure session cookie are available. It
+must expose both the Live session POST and WebSocket path through the Cook Web
+browser origin; the strict, exact-path HttpOnly ticket is intentionally never
+sent through a cross-site browser connection. Disable the flag to roll back
+Live without changing courses that use text follow-up models.
 
 ### Step 4: Build Latest Docker Images & Start the Stack
 

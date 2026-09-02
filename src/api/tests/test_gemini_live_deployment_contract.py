@@ -10,6 +10,12 @@ def _read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
+def _nginx_location(source: str, marker: str) -> str:
+    location_start = source.index(marker)
+    location_end = source.index("\n        }", location_start)
+    return source[location_start:location_end]
+
+
 def test_gunicorn_defaults_use_four_gthread_workers_with_sixteen_threads() -> None:
     tree = ast.parse(_read("src/api/gunicorn.conf.py"))
     assignments: dict[str, object] = {}
@@ -55,9 +61,9 @@ def test_every_versioned_api_startup_uses_the_live_safe_worker_shape() -> None:
 def test_nginx_live_route_preserves_upgrade_and_idle_timeout() -> None:
     for relative_path in ("docker/nginx.conf", "docker/nginx.dev.conf"):
         source = _read(relative_path)
-        location_start = source.index("location ^~ /api/learn/live-follow-up/ws/ {")
-        location_end = source.index("\n        }", location_start)
-        location = source[location_start:location_end]
+        location = _nginx_location(
+            source, "location ^~ /api/learn/live-follow-up/ws/ {"
+        )
 
         assert "proxy_http_version 1.1;" in location
         assert "proxy_set_header Upgrade $http_upgrade;" in location
@@ -66,6 +72,24 @@ def test_nginx_live_route_preserves_upgrade_and_idle_timeout() -> None:
         assert "proxy_request_buffering off;" in location
         assert "proxy_read_timeout 75s;" in location
         assert "proxy_send_timeout 75s;" in location
+
+
+def test_nginx_live_transport_preserves_non_default_port_in_host() -> None:
+    for relative_path in ("docker/nginx.conf", "docker/nginx.dev.conf"):
+        source = _read(relative_path)
+        assert (
+            "map $http_host $ai_shifu_request_host {\n"
+            "        default $http_host;\n"
+            '        "" $host;\n'
+            "    }"
+        ) in source
+        for marker in (
+            "location ^~ /api/learn/live-follow-up/ws/ {",
+            "location  /api/{",
+        ):
+            location = _nginx_location(source, marker)
+            assert "proxy_set_header Host $ai_shifu_request_host;" in location
+            assert "proxy_set_header Host $host;" not in location
 
 
 def test_live_server_dependencies_are_exactly_pinned() -> None:

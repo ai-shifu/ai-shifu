@@ -250,7 +250,7 @@ def test_session_endpoint_rejects_missing_or_untrusted_origin(
         _session_post(app, payload=_valid_payload(), origin=origin)
 
 
-def test_session_endpoint_ignores_spoofed_forwarded_host(
+def test_session_endpoint_ignores_spoofed_forwarded_authority(
     monkeypatch: object,
 ) -> None:
     app = _route_app(monkeypatch)
@@ -263,11 +263,47 @@ def test_session_endpoint_ignores_spoofed_forwarded_host(
             json=_valid_payload(),
             headers={
                 "Origin": "https://attacker.example.com",
-                "X-Forwarded-Host": "attacker.example.com",
+                "X-Forwarded-Host": "attacker.example.com:8443",
+                "X-Forwarded-Port": "8443",
                 "X-Forwarded-Proto": "https",
             },
             base_url="https://learn.example.com",
         )
+
+
+def test_session_endpoint_preserves_same_origin_non_default_port(
+    monkeypatch: object,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    issued = IssuedLiveFollowUpTicket(
+        token="raw-secret-ticket",
+        expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+    )
+    captured: dict[str, object] = {}
+
+    def issue_ticket(
+        _app: object,
+        *,
+        binding: LiveFollowUpTicketBinding,
+    ) -> IssuedLiveFollowUpTicket:
+        captured["binding"] = binding
+        return issued
+
+    monkeypatch.setattr(routes, "issue_live_follow_up_ticket", issue_ticket)
+
+    response = app.test_client().post(
+        "/api/learn/shifu/course-1/live-follow-up/chapter-1/session",
+        json=_valid_payload(),
+        headers={
+            "Origin": "https://learn.example.com:8443",
+            "X-Forwarded-Proto": "https",
+        },
+        base_url="http://learn.example.com:8443",
+    )
+
+    assert response.status_code == 200
+    assert captured["binding"] == _binding(origin="https://learn.example.com:8443")
 
 
 @pytest.mark.parametrize(
