@@ -349,6 +349,13 @@ describe('useAuth login analytics contract', () => {
     });
 
     expect(sendResult).toEqual({ rateLimited: true });
+    expect(mockSendEmailCode).toHaveBeenCalledWith(
+      {
+        email: 'private@example.com',
+        language: 'zh-CN',
+      },
+      { skipErrorToast: true },
+    );
     expect(mockToast).not.toHaveBeenCalled();
   });
 
@@ -368,6 +375,14 @@ describe('useAuth login analytics contract', () => {
     });
 
     expect(sendResult).toEqual({ rateLimited: true });
+    expect(mockSendSmsCode).toHaveBeenCalledWith(
+      {
+        mobile: '13800138000',
+        captcha_ticket: 'captcha-ticket',
+        language: 'zh-CN',
+      },
+      { skipErrorToast: true },
+    );
     expect(mockToast).not.toHaveBeenCalled();
   });
 });

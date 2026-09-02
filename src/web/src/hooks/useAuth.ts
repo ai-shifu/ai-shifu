@@ -304,21 +304,27 @@ export function useAuth(options: UseAuthOptions = {}) {
   const sendSmsCode = async (mobile: string, captchaTicket: string) =>
     sendVerificationCode(
       () =>
-        apiService.sendSmsCode({
-          mobile,
-          captcha_ticket: captchaTicket,
-          language: i18n.language,
-        }),
+        apiService.sendSmsCode(
+          {
+            mobile,
+            captcha_ticket: captchaTicket,
+            language: i18n.language,
+          },
+          { skipErrorToast: true },
+        ),
       SMS_SEND_TOO_FREQUENT_CODE,
     );
 
   const sendEmailCode = async (email: string) =>
     sendVerificationCode(
       () =>
-        apiService.sendEmailCode({
-          email,
-          language: i18n.language,
-        }),
+        apiService.sendEmailCode(
+          {
+            email,
+            language: i18n.language,
+          },
+          { skipErrorToast: true },
+        ),
       EMAIL_SEND_TOO_FREQUENT_CODE,
     );
 

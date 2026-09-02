@@ -136,11 +136,14 @@ describe('PhoneLogin captcha flow', () => {
         language: 'en-US',
       }),
     );
-    expect(apiService.sendSmsCode).toHaveBeenCalledWith({
-      mobile: '13800138000',
-      captcha_ticket: 'captcha-ticket',
-      language: 'en-US',
-    });
+    expect(apiService.sendSmsCode).toHaveBeenCalledWith(
+      {
+        mobile: '13800138000',
+        captcha_ticket: 'captcha-ticket',
+        language: 'en-US',
+      },
+      { skipErrorToast: true },
+    );
   });
 
   test('refreshes captcha and clears input after verification failure', async () => {
@@ -193,11 +196,14 @@ describe('PhoneLogin captcha flow', () => {
     );
 
     await waitFor(() =>
-      expect(apiService.sendSmsCode).toHaveBeenCalledWith({
-        mobile: '13800138000',
-        captcha_ticket: 'captcha-ticket',
-        language: 'en-US',
-      }),
+      expect(apiService.sendSmsCode).toHaveBeenCalledWith(
+        {
+          mobile: '13800138000',
+          captcha_ticket: 'captcha-ticket',
+          language: 'en-US',
+        },
+        { skipErrorToast: true },
+      ),
     );
     expect(screen.getByTestId('captcha-input')).toHaveValue('0000');
     expect(apiService.getCaptcha).toHaveBeenCalledTimes(1);
