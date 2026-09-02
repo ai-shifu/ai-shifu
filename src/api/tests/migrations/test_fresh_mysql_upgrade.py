@@ -168,6 +168,9 @@ def test_fresh_mysql_upgrade_reaches_head() -> None:
             ).scalar_one()
         inspector = inspect(engine)
         tables = set(inspector.get_table_names())
+        user_columns = {
+            column["name"]: column for column in inspector.get_columns("user_users")
+        }
         provider_price_indexes = {
             index["name"]: tuple(index["column_names"])
             for index in inspector.get_indexes("bill_product_provider_prices")
@@ -188,6 +191,7 @@ def test_fresh_mysql_upgrade_reaches_head() -> None:
             "learn_lesson_feedbacks",
             "bill_product_provider_prices",
         }.issubset(tables)
+        assert str(user_columns["avatar"]["type"]).upper() == "TEXT"
         assert provider_price_indexes[
             "ix_bill_product_provider_prices_product_status"
         ] == ("product_bid", "status")
