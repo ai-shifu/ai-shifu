@@ -497,8 +497,7 @@
     "detailDescription": "Détails du fournisseur et usages métier actuels de ce modèle.",
     "emailDescription": "Gérez les modèles d’e-mail SMTP disponibles pour les règles de notification internationales.",
     "emailFields": {
-      "code": "Code du modèle",
-      "htmlBody": "Corps HTML",
+      "htmlBody": "Corps de l’e-mail",
       "locale": "Langue",
       "name": "Nom du modèle",
       "plainBody": "Corps en texte brut",
