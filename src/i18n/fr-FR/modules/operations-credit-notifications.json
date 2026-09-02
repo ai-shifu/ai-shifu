@@ -484,6 +484,7 @@
       "status": "Statut de validation",
       "type": "Type de modèle"
     },
+    "create": "Créer un modèle",
     "detail": {
       "code": "Code du modèle",
       "content": "Contenu complet",
@@ -494,12 +495,27 @@
       "variables": "Variables"
     },
     "detailDescription": "Détails du fournisseur et usages métier actuels de ce modèle.",
-    "emailComingSoon": "La gestion des modèles d’e-mail sera disponible après la configuration du fournisseur d’envoi.",
+    "emailDescription": "Gérez les modèles d’e-mail SMTP disponibles pour les règles de notification internationales.",
+    "emailFields": {
+      "code": "Code du modèle",
+      "htmlBody": "Corps HTML",
+      "locale": "Langue",
+      "name": "Nom du modèle",
+      "plainBody": "Corps en texte brut",
+      "status": "Statut du modèle",
+      "subject": "Objet de l’e-mail"
+    },
+    "emailSaveError": "Le modèle d’e-mail n’a pas pu être enregistré. Réessayez plus tard.",
+    "emailStatus": {
+      "active": "Actif",
+      "draft": "Brouillon"
+    },
     "emailTitle": "Modèles d’e-mail",
     "empty": "Aucun modèle ne correspond aux filtres.",
     "loadError": "La liste Alibaba Cloud n’a pas pu être chargée. Les modèles en cache restent affichés.",
     "loading": "Chargement des modèles...",
     "refresh": "Synchroniser les modèles SMS Alibaba Cloud",
+    "reload": "Recharger les modèles",
     "searchPlaceholder": "Rechercher par nom, Code ou contenu",
     "smsDescription": "Tous les modèles SMS synchronisés depuis Alibaba Cloud, y compris ceux qui ne sont pas encore associés à une notification de crédits.",
     "smsTitle": "Modèles SMS Alibaba Cloud",

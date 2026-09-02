@@ -21,6 +21,7 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_NOTIFICATION_CHANNEL_EMAIL,
     CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
     CREDIT_NOTIFICATION_STATUS_PENDING,
     CREDIT_NOTIFICATION_STATUS_SENT,
@@ -43,6 +44,7 @@ from flaskr.service.billing.credit_notifications import (
     load_credit_notification_policy_for_operator,
     requeue_credit_notification,
     resolve_creator_limit_state,
+    save_credit_notification_email_template,
     save_credit_notification_policy,
     scan_credit_expiring_notifications,
     scan_low_balance_notifications,
@@ -564,7 +566,7 @@ def test_credit_granted_notification_stages_once_and_delivers_sms(
         assert notification.recipient_snapshot == "13800000000"
 
 
-def test_credit_notification_skips_unsupported_channel_without_sending_sms(
+def test_credit_notification_skips_unknown_channel_without_sending_sms(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -572,7 +574,7 @@ def test_credit_notification_skips_unsupported_channel_without_sending_sms(
     _seed_creator(app)
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda *_args, **_kwargs: pytest.fail("email notification must not send SMS"),
+        lambda *_args, **_kwargs: pytest.fail("unknown notification must not send SMS"),
     )
     monkeypatch.setattr(
         credit_notifications,
@@ -581,9 +583,9 @@ def test_credit_notification_skips_unsupported_channel_without_sending_sms(
             "enabled": True,
             "rules": [
                 {
-                    "rule_bid": "email-rule",
+                    "rule_bid": "unknown-rule",
                     "enabled": True,
-                    "channel": "email",
+                    "channel": "push",
                 }
             ],
         },
@@ -591,22 +593,22 @@ def test_credit_notification_skips_unsupported_channel_without_sending_sms(
     with app.app_context():
         dao.db.session.add(
             NotificationRecord(
-                notification_bid="notification-unsupported-channel",
+                notification_bid="notification-unknown-channel",
                 notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
-                channel="email",
+                channel="push",
                 creator_bid="creator-1",
                 target_user_bid="creator-1",
-                recipient_type="email",
-                recipient_snapshot="creator@example.com",
+                recipient_type="mobile",
+                recipient_snapshot="13800000000",
                 mobile_snapshot="",
                 source_type="ledger",
-                source_bid="ledger-email",
-                dedupe_key="credit_granted:ledger-email",
+                source_bid="ledger-unknown",
+                dedupe_key="credit_granted:ledger-unknown",
                 status=CREDIT_NOTIFICATION_STATUS_PENDING,
-                template_code="EMAIL-GRANT",
+                template_code="PUSH-GRANT",
                 template_params_json={},
                 policy_snapshot_json={
-                    "matched_rule": {"rule_bid": "email-rule", "channel": "email"}
+                    "matched_rule": {"rule_bid": "unknown-rule", "channel": "push"}
                 },
                 provider_response_json={},
                 error_code="",
@@ -619,42 +621,20 @@ def test_credit_notification_skips_unsupported_channel_without_sending_sms(
 
     delivered = deliver_credit_notification(
         app,
-        notification_bid="notification-unsupported-channel",
+        notification_bid="notification-unknown-channel",
     )
 
     assert delivered["status"] == "skipped"
     with app.app_context():
         notification = NotificationRecord.query.filter_by(
-            notification_bid="notification-unsupported-channel"
+            notification_bid="notification-unknown-channel"
         ).one()
         assert notification.status == "skipped"
         assert notification.error_code == "unsupported_channel"
     assert (
         get_credit_notification_detail(
             app,
-            notification_bid="notification-unsupported-channel",
-        )["skip_reason"]
-        == "channel"
-    )
-    assert (
-        list_credit_notifications(
-            app,
-            filters={"skip_reason": "channel"},
-        )["total"]
-        == 1
-    )
-    assert (
-        list_credit_notifications(
-            app,
-            filters={"skip_reason": "stale"},
-        )["total"]
-        == 0
-    )
-
-    assert (
-        get_credit_notification_detail(
-            app,
-            notification_bid="notification-unsupported-channel",
+            notification_bid="notification-unknown-channel",
         )["skip_reason"]
         == "channel"
     )
@@ -868,6 +848,128 @@ def test_credit_notification_policy_allows_disabled_email_rule(
                 ],
             },
         )
+
+
+def test_email_notification_delivery_uses_active_template_and_email_frequency(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    with app.app_context():
+        upsert_credential(
+            app,
+            user_bid="creator-1",
+            provider_name="email",
+            subject_id="teacher@example.com",
+            subject_format="email",
+            identifier="teacher@example.com",
+            metadata={},
+            verified=True,
+        )
+        dao.db.session.commit()
+
+    save_credit_notification_email_template(
+        app,
+        payload={
+            "template_code": "EMAIL-GRANT",
+            "template_name": "Credit granted",
+            "locale": "en-US",
+            "email_subject": "You received ${credits} credits",
+            "template_content": "Your credit balance is ${credits}.",
+            "email_html_body": "<p>Your credit balance is ${credits}.</p>",
+            "template_status": "active",
+        },
+    )
+    policy = save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "email-grant",
+                    "name": "Email credit granted",
+                    "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                    "channel": CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                    "template_code": "EMAIL-GRANT",
+                    "enabled": True,
+                    "conditions": {},
+                }
+            ],
+            "frequency": {
+                "per_mobile_per_day": 1,
+                "per_creator_per_type_per_day": 0,
+            },
+        },
+    )
+    sent_messages: list[dict[str, str]] = []
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_smtp_email",
+        lambda _app, *, recipient, subject, plain_body, html_body: (
+            sent_messages.append(
+                {
+                    "recipient": recipient,
+                    "subject": subject,
+                    "plain_body": plain_body,
+                    "html_body": html_body,
+                }
+            )
+            or {"provider": "smtp", "accepted": "true"}
+        ),
+    )
+
+    staged = credit_notifications._stage_notification_record(
+        app,
+        notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+        creator_bid="creator-1",
+        source_type=CREDIT_SOURCE_TYPE_MANUAL,
+        source_bid="email-grant-source-1",
+        dedupe_key="email-grant:1",
+        template_params={"credits": "12.50"},
+        policy=policy,
+        rule=policy["rules"][0],
+    )
+    first_delivery = deliver_credit_notification(
+        app,
+        notification_bid=staged.notification_bid,
+    )
+
+    second_staged = credit_notifications._stage_notification_record(
+        app,
+        notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+        creator_bid="creator-1",
+        source_type=CREDIT_SOURCE_TYPE_MANUAL,
+        source_bid="email-grant-source-2",
+        dedupe_key="email-grant:2",
+        template_params={"credits": "20.00"},
+        policy=policy,
+        rule=policy["rules"][0],
+    )
+    second_delivery = deliver_credit_notification(
+        app,
+        notification_bid=second_staged.notification_bid,
+    )
+
+    assert first_delivery["status"] == CREDIT_NOTIFICATION_STATUS_SENT
+    assert second_delivery["status"] == CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT
+    assert sent_messages == [
+        {
+            "recipient": "teacher@example.com",
+            "subject": "You received 12.50 credits",
+            "plain_body": "Your credit balance is 12.50.",
+            "html_body": "<p>Your credit balance is 12.50.</p>",
+        }
+    ]
+    with app.app_context():
+        first = NotificationRecord.query.filter_by(
+            notification_bid=staged.notification_bid
+        ).one()
+        second = NotificationRecord.query.filter_by(
+            notification_bid=second_staged.notification_bid
+        ).one()
+        assert first.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+        assert first.recipient_snapshot == "teacher@example.com"
+        assert second.error_code == "frequency_mobile_daily"
 
 
 def test_credit_notification_policy_accepts_estimated_days_threshold(

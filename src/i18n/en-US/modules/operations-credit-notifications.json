@@ -484,6 +484,7 @@
       "status": "Review status",
       "type": "Template type"
     },
+    "create": "Create template",
     "detail": {
       "code": "Template Code",
       "content": "Full content",
@@ -494,12 +495,27 @@
       "variables": "Variables"
     },
     "detailDescription": "Provider details and current business usage for this template.",
-    "emailComingSoon": "Email template management will be available after the email delivery provider is configured.",
+    "emailDescription": "Manage the SMTP email templates available to overseas notification rules.",
+    "emailFields": {
+      "code": "Template code",
+      "htmlBody": "HTML body",
+      "locale": "Language",
+      "name": "Template name",
+      "plainBody": "Plain-text body",
+      "status": "Template status",
+      "subject": "Email subject"
+    },
+    "emailSaveError": "The email template could not be saved. Please try again.",
+    "emailStatus": {
+      "active": "Active",
+      "draft": "Draft"
+    },
     "emailTitle": "Email templates",
     "empty": "No templates match the current filters.",
     "loadError": "The Alibaba Cloud template list could not be loaded. Local cached templates are shown when available.",
     "loading": "Loading templates...",
     "refresh": "Sync Alibaba Cloud SMS templates",
+    "reload": "Reload templates",
     "searchPlaceholder": "Search template name, Code, or content",
     "smsDescription": "All SMS templates synchronized from Alibaba Cloud, including templates not yet bound to a credit notification.",
     "smsTitle": "Alibaba Cloud SMS templates",

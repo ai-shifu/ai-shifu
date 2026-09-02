@@ -7,10 +7,12 @@ from typing import TYPE_CHECKING
 from flaskr.service.billing.api import (
     dry_run_credit_notifications,
     get_credit_notification_detail,
+    list_credit_notification_email_templates,
     list_credit_notification_templates,
     list_credit_notifications,
     load_credit_notification_policy_for_operator,
     requeue_credit_notification,
+    save_credit_notification_email_template,
     save_credit_notification_policy,
     sync_credit_notification_template,
 )
@@ -92,6 +94,27 @@ def sync_operator_credit_notification_template(
 def list_operator_credit_notification_templates(app: Flask) -> dict[str, object]:
     """Return operator credit notification templates."""
     return list_credit_notification_templates(app)
+
+
+def list_operator_credit_notification_email_templates(app: Flask) -> dict[str, object]:
+    """Return operator-managed notification email templates."""
+    return list_credit_notification_email_templates(app)
+
+
+def save_operator_credit_notification_email_template(
+    app: Flask,
+    *,
+    payload: dict[str, object],
+    notification_template_bid: str = "",
+    operator_user_bid: str = "",
+) -> dict[str, object]:
+    """Create or update an operator-managed notification email template."""
+    return save_credit_notification_email_template(
+        app,
+        payload=payload,
+        notification_template_bid=notification_template_bid,
+        updated_by=operator_user_bid,
+    )
 
 
 def dry_run_operator_credit_notifications(
