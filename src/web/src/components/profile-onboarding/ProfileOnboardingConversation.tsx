@@ -65,6 +65,9 @@ export type ProfileOnboardingConversationProps = {
   onRetry?: () => void;
   questionScrollFooter?: React.ReactNode;
   onCollectionRouteChosen?: (route: ProfileCollectionRoute) => void;
+  onAssistantOpened?: () => void;
+  assistantAnalyticsScope?: string;
+  onAssistantPromptCopied?: (originScope: string) => void;
   onAssistantAttempt?: () => void;
   onAssistantResult?: (
     outcome: 'success' | 'failed',
@@ -95,6 +98,9 @@ export default function ProfileOnboardingConversation({
   onRetry,
   questionScrollFooter,
   onCollectionRouteChosen,
+  onAssistantOpened,
+  assistantAnalyticsScope,
+  onAssistantPromptCopied,
   onAssistantAttempt,
   onAssistantResult,
 }: ProfileOnboardingConversationProps) {
@@ -384,6 +390,9 @@ export default function ProfileOnboardingConversation({
             disabled={disabled}
             onClick={() => {
               reportRouteChosen('ai_assistant');
+              try {
+                onAssistantOpened?.();
+              } catch {}
               setAssistantVisible(true);
             }}
           >
@@ -405,6 +414,8 @@ export default function ProfileOnboardingConversation({
           unresolved={uncertainRequest}
           onChange={assistantView.onChange}
           onSubmit={submitAssistantAnswers}
+          analyticsScope={assistantAnalyticsScope}
+          onPromptCopied={onAssistantPromptCopied}
           onBack={() => {
             if (resumeQuestions()) {
               reportRouteChosen('guided_questions');
