@@ -35,6 +35,10 @@ import {
 
 const SESSION_WARNING_MS = 14 * 60 * 1000 + 30 * 1000;
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+// Keep at most 250 ms of 16 kHz mono PCM16 queued in the browser. Frames
+// captured while the uplink is stalled are dropped so recovery cannot burst
+// enough stale audio to trip the server's real-time input limiter.
+const MAX_BUFFERED_INPUT_AUDIO_BYTES = 8 * 1024;
 
 export type LiveVoiceTranscript = {
   role: LiveFollowUpTranscriptRole;
@@ -145,6 +149,19 @@ const sendWebSocketPayload = (
   } catch {
     return false;
   }
+};
+
+const sendInputAudioFrame = (
+  websocket: WebSocket | null,
+  frame: ArrayBuffer,
+) => {
+  if (
+    websocket?.readyState !== WebSocket.OPEN ||
+    websocket.bufferedAmount + frame.byteLength > MAX_BUFFERED_INPUT_AUDIO_BYTES
+  ) {
+    return false;
+  }
+  return sendWebSocketPayload(websocket, frame);
 };
 
 export const useLiveVoiceFollowUp = ({
@@ -445,7 +462,7 @@ export const useLiveVoiceFollowUp = ({
               currentAttempt?.generation === generation &&
               currentAttempt.serverVoiceState !== null
             ) {
-              sendWebSocketPayload(websocketRef.current, frame);
+              sendInputAudioFrame(websocketRef.current, frame);
             }
           },
           onPlaybackProgress: (turnIndex, playedBytes) => {

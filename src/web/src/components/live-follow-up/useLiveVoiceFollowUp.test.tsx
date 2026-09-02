@@ -72,6 +72,7 @@ class MockWebSocket {
 
   readonly url: string;
   binaryType = '';
+  bufferedAmount = 0;
   readyState = MockWebSocket.CONNECTING;
   onopen: (() => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
@@ -406,6 +407,32 @@ describe('useLiveVoiceFollowUp', () => {
 
     expect(mockSockets[0].send).toHaveBeenCalledTimes(1);
     expect(mockSockets[0].send).toHaveBeenCalledWith(readyFrame);
+  });
+
+  it('drops microphone frames while the WebSocket uplink is backed up', async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => {
+      mockSockets[0].open();
+      mockSockets[0].message({ type: 'state', state: 'listening' });
+    });
+
+    const callbacks = mockActivateAudio.mock.calls[0][0] as {
+      onInputFrame: (frame: ArrayBuffer) => void;
+    };
+    const staleFrame = new ArrayBuffer(1280);
+    mockSockets[0].bufferedAmount = 8 * 1024 - staleFrame.byteLength + 1;
+    act(() => callbacks.onInputFrame(staleFrame));
+
+    expect(mockSockets[0].send).not.toHaveBeenCalled();
+
+    const currentFrame = new ArrayBuffer(1280);
+    mockSockets[0].bufferedAmount = 8 * 1024 - currentFrame.byteLength;
+    act(() => callbacks.onInputFrame(currentFrame));
+
+    expect(mockSockets[0].send).toHaveBeenCalledTimes(1);
+    expect(mockSockets[0].send).toHaveBeenCalledWith(currentFrame);
   });
 
   it('reports failure when transport opens but the server rejects the session', async () => {

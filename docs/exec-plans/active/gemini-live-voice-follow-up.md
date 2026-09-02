@@ -65,6 +65,9 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
 - [x] 2026-09-02 13:25 CST: Replaced per-render-quantum playback queue shifts
       with cursor-based consumption, per-turn sample accounting, and bounded
       occasional compaction.
+- [x] 2026-09-02 14:02 CST: Bounded the browser WebSocket's queued microphone
+      audio and dropped capture frames during uplink stalls so recovery cannot
+      burst stale PCM into the server's real-time limiter.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and
