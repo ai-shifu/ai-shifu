@@ -1119,7 +1119,9 @@ def list_credit_notification_email_templates(app: Flask) -> dict[str, object]:
         }
 
 
-def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, object]:
+def _normalize_email_template_payload(
+    payload: dict[str, object], *, require_template_code: bool
+) -> dict[str, object]:
     template_code = str(payload.get("template_code") or "").strip()
     template_name = str(payload.get("template_name") or "").strip()
     locale = str(payload.get("locale") or "").strip()
@@ -1129,7 +1131,7 @@ def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, o
     status = str(
         payload.get("template_status") or NOTIFICATION_TEMPLATE_STATUS_DRAFT
     ).strip()
-    if not template_code or len(template_code) > 128:
+    if (require_template_code and not template_code) or len(template_code) > 128:
         raise_param_error("template_code")
     if not template_name or len(template_name) > 255:
         raise_param_error("template_name")
@@ -1169,8 +1171,10 @@ def save_credit_notification_email_template(
     updated_by: str = "",
 ) -> dict[str, object]:
     """Create or update one operator-managed SMTP email template."""
-    normalized = _normalize_email_template_payload(payload)
     normalized_bid = _normalize_bid(notification_template_bid)
+    normalized = _normalize_email_template_payload(
+        payload, require_template_code=bool(normalized_bid)
+    )
     with _maybe_app_context(app), unit_of_work():
         if normalized_bid:
             template = (
@@ -1187,8 +1191,10 @@ def save_credit_notification_email_template(
             if template is None:
                 raise_param_error("notification_template_bid")
         else:
+            generated_template_code = f"EMAIL_{generate_id(app).upper()}"
+            normalized["template_code"] = generated_template_code
             template = _load_notification_template(
-                str(normalized["template_code"]),
+                generated_template_code,
                 channel=CREDIT_NOTIFICATION_CHANNEL_EMAIL,
                 provider=NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
                 for_update=True,

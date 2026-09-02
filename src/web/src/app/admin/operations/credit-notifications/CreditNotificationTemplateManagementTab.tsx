@@ -10,6 +10,14 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -66,6 +74,23 @@ const TEMPLATE_TYPE_KEYS: Record<string, string> = {
   '6': 'module.operationsCreditNotifications.templateManagement.type.6',
 };
 
+const EMAIL_LOCALE_OPTIONS = [
+  { value: 'en-US', label: '英语（美国）' },
+  { value: 'zh-CN', label: '中文（简体）' },
+  { value: 'fr-FR', label: '法语' },
+  { value: 'th-TH', label: '泰语' },
+  { value: 'ar-SA', label: '阿拉伯语' },
+];
+
+const EMAIL_TEMPLATE_VARIABLES = [
+  { token: '${product}', label: '套餐名称' },
+  { token: '${date}', label: '有效期' },
+  { token: '${credits}', label: '到账积分' },
+  { token: '${expires_at}', label: '积分有效期' },
+  { token: '${available_credits}', label: '可用积分' },
+  { token: '${estimated_remaining_days}', label: '预计可用天数' },
+];
+
 export function CreditNotificationTemplateManagementTab({
   templates,
   active,
@@ -112,7 +137,11 @@ export function CreditNotificationTemplateManagementTab({
   const [editingTemplate, setEditingTemplate] =
     React.useState<AdminOperationCreditNotificationTemplateOption | null>(null);
   const [emailTemplateStatus, setEmailTemplateStatus] = React.useState('draft');
+  const [emailTemplateLocale, setEmailTemplateLocale] = React.useState('en-US');
   const [savingEmailTemplate, setSavingEmailTemplate] = React.useState(false);
+  const activeEmailFieldRef = React.useRef<
+    HTMLInputElement | HTMLTextAreaElement | null
+  >(null);
   const hasTrackedViewRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -139,6 +168,7 @@ export function CreditNotificationTemplateManagementTab({
     (template: AdminOperationCreditNotificationTemplateOption) => {
       setEditingTemplate(template);
       setEmailTemplateStatus(template.template_status || 'draft');
+      setEmailTemplateLocale(template.locale || 'en-US');
     },
     [],
   );
@@ -256,27 +286,6 @@ export function CreditNotificationTemplateManagementTab({
         'module.operationsCreditNotifications.templateManagement.emailFields.name',
       ),
       value: editingTemplate?.template_name || '',
-    },
-    {
-      name: 'template_code',
-      label: t(
-        'module.operationsCreditNotifications.templateManagement.emailFields.code',
-      ),
-      value: editingTemplate?.template_code || '',
-    },
-    {
-      name: 'locale',
-      label: t(
-        'module.operationsCreditNotifications.templateManagement.emailFields.locale',
-      ),
-      value: editingTemplate?.locale || 'en-US',
-    },
-    {
-      name: 'email_subject',
-      label: t(
-        'module.operationsCreditNotifications.templateManagement.emailFields.subject',
-      ),
-      value: editingTemplate?.email_subject || '',
     },
   ];
   const emailBodyFields = [
@@ -632,28 +641,28 @@ export function CreditNotificationTemplateManagementTab({
           ) : null}
         </SheetContent>
       </Sheet>
-      <Sheet
+      <Dialog
         open={Boolean(editingTemplate)}
         onOpenChange={open => {
           if (!open && !savingEmailTemplate) setEditingTemplate(null);
         }}
       >
-        <SheetContent className='w-full overflow-auto bg-white sm:max-w-xl'>
-          <SheetHeader>
-            <SheetTitle>
+        <DialogContent className='flex max-h-[calc(100vh-48px)] max-w-3xl flex-col overflow-hidden'>
+          <DialogHeader>
+            <DialogTitle>
               {t(
                 'module.operationsCreditNotifications.templateManagement.emailTitle',
               )}
-            </SheetTitle>
-            <SheetDescription>
+            </DialogTitle>
+            <DialogDescription>
               {t(
                 'module.operationsCreditNotifications.templateManagement.emailDescription',
               )}
-            </SheetDescription>
-          </SheetHeader>
+            </DialogDescription>
+          </DialogHeader>
           {editingTemplate ? (
             <form
-              className='mt-6 space-y-4'
+              className='mt-2 flex min-h-0 flex-1 flex-col'
               onSubmit={event => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
@@ -662,6 +671,7 @@ export function CreditNotificationTemplateManagementTab({
                   string
                 >;
                 payload.template_status = emailTemplateStatus;
+                payload.locale = emailTemplateLocale;
                 setSavingEmailTemplate(true);
                 void saveEmailTemplate(
                   payload,
@@ -679,73 +689,163 @@ export function CreditNotificationTemplateManagementTab({
                   .finally(() => setSavingEmailTemplate(false));
               }}
             >
-              {emailInputFields.map(({ name, label, value }) => (
-                <div key={name}>
-                  <Label htmlFor={`email-template-${name}`}>{label}</Label>
-                  <Input
-                    id={`email-template-${name}`}
-                    name={name}
-                    defaultValue={value}
-                    disabled={
-                      name === 'template_code' &&
-                      Boolean(editingTemplate.notification_template_bid)
-                    }
-                    required
-                  />
-                </div>
-              ))}
-              {emailBodyFields.map(({ name, label, value }) => (
-                <div key={name}>
-                  <Label htmlFor={`email-template-${name}`}>{label}</Label>
-                  <Textarea
-                    id={`email-template-${name}`}
-                    name={name}
-                    defaultValue={value}
-                    required
-                    rows={6}
-                  />
-                </div>
-              ))}
-              <div>
-                <Label htmlFor='email-template-status'>
-                  {t(
-                    'module.operationsCreditNotifications.templateManagement.emailFields.status',
-                  )}
-                </Label>
-                <Select
-                  value={emailTemplateStatus}
-                  onValueChange={setEmailTemplateStatus}
-                >
-                  <SelectTrigger
-                    id='email-template-status'
-                    className='mt-2 bg-white'
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='draft'>
+              <div className='space-y-4 overflow-y-auto pe-1'>
+                <div className='grid gap-4 sm:grid-cols-2'>
+                  {emailInputFields.map(({ name, label, value }) => (
+                    <div key={name}>
+                      <Label htmlFor={`email-template-${name}`}>{label}</Label>
+                      <Input
+                        id={`email-template-${name}`}
+                        name={name}
+                        defaultValue={value}
+                        onFocus={event => {
+                          activeEmailFieldRef.current = event.currentTarget;
+                        }}
+                        required
+                      />
+                    </div>
+                  ))}
+                  <div>
+                    <Label htmlFor='email-template-locale'>
                       {t(
-                        'module.operationsCreditNotifications.templateManagement.emailStatus.draft',
+                        'module.operationsCreditNotifications.templateManagement.emailFields.locale',
                       )}
-                    </SelectItem>
-                    <SelectItem value='active'>
+                    </Label>
+                    <Select
+                      value={emailTemplateLocale}
+                      onValueChange={setEmailTemplateLocale}
+                    >
+                      <SelectTrigger
+                        id='email-template-locale'
+                        className='mt-2 bg-white'
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EMAIL_LOCALE_OPTIONS.map(option => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor='email-template-status'>
                       {t(
-                        'module.operationsCreditNotifications.templateManagement.emailStatus.active',
+                        'module.operationsCreditNotifications.templateManagement.emailFields.status',
                       )}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                    </Label>
+                    <Select
+                      value={emailTemplateStatus}
+                      onValueChange={setEmailTemplateStatus}
+                    >
+                      <SelectTrigger
+                        id='email-template-status'
+                        className='mt-2 bg-white'
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='draft'>
+                          {t(
+                            'module.operationsCreditNotifications.templateManagement.emailStatus.draft',
+                          )}
+                        </SelectItem>
+                        <SelectItem value='active'>
+                          {t(
+                            'module.operationsCreditNotifications.templateManagement.emailStatus.active',
+                          )}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor='email-template-subject'>
+                      {t(
+                        'module.operationsCreditNotifications.templateManagement.emailFields.subject',
+                      )}
+                    </Label>
+                    <Input
+                      id='email-template-subject'
+                      name='email_subject'
+                      defaultValue={editingTemplate.email_subject || ''}
+                      onFocus={event => {
+                        activeEmailFieldRef.current = event.currentTarget;
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className='rounded-md border border-border bg-muted/30 p-3'>
+                  <p className='text-sm font-medium'>
+                    {t(
+                      'module.operationsCreditNotifications.templateManagement.detail.variables',
+                    )}
+                  </p>
+                  <div className='mt-2 flex flex-wrap gap-2'>
+                    {EMAIL_TEMPLATE_VARIABLES.map(variable => (
+                      <Button
+                        key={variable.token}
+                        type='button'
+                        variant='outline'
+                        size='sm'
+                        onClick={() => {
+                          const field = activeEmailFieldRef.current;
+                          if (!field) return;
+                          const start =
+                            field.selectionStart ?? field.value.length;
+                          const end = field.selectionEnd ?? start;
+                          field.value =
+                            field.value.slice(0, start) +
+                            variable.token +
+                            field.value.slice(end);
+                          field.focus();
+                          field.setSelectionRange(
+                            start + variable.token.length,
+                            start + variable.token.length,
+                          );
+                        }}
+                      >
+                        <span>{variable.token}</span>
+                        <span className='ms-1 text-muted-foreground'>
+                          {variable.label}
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {emailBodyFields.map(({ name, label, value }) => (
+                  <div key={name}>
+                    <Label htmlFor={`email-template-${name}`}>{label}</Label>
+                    <Textarea
+                      id={`email-template-${name}`}
+                      name={name}
+                      defaultValue={value}
+                      onFocus={event => {
+                        activeEmailFieldRef.current = event.currentTarget;
+                      }}
+                      required
+                      rows={6}
+                    />
+                  </div>
+                ))}
               </div>
-              <Button
-                type='submit'
-                disabled={savingEmailTemplate}
-              >
-                {t('common.core.save')}
-              </Button>
+              <DialogFooter className='mt-4 border-t border-border pt-4'>
+                <Button
+                  type='submit'
+                  disabled={savingEmailTemplate}
+                >
+                  {t('common.core.save')}
+                </Button>
+              </DialogFooter>
             </form>
           ) : null}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

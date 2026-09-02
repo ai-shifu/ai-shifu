@@ -497,8 +497,7 @@
     "detailDescription": "查看供应商模板详情及当前业务使用情况。",
     "emailDescription": "管理可供海外通知规则使用的 SMTP 邮件模板。",
     "emailFields": {
-      "code": "模板 Code",
-      "htmlBody": "HTML 正文",
+      "htmlBody": "邮件正文",
       "locale": "语言",
       "name": "模板名称",
       "plainBody": "纯文本正文",
