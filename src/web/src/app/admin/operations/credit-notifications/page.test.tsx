@@ -1512,6 +1512,25 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(policy.rules).toEqual([]);
   });
 
+  it('preserves a disabled email rule while normalizing policy data', () => {
+    const policy = normalizePolicy({
+      rules: [
+        {
+          rule_bid: 'email-grant',
+          name: 'Email grant',
+          trigger_event: 'credit_granted',
+          channel: 'email',
+          template_code: '',
+          enabled: false,
+          conditions: {},
+        },
+      ],
+    });
+
+    expect(policy.channel).toBe('sms');
+    expect(policy.rules[0]?.channel).toBe('email');
+  });
+
   it('requires confirmation before deleting a managed rule', async () => {
     mockGetConfig.mockResolvedValueOnce({
       enabled: false,

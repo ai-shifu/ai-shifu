@@ -358,6 +358,7 @@
     "provider_exception": "L’appel au fournisseur SMS a échoué.",
     "provider_failed": "Le fournisseur SMS n’a pas renvoyé de réponse acceptée.",
     "quiet_hours": "La période de silence est active, non envoyé.",
+    "unsupported_channel": "Ce canal de notification n’est pas activé, non envoyé.",
     "zero_balance_missing_estimated_remaining_days": "Le rappel de solde nul manque les jours restants estimés, non envoyé."
   },
   "filters": {
@@ -431,6 +432,7 @@
     "title": "Règles de notification"
   },
   "skipReason": {
+    "channel": "Canal de notification indisponible",
     "contact": "Coordonnées invalides",
     "duplicate": "Notification en double",
     "policy": "Limite de stratégie",

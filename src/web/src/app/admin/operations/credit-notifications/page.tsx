@@ -56,6 +56,7 @@ import {
   type NotificationFilters,
   type PageTab,
 } from './creditNotificationUtils';
+
 import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
 import {
   NOTIFICATION_RULE_ACTION_EVENT,
@@ -69,6 +70,10 @@ import {
   NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT,
   NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
 } from './notificationTemplateTracking';
+
+const SKIP_REASON_TRANSLATION_KEYS = {
+  channel: 'module.operationsCreditNotifications.skipReason.channel',
+} as const;
 
 const normalizeResolvedPolicyLists = (
   payload: unknown,
@@ -193,11 +198,13 @@ export default function AdminOperationCreditNotificationsPage() {
   );
 
   const resolveSkipReasonLabel = React.useCallback(
-    (value: string) =>
-      t(
-        `module.operationsCreditNotifications.skipReason.${value}`,
-        value || EMPTY_LABEL,
-      ),
+    (value: string) => {
+      const translationKey =
+        SKIP_REASON_TRANSLATION_KEYS[
+          value as keyof typeof SKIP_REASON_TRANSLATION_KEYS
+        ] || `module.operationsCreditNotifications.skipReason.${value}`;
+      return t(translationKey, value || EMPTY_LABEL);
+    },
     [t],
   );
 

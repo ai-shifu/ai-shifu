@@ -358,6 +358,7 @@
     "provider_exception": "SMS provider call failed.",
     "provider_failed": "SMS provider did not return an accepted response.",
     "quiet_hours": "Quiet hours are active, not sent.",
+    "unsupported_channel": "This notification channel is not enabled, not sent.",
     "zero_balance_missing_estimated_remaining_days": "Zero balance reminder lacks estimated remaining days, not sent."
   },
   "filters": {
@@ -431,6 +432,7 @@
     "title": "Notification Rules"
   },
   "skipReason": {
+    "channel": "Notification channel unavailable",
     "contact": "Contact issue",
     "duplicate": "Duplicate notification",
     "policy": "Policy limit",

@@ -1739,6 +1739,21 @@ class NotificationRecord(BillingTableMixin, db.Model):
         index=True,
         comment="Target user business identifier",
     )
+    recipient_type = Column(
+        String(32),
+        nullable=False,
+        default="mobile",
+        server_default="mobile",
+        comment="Recipient contact type",
+    )
+    recipient_snapshot = Column(
+        String(255),
+        nullable=False,
+        default="",
+        server_default="",
+        index=True,
+        comment="Recipient contact snapshot",
+    )
     mobile_snapshot = Column(
         String(32),
         nullable=False,
