@@ -193,7 +193,7 @@ export type CreditNotificationRule = {
 
 export type AdminOperationCreditNotificationPolicy = {
   enabled: boolean;
-  channel: 'sms' | 'email';
+  channel: 'sms';
   rules: CreditNotificationRule[];
   types: {
     credit_expiring: CreditNotificationTypePolicy;
