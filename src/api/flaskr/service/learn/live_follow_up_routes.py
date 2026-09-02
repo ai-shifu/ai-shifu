@@ -924,6 +924,10 @@ class _TurnPersistenceWorker:
         return not self.failed
 
     def _run(self) -> None:
+        with self._app.app_context():
+            self._run_with_app_context()
+
+    def _run_with_app_context(self) -> None:
         while True:
             item = self._queue.get()
             try:
