@@ -181,22 +181,28 @@ export function useAuth(options: UseAuthOptions = {}) {
       const referralPayload = buildReferralLoginPayload(referralMetadata);
       const response = await callWithTokenRefresh(() =>
         method === 'sms'
-          ? apiService.smsLogin({
-              mobile: identifier,
-              sms_code: code,
-              language,
-              login_context: options.loginContext,
-              course_id: options.courseId,
-              ...referralPayload,
-            })
-          : apiService.emailLogin({
-              email: identifier,
-              code,
-              language,
-              login_context: options.loginContext,
-              course_id: options.courseId,
-              ...referralPayload,
-            }),
+          ? apiService.smsLogin(
+              {
+                mobile: identifier,
+                sms_code: code,
+                language,
+                login_context: options.loginContext,
+                course_id: options.courseId,
+                ...referralPayload,
+              },
+              { skipErrorToast: true },
+            )
+          : apiService.emailLogin(
+              {
+                email: identifier,
+                code,
+                language,
+                login_context: options.loginContext,
+                course_id: options.courseId,
+                ...referralPayload,
+              },
+              { skipErrorToast: true },
+            ),
       );
 
       const success = await processLoginResponse(response, () => {
