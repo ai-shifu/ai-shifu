@@ -22,6 +22,7 @@ from flaskr.service.user.models import (
 from flaskr.service.user.models import (
     UserToken as UserTokenModel,
 )
+from sqlalchemy import Text
 
 
 def _reset_config_cache(*keys: str) -> None:
@@ -253,6 +254,48 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
             db.session.expire_all()
             stored = UserEntity.query.filter_by(user_bid=existing_user.user_bid).one()
             assert stored.nickname == "Current Google Name"
+        finally:
+            _reset_user_auth_tables()
+
+
+def test_google_existing_account_accepts_long_avatar_url(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    email = f"{uuid.uuid4().hex[:10]}@example.com"
+    avatar_url = f"https://lh3.googleusercontent.com/a-/{'a' * 512}=s96-c"
+
+    assert len(avatar_url) > 255
+    assert isinstance(UserEntity.__table__.c.avatar.type, Text)
+
+    with app.app_context():
+        _reset_user_auth_tables()
+        try:
+            existing_user = UserEntity(
+                user_bid=uuid.uuid4().hex[:32],
+                user_identify=email,
+                nickname="Existing User",
+                avatar="",
+                language="en-US",
+                state=USER_STATE_UNREGISTERED,
+            )
+            db.session.add(existing_user)
+            db.session.commit()
+
+            result = _run_google_callback(
+                app,
+                monkeypatch,
+                {
+                    "sub": uuid.uuid4().hex,
+                    "email": email,
+                    "email_verified": True,
+                    "name": "Existing User",
+                    "picture": avatar_url,
+                },
+            )
+
+            stored = UserEntity.query.filter_by(user_bid=result.user.user_id).one()
+            assert stored.avatar == avatar_url
         finally:
             _reset_user_auth_tables()
 

@@ -181,7 +181,7 @@ class UserInfo(db.Model):
         nullable=True,
         comment="Timestamp when the learner profile was last changed",
     )
-    avatar = Column(String(255), nullable=False, default="", comment="User avatar")
+    avatar = Column(Text, nullable=False, default="", comment="User avatar")
     birthday = Column(Date, nullable=True, comment="User birthday")
     language = Column(String(30), nullable=False, default="", comment="User language")
     state = Column(
