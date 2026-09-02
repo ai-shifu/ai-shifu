@@ -672,12 +672,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
     );
     fireEvent.change(
       screen.getByLabelText(
-        'module.operationsCreditNotifications.templateManagement.emailFields.code',
-      ),
-      { target: { value: 'EMAIL-GRANT' } },
-    );
-    fireEvent.change(
-      screen.getByLabelText(
         'module.operationsCreditNotifications.templateManagement.emailFields.subject',
       ),
       { target: { value: 'Credit granted' } },
@@ -699,8 +693,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await waitFor(() => {
       expect(mockCreateEmailTemplate).toHaveBeenCalledWith(
         expect.objectContaining({
-          template_code: 'EMAIL-GRANT',
           template_name: 'Credit granted',
+          locale: 'en-US',
           template_status: 'draft',
         }),
       );
@@ -747,12 +741,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
         'module.operationsCreditNotifications.templateManagement.emailFields.name',
       ),
       { target: { value: 'Credit granted' } },
-    );
-    fireEvent.change(
-      screen.getByLabelText(
-        'module.operationsCreditNotifications.templateManagement.emailFields.code',
-      ),
-      { target: { value: 'EMAIL-GRANT' } },
     );
     fireEvent.change(
       screen.getByLabelText(

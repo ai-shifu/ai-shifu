@@ -497,8 +497,7 @@
     "detailDescription": "Provider details and current business usage for this template.",
     "emailDescription": "Manage the SMTP email templates available to overseas notification rules.",
     "emailFields": {
-      "code": "Template code",
-      "htmlBody": "HTML body",
+      "htmlBody": "Email body",
       "locale": "Language",
       "name": "Template name",
       "plainBody": "Plain-text body",
