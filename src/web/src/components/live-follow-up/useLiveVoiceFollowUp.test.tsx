@@ -122,11 +122,15 @@ const Harness = ({
   previewMode = false,
   learningMode = 'read',
   sessionScope = learningMode,
+  onTurnCommitted,
 }: {
   shifuBid?: string;
   previewMode?: boolean;
   learningMode?: 'read' | 'listen';
   sessionScope?: 'read' | 'listen' | 'classroom';
+  onTurnCommitted?: Parameters<
+    typeof useLiveVoiceFollowUp
+  >[0]['onTurnCommitted'];
 }) => {
   const controller = useLiveVoiceFollowUp({
     shifuBid,
@@ -134,6 +138,7 @@ const Harness = ({
     previewMode,
     learningMode,
     sessionScope,
+    onTurnCommitted,
   });
   return (
     <div>
@@ -769,6 +774,41 @@ describe('useLiveVoiceFollowUp', () => {
     expect(endCall?.[1]).not.toHaveProperty('voice');
     expect(endCall?.[1]).not.toHaveProperty('transcript');
     expect(endCall?.[1]).not.toHaveProperty('url');
+  });
+
+  it('publishes each committed transcript turn to lesson history once', async () => {
+    const onTurnCommitted = jest.fn();
+    render(<Harness onTurnCommitted={onTurnCommitted} />);
+    fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    act(() => {
+      mockSockets[0].message({ type: 'state', state: 'listening' });
+      mockSockets[0].message({
+        type: 'transcript',
+        role: 'user',
+        turn_index: 3,
+        text: 'Why?',
+        final: true,
+      });
+      mockSockets[0].message({
+        type: 'transcript',
+        role: 'assistant',
+        turn_index: 3,
+        text: 'Because.',
+        final: true,
+      });
+      mockSockets[0].message({ type: 'turn_committed', turn_index: 3 });
+      mockSockets[0].message({ type: 'turn_committed', turn_index: 3 });
+    });
+
+    expect(onTurnCommitted).toHaveBeenCalledTimes(1);
+    expect(onTurnCommitted).toHaveBeenCalledWith({
+      anchorElementBid: 'element-1',
+      turnIndex: 3,
+      userTranscript: 'Why?',
+      assistantTranscript: 'Because.',
+    });
   });
 
   it('sends the end control only after the final audio flush completes', async () => {
