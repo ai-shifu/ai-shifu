@@ -110,6 +110,9 @@ export type AdminOperationCreditNotificationTemplateSyncResponse = {
   template_code: string;
   template_name: string;
   template_content: string;
+  locale?: string;
+  email_subject?: string;
+  email_html_body?: string;
   template_status: string;
   template_type: string;
   variable_attribute: string | Record<string, unknown>;
@@ -132,6 +135,9 @@ export type AdminOperationCreditNotificationTemplateOption = {
   template_code: string;
   template_name: string;
   template_content: string;
+  locale?: string;
+  email_subject?: string;
+  email_html_body?: string;
   template_status: string;
   template_type: string;
   sync_status: string;

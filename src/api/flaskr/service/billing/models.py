@@ -1912,6 +1912,21 @@ class NotificationTemplate(BillingTableMixin, db.Model):
         nullable=True,
         comment="Provider template content",
     )
+    locale = Column(
+        String(16),
+        nullable=True,
+        comment="Email template locale",
+    )
+    email_subject = Column(
+        Text,
+        nullable=True,
+        comment="Email template subject",
+    )
+    email_html_body = Column(
+        Text,
+        nullable=True,
+        comment="Email template HTML body",
+    )
     template_status = Column(
         String(64),
         nullable=False,
