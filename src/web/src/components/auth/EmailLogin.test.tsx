@@ -97,7 +97,13 @@ const submitEmail = async () => {
       screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
     );
   });
-  expect(mockSendEmailCode).toHaveBeenCalledTimes(1);
+  expect(mockSendEmailCode).toHaveBeenCalledWith(
+    {
+      email: 'learner@example.com',
+      language: 'en-US',
+    },
+    { skipErrorToast: true },
+  );
 };
 
 describe('EmailLogin', () => {
