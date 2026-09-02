@@ -48,8 +48,6 @@ def upgrade() -> None:
         ["recipient_snapshot"],
         unique=False,
     )
-
-
 def downgrade() -> None:
     op.drop_index(
         "ix_notification_records_recipient_snapshot", table_name="notification_records"

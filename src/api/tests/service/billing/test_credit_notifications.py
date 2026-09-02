@@ -629,7 +629,6 @@ def test_credit_notification_skips_unsupported_channel_without_sending_sms(
         ).one()
         assert notification.status == "skipped"
         assert notification.error_code == "unsupported_channel"
-
     assert (
         get_credit_notification_detail(
             app,

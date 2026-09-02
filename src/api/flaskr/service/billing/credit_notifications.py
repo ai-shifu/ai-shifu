@@ -444,9 +444,9 @@ def _validate_policy_for_save(
 ) -> dict[str, object]:
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, payload)
     channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
-    if channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
+    if channel not in _SUPPORTED_NOTIFICATION_CHANNELS:
         raise_param_error("channel")
-    policy["channel"] = CREDIT_NOTIFICATION_CHANNEL_SMS
+    policy["channel"] = channel
     policy["enabled"] = _coerce_bool(policy.get("enabled"))
     if "rules" in payload:
         policy["rules"] = _normalize_notification_rules(app, payload["rules"])
