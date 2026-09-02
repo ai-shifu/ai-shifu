@@ -10,6 +10,11 @@ export type ProfileAssistantFailureCategory =
   | 'session_expired'
   | 'missing_result';
 
+export const isCurrentProfileAnalyticsScope = (
+  originScope: string,
+  activeScope: string,
+) => originScope === activeScope;
+
 const buildProfileCollectionContext = ({
   intent,
   presentation,
