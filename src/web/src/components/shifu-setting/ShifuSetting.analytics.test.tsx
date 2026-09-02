@@ -515,4 +515,104 @@ describe('ShifuSettingDialog analytics producer', () => {
       );
     });
   });
+
+  it('preserves the selected Live voice across a temporary text-model switch', async () => {
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      {
+        model: 'text-model',
+        display_name: 'Text model',
+        interaction_mode: 'text',
+        allowed_roles: ['main', 'follow_up'],
+        billing_mode: 'billable',
+        voices: [],
+        is_default: true,
+      },
+      {
+        model: 'gemini-3.1-flash-live-preview',
+        display_name: 'Gemini Live',
+        interaction_mode: 'live_voice',
+        allowed_roles: ['follow_up'],
+        billing_mode: 'free_preview',
+        voices: [
+          { voice_id: 'Kore', style: 'Firm' },
+          { voice_id: 'Puck', style: 'Upbeat' },
+        ],
+      },
+    ]);
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Private course name',
+      description: 'Private course description',
+      keywords: [],
+      model: '',
+      price: 1,
+      avatar: '',
+      temperature: 0,
+      system_prompt: '',
+      ask_model: 'gemini-3.1-flash-live-preview',
+      ask_temperature: 0,
+      ask_provider_config: {
+        provider: 'llm',
+        mode: 'provider_only',
+        config: { live_voice: 'Puck' },
+      },
+      tts_enabled: false,
+      default_listen_mode_enabled: false,
+      use_learner_language: false,
+    });
+    renderOpenSettings();
+
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({
+          isLiveVoiceFollowUp: true,
+          liveVoice: 'Puck',
+        }),
+      );
+    });
+
+    const selectText = mockAskSettingsSection.mock.calls.at(-1)?.[0]
+      .onAskModelChange as (model: string) => void;
+    act(() => selectText('text-model'));
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ isLiveVoiceFollowUp: false }),
+      );
+    });
+
+    const selectLive = mockAskSettingsSection.mock.calls.at(-1)?.[0]
+      .onAskModelChange as (model: string) => void;
+    act(() => selectLive('gemini-3.1-flash-live-preview'));
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({
+          isLiveVoiceFollowUp: true,
+          liveVoice: 'Puck',
+        }),
+      );
+    });
+
+    const selectTextAgain = mockAskSettingsSection.mock.calls.at(-1)?.[0]
+      .onAskModelChange as (model: string) => void;
+    act(() => selectTextAgain('text-model'));
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ isLiveVoiceFollowUp: false }),
+      );
+    });
+
+    fireEvent.click(screen.getByLabelText('close-settings'));
+
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        ask_model: 'text-model',
+        ask_provider_config: {
+          provider: 'llm',
+          mode: 'provider_only',
+          config: { live_voice: 'Puck' },
+        },
+      }),
+    );
+  });
 });
