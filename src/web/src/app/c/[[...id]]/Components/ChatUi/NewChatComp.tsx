@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { runWithConcurrency } from '@/lib/runWithConcurrency';
-import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
@@ -60,6 +59,7 @@ import {
   buildAskListByAnchorElementBid,
   hasStreamingAskMessage,
 } from './askState';
+import type { AskMessage } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
@@ -331,20 +331,17 @@ export const NewChatComponents = ({
       userTranscript: string;
       assistantTranscript: string;
     }) => {
+      const committedMessages: AskMessage[] = [];
+      if (userTranscript) {
+        committedMessages.push({ type: 'ask', content: userTranscript });
+      }
+      committedMessages.push({
+        type: 'answer',
+        content: assistantTranscript,
+      });
       setAskList(anchorElementBid, previous => [
         ...previous,
-        ...(userTranscript
-          ? [
-              {
-                type: BLOCK_TYPE.ASK,
-                content: userTranscript,
-              },
-            ]
-          : []),
-        {
-          type: BLOCK_TYPE.ANSWER,
-          content: assistantTranscript,
-        },
+        ...committedMessages,
       ]);
     },
     [setAskList],
