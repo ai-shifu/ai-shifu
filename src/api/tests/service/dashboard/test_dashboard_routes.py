@@ -7,12 +7,24 @@ from types import SimpleNamespace
 
 import pytest
 from flaskr.dao import db
+from flaskr.service.billing.consts import (
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_SOURCE_TYPE_USAGE,
+)
+from flaskr.service.billing.models import CreditLedgerEntry
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
     LearnProgressRecord,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -39,6 +51,8 @@ from flaskr.util.datetime import now_utc
 
 
 def _clear_dashboard_tables() -> None:
+    db.session.query(CreditLedgerEntry).delete()
+    db.session.query(BillUsageRecord).delete()
     db.session.query(UserToken).delete()
     db.session.query(AuthCredential).delete()
     db.session.query(UserInfo).delete()
@@ -1221,6 +1235,159 @@ class TestDashboardRoutes:
                     ),
                 ]
             )
+            db.session.add_all(
+                [
+                    BillUsageRecord(
+                        usage_bid="detail-usage-read-recent",
+                        user_bid="learner-1",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-1",
+                        progress_record_bid="detail-progress-u1-l1",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_PROD,
+                        billable=1,
+                        status=0,
+                        extra={"learning_mode": "read"},
+                        created_at=recent_now - timedelta(days=1),
+                        updated_at=recent_now - timedelta(days=1),
+                    ),
+                    BillUsageRecord(
+                        usage_bid="detail-usage-read-old",
+                        user_bid="learner-2",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-2",
+                        progress_record_bid="detail-progress-u2-l2",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_PROD,
+                        billable=1,
+                        status=0,
+                        extra={},
+                        created_at=old_activity,
+                        updated_at=old_activity,
+                    ),
+                    BillUsageRecord(
+                        usage_bid="detail-usage-listen",
+                        user_bid="learner-1",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-3",
+                        progress_record_bid="detail-progress-u1-l3",
+                        usage_type=BILL_USAGE_TYPE_TTS,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_PROD,
+                        billable=1,
+                        status=0,
+                        extra={},
+                        created_at=recent_now - timedelta(days=2),
+                        updated_at=recent_now - timedelta(days=2),
+                    ),
+                    BillUsageRecord(
+                        usage_bid="detail-usage-classroom",
+                        user_bid="learner-3",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-1",
+                        progress_record_bid="",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_PROD,
+                        billable=1,
+                        status=0,
+                        extra={"learning_mode": "classroom"},
+                        created_at=recent_now - timedelta(days=3),
+                        updated_at=recent_now - timedelta(days=3),
+                    ),
+                    BillUsageRecord(
+                        usage_bid="detail-usage-debug-ignore",
+                        user_bid="learner-1",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-1",
+                        progress_record_bid="detail-progress-u1-l1",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_DEBUG,
+                        billable=1,
+                        status=0,
+                        extra={"learning_mode": "read"},
+                        created_at=recent_now,
+                        updated_at=recent_now,
+                    ),
+                ]
+            )
+            db.session.add_all(
+                [
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-read-recent",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-read-recent",
+                        idempotency_key="detail-ledger-read-recent",
+                        amount="-70.00",
+                        balance_after="0",
+                        created_at=recent_now - timedelta(days=1),
+                        updated_at=recent_now - timedelta(days=1),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-read-old",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-read-old",
+                        idempotency_key="detail-ledger-read-old",
+                        amount="-30.00",
+                        balance_after="0",
+                        created_at=old_activity,
+                        updated_at=old_activity,
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-listen",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-listen",
+                        idempotency_key="detail-ledger-listen",
+                        amount="-21.00",
+                        balance_after="0",
+                        created_at=recent_now - timedelta(days=2),
+                        updated_at=recent_now - timedelta(days=2),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-classroom",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-classroom",
+                        idempotency_key="detail-ledger-classroom",
+                        amount="-14.00",
+                        balance_after="0",
+                        created_at=recent_now - timedelta(days=3),
+                        updated_at=recent_now - timedelta(days=3),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-debug-ignore",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-debug-ignore",
+                        idempotency_key="detail-ledger-debug-ignore",
+                        amount="-999.00",
+                        balance_after="0",
+                        created_at=recent_now,
+                        updated_at=recent_now,
+                    ),
+                ]
+            )
             db.session.commit()
 
         detail_resp = test_client.get("/api/dashboard/shifus/course-detail/detail")
@@ -1241,14 +1408,35 @@ class TestDashboardRoutes:
         assert detail_payload["data"]["metrics"] == {
             "order_count": 3,
             "order_amount": "60.00",
-            "new_learner_count_last_7_days": 2,
             "learning_learner_count": 1,
             "completed_learner_count": 1,
             "completion_rate": "33.33",
-            "active_learner_count_last_7_days": 1,
             "total_follow_up_count": 3,
             "rating_score": "4.0",
         }
+        assert detail_payload["data"]["learning_mode_metrics"] == [
+            {
+                "mode": "read",
+                "participant_count": 2,
+                "consumed_credits": "100.00",
+                "consumption_speed": "10.00",
+                "average_consumed_credits": "50.00",
+            },
+            {
+                "mode": "listen",
+                "participant_count": 1,
+                "consumed_credits": "21.00",
+                "consumption_speed": "3.00",
+                "average_consumed_credits": "21.00",
+            },
+            {
+                "mode": "classroom",
+                "participant_count": 1,
+                "consumed_credits": "14.00",
+                "consumption_speed": "2.00",
+                "average_consumed_credits": "14.00",
+            },
+        ]
         assert "learners" not in detail_payload["data"]
 
         assert learners_resp.status_code == 200
@@ -2318,6 +2506,28 @@ class TestDashboardRoutes:
                         created_at=now - timedelta(minutes=50),
                         updated_at=now - timedelta(minutes=50),
                     ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u4-l1-in-progress",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-1",
+                        user_bid="learner-4",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=40),
+                        updated_at=now - timedelta(minutes=40),
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u4-l2-in-progress",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-2",
+                        user_bid="learner-4",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=30),
+                        updated_at=now - timedelta(minutes=30),
+                    ),
                 ]
             )
             db.session.commit()
@@ -2327,9 +2537,10 @@ class TestDashboardRoutes:
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["basic_info"]["learner_count"] == 3
+        assert payload["data"]["basic_info"]["learner_count"] == 4
+        assert payload["data"]["metrics"]["learning_learner_count"] == 2
         assert payload["data"]["metrics"]["completed_learner_count"] == 2
-        assert payload["data"]["metrics"]["completion_rate"] == "66.67"
+        assert payload["data"]["metrics"]["completion_rate"] == "50.00"
 
     def test_course_detail_rejects_non_owned_course(
         self,

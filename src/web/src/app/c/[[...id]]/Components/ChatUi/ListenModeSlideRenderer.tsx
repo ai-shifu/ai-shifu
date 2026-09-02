@@ -262,7 +262,6 @@ interface ListenSlideAskPlayerActionProps {
   actionRef?: React.MutableRefObject<HTMLButtonElement | null>;
   context: SlidePlayerCustomActionContext;
   label: string;
-  onBeforeOpen: () => void;
   onContextChange: (snapshot: PlayerCustomActionContextSnapshot) => void;
   disabled?: boolean;
   renderButton?: boolean;
@@ -273,7 +272,6 @@ const ListenSlideAskPlayerAction = memo(
     actionRef,
     context,
     label,
-    onBeforeOpen,
     onContextChange,
     disabled = false,
     renderButton = true,
@@ -293,12 +291,8 @@ const ListenSlideAskPlayerAction = memo(
         return;
       }
 
-      if (!isActive) {
-        onBeforeOpen();
-      }
-
       toggleActive();
-    }, [disabled, isActive, onBeforeOpen, toggleActive]);
+    }, [disabled, toggleActive]);
 
     if (!renderButton) {
       return null;
@@ -800,7 +794,6 @@ const ListenModeSlideRenderer = ({
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isMobileAskPanelMounted, setIsMobileAskPanelMounted] = useState(false);
   const [mobileAskPanelElementBid, setMobileAskPanelElementBid] = useState('');
-  const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [isClassroomFullscreenActive, setIsClassroomFullscreenActive] =
     useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
@@ -1068,6 +1061,7 @@ const ListenModeSlideRenderer = ({
     !isLoading &&
     elementList.length === 1 &&
     elementList[0]?.blockBid === 'empty-ppt';
+  const playerLayoutReserved = !shouldRenderEmptyPpt;
 
   const fallbackAskElementBid = firstContentItem?.element_bid ?? '';
   const currentPlayerElementBid = useMemo(() => {
@@ -1168,31 +1162,6 @@ const ListenModeSlideRenderer = ({
     [disableInteractionEdits, onSend],
   );
 
-  const closeInteractionOverlayIfOpen = useCallback(() => {
-    const shellElement = slideShellRef.current;
-    if (!shellElement) {
-      return;
-    }
-
-    const notesToggleButton =
-      shellElement.querySelector<HTMLButtonElement>(
-        'button[aria-label="Notes"].slide-player__action',
-      ) ??
-      shellElement.querySelector<HTMLButtonElement>(
-        '.slide-player__controls .slide-player__group:last-of-type > .slide-player__action:last-of-type',
-      );
-
-    if (
-      !notesToggleButton ||
-      !notesToggleButton.classList.contains('slide-player__action--active')
-    ) {
-      return;
-    }
-
-    // Reuse the player toggle path so the default overlay closes first.
-    notesToggleButton.click();
-  }, []);
-
   const handleMobileAskToggle = useCallback(() => {
     if (isAskActionDisabled) {
       return;
@@ -1204,17 +1173,11 @@ const ListenModeSlideRenderer = ({
       return;
     }
 
-    closeInteractionOverlayIfOpen();
     setMobileAskPanelElementBid(resolvedAskElementBid);
     setIsMobileAskPanelMounted(true);
     setIsMobileAskOpen(true);
     playerCustomActionSetActiveRef.current(true);
-  }, [
-    closeInteractionOverlayIfOpen,
-    isAskActionDisabled,
-    isMobileAskOpen,
-    resolvedAskElementBid,
-  ]);
+  }, [isAskActionDisabled, isMobileAskOpen, resolvedAskElementBid]);
 
   const handleMobileAskClose = useCallback(() => {
     setIsMobileAskOpen(false);
@@ -1299,14 +1262,6 @@ const ListenModeSlideRenderer = ({
     mobileStyle,
     playerCustomActionState.isActive,
   ]);
-
-  const handlePlayerVisibilityChange = useCallback(
-    (visible: boolean) => {
-      setIsPlayerVisible(visible);
-      onPlayerVisibilityChange?.(visible);
-    },
-    [onPlayerVisibilityChange],
-  );
 
   const requestClassroomFullscreen = useCallback(async () => {
     const slideShellElement = slideShellRef.current;
@@ -1902,7 +1857,6 @@ const ListenModeSlideRenderer = ({
             <ListenSlideAskPlayerAction
               context={context}
               label={t('module.chat.ask')}
-              onBeforeOpen={closeInteractionOverlayIfOpen}
               onContextChange={handlePlayerCustomActionContextChange}
               disabled={isAskActionDisabled}
               renderButton={false}
@@ -1918,7 +1872,6 @@ const ListenModeSlideRenderer = ({
             actionRef={desktopAskActionRef}
             context={context}
             label={t('module.chat.ask')}
-            onBeforeOpen={closeInteractionOverlayIfOpen}
             onContextChange={handlePlayerCustomActionContextChange}
             disabled={isAskActionDisabled}
           />
@@ -1926,7 +1879,6 @@ const ListenModeSlideRenderer = ({
       );
     },
     [
-      closeInteractionOverlayIfOpen,
       fullscreenPortalContainer,
       handleListenPlaybackSpeedChange,
       handlePlayerCustomActionContextChange,
@@ -2094,12 +2046,7 @@ const ListenModeSlideRenderer = ({
 
   const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
     <div
-      className={cn(
-        'slide-ask-overlay',
-        isPlayerVisible
-          ? 'slide-ask-overlay--with-player'
-          : 'slide-ask-overlay--standalone',
-      )}
+      className='slide-ask-overlay slide-ask-overlay--with-player'
       aria-hidden={!playerCustomActionState.isActive}
       ref={customAskOverlayRef}
       style={playerCustomActionState.isActive ? undefined : { display: 'none' }}
@@ -2128,6 +2075,7 @@ const ListenModeSlideRenderer = ({
         'listen-reveal-wrapper',
         previewMode && !mobileStyle && 'listen-reveal-wrapper--preview',
         variant === 'classroom' && 'listen-reveal-wrapper--classroom',
+        playerLayoutReserved && 'listen-reveal-wrapper--with-player',
         mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
       ref={chatRef}
@@ -2205,7 +2153,7 @@ const ListenModeSlideRenderer = ({
           bufferingText={{
             waitingForAudio: t('module.chat.thinking'),
           }}
-          onPlayerVisibilityChange={handlePlayerVisibilityChange}
+          onPlayerVisibilityChange={onPlayerVisibilityChange}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions

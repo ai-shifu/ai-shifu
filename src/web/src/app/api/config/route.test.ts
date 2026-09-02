@@ -14,15 +14,15 @@ describe('api config route host matching', () => {
     expect(shouldUseSameOriginApiBase('[::1]:8080', '[::1]:3000')).toBe(false);
   });
 
-  it('uses same-origin API base on custom domains', () => {
+  it('uses same-origin API base when a custom host differs', () => {
     expect(
-      shouldUseSameOriginApiBase('cook.ai-shifu.cn', 'creator.example.com'),
+      shouldUseSameOriginApiBase('app.example.com', 'creator.example.com'),
     ).toBe(true);
   });
 
   it('keeps the configured API base on the configured host', () => {
     expect(
-      shouldUseSameOriginApiBase('cook.ai-shifu.cn', 'cook.ai-shifu.cn'),
+      shouldUseSameOriginApiBase('app.example.com', 'app.example.com'),
     ).toBe(false);
   });
 });

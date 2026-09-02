@@ -10,6 +10,9 @@ from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
 )
 from .credit_notifications import (
+    pending_credit_notification_bids as _pending_credit_notification_bids,
+)
+from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
 from .notifications import (
@@ -63,9 +66,9 @@ def stage_billing_paid_order_side_effects(
             commit=False,
             enqueue=False,
         )
-        notification_bid = str(grant_notification.get("notification_bid") or "").strip()
-        if grant_notification.get("status") == "pending" and notification_bid:
-            credit_notification_bids.append(notification_bid)
+        credit_notification_bids.extend(
+            _pending_credit_notification_bids(grant_notification)
+        )
     should_enqueue_subscription_purchase_sms = (
         _stage_subscription_purchase_sms_for_paid_order(
             order,

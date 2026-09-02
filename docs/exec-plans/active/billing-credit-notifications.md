@@ -26,6 +26,15 @@
 - [x] 2026-06-21 16:10 CST: Follow-up admin refinements split the records overview/filter UI and then moved `CreditNotificationConfigTab` local template/input/managed-list state into a dedicated hook so the config tab stays orchestration-focused without changing backend contracts.
 - [x] 2026-06-21 16:24 CST: Stopped this follow-up round after the local-state extraction; `dry-run` and template-sync deeper hook splits remain explicitly deferred to a later credit-notification follow-up PR to keep the scope reviewable.
 - [x] 2026-06-21 17:05 CST: A config-tab follow-up extracted `dry-run` and template-sync state into dedicated frontend hooks so their errors stay local to the config area instead of reusing page-level state.
+- [x] 2026-08-31 17:58 CST: Template-management review remediation preserves Aliyun page request IDs, serializes manual library refreshes in the UI, adds provider-template workflow analytics, and completes the Thai detail label.
+- [x] 2026-08-31 18:56 CST: Closed template-management data-integrity gaps: binding relationships now report unavailable when notification config loading fails, and provider-fallback template lists return every synchronized local template instead of silently limiting results to 100.
+- [x] 2026-09-01 16:10 CST: Replaced the fixed three-row notification-type configuration with a managed notification-rule list. Operators can create, edit, enable, disable, and delete named SMS rules with a supported trigger event, template, and event-specific conditions; global delivery protections remain separate.
+
+### Managed Notification Rules PR Split
+
+- **PR 1: rule runtime and API contract** stays on `feat/notification-rule-management`. It owns `rules[]` validation, legacy `types` compatibility, rule-aware template validation, multi-rule matching for `credit_granted`, `credit_expiring`, and `low_balance`, rule-scoped dedupe keys, notification-record rule snapshots, and focused backend regression coverage. It does not change the operator configuration UI.
+- **PR 2: operator rule management UI** starts only after PR 1 merges to `main`. It replaces the fixed notification-type editor with a rule list and create/edit/enable/delete interactions, while retaining the separate global delivery-protection controls. It includes i18n, analytics, and focused frontend coverage.
+- Keep each PR as one polished feature commit before pushing. Do not push intermediate implementation checkpoints.
 
 ## Surprises & Discoveries
 
@@ -51,6 +60,11 @@
 - Do not reuse `/api/user/send_sms_code`, `/api/user/console_send_sms_code`, or captcha templates.
 - softlimit is enforced on both frontend and backend: frontend disables teacher debug entry, backend debug/preview APIs validate `debug_allowed`.
 - hardlimit remains a billing admission/runtime boundary and is not controlled by notification policy.
+- Treat `credit_granted`, `credit_expiring`, and `low_balance` as fixed **trigger events**, not operator-defined notification types. Operators manage named **notification rules** that select one supported trigger event. A new arbitrary trigger event requires a separate backend implementation and must not be implied by the configuration UI.
+- Keep global delivery protections (frequency, quiet hours, blacklist, opt-out, and daily budget) in the shared notification policy. Per-rule configuration owns the channel, provider template, enabled state, and event-specific trigger conditions.
+- Store the initial managed rule list in `BILL_CREDIT_NOTIFICATION_SMS_CONFIG` as structured `rules[]` data. This is a runtime configuration change, not a schema migration. Give every rule a stable generated business ID and preserve the legacy `types` policy as a read-compatible source until existing values have been represented as rules.
+- Notification records must snapshot the matching rule ID and display name in `policy_snapshot_json`. Every notification dedupe key must include the rule ID so two enabled rules for the same source event can both be delivered without being mistaken for duplicates.
+- The domestic first release supports `sms` with approved Aliyun templates. The rule model must retain `channel` and provider/template references so the overseas email-template follow-up can reuse the same configuration and trigger model.
 
 ## Outcomes & Retrospective
 
@@ -64,6 +78,26 @@ Implemented v1 of the积分通知中心:
 - Billing overview exposes `credit_status`, `debug_allowed`, and `softlimit_threshold`; preview/debug paths enforce softlimit in both frontend and backend.
 - Focused backend, task, and frontend tests cover staging, dedupe, skip, provider retry, scan windows, softlimit, Celery schedule/config, operator page rendering, and frontend preview blocking.
 - Follow-up operator refinements now scope records/config/dry-run errors separately, refresh records plus overview in parallel after requeue, keep the credit notification config tab maintainable by isolating its local editor and managed-list state in a dedicated frontend hook, and move `dry-run` plus template-sync state into dedicated frontend hooks so config actions stay local to the config experience without changing contracts or records-tab behavior.
+
+## PR2B Template Management Analytics Contract
+
+- Business question: whether operators discover the domestic SMS template library and complete provider synchronizations successfully.
+- Metric definition: per operator session, count one eligible template-library exposure, every accepted manual synchronization attempt, and one terminal result for each attempt.
+- Event names: `operator_notification_template_library_viewed`, `operator_notification_template_sync_attempt`, `operator_notification_template_sync_result`, `operator_notification_template_filter_applied`, and `operator_notification_template_detail_opened`.
+- Actor and surface: authenticated operators on the credit-notification template-management tab; email-channel placeholder views are excluded.
+- Trigger and deduplication: exposure fires once per mounted eligible tab view; sync attempt fires after the refresh guard accepts a click; a result fires once after that request settles; filter and detail events are not deduplicated because repeated operator actions are meaningful.
+- Payload allowlist: `channel` (`sms`), `provider` (`aliyun`), `source` (`provider` or `local`), `outcome` (`success` or `failed`), and `filter` (`keyword` or `status`). Do not emit template content, template codes, names, user identifiers, contact information, or provider request IDs.
+- Consumers: operator notification-center adoption and provider synchronization reliability reporting. This is a new additive event family.
+
+## PR2 Managed Rule Analytics Contract
+
+- Business question: whether operators are configuring and maintaining managed SMS notification rules.
+- Event name: `operator_notification_rule_action`.
+- Actor and surface: authenticated operators in the credit-notification configuration tab.
+- Trigger: emit after an operator creates, edits, deletes, or changes a rule's enabled state in the local policy draft. The event does not represent a persisted save.
+- Payload allowlist: `channel` (`sms`), `action` (`created`, `edited`, `deleted`, or `toggled`), and `trigger_event` (one of the three supported events). Do not emit rule IDs, rule names, template codes or content, user identifiers, phone numbers, or policy conditions.
+- Consumers: operator configuration adoption reporting. This is additive and must never block the configuration workflow.
+- Verification: focused frontend tests cover eligible exposure, accepted sync attempts and outcomes, filter/detail events, payload allowlists, and analytics failures that do not alter the user workflow.
 
 ## Context and Orientation
 
@@ -161,6 +195,13 @@ Likely frontend surfaces:
    - requeue count
    - SMS cost estimate
 10. Update tests and keep this ExecPlan progress current as each step lands.
+11. Replace the fixed notification-type editor with a notification-rule list and rule editor:
+   - list columns: rule name, trigger event, channel/template, condition summary, enabled state, and actions
+   - create/edit fields: rule name, supported trigger event, approved template, enabled state, and event-specific conditions
+   - `credit_granted` has no operator-defined threshold; `credit_expiring` configures reminder windows; `low_balance` configures fixed or estimated-days thresholds
+   - retain a separate global delivery-protection section for frequency, quiet hours, blacklist, opt-out, and budget
+12. Change runtime matching so each enabled rule for a supported event can stage a notification independently. Preserve existing event hooks and scheduled tasks; only their policy lookup changes from a fixed type entry to matching rules.
+13. Add legacy-policy compatibility: configurations that only contain the existing `types` structure must continue to behave as today and be presented as the corresponding initial rules on the first managed-rule save. Do not silently discard existing enabled states, templates, expiry windows, or low-balance thresholds.
 
 ## Validation and Acceptance
 
@@ -210,3 +251,8 @@ Likely frontend surfaces:
   - billing ledger, wallet, and bucket accounting
   - existing auth SMS routes and captcha templates
   - existing hardlimit admission behavior
+- Managed-rule contract (first release):
+  - persisted under `BILL_CREDIT_NOTIFICATION_SMS_CONFIG.rules[]`, with a stable `rule_bid`, `name`, `trigger_event`, `channel`, `template_code`, `enabled`, and event-specific `conditions`
+  - supported `trigger_event` values remain `credit_granted`, `credit_expiring`, and `low_balance`
+  - rule-level conditions are restricted to the fields the corresponding runtime can evaluate; the operator UI must not expose free-form expressions or arbitrary event names
+  - no database schema migration is required for this configuration-model change; records retain rule provenance in the existing policy snapshot

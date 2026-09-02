@@ -5,7 +5,7 @@
       "chapterCount": "Nombre de chapitres",
       "courseName": "Nom du cours",
       "createdAt": "Créé le",
-      "learnerCount": "Nombre d’apprenants",
+      "learnerCount": "Participants au total",
       "status": "Statut du cours",
       "statusLabels": {
         "published": "Publié",
@@ -110,17 +110,41 @@
       "viewFollowUps": "Voir les questions",
       "viewFollowUpsForLearner": "Voir les questions de {learner}"
     },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "Moy. par apprenant",
+        "consumedCredits": "Crédits consommés",
+        "consumptionSpeed": "Moy. quotidienne sur 7 j",
+        "mode": "Format d’apprentissage",
+        "participants": "Apprenants"
+      },
+      "empty": "Aucune donnée par format d’apprentissage",
+      "modes": {
+        "classroom": "Classe",
+        "listen": "Écoute",
+        "read": "Lecture"
+      },
+      "scopeHint": "Comparez la consommation de crédits en lecture, écoute et classe pour voir comment les apprenants utilisent ce cours.",
+      "title": "Format d’apprentissage"
+    },
     "metrics": {
-      "activeLearnersLast7Days": "Apprenants actifs (7 j)",
       "completedLearners": "Apprenants ayant terminé",
       "completionRate": "Taux d’achèvement",
       "learningLearners": "Apprenants en cours",
-      "newLearnersLast7Days": "Nouveaux apprenants (7 j)",
       "orderAmount": "Montant des commandes",
       "orderCount": "Commandes",
       "rating": "Note du cours",
       "title": "Données clés",
       "totalQuestions": "Questions de suivi"
+    },
+    "metricsTooltips": {
+      "completedLearners": "Personnes ayant terminé toutes les leçons de ce cours.",
+      "completionRate": "Part des participants ayant terminé toutes les leçons de ce cours.",
+      "learningLearners": "Personnes ayant commencé le cours sans avoir encore terminé toutes les leçons.",
+      "orderAmount": "Montant total payé par les utilisateurs pour ce cours. Les commandes avec code d’échange ne sont pas incluses.",
+      "orderCount": "Commandes réussies de ce cours, y compris les commandes payées et celles avec code d’échange.",
+      "rating": "Note moyenne donnée aux leçons par les apprenants, sur 5.",
+      "totalQuestions": "Nombre total de questions de suivi posées à l’IA pendant l’apprentissage. Ouvrez pour voir le détail."
     },
     "ratings": {
       "emptyValue": "--",

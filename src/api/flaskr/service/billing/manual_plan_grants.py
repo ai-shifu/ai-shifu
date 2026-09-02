@@ -23,6 +23,7 @@ from .consts import (
 )
 from .credit_notifications import (
     enqueue_credit_notification,
+    pending_credit_notification_bids,
     stage_credit_granted_notification_for_order,
 )
 from .models import BillingOrder, BillingProduct, BillingSubscription
@@ -222,7 +223,7 @@ def grant_manual_plan_to_user(
             now = now_utc()
             if existing_order is not None:
                 granted = grant_paid_order_credits(app, existing_order)
-                notification_bid = ""
+                notification_bids: tuple[str, ...] = ()
                 if granted:
                     grant_notification = stage_credit_granted_notification_for_order(
                         app,
@@ -231,10 +232,9 @@ def grant_manual_plan_to_user(
                         commit=False,
                         enqueue=False,
                     )
-                    if grant_notification.get("status") == "pending":
-                        notification_bid = str(
-                            grant_notification.get("notification_bid") or ""
-                        ).strip()
+                    notification_bids = pending_credit_notification_bids(
+                        grant_notification
+                    )
                 notification_status = _ensure_notification_extension_metadata(
                     existing_order,
                     requested_at=now,
@@ -243,7 +243,7 @@ def grant_manual_plan_to_user(
                 )
                 db.session.add(existing_order)
                 db.session.commit()
-                if notification_bid:
+                for notification_bid in notification_bids:
                     enqueue_credit_notification(app, notification_bid=notification_bid)
                 subscription = (
                     BillingSubscription.query.filter(
@@ -395,7 +395,7 @@ def grant_manual_plan_to_user(
             db.session.flush()
 
             granted = grant_paid_order_credits(app, order)
-            notification_bid = ""
+            notification_bids: tuple[str, ...] = ()
             if granted:
                 grant_notification = stage_credit_granted_notification_for_order(
                     app,
@@ -404,13 +404,10 @@ def grant_manual_plan_to_user(
                     commit=False,
                     enqueue=False,
                 )
-                if grant_notification.get("status") == "pending":
-                    notification_bid = str(
-                        grant_notification.get("notification_bid") or ""
-                    ).strip()
+                notification_bids = pending_credit_notification_bids(grant_notification)
 
             db.session.commit()
-            if notification_bid:
+            for notification_bid in notification_bids:
                 enqueue_credit_notification(app, notification_bid=notification_bid)
             return ManualPlanGrantResult(
                 user_bid=normalized_user_bid,

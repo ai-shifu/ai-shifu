@@ -12,22 +12,16 @@ import type {
   AdminOperationCreditNotificationPolicy,
   AdminOperationCreditNotificationPolicyResolvedLists,
   AdminOperationCreditNotificationTemplateOption,
-  AdminOperationCreditNotificationTemplateSyncResponse,
 } from '../operation-credit-notification-types';
 import { CreditNotificationCreatorListsSection } from './CreditNotificationCreatorListsSection';
 import { CreditNotificationDeliveryRulesSection } from './CreditNotificationDeliveryRulesSection';
 import { CreditNotificationDryRunPanel } from './CreditNotificationDryRunPanel';
 import { CreditNotificationManagedListDialog } from './CreditNotificationManagedListDialog';
-import { CreditNotificationTypeConfigTable } from './CreditNotificationTypeConfigTable';
+import { CreditNotificationRuleManagementSection } from './CreditNotificationRuleManagementSection';
 import {
   CreditNotificationConfigSection as ConfigSection,
   CreditNotificationHelpTooltip as HelpTooltip,
 } from './CreditNotificationFormPrimitives';
-import {
-  isEstimatedDaysThreshold,
-  isFixedThreshold,
-  type KnownNotificationType,
-} from './creditNotificationUtils';
 import {
   type UpdatePolicy,
   useCreditNotificationConfigTabState,
@@ -40,19 +34,13 @@ export function CreditNotificationConfigTab({
   configError,
   dryRunResult,
   dryRunError,
-  templateSyncError,
-  templateSyncResults,
-  templateSyncLoading,
   templateOptions,
-  templateListSource,
-  templateListError,
   resolvedLists,
   updatePolicy,
-  syncTemplate,
   dryRun,
   saveConfig,
-  clearTemplateSyncResult,
   resolveTypeLabel,
+  onRuleAction,
 }: {
   policy: AdminOperationCreditNotificationPolicy;
   configLoaded: boolean;
@@ -60,24 +48,16 @@ export function CreditNotificationConfigTab({
   configError: string;
   dryRunResult: AdminOperationCreditNotificationDryRunResponse | null;
   dryRunError: string;
-  templateSyncError: string;
-  templateSyncResults: Partial<
-    Record<
-      KnownNotificationType,
-      AdminOperationCreditNotificationTemplateSyncResponse
-    >
-  >;
-  templateSyncLoading: Partial<Record<KnownNotificationType, boolean>>;
   templateOptions: AdminOperationCreditNotificationTemplateOption[];
-  templateListSource: 'provider' | 'local' | '';
-  templateListError: string;
   resolvedLists: AdminOperationCreditNotificationPolicyResolvedLists;
   updatePolicy: UpdatePolicy;
-  syncTemplate: (notificationType: KnownNotificationType) => Promise<boolean>;
   dryRun: () => void;
   saveConfig: () => Promise<boolean>;
-  clearTemplateSyncResult: (notificationType: KnownNotificationType) => void;
   resolveTypeLabel: (value: string) => string;
+  onRuleAction: (
+    action: 'created' | 'edited' | 'deleted' | 'toggled',
+    triggerEvent: 'credit_expiring' | 'credit_granted' | 'low_balance',
+  ) => void;
 }) {
   const { t } = useTranslation();
   const loginMethodsEnabled = useEnvStore(
@@ -95,28 +75,19 @@ export function CreditNotificationConfigTab({
     blockedCreatorIdentifiers,
     blockedCreatorInput,
     closeManagedListDialog,
-    editingTemplateTypes,
     filteredManagedListDetails,
     finishIntegerInput,
-    finishListInput,
     getIntegerInputValue,
-    getListInputValue,
     managedListCanDelete,
     managedListDialog,
     managedListSearch,
     managedListTitle,
     openManagedListDialog,
-    openTemplatePicker,
     optedOutCreatorIdentifiers,
     removeBlockedCreator,
     setBlockedCreatorInput,
-    setEditingTemplateTypes,
     setManagedListSearch,
-    setOpenTemplatePicker,
-    setTemplateInputValues,
-    templateInputValues,
     updateIntegerInput,
-    updateListInput,
   } = useCreditNotificationConfigTabState({
     contactMode,
     policy,
@@ -124,11 +95,6 @@ export function CreditNotificationConfigTab({
     updatePolicy,
     t,
   });
-  const lowBalanceThresholds = policy.types.low_balance.thresholds || [];
-  const fixedLowBalanceThresholds =
-    lowBalanceThresholds.filter(isFixedThreshold);
-  const estimatedDaysThreshold =
-    lowBalanceThresholds.find(isEstimatedDaysThreshold) || null;
 
   if (configLoading && !configLoaded) {
     return (
@@ -182,44 +148,13 @@ export function CreditNotificationConfigTab({
           </div>
         </ConfigSection>
 
-        <ConfigSection
-          title={t(
-            'module.operationsCreditNotifications.config.sections.types',
-          )}
-        >
-          {templateSyncError ? (
-            <div className='mb-3 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive'>
-              {templateSyncError}
-            </div>
-          ) : null}
-          <CreditNotificationTypeConfigTable
-            contactMode={contactMode}
-            policy={policy}
-            fixedLowBalanceThresholds={fixedLowBalanceThresholds}
-            estimatedDaysThreshold={estimatedDaysThreshold}
-            templateSyncResults={templateSyncResults}
-            templateSyncLoading={templateSyncLoading}
-            templateOptions={templateOptions}
-            templateListSource={templateListSource}
-            templateListError={templateListError}
-            openTemplatePicker={openTemplatePicker}
-            editingTemplateTypes={editingTemplateTypes}
-            templateInputValues={templateInputValues}
-            updatePolicy={updatePolicy}
-            syncTemplate={syncTemplate}
-            clearTemplateSyncResult={clearTemplateSyncResult}
-            resolveTypeLabel={resolveTypeLabel}
-            getListInputValue={getListInputValue}
-            updateListInput={updateListInput}
-            finishListInput={finishListInput}
-            getIntegerInputValue={getIntegerInputValue}
-            updateIntegerInput={updateIntegerInput}
-            finishIntegerInput={finishIntegerInput}
-            setOpenTemplatePicker={setOpenTemplatePicker}
-            setEditingTemplateTypes={setEditingTemplateTypes}
-            setTemplateInputValues={setTemplateInputValues}
-          />
-        </ConfigSection>
+        <CreditNotificationRuleManagementSection
+          policy={policy}
+          templateOptions={templateOptions}
+          resolveTypeLabel={resolveTypeLabel}
+          updatePolicy={updatePolicy}
+          onRuleAction={onRuleAction}
+        />
 
         <CreditNotificationDeliveryRulesSection
           policy={policy}

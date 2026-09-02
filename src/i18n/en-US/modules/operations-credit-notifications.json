@@ -358,6 +358,7 @@
     "provider_exception": "SMS provider call failed.",
     "provider_failed": "SMS provider did not return an accepted response.",
     "quiet_hours": "Quiet hours are active, not sent.",
+    "unsupported_channel": "This notification channel is not enabled, not sent.",
     "zero_balance_missing_estimated_remaining_days": "Zero balance reminder lacks estimated remaining days, not sent."
   },
   "filters": {
@@ -398,7 +399,40 @@
   "records": {
     "totalCount": "{count} notification records"
   },
+  "ruleManagement": {
+    "cancel": "Cancel",
+    "columns": {
+      "actions": "Actions",
+      "conditions": "Conditions",
+      "enabled": "Status",
+      "name": "Rule name",
+      "template": "SMS template",
+      "trigger": "Trigger event"
+    },
+    "delete": "Delete",
+    "deleteDescription": "This change takes effect after the notification configuration is saved. Continue?",
+    "deleteTitle": "Delete notification rule",
+    "description": "Configure independently enabled notification rules by trigger event, SMS template, and conditions.",
+    "dialogDescription": "After saving the configuration, this rule applies to future notification delivery.",
+    "edit": "Edit",
+    "editRule": "Edit notification rule",
+    "empty": "No notification rules configured yet.",
+    "fields": {
+      "enabled": "Enable rule",
+      "name": "Rule name",
+      "template": "SMS template",
+      "thresholds": "Low-balance thresholds",
+      "trigger": "Trigger event",
+      "windows": "Expiry reminder windows"
+    },
+    "newRule": "New rule",
+    "noConditions": "No additional conditions",
+    "saveRule": "Save rule",
+    "selectTemplate": "Select SMS template",
+    "title": "Notification Rules"
+  },
   "skipReason": {
+    "channel": "Notification channel unavailable",
     "contact": "Contact issue",
     "duplicate": "Duplicate notification",
     "policy": "Policy limit",
@@ -435,7 +469,55 @@
   },
   "tabs": {
     "config": "Notification Config",
-    "records": "Notification records"
+    "records": "Notification records",
+    "templates": "Template management"
+  },
+  "templateManagement": {
+    "allStatuses": "All review statuses",
+    "bindingsLoading": "Loading bindings",
+    "bindingsUnavailable": "Binding information unavailable",
+    "columns": {
+      "action": "Action",
+      "bindings": "Used by",
+      "content": "Content",
+      "name": "Template",
+      "status": "Review status",
+      "type": "Template type"
+    },
+    "detail": {
+      "code": "Template Code",
+      "content": "Full content",
+      "error": "Sync error",
+      "status": "Review status",
+      "syncedAt": "Last synced",
+      "type": "Template type",
+      "variables": "Variables"
+    },
+    "detailDescription": "Provider details and current business usage for this template.",
+    "emailComingSoon": "Email template management will be available after the email delivery provider is configured.",
+    "emailTitle": "Email templates",
+    "empty": "No templates match the current filters.",
+    "loadError": "The Alibaba Cloud template list could not be loaded. Local cached templates are shown when available.",
+    "loading": "Loading templates...",
+    "refresh": "Sync Alibaba Cloud SMS templates",
+    "searchPlaceholder": "Search template name, Code, or content",
+    "smsDescription": "All SMS templates synchronized from Alibaba Cloud, including templates not yet bound to a credit notification.",
+    "smsTitle": "Alibaba Cloud SMS templates",
+    "status": {
+      "AUDIT_SATE_CANCEL": "Canceled",
+      "AUDIT_STATE_CANCEL": "Canceled",
+      "AUDIT_STATE_INIT": "Under review",
+      "AUDIT_STATE_NOT_PASS": "Rejected",
+      "AUDIT_STATE_PASS": "Approved"
+    },
+    "statusFilter": "Review status",
+    "type": {
+      "0": "Notification SMS",
+      "1": "Promotional SMS",
+      "2": "Verification code",
+      "6": "International SMS"
+    },
+    "unbound": "Not in use"
   },
   "templateName": {
     "credit_expiring": "Credit expiry reminder notification template",

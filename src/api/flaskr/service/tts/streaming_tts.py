@@ -297,6 +297,7 @@ class StreamingTTSProcessor:
         stream_element_type: str | None = None,
         av_contract: dict[str, object] | None = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
+        learning_mode: str = "",
     ) -> None:
         """Initialize configuration and buffered synthesis state for one TTS block.
 
@@ -353,6 +354,7 @@ class StreamingTTSProcessor:
             generated_block_bid=generated_block_bid,
             audio_bid=self._audio_bid,
             usage_scene=usage_scene,
+            learning_mode=learning_mode,
         )
 
         # Thread-safe queue for completed segments

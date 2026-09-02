@@ -127,7 +127,6 @@ interface NewChatComponentsProps {
   getNextLessonId: NextLessonIdGetter;
   previewMode?: boolean;
   isNavOpen?: boolean;
-  onListenPlayerVisibilityChange?: (visible: boolean) => void;
   onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
   showGenerateBtn?: boolean;
   onLessonUpdateNoticeVisibilityChange?: (visible: boolean) => void;
@@ -154,7 +153,6 @@ export const NewChatComponents = ({
   getNextLessonId,
   previewMode = false,
   isNavOpen = false,
-  onListenPlayerVisibilityChange,
   onListenMobileViewModeChange,
   showGenerateBtn = false,
   onLessonUpdateNoticeVisibilityChange,
@@ -422,6 +420,7 @@ export const NewChatComponents = ({
     previewMode,
     lessonHasContentUpdate,
     isListenMode: isListenModeActive,
+    learningMode,
     trackEvent,
     trackTrailProgress,
     lessonUpdate,
@@ -758,13 +757,6 @@ export const NewChatComponents = ({
   useEffect(() => {
     hydrateAskListMap(baseAskListByAnchorElementBid);
   }, [baseAskListByAnchorElementBid, hydrateAskListMap]);
-
-  useEffect(() => {
-    if (isListenModeActive && !isLoading) {
-      return;
-    }
-    onListenPlayerVisibilityChange?.(false);
-  }, [isListenModeActive, isLoading, onListenPlayerVisibilityChange]);
 
   useEffect(() => {
     if (isSlideMode) {
@@ -1351,7 +1343,6 @@ export const NewChatComponents = ({
               variant={isClassroomMode ? 'classroom' : 'listen'}
               onMobileViewModeChange={onListenMobileViewModeChange}
               onSend={memoizedOnSend}
-              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
               onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
               pausePlaybackWhen={reGenerateConfirm.open}
               disableInteractionEdits={isOutputInProgress}

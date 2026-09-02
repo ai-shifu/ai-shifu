@@ -516,17 +516,16 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
 
-    def reload_qwen_params(model_id: object, temperature: object) -> object:
-        captured["reload_model"] = model_id
-        return llm._reload_qwen_params(model_id, temperature)
-
     provider_state = llm.ProviderState(
         enabled=True,
-        params={"api_key": "test-key", "api_base": "https://example.com"},
+        params={
+            "api_key": "test-key",
+            "api_base": "https://example.com",
+            "custom_llm_provider": "dashscope",
+        },
         models=[],
         prefix=llm.QWEN_PREFIX,
         wildcard_prefixes=(llm.QWEN_PREFIX,),
-        reload_params=reload_qwen_params,
     )
     monkeypatch.setattr(llm, "PROVIDER_STATES", {"qwen": provider_state})
     monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {})
@@ -555,9 +554,10 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
 
     assert [resp.result for resp in responses] == ["ok"]
     assert captured["model"] == "deepseek-v4-flash"
-    assert captured["reload_model"] == "deepseek-v4-flash"
     assert captured["kwargs"]["temperature"] == 0.7
     assert captured["kwargs"]["extra_body"] == {"enable_thinking": False}
+    assert captured["kwargs"]["enable_thinking"] is None
+    assert "drop_params" not in captured["kwargs"]
     assert captured["kwargs"]["max_tokens"] == 393216
 
 
@@ -739,16 +739,15 @@ def test_provider_configs_use_expected_litellm_adapters(
 
 
 @pytest.mark.parametrize(
-    ("model_info", "expected_effort", "expected_temperature"),
+    ("model_info", "expected_effort"),
     [
-        ({"supports_none_reasoning_effort": True}, "none", 0.4),
+        ({"supports_none_reasoning_effort": True}, "none"),
         (
             {
                 "supports_none_reasoning_effort": False,
                 "supports_minimal_reasoning_effort": True,
             },
             "minimal",
-            1,
         ),
         (
             {
@@ -757,7 +756,6 @@ def test_provider_configs_use_expected_litellm_adapters(
                 "supports_low_reasoning_effort": True,
             },
             "low",
-            1,
         ),
         (
             {
@@ -766,15 +764,15 @@ def test_provider_configs_use_expected_litellm_adapters(
                 "supports_low_reasoning_effort": False,
             },
             "medium",
-            1,
         ),
+        ({"supports_none_reasoning_effort": None}, "none"),
+        ({}, "none"),
     ],
 )
-def test_openai_params_use_litellm_reasoning_capabilities(
+def test_minimum_thinking_uses_litellm_reasoning_capabilities(
     monkeypatch: object,
     model_info: object,
     expected_effort: object,
-    expected_temperature: object,
 ) -> None:
     captured = {}
 
@@ -783,23 +781,31 @@ def test_openai_params_use_litellm_reasoning_capabilities(
         captured["custom_llm_provider"] = custom_llm_provider
         return model_info
 
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_supported_openai_params",
+        lambda **_kwargs: ["reasoning_effort"],
+    )
     monkeypatch.setattr(llm.litellm, "get_model_info", fake_get_model_info)
 
-    params = llm._reload_openai_params("gpt-5.6-luna", 0.4)
+    params = llm._litellm_minimum_thinking_params("future-model", "provider")
 
-    assert params == {
-        "reasoning_effort": expected_effort,
-        "temperature": expected_temperature,
-    }
+    assert params == {"reasoning_effort": expected_effort}
     assert captured == {
-        "model": "gpt-5.6-luna",
-        "custom_llm_provider": "openai",
+        "model": "future-model",
+        "custom_llm_provider": "provider",
     }
 
 
-def test_openai_params_fall_back_to_existing_policy_for_unknown_model(
+def test_minimum_thinking_uses_none_when_model_metadata_is_missing(
     monkeypatch: object,
 ) -> None:
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_supported_openai_params",
+        lambda **_kwargs: ["reasoning_effort"],
+    )
+
     def raise_unknown(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
         message = "unknown model"
@@ -807,196 +813,399 @@ def test_openai_params_fall_back_to_existing_policy_for_unknown_model(
 
     monkeypatch.setattr(llm.litellm, "get_model_info", raise_unknown)
 
-    assert llm._reload_openai_params("gpt-5-custom", 0.4) == {
-        "reasoning_effort": "minimal",
-        "temperature": 1,
+    assert llm._litellm_minimum_thinking_params("future-model", "provider") == {
+        "reasoning_effort": "none"
     }
 
 
-def test_openai_params_fall_back_when_capability_metadata_is_partial(
+def test_minimum_thinking_falls_back_to_standard_thinking(
     monkeypatch: object,
 ) -> None:
     monkeypatch.setattr(
         llm.litellm,
-        "get_model_info",
-        lambda *_args, **_kwargs: {"supports_none_reasoning_effort": False},
+        "get_supported_openai_params",
+        lambda **_kwargs: ["thinking"],
     )
 
-    assert llm._reload_openai_params("gpt-5.2-custom", 0.4) == {
-        "reasoning_effort": "none",
-        "temperature": 0.4,
+    assert llm._litellm_minimum_thinking_params("future-model", "provider") == {
+        "thinking": {"type": "disabled"}
     }
 
 
-@pytest.mark.parametrize(
-    "model_id",
-    ["glm-4.5", "glm-4.6-air", "glm-4.7-flash", "glm-5.2"],
-)
-def test_glm_params_disable_thinking_for_supported_models(model_id: object) -> None:
-    params = llm._reload_glm_params(model_id, 0.4)
+def test_minimum_thinking_leaves_non_reasoning_models_unchanged(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_supported_openai_params",
+        lambda **_kwargs: ["temperature", "stream"],
+    )
 
-    assert params == {
-        "temperature": 0.4,
-        "allowed_openai_params": ["response_format", "thinking"],
-        "extra_body": {"thinking": {"type": "disabled"}},
-    }
+    assert llm._litellm_minimum_thinking_params("plain-model", "provider") == {}
 
 
-def test_glm_params_leave_legacy_models_unchanged() -> None:
-    params = llm._reload_glm_params("glm-4-plus", 0.4)
+def test_request_patch_merge_is_shallow_and_deduplicates_lists() -> None:
+    merged = llm._merge_litellm_param_patch(
+        {
+            "allowed_openai_params": ["response_format", "tools"],
+            "additional_drop_params": ["thinking"],
+            "extra_body": {
+                "custom": "keep",
+                "nested": {"caller": True},
+            },
+        },
+        {
+            "allowed_openai_params": ["tools", "reasoning_effort"],
+            "additional_drop_params": ["thinking", "enable_thinking"],
+            "extra_body": {
+                "nested": {"patch": True},
+                "enable_thinking": False,
+            },
+        },
+    )
 
-    assert params == {
-        "temperature": 0.4,
-        "allowed_openai_params": ["response_format"],
-    }
-
-
-def test_provider_specific_thinking_params_remain_compatible() -> None:
-    assert llm._reload_qwen_params("qwen-max", 0.4)["extra_body"] == {
-        "enable_thinking": False
-    }
-    assert llm._reload_silicon_params("deepseek-ai/DeepSeek-V3", 0.4)["extra_body"] == {
-        "enable_thinking": False
-    }
-    assert llm._reload_ark_params("doubao-seed", 0.4)["thinking"] == {
-        "type": "disabled"
-    }
-    assert llm._reload_ark_params("doubao-seed", 0.4)["allowed_openai_params"] == [
-        "response_format"
-    ]
-
-
-def test_provider_thinking_policy_removes_caller_conflicts() -> None:
-    kwargs = {
-        "reasoning_effort": "high",
-        "thinking": {"type": "enabled"},
-        "enable_thinking": True,
+    assert merged == {
+        "allowed_openai_params": [
+            "response_format",
+            "tools",
+            "reasoning_effort",
+        ],
+        "additional_drop_params": ["thinking", "enable_thinking"],
         "extra_body": {
+            "custom": "keep",
+            "nested": {"patch": True},
+            "enable_thinking": False,
+        },
+    }
+
+
+@pytest.mark.parametrize("provider_key", ["QWEN", "Silicon"])
+def test_provider_patch_disables_thinking_and_preserves_extra_body(
+    monkeypatch: object, provider_key: object
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {},
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        str(provider_key),
+        "ordinary-model",
+        {"custom_llm_provider": "openai"},
+        {
+            "enable_thinking": True,
+            "additional_drop_params": [
+                "extra_body",
+                "extra_body.enable_thinking.type",
+                "caller_only",
+            ],
+            "extra_body": {
+                "enable_thinking": True,
+                "custom_field": "keep",
+            },
+        },
+    )
+
+    assert prepared["enable_thinking"] is None
+    assert prepared["extra_body"] == {
+        "enable_thinking": False,
+        "custom_field": "keep",
+    }
+    assert "enable_thinking" not in prepared["additional_drop_params"]
+    assert "extra_body" not in prepared["additional_drop_params"]
+    assert prepared["additional_drop_params"][0] == "caller_only"
+    assert "drop_params" not in prepared
+
+
+def test_zai_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
+    adapter_supported_models = {
+        "glm-4.6",
+        "glm-4.7",
+        "glm-4.7-flash",
+        "glm-5",
+        "glm-5.1",
+        "glm-5-code",
+    }
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda model_id, *_args, **_kwargs: (
+            {"thinking": {"type": "disabled"}}
+            if model_id.casefold() in adapter_supported_models
+            else {}
+        ),
+    )
+
+    patched_model_ids = (
+        "glm-4.5",
+        "glm-4.5v",
+        "glm-4.5-air",
+        "glm-4.5-x",
+        "glm-4.5-airx",
+        "glm-4.5-flash",
+        "glm-4.6",
+        "GLM-4.7",
+        "glm-4.7-flash",
+        "glm-5",
+        "glm-5.1",
+        "glm-5-code",
+        "glm-5.2",
+    )
+    assert {
+        model_id
+        for provider, model_id in llm._LITELLM_198_COMPATIBILITY_PATCHES
+        if provider == "glm" and model_id is not None
+    } == {model_id.casefold() for model_id in patched_model_ids}
+
+    for model_id in patched_model_ids:
+        prepared = llm._prepare_litellm_request_kwargs(
+            "glm",
+            model_id,
+            {"custom_llm_provider": "zai"},
+            {
+                "thinking": {"type": "enabled"},
+                "allowed_openai_params": ["tools"],
+                "extra_body": {
+                    "thinking": {"type": "enabled"},
+                    "custom_field": "keep",
+                },
+            },
+        )
+
+        assert prepared["thinking"] is None, model_id
+        assert prepared["extra_body"] == {
+            "thinking": {"type": "disabled"},
+            "custom_field": "keep",
+        }, model_id
+        assert prepared["allowed_openai_params"] == [
+            "tools",
+            "response_format",
+        ], model_id
+        assert "thinking" not in prepared["additional_drop_params"], model_id
+
+
+def test_zai_provider_patch_does_not_inject_thinking_for_legacy_models(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {},
+    )
+
+    for model_id in ("glm-4-flash", "GLM-4-FLASH-250414", "glm-5-future"):
+        prepared = llm._prepare_litellm_request_kwargs(
+            "glm",
+            model_id,
+            {"custom_llm_provider": "zai"},
+            {"response_format": {"type": "json_object"}},
+        )
+
+        assert "thinking" not in prepared, model_id
+        assert "extra_body" not in prepared, model_id
+        assert "additional_drop_params" not in prepared, model_id
+        assert prepared["allowed_openai_params"] == ["response_format"], model_id
+
+
+def test_ark_uses_litellm_thinking_and_provider_response_format_patch(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {"thinking": {"type": "disabled"}},
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        "ark",
+        "doubao-seed",
+        {"custom_llm_provider": "volcengine"},
+        {
+            "thinking": {"type": "enabled"},
+            "additional_drop_params": ["extra_body", "caller_only"],
+            "extra_body": {
+                "thinking": {"type": "enabled"},
+                "custom_field": "keep",
+            },
+        },
+    )
+
+    assert prepared["thinking"] == {"type": "disabled"}
+    assert prepared["allowed_openai_params"] == ["response_format"]
+    assert prepared["extra_body"] == {"custom_field": "keep"}
+    assert "extra_body" not in prepared["additional_drop_params"]
+    assert "extra_body.thinking" not in prepared["additional_drop_params"]
+
+
+@pytest.mark.parametrize("model_id", ["ZHIPU/GLM-5.3", "zhipu/glm-5.3-FLASH"])
+def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
+    monkeypatch: object, model_id: object
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {"thinking": {"type": "disabled"}},
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        "qwen",
+        str(model_id),
+        {"custom_llm_provider": "dashscope"},
+        {
+            "reasoning_effort": "high",
             "thinking": {"type": "enabled"},
             "enable_thinking": True,
-            "custom_field": "keep",
+            "allowed_openai_params": ["response_format"],
+            "additional_drop_params": ["caller_only"],
+            "extra_body": {
+                "enable_thinking": True,
+                "reasoning_effort": "max",
+                "custom_field": "keep",
+            },
         },
-    }
-
-    llm._apply_provider_params(
-        kwargs,
-        {"reasoning_effort": "none", "temperature": 0.4},
     )
 
-    assert kwargs == {
-        "reasoning_effort": "none",
-        "temperature": 0.4,
-        "extra_body": {"custom_field": "keep"},
-    }
+    assert prepared["reasoning_effort"] == "low"
+    assert prepared["temperature"] == 0.3
+    assert prepared["allowed_openai_params"] == [
+        "response_format",
+        "reasoning_effort",
+    ]
+    assert prepared["additional_drop_params"][:4] == [
+        "caller_only",
+        "enable_thinking",
+        "reasoning",
+        "thinking",
+    ]
+    assert "extra_body.reasoning_effort" in prepared["additional_drop_params"]
+    assert prepared["extra_body"]["custom_field"] == "keep"
+    assert "drop_params" not in prepared
+
+
+def test_gemini_uses_native_mapping_and_does_not_override_temperature(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {"reasoning_effort": "none"},
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        "gemini",
+        "gemini-3.6-flash",
+        {"custom_llm_provider": "gemini"},
+        {
+            "reasoning_effort": "high",
+            "thinking": {"type": "enabled"},
+            "extra_body": {
+                "generationConfig": {
+                    "thinkingConfig": {"thinkingLevel": "high"},
+                    "topK": 8,
+                },
+                "custom_field": "keep",
+            },
+        },
+    )
+
+    assert prepared["reasoning_effort"] == "none"
+    assert "temperature" not in prepared
+    assert "thinking" in prepared["additional_drop_params"]
+    assert (
+        "extra_body.generationConfig.thinkingConfig"
+        in prepared["additional_drop_params"]
+    )
+    assert prepared["extra_body"]["custom_field"] == "keep"
 
 
 @pytest.mark.parametrize(
-    ("generation_config_key", "thinking_config_key", "top_k_key"),
+    ("model_id", "expected_effort", "expects_temperature"),
     [
-        ("generationConfig", "thinkingConfig", "topK"),
-        ("generation_config", "thinking_config", "top_k"),
+        ("gemini-3.7-flash", "low", False),
+        ("GEMINI-3.7-FLASH", "low", False),
+        ("gemini-2.5-pro", "minimal", True),
     ],
 )
-def test_gemini_thinking_policy_removes_nested_caller_override(
-    generation_config_key: object,
-    thinking_config_key: object,
-    top_k_key: object,
+def test_gemini_exact_minimum_patches(
+    monkeypatch: object,
+    model_id: object,
+    expected_effort: object,
+    expects_temperature: object,
 ) -> None:
-    kwargs = {
-        "extra_body": {
-            generation_config_key: {
-                thinking_config_key: {"thinkingLevel": "high"},
-                top_k_key: 8,
-            },
-            "custom_field": "keep",
-        },
-    }
-
-    llm._apply_provider_params(
-        kwargs,
-        llm._reload_gemini_params("gemini-3.6-flash", 0.4),
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {"reasoning_effort": "none"},
     )
 
-    assert kwargs == {
-        "temperature": 0.4,
-        "reasoning_effort": "none",
-        "allowed_openai_params": ["reasoning_effort"],
-        "extra_body": {
-            "generationConfig": {top_k_key: 8},
-            "custom_field": "keep",
-        },
-    }
+    prepared = llm._prepare_litellm_request_kwargs(
+        "gemini",
+        str(model_id),
+        {"custom_llm_provider": "gemini"},
+        {},
+    )
+
+    assert prepared["reasoning_effort"] == expected_effort
+    assert ("temperature" in prepared) is expects_temperature
+    assert "allowed_openai_params" not in prepared
 
 
-@pytest.mark.parametrize("generation_config_key", llm._GEMINI_GENERATION_CONFIG_KEYS)
-def test_gemini_thinking_policy_removes_invalid_native_config(
-    generation_config_key: object,
+@pytest.mark.parametrize(
+    ("model_id", "expected_effort"),
+    [
+        ("gpt-5-pro", "high"),
+        ("gpt-5-pro-2025-10-06", "high"),
+        ("gpt-5.2-pro", "medium"),
+        ("gpt-5.2-pro-2025-12-11", "medium"),
+        ("gpt-5.4-pro", "medium"),
+        ("gpt-5.4-pro-2026-03-05", "medium"),
+        ("gpt-5.5-pro", "medium"),
+        ("gpt-5.5-pro-2026-04-23", "medium"),
+    ],
+)
+def test_openai_pro_patches_correct_litellm_198_metadata(
+    monkeypatch: object, model_id: object, expected_effort: object
 ) -> None:
-    kwargs = {
-        "extra_body": {
-            generation_config_key: None,
-            "custom_field": "keep",
-        },
-    }
-
-    llm._apply_provider_params(
-        kwargs,
-        llm._reload_gemini_params("gemini-3.6-flash", 0.4),
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {"reasoning_effort": "minimal"},
     )
 
-    assert kwargs["extra_body"] == {"custom_field": "keep"}
-
-
-def test_gemini_thinking_policy_normalizes_generation_config_aliases() -> None:
-    kwargs = {
-        "extra_body": {
-            "generation_config": {
-                "thinking_config": {"thinking_level": "high"},
-                "top_k": 4,
-            },
-            "generationConfig": {
-                "thinkingConfig": {"thinkingLevel": "high"},
-                "topK": 8,
-            },
-        },
-    }
-
-    llm._apply_provider_params(
-        kwargs,
-        llm._reload_gemini_params("gemini-3.6-flash", 0.4),
+    prepared = llm._prepare_litellm_request_kwargs(
+        "openai",
+        str(model_id),
+        {"custom_llm_provider": "openai"},
+        {},
     )
 
-    assert kwargs["extra_body"] == {
-        "generationConfig": {
-            "top_k": 4,
-            "topK": 8,
-        },
-    }
+    assert prepared["reasoning_effort"] == expected_effort
+    assert "temperature" not in prepared
 
 
-def test_provider_thinking_policy_preserves_caller_extra_body_fields() -> None:
-    kwargs = {
-        "extra_body": {
-            "enable_thinking": True,
-            "custom_field": "keep",
-        },
-    }
-
-    llm._apply_provider_params(
-        kwargs,
-        llm._reload_qwen_params("qwen-max", 0.4),
+def test_explicit_temperature_is_preserved_for_strict_provider_validation(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {"reasoning_effort": "minimal"},
     )
 
-    assert kwargs == {
-        "temperature": 0.4,
-        "extra_body": {
-            "enable_thinking": False,
-            "custom_field": "keep",
-        },
-    }
+    prepared = llm._prepare_litellm_request_kwargs(
+        "openai",
+        "gpt-5-future",
+        {"custom_llm_provider": "openai"},
+        {"temperature": "0.3", "stop": ["done"]},
+    )
+
+    assert prepared["temperature"] == 0.3
+    assert prepared["stop"] == ["done"]
+    assert "drop_params" not in prepared
 
 
-LITELLM_CONTRACT_VERSION = "1.95.0"
+LITELLM_CONTRACT_VERSION = "1.98.0"
 
 
 def _installed_litellm_version() -> str | None:
@@ -1015,16 +1224,20 @@ def _installed_litellm_version() -> str | None:
         "install requirements.txt to run it"
     ),
 )
-def test_litellm_195_native_adapter_contracts() -> None:
+def test_litellm_198_native_adapter_contracts() -> None:
     script = textwrap.dedent(
         """
+        import copy
         import importlib.metadata
         import json
 
         import httpx
         import litellm
+        from flaskr.api import llm as app_llm
+        from litellm.completion_extras.litellm_responses_transformation.transformation import LiteLLMResponsesTransformationHandler
         from openai import OpenAI
         from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
 
         messages = [{"role": "user", "content": "hello"}]
         sse_events = [
@@ -1114,7 +1327,6 @@ def test_litellm_195_native_adapter_contracts() -> None:
                     messages=messages,
                     stream=True,
                     stream_options={"include_usage": True},
-                    temperature=0.4,
                     **provider_kwargs,
                 )
             )
@@ -1140,57 +1352,213 @@ def test_litellm_195_native_adapter_contracts() -> None:
                 },
             }
 
+        def optional_params_error(**kwargs):
+            try:
+                litellm.get_optional_params(**kwargs)
+            except Exception as exc:
+                return type(exc).__name__
+            return None
+
+        def prepared(provider_key, provider, model, kwargs=None):
+            return app_llm._prepare_litellm_request_kwargs(
+                provider_key,
+                model,
+                {"custom_llm_provider": provider},
+                kwargs or {},
+            )
+
+        def openai_responses_reasoning_contract():
+            prepared_kwargs = prepared(
+                "openai",
+                "openai",
+                "gpt-5.2-pro",
+                {
+                    "reasoning": {"effort": "max"},
+                    "extra_body": {
+                        "reasoning": {"effort": "high"},
+                        "custom": "keep",
+                    },
+                },
+            )
+            optional_params = litellm.get_optional_params(
+                model="gpt-5.2-pro",
+                custom_llm_provider="openai",
+                **prepared_kwargs,
+            )
+            handler = LiteLLMResponsesTransformationHandler()
+            extracted = handler._extract_extra_body_params(
+                copy.deepcopy(optional_params)
+            )
+            request = ResponsesAPIOptionalRequestParams()
+            handler._map_optional_params_to_responses_api_request(extracted, request)
+            return {
+                "prepared": prepared_kwargs,
+                "optional": optional_params,
+                "request": request,
+            }
+
         contracts = {
             "version": importlib.metadata.version("litellm"),
             "deepseek": adapter_contract(
                 "deepseek",
                 "deepseek-v4-pro",
                 "https://api.deepseek.com",
-                {"reasoning_effort": "none"},
+                prepared("deepseek", "deepseek", "deepseek-v4-pro"),
             ),
             "dashscope": adapter_contract(
                 "dashscope",
                 "deepseek-v3",
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                {"extra_body": {"enable_thinking": False}},
+                prepared("qwen", "dashscope", "deepseek-v3"),
+            ),
+            "dashscope_glm_53": adapter_contract(
+                "dashscope",
+                "ZHIPU/GLM-5.3-Flash",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                prepared(
+                    "qwen",
+                    "dashscope",
+                    "ZHIPU/GLM-5.3-Flash",
+                    {
+                        "reasoning_effort": "high",
+                        "enable_thinking": True,
+                        "extra_body": {
+                            "enable_thinking": True,
+                            "reasoning_effort": "max",
+                        },
+                    },
+                ),
             ),
             "volcengine": adapter_contract(
                 "volcengine",
                 "doubao-seed-2-0-lite-260428",
                 "https://ark.cn-beijing.volces.com/api/v3",
-                {
-                    "thinking": {"type": "disabled"},
-                    "allowed_openai_params": ["response_format"],
-                    "response_format": {"type": "json_object"},
-                },
+                prepared(
+                    "ark",
+                    "volcengine",
+                    "doubao-seed-2-0-lite-260428",
+                    {
+                        "thinking": {"type": "enabled"},
+                        "response_format": {"type": "json_object"},
+                        "additional_drop_params": ["extra_body"],
+                        "extra_body": {"thinking": {"type": "enabled"}},
+                    },
+                ),
             ),
             "zai": adapter_contract(
                 "zai",
                 "glm-5.2",
                 "https://open.bigmodel.cn/api/paas/v4",
-                {
-                    "extra_body": {"thinking": {"type": "disabled"}},
-                    "allowed_openai_params": ["thinking", "response_format"],
-                    "response_format": {"type": "json_object"},
-                },
+                prepared(
+                    "glm",
+                    "zai",
+                    "glm-5.2",
+                    {
+                        "thinking": {"type": "enabled"},
+                        "response_format": {"type": "json_object"},
+                        "additional_drop_params": ["extra_body"],
+                        "extra_body": {"thinking": {"type": "enabled"}},
+                    },
+                ),
             ),
+            "zai_native_thinking": adapter_contract(
+                "zai",
+                "glm-4.6",
+                "https://open.bigmodel.cn/api/paas/v4",
+                prepared(
+                    "glm",
+                    "zai",
+                    "glm-4.6",
+                    {
+                        "thinking": {"type": "enabled"},
+                        "extra_body": {"thinking": {"type": "enabled"}},
+                    },
+                ),
+            ),
+            "zai_legacy": adapter_contract(
+                "zai",
+                "glm-4-flash",
+                "https://open.bigmodel.cn/api/paas/v4",
+                prepared(
+                    "glm",
+                    "zai",
+                    "glm-4-flash",
+                    {"response_format": {"type": "json_object"}},
+                ),
+            ),
+            "zai_198_supported_params": {
+                model: litellm.get_supported_openai_params(
+                    model=model,
+                    custom_llm_provider="zai",
+                )
+                for model in ("glm-4.5", "glm-4.6", "glm-5.2")
+            },
             "gemini_3": litellm.get_optional_params(
                 model="gemini-3.6-flash",
                 custom_llm_provider="gemini",
+                **prepared("gemini", "gemini", "gemini-3.6-flash"),
+            ),
+            "gemini_37_flash": litellm.get_optional_params(
+                model="gemini-3.7-flash",
+                custom_llm_provider="gemini",
+                **prepared("gemini", "gemini", "gemini-3.7-flash"),
+            ),
+            "unpatched_gemini_37_flash": litellm.get_optional_params(
+                model="gemini-3.7-flash",
+                custom_llm_provider="gemini",
                 reasoning_effort="none",
-                allowed_openai_params=["reasoning_effort"],
             ),
             "gemini_25_pro": litellm.get_optional_params(
                 model="gemini-2.5-pro",
                 custom_llm_provider="gemini",
-                reasoning_effort="minimal",
-                allowed_openai_params=["reasoning_effort"],
+                **prepared("gemini", "gemini", "gemini-2.5-pro"),
             ),
             "gemini_25_flash": litellm.get_optional_params(
                 model="gemini-2.5-flash",
                 custom_llm_provider="gemini",
-                reasoning_effort="none",
-                allowed_openai_params=["reasoning_effort"],
+                **prepared("gemini", "gemini", "gemini-2.5-flash"),
+            ),
+            "unpatched_dashscope_glm_error": optional_params_error(
+                model="ZHIPU/GLM-5.3-Flash",
+                custom_llm_provider="dashscope",
+                reasoning_effort="low",
+            ),
+            "strict_openai_errors": {
+                name: optional_params_error(
+                    model="gpt-5-pro",
+                    custom_llm_provider="openai",
+                    reasoning_effort="high",
+                    **{name: value},
+                )
+                for name, value in {
+                    "temperature": 0.3,
+                    "stop": ["done"],
+                    "top_p": 0.9,
+                }.items()
+            },
+            "targeted_drop_still_strict": optional_params_error(
+                model="gpt-5-pro",
+                custom_llm_provider="openai",
+                reasoning_effort="high",
+                temperature=0.3,
+                stop=["done"],
+                additional_drop_params=["temperature"],
+            ),
+            "openai_pro": {
+                model: litellm.get_optional_params(
+                    model=model,
+                    custom_llm_provider="openai",
+                    **prepared("openai", "openai", model),
+                )
+                for model in (
+                    "gpt-5-pro",
+                    "gpt-5.2-pro",
+                    "gpt-5.4-pro",
+                    "gpt-5.5-pro",
+                )
+            },
+            "openai_responses_reasoning_conflict": (
+                openai_responses_reasoning_contract()
             ),
             "max_tokens": {
                 model: litellm.get_max_tokens(model)
@@ -1218,15 +1586,22 @@ def test_litellm_195_native_adapter_contracts() -> None:
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     contracts = json.loads(completed.stdout.strip().splitlines()[-1])
-    assert contracts["version"] == "1.95.0"
+    assert contracts["version"] == "1.98.0"
 
     expected_urls = {
         "deepseek": "https://api.deepseek.com/chat/completions",
         "dashscope": (
             "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
         ),
+        "dashscope_glm_53": (
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+        ),
         "volcengine": ("https://ark.cn-beijing.volces.com/api/v3/chat/completions"),
         "zai": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        "zai_native_thinking": (
+            "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+        ),
+        "zai_legacy": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     }
     for provider, expected_url in expected_urls.items():
         body = contracts[provider]["body"]
@@ -1243,12 +1618,28 @@ def test_litellm_195_native_adapter_contracts() -> None:
 
     assert contracts["deepseek"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["dashscope"]["body"]["enable_thinking"] is False
+    assert "enable_thinking" not in contracts["dashscope_glm_53"]["body"]
+    assert contracts["dashscope_glm_53"]["body"]["reasoning_effort"] == "low"
     assert contracts["volcengine"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}
     assert contracts["zai"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["zai"]["body"]["response_format"] == {"type": "json_object"}
+    assert contracts["zai_native_thinking"]["body"]["thinking"] == {"type": "disabled"}
+    assert "thinking" not in contracts["zai_legacy"]["body"]
+    assert contracts["zai_legacy"]["body"]["response_format"] == {"type": "json_object"}
+    assert "thinking" not in contracts["zai_198_supported_params"]["glm-4.5"]
+    assert "thinking" in contracts["zai_198_supported_params"]["glm-4.6"]
+    assert "thinking" not in contracts["zai_198_supported_params"]["glm-5.2"]
 
     assert contracts["gemini_3"]["thinkingConfig"] == {
+        "thinkingLevel": "minimal",
+        "includeThoughts": False,
+    }
+    assert contracts["gemini_37_flash"]["thinkingConfig"] == {
+        "thinkingLevel": "low",
+        "includeThoughts": True,
+    }
+    assert contracts["unpatched_gemini_37_flash"]["thinkingConfig"] == {
         "thinkingLevel": "minimal",
         "includeThoughts": False,
     }
@@ -1260,15 +1651,44 @@ def test_litellm_195_native_adapter_contracts() -> None:
         "thinkingBudget": 0,
         "includeThoughts": False,
     }
+    assert contracts["unpatched_dashscope_glm_error"] == "UnsupportedParamsError"
+    assert contracts["strict_openai_errors"] == {
+        "temperature": "UnsupportedParamsError",
+        "stop": "UnsupportedParamsError",
+        "top_p": "UnsupportedParamsError",
+    }
+    assert contracts["targeted_drop_still_strict"] == "UnsupportedParamsError"
+    assert {
+        model: params["reasoning_effort"]
+        for model, params in contracts["openai_pro"].items()
+    } == {
+        "gpt-5-pro": "high",
+        "gpt-5.2-pro": "medium",
+        "gpt-5.4-pro": "medium",
+        "gpt-5.5-pro": "medium",
+    }
+    assert all(
+        "temperature" not in params for params in contracts["openai_pro"].values()
+    )
+    responses_contract = contracts["openai_responses_reasoning_conflict"]
+    assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
+    assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}
+    assert "reasoning" in responses_contract["prepared"]["additional_drop_params"]
+    assert (
+        "extra_body.reasoning"
+        in responses_contract["prepared"]["additional_drop_params"]
+    )
     assert contracts["max_tokens"] == {
         "gpt-5.6-luna": 128000,
         "gemini-3.6-flash": 65536,
-        "deepseek-v4-pro": 8192,
-        "deepseek-v4-flash": 8192,
+        "deepseek-v4-pro": 393216,
+        "deepseek-v4-flash": 393216,
     }
 
 
-def test_chat_llm_disables_deepseek_thinking(monkeypatch: object, app: object) -> None:
+def test_chat_llm_uses_shared_minimum_thinking_preparation(
+    monkeypatch: object, app: object
+) -> None:
     captured_kwargs = {}
 
     def fake_completion(*args: object, **kwargs: object) -> object:
@@ -1277,13 +1697,21 @@ def test_chat_llm_disables_deepseek_thinking(monkeypatch: object, app: object) -
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {"reasoning_effort": "none"},
+    )
     provider_state = llm.ProviderState(
         enabled=True,
-        params={"api_key": "test-key", "api_base": "https://api.deepseek.com"},
+        params={
+            "api_key": "test-key",
+            "api_base": "https://api.deepseek.com",
+            "custom_llm_provider": "deepseek",
+        },
         models=["deepseek-v4-pro"],
         prefix="",
         wildcard_prefixes=(),
-        reload_params=llm._reload_deepseek_params,
     )
     monkeypatch.setattr(llm, "PROVIDER_STATES", {"deepseek": provider_state})
     monkeypatch.setattr(
@@ -1317,25 +1745,9 @@ def test_chat_llm_disables_deepseek_thinking(monkeypatch: object, app: object) -
 
     assert captured_kwargs["kwargs"]["temperature"] == 0.7
     assert captured_kwargs["kwargs"]["reasoning_effort"] == "none"
-    assert "thinking" not in captured_kwargs["kwargs"]
-    assert captured_kwargs["kwargs"]["extra_body"] == {"custom_field": "keep"}
-
-
-def test_gemini_3_params_use_none_with_explicit_allowlist() -> None:
-    params = llm._reload_gemini_params("gemini-3.1-flash-lite", 0.3)
-
-    assert params == {
-        "temperature": 0.3,
-        "allowed_openai_params": ["reasoning_effort"],
-        "reasoning_effort": "none",
-    }
-
-
-def test_gemini_25_pro_params_use_lowest_supported_reasoning() -> None:
-    params = llm._reload_gemini_params("gemini-2.5-pro", 0.3)
-
-    assert params["allowed_openai_params"] == ["reasoning_effort"]
-    assert params["reasoning_effort"] == "minimal"
+    assert "thinking" in captured_kwargs["kwargs"]["additional_drop_params"]
+    assert "extra_body.thinking" in captured_kwargs["kwargs"]["additional_drop_params"]
+    assert captured_kwargs["kwargs"]["extra_body"]["custom_field"] == "keep"
 
 
 def test_invoke_llm_uses_actual_model_for_provider_params(
@@ -1343,9 +1755,10 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
 ) -> None:
     captured = {}
 
-    def reload_params(model_id: object, temperature: object) -> object:
-        captured["reload_model"] = model_id
-        return {"temperature": temperature}
+    def minimum_thinking_params(model_id: object, provider: object) -> object:
+        captured["prepared_model"] = model_id
+        captured["prepared_provider"] = provider
+        return {}
 
     def fake_completion(model: object, *args: object, **kwargs: object) -> object:
         _ = args
@@ -1354,6 +1767,11 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
         return iter([FakeResponse("chunk-1", content="ok", finish_reason="stop")])
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        minimum_thinking_params,
+    )
     monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         llm,
@@ -1361,9 +1779,11 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
         {
             "test": llm.ProviderState(
                 enabled=True,
-                params={"api_key": "test-key"},
+                params={
+                    "api_key": "test-key",
+                    "custom_llm_provider": "test-adapter",
+                },
                 models=["display-model"],
-                reload_params=reload_params,
             )
         },
     )
@@ -1387,7 +1807,8 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
     )
 
     assert [response.result for response in responses] == ["ok"]
-    assert captured["reload_model"] == "actual-model"
+    assert captured["prepared_model"] == "actual-model"
+    assert captured["prepared_provider"] == "test-adapter"
     assert captured["completion_model"] == "actual-model"
     assert captured["completion_kwargs"]["temperature"] == 0.4
 

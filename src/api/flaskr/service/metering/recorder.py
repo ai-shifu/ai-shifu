@@ -41,6 +41,18 @@ class UsageContext:
     trace_id: str = ""
     usage_scene: int = BILL_USAGE_SCENE_PROD
     billable: int | None = None
+    learning_mode: str = ""
+
+
+def _normalize_usage_extra(
+    context: UsageContext,
+    extra: dict[str, object] | None = None,
+) -> dict[str, object] | None:
+    payload = dict(extra or {})
+    learning_mode = str(context.learning_mode or "").strip().lower()
+    if learning_mode in {"read", "listen", "classroom"}:
+        payload.setdefault("learning_mode", learning_mode)
+    return payload or None
 
 
 def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) -> int:
@@ -169,7 +181,7 @@ def record_llm_usage(
         billable=resolved_billable,
         status=int(status or 0),
         error_message=error_message or "",
-        extra=extra or None,
+        extra=_normalize_usage_extra(context, extra),
     )
     if _persist_usage_record(app, record):
         if _should_enqueue_usage_settlement(
@@ -267,7 +279,7 @@ def record_tts_usage(
         billable=resolved_billable,
         status=int(status or 0),
         error_message=error_message or "",
-        extra=extra or None,
+        extra=_normalize_usage_extra(context, extra),
     )
     if _persist_usage_record(app, record):
         if enqueue_settlement and _should_enqueue_usage_settlement(

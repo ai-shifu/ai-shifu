@@ -358,6 +358,7 @@
     "provider_exception": "短信供应商调用异常。",
     "provider_failed": "短信供应商未返回成功结果。",
     "quiet_hours": "命中免打扰时段，未发送。",
+    "unsupported_channel": "该通知渠道暂未启用，未发送。",
     "zero_balance_missing_estimated_remaining_days": "零余额提醒缺少预计剩余天数，未发送。"
   },
   "filters": {
@@ -398,7 +399,40 @@
   "records": {
     "totalCount": "共 {count} 条通知记录"
   },
+  "ruleManagement": {
+    "cancel": "取消",
+    "columns": {
+      "actions": "操作",
+      "conditions": "触发条件",
+      "enabled": "状态",
+      "name": "规则名称",
+      "template": "短信模板",
+      "trigger": "触发事件"
+    },
+    "delete": "删除",
+    "deleteDescription": "删除后需保存通知配置才会生效，是否继续？",
+    "deleteTitle": "删除通知规则",
+    "description": "按触发事件、短信模板和条件配置可独立启停的通知规则。",
+    "dialogDescription": "保存配置后，规则将用于后续通知投递。",
+    "edit": "编辑",
+    "editRule": "编辑通知规则",
+    "empty": "尚未配置通知规则。",
+    "fields": {
+      "enabled": "启用规则",
+      "name": "规则名称",
+      "template": "短信模板",
+      "thresholds": "余额提醒阈值",
+      "trigger": "触发事件",
+      "windows": "到期提醒窗口"
+    },
+    "newRule": "新建规则",
+    "noConditions": "无需额外条件",
+    "saveRule": "保存规则",
+    "selectTemplate": "选择短信模板",
+    "title": "通知规则"
+  },
   "skipReason": {
+    "channel": "通知渠道未启用",
     "contact": "联系方式异常",
     "duplicate": "重复通知",
     "policy": "策略限制",
@@ -435,7 +469,55 @@
   },
   "tabs": {
     "config": "通知配置",
-    "records": "通知记录"
+    "records": "通知记录",
+    "templates": "模板管理"
+  },
+  "templateManagement": {
+    "allStatuses": "全部审核状态",
+    "bindingsLoading": "正在加载绑定关系",
+    "bindingsUnavailable": "绑定关系加载失败",
+    "columns": {
+      "action": "操作",
+      "bindings": "使用场景",
+      "content": "模板内容",
+      "name": "模板",
+      "status": "审核状态",
+      "type": "模板类型"
+    },
+    "detail": {
+      "code": "模板 Code",
+      "content": "完整内容",
+      "error": "同步错误",
+      "status": "审核状态",
+      "syncedAt": "最近同步",
+      "type": "模板类型",
+      "variables": "变量"
+    },
+    "detailDescription": "查看供应商模板详情及当前业务使用情况。",
+    "emailComingSoon": "邮件发送供应商配置完成后，将在此管理邮件模板。",
+    "emailTitle": "邮件模板",
+    "empty": "没有符合当前筛选条件的模板。",
+    "loadError": "无法加载阿里云模板列表；如有本地缓存，将继续展示缓存模板。",
+    "loading": "正在加载模板...",
+    "refresh": "同步阿里云短信模板",
+    "searchPlaceholder": "搜索模板名称、Code 或内容",
+    "smsDescription": "展示从阿里云同步的全部短信模板，包括尚未绑定积分通知的模板。",
+    "smsTitle": "阿里云短信模板",
+    "status": {
+      "AUDIT_SATE_CANCEL": "已取消",
+      "AUDIT_STATE_CANCEL": "已取消",
+      "AUDIT_STATE_INIT": "审核中",
+      "AUDIT_STATE_NOT_PASS": "审核未通过",
+      "AUDIT_STATE_PASS": "审核通过"
+    },
+    "statusFilter": "审核状态",
+    "type": {
+      "0": "通知短信",
+      "1": "推广短信",
+      "2": "验证码",
+      "6": "国际/港澳台短信"
+    },
+    "unbound": "未使用"
   },
   "templateName": {
     "credit_expiring": "积分到期提醒通知模板",

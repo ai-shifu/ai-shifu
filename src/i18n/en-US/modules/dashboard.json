@@ -5,7 +5,7 @@
       "chapterCount": "Chapter Count",
       "courseName": "Course Name",
       "createdAt": "Created At",
-      "learnerCount": "Learner Count",
+      "learnerCount": "Total Participants",
       "status": "Course Status",
       "statusLabels": {
         "published": "Published",
@@ -110,17 +110,41 @@
       "viewFollowUps": "View Follow-ups",
       "viewFollowUpsForLearner": "View follow-ups for {learner}"
     },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "Avg. Used per Learner",
+        "consumedCredits": "Credits Used",
+        "consumptionSpeed": "Daily Avg. Used (7 Days)",
+        "mode": "Learning Format",
+        "participants": "Learners"
+      },
+      "empty": "No learning format data yet",
+      "modes": {
+        "classroom": "Classroom",
+        "listen": "Listening",
+        "read": "Reading"
+      },
+      "scopeHint": "Compare credit consumption across reading, listening, and classroom formats to see how learners use this course.",
+      "title": "Learning Format"
+    },
     "metrics": {
-      "activeLearnersLast7Days": "Active Learners (7 Days)",
       "completedLearners": "Completers",
       "completionRate": "Completion Rate",
       "learningLearners": "Learners In Progress",
-      "newLearnersLast7Days": "New Learners (7 Days)",
       "orderAmount": "Order Amount",
       "orderCount": "Orders",
       "rating": "Course Rating",
       "title": "Core Data",
       "totalQuestions": "Follow-up Questions"
+    },
+    "metricsTooltips": {
+      "completedLearners": "People who completed every lesson in this course.",
+      "completionRate": "The share of total participants who completed every lesson in this course.",
+      "learningLearners": "People who started the course but have not completed every lesson yet.",
+      "orderAmount": "The total amount users paid for this course. Redemption-code orders are not included.",
+      "orderCount": "Successful orders for this course, including paid and redemption-code orders.",
+      "rating": "The average lesson rating from learners, out of 5.",
+      "totalQuestions": "The total follow-up questions learners asked AI while studying this course. Open to see the details."
     },
     "ratings": {
       "emptyValue": "--",

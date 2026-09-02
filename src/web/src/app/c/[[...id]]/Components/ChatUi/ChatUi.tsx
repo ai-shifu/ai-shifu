@@ -104,7 +104,6 @@ export const ChatUi = ({
   const isSlideMode = isListenMode || isClassroomMode;
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const footerSeparator = String.fromCharCode(124);
-  const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
   const [showLessonUpdateNoticeInHeader, setShowLessonUpdateNoticeInHeader] =
     useState(false);
   const [lessonPdfDownloadAction, setLessonPdfDownloadAction] =
@@ -121,12 +120,6 @@ export const ChatUi = ({
     },
     [onLessonUpdateNoticeVisibilityChange],
   );
-
-  useEffect(() => {
-    if (!isSlideMode) {
-      setIsListenPlayerVisible(false);
-    }
-  }, [isSlideMode]);
 
   useEffect(() => {
     setShowLessonUpdateNoticeInHeader(false);
@@ -151,12 +144,6 @@ export const ChatUi = ({
           : '',
         isSlideMode ? styles.listenMode : '',
         isClassroomMode ? styles.classroomMode : '',
-        isListenMode && isListenPlayerVisible
-          ? styles.listenModeWithPlayer
-          : '',
-        isSlideMode && !isListenPlayerVisible
-          ? styles.listenModeWithoutPlayer
-          : '',
         hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
@@ -241,7 +228,6 @@ export const ChatUi = ({
           getNextLessonId={getNextLessonId}
           isNavOpen={isNavOpen}
           onListenMobileViewModeChange={onListenMobileViewModeChange}
-          onListenPlayerVisibilityChange={setIsListenPlayerVisible}
           showGenerateBtn={showGenerateBtn}
           onLessonUpdateNoticeVisibilityChange={
             handleLessonUpdateNoticeVisibilityChange

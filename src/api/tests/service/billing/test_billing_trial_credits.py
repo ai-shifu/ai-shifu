@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 from flask import Flask, jsonify, request
 from flaskr import dao
+from flaskr.service.billing import trials
 from flaskr.service.billing.consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
     BILLING_ORDER_STATUS_PAID,
@@ -155,6 +156,44 @@ def test_billing_overview_returns_product_backed_eligible_trial_without_mutation
         assert (
             CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").count() == 0
         )
+
+
+def test_trial_notification_enqueue_uses_legacy_bid_for_scalar_bid_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _OrderQuery:
+        def filter(self, *_args: object) -> _OrderQuery:
+            return self
+
+        def order_by(self, *_args: object) -> _OrderQuery:
+            return self
+
+        def first(self) -> SimpleNamespace:
+            return SimpleNamespace(
+                metadata_json={
+                    "credit_granted_notification_bids": "invalid-scalar-bids",
+                    "credit_granted_notification_bid": "legacy-notification-bid",
+                }
+            )
+
+    enqueued_bids: list[str] = []
+    app = Flask(__name__)
+    with app.app_context():
+        monkeypatch.setattr(
+            trials.BillingOrder,
+            "query",
+            _OrderQuery(),
+            raising=False,
+        )
+        monkeypatch.setattr(
+            trials,
+            "_enqueue_credit_notification",
+            lambda _app, *, notification_bid: enqueued_bids.append(notification_bid),
+        )
+
+        trials._enqueue_trial_credit_notification(app, "creator-trial")
+
+    assert enqueued_bids == ["legacy-notification-bid"]
 
 
 def test_trial_bootstrap_creates_manual_order_subscription_and_expire_event_once(

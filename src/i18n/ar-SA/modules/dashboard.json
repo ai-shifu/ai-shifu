@@ -5,7 +5,7 @@
       "chapterCount": "عدد الفصول",
       "courseName": "اسم الدورة",
       "createdAt": "وقت الإنشاء",
-      "learnerCount": "عدد المتعلمين",
+      "learnerCount": "إجمالي المشاركين",
       "status": "حالة الدورة",
       "statusLabels": {
         "published": "منشورة",
@@ -110,17 +110,41 @@
       "viewFollowUps": "عرض أسئلة المتابعة",
       "viewFollowUpsForLearner": "عرض أسئلة المتابعة الخاصة بـ {learner}"
     },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "متوسط الاستخدام لكل متعلم",
+        "consumedCredits": "الرصيد المستخدم",
+        "consumptionSpeed": "متوسط الاستخدام اليومي خلال 7 أيام",
+        "mode": "صيغة التعلم",
+        "participants": "المتعلمون"
+      },
+      "empty": "لا توجد بيانات لصيغ التعلم حاليًا",
+      "modes": {
+        "classroom": "الفصل",
+        "listen": "الاستماع",
+        "read": "القراءة"
+      },
+      "scopeHint": "قارن استهلاك الرصيد بين القراءة والاستماع والفصل لمعرفة طريقة استخدام المتعلمين لهذه الدورة.",
+      "title": "صيغة التعلم"
+    },
     "metrics": {
-      "activeLearnersLast7Days": "المتعلمون النشطون خلال 7 أيام",
       "completedLearners": "عدد من أكملوا الدورة",
       "completionRate": "معدل إكمال الدورة",
       "learningLearners": "عدد المتعلمين حاليًا",
-      "newLearnersLast7Days": "المتعلمون الجدد خلال 7 أيام",
       "orderAmount": "مبلغ الطلبات",
       "orderCount": "عدد الطلبات",
       "rating": "تقييم الدورة",
       "title": "البيانات الأساسية",
       "totalQuestions": "عدد أسئلة المتابعة"
+    },
+    "metricsTooltips": {
+      "completedLearners": "الأشخاص الذين أكملوا جميع دروس هذه الدورة.",
+      "completionRate": "نسبة إجمالي المشاركين الذين أكملوا جميع دروس هذه الدورة.",
+      "learningLearners": "الأشخاص الذين بدأوا الدورة ولم يكملوا جميع الدروس بعد.",
+      "orderAmount": "إجمالي المبلغ الذي دفعه المستخدمون مقابل هذه الدورة. لا تشمل طلبات رموز الاسترداد.",
+      "orderCount": "إجمالي الطلبات الناجحة لهذه الدورة، بما فيها الطلبات المدفوعة وطلبات رموز الاسترداد.",
+      "rating": "متوسط تقييم المتعلمين لدروس الدورة من 5.",
+      "totalQuestions": "إجمالي أسئلة المتابعة التي طرحها المتعلمون على الذكاء الاصطناعي أثناء دراسة هذه الدورة. افتح لعرض التفاصيل."
     },
     "ratings": {
       "emptyValue": "--",

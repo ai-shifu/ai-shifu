@@ -358,6 +358,7 @@
     "provider_exception": "L’appel au fournisseur SMS a échoué.",
     "provider_failed": "Le fournisseur SMS n’a pas renvoyé de réponse acceptée.",
     "quiet_hours": "La période de silence est active, non envoyé.",
+    "unsupported_channel": "Ce canal de notification n’est pas activé, non envoyé.",
     "zero_balance_missing_estimated_remaining_days": "Le rappel de solde nul manque les jours restants estimés, non envoyé."
   },
   "filters": {
@@ -398,7 +399,40 @@
   "records": {
     "totalCount": "{count} enregistrements de notification"
   },
+  "ruleManagement": {
+    "cancel": "Annuler",
+    "columns": {
+      "actions": "Actions",
+      "conditions": "Conditions",
+      "enabled": "Statut",
+      "name": "Nom de la règle",
+      "template": "Modèle SMS",
+      "trigger": "Événement déclencheur"
+    },
+    "delete": "Supprimer",
+    "deleteDescription": "La suppression prendra effet après l’enregistrement de la configuration. Continuer ?",
+    "deleteTitle": "Supprimer la règle de notification",
+    "description": "Configurez des règles de notification activables indépendamment selon l’événement, le modèle SMS et les conditions.",
+    "dialogDescription": "Après enregistrement, cette règle s’applique aux futurs envois.",
+    "edit": "Modifier",
+    "editRule": "Modifier la règle de notification",
+    "empty": "Aucune règle de notification configurée.",
+    "fields": {
+      "enabled": "Activer la règle",
+      "name": "Nom de la règle",
+      "template": "Modèle SMS",
+      "thresholds": "Seuils de solde faible",
+      "trigger": "Événement déclencheur",
+      "windows": "Fenêtres de rappel d’expiration"
+    },
+    "newRule": "Nouvelle règle",
+    "noConditions": "Aucune condition supplémentaire",
+    "saveRule": "Enregistrer la règle",
+    "selectTemplate": "Sélectionner un modèle SMS",
+    "title": "Règles de notification"
+  },
   "skipReason": {
+    "channel": "Canal de notification indisponible",
     "contact": "Coordonnées invalides",
     "duplicate": "Notification en double",
     "policy": "Limite de stratégie",
@@ -435,7 +469,55 @@
   },
   "tabs": {
     "config": "Configuration des notifications",
-    "records": "Notifications"
+    "records": "Notifications",
+    "templates": "Gestion des modèles"
+  },
+  "templateManagement": {
+    "allStatuses": "Tous les statuts de validation",
+    "bindingsLoading": "Chargement des liaisons",
+    "bindingsUnavailable": "Informations de liaison indisponibles",
+    "columns": {
+      "action": "Action",
+      "bindings": "Utilisé par",
+      "content": "Contenu",
+      "name": "Modèle",
+      "status": "Statut de validation",
+      "type": "Type de modèle"
+    },
+    "detail": {
+      "code": "Code du modèle",
+      "content": "Contenu complet",
+      "error": "Erreur de synchronisation",
+      "status": "Statut",
+      "syncedAt": "Dernière synchronisation",
+      "type": "Type de modèle",
+      "variables": "Variables"
+    },
+    "detailDescription": "Détails du fournisseur et usages métier actuels de ce modèle.",
+    "emailComingSoon": "La gestion des modèles d’e-mail sera disponible après la configuration du fournisseur d’envoi.",
+    "emailTitle": "Modèles d’e-mail",
+    "empty": "Aucun modèle ne correspond aux filtres.",
+    "loadError": "La liste Alibaba Cloud n’a pas pu être chargée. Les modèles en cache restent affichés.",
+    "loading": "Chargement des modèles...",
+    "refresh": "Synchroniser les modèles SMS Alibaba Cloud",
+    "searchPlaceholder": "Rechercher par nom, Code ou contenu",
+    "smsDescription": "Tous les modèles SMS synchronisés depuis Alibaba Cloud, y compris ceux qui ne sont pas encore associés à une notification de crédits.",
+    "smsTitle": "Modèles SMS Alibaba Cloud",
+    "status": {
+      "AUDIT_SATE_CANCEL": "Annulé",
+      "AUDIT_STATE_CANCEL": "Annulé",
+      "AUDIT_STATE_INIT": "En cours de validation",
+      "AUDIT_STATE_NOT_PASS": "Refusé",
+      "AUDIT_STATE_PASS": "Approuvé"
+    },
+    "statusFilter": "Statut de validation",
+    "type": {
+      "0": "SMS de notification",
+      "1": "SMS promotionnel",
+      "2": "Code de vérification",
+      "6": "SMS international"
+    },
+    "unbound": "Non utilisé"
   },
   "templateName": {
     "credit_expiring": "Modèle de rappel d’expiration",

@@ -37,11 +37,9 @@ export type DashboardCourseDetailBasicInfo = {
 export type DashboardCourseDetailMetrics = {
   order_count: number;
   order_amount: string;
-  new_learner_count_last_7_days: number;
   learning_learner_count: number;
   completed_learner_count: number;
   completion_rate: string;
-  active_learner_count_last_7_days: number;
   total_follow_up_count: number;
   rating_score: string;
 };
@@ -69,9 +67,18 @@ export type DashboardCourseDetailLearners = {
   items: DashboardCourseDetailLearnerItem[];
 };
 
+export type DashboardCourseLearningModeMetric = {
+  mode: 'read' | 'listen' | 'classroom' | string;
+  participant_count: number;
+  consumed_credits: string;
+  consumption_speed: string;
+  average_consumed_credits: string;
+};
+
 export type DashboardCourseDetailResponse = {
   basic_info: DashboardCourseDetailBasicInfo;
   metrics: DashboardCourseDetailMetrics;
+  learning_mode_metrics: DashboardCourseLearningModeMetric[];
 };
 
 export type DashboardCourseLearnersResponse = DashboardCourseDetailLearners;

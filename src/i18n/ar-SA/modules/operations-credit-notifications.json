@@ -358,6 +358,7 @@
     "provider_exception": "حدث خلل عند استدعاء مزوّد الرسائل.",
     "provider_failed": "لم يُرجع مزوّد الرسائل نتيجة نجاح.",
     "quiet_hours": "وافق وقت عدم الإزعاج، ولم يُرسل.",
+    "unsupported_channel": "قناة الإشعار هذه غير مفعّلة، ولم يُرسل.",
     "zero_balance_missing_estimated_remaining_days": "يفتقد تنبيه الرصيد الصفري إلى الأيام المتوقعة المتبقية، ولم يُرسل."
   },
   "filters": {
@@ -398,7 +399,40 @@
   "records": {
     "totalCount": "إجمالي {count} سجل إشعار"
   },
+  "ruleManagement": {
+    "cancel": "إلغاء",
+    "columns": {
+      "actions": "إجراءات",
+      "conditions": "الشروط",
+      "enabled": "الحالة",
+      "name": "اسم القاعدة",
+      "template": "قالب SMS",
+      "trigger": "حدث التشغيل"
+    },
+    "delete": "حذف",
+    "deleteDescription": "يسري الحذف بعد حفظ إعدادات الإشعارات. هل تريد المتابعة؟",
+    "deleteTitle": "حذف قاعدة الإشعار",
+    "description": "اضبط قواعد إشعار مستقلة حسب حدث التشغيل وقالب الرسالة والشروط.",
+    "dialogDescription": "بعد حفظ الإعدادات، تنطبق هذه القاعدة على الإشعارات المستقبلية.",
+    "edit": "تعديل",
+    "editRule": "تعديل قاعدة الإشعار",
+    "empty": "لا توجد قواعد إشعار مهيأة.",
+    "fields": {
+      "enabled": "تفعيل القاعدة",
+      "name": "اسم القاعدة",
+      "template": "قالب SMS",
+      "thresholds": "حدود الرصيد المنخفض",
+      "trigger": "حدث التشغيل",
+      "windows": "نوافذ تذكير الانتهاء"
+    },
+    "newRule": "قاعدة جديدة",
+    "noConditions": "لا توجد شروط إضافية",
+    "saveRule": "حفظ القاعدة",
+    "selectTemplate": "اختر قالب SMS",
+    "title": "قواعد الإشعار"
+  },
   "skipReason": {
+    "channel": "قناة الإشعار غير متاحة",
     "contact": "خلل في معلومات التواصل",
     "duplicate": "إشعار مكرر",
     "policy": "قيد السياسة",
@@ -435,7 +469,55 @@
   },
   "tabs": {
     "config": "إعدادات الإشعارات",
-    "records": "سجلات الإشعارات"
+    "records": "سجلات الإشعارات",
+    "templates": "إدارة القوالب"
+  },
+  "templateManagement": {
+    "allStatuses": "كل حالات المراجعة",
+    "bindingsLoading": "جارٍ تحميل معلومات الربط",
+    "bindingsUnavailable": "معلومات الربط غير متاحة",
+    "columns": {
+      "action": "الإجراء",
+      "bindings": "مستخدم في",
+      "content": "المحتوى",
+      "name": "القالب",
+      "status": "حالة المراجعة",
+      "type": "نوع القالب"
+    },
+    "detail": {
+      "code": "رمز القالب",
+      "content": "المحتوى الكامل",
+      "error": "خطأ المزامنة",
+      "status": "حالة المراجعة",
+      "syncedAt": "آخر مزامنة",
+      "type": "نوع القالب",
+      "variables": "المتغيرات"
+    },
+    "detailDescription": "تفاصيل المزود والاستخدامات الحالية لهذا القالب.",
+    "emailComingSoon": "ستتوفر إدارة قوالب البريد الإلكتروني بعد إعداد مزود الإرسال.",
+    "emailTitle": "قوالب البريد الإلكتروني",
+    "empty": "لا توجد قوالب تطابق عوامل التصفية.",
+    "loadError": "تعذر تحميل قائمة Alibaba Cloud. ستظهر القوالب المخزنة محليًا إن وجدت.",
+    "loading": "جارٍ تحميل القوالب...",
+    "refresh": "مزامنة قوالب رسائل Alibaba Cloud النصية",
+    "searchPlaceholder": "البحث بالاسم أو Code أو المحتوى",
+    "smsDescription": "كل قوالب الرسائل النصية المتزامنة من Alibaba Cloud، بما فيها غير المرتبطة بإشعارات الرصيد.",
+    "smsTitle": "قوالب رسائل Alibaba Cloud",
+    "status": {
+      "AUDIT_SATE_CANCEL": "ملغى",
+      "AUDIT_STATE_CANCEL": "ملغى",
+      "AUDIT_STATE_INIT": "قيد المراجعة",
+      "AUDIT_STATE_NOT_PASS": "مرفوض",
+      "AUDIT_STATE_PASS": "معتمد"
+    },
+    "statusFilter": "حالة المراجعة",
+    "type": {
+      "0": "رسالة إشعار",
+      "1": "رسالة ترويجية",
+      "2": "رمز تحقق",
+      "6": "رسالة دولية"
+    },
+    "unbound": "غير مستخدم"
   },
   "templateName": {
     "credit_expiring": "قالب إشعار انتهاء الأرصدة",
