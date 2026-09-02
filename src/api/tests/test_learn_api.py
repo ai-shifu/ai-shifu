@@ -199,7 +199,18 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
             hidden=0,
             ask_enabled_status=5101,
         )
-        db.session.add_all([course, text_chapter, inherited_lesson, live_lesson])
+        disabled_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-disabled-follow-up",
+            shifu_bid=shifu_bid,
+            title="Disabled Lesson",
+            position="3",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5102,
+        )
+        db.session.add_all(
+            [course, text_chapter, inherited_lesson, live_lesson, disabled_lesson]
+        )
         db.session.commit()
 
         struct = HistoryItem(
@@ -226,6 +237,12 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
                     type="outline",
                     children=[],
                 ),
+                HistoryItem(
+                    bid=disabled_lesson.outline_item_bid,
+                    id=disabled_lesson.id,
+                    type="outline",
+                    children=[],
+                ),
             ],
         ).to_json()
         db.session.add(
@@ -242,6 +259,7 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
     assert result.outline_items[0].follow_up_mode == "text"
     assert result.outline_items[0].children[0].follow_up_mode == "text"
     assert result.outline_items[1].follow_up_mode == "live_voice"
+    assert result.outline_items[2].follow_up_mode == "disabled"
 
     live_availability["enabled"] = False
     unavailable_result = get_outline_item_tree(
@@ -250,6 +268,7 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
 
     assert unavailable_result.outline_items[0].follow_up_mode == "text"
     assert unavailable_result.outline_items[1].follow_up_mode == "disabled"
+    assert unavailable_result.outline_items[2].follow_up_mode == "disabled"
 
 
 def test_get_outline_item_tree_never_infers_live_mode_from_primary_model(
