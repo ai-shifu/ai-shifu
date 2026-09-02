@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
-from flask import Flask, request
+from flask import Flask, has_app_context, request
 from flaskr.route.common import by_pass_login_func
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import live_follow_up_routes as routes
@@ -962,6 +962,7 @@ def test_turn_persistence_worker_keeps_socket_loop_non_blocking(
     allow_persistence = threading.Event()
 
     def slow_persistence(*_args: object, **_kwargs: object) -> object:
+        assert has_app_context()
         persistence_started.set()
         assert allow_persistence.wait(timeout=2)
         return SimpleNamespace(usage_bid="usage-1")
