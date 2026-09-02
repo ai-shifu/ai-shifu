@@ -60,6 +60,8 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
       settings: an explicit outline disable resolves to `disabled`; without a
       nearer outline override, a course-level disable does too, before any
       inherited Live model is presented.
+- [x] 2026-09-02 13:24 CST: Preserved a teacher's selected Gemini voice when
+      temporarily switching the follow-up model to text and back to Live.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and

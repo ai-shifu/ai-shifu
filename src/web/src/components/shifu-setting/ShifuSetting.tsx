@@ -900,8 +900,6 @@ export default function ShifuSettingDialog({
           next.live_voice = allowedVoiceIds.has(String(next.live_voice || ''))
             ? next.live_voice
             : DEFAULT_LIVE_VOICE;
-        } else {
-          delete next.live_voice;
         }
         return next;
       });
@@ -966,6 +964,16 @@ export default function ShifuSettingDialog({
         return {
           ...config,
           live_voice: selectedLiveVoice,
+        };
+      }
+      const preservedLiveVoice =
+        typeof askProviderConfig.live_voice === 'string'
+          ? askProviderConfig.live_voice.trim()
+          : '';
+      if (preservedLiveVoice) {
+        return {
+          ...config,
+          live_voice: preservedLiveVoice,
         };
       }
       return config;
