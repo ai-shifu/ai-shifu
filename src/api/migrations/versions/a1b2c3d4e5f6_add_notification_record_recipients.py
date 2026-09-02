@@ -48,8 +48,6 @@ def upgrade() -> None:
         ["recipient_snapshot"],
         unique=False,
     )
-    op.alter_column("notification_records", "recipient_type", server_default=None)
-    op.alter_column("notification_records", "recipient_snapshot", server_default=None)
 
 
 def downgrade() -> None:

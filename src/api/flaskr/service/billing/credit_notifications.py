@@ -94,6 +94,7 @@ CREDIT_NOTIFICATION_STATUS_SKIPPED = "skipped"
 CREDIT_NOTIFICATION_DELIVERY_STATUS_FAILED = "failed"
 CREDIT_NOTIFICATION_DELIVERY_STATUS_NOT_SENT = "not_sent"
 CREDIT_NOTIFICATION_SKIP_REASON_CONTACT = "contact"
+CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL = "channel"
 CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE = "duplicate"
 CREDIT_NOTIFICATION_SKIP_REASON_POLICY = "policy"
 CREDIT_NOTIFICATION_SKIP_REASON_STALE = "stale"
@@ -443,9 +444,9 @@ def _validate_policy_for_save(
 ) -> dict[str, object]:
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, payload)
     channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
-    if channel not in _SUPPORTED_NOTIFICATION_CHANNELS:
+    if channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
         raise_param_error("channel")
-    policy["channel"] = channel
+    policy["channel"] = CREDIT_NOTIFICATION_CHANNEL_SMS
     policy["enabled"] = _coerce_bool(policy.get("enabled"))
     if "rules" in payload:
         policy["rules"] = _normalize_notification_rules(app, payload["rules"])
@@ -3565,6 +3566,8 @@ def _resolve_notification_delivery_status(status: str) -> str:
 def _resolve_notification_skip_reason(status: str, error_code: str = "") -> str:
     normalized_status = str(status or "").strip()
     normalized_error_code = str(error_code or "").strip()
+    if normalized_error_code == "unsupported_channel":
+        return CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL
     if normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE:
         return CREDIT_NOTIFICATION_SKIP_REASON_CONTACT
     if normalized_status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE:
@@ -3606,14 +3609,23 @@ def _notification_skip_reason_condition(
     duplicate_condition = (
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE
     )
+    channel_condition = NotificationRecord.error_code == "unsupported_channel"
     stale_condition = or_(
-        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED,
+        (NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED)
+        & ~channel_condition,
         NotificationRecord.error_code == "expiry_extended",
     )
     template_params_condition = (
         NotificationRecord.error_code == "missing_template_params"
-    ) & ~or_(contact_condition, duplicate_condition, stale_condition)
+    ) & ~or_(
+        contact_condition,
+        duplicate_condition,
+        channel_condition,
+        stale_condition,
+    )
 
+    if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL:
+        return channel_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_CONTACT:
         return contact_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE:
@@ -3626,6 +3638,7 @@ def _notification_skip_reason_condition(
         return _notification_not_sent_condition() & ~or_(
             contact_condition,
             duplicate_condition,
+            channel_condition,
             stale_condition,
             template_params_condition,
         )

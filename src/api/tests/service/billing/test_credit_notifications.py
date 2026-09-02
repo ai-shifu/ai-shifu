@@ -630,6 +630,28 @@ def test_credit_notification_skips_unsupported_channel_without_sending_sms(
         assert notification.status == "skipped"
         assert notification.error_code == "unsupported_channel"
 
+    assert (
+        get_credit_notification_detail(
+            app,
+            notification_bid="notification-unsupported-channel",
+        )["skip_reason"]
+        == "channel"
+    )
+    assert (
+        list_credit_notifications(
+            app,
+            filters={"skip_reason": "channel"},
+        )["total"]
+        == 1
+    )
+    assert (
+        list_credit_notifications(
+            app,
+            filters={"skip_reason": "stale"},
+        )["total"]
+        == 0
+    )
+
 
 def test_credit_notification_policy_blocks_creator_by_email_identifier(
     credit_notifications_app: Flask,
@@ -778,6 +800,9 @@ def test_credit_notification_policy_allows_disabled_email_rule(
     credit_notifications_app: Flask,
 ) -> None:
     app = credit_notifications_app
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(app, {"channel": "email"})
 
     policy = save_credit_notification_policy(
         app,

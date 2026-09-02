@@ -45,9 +45,18 @@ overseas email templates and delivery can be enabled in a later PR.
   a provider and email-template management are implemented. Enabled email
   rules remain invalid, so this PR cannot accidentally start or queue email
   delivery.
+- 2026-09-02: Keep the legacy top-level policy channel fixed to `sms`; email
+  is a per-rule capability only. This prevents an enabled legacy policy from
+  silently continuing to stage SMS after a top-level email value is saved.
+- 2026-09-02: Retain recipient-column server defaults during the rolling
+  deployment window. Older workers can keep writing SMS records until every
+  backend process runs the new code; a later cleanup migration may remove the
+  defaults.
 - 2026-09-02: Dispatcher behavior is explicit: SMS uses the current Aliyun
   path; unsupported channels finalize as skipped rather than falling through
   to SMS.
+- 2026-09-02: Unsupported channels use the explicit `channel` skip reason,
+  rather than the existing `stale` reason reserved for changed expiry state.
 
 ## Outcomes & Retrospective
 
@@ -104,10 +113,11 @@ live in `src/api/migrations/versions/`.
 
 ## Idempotence and Recovery
 
-The migration adds non-null columns with temporary defaults, backfills only
-empty generic snapshots from existing mobile snapshots, then removes defaults.
-It is safe to rerun in a fresh migration environment. Rollback removes the
-new index and columns; it does not alter the preserved legacy mobile data.
+The migration adds non-null columns with server defaults and backfills only
+empty generic snapshots from existing mobile snapshots. Defaults remain during
+the rolling deployment window so older workers can write compatible records.
+It is safe to rerun in a fresh migration environment. Rollback removes the new
+index and columns; it does not alter the preserved legacy mobile data.
 The runtime dispatcher treats unknown channels as skipped, preventing an
 unsupported configuration from sending SMS to the wrong contact.
 

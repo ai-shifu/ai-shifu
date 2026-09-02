@@ -358,6 +358,7 @@
     "provider_exception": "短信供应商调用异常。",
     "provider_failed": "短信供应商未返回成功结果。",
     "quiet_hours": "命中免打扰时段，未发送。",
+    "unsupported_channel": "该通知渠道暂未启用，未发送。",
     "zero_balance_missing_estimated_remaining_days": "零余额提醒缺少预计剩余天数，未发送。"
   },
   "filters": {
@@ -431,6 +432,7 @@
     "title": "通知规则"
   },
   "skipReason": {
+    "channel": "通知渠道未启用",
     "contact": "联系方式异常",
     "duplicate": "重复通知",
     "policy": "策略限制",
