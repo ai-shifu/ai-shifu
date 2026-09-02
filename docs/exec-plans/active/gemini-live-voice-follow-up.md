@@ -68,6 +68,10 @@ warns at 14 minutes 30 seconds, and can be reopened after ending.
 - [x] 2026-09-02 14:02 CST: Bounded the browser WebSocket's queued microphone
       audio and dropped capture frames during uplink stalls so recovery cannot
       burst stale PCM into the server's real-time limiter.
+- [x] 2026-09-02 17:28 CST: Published each acknowledged Live transcript turn
+      into the current lesson's ASK/ANSWER store immediately and moved turn
+      persistence onto an ordered worker so database latency cannot pause
+      browser microphone reads.
 - [ ] 2026-09-02 06:33 CST: Complete environment acceptance: real
       Gunicorn/Nginx/Gemini WebSocket integration, Playwright fake-microphone
       E2E, supported browser/device audio QA, external-ingress audit, and
@@ -198,8 +202,8 @@ PCM rate limiting, finite provider I/O and setup deadlines, one-time Redis
 tickets, capacity leases, recovery safeguards, deterministic persistence, and
 explicit analytics/privacy contracts.
 
-Automated evidence currently consists of 247 focused backend tests (one
-skipped), 146 focused frontend tests, TypeScript, frontend lint, i18n key
+Automated evidence currently consists of 248 focused backend tests (one
+skipped), 147 focused frontend tests, TypeScript, frontend lint, i18n key
 generation, Ruff, the repository architecture boundary check, and the complete
 repository pre-commit gate. Production
 enablement remains intentionally blocked on the unchecked environment gates
