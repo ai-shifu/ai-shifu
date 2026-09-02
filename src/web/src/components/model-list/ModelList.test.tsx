@@ -76,11 +76,13 @@ jest.mock('../ui/Select', () => ({
     value,
     indicatorClassName,
     className,
+    disabled,
   }: React.PropsWithChildren<{
     value: string;
     textValue?: string;
     indicatorClassName?: string;
     className?: string;
+    disabled?: boolean;
   }>) => (
     <div
       role='option'
@@ -88,6 +90,7 @@ jest.mock('../ui/Select', () => ({
       data-value={value}
       data-indicator-class={indicatorClassName}
       data-class={className}
+      aria-disabled={disabled ? 'true' : 'false'}
     >
       {children}
     </div>
@@ -167,6 +170,40 @@ describe('ModelList', () => {
     expect(
       screen.getByRole('listbox').querySelector('[data-value="__empty__"]'),
     ).toBeNull();
+  });
+
+  test('keeps unavailable text models visible but disabled', () => {
+    render(
+      <ModelList
+        value='text-model'
+        onChange={() => undefined}
+        options={[
+          {
+            value: 'text-model',
+            label: 'Text model',
+            isDefault: true,
+            disabled: true,
+          },
+          {
+            value: 'live-model',
+            label: 'Live model',
+            disabled: false,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('option', { name: /Text model/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('option', { name: /Live model/ })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+    expect(
+      screen.getByRole('listbox').querySelector('[data-value="__empty__"]'),
+    ).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('refreshes model options on open with a short ttl', () => {

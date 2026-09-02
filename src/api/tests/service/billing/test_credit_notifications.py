@@ -15,6 +15,7 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.i18n import load_translations
+from flaskr.service.billing import credit_notifications
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
@@ -68,6 +69,7 @@ from flaskr.service.user.repository import (
     mark_user_roles,
     upsert_credential,
 )
+from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -282,6 +284,8 @@ def _seed_notification_template(
     placeholders: list[str] | None = None,
     template_content: str | None = None,
     sync_status: str = "synced",
+    template_status: str = "AUDIT_STATE_PASS",
+    last_synced_at: datetime | None = None,
 ) -> None:
     resolved_placeholders = placeholders or []
     resolved_content = template_content
@@ -304,7 +308,7 @@ def _seed_notification_template(
             )
         existing.template_name = f"Template {template_code}"
         existing.template_content = resolved_content
-        existing.template_status = "AUDIT_STATE_PASS"
+        existing.template_status = template_status
         existing.template_type = "0"
         existing.variable_attribute_json = {}
         existing.provider_response_json = {"code": "OK"}
@@ -312,7 +316,7 @@ def _seed_notification_template(
         existing.sync_status = sync_status
         existing.error_code = ""
         existing.error_message = ""
-        existing.last_synced_at = datetime(2026, 5, 22, 0, 0, 0)
+        existing.last_synced_at = last_synced_at or now_utc()
         existing.metadata_json = {}
         dao.db.session.add(existing)
         dao.db.session.commit()
@@ -334,6 +338,156 @@ def _seed_default_notification_templates(app: Flask) -> None:
         template_code="TPL-LOW",
         placeholders=["available_credits"],
     )
+
+
+def test_get_or_create_notification_template_recovers_from_unique_conflict(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_notification_template(app, template_code="TPL-CONCURRENT")
+
+    with app.app_context():
+        expected = NotificationTemplate.query.filter_by(
+            channel="sms",
+            provider="aliyun",
+            template_code="TPL-CONCURRENT",
+            deleted=0,
+        ).one()
+        load_calls: list[bool] = []
+        original_load_template = credit_notifications._load_notification_template
+
+        def load_template(
+            template_code: str,
+            *,
+            for_update: bool = False,
+        ) -> NotificationTemplate | None:
+            assert template_code == "TPL-CONCURRENT"
+            load_calls.append(for_update)
+            if len(load_calls) == 1:
+                return None
+            return original_load_template(template_code, for_update=for_update)
+
+        monkeypatch.setattr(
+            credit_notifications,
+            "_load_notification_template",
+            load_template,
+        )
+
+        actual = credit_notifications._get_or_create_notification_template(
+            app,
+            template_code="TPL-CONCURRENT",
+            now=now_utc(),
+        )
+
+    assert actual is expected
+    assert load_calls == [False, True]
+
+
+def test_managed_rules_stage_each_matching_notification_once(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 0, 0, 0)
+    _seed_creator(app)
+    _seed_default_notification_templates(app)
+    with app.app_context():
+        _seed_credit_ledger()
+        _seed_wallet(available_credits="1")
+        _seed_bucket(effective_to=now + timedelta(days=1, hours=2))
+        dao.db.session.commit()
+
+    save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "frequency": {
+                "per_mobile_per_day": 0,
+                "per_creator_per_type_per_day": 0,
+            },
+            "rules": [
+                {
+                    "rule_bid": "grant-one",
+                    "name": "Grant one",
+                    "trigger_event": "credit_granted",
+                    "channel": "sms",
+                    "template_code": "TPL-GRANT",
+                    "enabled": True,
+                    "conditions": {},
+                },
+                {
+                    "rule_bid": "grant-two",
+                    "name": "Grant two",
+                    "trigger_event": "credit_granted",
+                    "channel": "sms",
+                    "template_code": "TPL-GRANT",
+                    "enabled": True,
+                    "conditions": {},
+                },
+                *[
+                    {
+                        "rule_bid": f"expiring-{index}",
+                        "name": f"Expiring {index}",
+                        "trigger_event": "credit_expiring",
+                        "channel": "sms",
+                        "template_code": "TPL-EXPIRING",
+                        "enabled": True,
+                        "conditions": {"windows": ["1d"]},
+                    }
+                    for index in ("one", "two")
+                ],
+                *[
+                    {
+                        "rule_bid": f"low-{index}",
+                        "name": f"Low {index}",
+                        "trigger_event": "low_balance",
+                        "channel": "sms",
+                        "template_code": "TPL-LOW",
+                        "enabled": True,
+                        "conditions": {"thresholds": [{"kind": "fixed", "value": "3"}]},
+                    }
+                    for index in ("one", "two")
+                ],
+            ],
+        },
+    )
+
+    granted = stage_credit_granted_notification(
+        app, ledger_bid="ledger-1", enqueue=False
+    )
+    expiring = scan_credit_expiring_notifications(app, now=now)
+    low_balance = scan_low_balance_notifications(app, now=now)
+
+    assert len(granted["notifications"]) == 2
+    assert expiring["created_count"] == 2
+    assert low_balance["created_count"] == 2
+    with app.app_context():
+        rows = NotificationRecord.query.order_by(NotificationRecord.id.asc()).all()
+        assert len(rows) == 6
+        assert len({row.dedupe_key for row in rows}) == 6
+        assert {
+            row.policy_snapshot_json["matched_rule"]["rule_bid"] for row in rows
+        } == {
+            "grant-one",
+            "grant-two",
+            "expiring-one",
+            "expiring-two",
+            "low-one",
+            "low-two",
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            body=SimpleNamespace(code="OK", message="", request_id="request-1")
+        ),
+    )
+    delivered = deliver_credit_notification(
+        app,
+        notification_bid=str(granted["notifications"][0]["notification_bid"]),
+    )
+    assert delivered["notification_status"] == CREDIT_NOTIFICATION_STATUS_SENT
 
 
 def test_credit_granted_notification_stages_once_and_delivers_sms(
@@ -406,6 +560,97 @@ def test_credit_granted_notification_stages_once_and_delivers_sms(
         ).one()
         assert notification.status == CREDIT_NOTIFICATION_STATUS_SENT
         assert notification.mobile_snapshot == "13800000000"
+        assert notification.recipient_type == "mobile"
+        assert notification.recipient_snapshot == "13800000000"
+
+
+def test_credit_notification_skips_unsupported_channel_without_sending_sms(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        lambda *_args, **_kwargs: pytest.fail("email notification must not send SMS"),
+    )
+    monkeypatch.setattr(
+        credit_notifications,
+        "load_credit_notification_policy",
+        lambda: {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "email-rule",
+                    "enabled": True,
+                    "channel": "email",
+                }
+            ],
+        },
+    )
+    with app.app_context():
+        dao.db.session.add(
+            NotificationRecord(
+                notification_bid="notification-unsupported-channel",
+                notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+                channel="email",
+                creator_bid="creator-1",
+                target_user_bid="creator-1",
+                recipient_type="email",
+                recipient_snapshot="creator@example.com",
+                mobile_snapshot="",
+                source_type="ledger",
+                source_bid="ledger-email",
+                dedupe_key="credit_granted:ledger-email",
+                status=CREDIT_NOTIFICATION_STATUS_PENDING,
+                template_code="EMAIL-GRANT",
+                template_params_json={},
+                policy_snapshot_json={
+                    "matched_rule": {"rule_bid": "email-rule", "channel": "email"}
+                },
+                provider_response_json={},
+                error_code="",
+                error_message="",
+                requested_at=datetime(2026, 5, 21, 8, 0, 0),
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    delivered = deliver_credit_notification(
+        app,
+        notification_bid="notification-unsupported-channel",
+    )
+
+    assert delivered["status"] == "skipped"
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid="notification-unsupported-channel"
+        ).one()
+        assert notification.status == "skipped"
+        assert notification.error_code == "unsupported_channel"
+
+    assert (
+        get_credit_notification_detail(
+            app,
+            notification_bid="notification-unsupported-channel",
+        )["skip_reason"]
+        == "channel"
+    )
+    assert (
+        list_credit_notifications(
+            app,
+            filters={"skip_reason": "channel"},
+        )["total"]
+        == 1
+    )
+    assert (
+        list_credit_notifications(
+            app,
+            filters={"skip_reason": "stale"},
+        )["total"]
+        == 0
+    )
 
 
 def test_credit_notification_policy_blocks_creator_by_email_identifier(
@@ -547,6 +792,59 @@ def test_credit_notification_policy_rejects_invalid_windows(
                         "windows": ["soon"],
                     }
                 },
+            },
+        )
+
+
+def test_credit_notification_policy_allows_disabled_email_rule(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(app, {"channel": "email"})
+
+    policy = save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "email-grant",
+                    "name": "Email grant",
+                    "trigger_event": "credit_granted",
+                    "channel": "email",
+                    "template_code": "",
+                    "enabled": False,
+                    "conditions": {},
+                }
+            ],
+        },
+    )
+
+    assert policy["rules"] == [
+        {
+            "rule_bid": "email-grant",
+            "name": "Email grant",
+            "trigger_event": "credit_granted",
+            "channel": "email",
+            "template_code": "",
+            "enabled": False,
+            "conditions": {},
+        }
+    ]
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        **policy["rules"][0],
+                        "enabled": True,
+                    }
+                ],
             },
         )
 
@@ -802,7 +1100,7 @@ def test_list_credit_notification_templates_falls_back_to_local_cache(
     assert payload["error_code"] == "missing_credentials"
     assert [item["template_code"] for item in payload["items"]] == ["TPL-CACHED"]
     assert payload["items"][0]["source"] == "local"
-    assert payload["items"][0]["last_synced_at"] == "2026-05-22T00:00:00Z"
+    assert payload["items"][0]["last_synced_at"].endswith("Z")
 
 
 def test_list_credit_notification_templates_returns_all_local_cached_templates(
@@ -1006,6 +1304,132 @@ def test_credit_notification_policy_allows_synced_template_missing_variables(
     assert policy["types"][CREDIT_NOTIFICATION_TYPE_GRANTED]["template_code"] == (
         "TPL-GRANT-PARTIAL"
     )
+
+
+def test_credit_notification_policy_rejects_unapproved_sms_template(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-PENDING",
+        placeholders=["credits"],
+        template_status="AUDIT_STATE_INIT",
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "rule-grant-pending",
+                        "name": "Grant pending template",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                        "channel": "sms",
+                        "template_code": "TPL-GRANT-PENDING",
+                        "enabled": True,
+                        "conditions": {},
+                    }
+                ],
+            },
+        )
+
+
+def test_credit_notification_policy_rejects_stale_cached_template_without_credentials(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-STALE",
+        placeholders=["credits"],
+        last_synced_at=now_utc() - timedelta(hours=25),
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "rule-grant-stale",
+                        "name": "Grant stale template",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                        "channel": "sms",
+                        "template_code": "TPL-GRANT-STALE",
+                        "enabled": True,
+                        "conditions": {},
+                    }
+                ],
+            },
+        )
+
+    with app.app_context():
+        template = NotificationTemplate.query.filter_by(
+            template_code="TPL-GRANT-STALE"
+        ).one()
+        assert template.sync_status == "missing_credentials"
+
+
+def test_credit_notification_policy_rejects_provider_unapproved_template(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=f"test-key-{secrets.token_hex(4)}",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=secrets.token_urlsafe(24),
+    )
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-REVOKED",
+        placeholders=["credits"],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.get_sms_template_ali",
+        lambda _app, *, template_code: SimpleNamespace(
+            body=SimpleNamespace(
+                code="OK",
+                message="OK",
+                request_id="req-revoked",
+                template_code=template_code,
+                template_name="Grant revoked",
+                template_content="Credits ${credits}",
+                template_status="AUDIT_STATE_INIT",
+                template_type="0",
+                variable_attribute={},
+            )
+        ),
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "rule-grant-revoked",
+                        "name": "Grant revoked template",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                        "channel": "sms",
+                        "template_code": "TPL-GRANT-REVOKED",
+                        "enabled": True,
+                        "conditions": {},
+                    }
+                ],
+            },
+        )
+
+    with app.app_context():
+        template = NotificationTemplate.query.filter_by(
+            template_code="TPL-GRANT-REVOKED"
+        ).one()
+        assert template.sync_status == "synced"
+        assert template.template_status == "AUDIT_STATE_INIT"
 
 
 def test_credit_notification_policy_revalidates_cached_template_with_provider(

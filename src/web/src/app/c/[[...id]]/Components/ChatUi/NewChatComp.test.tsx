@@ -4,6 +4,12 @@ import {
   projectReadModeItems,
 } from './chatUiModeProjection';
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
+import {
+  hasLiveVoiceFollowUpHistory,
+  resolveFollowUpPresentationMode,
+  resolveLiveVoiceFollowUpAvailability,
+  shouldPauseCourseAudioForLiveVoice,
+} from './liveVoiceFollowUpMode';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 
 jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
@@ -77,6 +83,79 @@ describe('NewChatComp mode projections', () => {
     expect(canonicalItems[0].content).toBe('Lesson content');
     expect(readItems[0].content).toContain('<custom-button-after-content>');
     expect(listenItems[0].content).toBe('Lesson content');
+  });
+
+  it('keeps classroom Live follow-up configured but unsupported without text fallback', () => {
+    const classroomLiveAvailability = resolveLiveVoiceFollowUpAvailability({
+      followUpMode: 'live_voice',
+      isClassroomMode: true,
+    });
+    expect(classroomLiveAvailability).toEqual({
+      configured: true,
+      supported: false,
+    });
+    expect(resolveFollowUpPresentationMode(classroomLiveAvailability)).toBe(
+      'disabled',
+    );
+    expect(
+      resolveLiveVoiceFollowUpAvailability({
+        followUpMode: 'text',
+        isClassroomMode: true,
+      }),
+    ).toEqual({ configured: false, supported: false });
+
+    const unavailableLiveAvailability = resolveLiveVoiceFollowUpAvailability({
+      followUpMode: 'disabled',
+      isClassroomMode: false,
+    });
+    expect(unavailableLiveAvailability).toEqual({
+      configured: true,
+      supported: false,
+    });
+    expect(resolveFollowUpPresentationMode(unavailableLiveAvailability)).toBe(
+      'disabled',
+    );
+  });
+
+  it('removes the read-mode follow-up entry when Live is unavailable', () => {
+    const readItems = projectReadModeItems({
+      items: [
+        {
+          element_bid: 'content-1',
+          content: `Lesson content${askButtonMarkup}`,
+          isHistory: true,
+          type: ChatContentItemType.CONTENT,
+        },
+      ],
+      askListByAnchorElementBid: {},
+      mobileStyle: true,
+      askButtonMarkup,
+      followUpDisabled: true,
+    });
+
+    expect(readItems[0].content).toBe('Lesson content');
+  });
+
+  it('shows only persisted Live follow-up history rows', () => {
+    expect(hasLiveVoiceFollowUpHistory(undefined)).toBe(false);
+    expect(hasLiveVoiceFollowUpHistory([])).toBe(false);
+    expect(
+      hasLiveVoiceFollowUpHistory([
+        { type: ChatContentItemType.ASK, content: 'Transcribed question' },
+      ]),
+    ).toBe(true);
+  });
+
+  it('pauses course audio only while a Live voice transport is active', () => {
+    expect(
+      shouldPauseCourseAudioForLiveVoice({ open: true, state: 'listening' }),
+    ).toBe(true);
+    expect(
+      shouldPauseCourseAudioForLiveVoice({ open: true, state: 'ended' }),
+    ).toBe(false);
+    expect(
+      shouldPauseCourseAudioForLiveVoice({ open: false, state: 'ended' }),
+    ).toBe(false);
   });
 
   it('keeps desktop read projection free of mobile follow-up markup', () => {

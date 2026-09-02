@@ -13,6 +13,12 @@ import {
 } from '@/lib/admin-date-time';
 import { toast } from '@/hooks/useToast';
 import AdminOperationCreditNotificationsPage from './page';
+import { normalizePolicy } from './creditNotificationUtils';
+
+Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+  configurable: true,
+  value: jest.fn(),
+});
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -199,10 +205,16 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   DropdownMenuItem: ({
     children,
     onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+    disabled = false,
+  }: React.PropsWithChildren<{ onClick?: () => void; disabled?: boolean }>) => (
     <button
       type='button'
-      onClick={onClick}
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) {
+          onClick?.();
+        }
+      }}
     >
       {children}
     </button>
@@ -229,8 +241,6 @@ const mockGetRecords = api.getAdminOperationCreditNotifications as jest.Mock;
 const mockGetOverview =
   api.getAdminOperationCreditNotificationsOverview as jest.Mock;
 const mockRequeue = api.requeueAdminOperationCreditNotification as jest.Mock;
-const mockSyncTemplate =
-  api.syncAdminOperationCreditNotificationTemplate as jest.Mock;
 const mockUpdateConfig =
   api.updateAdminOperationCreditNotificationConfig as jest.Mock;
 const mockDryRun = api.dryRunAdminOperationCreditNotifications as jest.Mock;
@@ -262,32 +272,13 @@ const openConfigTab = async ({
     await waitFor(() => {
       expect(mockGetTemplates).toHaveBeenCalled();
     });
-    await screen.findAllByRole('button', {
-      name: 'module.operationsCreditNotifications.config.typeTable.edit',
+    await screen.findByRole('button', {
+      name: 'module.operationsCreditNotifications.ruleManagement.newRule',
     });
   }
 };
 
-const NOTIFICATION_TYPE_EDIT_BUTTON_INDEX = {
-  credit_expiring: 0,
-  credit_granted: 1,
-  low_balance: 2,
-} as const;
-
-const openNotificationTypeEditor = async (
-  type: keyof typeof NOTIFICATION_TYPE_EDIT_BUTTON_INDEX,
-) => {
-  fireEvent.click(
-    screen.getAllByRole('button', {
-      name: 'module.operationsCreditNotifications.config.typeTable.edit',
-    })[NOTIFICATION_TYPE_EDIT_BUTTON_INDEX[type]],
-  );
-  const dialog = await screen.findByRole('dialog');
-  expect(within(dialog).getAllByText(type)[0]).toBeInTheDocument();
-  return dialog;
-};
-
-const closeNotificationTypeEditor = async () => {
+const closeDialog = async () => {
   fireEvent.click(
     screen.getByRole('button', {
       name: 'component.header.close',
@@ -296,21 +287,6 @@ const closeNotificationTypeEditor = async () => {
   await waitFor(() => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
-};
-
-const openDeliveryRulesEditor = async () => {
-  fireEvent.click(
-    screen.getByRole('button', {
-      name: 'module.operationsCreditNotifications.config.deliveryRules.edit',
-    }),
-  );
-  const dialog = await screen.findByRole('dialog');
-  expect(
-    within(dialog).getByText(
-      'module.operationsCreditNotifications.config.deliveryRules.dialogTitle',
-    ),
-  ).toBeInTheDocument();
-  return dialog;
 };
 
 const openCreatorListsEditor = async () => {
@@ -326,6 +302,22 @@ const openCreatorListsEditor = async () => {
     ),
   ).toBeInTheDocument();
   return dialog;
+};
+
+const openRuleAction = (action: 'edit' | 'delete') => {
+  const actionName = `module.operationsCreditNotifications.ruleManagement.${action}`;
+  if (!screen.queryByRole('button', { name: actionName })) {
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+  }
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: actionName,
+    }),
+  );
 };
 
 const openRecordMoreMenu = () => {
@@ -353,7 +345,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockGetOverview.mockReset();
     mockDryRun.mockReset();
     mockRequeue.mockReset();
-    mockSyncTemplate.mockReset();
     mockUpdateConfig.mockReset();
     mockToast.mockReset();
     mockGetConfig.mockResolvedValue({ enabled: false });
@@ -465,27 +456,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
       notification_bid: 'notification-1',
       enqueued: true,
     });
-    mockSyncTemplate.mockResolvedValue({
-      notification_type: 'credit_expiring',
-      channel: 'sms',
-      provider: 'aliyun',
-      template_code: 'TPL-EXPIRING',
-      template_name: 'Expiring',
-      template_content: 'Credits ${credits} expire soon ${bad_variable}',
-      template_status: 'AUDIT_STATE_PASS',
-      template_type: '0',
-      variable_attribute: {},
-      provider_response: {},
-      placeholders: ['credits', 'bad_variable'],
-      supported_placeholders: ['credits', 'expires_at', 'window'],
-      unused_supported_placeholders: ['expires_at', 'window'],
-      unsupported_placeholders: ['bad_variable'],
-      sync_status: 'synced',
-      error_code: '',
-      error_message: '',
-      last_synced_at: '2026-05-22T00:00:00Z',
-      compatible: false,
-    });
   });
 
   it('shows notification records by default and switches to policy config tab', async () => {
@@ -510,15 +480,10 @@ describe('AdminOperationCreditNotificationsPage', () => {
       screen.getByText('module.operationsCreditNotifications.config.title'),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText(
-        'module.operationsCreditNotifications.config.typeTable.smsChannelAvailable',
-      ).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.queryByText(
-        'module.operationsCreditNotifications.config.typeTable.emailChannelComingSoon',
-      ),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.newRule',
+      }),
+    ).toBeInTheDocument();
     expect(mockReplace).toHaveBeenCalledWith(
       '/admin/operations/credit-notifications?tab=config',
       { scroll: false },
@@ -581,6 +546,33 @@ describe('AdminOperationCreditNotificationsPage', () => {
       'operator_notification_template_filter_applied',
       { channel: 'sms', provider: 'aliyun', filter: 'keyword' },
     );
+  });
+
+  it('shows managed rule names as template bindings', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+
+    expect(await screen.findByText('Grant follow-up')).toBeInTheDocument();
   });
 
   it('does not mark templates unbound when the binding config fails to load', async () => {
@@ -994,108 +986,260 @@ describe('AdminOperationCreditNotificationsPage', () => {
     );
   });
 
-  it('saves structured config changes without exposing a raw JSON editor', async () => {
-    const { container } = render(<AdminOperationCreditNotificationsPage />);
+  it('renders managed rules and opens the rule editor', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
 
     await openConfigTab();
 
-    expect(container.querySelector('textarea')).toBeNull();
-
-    let dialog = await openNotificationTypeEditor('credit_granted');
+    expect(screen.getByText('Grant follow-up')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('switch', { name: 'Grant follow-up' }));
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_rule_action',
+      {
+        action: 'toggled',
+        channel: 'sms',
+        trigger_event: 'credit_granted',
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.newRule',
+      }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByLabelText(
+        'module.operationsCreditNotifications.ruleManagement.fields.name',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('switch', {
+        name: 'module.operationsCreditNotifications.ruleManagement.fields.enabled',
+      }),
+    ).not.toBeChecked();
     fireEvent.click(
       within(dialog).getByRole('button', {
-        name: 'module.operationsCreditNotifications.actions.changeTemplate',
+        name: 'module.operationsCreditNotifications.ruleManagement.cancel',
       }),
-    );
-    const templateInput = within(dialog).getByLabelText(
-      'module.operationsCreditNotifications.config.fields.templateCode',
-    ) as HTMLInputElement;
-    fireEvent.change(templateInput, {
-      target: { value: 'TPL-GRANT-UPDATED' },
-    });
-    await closeNotificationTypeEditor();
-
-    dialog = await openNotificationTypeEditor('credit_expiring');
-    const windowsInput = within(dialog).getByLabelText(
-      'module.operationsCreditNotifications.config.fields.windows',
-    );
-    fireEvent.change(windowsInput, {
-      target: { value: '７ｄ，' },
-    });
-    expect(windowsInput).toHaveValue('7d,');
-    fireEvent.change(windowsInput, {
-      target: { value: '７ｄ，３ｄ、１ｄ，０ｄ' },
-    });
-    expect(windowsInput).toHaveValue('7d,3d,1d,0d');
-    fireEvent.blur(windowsInput);
-    expect(windowsInput).toHaveValue('7d, 3d, 1d, 0d');
-    await closeNotificationTypeEditor();
-
-    dialog = await openNotificationTypeEditor('low_balance');
-    const thresholdInput = within(dialog).getByLabelText(
-      'module.operationsCreditNotifications.config.fields.thresholds',
-    );
-    fireEvent.change(thresholdInput, {
-      target: { value: '１００，５０，１０，' },
-    });
-    expect(thresholdInput).toHaveValue('100,50,10,');
-    await closeNotificationTypeEditor();
-
-    const deliveryRulesDialog = await openDeliveryRulesEditor();
-    const perMobileInput = within(deliveryRulesDialog).getByLabelText(
-      'module.operationsCreditNotifications.config.fields.perMobilePerDay',
-    );
-    expect(perMobileInput).not.toHaveAttribute('type', 'number');
-    fireEvent.change(perMobileInput, {
-      target: { value: '-３.５' },
-    });
-    expect(perMobileInput).toHaveValue('');
-    const dailyLimitInput = within(deliveryRulesDialog).getByLabelText(
-      'module.operationsCreditNotifications.config.fields.dailySmsLimit',
-    );
-    fireEvent.change(dailyLimitInput, {
-      target: { value: '０' },
-    });
-    expect(dailyLimitInput).toHaveValue('0');
-    await closeNotificationTypeEditor();
-
-    const listsDialog = await openCreatorListsEditor();
-    const blockedCreatorsInput = within(listsDialog).getByLabelText(
-      'module.operationsCreditNotifications.config.fields.blockedCreators',
-    );
-    fireEvent.change(blockedCreatorsInput, {
-      target: { value: 'creator-1，13800000000，owner@example.com' },
-    });
-    expect(blockedCreatorsInput).toHaveValue(
-      'creator-1,13800000000,owner@example.com',
     );
     fireEvent.click(
-      within(listsDialog).getByRole('button', {
-        name: 'module.operationsCreditNotifications.config.listDialog.add',
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
       }),
     );
-    expect(blockedCreatorsInput).toHaveValue('');
-    expect(
-      screen.getByText(
-        'module.operationsCreditNotifications.config.fields.blockedCreatorList',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/13800000000/).length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(
-        'module.operationsCreditNotifications.config.emptyOptedOutCreators',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(listsDialog).getByPlaceholderText(
-        'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
-      ),
-    ).toBeInTheDocument();
-    await closeNotificationTypeEditor();
-    expect(JSON.stringify(mockUpdateConfig.mock.calls)).not.toContain(
-      '100,50,10',
-    );
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rules: [
+            expect.objectContaining({
+              rule_bid: 'rule-grant',
+              enabled: false,
+            }),
+          ],
+        }),
+      );
+    });
+  });
 
+  it('only offers approved and synced Aliyun SMS templates when editing a rule', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: false,
+          conditions: {},
+        },
+      ],
+    });
+    mockGetTemplates.mockResolvedValueOnce({
+      items: [
+        {
+          channel: 'sms',
+          provider: 'aliyun',
+          template_code: 'TPL-GRANT',
+          template_name: 'Grant',
+          template_content: 'Credits ${credits}',
+          template_status: 'AUDIT_STATE_PASS',
+          template_type: '0',
+          sync_status: 'synced',
+          error_code: '',
+          error_message: '',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'provider',
+        },
+        {
+          channel: 'sms',
+          provider: 'aliyun',
+          template_code: 'TPL-FAILED',
+          template_name: 'Failed sync',
+          template_content: 'Credits ${credits}',
+          template_status: 'AUDIT_STATE_PASS',
+          template_type: '0',
+          sync_status: 'failed_provider',
+          error_code: 'provider_exception',
+          error_message: 'provider_exception',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'local',
+        },
+        {
+          channel: 'sms',
+          provider: 'aliyun',
+          template_code: 'TPL-PENDING',
+          template_name: 'Pending',
+          template_content: 'Credits ${credits}',
+          template_status: 'AUDIT_STATE_INIT',
+          template_type: '0',
+          sync_status: 'synced',
+          error_code: '',
+          error_message: '',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'provider',
+        },
+      ],
+      source: 'provider',
+      provider_available: true,
+      error_code: '',
+      error_message: '',
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    const templateSelect = within(dialog).getAllByRole('combobox')[1];
+    fireEvent.click(templateSelect);
+
+    expect(
+      await screen.findByRole('option', { name: 'Grant' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'Pending' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'Failed sync' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('preserves legacy type settings as rules when the API has no rules field', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: true,
+      types: {
+        credit_expiring: {
+          enabled: true,
+          template_code: 'TPL-EXPIRING',
+          windows: ['7d', '1d'],
+          merge_same_creator: true,
+        },
+        credit_granted: {
+          enabled: true,
+          template_code: 'TPL-GRANT',
+        },
+        low_balance: {
+          enabled: false,
+          template_code: 'TPL-LOW',
+          thresholds: [{ kind: 'fixed', value: '100' }],
+        },
+      },
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+
+    expect(screen.getAllByText('credit_expiring')).toHaveLength(2);
+    expect(screen.getAllByText('credit_granted')).toHaveLength(2);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rules: expect.arrayContaining([
+            expect.objectContaining({
+              rule_bid: 'legacy-credit_expiring',
+              legacy: true,
+              conditions: expect.objectContaining({ windows: ['7d', '1d'] }),
+            }),
+            expect.objectContaining({
+              rule_bid: 'legacy-credit_granted',
+              template_code: 'TPL-GRANT',
+              legacy: true,
+            }),
+            expect.objectContaining({
+              rule_bid: 'legacy-low_balance',
+              legacy: true,
+              conditions: {
+                thresholds: [{ kind: 'fixed', value: '100' }],
+              },
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it('keeps fixed thresholds when editing an estimated-days rule condition', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-low-balance',
+          name: 'Balance follow-up',
+          trigger_event: 'low_balance',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {
+            thresholds: [
+              { kind: 'fixed', value: '100' },
+              {
+                kind: 'estimated_days',
+                days: 7,
+                lookback_days: 14,
+                min_consumed_days: 3,
+              },
+            ],
+          },
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(
+      within(dialog).getByLabelText(
+        'module.operationsCreditNotifications.config.fields.estimatedDays',
+      ),
+      { target: { value: '9' } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.saveRule',
+      }),
+    );
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsCreditNotifications.actions.applyConfig',
@@ -1105,38 +1249,338 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await waitFor(() => {
       expect(mockUpdateConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          channel: 'sms',
-          types: expect.objectContaining({
-            credit_granted: expect.objectContaining({
-              template_code: 'TPL-GRANT',
+          rules: [
+            expect.objectContaining({
+              conditions: {
+                thresholds: expect.arrayContaining([
+                  { kind: 'fixed', value: '100' },
+                  expect.objectContaining({
+                    kind: 'estimated_days',
+                    days: 9,
+                    lookback_days: 14,
+                    min_consumed_days: 3,
+                  }),
+                ]),
+              },
             }),
-            credit_expiring: expect.objectContaining({
-              windows: ['7d', '3d', '1d', '0d'],
-            }),
-            low_balance: expect.objectContaining({
-              thresholds: expect.arrayContaining([
-                expect.objectContaining({ value: '100' }),
-                expect.objectContaining({ value: '50' }),
-                expect.objectContaining({ value: '10' }),
-              ]),
-            }),
-          }),
-          frequency: expect.objectContaining({
-            per_mobile_per_day: 0,
-          }),
-          budget: expect.objectContaining({
-            daily_sms_limit: 0,
-          }),
-          blacklist: expect.objectContaining({
-            creator_bids: ['creator-1', 'owner@example.com'],
-            mobiles: ['13800000000'],
-          }),
+          ],
         }),
       );
-      expect(JSON.stringify(mockUpdateConfig.mock.calls[0][0])).not.toContain(
-        'placeholders',
+    });
+  });
+
+  it('allows a disabled legacy expiring rule with empty windows to be saved', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'legacy-credit_expiring',
+          name: 'credit_expiring',
+          trigger_event: 'credit_expiring',
+          channel: 'sms',
+          template_code: '',
+          enabled: false,
+          conditions: { windows: [] },
+          legacy: true,
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.saveRule',
+      }),
+    ).toBeEnabled();
+  });
+
+  it('keeps an in-progress comma-separated expiry window list visible while editing', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-expiring',
+          name: 'Expiry follow-up',
+          trigger_event: 'credit_expiring',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: { windows: ['7d'] },
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    const windowsInput = within(dialog).getByLabelText(
+      'module.operationsCreditNotifications.ruleManagement.fields.windows',
+    );
+    fireEvent.change(windowsInput, { target: { value: '7d,' } });
+    expect(windowsInput).toHaveValue('7d,');
+    fireEvent.change(windowsInput, { target: { value: '7d,3d' } });
+    fireEvent.blur(windowsInput);
+    expect(windowsInput).toHaveValue('7d, 3d');
+  });
+
+  it('keeps an in-progress comma-separated fixed threshold list visible while editing', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-low-balance',
+          name: 'Balance follow-up',
+          trigger_event: 'low_balance',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {
+            thresholds: [{ kind: 'fixed', value: '100' }],
+          },
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    const thresholdsInput = within(dialog).getByLabelText(
+      'module.operationsCreditNotifications.ruleManagement.fields.thresholds',
+    );
+    fireEvent.change(thresholdsInput, { target: { value: '100,' } });
+    expect(thresholdsInput).toHaveValue('100,');
+    fireEvent.change(thresholdsInput, { target: { value: '100,50' } });
+    fireEvent.blur(thresholdsInput);
+    expect(thresholdsInput).toHaveValue('100, 50');
+  });
+
+  it('clears a rule template when its trigger event changes', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('edit');
+    const dialog = await screen.findByRole('dialog');
+    const [triggerSelect] = within(dialog).getAllByRole('combobox');
+    fireEvent.click(triggerSelect);
+    fireEvent.click(await screen.findByRole('option', { name: 'low_balance' }));
+    fireEvent.click(
+      within(dialog).getByRole('switch', {
+        name: 'module.operationsCreditNotifications.ruleManagement.fields.enabled',
+      }),
+    );
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.saveRule',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rules: [
+            expect.objectContaining({
+              trigger_event: 'low_balance',
+              template_code: '',
+              enabled: false,
+            }),
+          ],
+        }),
       );
     });
+  });
+
+  it('does not allow a synthesized legacy rule to be deleted', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      types: {
+        credit_expiring: {
+          enabled: false,
+          template_code: '',
+          windows: ['7d'],
+          merge_same_creator: false,
+        },
+        credit_granted: { enabled: false, template_code: '' },
+        low_balance: {
+          enabled: false,
+          template_code: '',
+          thresholds: [],
+        },
+      },
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'common.core.more' })[0],
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.delete',
+      }),
+    ).toBeDisabled();
+  });
+
+  it('does not allow an incomplete disabled rule to be enabled inline', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-incomplete',
+          name: 'Incomplete rule',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: '',
+          enabled: false,
+          conditions: {},
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    expect(
+      screen.getByRole('switch', { name: 'Incomplete rule' }),
+    ).toBeDisabled();
+  });
+
+  it('keeps rule controls usable when analytics tracking fails', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+    mockTrackEvent.mockImplementationOnce(() => {
+      throw new Error('analytics unavailable');
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    const ruleSwitch = screen.getByRole('switch', { name: 'Grant follow-up' });
+    fireEvent.click(ruleSwitch);
+
+    expect(ruleSwitch).not.toBeChecked();
+  });
+
+  it('rejects managed rules without a stable rule business id', () => {
+    const policy = normalizePolicy({
+      rules: [
+        {
+          rule_bid: ' ',
+          name: 'Invalid rule',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+
+    expect(policy.rules).toEqual([]);
+  });
+
+  it('preserves a disabled email rule while normalizing policy data', () => {
+    const policy = normalizePolicy({
+      rules: [
+        {
+          rule_bid: 'email-grant',
+          name: 'Email grant',
+          trigger_event: 'credit_granted',
+          channel: 'email',
+          template_code: '',
+          enabled: false,
+          conditions: {},
+        },
+      ],
+    });
+
+    expect(policy.channel).toBe('sms');
+    expect(policy.rules[0]?.channel).toBe('email');
+  });
+
+  it('requires confirmation before deleting a managed rule', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      rules: [
+        {
+          rule_bid: 'rule-grant',
+          name: 'Grant follow-up',
+          trigger_event: 'credit_granted',
+          channel: 'sms',
+          template_code: 'TPL-GRANT',
+          enabled: true,
+          conditions: {},
+        },
+      ],
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    openRuleAction('delete');
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(
+      within(dialog).getByText(
+        'module.operationsCreditNotifications.ruleManagement.deleteTitle',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.cancel',
+      }),
+    );
+    expect(screen.getByText('Grant follow-up')).toBeInTheDocument();
+
+    openRuleAction('delete');
+    fireEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.delete',
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Grant follow-up')).not.toBeInTheDocument();
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_rule_action',
+      {
+        action: 'deleted',
+        channel: 'sms',
+        trigger_event: 'credit_granted',
+      },
+    );
   });
 
   it('uses email wording for the blocked creator field on email login sites', async () => {
@@ -1148,15 +1592,10 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await openConfigTab();
 
     expect(
-      screen.getAllByText(
-        'module.operationsCreditNotifications.config.typeTable.emailChannelComingSoon',
-      ).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.queryByText(
-        'module.operationsCreditNotifications.config.typeTable.smsChannelAvailable',
-      ),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.newRule',
+      }),
+    ).toBeInTheDocument();
 
     const listsDialog = await openCreatorListsEditor();
 
@@ -1170,61 +1609,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
         'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
       ),
     ).not.toBeInTheDocument();
-  });
-
-  it('shows recommended templates without marking config dirty before saving', async () => {
-    render(<AdminOperationCreditNotificationsPage />);
-
-    await openConfigTab();
-
-    expect(screen.queryByText('Grant')).not.toBeInTheDocument();
-    expect(
-      screen.getAllByText(
-        'module.operationsCreditNotifications.config.typeTable.templateNotSet',
-      ).length,
-    ).toBeGreaterThan(0);
-
-    const dialog = await openNotificationTypeEditor('credit_granted');
-    expect(within(dialog).getByText('Grant')).toBeInTheDocument();
-    await closeNotificationTypeEditor();
-
-    const recordsTab = screen.getByRole('tab', {
-      name: 'module.operationsCreditNotifications.tabs.records',
-    });
-    fireEvent.pointerDown(recordsTab, { button: 0, ctrlKey: false });
-    fireEvent.mouseDown(recordsTab, { button: 0, ctrlKey: false });
-    fireEvent.click(recordsTab);
-
-    expect(
-      screen.queryByText(
-        'module.operationsCreditNotifications.config.unsavedDialog.title',
-      ),
-    ).not.toBeInTheDocument();
-    expect(recordsTab).toHaveAttribute('data-state', 'active');
-  });
-
-  it('writes recommended templates when saving config', async () => {
-    render(<AdminOperationCreditNotificationsPage />);
-
-    await openConfigTab();
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCreditNotifications.actions.applyConfig',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockUpdateConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          types: expect.objectContaining({
-            credit_granted: expect.objectContaining({
-              template_code: 'TPL-GRANT',
-            }),
-          }),
-        }),
-      );
-    });
   });
 
   it('extracts blocked creators from spreadsheet-style pasted contacts and rejects invalid rows', async () => {
@@ -1299,7 +1683,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     expect(screen.getAllByText(/owner@example.com/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/second@example.com/).length).toBeGreaterThan(0);
-    await closeNotificationTypeEditor();
+    await closeDialog();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsCreditNotifications.actions.applyConfig',
@@ -1417,7 +1801,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await waitFor(() => {
       expect(screen.getAllByText(/creator-unsaved/).length).toBeGreaterThan(0);
     });
-    await closeNotificationTypeEditor();
+    await closeDialog();
 
     const recordsTab = screen.getByRole('tab', {
       name: 'module.operationsCreditNotifications.tabs.records',
@@ -1460,153 +1844,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
     ).toHaveValue('');
   });
 
-  it('shows dynamic template placeholders and tolerance copy', async () => {
-    render(<AdminOperationCreditNotificationsPage />);
-
-    await openConfigTab();
-
-    let dialog = await openNotificationTypeEditor('credit_expiring');
-    expect(
-      within(dialog).getByText(
-        'module.operationsCreditNotifications.config.placeholders.tolerance',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        'module.operationsCreditNotifications.config.placeholders.guideTitle.credit_expiring',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).queryByText(
-        'module.operationsCreditNotifications.config.placeholders.groups.creditExpiring',
-      ),
-    ).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        'module.operationsCreditNotifications.config.placeholders.notes.windowSource',
-      ),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByText('${credits}')).toBeInTheDocument();
-    await closeNotificationTypeEditor();
-
-    dialog = await openNotificationTypeEditor('low_balance');
-    expect(
-      within(dialog).queryByText(
-        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceFixed',
-      ),
-    ).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByText('${available_credits}'),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).queryByText('${estimated_remaining_days}'),
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows estimated-days and fallback placeholders when the low-balance mode is enabled', async () => {
-    render(<AdminOperationCreditNotificationsPage />);
-
-    await openConfigTab();
-
-    const dialog = await openNotificationTypeEditor('low_balance');
-    fireEvent.click(
-      within(dialog).getByLabelText(
-        'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
-      ),
-    );
-
-    expect(
-      within(dialog).getByText(
-        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceEstimated',
-      ),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByText('${trigger_days}')).toBeInTheDocument();
-    expect(within(dialog).getByText('${lookback_days}')).toBeInTheDocument();
-    expect(
-      within(dialog).getByText('${avg_daily_consumption}'),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText('${estimated_remaining_days}'),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        'module.operationsCreditNotifications.config.placeholders.notes.fallbackLowBalance',
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it('syncs and displays Aliyun template variables without saving them into policy', async () => {
-    render(<AdminOperationCreditNotificationsPage />);
-
-    await openConfigTab();
-
-    const dialog = await openNotificationTypeEditor('credit_expiring');
-    const templateInput = within(dialog).getByLabelText(
-      'module.operationsCreditNotifications.config.fields.templateCode',
-    ) as HTMLInputElement;
-    fireEvent.change(templateInput, {
-      target: { value: 'TPL-EXPIRING' },
-    });
-
-    fireEvent.click(
-      within(dialog).getByRole('button', {
-        name: 'module.operationsCreditNotifications.actions.applyTemplate',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockSyncTemplate).toHaveBeenCalledWith({
-        notification_type: 'credit_expiring',
-        template_code: 'TPL-EXPIRING',
-      });
-    });
-    expect(
-      screen.getByText('Credits ${credits} expire soon ${bad_variable}'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('${bad_variable}')).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        'module.operationsCreditNotifications.config.templateSync.incompatible',
-      ),
-    ).toBeInTheDocument();
-    await closeNotificationTypeEditor();
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCreditNotifications.actions.applyConfig',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockUpdateConfig).toHaveBeenCalled();
-    });
-    const savedPayload = JSON.stringify(mockUpdateConfig.mock.calls[0][0]);
-    expect(savedPayload).not.toContain('template_content');
-    expect(savedPayload).not.toContain('unsupported_placeholders');
-  });
-
-  it('keeps dry-run in the policy config tab', async () => {
-    render(<AdminOperationCreditNotificationsPage />);
-
-    await openConfigTab();
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCreditNotifications.actions.dryRun',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockDryRun).toHaveBeenCalledWith({
-        notification_type: '',
-        creator_bid: '',
-      });
-    });
-    expect(
-      screen.getByText(/"notification_type": "low_balance"/),
-    ).toBeInTheDocument();
-  });
-
   it('shows dry-run failures inside the config tab without reusing records errors', async () => {
     mockDryRun.mockRejectedValueOnce({
       message: 'dry-run failed',
@@ -1634,52 +1871,5 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(
       screen.queryByText('module.operationsCreditNotifications.loadError'),
     ).not.toBeInTheDocument();
-  });
-
-  it('saves estimated-days low balance thresholds from the structured form', async () => {
-    render(<AdminOperationCreditNotificationsPage />);
-
-    await openConfigTab();
-
-    const dialog = await openNotificationTypeEditor('low_balance');
-    fireEvent.click(
-      within(dialog).getByLabelText(
-        'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
-      ),
-    );
-    fireEvent.change(
-      within(dialog).getByLabelText(
-        'module.operationsCreditNotifications.config.fields.estimatedDays',
-      ),
-      { target: { value: '5' } },
-    );
-    await closeNotificationTypeEditor();
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCreditNotifications.actions.applyConfig',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockUpdateConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          types: expect.objectContaining({
-            low_balance: expect.objectContaining({
-              thresholds: expect.arrayContaining([
-                { kind: 'fixed', value: '0' },
-                {
-                  kind: 'estimated_days',
-                  days: 5,
-                  lookback_days: 7,
-                  min_consumed_days: 2,
-                  fallback_fixed_value: '0',
-                },
-              ]),
-            }),
-          }),
-        }),
-      );
-    });
   });
 });

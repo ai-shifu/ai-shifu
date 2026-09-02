@@ -46,6 +46,7 @@ interface ChatUiProps {
   lessonTitle?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
   onMobileSettingClick?: () => void;
   chapterUpdate: ChapterUpdateHandler;
@@ -70,6 +71,7 @@ export const ChatUi = ({
   lessonTitle = '',
   lessonStatus = '',
   lessonHasContentUpdate = false,
+  followUpMode = 'text',
   runtimeReady = true,
   chapterUpdate,
   updateSelectedLesson,
@@ -220,6 +222,7 @@ export const ChatUi = ({
           lessonTitle={lessonTitle}
           lessonStatus={lessonStatus}
           lessonHasContentUpdate={lessonHasContentUpdate}
+          followUpMode={followUpMode}
           className={styles.chatComponents}
           previewMode={previewMode}
           onPurchased={onPurchased}

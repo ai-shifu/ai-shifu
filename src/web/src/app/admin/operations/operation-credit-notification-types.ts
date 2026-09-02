@@ -38,6 +38,8 @@ export type AdminOperationCreditNotificationItem = {
   creator_bid: string;
   creator_nickname: string;
   target_user_bid: string;
+  recipient_type: 'mobile' | 'email' | LooseString;
+  recipient_snapshot: string;
   mobile_snapshot: string;
   source_type: string;
   source_bid: string;
@@ -174,9 +176,25 @@ export type CreditNotificationTypePolicy = {
   thresholds?: CreditNotificationThreshold[];
 };
 
+export type CreditNotificationRule = {
+  rule_bid: string;
+  name: string;
+  trigger_event: 'credit_expiring' | 'credit_granted' | 'low_balance';
+  channel: 'sms' | 'email';
+  template_code: string;
+  enabled: boolean;
+  conditions: {
+    windows?: string[];
+    merge_same_creator?: boolean;
+    thresholds?: CreditNotificationThreshold[];
+  };
+  legacy?: boolean;
+};
+
 export type AdminOperationCreditNotificationPolicy = {
   enabled: boolean;
   channel: 'sms';
+  rules: CreditNotificationRule[];
   types: {
     credit_expiring: CreditNotificationTypePolicy;
     credit_granted: CreditNotificationTypePolicy;

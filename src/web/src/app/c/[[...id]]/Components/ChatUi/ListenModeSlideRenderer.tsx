@@ -73,6 +73,7 @@ import {
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 import LearnerCourseShareButton from '../LearnerCourseShareButton';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import type { FollowUpPresentationMode } from './liveVoiceFollowUpMode';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -189,7 +190,11 @@ interface ListenModeSlideRendererProps {
   onLessonFeedbackPromptStateChange?: (ready: boolean) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
   pausePlaybackWhen?: boolean;
+  pausePlaybackForLiveVoice?: boolean;
+  restorePlaybackAfterLiveVoice?: boolean;
   disableInteractionEdits?: boolean;
+  followUpMode?: FollowUpPresentationMode;
+  onLiveVoiceFollowUpStart?: (elementBid: string) => void;
 }
 
 interface ListenSlidePresentationProfile {
@@ -262,10 +267,10 @@ interface ListenSlideAskPlayerActionProps {
   actionRef?: React.MutableRefObject<HTMLButtonElement | null>;
   context: SlidePlayerCustomActionContext;
   label: string;
-  onBeforeOpen: () => void;
   onContextChange: (snapshot: PlayerCustomActionContextSnapshot) => void;
   disabled?: boolean;
   renderButton?: boolean;
+  onActivate?: (element?: ListenSlideElement) => void;
 }
 
 const ListenSlideAskPlayerAction = memo(
@@ -273,10 +278,10 @@ const ListenSlideAskPlayerAction = memo(
     actionRef,
     context,
     label,
-    onBeforeOpen,
     onContextChange,
     disabled = false,
     renderButton = true,
+    onActivate,
   }: ListenSlideAskPlayerActionProps) => {
     const { currentElement, isActive, setActive, toggleActive } = context;
 
@@ -293,12 +298,13 @@ const ListenSlideAskPlayerAction = memo(
         return;
       }
 
-      if (!isActive) {
-        onBeforeOpen();
+      if (onActivate) {
+        onActivate(currentElement as ListenSlideElement | undefined);
+        return;
       }
 
       toggleActive();
-    }, [disabled, isActive, onBeforeOpen, toggleActive]);
+    }, [currentElement, disabled, onActivate, toggleActive]);
 
     if (!renderButton) {
       return null;
@@ -745,7 +751,11 @@ const ListenModeSlideRenderer = ({
   onLessonFeedbackPromptStateChange,
   onMobileViewModeChange,
   pausePlaybackWhen = false,
+  pausePlaybackForLiveVoice = false,
+  restorePlaybackAfterLiveVoice = true,
   disableInteractionEdits = false,
+  followUpMode = 'text',
+  onLiveVoiceFollowUpStart,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
@@ -775,6 +785,9 @@ const ListenModeSlideRenderer = ({
   );
   const audioWaitingStateMapRef = useRef<Map<HTMLAudioElement, boolean>>(
     new Map(),
+  );
+  const liveVoicePausedAudioElementsRef = useRef<Set<HTMLAudioElement>>(
+    new Set(),
   );
   const [playbackSpeed, setPlaybackSpeed] = useState<ListenPlaybackSpeed>(() =>
     readListenPlaybackSpeedFromStorage(shifuBid),
@@ -1143,6 +1156,46 @@ const ListenModeSlideRenderer = ({
     resolvedAskElementBid,
   ]);
   const isAskActionDisabled = currentAskTargetElement?.type === 'interaction';
+  const isLiveVoiceFollowUp = followUpMode === 'live_voice';
+  const isFollowUpDisabled = followUpMode === 'disabled';
+
+  const pauseCourseAudioForLiveVoice = useCallback(() => {
+    const audioContainers = [
+      initialChatContainerRef.current,
+      chatRef.current,
+      slideShellRef.current,
+    ].filter((container): container is HTMLDivElement => Boolean(container));
+    const playingAudioElements = new Set(
+      liveVoicePausedAudioElementsRef.current,
+    );
+    audioContainers.forEach(container => {
+      Array.from(container.querySelectorAll<HTMLAudioElement>('audio')).forEach(
+        audioElement => {
+          if (!audioElement.paused && !audioElement.ended) {
+            playingAudioElements.add(audioElement);
+            audioElement.pause();
+          }
+        },
+      );
+    });
+    liveVoicePausedAudioElementsRef.current = playingAudioElements;
+  }, [chatRef]);
+
+  const startLiveVoiceFollowUpForElement = useCallback(
+    (element?: ListenSlideElement) => {
+      const elementBid = resolvePlayerAskElementBid(element);
+      if (!elementBid || element?.type === 'interaction') {
+        return;
+      }
+      pauseCourseAudioForLiveVoice();
+      onLiveVoiceFollowUpStart?.(elementBid);
+    },
+    [
+      onLiveVoiceFollowUpStart,
+      pauseCourseAudioForLiveVoice,
+      resolvePlayerAskElementBid,
+    ],
+  );
 
   const handleInteractionSend = useCallback(
     (content: OnSendContentParams, element?: SlideElement) => {
@@ -1168,31 +1221,6 @@ const ListenModeSlideRenderer = ({
     [disableInteractionEdits, onSend],
   );
 
-  const closeInteractionOverlayIfOpen = useCallback(() => {
-    const shellElement = slideShellRef.current;
-    if (!shellElement) {
-      return;
-    }
-
-    const notesToggleButton =
-      shellElement.querySelector<HTMLButtonElement>(
-        'button[aria-label="Notes"].slide-player__action',
-      ) ??
-      shellElement.querySelector<HTMLButtonElement>(
-        '.slide-player__controls .slide-player__group:last-of-type > .slide-player__action:last-of-type',
-      );
-
-    if (
-      !notesToggleButton ||
-      !notesToggleButton.classList.contains('slide-player__action--active')
-    ) {
-      return;
-    }
-
-    // Reuse the player toggle path so the default overlay closes first.
-    notesToggleButton.click();
-  }, []);
-
   const handleMobileAskToggle = useCallback(() => {
     if (isAskActionDisabled) {
       return;
@@ -1204,17 +1232,11 @@ const ListenModeSlideRenderer = ({
       return;
     }
 
-    closeInteractionOverlayIfOpen();
     setMobileAskPanelElementBid(resolvedAskElementBid);
     setIsMobileAskPanelMounted(true);
     setIsMobileAskOpen(true);
     playerCustomActionSetActiveRef.current(true);
-  }, [
-    closeInteractionOverlayIfOpen,
-    isAskActionDisabled,
-    isMobileAskOpen,
-    resolvedAskElementBid,
-  ]);
+  }, [isAskActionDisabled, isMobileAskOpen, resolvedAskElementBid]);
 
   const handleMobileAskClose = useCallback(() => {
     setIsMobileAskOpen(false);
@@ -1577,6 +1599,32 @@ const ListenModeSlideRenderer = ({
     });
   }, [chatRef, pausePlaybackWhen]);
 
+  useEffect(() => {
+    if (!pausePlaybackForLiveVoice) {
+      const pausedAudioElements = liveVoicePausedAudioElementsRef.current;
+      liveVoicePausedAudioElementsRef.current = new Set();
+      if (!restorePlaybackAfterLiveVoice) {
+        return;
+      }
+      pausedAudioElements.forEach(audioElement => {
+        if (
+          audioElement.isConnected &&
+          audioElement.paused &&
+          !audioElement.ended
+        ) {
+          void audioElement.play().catch(() => {});
+        }
+      });
+      return;
+    }
+
+    pauseCourseAudioForLiveVoice();
+  }, [
+    pauseCourseAudioForLiveVoice,
+    pausePlaybackForLiveVoice,
+    restorePlaybackAfterLiveVoice,
+  ]);
+
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
       const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
@@ -1887,6 +1935,10 @@ const ListenModeSlideRenderer = ({
         />
       );
 
+      if (isFollowUpDisabled) {
+        return playbackSpeedAction;
+      }
+
       if (mobileStyle) {
         return (
           <>
@@ -1894,10 +1946,14 @@ const ListenModeSlideRenderer = ({
             <ListenSlideAskPlayerAction
               context={context}
               label={t('module.chat.ask')}
-              onBeforeOpen={closeInteractionOverlayIfOpen}
               onContextChange={handlePlayerCustomActionContextChange}
               disabled={isAskActionDisabled}
               renderButton={false}
+              onActivate={
+                isLiveVoiceFollowUp
+                  ? startLiveVoiceFollowUpForElement
+                  : undefined
+              }
             />
           </>
         );
@@ -1910,27 +1966,34 @@ const ListenModeSlideRenderer = ({
             actionRef={desktopAskActionRef}
             context={context}
             label={t('module.chat.ask')}
-            onBeforeOpen={closeInteractionOverlayIfOpen}
             onContextChange={handlePlayerCustomActionContextChange}
             disabled={isAskActionDisabled}
+            onActivate={
+              isLiveVoiceFollowUp ? startLiveVoiceFollowUpForElement : undefined
+            }
           />
         </>
       );
     },
     [
-      closeInteractionOverlayIfOpen,
       fullscreenPortalContainer,
       handleListenPlaybackSpeedChange,
       handlePlayerCustomActionContextChange,
       isAskActionDisabled,
+      isFollowUpDisabled,
+      isLiveVoiceFollowUp,
       mobileStyle,
       playbackSpeed,
+      startLiveVoiceFollowUpForElement,
       t,
     ],
   );
 
   const shouldRenderMobileAskEntry =
-    showMobileAskEntry && mobileStyle && !shouldRenderEmptyPpt;
+    showMobileAskEntry &&
+    !isFollowUpDisabled &&
+    mobileStyle &&
+    !shouldRenderEmptyPpt;
   const isMobileFullscreen = mobileViewMode === 'fullscreen';
   const fullscreenHeaderContent = useMemo(() => {
     if (!courseName && !sectionTitle) {
@@ -2059,7 +2122,11 @@ const ListenModeSlideRenderer = ({
       aria-pressed={isMobileAskOpen}
       aria-disabled={isAskActionDisabled}
       disabled={isAskActionDisabled}
-      onClick={handleMobileAskToggle}
+      onClick={
+        isLiveVoiceFollowUp
+          ? () => startLiveVoiceFollowUpForElement(currentAskTargetElement)
+          : handleMobileAskToggle
+      }
       ref={mobileAskActionRef}
     >
       <Image
@@ -2074,11 +2141,17 @@ const ListenModeSlideRenderer = ({
 
   const shouldRenderDesktopAskOverlay =
     showAskOverlays &&
+    !isFollowUpDisabled &&
+    !isLiveVoiceFollowUp &&
     isDesktopAskPanelMounted &&
     !mobileStyle &&
     !shouldRenderEmptyPpt;
   const shouldRenderMobileAskPanel =
-    showAskOverlays && isMobileAskPanelMounted && !shouldRenderEmptyPpt;
+    showAskOverlays &&
+    !isFollowUpDisabled &&
+    !isLiveVoiceFollowUp &&
+    isMobileAskPanelMounted &&
+    !shouldRenderEmptyPpt;
   const shouldRenderManualFullscreenButton =
     showManualFullscreenButton && !isClassroomFullscreenActive;
   const listenPlayerClassName =

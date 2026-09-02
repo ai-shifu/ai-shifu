@@ -60,6 +60,7 @@ jest.mock('next/image', () => ({
 
 jest.mock('markdown-flow-ui/slide', () => {
   const ReactRuntime = jest.requireActual('react') as typeof React;
+  const slideBuiltInActionClick = jest.fn();
   const slideCustomActionElement = {
     blockBid: 'content-1',
     type: 'content',
@@ -73,6 +74,7 @@ jest.mock('markdown-flow-ui/slide', () => {
   };
 
   return {
+    mockSlideBuiltInActionClick: slideBuiltInActionClick,
     Slide: jest.fn(
       (props: {
         playerClassName?: string;
@@ -107,6 +109,14 @@ jest.mock('markdown-flow-ui/slide', () => {
             data-mount-id={mountId}
           >
             <audio data-testid='slide-audio' />
+            <button
+              aria-hidden='true'
+              aria-label='Notes'
+              className='slide-player__action slide-player__action--active'
+              onClick={slideBuiltInActionClick}
+              tabIndex={-1}
+              type='button'
+            />
             <div data-testid='slide-custom-actions'>
               {typeof props.playerCustomActions === 'function'
                 ? props.playerCustomActions(slideCustomActionContext)
@@ -183,6 +193,10 @@ const createChatRef = () =>
 const getMockSlide = () =>
   jest.requireMock('markdown-flow-ui/slide').Slide as jest.Mock;
 
+const getMockSlideBuiltInActionClick = () =>
+  jest.requireMock('markdown-flow-ui/slide')
+    .mockSlideBuiltInActionClick as jest.Mock;
+
 const originalRequestFullscreen = HTMLElement.prototype.requestFullscreen;
 
 describe('ListenModeSlideRenderer', () => {
@@ -190,6 +204,7 @@ describe('ListenModeSlideRenderer', () => {
     window.localStorage.clear();
     mockSlideMountId = 0;
     getMockSlide().mockClear();
+    getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
     mockIsLessonFeedbackInteractionContent.mockClear();
   });
@@ -484,6 +499,33 @@ describe('ListenModeSlideRenderer', () => {
       | { playerEnabled?: boolean }
       | undefined;
     expect(slideProps?.playerEnabled).toBe(false);
+  });
+
+  it('delegates desktop ask activation without clicking built-in player actions', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const askButton = screen.getByRole('button', {
+      name: 'module.chat.ask',
+    });
+    fireEvent.click(askButton);
+
+    await waitFor(() => {
+      expect(askButton).toHaveAttribute('aria-pressed', 'true');
+    });
+    expect(getMockSlideBuiltInActionClick()).not.toHaveBeenCalled();
   });
 
   it('passes selected interaction user input to the slide during playback', () => {
@@ -1004,10 +1046,13 @@ describe('ListenModeSlideRenderer', () => {
       configurable: true,
       value: requestFullscreen,
     });
+    const onLiveVoiceFollowUpStart = jest.fn();
 
     render(
       <ListenModeSlideRenderer
         variant='classroom'
+        followUpMode='disabled'
+        onLiveVoiceFollowUpStart={onLiveVoiceFollowUpStart}
         items={[
           {
             type: 'content',
@@ -1098,6 +1143,11 @@ describe('ListenModeSlideRenderer', () => {
         name: 'module.chat.listenPlaybackSpeedAriaLabel',
       }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.ask' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+    expect(onLiveVoiceFollowUpStart).not.toHaveBeenCalled();
 
     const fullscreenButton = await screen.findByRole('button', {
       name: 'module.chat.classroomEnterFullscreen',
@@ -1306,6 +1356,7 @@ describe('ListenModeSlideRenderer', () => {
     await act(async () => {
       fireEvent.click(askButton as HTMLButtonElement);
     });
+    expect(askButton).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('ask-block')).toHaveAttribute(
       'data-expanded',
       'true',
@@ -1314,6 +1365,7 @@ describe('ListenModeSlideRenderer', () => {
     await act(async () => {
       fireEvent.click(askButton as HTMLButtonElement);
     });
+    expect(askButton).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByTestId('ask-block')).toHaveAttribute(
       'data-expanded',
       'false',
@@ -1322,6 +1374,224 @@ describe('ListenModeSlideRenderer', () => {
       'data-element-bid',
       'content-1',
     );
+  });
+
+  it('hides listen-mode follow-up entries when configured Live is unavailable', () => {
+    const onLiveVoiceFollowUpStart = jest.fn();
+    const items = [
+      {
+        type: 'content' as const,
+        content: 'Hello',
+        element_bid: 'content-1',
+        is_speakable: true,
+      },
+    ];
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        followUpMode='disabled'
+        onLiveVoiceFollowUpStart={onLiveVoiceFollowUpStart}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.ask' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+        followUpMode='disabled'
+        onLiveVoiceFollowUpStart={onLiveVoiceFollowUpStart}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.ask' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+    expect(onLiveVoiceFollowUpStart).not.toHaveBeenCalled();
+  });
+
+  it('starts desktop Live voice directly without opening a text ask block', async () => {
+    const onLiveVoiceFollowUpStart = jest.fn();
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        followUpMode='live_voice'
+        onLiveVoiceFollowUpStart={onLiveVoiceFollowUpStart}
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    let paused = false;
+    Object.defineProperty(audioElement, 'paused', {
+      configurable: true,
+      get: () => paused,
+    });
+    const pause = jest.spyOn(audioElement, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    onLiveVoiceFollowUpStart.mockImplementation(() => {
+      expect(pause).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'module.chat.ask' }),
+    );
+
+    expect(onLiveVoiceFollowUpStart).toHaveBeenCalledWith('content-1');
+    expect(pause).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+    expect(mockAskBlock).not.toHaveBeenCalled();
+  });
+
+  it('starts mobile Live voice directly without mounting a text ask block', async () => {
+    const onLiveVoiceFollowUpStart = jest.fn();
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+        followUpMode='live_voice'
+        onLiveVoiceFollowUpStart={onLiveVoiceFollowUpStart}
+      />,
+    );
+
+    const mobileAskButton = (
+      await screen.findByText('module.chat.ask')
+    ).closest('button');
+    expect(mobileAskButton).toBeTruthy();
+    fireEvent.click(mobileAskButton as HTMLButtonElement);
+
+    expect(onLiveVoiceFollowUpStart).toHaveBeenCalledWith('content-1');
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+    expect(mockAskBlock).not.toHaveBeenCalled();
+  });
+
+  it('pauses course audio for Live voice and restores prior playback intent', async () => {
+    const chatRef = createChatRef();
+    const items = [
+      {
+        type: 'content' as const,
+        content: 'Hello',
+        element_bid: 'content-1',
+        is_speakable: true,
+      },
+    ];
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={chatRef}
+        pausePlaybackForLiveVoice={false}
+      />,
+    );
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    let paused = false;
+    Object.defineProperty(audioElement, 'paused', {
+      configurable: true,
+      get: () => paused,
+    });
+    const pause = jest.spyOn(audioElement, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const play = jest.spyOn(audioElement, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={chatRef}
+        pausePlaybackForLiveVoice
+      />,
+    );
+    await waitFor(() => expect(pause).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={chatRef}
+        pausePlaybackForLiveVoice={false}
+      />,
+    );
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not resume course audio when Live voice ends because the page is hidden', async () => {
+    const chatRef = createChatRef();
+    const items = [
+      {
+        type: 'content' as const,
+        content: 'Hello',
+        element_bid: 'content-1',
+        is_speakable: true,
+      },
+    ];
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={chatRef}
+        pausePlaybackForLiveVoice={false}
+      />,
+    );
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    let paused = false;
+    Object.defineProperty(audioElement, 'paused', {
+      configurable: true,
+      get: () => paused,
+    });
+    jest.spyOn(audioElement, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const play = jest.spyOn(audioElement, 'play').mockResolvedValue();
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={chatRef}
+        pausePlaybackForLiveVoice
+      />,
+    );
+    await waitFor(() => expect(audioElement.pause).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={chatRef}
+        pausePlaybackForLiveVoice={false}
+        restorePlaybackAfterLiveVoice={false}
+      />,
+    );
+    expect(play).not.toHaveBeenCalled();
   });
 
   it('applies the stored course playback speed to slide audio', async () => {

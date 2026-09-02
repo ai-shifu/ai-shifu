@@ -40,7 +40,6 @@ import type {
 import { CreditNotificationConfigTab } from './CreditNotificationConfigTab';
 import { CreditNotificationRecordsTab } from './CreditNotificationRecordsTab';
 import { CreditNotificationTemplateManagementTab } from './CreditNotificationTemplateManagementTab';
-import { getTemplateOptionsForType } from './CreditNotificationTypeConfigCard';
 import {
   clonePolicy,
   createDefaultFilters,
@@ -52,14 +51,17 @@ import {
   type ErrorState,
   normalizePolicy,
   type NotificationOverviewCardKey,
-  NOTIFICATION_TYPES,
   normalizeTab,
   PAGE_SIZE,
   type NotificationFilters,
   type PageTab,
 } from './creditNotificationUtils';
+
 import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
-import { useCreditNotificationTemplateSyncState } from './useCreditNotificationTemplateSyncState';
+import {
+  NOTIFICATION_RULE_ACTION_EVENT,
+  NOTIFICATION_RULE_TRACKING_CONTEXT,
+} from './notificationRuleTracking';
 import {
   NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT,
   NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT,
@@ -68,6 +70,10 @@ import {
   NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT,
   NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
 } from './notificationTemplateTracking';
+
+const SKIP_REASON_TRANSLATION_KEYS = {
+  channel: 'module.operationsCreditNotifications.skipReason.channel',
+} as const;
 
 const normalizeResolvedPolicyLists = (
   payload: unknown,
@@ -131,9 +137,6 @@ export default function AdminOperationCreditNotificationsPage() {
   const [templateOptions, setTemplateOptions] = React.useState<
     AdminOperationCreditNotificationTemplateOption[]
   >([]);
-  const [templateListSource, setTemplateListSource] = React.useState<
-    'provider' | 'local' | ''
-  >('');
   const [templateListError, setTemplateListError] = React.useState('');
   const [templateListLoading, setTemplateListLoading] = React.useState(false);
   const [savedPolicy, setSavedPolicy] =
@@ -195,11 +198,13 @@ export default function AdminOperationCreditNotificationsPage() {
   );
 
   const resolveSkipReasonLabel = React.useCallback(
-    (value: string) =>
-      t(
-        `module.operationsCreditNotifications.skipReason.${value}`,
-        value || EMPTY_LABEL,
-      ),
+    (value: string) => {
+      const translationKey =
+        SKIP_REASON_TRANSLATION_KEYS[
+          value as keyof typeof SKIP_REASON_TRANSLATION_KEYS
+        ] || `module.operationsCreditNotifications.skipReason.${value}`;
+      return t(translationKey, value || EMPTY_LABEL);
+    },
     [t],
   );
 
@@ -216,18 +221,6 @@ export default function AdminOperationCreditNotificationsPage() {
 
   const { dryRunError, dryRunResult, runDryRun } =
     useCreditNotificationDryRun(t);
-  const {
-    clearTemplateSyncResult,
-    syncTemplate,
-    templateSyncError,
-    templateSyncLoading,
-    templateSyncResults,
-  } = useCreditNotificationTemplateSyncState({
-    policyTypes: policy.types,
-    setTemplateOptions,
-    t,
-  });
-
   const fetchConfig = React.useCallback(async () => {
     const response = await api.getAdminOperationCreditNotificationConfig({});
     const nextPolicy = normalizePolicy(response);
@@ -270,7 +263,6 @@ export default function AdminOperationCreditNotificationsPage() {
           return;
         }
         setTemplateOptions(response.items || []);
-        setTemplateListSource(response.source || '');
         setTemplateListError(
           response.provider_available ? '' : response.error_code,
         );
@@ -287,7 +279,6 @@ export default function AdminOperationCreditNotificationsPage() {
         }
         const resolvedError = requestError as ErrorWithCode;
         setTemplateOptions([]);
-        setTemplateListSource('');
         setTemplateListError(resolvedError.message || 'template_list_failed');
         if (mode === 'manual') {
           trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT, {
@@ -479,19 +470,6 @@ export default function AdminOperationCreditNotificationsPage() {
     }
     try {
       const policyToSave = clonePolicy(policy);
-      NOTIFICATION_TYPES.forEach(notificationType => {
-        if (policyToSave.types[notificationType].template_code.trim()) {
-          return;
-        }
-        const recommendedTemplate = getTemplateOptionsForType(
-          templateOptions,
-          notificationType,
-        )[0];
-        if (recommendedTemplate) {
-          policyToSave.types[notificationType].template_code =
-            recommendedTemplate.template_code;
-        }
-      });
       const response =
         await api.updateAdminOperationCreditNotificationConfig(policyToSave);
       const nextPolicy = normalizePolicy(response);
@@ -512,7 +490,7 @@ export default function AdminOperationCreditNotificationsPage() {
       );
       return false;
     }
-  }, [configLoaded, policy, t, templateOptions]);
+  }, [configLoaded, policy, t]);
 
   const proceedPendingNavigation = React.useCallback(
     (target: NonNullable<typeof pendingNavigation>) => {
@@ -748,19 +726,19 @@ export default function AdminOperationCreditNotificationsPage() {
             configError={configError}
             dryRunResult={dryRunResult}
             dryRunError={dryRunError}
-            templateSyncError={templateSyncError}
-            templateSyncResults={templateSyncResults}
-            templateSyncLoading={templateSyncLoading}
             templateOptions={templateOptions}
-            templateListSource={templateListSource}
-            templateListError={templateListError}
             resolvedLists={resolvedLists}
             updatePolicy={updatePolicy}
-            syncTemplate={syncTemplate}
             dryRun={dryRun}
             saveConfig={saveConfig}
-            clearTemplateSyncResult={clearTemplateSyncResult}
             resolveTypeLabel={resolveTypeLabel}
+            onRuleAction={(action, triggerEvent) =>
+              trackTemplateEventSafely(NOTIFICATION_RULE_ACTION_EVENT, {
+                ...NOTIFICATION_RULE_TRACKING_CONTEXT,
+                action,
+                trigger_event: triggerEvent,
+              })
+            }
           />
         </TabsContent>
 

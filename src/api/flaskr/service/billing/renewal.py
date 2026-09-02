@@ -33,10 +33,12 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
-    CREDIT_NOTIFICATION_STATUS_PENDING,
 )
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
+)
+from .credit_notifications import (
+    pending_credit_notification_bids as _pending_credit_notification_bids,
 )
 from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
@@ -564,14 +566,17 @@ def _execute_expire_subscription(
                     now=now,
                     bill_order_bid=paid_renewal_order.bill_order_bid,
                 )
-            notification_bid = _stage_preorder_credit_release_notification(
+            notification_bids = _stage_preorder_credit_release_notification(
                 app,
                 paid_renewal_order,
             )
             # External dispatch fires only after the staged notification row
             # and the event transition are durable; dropped on rollback.
             uow.on_commit(
-                lambda: _enqueue_credit_release_notification(app, notification_bid)
+                lambda: [
+                    _enqueue_credit_release_notification(app, bid)
+                    for bid in notification_bids
+                ]
             )
             _complete_renewal_event(event, now=now)
             return _result_from_event(
@@ -647,14 +652,17 @@ def _execute_downgrade_effective(
                     now=now,
                     bill_order_bid=paid_renewal_order.bill_order_bid,
                 )
-            notification_bid = _stage_preorder_credit_release_notification(
+            notification_bids = _stage_preorder_credit_release_notification(
                 app,
                 paid_renewal_order,
             )
             # External dispatch fires only after the staged notification row
             # and the event transition are durable; dropped on rollback.
             uow.on_commit(
-                lambda: _enqueue_credit_release_notification(app, notification_bid)
+                lambda: [
+                    _enqueue_credit_release_notification(app, bid)
+                    for bid in notification_bids
+                ]
             )
             _complete_renewal_event(event, now=now)
             return _result_from_event(
@@ -682,9 +690,9 @@ def _execute_downgrade_effective(
 def _stage_preorder_credit_release_notification(
     app: Flask,
     order: BillingOrder,
-) -> str:
+) -> tuple[str, ...]:
     if not _is_preorder_order(order):
-        return ""
+        return ()
     stage_result = _stage_credit_granted_notification_for_order(
         app,
         creator_bid=order.creator_bid,
@@ -692,9 +700,7 @@ def _stage_preorder_credit_release_notification(
         commit=False,
         enqueue=False,
     )
-    if stage_result.get("status") != CREDIT_NOTIFICATION_STATUS_PENDING:
-        return ""
-    return str(stage_result.get("notification_bid") or "").strip()
+    return _pending_credit_notification_bids(stage_result)
 
 
 def _enqueue_credit_release_notification(app: Flask, notification_bid: str) -> None:

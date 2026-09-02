@@ -358,6 +358,7 @@
     "provider_exception": "SMS provider call failed.",
     "provider_failed": "SMS provider did not return an accepted response.",
     "quiet_hours": "Quiet hours are active, not sent.",
+    "unsupported_channel": "This notification channel is not enabled, not sent.",
     "zero_balance_missing_estimated_remaining_days": "Zero balance reminder lacks estimated remaining days, not sent."
   },
   "filters": {
@@ -398,7 +399,40 @@
   "records": {
     "totalCount": "{count} notification records"
   },
+  "ruleManagement": {
+    "cancel": "Cancel",
+    "columns": {
+      "actions": "Actions",
+      "conditions": "Conditions",
+      "enabled": "Status",
+      "name": "Rule name",
+      "template": "SMS template",
+      "trigger": "Trigger event"
+    },
+    "delete": "Delete",
+    "deleteDescription": "This change takes effect after the notification configuration is saved. Continue?",
+    "deleteTitle": "Delete notification rule",
+    "description": "Configure independently enabled notification rules by trigger event, SMS template, and conditions.",
+    "dialogDescription": "After saving the configuration, this rule applies to future notification delivery.",
+    "edit": "Edit",
+    "editRule": "Edit notification rule",
+    "empty": "No notification rules configured yet.",
+    "fields": {
+      "enabled": "Enable rule",
+      "name": "Rule name",
+      "template": "SMS template",
+      "thresholds": "Low-balance thresholds",
+      "trigger": "Trigger event",
+      "windows": "Expiry reminder windows"
+    },
+    "newRule": "New rule",
+    "noConditions": "No additional conditions",
+    "saveRule": "Save rule",
+    "selectTemplate": "Select SMS template",
+    "title": "Notification Rules"
+  },
   "skipReason": {
+    "channel": "Notification channel unavailable",
     "contact": "Contact issue",
     "duplicate": "Duplicate notification",
     "policy": "Policy limit",

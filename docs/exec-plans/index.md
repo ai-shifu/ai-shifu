@@ -20,6 +20,8 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Learners SQL Optimization](./active/creator-dashboard-learners-sql-optimization.md)
 - [Creator Dashboard Ratings SQL Optimization](./active/creator-dashboard-ratings-sql-optimization.md)
 - [Creator Dashboard Request Splitting](./active/creator-dashboard-request-splitting.md)
+- [Gemini Live Voice Follow-Up](./active/gemini-live-voice-follow-up.md)
+- [Notification Channel Foundation](./active/notification-channel-foundation.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
 - [Existing Creator Onboarding Rollout](./active/onboarding-existing-creator-rollout.md)
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)

@@ -39,6 +39,7 @@ interface MockChatMobileHeaderProps {
 
 interface MockChatUiProps {
   lessonId?: string;
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
   lessonUpdate?: (value: {
     id: string;
@@ -94,13 +95,16 @@ const mockChatMobileHeader = jest.fn(
     />
   ),
 );
-const mockChatUi = jest.fn(({ lessonId, runtimeReady }: MockChatUiProps) => (
-  <div
-    data-testid='chat-ui'
-    data-lesson-id={lessonId}
-    data-runtime-ready={String(runtimeReady)}
-  />
-));
+const mockChatUi = jest.fn(
+  ({ lessonId, followUpMode, runtimeReady }: MockChatUiProps) => (
+    <div
+      data-testid='chat-ui'
+      data-lesson-id={lessonId}
+      data-follow-up-mode={followUpMode}
+      data-runtime-ready={String(runtimeReady)}
+    />
+  ),
+);
 const mockNavDrawer = jest.fn(({ onPersonalInfoClick }: MockNavDrawerProps) => (
   <button
     type='button'
@@ -218,7 +222,12 @@ const profileOnboardingStatus = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 let mockSelectedLessonId = 'lesson-1';
-let mockLessonTreeLessons = [
+let mockLessonTreeLessons: Array<{
+  id: string;
+  name: string;
+  status: string;
+  follow_up_mode?: 'text' | 'live_voice' | 'disabled';
+}> = [
   {
     id: 'lesson-1',
     name: 'Lesson title',
@@ -784,6 +793,24 @@ describe('ChatPage profile onboarding gate', () => {
 
     const chatUi = await screen.findByTestId('chat-ui');
     expect(chatUi).toHaveAttribute('data-lesson-id', 'lesson-new');
+  });
+
+  test('preserves an unavailable Live follow-up mode without a text fallback', async () => {
+    mockLessonTreeLessons = [
+      {
+        id: 'lesson-1',
+        name: 'Live lesson',
+        status: 'not_started',
+        follow_up_mode: 'disabled',
+      },
+    ];
+
+    render(<ChatPage />);
+
+    expect(await screen.findByTestId('chat-ui')).toHaveAttribute(
+      'data-follow-up-mode',
+      'disabled',
+    );
   });
 
   test('keeps a retaken lesson in progress after reloading its reset tree state', async () => {

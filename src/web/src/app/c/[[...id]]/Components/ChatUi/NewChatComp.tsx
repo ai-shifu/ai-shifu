@@ -59,6 +59,7 @@ import {
   buildAskListByAnchorElementBid,
   hasStreamingAskMessage,
 } from './askState';
+import type { AskMessage } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
@@ -105,6 +106,14 @@ import type {
   LessonUpdateHandler,
   NextLessonIdGetter,
 } from './useChatLogicHook.types';
+import { LiveVoiceFollowUpDialog } from '@/components/live-follow-up/LiveVoiceFollowUpDialog';
+import { useLiveVoiceFollowUp } from '@/components/live-follow-up/useLiveVoiceFollowUp';
+import {
+  hasLiveVoiceFollowUpHistory,
+  resolveFollowUpPresentationMode,
+  resolveLiveVoiceFollowUpAvailability,
+  shouldPauseCourseAudioForLiveVoice,
+} from './liveVoiceFollowUpMode';
 
 // Max concurrent listen-mode audio backfill requests. Entering listen mode used
 // to fire TTS synthesis for every missing block at once (Promise.all), which
@@ -121,6 +130,7 @@ interface NewChatComponentsProps {
   lessonTitle?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
   onPurchased: () => void;
   chapterUpdate: ChapterUpdateHandler;
   updateSelectedLesson: LessonSelectionUpdater;
@@ -147,6 +157,7 @@ export const NewChatComponents = ({
   lessonTitle = '',
   lessonStatus = '',
   lessonHasContentUpdate = false,
+  followUpMode = 'text',
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -302,6 +313,60 @@ export const NewChatComponents = ({
   const previousListenModeActiveRef = useRef(isListenModeActive);
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
+  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
+  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const setAskList = useAskStateStore(state => state.setAskList);
+  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
+  const storedAskListByAnchorElementBid = useAskStateStore(
+    state => state.askListByAnchorElementBid,
+  );
+  const handleLiveTurnCommitted = useCallback(
+    ({
+      anchorElementBid,
+      userTranscript,
+      assistantTranscript,
+    }: {
+      anchorElementBid: string;
+      turnIndex: number;
+      userTranscript: string;
+      assistantTranscript: string;
+    }) => {
+      const committedMessages: AskMessage[] = [];
+      if (userTranscript) {
+        committedMessages.push({ type: 'ask', content: userTranscript });
+      }
+      committedMessages.push({
+        type: 'answer',
+        content: assistantTranscript,
+      });
+      setAskList(anchorElementBid, previous => [
+        ...previous,
+        ...committedMessages,
+      ]);
+    },
+    [setAskList],
+  );
+  const liveVoiceFollowUp = useLiveVoiceFollowUp({
+    shifuBid,
+    outlineBid: resolvedLessonId,
+    previewMode,
+    learningMode: isListenModeActive ? 'listen' : 'read',
+    sessionScope: isClassroomMode
+      ? 'classroom'
+      : isListenModeActive
+        ? 'listen'
+        : 'read',
+    onTurnCommitted: handleLiveTurnCommitted,
+  });
+  const {
+    configured: isLiveVoiceFollowUpConfigured,
+    supported: isLiveVoiceFollowUpSupported,
+  } = resolveLiveVoiceFollowUpAvailability({
+    followUpMode,
+    isClassroomMode,
+  });
+  const isFollowUpUnavailable = followUpMode === 'disabled';
+  const startLiveVoiceFollowUp = liveVoiceFollowUp.start;
   const promptContextKey = `${resolvedLessonId}:${
     isClassroomMode ? 'classroom' : isListenModeActive ? 'listen' : 'read'
   }`;
@@ -314,13 +379,6 @@ export const NewChatComponents = ({
     !isPreviewReadMode;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
-  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
-  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
-  const setAskList = useAskStateStore(state => state.setAskList);
-  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
-  const storedAskListByAnchorElementBid = useAskStateStore(
-    state => state.askListByAnchorElementBid,
-  );
 
   useEffect(() => {
     listenAudioBackfillLessonIdRef.current = resolvedLessonId;
@@ -544,8 +602,15 @@ export const NewChatComponents = ({
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
         askButtonMarkup,
+        followUpDisabled: isFollowUpUnavailable,
       }),
-    [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
+    [
+      askButtonMarkup,
+      isFollowUpUnavailable,
+      items,
+      mobileStyle,
+      scopedAskListByAnchorElementBid,
+    ],
   );
   const readModeItemsRef = useRef(readModeItems);
   readModeItemsRef.current = readModeItems;
@@ -1223,9 +1288,37 @@ export const NewChatComponents = ({
   // Memoize callbacks to prevent unnecessary re-renders
   const handleClickAskButton = useCallback(
     (blockBid: string) => {
+      if (isLiveVoiceFollowUpConfigured) {
+        if (isLiveVoiceFollowUpSupported) {
+          startLiveVoiceFollowUp({
+            anchorElementBid: blockBid,
+            surface: previewMode ? 'teacher_preview' : 'read_content',
+          });
+        }
+        return;
+      }
       toggleAskExpanded(blockBid);
     },
-    [toggleAskExpanded],
+    [
+      isLiveVoiceFollowUpConfigured,
+      isLiveVoiceFollowUpSupported,
+      startLiveVoiceFollowUp,
+      previewMode,
+      toggleAskExpanded,
+    ],
+  );
+
+  const handleListenLiveVoiceStart = useCallback(
+    (blockBid: string) => {
+      if (!isLiveVoiceFollowUpSupported) {
+        return;
+      }
+      startLiveVoiceFollowUp({
+        anchorElementBid: blockBid,
+        surface: previewMode ? 'teacher_preview' : 'listen_player',
+      });
+    },
+    [isLiveVoiceFollowUpSupported, previewMode, startLiveVoiceFollowUp],
   );
 
   useEffect(() => {
@@ -1346,6 +1439,24 @@ export const NewChatComponents = ({
               onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
               pausePlaybackWhen={reGenerateConfirm.open}
               disableInteractionEdits={isOutputInProgress}
+              followUpMode={resolveFollowUpPresentationMode({
+                configured: isLiveVoiceFollowUpConfigured,
+                supported: isLiveVoiceFollowUpSupported,
+              })}
+              onLiveVoiceFollowUpStart={
+                isLiveVoiceFollowUpSupported
+                  ? handleListenLiveVoiceStart
+                  : undefined
+              }
+              pausePlaybackForLiveVoice={shouldPauseCourseAudioForLiveVoice({
+                open: liveVoiceFollowUp.open,
+                state: liveVoiceFollowUp.state,
+              })}
+              restorePlaybackAfterLiveVoice={
+                liveVoiceFollowUp.endReason !== 'page_hidden' &&
+                liveVoiceFollowUp.endReason !== 'lesson_changed' &&
+                liveVoiceFollowUp.endReason !== 'replaced'
+              }
             />
           </>
         ) : (
@@ -1449,6 +1560,12 @@ export const NewChatComponents = ({
                   const baseKey = item.element_bid || `${item.type}-${idx}`;
                   const parentKey = item.parent_element_bid || baseKey;
                   if (item.type === ChatContentItemType.ASK) {
+                    if (
+                      isLiveVoiceFollowUpConfigured &&
+                      !hasLiveVoiceFollowUpHistory(item.ask_list)
+                    ) {
+                      return null;
+                    }
                     return (
                       <div
                         data-lesson-print-follow-up='true'
@@ -1461,13 +1578,22 @@ export const NewChatComponents = ({
                         }}
                       >
                         <AskBlock
-                          isExpanded={item.isAskExpanded}
+                          isExpanded={
+                            isLiveVoiceFollowUpConfigured
+                              ? true
+                              : item.isAskExpanded
+                          }
+                          readonlyHistory={isLiveVoiceFollowUpConfigured}
                           printMode={isPreparingLessonPdf}
                           shifu_bid={shifuBid}
                           outline_bid={resolvedLessonId}
                           preview_mode={previewMode}
                           element_bid={item.parent_element_bid || ''}
-                          onToggleAskExpanded={toggleAskExpanded}
+                          onToggleAskExpanded={
+                            isLiveVoiceFollowUpConfigured
+                              ? undefined
+                              : handleClickAskButton
+                          }
                           askList={(item.ask_list || []) as any[]}
                         />
                       </div>
@@ -1524,9 +1650,11 @@ export const NewChatComponents = ({
                               : undefined
                           }
                           readonly={item.readonly}
-                          disableAskButton={isInteractionFollowUp}
+                          disableAskButton={
+                            isInteractionFollowUp || isFollowUpUnavailable
+                          }
                           onRefresh={onRefresh}
-                          onToggleAskExpanded={toggleAskExpanded}
+                          onToggleAskExpanded={handleClickAskButton}
                           askButtonVariant={
                             shouldRenderMobileAskAction ? 'content' : 'default'
                           }
@@ -1801,6 +1929,7 @@ export const NewChatComponents = ({
           : lessonFeedbackPopupContent
         : null}
       {isPreparingLessonPdf ? <LessonPdfPreparingOverlay /> : null}
+      <LiveVoiceFollowUpDialog controller={liveVoiceFollowUp} />
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {

@@ -8,7 +8,7 @@ import {
 } from '@testing-library/react';
 import AskBlock from './AskBlock';
 import { AppContext } from '../AppContext';
-import { SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
+import { BLOCK_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { useAskStateStore } from './useAskStateStore';
 
@@ -219,6 +219,44 @@ describe('AskBlock', () => {
         return source;
       },
     );
+  });
+
+  it('renders Live voice history inline on mobile without a text input or panel', () => {
+    const onToggleAskExpanded = jest.fn();
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          readonlyHistory
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          onToggleAskExpanded={onToggleAskExpanded}
+          askList={[
+            { type: BLOCK_TYPE.ASK, content: 'Transcribed question' },
+            { type: BLOCK_TYPE.ANSWER, content: 'Transcribed answer' },
+          ]}
+        />
+      </AppContext.Provider>,
+    );
+
+    expect(screen.getByText('Transcribed question')).toBeInTheDocument();
+    expect(screen.getByText('Transcribed answer')).toBeInTheDocument();
+    expect(screen.queryByLabelText('ask-input')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Close' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Transcribed question'));
+    expect(onToggleAskExpanded).not.toHaveBeenCalled();
+    expect(document.body.style.overflow).toBe('');
   });
 
   it.each(['read', 'listen'] as const)(

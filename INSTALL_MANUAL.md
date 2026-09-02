@@ -94,6 +94,27 @@ These variables are essential for the application to run:
 - For production deployments, use environment-specific configurations
 - Refer to the example files for detailed explanations of each variable
 
+#### Optional Gemini Live Voice Follow-Up
+
+Gemini Live is disabled by default. Leave `GEMINI_LIVE_ENABLED=false` until
+the API is running behind a WebSocket-capable ingress and the bundled Nginx
+Live route has been verified. To expose the allowlisted Live follow-up model,
+configure a valid `GEMINI_API_KEY`, keep Redis available for one-time session
+tickets and capacity leases, and then set:
+
+```bash
+GEMINI_LIVE_ENABLED=true
+```
+
+Production ingress must preserve the original `Host` authority, including any
+non-default port, together with `X-Forwarded-Proto`, WebSocket `Upgrade`, and
+`Connection` headers. It must allow at least 75 seconds of idle read/write time
+and use HTTPS so the microphone and Secure session cookie are available. It
+must expose both the Live session POST and WebSocket path through the Cook Web
+browser origin; the strict, exact-path HttpOnly ticket is intentionally never
+sent through a cross-site browser connection. Disable the flag to roll back
+Live without changing courses that use text follow-up models.
+
 ### Step 4: Build Latest Docker Images & Start the Stack
 
 1. Ensure `docker/.env` contains at least one LLM API key.
@@ -153,26 +174,13 @@ pip install -r requirements.txt
 flask db upgrade
 
 # Start the API server
-gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
+gunicorn -k gthread --threads 16 -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 ```
 
-#### Step 5.4: Start Cook Web Frontend & CMS
-
-If an existing checkout still has ignored frontend env files under `src/cook-web/`,
-run `cd src/web && npm run migrate:legacy-env` once after pulling this change.
-The `dev` and `build` commands also run this migration automatically. It copies
-the legacy configuration set only when `src/web` has no supported env file,
-preserves file permissions, and keeps the legacy files for rollback.
+#### Step 5.4: Start Web Frontend & CMS
 
 ```bash
 cd src/web
-# Migrate an existing checkout before considering the new-install default.
-npm run migrate:legacy-env
-
-# New checkouts only: safely seed from docker/.env when no frontend env
-# configuration exists. The helper also treats dangling symlinks as occupied.
-npm run migrate:legacy-env -- --source ../../docker --target .
-
 # Install Node.js dependencies
 npm install  # or use pnpm install
 

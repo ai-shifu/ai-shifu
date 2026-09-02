@@ -138,6 +138,29 @@ jobs:
             rm -f "$file.bak"
           }
 
+          # Keep npm lockfile package metadata aligned with package.json.
+          update_npm_lock_version() {
+            local file="$1"
+            echo "  → Updating $file..."
+            python - "$file" "$VERSION" <<'PY'
+          import json
+          import sys
+
+          path, version = sys.argv[1:]
+          with open(path, encoding="utf-8") as lock_file:
+              lock = json.load(lock_file)
+
+          lock["version"] = version
+          root_package = lock.get("packages", {}).get("")
+          if isinstance(root_package, dict):
+              root_package["version"] = version
+
+          with open(path, "w", encoding="utf-8") as lock_file:
+              json.dump(lock, lock_file, ensure_ascii=False, indent=2)
+              lock_file.write("\n")
+          PY
+          }
+
           # Function to update TOML version field
           update_toml_version() {
             local file="$1"
@@ -163,6 +186,11 @@ jobs:
             if [ -f "$file" ]; then
               update_json_version "$file"
               UPDATED_FILES+=("$file")
+              lock_file="$(dirname "$file")/package-lock.json"
+              if [ -f "$lock_file" ]; then
+                update_npm_lock_version "$lock_file"
+                UPDATED_FILES+=("$lock_file")
+              fi
             fi
           done < <(find . -name "package.json" -not -path "./node_modules/*" -not -path "./.git/*")
 
@@ -218,7 +246,9 @@ jobs:
                 UPDATED_FILES+=("$file")
               fi
             fi
-          done < <(find . \( -name "docker-compose*.yml" -o -name "docker-compose*.yaml" \) -not -path "./.git/*")
+          done < <(find . \( -name "docker-compose*.yml" -o -name "docker-compose*.yaml" \) \
+            -not -name "docker-compose.latest.yml" -not -name "docker-compose.latest.yaml" \
+            -not -path "./.git/*")
 
           # Guard against accidental third-party image tag changes in release PRs.
           if git diff --unified=0 -- 'docker/docker-compose*.yml' 'docker/docker-compose*.yaml' \
