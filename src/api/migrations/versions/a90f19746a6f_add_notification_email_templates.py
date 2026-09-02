@@ -1,7 +1,7 @@
 """add notification email templates.
 
 Revision ID: a90f19746a6f
-Revises: a1b2c3d4e5f6
+Revises: 6d568133dd29
 Create Date: 2026-09-02 06:53:43.081512
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "a90f19746a6f"
-down_revision = "a1b2c3d4e5f6"
+down_revision = "6d568133dd29"
 branch_labels = None
 depends_on = None
 
