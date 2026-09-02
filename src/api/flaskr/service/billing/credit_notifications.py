@@ -923,16 +923,28 @@ def _format_operator_datetime(app: Flask, value: datetime | None) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _load_notification_template(template_code: str) -> NotificationTemplate | None:
-    return (
-        NotificationTemplate.query.filter(
-            NotificationTemplate.deleted == 0,
-            NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
-            NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
-            NotificationTemplate.template_code == template_code,
-        )
-        .order_by(NotificationTemplate.id.desc())
-        .first()
+def _load_notification_template(
+    template_code: str,
+    *,
+    for_update: bool = False,
+) -> NotificationTemplate | None:
+    query = NotificationTemplate.query.filter(
+        NotificationTemplate.deleted == 0,
+        NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
+        NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+        NotificationTemplate.template_code == template_code,
+    )
+    if for_update:
+        query = query.with_for_update()
+    return query.order_by(NotificationTemplate.id.desc()).first()
+
+
+def _is_notification_template_unique_constraint_error(exc: IntegrityError) -> bool:
+    error_message = str(getattr(exc, "orig", exc)).lower()
+    return "uq_notification_templates_channel_provider_code" in error_message or (
+        "notification_templates.channel" in error_message
+        and "notification_templates.provider" in error_message
+        and "notification_templates.template_code" in error_message
     )
 
 
@@ -945,7 +957,22 @@ def _get_or_create_notification_template(
     template = _load_notification_template(template_code)
     if template is not None:
         return template
-    return _create_notification_template(app, template_code=template_code, now=now)
+    try:
+        with db.session.begin_nested():
+            template = _create_notification_template(
+                app,
+                template_code=template_code,
+                now=now,
+            )
+            db.session.flush()
+            return template
+    except IntegrityError as exc:
+        if not _is_notification_template_unique_constraint_error(exc):
+            raise
+        template = _load_notification_template(template_code, for_update=True)
+        if template is not None:
+            return template
+        raise
 
 
 def _create_notification_template(
@@ -1284,7 +1311,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
                 continue
             template = existing_templates.get(template_code)
             if template is None:
-                template = _create_notification_template(
+                template = _get_or_create_notification_template(
                     app,
                     template_code=template_code,
                     now=now,

@@ -15,6 +15,7 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.i18n import load_translations
+from flaskr.service.billing import credit_notifications
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
@@ -337,6 +338,50 @@ def _seed_default_notification_templates(app: Flask) -> None:
         template_code="TPL-LOW",
         placeholders=["available_credits"],
     )
+
+
+def test_get_or_create_notification_template_recovers_from_unique_conflict(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_notification_template(app, template_code="TPL-CONCURRENT")
+
+    with app.app_context():
+        expected = NotificationTemplate.query.filter_by(
+            channel="sms",
+            provider="aliyun",
+            template_code="TPL-CONCURRENT",
+            deleted=0,
+        ).one()
+        load_calls: list[bool] = []
+        original_load_template = credit_notifications._load_notification_template
+
+        def load_template(
+            template_code: str,
+            *,
+            for_update: bool = False,
+        ) -> NotificationTemplate | None:
+            assert template_code == "TPL-CONCURRENT"
+            load_calls.append(for_update)
+            if len(load_calls) == 1:
+                return None
+            return original_load_template(template_code, for_update=for_update)
+
+        monkeypatch.setattr(
+            credit_notifications,
+            "_load_notification_template",
+            load_template,
+        )
+
+        actual = credit_notifications._get_or_create_notification_template(
+            app,
+            template_code="TPL-CONCURRENT",
+            now=now_utc(),
+        )
+
+    assert actual is expected
+    assert load_calls == [False, True]
 
 
 def test_managed_rules_stage_each_matching_notification_once(
