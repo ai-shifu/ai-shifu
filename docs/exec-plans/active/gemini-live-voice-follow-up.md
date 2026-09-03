@@ -87,6 +87,13 @@ auditing, or another correctness-sensitive decision.
       Heartbeat access, token lifetime, and capacity are not extended.
       The focused backend suite now passes 74 tests, including rejection of
       heartbeat after expiry and rejection of writes after the grace deadline.
+- [x] 2026-09-04: Reject oversized HTTP bodies before buffering; show the
+      credential-bound retry deadline and suppress impossible retries; hand
+      outstanding turns off in one bounded lifecycle-safe finalization batch.
+      Explicit end/close waits for the final worklet playback acknowledgement
+      before materializing the last turn and restoring course-audio ownership.
+      The focused suites pass 86 backend tests and 76 frontend tests, with
+      TypeScript, translation, lint/format, architecture, and harness coverage.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -204,10 +211,23 @@ auditing, or another correctness-sensitive decision.
   only the matching claim after a failed write.
   - Why: authentication alone must not let a modified client manufacture an
     unbounded number of history and usage rows or race duplicate turn reports.
-- Decision: send turn and end requests with Fetch keepalive, cap each turn body
-  at 60 KiB, and enqueue the terminal turn before asynchronous audio shutdown.
-  - Why: `visibilitychange` and `pagehide` may suspend ordinary asynchronous
-    work before transcript history reaches the backend.
+- Decision: retain a bounded in-memory outbox of unacknowledged turns. Normal
+  reports use ordinary requests, leaving the keepalive budget for one
+  `/finalize` request initiated synchronously on pagehide/unmount. That request
+  includes the in-flight predecessor and queued turns; the backend waits at
+  most five seconds total for a held claim, skips durable indices, persists the
+  remaining consecutive turns in order, then consumes the binding.
+  - Why: keepalive cannot protect a fetch that is still behind a JavaScript
+    promise. One batch also avoids consuming the browser's shared keepalive
+    byte budget with multiple outstanding turn requests.
+- Decision: cap each report/batch at 60 KiB before buffering it on the backend,
+  and fail visibly if the frontend's unacknowledged backlog exceeds the bounded
+  handoff budget. Explicit end/close waits for the bounded final playback ACK
+  before creating final commits. Pagehide/unmount instead immediately sends
+  the latest acknowledged playback checkpoint, which can conservatively omit
+  the last unacknowledged audio quantum.
+  - Why: unload cannot reliably wait for another worklet callback; it must
+    initiate its final network request while the document still exists.
 - Decision: save only final user transcript and answer text through the local
   playback watermark. Keep deterministic turn BIDs; save an empty interrupted
   ANSWER when appropriate; do not create history when final user transcript is
@@ -254,7 +274,7 @@ implemented by:
 - `live_follow_up_session_store.py`: stores the trusted session/capacity
   binding in Redis;
 - `live_follow_up_routes.py`: validates session admission and exposes session,
-  heartbeat, turn, and end HTTPS endpoints;
+  heartbeat, turn, finalization-batch, and end HTTPS endpoints;
 - `live_follow_up_persistence.py`: saves deterministic history and
   client-reported, non-billable usage;
 - `live_follow_up_capacity.py`: owns per-worker/global/user Redis leases.
@@ -268,6 +288,8 @@ The frontend direct transport is implemented by:
 - `useLiveVoiceFollowUp.ts`: real-click activation, direct socket lifecycle,
   setup/history frames, audio, heartbeat, resumption, commit, cleanup, and
   analytics;
+- `liveFollowUpTurnWriter.ts`: ordered normal writes, bounded pending outbox,
+  lifecycle-safe batch handoff, and acknowledgement deduplication;
 - the existing dialog and AudioWorklet modules for UI, 16 kHz capture, and
   24 kHz playback.
 
@@ -314,8 +336,10 @@ with the disclosed credential. A completed/interrupted turn waits 500 ms for
 late transcription and waits for the playback watermark before POSTing. The
 backend validates/bounds the report, filters usage to allowed numeric token and
 modality fields, writes history idempotently, and forces `billable=0`. On close,
-timeout, navigation, or error, stop audio immediately and best-effort POST end
-to atomically consume the Redis binding. Capacity is not released early.
+timeout, navigation, or error, stop capture immediately. When the document
+remains active, flush playback before creating the final report and POST end
+after pending writes. On unload, synchronously initiate one bounded keepalive
+finalization batch instead. Capacity is not released early.
 
 ### Phase 3: voice experience, privacy, and rollout
 

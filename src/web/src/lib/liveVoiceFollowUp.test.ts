@@ -5,6 +5,7 @@ import {
   createLiveFollowUpSession,
   encodeGeminiLiveAudioMessage,
   endLiveFollowUpSession,
+  finalizeLiveFollowUpSession,
   heartbeatLiveFollowUpSession,
   mergeLiveTranscript,
   parseGeminiLiveServerMessage,
@@ -61,12 +62,21 @@ describe('live voice follow-up direct protocol helpers', () => {
       3,
       '/api/learn/live-follow-up/session/session%2F1/turn',
       expect.objectContaining({ turn_index: 1 }),
-      { skipErrorToast: true, credentials: 'include', keepalive: true },
+      { skipErrorToast: true, credentials: 'include' },
     );
     expect(mockedPost).toHaveBeenNthCalledWith(
       4,
       '/api/learn/live-follow-up/session/session%2F1/end',
       { reason: 'ended_by_user' },
+      { skipErrorToast: true, credentials: 'include', keepalive: true },
+    );
+  });
+
+  it('hands all pending turns to one authenticated keepalive request', async () => {
+    await finalizeLiveFollowUpSession('session/1', [], 'page_hidden');
+    expect(mockedPost).toHaveBeenCalledWith(
+      '/api/learn/live-follow-up/session/session%2F1/finalize',
+      { turns: [], reason: 'page_hidden' },
       { skipErrorToast: true, credentials: 'include', keepalive: true },
     );
   });

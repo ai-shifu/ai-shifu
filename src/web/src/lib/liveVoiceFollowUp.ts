@@ -135,9 +135,18 @@ export const commitLiveFollowUpTurn = (
   request.post(liveFollowUpSessionPath(sessionBid, 'turn'), payload, {
     skipErrorToast: true,
     credentials: 'include',
-    // Turn reports are bounded below the Fetch keepalive body limit server-side.
-    keepalive: true,
   });
+
+export const finalizeLiveFollowUpSession = (
+  sessionBid: string,
+  turns: LiveFollowUpTurnReport[],
+  reason: string,
+): Promise<unknown> =>
+  request.post(
+    liveFollowUpSessionPath(sessionBid, 'finalize'),
+    { turns, reason },
+    { skipErrorToast: true, credentials: 'include', keepalive: true },
+  );
 
 export const endLiveFollowUpSession = (
   sessionBid: string,

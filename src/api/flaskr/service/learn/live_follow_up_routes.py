@@ -5,7 +5,9 @@ from __future__ import annotations
 import contextlib
 import hmac
 import json
+import time
 from datetime import UTC, datetime
+from itertools import pairwise
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Flask, Response, request
@@ -49,6 +51,7 @@ from flaskr.service.learn.live_follow_up_config import (
 from flaskr.service.learn.live_follow_up_persistence import (
     LiveTurnPersistenceContext,
     LiveTurnPersistenceInput,
+    LiveTurnPersistenceResult,
     persist_live_follow_up_turn,
 )
 from flaskr.service.learn.live_follow_up_session_store import (
@@ -57,6 +60,7 @@ from flaskr.service.learn.live_follow_up_session_store import (
     LiveFollowUpSessionBinding,
     LiveFollowUpSessionRejectedError,
     LiveFollowUpSessionStoreError,
+    LiveFollowUpTurnReservation,
     StoredLiveFollowUpSession,
     commit_live_follow_up_turn_reservation,
     consume_live_follow_up_session,
@@ -85,6 +89,7 @@ _ALLOWED_SURFACES = frozenset({"read_content", "listen_player", "teacher_preview
 _MAX_DIRECT_TRANSCRIPT_CHARS = 32_000
 _MAX_DIRECT_USAGE_BYTES = 64 * 1024
 _MAX_DIRECT_TURN_REPORT_BYTES = 60 * 1024
+_FINALIZE_PREDECESSOR_WAIT_SECONDS = 5
 
 
 class LiveFollowUpModelUnavailableError(RuntimeError):
@@ -596,23 +601,13 @@ def register_live_follow_up_routes(
             {"session_bid": session_bid, "expires_at": to_utc_iso(expires_at)}
         )
 
-    @app.route(
-        path_prefix + "/live-follow-up/session/<session_bid>/turn",
-        methods=["POST"],
-    )
-    def commit_live_follow_up_turn_api(session_bid: str) -> Response:
-        session = require_direct_session(session_bid, allow_finalization=True)
-        turn = _validate_turn_payload(_read_bounded_turn_payload())
-        touch_direct_session(session)
-        try:
-            reservation = reserve_live_follow_up_turn(
-                app,
-                session_bid=session_bid,
-                turn_index=turn.turn_index,
-            )
-        except LiveFollowUpSessionStoreError:
-            raise_param_error("live_follow_up_turn")
+    def persist_reserved_turn(
+        session: StoredLiveFollowUpSession,
+        turn: LiveTurnPersistenceInput,
+        reservation: LiveFollowUpTurnReservation,
+    ) -> LiveTurnPersistenceResult:
         binding = session.binding
+        session_bid = binding.session_bid
         trace: LiveFollowUpTrace | None = None
         try:
             trace = LiveFollowUpTrace(
@@ -660,6 +655,25 @@ def register_live_follow_up_routes(
             if trace is not None:
                 with contextlib.suppress(Exception):
                     trace.close(end_reason="turn_committed")
+        return result
+
+    @app.route(
+        path_prefix + "/live-follow-up/session/<session_bid>/turn",
+        methods=["POST"],
+    )
+    def commit_live_follow_up_turn_api(session_bid: str) -> Response:
+        session = require_direct_session(session_bid, allow_finalization=True)
+        turn = _validate_turn_payload(_read_bounded_turn_payload())
+        touch_direct_session(session)
+        try:
+            reservation = reserve_live_follow_up_turn(
+                app,
+                session_bid=session_bid,
+                turn_index=turn.turn_index,
+            )
+        except LiveFollowUpSessionStoreError:
+            raise_param_error("live_follow_up_turn")
+        result = persist_reserved_turn(session, turn, reservation)
         return make_common_response(
             {
                 "session_bid": session_bid,
@@ -667,6 +681,68 @@ def register_live_follow_up_routes(
                 "history_saved": result.history_saved,
                 "ask_element_bid": result.ask_element_bid,
                 "answer_element_bid": result.answer_element_bid,
+            }
+        )
+
+    def reserve_finalizing_turn(
+        session_bid: str, turn_index: int, deadline: float
+    ) -> tuple[StoredLiveFollowUpSession, LiveFollowUpTurnReservation | None]:
+        while True:
+            session = require_direct_session(session_bid, allow_finalization=True)
+            state = session.turn_state
+            if turn_index <= state.last_committed_index:
+                return session, None
+            if state.pending_index is None:
+                if turn_index != state.last_committed_index + 1:
+                    raise_param_error("live_follow_up_turn")
+                try:
+                    return session, reserve_live_follow_up_turn(
+                        app, session_bid=session_bid, turn_index=turn_index
+                    )
+                except LiveFollowUpSessionRejectedError:
+                    # A normal report may have reserved this index after our
+                    # read. Never steal its claim or write concurrently.
+                    pass
+                except LiveFollowUpSessionStoreError:
+                    raise_param_error("live_follow_up_turn")
+            if time.monotonic() >= deadline:
+                raise_param_error("live_follow_up_turn")
+            time.sleep(0.05)
+
+    @app.route(
+        path_prefix + "/live-follow-up/session/<session_bid>/finalize",
+        methods=["POST"],
+    )
+    def finalize_live_follow_up_session_api(session_bid: str) -> Response:
+        session = require_direct_session(session_bid, allow_finalization=True)
+        payload = _read_bounded_turn_payload()
+        if not isinstance(payload, dict):
+            raise_param_error("live_follow_up_turn")
+        reports = payload.get("turns")
+        if not isinstance(reports, list) or len(reports) > LIVE_FOLLOW_UP_MAX_TURNS:
+            raise_param_error("live_follow_up_turn")
+        turns = [_validate_turn_payload(item) for item in reports]
+        if any(
+            following.turn_index != previous.turn_index + 1
+            for previous, following in pairwise(turns)
+        ):
+            raise_param_error("live_follow_up_turn")
+        touch_direct_session(session)
+        deadline = time.monotonic() + _FINALIZE_PREDECESSOR_WAIT_SECONDS
+        for turn in turns:
+            bound_session, reservation = reserve_finalizing_turn(
+                session_bid, turn.turn_index, deadline
+            )
+            if reservation is not None:
+                persist_reserved_turn(bound_session, turn, reservation)
+        try:
+            consume_live_follow_up_session(app, session_bid=session_bid)
+        except LiveFollowUpSessionStoreError:
+            raise_param_error("live_follow_up_session")
+        return make_common_response(
+            {
+                "session_bid": session_bid,
+                "turn_indices": [turn.turn_index for turn in turns],
             }
         )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from types import SimpleNamespace
@@ -30,6 +31,7 @@ from flaskr.service.learn.live_follow_up_session_store import (
     LiveFollowUpSessionRejectedError,
     LiveFollowUpSessionStoreUnavailableError,
     LiveFollowUpTurnReservation,
+    LiveFollowUpTurnState,
     StoredLiveFollowUpSession,
 )
 
@@ -391,8 +393,10 @@ def test_heartbeat_renews_only_the_control_plane_binding(
     assert touched == ["session-1"]
 
 
+@pytest.mark.parametrize("action", ["heartbeat", "turn", "end", "finalize"])
 def test_direct_session_rejects_changed_user_or_origin_before_touch(
     monkeypatch: pytest.MonkeyPatch,
+    action: str,
 ) -> None:
     app = _route_app(monkeypatch)
     monkeypatch.setattr(
@@ -406,7 +410,7 @@ def test_direct_session_rejects_changed_user_or_origin_before_touch(
         lambda *_args, **_kwargs: pytest.fail("rejected binding was touched"),
     )
     with pytest.raises(AppError):
-        _post_action(app, "heartbeat")
+        _post_action(app, action)
 
 
 @pytest.mark.parametrize("finalizing", [False, True])
@@ -623,6 +627,128 @@ def test_oversized_turn_body_is_rejected_without_unbounded_buffering(
         routes._read_bounded_turn_payload()
 
     assert body.tell() == (0 if known_length else limit + 1)
+
+
+def _turn_report(index: int) -> dict[str, object]:
+    return {
+        "turn_index": index,
+        "user_transcript": "Question",
+        "played_answer_transcript": "Answer",
+        "interrupted": False,
+        "usage_metadata": None,
+        "latency_ms": 10,
+    }
+
+
+@pytest.mark.parametrize("in_flight", [False, True])
+def test_finalize_skips_durable_turns_and_saves_remaining_reports_in_order(
+    monkeypatch: pytest.MonkeyPatch,
+    in_flight: bool,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_active_direct_session(monkeypatch)
+    state = LiveFollowUpTurnState(
+        last_committed_index=0 if in_flight else 1,
+        pending_index=1 if in_flight else None,
+        pending_claim="normal-request" if in_flight else "",
+    )
+    persisted: list[int] = []
+    consumed: list[str] = []
+
+    def commit_reservation(
+        _app: Flask, *, reservation: LiveFollowUpTurnReservation
+    ) -> None:
+        nonlocal state
+        state = LiveFollowUpTurnState(last_committed_index=reservation.turn_index)
+
+    def finish_predecessor(_seconds: float) -> None:
+        nonlocal state
+        state = LiveFollowUpTurnState(last_committed_index=1)
+
+    def persist(
+        _app: Flask, _context: object, turn: object
+    ) -> LiveTurnPersistenceResult:
+        persisted.append(turn.turn_index)
+        return LiveTurnPersistenceResult(history_saved=True)
+
+    monkeypatch.setattr(
+        routes,
+        "load_live_follow_up_session",
+        lambda *_a, **_k: replace(_stored_session(), turn_state=state),
+    )
+    monkeypatch.setattr(
+        routes, "commit_live_follow_up_turn_reservation", commit_reservation
+    )
+    monkeypatch.setattr(routes.time, "sleep", finish_predecessor)
+    monkeypatch.setattr(routes, "persist_live_follow_up_turn", persist)
+    monkeypatch.setattr(routes, "LiveFollowUpTrace", _FakeTrace)
+    monkeypatch.setattr(
+        routes,
+        "consume_live_follow_up_session",
+        lambda _app, *, session_bid: consumed.append(session_bid),
+    )
+
+    response = _post_action(
+        app,
+        "finalize",
+        {
+            "turns": [_turn_report(index) for index in (1, 2, 3)],
+            "reason": "page_hidden",
+        },
+    )
+
+    assert response.status_code == 200
+    assert persisted == [2, 3]
+    assert state.last_committed_index == 3
+    assert consumed == ["session-1"]
+
+
+@pytest.mark.parametrize("indices", [[1, 1], [1, 3], [2, 1], list(range(1, 202))])
+def test_finalize_rejects_invalid_batches_before_any_write(
+    monkeypatch: pytest.MonkeyPatch,
+    indices: list[int],
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_active_direct_session(monkeypatch)
+    monkeypatch.setattr(
+        routes,
+        "persist_live_follow_up_turn",
+        lambda *_a, **_k: pytest.fail("invalid batch was persisted"),
+    )
+    with pytest.raises(AppError):
+        _post_action(
+            app, "finalize", {"turns": [_turn_report(index) for index in indices]}
+        )
+
+
+def test_finalize_does_not_steal_an_in_flight_claim_or_wait_without_a_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_active_direct_session(monkeypatch)
+    session = replace(
+        _stored_session(),
+        turn_state=LiveFollowUpTurnState(
+            pending_index=1, pending_claim="normal-request"
+        ),
+    )
+    times = iter([0.0, 6.0])
+    monkeypatch.setattr(
+        routes, "load_live_follow_up_session", lambda *_a, **_k: session
+    )
+    monkeypatch.setattr(routes.time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(
+        routes,
+        "persist_live_follow_up_turn",
+        lambda *_a, **_k: pytest.fail("in-flight claim was stolen"),
+    )
+    monkeypatch.setattr(
+        routes,
+        "consume_live_follow_up_session",
+        lambda *_a, **_k: pytest.fail("unfinished session was consumed"),
+    )
+    with pytest.raises(AppError):
+        _post_action(app, "finalize", {"turns": [_turn_report(1)]})
 
 
 def test_end_consumes_binding_but_retains_capacity_until_token_expiry(

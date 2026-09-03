@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import {
-  commitLiveFollowUpTurn,
   createLiveFollowUpSession,
   encodeGeminiLiveAudioMessage,
   endLiveFollowUpSession,
@@ -41,6 +40,7 @@ import {
   LiveVoiceAudioUnavailableError,
   LiveVoiceFollowUpAudio,
 } from './liveVoiceFollowUpAudio';
+import { LiveFollowUpTurnWriter } from './liveFollowUpTurnWriter';
 
 const SESSION_WARNING_BEFORE_EXPIRY_MS = 30_000;
 const GEMINI_LIVE_SETUP_TIMEOUT_MS = 20_000;
@@ -220,7 +220,8 @@ export const useLiveVoiceFollowUp = ({
   const transcriptsRef = useRef<LiveVoiceTranscript[]>([]);
   const accumulatorRef = useRef<GeminiLiveTurnAccumulator | null>(null);
   const commitTimerRef = useRef<number | null>(null);
-  const commitChainRef = useRef<Promise<void> | null>(null);
+  const turnWriterRef = useRef<LiveFollowUpTurnWriter | null>(null);
+  const closingFinalizersRef = useRef(new Set<() => void>());
   const finishAttemptRef = useRef<
     ((options: FinishAttemptOptions) => void) | null
   >(null);
@@ -339,24 +340,19 @@ export const useLiveVoiceFollowUp = ({
     [],
   );
 
-  const persistCommits = useCallback(
+  const getTurnWriter = useCallback(
     (
       sessionBid: string,
       outlineBid: string,
       anchorElementBid: string,
-      commits: GeminiLiveTurnCommit[],
       generation: number,
     ) => {
-      for (const commit of commits) {
-        const persistCommit = async () => {
-          await commitLiveFollowUpTurn(sessionBid, {
-            turn_index: commit.turnIndex,
-            user_transcript: commit.userTranscript,
-            played_answer_transcript: commit.playedAnswerTranscript,
-            interrupted: commit.interrupted,
-            usage_metadata: commit.usageMetadata,
-            latency_ms: commit.latencyMs,
-          });
+      if (turnWriterRef.current?.sessionBid === sessionBid) {
+        return turnWriterRef.current;
+      }
+      const writer = new LiveFollowUpTurnWriter(
+        sessionBid,
+        commit => {
           const activeAttempt = attemptRef.current;
           if (activeAttempt?.generation === generation) {
             activeAttempt.hadExchange = true;
@@ -370,12 +366,8 @@ export const useLiveVoiceFollowUp = ({
               assistantTranscript: commit.playedAnswerTranscript,
             });
           } catch {}
-        };
-        const previousCommit = commitChainRef.current;
-        const pendingCommit = previousCommit
-          ? previousCommit.then(persistCommit)
-          : persistCommit();
-        const handledCommit = pendingCommit.catch(() => {
+        },
+        () => {
           if (attemptRef.current?.generation === generation) {
             finishAttemptRef.current?.({
               reason: 'connection_error',
@@ -385,16 +377,40 @@ export const useLiveVoiceFollowUp = ({
               pendingOutcome: 'failed',
             });
           }
-        });
-        commitChainRef.current = handledCommit;
-        void handledCommit.then(() => {
-          if (commitChainRef.current === handledCommit) {
-            commitChainRef.current = null;
-          }
+        },
+      );
+      turnWriterRef.current = writer;
+      return writer;
+    },
+    [onTurnCommitted],
+  );
+
+  const persistCommits = useCallback(
+    (
+      sessionBid: string,
+      outlineBid: string,
+      anchorElementBid: string,
+      commits: GeminiLiveTurnCommit[],
+      generation: number,
+    ) => {
+      try {
+        getTurnWriter(
+          sessionBid,
+          outlineBid,
+          anchorElementBid,
+          generation,
+        ).enqueue(commits);
+      } catch {
+        finishAttemptRef.current?.({
+          reason: 'connection_error',
+          keepOpen: true,
+          errorCode: 'server_error',
+          retryable: true,
+          pendingOutcome: 'failed',
         });
       }
     },
-    [onTurnCommitted],
+    [getTurnWriter],
   );
 
   const flushReadyCommits = useCallback(
@@ -452,6 +468,12 @@ export const useLiveVoiceFollowUp = ({
         websocket.onmessage = null;
         websocket.onerror = null;
         websocket.onclose = null;
+        if (
+          websocket.readyState === WebSocket.OPEN ||
+          websocket.readyState === WebSocket.CONNECTING
+        ) {
+          websocket.close(1000, 'session ended');
+        }
       }
 
       const attempt = attemptRef.current;
@@ -462,36 +484,52 @@ export const useLiveVoiceFollowUp = ({
       const audio = audioRef.current;
       audioRef.current = null;
 
-      if (attempt && session && accumulator) {
-        persistCommits(
-          session.session_bid,
-          attempt.outlineBid,
-          attempt.anchorElementBid,
-          accumulator.finishSession(),
-          attempt.generation,
-        );
-      }
-      const pendingCommit = commitChainRef.current;
-      const finalize = async () => {
-        await audio?.stop().catch(() => {});
-        if (attempt && session) {
-          await pendingCommit?.catch(() => {});
-          await endLiveFollowUpSession(
-            session.session_bid,
-            directSessionEndReason(reason),
-          ).catch(() => {});
+      const writer =
+        attempt && session
+          ? getTurnWriter(
+              session.session_bid,
+              attempt.outlineBid,
+              attempt.anchorElementBid,
+              attempt.generation,
+            )
+          : null;
+      turnWriterRef.current = null;
+      const endReason = directSessionEndReason(reason);
+      const flushForUnload = () => {
+        if (writer) {
+          try {
+            void writer
+              .handOffForUnload(accumulator?.finishSession() ?? [], endReason)
+              .catch(() => {});
+          } catch {}
         }
+      };
+      closingFinalizersRef.current.add(flushForUnload);
+      // stop() synchronously releases the microphone and then requests the
+      // worklet's final playback watermark. Only unload cannot await that ACK.
+      const stoppedAudio = audio?.stop().catch(() => {});
+      if (reason === 'page_hidden' || unmountedRef.current) {
+        flushForUnload();
+      }
+      const finalize = async () => {
+        await stoppedAudio;
         if (
-          websocket?.readyState === WebSocket.OPEN ||
-          websocket?.readyState === WebSocket.CONNECTING
+          !attemptRef.current ||
+          attemptRef.current.generation === attempt?.generation
         ) {
-          websocket.close(1000, 'session ended');
+          releaseExclusive();
+        }
+        try {
+          writer?.enqueue(accumulator?.finishSession() ?? []);
+          await writer?.finish(endReason);
+        } catch {
+        } finally {
+          closingFinalizersRef.current.delete(flushForUnload);
         }
       };
       void finalize();
-      releaseExclusive();
     },
-    [clearTimers, persistCommits, releaseExclusive],
+    [clearTimers, getTurnWriter, releaseExclusive],
   );
 
   const finishAttempt = useCallback(
@@ -1067,11 +1105,15 @@ export const useLiveVoiceFollowUp = ({
       if (document.hidden && attemptRef.current) {
         finishAttempt({ reason: 'page_hidden', keepOpen: false });
       }
+      if (document.hidden) {
+        closingFinalizersRef.current.forEach(finalize => finalize());
+      }
     };
     const handlePageHide = () => {
       if (attemptRef.current) {
         finishAttempt({ reason: 'page_hidden', keepOpen: false });
       }
+      closingFinalizersRef.current.forEach(finalize => finalize());
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handlePageHide);
@@ -1101,6 +1143,7 @@ export const useLiveVoiceFollowUp = ({
           keepOpen: false,
         });
       }
+      closingFinalizersRef.current.forEach(finalize => finalize());
     };
   }, []);
 

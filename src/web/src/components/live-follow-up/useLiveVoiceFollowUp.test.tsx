@@ -15,6 +15,7 @@ const mockTrackEvent = jest.fn();
 const mockCreateSession = jest.fn();
 const mockHeartbeatSession = jest.fn();
 const mockCommitTurn = jest.fn();
+const mockFinalizeSession = jest.fn();
 const mockEndSession = jest.fn();
 const mockResolveWebSocketUrl = jest.fn();
 const mockEncodeAudio = jest.fn();
@@ -55,6 +56,8 @@ jest.mock('@/lib/liveVoiceFollowUp', () => ({
   heartbeatLiveFollowUpSession: (...args: unknown[]) =>
     mockHeartbeatSession(...args),
   commitLiveFollowUpTurn: (...args: unknown[]) => mockCommitTurn(...args),
+  finalizeLiveFollowUpSession: (...args: unknown[]) =>
+    mockFinalizeSession(...args),
   endLiveFollowUpSession: (...args: unknown[]) => mockEndSession(...args),
   resolveGeminiLiveWebSocketUrl: (...args: unknown[]) =>
     mockResolveWebSocketUrl(...args),
@@ -280,6 +283,8 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     mockCreateSession.mockResolvedValue(sessionResponse());
     mockHeartbeatSession.mockResolvedValue({});
     mockCommitTurn.mockResolvedValue({});
+    mockFinalizeSession.mockResolvedValue({});
+    mockAudio.stop.mockResolvedValue(undefined);
     mockEndSession.mockResolvedValue({});
     mockResolveWebSocketUrl.mockReturnValue(
       'wss://generativelanguage.googleapis.com/constrained?access_token=ephemeral',
@@ -504,7 +509,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
           onTurnCommitted={onTurnCommitted}
         />,
       );
-      expect(mockCommitTurn).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(mockCommitTurn).toHaveBeenCalledTimes(1));
       expect(onTurnCommitted).not.toHaveBeenCalled();
 
       await act(async () => pendingCommit.resolve({}));
@@ -565,7 +570,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     );
   });
 
-  it('starts the final turn report before audio teardown on pagehide', async () => {
+  it('starts the final batch in the pagehide call stack without awaiting audio teardown', async () => {
     render(<Harness />);
     await startAndOpen();
     await makeReady();
@@ -591,18 +596,84 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
 
     act(() => window.dispatchEvent(new Event('pagehide')));
 
+    expect(mockFinalizeSession).toHaveBeenCalledWith(
+      'session-1',
+      [expect.objectContaining({ user_transcript: 'Question before leaving' })],
+      'page_hidden',
+    );
+    expect(mockAudio.stop).toHaveBeenCalled();
+    expect(mockEndSession).not.toHaveBeenCalled();
+  });
+
+  it('flushes the last playback watermark before saving an explicitly ended turn', async () => {
+    const stoppedAudio = createDeferred<void>();
+    mockAudio.stop.mockReturnValueOnce(stoppedAudio.promise);
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    const callbacks = mockActivateAudio.mock.calls[0][0] as {
+      onPlaybackProgress: (turnIndex: number, playedBytes: number) => void;
+    };
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['Question'],
+          outputTranscripts: ['Actually heard answer'],
+          audioChunks: [new ArrayBuffer(4)],
+          turnComplete: true,
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'end' }));
+    expect(mockCommitTurn).not.toHaveBeenCalled();
+    expect(mockReleaseExclusive).not.toHaveBeenCalled();
+    act(() => callbacks.onPlaybackProgress(1, 4));
+    await act(async () => stoppedAudio.resolve());
+
     expect(mockCommitTurn).toHaveBeenCalledWith(
       'session-1',
       expect.objectContaining({
-        user_transcript: 'Question before leaving',
+        played_answer_transcript: 'Actually heard answer',
       }),
     );
-    expect(mockCommitTurn.mock.invocationCallOrder[0]).toBeLessThan(
-      mockAudio.stop.mock.invocationCallOrder[0],
+    expect(mockReleaseExclusive).toHaveBeenCalled();
+  });
+
+  it('initiates all unacknowledged turns before the document is discarded', async () => {
+    jest.useFakeTimers();
+    const firstCommit = createDeferred<object>();
+    mockCommitTurn.mockReturnValueOnce(firstCommit.promise);
+    const { unmount } = render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    for (const question of ['First question', 'Second question']) {
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({ inputTranscripts: [question], turnComplete: true }),
+        ),
+      );
+      act(() => jest.advanceTimersByTime(500));
+    }
+    expect(mockCommitTurn).toHaveBeenCalledTimes(1);
+    act(() => window.dispatchEvent(new Event('pagehide')));
+    expect(mockFinalizeSession).toHaveBeenCalledWith(
+      'session-1',
+      [
+        expect.objectContaining({
+          turn_index: 1,
+          user_transcript: 'First question',
+        }),
+        expect.objectContaining({
+          turn_index: 2,
+          user_transcript: 'Second question',
+        }),
+      ],
+      'page_hidden',
     );
-    await waitFor(() =>
-      expect(mockEndSession).toHaveBeenCalledWith('session-1', 'page_hidden'),
-    );
+    unmount();
+    expect(mockFinalizeSession).toHaveBeenCalledTimes(1);
+    await act(async () => firstCommit.resolve({}));
+    expect(mockCommitTurn).toHaveBeenCalledTimes(1);
   });
 
   it('publishes only the played answer checkpoint after interruption', async () => {
