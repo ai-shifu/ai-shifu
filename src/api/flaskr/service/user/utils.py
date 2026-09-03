@@ -17,7 +17,6 @@ import jwt
 from flask import Flask, has_app_context, has_request_context, request
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
-from flaskr.common.cache_provider import redis_cache as distributed_cache
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
 from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
@@ -33,6 +32,7 @@ from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_rol
 from flaskr.service.user.token_store import SessionMetadata, token_store
 from flaskr.service.user.verification_codes import (
     clear_verification_attempts,
+    verification_cache_provider,
     verification_code_lock,
 )
 from flaskr.util import generate_id
@@ -449,11 +449,12 @@ def _prepare_verification_challenge(
 ) -> _PreparedVerificationChallenge:
     _enforce_verification_ip_limit(app, ip, policy)
     kind = "email" if policy.verify_code_type == 2 else "sms"
+    challenge_cache = verification_cache_provider()
     with verification_code_lock(
         app,
         kind=kind,
         identifier=identifier,
-        cache_provider=distributed_cache,
+        cache_provider=challenge_cache,
     ) as challenge_cache:
         identifier_limit_key = (
             _redis_prefix(app, policy.identifier_limit_prefix_config) + identifier

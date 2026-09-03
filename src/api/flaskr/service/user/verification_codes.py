@@ -16,7 +16,7 @@ from flaskr.common.cache_provider import CacheLock, CacheProvider
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.cache_provider import redis_cache as distributed_lock_cache
 from flaskr.common.config import get_redis_derived_prefix, get_redis_key_prefix
-from flaskr.dao import db
+from flaskr.dao import db, get_redis_client
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.models import UserVerifyCode
@@ -91,6 +91,17 @@ def clear_verification_attempts(
     """Reset failed attempts when a new verification challenge is issued."""
     cache = cache_provider or redis
     cache.delete(_verification_attempt_key(app, kind, identifier))
+
+
+def verification_cache_provider(
+    cache_provider: CacheProvider | None = None,
+) -> CacheProvider:
+    """Use Redis strictly when configured, otherwise retain local compatibility."""
+    if cache_provider is not None:
+        return cache_provider
+    if get_redis_client() is not None:
+        return distributed_lock_cache
+    return redis
 
 
 @contextlib.contextmanager
@@ -268,7 +279,7 @@ def consume_verification_code(
     cache_provider: CacheProvider | None = None,
 ) -> None:
     """Validate and consume a verification code for an email or phone identifier."""
-    cache = cache_provider or distributed_lock_cache
+    cache = verification_cache_provider(cache_provider)
     identifier = (identifier or "").strip()
     code = (code or "").strip()
     # Keep helper-level parameter checks for direct service callers such as
