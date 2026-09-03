@@ -612,6 +612,31 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
         delivery_observations.append(fake_redis._locks.get(lock_key, False))
         return True
 
+    with pytest.raises(AppError) as delivery_error:
+        user_utils._prepare_verification_challenge(
+            fake_app,
+            identifier,
+            None,
+            policy,
+            lambda _challenge: False,
+        )
+    assert delivery_error.value.code == 9999
+    assert (
+        fake_redis.get(
+            user_utils._redis_prefix(fake_app, policy.code_prefix_config) + identifier
+        )
+        is None
+    )
+    assert (
+        fake_redis.get(
+            user_utils._redis_prefix(fake_app, policy.identifier_limit_prefix_config)
+            + identifier
+        )
+        is None
+    )
+    captured_records.clear()
+    lock_observations.clear()
+
     challenge = user_utils._prepare_verification_challenge(
         fake_app,
         identifier,

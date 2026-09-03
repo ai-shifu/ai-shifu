@@ -469,11 +469,8 @@ def _prepare_verification_challenge(
             identifier=identifier,
             cache_provider=redis,
         )
-        redis.set(
-            _redis_prefix(app, policy.code_prefix_config) + identifier,
-            code,
-            ex=expire_in,
-        )
+        code_key = _redis_prefix(app, policy.code_prefix_config) + identifier
+        redis.set(code_key, code, ex=expire_in)
         redis.set(identifier_limit_key, int(time.time()), ex=interval)
 
         is_email = policy.verify_code_type == 2
@@ -489,9 +486,16 @@ def _prepare_verification_challenge(
             expire_in=expire_in,
             record=record,
         )
-        if deliver(challenge):
-            challenge.record.verify_code_send = 1
-            db.session.commit()
+        try:
+            delivered = deliver(challenge)
+        except Exception:
+            redis.delete(code_key, identifier_limit_key)
+            raise
+        if not delivered:
+            redis.delete(code_key, identifier_limit_key)
+            raise_error("server.common.unknownError")
+        challenge.record.verify_code_send = 1
+        db.session.commit()
         return challenge
 
 
