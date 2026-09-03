@@ -1,4 +1,4 @@
-"""Redis-backed capacity leases for Gemini Live follow-up sessions."""
+"""Redis-backed capacity reservations for Gemini Live credentials."""
 
 from __future__ import annotations
 
@@ -10,6 +10,11 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .gemini_live_token import (
+    GEMINI_LIVE_TOKEN_CONNECT_SECONDS,
+    GEMINI_LIVE_TOKEN_LIFETIME_SECONDS,
+)
+
 if TYPE_CHECKING:
     from flask import Flask
     from redis import Redis
@@ -17,9 +22,9 @@ if TYPE_CHECKING:
 LIVE_FOLLOW_UP_GLOBAL_LIMIT = 24
 LIVE_FOLLOW_UP_WORKER_LIMIT = 6
 LIVE_FOLLOW_UP_USER_LIMIT = 1
-LIVE_FOLLOW_UP_LEASE_TTL_SECONDS = 45
-LIVE_FOLLOW_UP_LEASE_RENEW_INTERVAL_SECONDS = 15
-_ERROR_LEASE_LOST = "lease_lost"
+LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS = (
+    GEMINI_LIVE_TOKEN_LIFETIME_SECONDS + GEMINI_LIVE_TOKEN_CONNECT_SECONDS
+)
 _ERROR_LEASE_NOT_ACQUIRED = "lease_not_acquired"
 _ERROR_REDIS_UNAVAILABLE = "redis_unavailable"
 _SCOPE_USER = "user"
@@ -47,23 +52,6 @@ if not user_acquired then
 end
 redis.call('ZADD', KEYS[1], ARGV[2], ARGV[3])
 redis.call('ZADD', KEYS[2], ARGV[2], ARGV[3])
-return 1
-"""
-
-_RENEW_LEASE_SCRIPT = """
-local global_score = redis.call('ZSCORE', KEYS[1], ARGV[2])
-local worker_score = redis.call('ZSCORE', KEYS[2], ARGV[2])
-local user_lease = redis.call('GET', KEYS[3])
-if not global_score or not worker_score or user_lease ~= ARGV[2] then
-    return 0
-end
-if tonumber(global_score) <= tonumber(ARGV[1])
-    or tonumber(worker_score) <= tonumber(ARGV[1]) then
-    return 0
-end
-redis.call('ZADD', KEYS[1], ARGV[3], ARGV[2])
-redis.call('ZADD', KEYS[2], ARGV[3], ARGV[2])
-redis.call('EXPIRE', KEYS[3], ARGV[4])
 return 1
 """
 
@@ -95,13 +83,9 @@ class LiveFollowUpCapacityLimitError(LiveFollowUpCapacityError):
         self.scope = scope
 
 
-class LiveFollowUpCapacityLeaseLostError(LiveFollowUpCapacityError):
-    """An expired or replaced lease cannot be renewed."""
-
-
 @dataclass(frozen=True)
 class LiveFollowUpCapacityLease:
-    """Opaque ownership token and the scopes it reserves."""
+    """Opaque ownership token for one undisclosed or live credential."""
 
     lease_id: str
     user_bid: str
@@ -151,7 +135,12 @@ def acquire_live_follow_up_capacity(
     worker_id: str | None = None,
     now: float | None = None,
 ) -> LiveFollowUpCapacityLease:
-    """Atomically reserve global, worker, and user capacity."""
+    """Reserve capacity through the maximum lifetime of the minted token.
+
+    The extra connect window covers the small interval between admission and
+    token issuance. Once the credential reaches the browser this reservation
+    must expire naturally because Gemini does not expose token revocation.
+    """
     if not user_bid:
         raise LiveFollowUpCapacityLimitError(_SCOPE_USER)
     resolved_worker_id = worker_id or default_live_follow_up_worker_id()
@@ -159,7 +148,7 @@ def acquire_live_follow_up_capacity(
         raise LiveFollowUpCapacityLimitError(_SCOPE_WORKER)
     lease_id = secrets.token_urlsafe(32)
     current_time = time.time() if now is None else now
-    expires_at = current_time + LIVE_FOLLOW_UP_LEASE_TTL_SECONDS
+    expires_at = current_time + LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS
     keys = _lease_keys(
         app,
         user_bid=user_bid,
@@ -176,7 +165,7 @@ def acquire_live_follow_up_capacity(
                 lease_id,
                 str(LIVE_FOLLOW_UP_GLOBAL_LIMIT),
                 str(LIVE_FOLLOW_UP_WORKER_LIMIT),
-                str(LIVE_FOLLOW_UP_LEASE_TTL_SECONDS),
+                str(LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS),
             )
         )
     except LiveFollowUpCapacityError:
@@ -196,46 +185,12 @@ def acquire_live_follow_up_capacity(
     )
 
 
-def renew_live_follow_up_capacity(
-    app: Flask,
-    *,
-    lease: LiveFollowUpCapacityLease,
-    now: float | None = None,
-) -> None:
-    """Extend an owned lease by 45 seconds or fail closed."""
-    current_time = time.time() if now is None else now
-    expires_at = current_time + LIVE_FOLLOW_UP_LEASE_TTL_SECONDS
-    keys = _lease_keys(
-        app,
-        user_bid=lease.user_bid,
-        worker_id=lease.worker_id,
-    )
-    try:
-        renewed = bool(
-            _require_redis().eval(
-                _RENEW_LEASE_SCRIPT,
-                3,
-                *keys,
-                str(current_time),
-                lease.lease_id,
-                str(expires_at),
-                str(LIVE_FOLLOW_UP_LEASE_TTL_SECONDS),
-            )
-        )
-    except LiveFollowUpCapacityError:
-        raise
-    except Exception as exc:
-        raise LiveFollowUpCapacityUnavailableError(_ERROR_REDIS_UNAVAILABLE) from exc
-    if not renewed:
-        raise LiveFollowUpCapacityLeaseLostError(_ERROR_LEASE_LOST)
-
-
 def release_live_follow_up_capacity(
     app: Flask,
     *,
     lease: LiveFollowUpCapacityLease,
 ) -> bool:
-    """Release only the caller's lease; never remove a replacement lease."""
+    """Release admission that failed before its credential was disclosed."""
     keys = _lease_keys(
         app,
         user_bid=lease.user_bid,

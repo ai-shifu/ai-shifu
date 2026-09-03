@@ -1,4 +1,4 @@
-"""Verify Redis-only capacity leases for Gemini Live sessions."""
+"""Verify Redis-only capacity reservations for Gemini Live credentials."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from flaskr.service.learn import live_follow_up_capacity as capacity
 
 
 class FakeRedis:
-    """Implement the three capacity Lua scripts with in-memory state."""
+    """Implement the capacity admission and rollback scripts in memory."""
 
     def __init__(self) -> None:
         """Initialize sorted-set leases and per-user ownership keys."""
@@ -55,26 +55,6 @@ class FakeRedis:
             self.users[user_key] = (lease_id, now + ttl)
             self.sorted_sets[global_key][lease_id] = expiry
             self.sorted_sets[worker_key][lease_id] = expiry
-            return 1
-
-        if script == capacity._RENEW_LEASE_SCRIPT:
-            now = float(argv[0])
-            lease_id = str(argv[1])
-            expiry = float(argv[2])
-            ttl = int(argv[3])
-            global_expiry = self.sorted_sets.get(global_key, {}).get(lease_id)
-            worker_expiry = self.sorted_sets.get(worker_key, {}).get(lease_id)
-            if (
-                global_expiry is None
-                or worker_expiry is None
-                or global_expiry <= now
-                or worker_expiry <= now
-                or self._get_user(user_key, now) != lease_id
-            ):
-                return 0
-            self.sorted_sets[global_key][lease_id] = expiry
-            self.sorted_sets[worker_key][lease_id] = expiry
-            self.users[user_key] = (lease_id, now + ttl)
             return 1
 
         assert script == capacity._RELEASE_LEASE_SCRIPT
@@ -180,34 +160,39 @@ def test_expired_lease_frees_all_capacity_scopes(
         app,
         user_bid="user-1",
         worker_id="worker-1",
-        now=146,
+        now=1_031,
     )
 
     assert replacement.user_bid == "user-1"
 
 
-def test_renew_extends_lease_and_expired_lease_cannot_revive(
+def test_reservation_covers_the_disclosed_token_lifetime(
     app: object, monkeypatch: object
 ) -> None:
     fake = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake)
-    lease = capacity.acquire_live_follow_up_capacity(
+    capacity.acquire_live_follow_up_capacity(
         app,
         user_bid="user-1",
         worker_id="worker-1",
         now=100,
     )
-    capacity.renew_live_follow_up_capacity(app, lease=lease, now=115)
 
     with pytest.raises(capacity.LiveFollowUpCapacityLimitError):
         capacity.acquire_live_follow_up_capacity(
             app,
             user_bid="user-1",
             worker_id="worker-2",
-            now=146,
+            now=1_000,
         )
-    with pytest.raises(capacity.LiveFollowUpCapacityLeaseLostError):
-        capacity.renew_live_follow_up_capacity(app, lease=lease, now=161)
+
+    replacement = capacity.acquire_live_follow_up_capacity(
+        app,
+        user_bid="user-1",
+        worker_id="worker-2",
+        now=1_031,
+    )
+    assert replacement.worker_id == "worker-2"
 
 
 def test_old_release_cannot_remove_replacement_user_lease(
@@ -225,7 +210,7 @@ def test_old_release_cannot_remove_replacement_user_lease(
         app,
         user_bid="user-1",
         worker_id="worker-2",
-        now=146,
+        now=1_031,
     )
 
     assert capacity.release_live_follow_up_capacity(app, lease=old) is False
@@ -234,12 +219,12 @@ def test_old_release_cannot_remove_replacement_user_lease(
             app,
             user_bid="user-1",
             worker_id="worker-3",
-            now=146,
+            now=1_031,
         )
     assert capacity.release_live_follow_up_capacity(app, lease=replacement) is True
 
 
-def test_capacity_uses_forty_five_second_lease_contract(
+def test_capacity_reservation_outlives_the_maximum_token_lifetime(
     app: object, monkeypatch: object
 ) -> None:
     fake = FakeRedis()
@@ -251,9 +236,10 @@ def test_capacity_uses_forty_five_second_lease_contract(
         now=100,
     )
     argv = fake.acquire_args[0][3:]
-    assert float(argv[1]) == 145
-    assert int(argv[5]) == capacity.LIVE_FOLLOW_UP_LEASE_TTL_SECONDS
-    assert capacity.LIVE_FOLLOW_UP_LEASE_RENEW_INTERVAL_SECONDS == 15
+    expected_expiry = 100 + capacity.LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS
+    assert float(argv[1]) == expected_expiry
+    assert int(argv[5]) == capacity.LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS
+    assert capacity.LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS == 15 * 60 + 30
 
 
 @pytest.mark.parametrize("redis_client", [None, ExplodingRedis()])
@@ -270,9 +256,8 @@ def test_capacity_acquire_fails_closed_without_redis(
         )
 
 
-@pytest.mark.parametrize("operation", ["renew", "release"])
-def test_capacity_mutations_fail_closed_on_redis_error(
-    app: object, monkeypatch: object, operation: str
+def test_capacity_release_fails_closed_on_redis_error(
+    app: object, monkeypatch: object
 ) -> None:
     lease = capacity.LiveFollowUpCapacityLease(
         lease_id="lease-1",
@@ -280,17 +265,5 @@ def test_capacity_mutations_fail_closed_on_redis_error(
         worker_id="worker-1",
     )
     monkeypatch.setattr(dao._redis_state, "client", ExplodingRedis())
-    operations = {
-        "renew": lambda: capacity.renew_live_follow_up_capacity(
-            app,
-            lease=lease,
-            now=100,
-        ),
-        "release": lambda: capacity.release_live_follow_up_capacity(
-            app,
-            lease=lease,
-        ),
-    }
-
     with pytest.raises(capacity.LiveFollowUpCapacityUnavailableError):
-        operations[operation]()
+        capacity.release_live_follow_up_capacity(app, lease=lease)

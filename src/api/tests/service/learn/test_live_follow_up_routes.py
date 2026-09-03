@@ -347,11 +347,6 @@ def _stub_active_direct_session(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         routes,
-        "renew_live_follow_up_capacity",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        routes,
         "touch_live_follow_up_session",
         lambda *_args, **_kwargs: None,
     )
@@ -376,16 +371,12 @@ def _stub_active_direct_session(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_heartbeat_renews_lease_and_binding(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_heartbeat_renews_only_the_control_plane_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
-    renewed: list[str] = []
     touched: list[str] = []
-    monkeypatch.setattr(
-        routes,
-        "renew_live_follow_up_capacity",
-        lambda _app, *, lease: renewed.append(lease.lease_id),
-    )
     monkeypatch.setattr(
         routes,
         "touch_live_follow_up_session",
@@ -395,11 +386,10 @@ def test_heartbeat_renews_lease_and_binding(monkeypatch: pytest.MonkeyPatch) -> 
     response = _post_action(app, "heartbeat")
     body = json.loads(response.get_data(as_text=True))["data"]
     assert body["session_bid"] == "session-1"
-    assert renewed == ["lease-1"]
     assert touched == ["session-1"]
 
 
-def test_direct_session_rejects_changed_user_or_origin_before_renewal(
+def test_direct_session_rejects_changed_user_or_origin_before_touch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = _route_app(monkeypatch)
@@ -410,8 +400,8 @@ def test_direct_session_rejects_changed_user_or_origin_before_renewal(
     )
     monkeypatch.setattr(
         routes,
-        "renew_live_follow_up_capacity",
-        lambda *_args, **_kwargs: pytest.fail("rejected binding renewed lease"),
+        "touch_live_follow_up_session",
+        lambda *_args, **_kwargs: pytest.fail("rejected binding was touched"),
     )
     with pytest.raises(AppError):
         _post_action(app, "heartbeat")
@@ -552,13 +542,12 @@ def test_turn_report_rejects_unbounded_or_invalid_client_data(
         _post_action(app, "turn", payload)
 
 
-def test_end_consumes_binding_and_releases_exact_lease(
+def test_end_consumes_binding_but_retains_capacity_until_token_expiry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
     consumed: list[str] = []
-    released: list[str] = []
     monkeypatch.setattr(
         routes,
         "consume_live_follow_up_session",
@@ -567,11 +556,10 @@ def test_end_consumes_binding_and_releases_exact_lease(
     monkeypatch.setattr(
         routes,
         "release_live_follow_up_capacity",
-        lambda _app, *, lease: released.append(lease.lease_id),
+        lambda *_args, **_kwargs: pytest.fail("disclosed token capacity released"),
     )
 
     response = _post_action(app, "end", {"reason": "ended_by_user"})
     body = json.loads(response.get_data(as_text=True))["data"]
     assert body == {"session_bid": "session-1", "reason": "ended_by_user"}
     assert consumed == ["session-1"]
-    assert released == ["lease-1"]

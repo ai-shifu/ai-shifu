@@ -38,7 +38,7 @@ auditing, or another correctness-sensitive decision.
       effective lesson `follow_up_mode`, provider restrictions, and tests.
 - [x] 2026-09-02: Added shared text/Live course context construction,
       deterministic ASK/ANSWER persistence, `billable=0` metering, Langfuse
-      redaction, Redis capacity leases, and tests.
+      redaction, Redis capacity admission, and tests.
 - [x] 2026-09-02: Added the fullscreen voice controller, AudioWorklet capture
       and playback, exclusive course-audio ownership, interruption, mute,
       timeout, lifecycle cleanup, five locales, privacy copy, analytics, and
@@ -67,6 +67,12 @@ auditing, or another correctness-sensitive decision.
       Turn/end requests use Fetch keepalive, turn bodies are capped at 60 KiB,
       and page teardown starts the final turn report before stopping audio.
       The focused Live suites pass with 72 backend and 49 frontend tests.
+- [x] 2026-09-03: Corrected the token field mask to the protobuf JSON
+      lower-camel contract, removed unsupported Gemini 3.1 proactivity and
+      safety overrides so provider defaults apply, and bounded setup stalls at
+      20 seconds. Capacity admission now remains reserved through the full
+      disclosed token lifetime instead of being released by heartbeat loss or
+      `/end`.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -102,6 +108,11 @@ auditing, or another correctness-sensitive decision.
 - Fetch keepalive has a bounded request-body budget. Keeping the authenticated
   request under 60 KiB makes lifecycle-safe transcript persistence explicit
   instead of relying on browser behavior for an oversized payload.
+- The Gemini `auth_tokens` resource exposes token creation but no revocation.
+  After a credential reaches the browser, closing the AI-Shifu control-plane
+  binding cannot prove that the Google socket closed. Capacity therefore has
+  to remain reserved until `expireTime`; otherwise one client can overlap an
+  old socket and a newly minted credential.
 
 ## Decision Log
 
@@ -127,9 +138,9 @@ auditing, or another correctness-sensitive decision.
     API key and private course instruction on the backend.
 - Decision: lock model, system instruction, audio-only response, selected
   voice, minimal thinking, VAD, transcription, context compression, tools,
-  proactivity, safety settings, and initial-history behavior in the token's
-  effective Bidi setup and top-level field mask. Leave only
-  `session_resumption` unlocked.
+  and initial-history behavior in the token's effective Bidi setup and
+  lower-camel JSON field mask. Leave only `sessionResumption` unlocked and
+  omit proactivity and safety overrides so Gemini 3.1's native defaults apply.
   - Why: a browser must not widen the token into a different Gemini session,
     but it must be able to send the server-issued resumption handle after
     `GoAway`.
@@ -138,11 +149,15 @@ auditing, or another correctness-sensitive decision.
   terminal cleanup. Bind the session to user, course, outline, anchor, preview
   state, Origin, model, voice, language, and absolute token expiry in Redis.
   - Why: access and capacity remain trusted even though the media plane is not.
-- Decision: keep the existing per-worker, global, and per-user Redis leases,
-  renewed every 15 seconds and stale after 45 seconds, without requiring
-  gthread.
-  - Why: admission control is independent of which process holds the Gemini
-    socket once the browser connects directly.
+- Decision: reserve per-worker, global, and per-user Redis capacity for the
+  full 15-minute credential lifetime plus the 30-second connection margin.
+  Keep the authenticated control-plane binding on a separate 45-second TTL,
+  refreshed by a 15-second heartbeat. Never release capacity after the token
+  has been disclosed; only roll it back when provisioning/storage fails before
+  the response reaches the browser.
+  - Why: Gemini exposes no token revocation. Releasing admission on `/end` or a
+    missed heartbeat would let a modified browser retain the old Google socket
+    and mint another token outside the 24/6/1 limits.
 - Decision: treat every browser turn report as untrusted. Accept only bounded
   transcript strings, bounded numeric usage fields, a bounded turn index and
   latency, and an interruption boolean. Force `billable=0` and never settle it.
@@ -240,12 +255,13 @@ into the lesson tree so learner UI never guesses.
 ### Phase 2: browser-direct control and media planes
 
 On authenticated session POST, validate learner or preview access, effective
-model/provider/voice, outline, anchor, learning mode, and Origin. Acquire the
-Redis capacity lease. Build the shared follow-up system instruction and latest
-ten turns. Mint a Gemini token with `uses=1`, a 30-second new-session window,
-15-minute expiry, and a locked effective Bidi setup. Store a 45-second Redis
-session binding and return only the ephemeral token, allowlisted constrained
-WSS endpoint, prompt-free setup, history frame, expiries, and heartbeat period.
+model/provider/voice, outline, anchor, learning mode, and Origin. Reserve Redis
+capacity through the credential lifetime. Build the shared follow-up system
+instruction and latest ten turns. Mint a Gemini token with `uses=1`, a
+30-second new-session window, 15-minute expiry, and a locked effective Bidi
+setup. Store a separate 45-second Redis session binding and return only the
+ephemeral token, allowlisted constrained WSS endpoint, prompt-free setup,
+history frame, expiries, and heartbeat period.
 
 The browser validates the exact Google origin/path before appending the token
 as `access_token`. It sends setup first and history only after setup completion.
@@ -256,13 +272,14 @@ spellings used by the API. Clear playback immediately on interruption. Resume
 `GoAway` with the newest handle on another constrained socket using the same
 ephemeral token.
 
-Every 15 seconds the browser renews the trusted Redis session and capacity
-lease over authenticated HTTPS. A completed/interrupted turn waits 500 ms for
+Every 15 seconds the browser renews only the trusted Redis control-plane
+binding over authenticated HTTPS; the independent capacity reservation expires
+with the disclosed credential. A completed/interrupted turn waits 500 ms for
 late transcription and waits for the playback watermark before POSTing. The
 backend validates/bounds the report, filters usage to allowed numeric token and
 modality fields, writes history idempotently, and forces `billable=0`. On close,
 timeout, navigation, or error, stop audio immediately and best-effort POST end
-to atomically consume the Redis binding and release capacity.
+to atomically consume the Redis binding. Capacity is not released early.
 
 ### Phase 3: voice experience, privacy, and rollout
 
@@ -327,8 +344,9 @@ IDs, WSS/HTTP URLs, token, resumption handle, and raw error are prohibited.
   exact constrained model/config, private system instruction placement, prompt-
   free browser setup, and bounded provider failure handling.
 - Session tests cover permission and Origin binding, Redis fail-closed,
-  capacity acquisition/release/renewal, hashed Redis keys, TTL, absolute expiry,
-  consume-once end, and no internal AI-Shifu WebSocket route.
+  capacity acquisition/pre-disclosure rollback/token-lifetime expiry, hashed
+  Redis keys, the independent heartbeat TTL, consume-once end without early
+  capacity release, and no internal AI-Shifu WebSocket route.
 - Protocol/controller tests cover setup-before-history, exact Google endpoint
   validation, PCM encoding, over-8-KiB and buffered-frame drops, multi-part
   audio, transcripts, interruption, mute, resumption, session errors, explicit
@@ -349,12 +367,14 @@ IDs, WSS/HTTP URLs, token, resumption handle, and raw error are prohibited.
 
 ## Idempotence and Recovery
 
-Each explicit attempt creates a fresh session BID, Redis binding, capacity
-lease, and ephemeral token. A token opens one new Gemini session; resumption
-inside that session reuses the token with the newest handle. If provisioning or
-Redis storage fails after capacity acquisition, release the lease. Missed
-heartbeats expire the lease and binding. End consumes the binding atomically;
-repeated end is harmless from the browser's perspective.
+Each admitted attempt creates a fresh session BID, Redis binding, capacity
+reservation, and ephemeral token. A token opens one new Gemini session;
+resumption inside that session reuses the token with the newest handle. If
+provisioning or Redis storage fails before the token is disclosed, release the
+reservation. Once disclosed, the reservation expires naturally after the
+maximum token lifetime. Missed heartbeats expire only the control-plane
+binding. End consumes that binding atomically; repeated end is harmless from
+the browser's perspective and cannot revoke or release the Gemini credential.
 
 Turn BIDs derive deterministically from Live session and turn index. The
 existing persistence transaction makes a repeated report idempotent and rolls
@@ -380,9 +400,10 @@ returns `session_bid`, `ephemeral_token`, the fixed constrained
 `new_session_expires_at`, and `heartbeat_interval_ms`.
 
 `POST /api/learn/live-follow-up/session/{session_bid}/heartbeat` renews the
-trusted binding and lease. `POST .../turn` accepts bounded client-reported
-transcript/playback/usage data and returns deterministic persisted element IDs.
-`POST .../end` consumes the binding and releases capacity.
+trusted control-plane binding only. `POST .../turn` accepts bounded
+client-reported transcript/playback/usage data and returns deterministic
+persisted element IDs. `POST .../end` consumes the binding; the independent
+capacity reservation remains until the already-disclosed token expires.
 
 The Gemini media socket is
 `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained`

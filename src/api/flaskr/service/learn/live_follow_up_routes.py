@@ -33,13 +33,11 @@ from flaskr.service.learn.gemini_live_token import (
 from flaskr.service.learn.learn_dtos import LearnOutlineItemInfoDTO, OutlineType
 from flaskr.service.learn.learn_funcs import get_outline_item_tree
 from flaskr.service.learn.live_follow_up_capacity import (
-    LIVE_FOLLOW_UP_LEASE_RENEW_INTERVAL_SECONDS,
     LiveFollowUpCapacityError,
     LiveFollowUpCapacityLease,
     LiveFollowUpCapacityLimitError,
     acquire_live_follow_up_capacity,
     release_live_follow_up_capacity,
-    renew_live_follow_up_capacity,
 )
 from flaskr.service.learn.live_follow_up_config import (
     DEFAULT_GEMINI_LIVE_VOICE,
@@ -55,6 +53,7 @@ from flaskr.service.learn.live_follow_up_persistence import (
 )
 from flaskr.service.learn.live_follow_up_session_store import (
     LIVE_FOLLOW_UP_MAX_TURNS,
+    LIVE_FOLLOW_UP_SESSION_HEARTBEAT_INTERVAL_SECONDS,
     LiveFollowUpSessionBinding,
     LiveFollowUpSessionRejectedError,
     LiveFollowUpSessionStoreError,
@@ -392,7 +391,7 @@ def _session_response(
             "expires_at": to_utc_iso(token.expires_at),
             "new_session_expires_at": to_utc_iso(token.new_session_expires_at),
             "heartbeat_interval_ms": (
-                LIVE_FOLLOW_UP_LEASE_RENEW_INTERVAL_SECONDS * 1000
+                LIVE_FOLLOW_UP_SESSION_HEARTBEAT_INTERVAL_SECONDS * 1000
             ),
         }
     )
@@ -550,9 +549,8 @@ def register_live_follow_up_routes(
             raise_param_error("live_follow_up_session")
         return session
 
-    def renew_direct_session(session: StoredLiveFollowUpSession) -> None:
+    def touch_direct_session(session: StoredLiveFollowUpSession) -> None:
         try:
-            renew_live_follow_up_capacity(app, lease=session.lease)
             touch_live_follow_up_session(
                 app,
                 session_bid=session.binding.session_bid,
@@ -566,7 +564,7 @@ def register_live_follow_up_routes(
     )
     def heartbeat_live_follow_up_session_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid)
-        renew_direct_session(session)
+        touch_direct_session(session)
         expires_at = datetime.fromtimestamp(
             session.binding.expires_at_epoch,
             tz=UTC,
@@ -584,7 +582,7 @@ def register_live_follow_up_routes(
         if len(request.get_data(cache=True)) > _MAX_DIRECT_TURN_REPORT_BYTES:
             raise_param_error("live_follow_up_turn")
         turn = _validate_turn_payload(request.get_json(silent=True) or {})
-        renew_direct_session(session)
+        touch_direct_session(session)
         try:
             reservation = reserve_live_follow_up_turn(
                 app,
@@ -656,7 +654,7 @@ def register_live_follow_up_routes(
         methods=["POST"],
     )
     def end_live_follow_up_session_api(session_bid: str) -> Response:
-        session = require_direct_session(session_bid)
+        require_direct_session(session_bid)
         payload = request.get_json(silent=True) or {}
         end_reason = str(payload.get("reason") or "ended_by_user").strip()
         if end_reason not in {
@@ -670,11 +668,14 @@ def register_live_follow_up_routes(
         }:
             end_reason = "connection_error"
         try:
-            consumed = consume_live_follow_up_session(app, session_bid=session_bid)
+            consume_live_follow_up_session(app, session_bid=session_bid)
         except LiveFollowUpSessionRejectedError:
-            consumed = session
+            pass
         except LiveFollowUpSessionStoreError:
             raise_param_error("live_follow_up_session")
-        with contextlib.suppress(Exception):
-            release_live_follow_up_capacity(app, lease=consumed.lease)
+        # The browser has already received a credential that Gemini accepts
+        # until its fixed expireTime. Gemini exposes no revoke operation, so
+        # releasing admission here would let one user keep the old socket and
+        # mint another token outside the 24/6/1 capacity bounds. The Redis
+        # reservation therefore expires naturally with the token.
         return make_common_response({"session_bid": session_bid, "reason": end_reason})

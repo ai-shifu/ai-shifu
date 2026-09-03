@@ -10,16 +10,14 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from .live_follow_up_capacity import (
-    LIVE_FOLLOW_UP_LEASE_TTL_SECONDS,
-    LiveFollowUpCapacityLease,
-)
+from .live_follow_up_capacity import LiveFollowUpCapacityLease
 
 if TYPE_CHECKING:
     from flask import Flask
     from redis import Redis
 
-LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS = LIVE_FOLLOW_UP_LEASE_TTL_SECONDS
+LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS = 45
+LIVE_FOLLOW_UP_SESSION_HEARTBEAT_INTERVAL_SECONDS = 15
 LIVE_FOLLOW_UP_MAX_TURNS = 200
 _SESSION_RECORD_VERSION = 2
 _ERROR_INVALID_SESSION = "invalid_session"
@@ -179,7 +177,7 @@ class LiveFollowUpTurnState:
 
 @dataclass(frozen=True)
 class StoredLiveFollowUpSession:
-    """Session binding plus the Redis capacity lease owned by it."""
+    """Session binding plus its independent Redis capacity reservation."""
 
     binding: LiveFollowUpSessionBinding
     lease: LiveFollowUpCapacityLease
@@ -333,7 +331,7 @@ def load_live_follow_up_session(
     session_bid: str,
     current_time: float | None = None,
 ) -> StoredLiveFollowUpSession:
-    """Load an active direct-session binding without extending its lease."""
+    """Load an active direct-session binding without extending its TTL."""
     if not session_bid:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
     try:
@@ -356,7 +354,7 @@ def load_live_follow_up_session(
 
 
 def touch_live_follow_up_session(app: Flask, *, session_bid: str) -> None:
-    """Extend the Redis binding only after its capacity lease was renewed."""
+    """Extend the short-lived control-plane binding for an active browser."""
     try:
         touched = bool(
             _require_redis().eval(
