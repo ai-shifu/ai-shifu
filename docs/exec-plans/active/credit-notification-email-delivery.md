@@ -35,6 +35,9 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
   legacy SMS rules to disabled managed email rules, with no automatic policy
   mutation on page load, an operator confirmation, and focused UI/event
   regression coverage.
+- [x] 2026-09-03: Added locale-aware email-template binding, explicit UTC
+  rendering, and a configurable sender display name for managed overseas
+  notifications, with backend and frontend regression coverage.
 - [ ] Validate with a controlled devus recipient after the database migration
   is deployed.
 
@@ -100,12 +103,34 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
   data remains for rollback compatibility, but is ignored once the managed
   `rules` list is saved. This updates the existing configuration JSON only;
   it requires no new schema migration.
+- 2026-09-03: An email rule binds an `en-US` fallback template plus optional
+  locale-specific templates. At staging, select the template for the
+  recipient account's `language`; use `en-US` when that language is absent or
+  unconfigured. Keep the template locale as required metadata for this
+  matching, rather than attempting to infer language from content. Persist
+  the selected template Code on the notification record. Render email dates
+  explicitly in UTC until recipient timezone is a supported account setting.
+  Add `SMTP_SENDER_NAME` for the display header while retaining the plain
+  `SMTP_SENDER` address for SMTP envelope delivery. This changes policy JSON
+  only and requires no schema migration.
+- 2026-09-03: `template_code` remains the backwards-compatible required
+  `en-US` fallback binding. Optional `locale_template_codes` maps an exact
+  account language to an operator-managed template code. Saving an enabled
+  rule validates every referenced template, requires the fallback to actually
+  be `en-US`, and rejects locale/code mismatches.
+- 2026-09-03: Defer operator-facing multilingual template management. The
+  current create/edit and rule-binding UI is English-only and new templates
+  are persisted as `en-US`. Retain the locale-aware delivery and policy
+  compatibility paths for existing data and a future multilingual rollout.
 
 ## Outcomes & Retrospective
 
 The implementation provides a complete overseas email notification workflow
 without a source-code dependency for production copy. SMTP delivery remains to
 be verified with a controlled devus account after the migration is deployed.
+Email rules now select the recipient account language when it has an
+operator-configured template and otherwise use the required English fallback;
+the selected template is persisted on the notification record.
 
 ## Context and Orientation
 
@@ -172,6 +197,10 @@ add a separate top-level menu. Shared translations live under `src/i18n/`.
    frontend coverage. It must create disabled email rules without template
    bindings and must not mutate or save configuration until the operator
    explicitly confirms the existing configuration save action.
+10. Support a required English fallback and optional locale-specific email
+    templates per rule, selecting the recipient account language at staging.
+    Make rendered email dates explicit UTC and configure a separate display
+    name for the SMTP From header.
 
 ## Validation and Acceptance
 

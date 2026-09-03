@@ -435,6 +435,8 @@
     "fields": {
       "emailTemplate": "เทมเพลตอีเมล",
       "enabled": "เปิดใช้กฎ",
+      "englishFallbackTemplate": "เทมเพลตภาษาอังกฤษสำรอง",
+      "localizedTemplates": "เทมเพลตภาษาท้องถิ่นเพิ่มเติม",
       "name": "ชื่อกฎ",
       "template": "เทมเพลต SMS",
       "thresholds": "เกณฑ์ยอดคงเหลือต่ำ",
@@ -447,8 +449,10 @@
     "migrateLegacySmsRulesTitle": "ย้ายกฎ SMS เดิม",
     "newRule": "กฎใหม่",
     "noConditions": "ไม่มีเงื่อนไขเพิ่มเติม",
+    "noLocalizedTemplate": "ใช้เทมเพลตภาษาอังกฤษสำรอง",
     "saveRule": "บันทึกกฎ",
     "selectEmailTemplate": "เลือกเทมเพลตอีเมล",
+    "selectEnglishFallbackTemplate": "เลือกเทมเพลตภาษาอังกฤษที่จำเป็น",
     "selectTemplate": "เลือกเทมเพลต SMS",
     "title": "กฎการแจ้งเตือน"
   },

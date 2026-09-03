@@ -435,6 +435,8 @@
     "fields": {
       "emailTemplate": "Email template",
       "enabled": "Enable rule",
+      "englishFallbackTemplate": "English fallback template",
+      "localizedTemplates": "Optional localized templates",
       "name": "Rule name",
       "template": "SMS template",
       "thresholds": "Low-balance thresholds",
@@ -447,8 +449,10 @@
     "migrateLegacySmsRulesTitle": "Migrate legacy SMS rules",
     "newRule": "New rule",
     "noConditions": "No additional conditions",
+    "noLocalizedTemplate": "Use English fallback",
     "saveRule": "Save rule",
     "selectEmailTemplate": "Select email template",
+    "selectEnglishFallbackTemplate": "Select the required English template",
     "selectTemplate": "Select SMS template",
     "title": "Notification Rules"
   },

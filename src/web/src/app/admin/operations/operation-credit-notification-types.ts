@@ -188,6 +188,8 @@ export type CreditNotificationRule = {
   trigger_event: 'credit_expiring' | 'credit_granted' | 'low_balance';
   channel: 'sms' | 'email';
   template_code: string;
+  /** Operator-managed non-English templates, keyed by their exact account locale. */
+  locale_template_codes?: Record<string, string>;
   enabled: boolean;
   conditions: {
     windows?: string[];

@@ -1376,6 +1376,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
           template_name: 'Credit granted',
           template_content: 'Credits ${credits}',
           email_html_body: '<p>Credits ${credits}</p>',
+          locale: 'en-US',
           template_status: 'active',
           sync_status: 'local',
           compatible_notification_types: ['credit_granted'],
@@ -1400,7 +1401,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     const dialog = await screen.findByRole('dialog');
     expect(
       within(dialog).getByText(
-        'module.operationsCreditNotifications.ruleManagement.fields.emailTemplate',
+        'module.operationsCreditNotifications.ruleManagement.fields.englishFallbackTemplate',
       ),
     ).toBeInTheDocument();
     fireEvent.change(

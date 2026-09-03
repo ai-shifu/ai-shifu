@@ -35,7 +35,7 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.uuid import generate_id
 from sqlalchemy import func, or_
@@ -477,6 +477,23 @@ def _normalize_notification_rules(app: Flask, value: object) -> list[dict[str, o
         template_code = str(rule.get("template_code") or "").strip()
         if enabled and not template_code:
             raise_param_error(f"rules.{index}.template_code")
+        locale_template_codes: dict[str, str] = {}
+        if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+            raw_locale_template_codes = rule.get("locale_template_codes") or {}
+            if not isinstance(raw_locale_template_codes, dict):
+                raise_param_error(f"rules.{index}.locale_template_codes")
+            for locale, localized_template_code in raw_locale_template_codes.items():
+                normalized_locale = str(locale or "").strip()
+                normalized_template_code = str(localized_template_code or "").strip()
+                if (
+                    not normalized_locale
+                    or len(normalized_locale) > 30
+                    or not normalized_template_code
+                ):
+                    raise_param_error(f"rules.{index}.locale_template_codes")
+                if normalized_locale == "en-US":
+                    raise_param_error(f"rules.{index}.locale_template_codes.en-US")
+                locale_template_codes[normalized_locale] = normalized_template_code
         conditions = _require_mapping(
             rule.get("conditions") or {}, f"rules.{index}.conditions"
         )
@@ -512,6 +529,11 @@ def _normalize_notification_rules(app: Flask, value: object) -> list[dict[str, o
                 "template_code": template_code,
                 "enabled": enabled,
                 "conditions": normalized_conditions,
+                **(
+                    {"locale_template_codes": locale_template_codes}
+                    if locale_template_codes
+                    else {}
+                ),
                 **({"legacy": True} if legacy else {}),
             }
         )
@@ -997,6 +1019,37 @@ def load_creator_email_snapshot(creator_bid: str) -> str:
     return ""
 
 
+def _creator_language(creator_bid: str) -> str:
+    creator = (
+        UserEntity.query.filter(
+            UserEntity.user_bid == _normalize_bid(creator_bid),
+            UserEntity.deleted == 0,
+        )
+        .order_by(UserEntity.id.desc())
+        .first()
+    )
+    return str(creator.language or "").strip() if creator is not None else ""
+
+
+def _email_template_code_for_creator(rule: dict[str, object], creator_bid: str) -> str:
+    """Select an operator-managed localized template, falling back to English."""
+    localized = rule.get("locale_template_codes")
+    language = _creator_language(creator_bid)
+    if isinstance(localized, dict) and language:
+        template_code = str(localized.get(language) or "").strip()
+        if template_code:
+            return template_code
+    return str(rule.get("template_code") or "").strip()
+
+
+def _notification_datetime_param(
+    app: Flask, value: datetime | None, rule: dict[str, object]
+) -> str:
+    if str(rule.get("channel") or "").strip() == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+        return to_utc_iso(value) or ""
+    return _serialize_dt(app, value)
+
+
 def _credit_grant_product_name(
     ledger: CreditLedgerEntry,
     rule: dict[str, object],
@@ -1265,7 +1318,7 @@ def list_credit_notification_email_templates(app: Flask) -> dict[str, object]:
 def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, object]:
     template_code = str(payload.get("template_code") or "").strip()
     template_name = str(payload.get("template_name") or "").strip()
-    locale = str(payload.get("locale") or "").strip()
+    locale = str(payload.get("locale") or "en-US").strip()
     subject = str(payload.get("email_subject") or "").strip()
     html_body = str(payload.get("email_html_body") or "").strip()
     status = str(
@@ -1368,9 +1421,13 @@ def save_credit_notification_email_template(
             if template is None:
                 raise_param_error("notification_template_bid")
             normalized["template_code"] = template.template_code
+            # Retain historic localized rows for a future rollout, while the
+            # current operator flow creates and edits English templates only.
+            normalized["locale"] = template.locale or "en-US"
         else:
             generated_template_code = f"EMAIL_{generate_id(app).upper()}"
             normalized["template_code"] = generated_template_code
+            normalized["locale"] = "en-US"
             template = _load_notification_template(
                 generated_template_code,
                 channel=CREDIT_NOTIFICATION_CHANNEL_EMAIL,
@@ -1866,52 +1923,85 @@ def _validate_credit_notification_policy_templates(
         channel = str(rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
         if not _coerce_bool(rule.get("enabled")):
             continue
-        template_code = str(rule.get("template_code") or "").strip()
-        if not template_code:
-            continue
-        result = _ensure_credit_notification_template_compatible(
-            app,
-            notification_type=notification_type,
-            template_code=template_code,
-            channel=channel,
-        )
-        expected_sync_status = (
-            NOTIFICATION_TEMPLATE_SYNC_STATUS_LOCAL
-            if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
-            else NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
-        )
-        if result.get("sync_status") != expected_sync_status:
-            error_code = str(result.get("error_code") or "sync_failed")
-            raise_param_error(
-                f"rules.{rule.get('rule_bid')}.template_code:{error_code}"
+        template_codes = [str(rule.get("template_code") or "").strip()]
+        localized = rule.get("locale_template_codes")
+        if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL and isinstance(localized, dict):
+            template_codes.extend(
+                str(value or "").strip() for value in localized.values()
             )
-        expected_template_status = (
-            NOTIFICATION_TEMPLATE_STATUS_ACTIVE
-            if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
-            else "AUDIT_STATE_PASS"
-        )
-        if str(result.get("template_status") or "").strip() != expected_template_status:
-            raise_param_error(
-                f"rules.{rule.get('rule_bid')}.template_code:template_not_approved"
-            )
-        if (
-            channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
-            and notification_type not in result.get("applicable_notification_types", [])
-        ):
-            raise_param_error(
-                f"rules.{rule.get('rule_bid')}.template_code:template_event_not_supported"
-            )
-        unsupported = [
-            str(item or "").strip()
-            for item in result.get("unsupported_placeholders", [])
-            if str(item or "").strip()
+        template_codes = [
+            template_code for template_code in template_codes if template_code
         ]
-        if unsupported:
-            raise_param_error(
-                "rules."
-                f"{rule.get('rule_bid')}.template_code unsupported placeholders: "
-                f"{','.join(sorted(unsupported))}"
+        if not template_codes:
+            continue
+        for template_code in template_codes:
+            result = _ensure_credit_notification_template_compatible(
+                app,
+                notification_type=notification_type,
+                template_code=template_code,
+                channel=channel,
             )
+            expected_sync_status = (
+                NOTIFICATION_TEMPLATE_SYNC_STATUS_LOCAL
+                if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+                else NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
+            )
+            if result.get("sync_status") != expected_sync_status:
+                error_code = str(result.get("error_code") or "sync_failed")
+                raise_param_error(
+                    f"rules.{rule.get('rule_bid')}.template_code:{error_code}"
+                )
+            expected_template_status = (
+                NOTIFICATION_TEMPLATE_STATUS_ACTIVE
+                if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+                else "AUDIT_STATE_PASS"
+            )
+            if (
+                str(result.get("template_status") or "").strip()
+                != expected_template_status
+            ):
+                raise_param_error(
+                    f"rules.{rule.get('rule_bid')}.template_code:template_not_approved"
+                )
+            if (
+                channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+                and notification_type
+                not in result.get("applicable_notification_types", [])
+            ):
+                raise_param_error(
+                    f"rules.{rule.get('rule_bid')}.template_code:template_event_not_supported"
+                )
+            unsupported = [
+                str(item or "").strip()
+                for item in result.get("unsupported_placeholders", [])
+                if str(item or "").strip()
+            ]
+            if unsupported:
+                raise_param_error(
+                    "rules."
+                    f"{rule.get('rule_bid')}.template_code unsupported placeholders: "
+                    f"{','.join(sorted(unsupported))}"
+                )
+            if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+                template_locale = str(result.get("locale") or "").strip()
+                if template_code == str(rule.get("template_code") or "").strip():
+                    if template_locale != "en-US":
+                        raise_param_error(
+                            f"rules.{rule.get('rule_bid')}.template_code:english_fallback_required"
+                        )
+                elif isinstance(localized, dict):
+                    configured_locale = next(
+                        (
+                            str(locale).strip()
+                            for locale, configured_code in localized.items()
+                            if str(configured_code or "").strip() == template_code
+                        ),
+                        "",
+                    )
+                    if template_locale != configured_locale:
+                        raise_param_error(
+                            f"rules.{rule.get('rule_bid')}.locale_template_codes:locale_mismatch"
+                        )
 
 
 def _estimated_sms_cost(policy: dict[str, object], count: int) -> str:
@@ -2220,6 +2310,9 @@ def _stage_notification_record(
     if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
         recipient_type = CREDIT_NOTIFICATION_RECIPIENT_TYPE_EMAIL
         recipient_snapshot = load_creator_email_snapshot(normalized_creator_bid)
+        selected_template_code = _email_template_code_for_creator(
+            resolved_rule, normalized_creator_bid
+        )
         if not recipient_snapshot:
             notification_status = CREDIT_NOTIFICATION_STATUS_SKIPPED
             error_code = "missing_email"
@@ -2251,7 +2344,11 @@ def _stage_notification_record(
         source_bid=normalized_source_bid,
         dedupe_key=normalized_dedupe_key,
         status=notification_status,
-        template_code=str(resolved_rule.get("template_code") or "").strip(),
+        template_code=(
+            selected_template_code
+            if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+            else str(resolved_rule.get("template_code") or "").strip()
+        ),
         template_params_json={
             key: str(value or "").strip() for key, value in template_params.items()
         },
@@ -2428,7 +2525,9 @@ def stage_credit_granted_notification(
                     (ledger.metadata_json or {}).get("grant_source")
                     or ledger.source_type
                 ),
-                "expires_at": _serialize_dt(app, ledger.expires_at),
+                "expires_at": _notification_datetime_param(
+                    app, ledger.expires_at, rule
+                ),
             }
             if product_name := _credit_grant_product_name(ledger, rule):
                 template_params["product"] = product_name
@@ -2838,9 +2937,8 @@ def scan_credit_expiring_notifications(
                             dedupe_key=dedupe_key,
                             template_params={
                                 "credits": _amount_text(group["available_credits"]),
-                                "expires_at": _serialize_dt(
-                                    app,
-                                    group.get("effective_to"),
+                                "expires_at": _notification_datetime_param(
+                                    app, group.get("effective_to"), rule
                                 ),
                                 "window": window,
                             },
@@ -2892,7 +2990,9 @@ def scan_credit_expiring_notifications(
                         dedupe_key=dedupe_key,
                         template_params={
                             "credits": _amount_text(bucket.available_credits),
-                            "expires_at": _serialize_dt(app, bucket.effective_to),
+                            "expires_at": _notification_datetime_param(
+                                app, bucket.effective_to, rule
+                            ),
                             "window": window,
                         },
                         metadata={
