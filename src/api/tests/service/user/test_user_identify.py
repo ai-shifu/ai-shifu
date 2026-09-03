@@ -1015,6 +1015,7 @@ def test_consume_verification_code_accepts_prefixed_pending_cache_key(
         prefix = app.config["REDIS_KEY_PREFIX_PHONE_CODE"]
         fake_redis = _FakeRedis({f"{prefix}+86{phone}": code})
         verification_codes.redis = fake_redis
+        verification_codes.distributed_lock_cache = fake_redis
 
         record = UserVerifyCode(
             phone=f"+86{phone}",
@@ -1169,7 +1170,7 @@ def test_consumed_code_tombstone_blocks_db_fallback_before_commit(
     code = "2468"
     code_key = app.config[prefix_config] + identifier
     fake_redis = _FakeRedis({code_key: code})
-    verification_codes.redis = fake_redis
+    _use_verification_cache(monkeypatch, fake_redis)
     attempt_key = verification_codes._verification_attempt_key(
         app,
         kind,
@@ -1215,6 +1216,55 @@ def test_consumed_code_tombstone_blocks_db_fallback_before_commit(
             )
 
     assert db_fallback_calls == [(kind, identifier)]
+
+
+def test_consume_verification_code_fails_when_replay_state_cannot_be_persisted(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    email = "learner@example.com"
+    code = "2468"
+    code_key = app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email
+
+    class _ReplayStateUnavailableRedis(_FakeRedis):
+        def set(
+            self,
+            key: str,
+            value: object,
+            ex: int | None = None,
+            px: int | None = None,
+            nx: bool = False,
+            xx: bool = False,
+            *_args: object,
+            **_kwargs: object,
+        ) -> object:
+            if key == verification_codes._verification_attempt_key(app, "email", email):
+                unavailable_message = "Redis unavailable"
+                raise ConnectionError(unavailable_message)
+            return super().set(key, value, ex=ex, px=px, nx=nx, xx=xx)
+
+    strict_cache = _ReplayStateUnavailableRedis({code_key: code})
+    fallback_cache = _FakeRedis({code_key: code})
+    monkeypatch.setattr(verification_codes, "distributed_lock_cache", strict_cache)
+    monkeypatch.setattr(verification_codes, "redis", fallback_cache)
+    monkeypatch.setattr(
+        verification_codes,
+        "_consume_latest_code_from_db",
+        lambda *_args, **_kwargs: "ok",
+    )
+
+    with app.app_context(), pytest.raises(ConnectionError, match="Redis unavailable"):
+        verification_codes.consume_verification_code(
+            app,
+            identifier=email,
+            code=code,
+            kind="email",
+        )
+
+    assert code_key in strict_cache.values
+    assert fallback_cache.deleted == []
 
 
 def test_email_challenge_identifier_cannot_overlap_verification_state_keys(
