@@ -15,6 +15,7 @@ from flaskr.api.tts.base import (
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -119,6 +120,15 @@ def _extract_request_id(response: Response) -> str:
 
 class ElevenLabsTTSProvider(BaseTTSProvider):
     """TTS provider using the ElevenLabs create-speech REST API."""
+
+    capabilities = ProviderCapabilities(
+        requires_model=True,
+        requires_listed_voice=True,
+        retry_on_empty_audio=True,
+        skip_non_speakable_text=True,
+        expose_only_when_configured=True,
+        restrict_models_to_allowlist=True,
+    )
 
     @property
     def provider_name(self) -> str:

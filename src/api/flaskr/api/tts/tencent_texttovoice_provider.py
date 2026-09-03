@@ -33,6 +33,7 @@ from flaskr.api.tts.base import (
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -291,6 +292,12 @@ def _split_text(text: str) -> list[str]:
 
 class TencentTextToVoiceProvider(BaseTTSProvider):
     """TTS provider using the Tencent Cloud TextToVoice API."""
+
+    capabilities = ProviderCapabilities(
+        requires_model=True,
+        retry_on_empty_audio=True,
+        skip_non_speakable_text=True,
+    )
 
     @property
     def provider_name(self) -> str:

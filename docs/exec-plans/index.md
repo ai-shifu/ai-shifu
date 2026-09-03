@@ -21,6 +21,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Ratings SQL Optimization](./active/creator-dashboard-ratings-sql-optimization.md)
 - [Creator Dashboard Request Splitting](./active/creator-dashboard-request-splitting.md)
 - [Credit Notification Email Delivery](./active/credit-notification-email-delivery.md)
+- [Gemini TTS Provider](./active/gemini-tts.md)
 - [Notification Channel Foundation](./active/notification-channel-foundation.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
 - [Existing Creator Onboarding Rollout](./active/onboarding-existing-creator-rollout.md)
@@ -30,6 +31,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
+- [TTS Provider Capabilities](./active/tts-provider-capabilities.md)
 
 ## Completed
 
