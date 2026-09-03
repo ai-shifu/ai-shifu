@@ -159,6 +159,36 @@ describe('EmailLogin', () => {
     });
   });
 
+  test('trims a pasted email before validation and submission', async () => {
+    render(<EmailLogin onLoginSuccess={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('module.auth.email'), {
+      target: { value: '  learner@example.com  ' },
+    });
+    expect(
+      screen.queryByText('module.auth.emailError'),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox'));
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.auth.sendVerificationCode',
+        }),
+      );
+    });
+
+    expect(mockSendEmailCode).toHaveBeenCalledWith(
+      {
+        email: 'learner@example.com',
+        language: 'en-US',
+      },
+      { skipErrorToast: true },
+    );
+    expect(screen.getByLabelText('module.auth.email')).toHaveValue(
+      'learner@example.com',
+    );
+  });
+
   test('allows correction after cooldown and clears the stale code', async () => {
     jest.useFakeTimers();
     try {

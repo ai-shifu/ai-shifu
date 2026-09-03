@@ -151,12 +151,16 @@ export function VerificationCodeLogin({
     previousCountdownRef.current = countdown;
   }, [countdown, isPhone, resetCaptchaChallenge]);
 
+  const normalizeIdentifier = (value: string) =>
+    isPhone ? value : value.trim();
+
   const validateIdentifier = (value: string): boolean => {
-    if (!value) {
+    const normalizedValue = normalizeIdentifier(value);
+    if (!normalizedValue) {
       setIdentifierError(identifierConfig.emptyError);
       return false;
     }
-    if (!identifierConfig.isValid(value)) {
+    if (!identifierConfig.isValid(normalizedValue)) {
       setIdentifierError(identifierConfig.invalidError);
       return false;
     }
@@ -212,15 +216,19 @@ export function VerificationCodeLogin({
   const doSendCode = async () => {
     try {
       setIsLoading(true);
+      const normalizedIdentifier = normalizeIdentifier(identifier);
+      if (!isPhone && normalizedIdentifier !== identifier) {
+        setIdentifier(normalizedIdentifier);
+      }
       let result: { rateLimited: boolean };
       if (isPhone) {
         const captchaTicket = await getCaptchaTicket();
         if (!captchaTicket) {
           return;
         }
-        result = await sendSmsCode(identifier, captchaTicket);
+        result = await sendSmsCode(normalizedIdentifier, captchaTicket);
       } else {
-        result = await sendEmailCode(identifier);
+        result = await sendEmailCode(normalizedIdentifier);
       }
 
       startCountdown();
@@ -256,6 +264,7 @@ export function VerificationCodeLogin({
 
   const handleVerifyCode = async () => {
     const code = verificationCode.trim();
+    const normalizedIdentifier = normalizeIdentifier(identifier);
     if (!code) {
       toast({
         title: t('module.auth.verificationCodeRequired'),
@@ -272,14 +281,14 @@ export function VerificationCodeLogin({
       setIsLoading(true);
       if (isPhone) {
         await loginWithSmsCode(
-          identifier,
+          normalizedIdentifier,
           code,
           i18n.language,
           referralMetadata,
         );
       } else {
         await loginWithEmailCode(
-          identifier,
+          normalizedIdentifier,
           code,
           i18n.language,
           referralMetadata,
