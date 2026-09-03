@@ -21,9 +21,11 @@ the four-tier rollout produced two follow-up incidents.
 - [x] 2026-09-03 18:00-18:40 CST (UTC+08:00): Verified the refactor on the
   dev01 and devus test environments; the TTS config payloads match the
   pre-refactor output on both.
-- [ ] Follow-up: extract the MiniMax HTTP and Volcengine timestamp
-  request-scoped finalize paths from `StreamingTTSProcessor` into strategy
-  objects selected through `request_scoped_stream`.
+- [x] 2026-09-04 10:30-12:00 CST (UTC+08:00): Extracted the MiniMax HTTP and
+  Volcengine timestamp request-scoped finalize paths from
+  `StreamingTTSProcessor` into `request_scoped_streams.py` strategy objects
+  selected through the capability-driven selectors; the processor keeps thin
+  compatibility entry points and the existing streaming suites pass unchanged.
 
 ## Surprises & Discoveries
 
@@ -45,16 +47,26 @@ the four-tier rollout produced two follow-up incidents.
   `_CONFIG_REQUIRES_*`, `SUPPORTED_TTS_PROVIDERS`, `PROVIDERS_REQUIRING_*`)
   remain as derived views for one release so external readers do not break.
   Runtime checks read the capabilities directly.
-- Request-scoped streams are named by string constants in `base.py`; the
-  strategy extraction itself is deferred to a separate change because it moves
-  two large generator methods and their subtitle bookkeeping.
+- Request-scoped streams are named by string constants in `base.py`. The
+  strategy extraction landed as a second change: `MinimaxHttpStreamStrategy`
+  and `VolcengineTimestampStreamStrategy` receive the processor and drive its
+  shared helpers, buffers, and usage context, so the processor no longer owns
+  provider-specific subtitle bookkeeping.
+- Strategies resolve `logger`, `time`, `MinimaxTTSProvider`, and the audio
+  duration/export helpers through the streaming module namespace at call time
+  so the existing suites, which patch those names there, keep working.
+- `StreamingTTSProcessor` keeps `_use_minimax_http_stream`,
+  `_use_volcengine_timestamp_stream`, and the two `_finalize_*` methods as
+  thin compatibility entry points that delegate to the strategies.
 
 ## Outcomes & Retrospective
 
 Provider behavior is declared next to the provider. `validation.py`,
 `streaming_tts.py`, `pipeline.py`, `minimax_run_tts.py`, and the registry no
-longer mention provider names. Existing behavior is unchanged, as proven by the
-golden-value parity test and the existing TTS suites.
+longer mention provider names, and `StreamingTTSProcessor` shrank from about
+2,100 to about 1,500 lines with the provider-specific request-scoped paths
+living in `request_scoped_streams.py`. Existing behavior is unchanged, as
+proven by the golden-value parity test and the existing TTS suites.
 
 ## Context and Orientation
 
@@ -82,6 +94,10 @@ capabilities, and lock behavior with a parity test.
 4. Switch `validation.py`, `streaming_tts.py`, `pipeline.py`, and
    `minimax_run_tts.py` to capability lookups.
 5. Add `tests/service/tts/test_provider_capabilities_parity.py`.
+6. Move the MiniMax HTTP and Volcengine timestamp finalize paths into
+   `request_scoped_streams.py`, select them from the capability-driven
+   selectors, keep compatibility entry points on the processor, and add
+   `tests/service/tts/test_request_scoped_streams.py`.
 
 ## Validation and Acceptance
 
