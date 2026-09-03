@@ -313,6 +313,39 @@ def test_expired_binding_is_rejected_without_extending_it(
         )
 
 
+def test_finalization_grace_does_not_extend_live_access_or_the_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis = _FakeRedis()
+    monkeypatch.setattr(store, "_redis_client", lambda: redis)
+    app = _app()
+    session = _session(expires_at_epoch=100.0)
+    store.store_live_follow_up_session(app, session=session)
+
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.load_live_follow_up_session(
+            app, session_bid="session-1", current_time=100.0
+        )
+    assert (
+        store.load_live_follow_up_session(
+            app,
+            session_bid="session-1",
+            current_time=129.9,
+            allow_finalization=True,
+        )
+        == session
+    )
+
+    store.touch_live_follow_up_session(app, session_bid="session-1")
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.load_live_follow_up_session(
+            app,
+            session_bid="session-1",
+            current_time=130.0,
+            allow_finalization=True,
+        )
+
+
 def test_non_finite_expiry_is_rejected_before_storage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

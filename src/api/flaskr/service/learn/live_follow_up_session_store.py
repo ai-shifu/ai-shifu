@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS = 45
 LIVE_FOLLOW_UP_SESSION_HEARTBEAT_INTERVAL_SECONDS = 15
+LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS = 30
 LIVE_FOLLOW_UP_MAX_TURNS = 200
 _SESSION_RECORD_VERSION = 2
 _ERROR_INVALID_SESSION = "invalid_session"
@@ -330,8 +331,9 @@ def load_live_follow_up_session(
     *,
     session_bid: str,
     current_time: float | None = None,
+    allow_finalization: bool = False,
 ) -> StoredLiveFollowUpSession:
-    """Load an active direct-session binding without extending its TTL."""
+    """Load a binding, optionally allowing bounded post-expiry finalization."""
     if not session_bid:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
     try:
@@ -348,7 +350,10 @@ def load_live_follow_up_session(
     if session.binding.session_bid != session_bid:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
     now = time.time() if current_time is None else current_time
-    if session.binding.expires_at_epoch <= now:
+    deadline = session.binding.expires_at_epoch
+    if allow_finalization:
+        deadline += LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS
+    if deadline <= now:
         raise LiveFollowUpSessionRejectedError(_ERROR_SESSION_EXPIRED)
     return session
 

@@ -532,7 +532,11 @@ def register_live_follow_up_routes(
             raise_param_error("live_follow_up")
         return _session_response(binding=binding, token=token, history=history)
 
-    def require_direct_session(session_bid: str) -> StoredLiveFollowUpSession:
+    def require_direct_session(
+        session_bid: str,
+        *,
+        allow_finalization: bool = False,
+    ) -> StoredLiveFollowUpSession:
         if not session_bid or len(session_bid) > 64:
             raise_param_error("live_follow_up_session")
         user_bid = _request_user_bid()
@@ -540,7 +544,11 @@ def register_live_follow_up_routes(
             raise_error("server.user.userNotLogin")
         origin = _require_allowed_origin(app)
         try:
-            session = load_live_follow_up_session(app, session_bid=session_bid)
+            session = load_live_follow_up_session(
+                app,
+                session_bid=session_bid,
+                allow_finalization=allow_finalization,
+            )
         except LiveFollowUpSessionStoreError:
             raise_param_error("live_follow_up_session")
         if not hmac.compare_digest(
@@ -578,7 +586,7 @@ def register_live_follow_up_routes(
         methods=["POST"],
     )
     def commit_live_follow_up_turn_api(session_bid: str) -> Response:
-        session = require_direct_session(session_bid)
+        session = require_direct_session(session_bid, allow_finalization=True)
         if len(request.get_data(cache=True)) > _MAX_DIRECT_TURN_REPORT_BYTES:
             raise_param_error("live_follow_up_turn")
         turn = _validate_turn_payload(request.get_json(silent=True) or {})
@@ -654,7 +662,7 @@ def register_live_follow_up_routes(
         methods=["POST"],
     )
     def end_live_follow_up_session_api(session_bid: str) -> Response:
-        require_direct_session(session_bid)
+        require_direct_session(session_bid, allow_finalization=True)
         payload = request.get_json(silent=True) or {}
         end_reason = str(payload.get("reason") or "ended_by_user").strip()
         if end_reason not in {

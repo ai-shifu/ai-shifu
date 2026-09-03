@@ -81,6 +81,12 @@ auditing, or another correctness-sensitive decision.
       Verification passes with 72 backend tests, 69 frontend tests,
       TypeScript, lint/format checks, architecture boundaries, repository
       harness, and the full pre-commit gate.
+- [x] 2026-09-04: Kept a 30-second absolute post-expiry finalization window
+      for turn reports and end cleanup, so an HTTP request carrying the last
+      transcript can arrive after the browser stops audio at credential expiry.
+      Heartbeat access, token lifetime, and capacity are not extended.
+      The focused backend suite now passes 74 tests, including rejection of
+      heartbeat after expiry and rejection of writes after the grace deadline.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -176,6 +182,12 @@ auditing, or another correctness-sensitive decision.
   scope at write time.
   - Why: a terminal HTTP report may complete after navigation; its durable
     history belongs to the original lesson, not the newly displayed one.
+- Decision: allow authenticated turn/end requests against the existing Redis
+  binding for up to 30 seconds after token expiry. Keep heartbeat access on
+  the original expiry and reject finalization after the absolute grace deadline,
+  even if a prior report refreshed the Redis TTL.
+  - Why: network transit means the browser's final report cannot reach the
+    backend at exactly the instant its audio session ends.
 - Decision: treat every browser turn report as untrusted. Accept only bounded
   transcript strings, bounded numeric usage fields, a bounded turn index and
   latency, and an interruption boolean. Force `billable=0` and never settle it.
