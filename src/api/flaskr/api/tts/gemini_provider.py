@@ -23,6 +23,7 @@ from flaskr.api.tts.base import (
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -237,6 +238,15 @@ def _coerce_finite_float(value: object, field_name: str) -> float:
 
 class GeminiTTSProvider(BaseTTSProvider):
     """TTS provider using the Gemini Developer API generateContent endpoint."""
+
+    capabilities = ProviderCapabilities(
+        requires_model=True,
+        requires_listed_voice=True,
+        retry_on_empty_audio=True,
+        skip_non_speakable_text=True,
+        expose_only_when_configured=True,
+        restrict_models_to_allowlist=True,
+    )
 
     @property
     def provider_name(self) -> str:

@@ -17,6 +17,7 @@ from flaskr.api.tts.base import (
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -103,6 +104,12 @@ VOLCENGINE_HTTP_EMOTIONS = [
 
 class VolcengineHttpTTSProvider(BaseTTSProvider):
     """TTS provider using Volcengine HTTP v1/tts API."""
+
+    capabilities = ProviderCapabilities(
+        segment_max_bytes=1024,
+        segment_encoding="utf-8",
+        auto_detectable=True,
+    )
 
     @property
     def provider_name(self) -> str:
