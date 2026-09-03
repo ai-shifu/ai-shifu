@@ -321,7 +321,7 @@ export default function AdminOperationCreditNotificationsPage() {
 
   const saveEmailTemplate = React.useCallback(
     async (
-      payload: Record<string, string>,
+      payload: Record<string, unknown>,
       notificationTemplateBid?: string,
     ) => {
       const action = notificationTemplateBid ? 'updated' : 'created';

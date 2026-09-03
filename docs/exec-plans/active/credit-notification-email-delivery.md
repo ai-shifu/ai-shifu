@@ -68,6 +68,26 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
   recipients, and the requested template-management workflow does not depend
   on it. Validate SMTP in devus through a disabled rule and controlled account
   instead.
+- 2026-09-03: Overseas notification configuration must use email terminology.
+  Reuse the existing channel-scoped recipient and teacher/type frequency limits,
+  keep quiet hours and balance protection, and hide SMS-only budget, unit-cost,
+  and SMS-cost dry-run controls. Do not rename the persisted legacy SMS policy
+  keys in this UI follow-up.
+- 2026-09-03: Marketing-email unsubscribe preferences are deferred. Before any
+  non-transactional campaign email is enabled, add a signed unsubscribe link,
+  email-address preference persistence, recipient resolution enforcement, and
+  operator visibility. Transactional credit notifications remain out of scope
+  for that follow-up unless product policy changes.
+- 2026-09-03: Email templates must explicitly declare their applicable credit
+  notification events in template management. Store that relationship in the
+  existing template metadata JSON, validate it against template variables on
+  save, and only offer enabled templates that include the edited rule event.
+  This improves operator clarity without a schema migration.
+- 2026-09-03: Keep paid plan and top-up grants on the existing
+  `credit_granted` event. Add `${product}` to its supported variables and
+  resolve the purchased product from the order-backed credit ledger entry.
+  Do not invent a duplicate purchase-success event just for credit delivery;
+  non-order grants continue to use templates without `${product}`.
 
 ## Outcomes & Retrospective
 
@@ -133,6 +153,9 @@ add a separate top-level menu. Shared translations live under `src/i18n/`.
 7. Seed no production copy from source. Have an operator create the initial
    three templates in devus, run dry-run/test-send, bind disabled rules, then
    explicitly enable each rule after delivery confirmation.
+8. Make the overseas configuration surface channel-aware: show recipient-based
+   frequency wording and email templates, keep quiet hours and balance
+   protection, and omit SMS-only cost and budget controls.
 
 ## Validation and Acceptance
 
