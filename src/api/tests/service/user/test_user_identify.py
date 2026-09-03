@@ -444,6 +444,7 @@ def test_send_email_code_stores_lowercase_identifier(
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils, "distributed_cache", fake_redis)
     monkeypatch.setattr(user_utils.smtplib, "SMTP", _FakeSMTP, raising=False)
     fixed_digits = iter("1234")
     monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
@@ -538,6 +539,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     lock_observations: list[bool] = []
     delivery_observations: list[bool] = []
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils, "distributed_cache", fake_redis)
     monkeypatch.setattr(
         verification_codes,
         "distributed_lock_cache",
@@ -688,6 +690,67 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     assert ip_error.value.code == 9999
 
 
+def test_prepare_verification_challenge_fails_when_attempt_reset_is_not_durable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    import flaskr.service.user.utils as user_utils
+    from flaskr.service.user import verification_codes
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    identifier = "learner@example.com"
+    fake_app = SimpleNamespace(
+        config={
+            "REDIS_KEY_PREFIX_MAIL_LIMIT": "test:mail-limit:",
+            "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail-code:",
+            "MAIL_CODE_INTERVAL": 60,
+            "MAIL_CODE_EXPIRE_TIME": 300,
+        }
+    )
+    attempt_key = verification_codes._verification_attempt_key(
+        fake_app,
+        "email",
+        identifier,
+    )
+
+    class _AttemptResetUnavailableRedis(FakeRedis):
+        def delete(self, *keys: str) -> int:
+            if attempt_key in keys:
+                unavailable_message = "Redis unavailable"
+                raise ConnectionError(unavailable_message)
+            return super().delete(*keys)
+
+    strict_cache = _AttemptResetUnavailableRedis()
+    fallback_cache = FakeRedis()
+    delivered = False
+    monkeypatch.setattr(user_utils, "distributed_cache", strict_cache)
+    monkeypatch.setattr(user_utils, "redis", fallback_cache)
+    monkeypatch.setattr(
+        user_utils,
+        "_redis_prefix",
+        lambda current_app, config_key: current_app.config[config_key],
+    )
+
+    def _deliver(_challenge: object) -> bool:
+        nonlocal delivered
+        delivered = True
+        return True
+
+    with pytest.raises(ConnectionError, match="Redis unavailable"):
+        user_utils._prepare_verification_challenge(
+            fake_app,
+            identifier,
+            None,
+            user_utils._EMAIL_CHALLENGE_POLICY,
+            _deliver,
+        )
+
+    assert not delivered
+    assert fallback_cache.get("test:mail-code:" + identifier) is None
+
+
 def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
     app: object, monkeypatch: object
 ) -> None:
@@ -717,6 +780,7 @@ def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils, "distributed_cache", fake_redis)
     monkeypatch.setattr(user_utils.smtplib, "SMTP_SSL", _FailingSMTPSSL)
     monkeypatch.setattr(
         user_utils.smtplib,
@@ -790,6 +854,7 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils, "distributed_cache", fake_redis)
     monkeypatch.setattr(user_utils.smtplib, "SMTP", _FakeSMTP, raising=False)
     fixed_digits = iter("5678")
     monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
