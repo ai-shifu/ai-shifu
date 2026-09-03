@@ -449,6 +449,100 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     });
   });
 
+  it('commits a completed reconciliation-window turn before ending the session', async () => {
+    const onTurnCommitted = jest.fn();
+    render(<Harness onTurnCommitted={onTurnCommitted} />);
+    await startAndOpen();
+    await makeReady();
+    const callbacks = mockActivateAudio.mock.calls[0][0] as {
+      onPlaybackComplete: (turnIndex: number) => void;
+    };
+
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['Question before close'],
+          outputTranscripts: ['Answer before close'],
+          audioChunks: [new ArrayBuffer(4)],
+          turnComplete: true,
+        }),
+      ),
+    );
+    act(() => callbacks.onPlaybackComplete(1));
+    fireEvent.click(screen.getByRole('button', { name: 'end' }));
+
+    await waitFor(() =>
+      expect(mockCommitTurn).toHaveBeenCalledWith(
+        'session-1',
+        expect.objectContaining({
+          user_transcript: 'Question before close',
+          played_answer_transcript: 'Answer before close',
+        }),
+      ),
+    );
+    expect(onTurnCommitted).toHaveBeenCalledWith({
+      anchorElementBid: 'element-1',
+      turnIndex: 1,
+      userTranscript: 'Question before close',
+      assistantTranscript: 'Answer before close',
+    });
+    await waitFor(() =>
+      expect(mockEndSession).toHaveBeenCalledWith('session-1', 'ended_by_user'),
+    );
+    expect(mockCommitTurn.mock.invocationCallOrder[0]).toBeLessThan(
+      mockEndSession.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('publishes only the played answer checkpoint after interruption', async () => {
+    const onTurnCommitted = jest.fn();
+    render(<Harness onTurnCommitted={onTurnCommitted} />);
+    await startAndOpen();
+    await makeReady();
+    const callbacks = mockActivateAudio.mock.calls[0][0] as {
+      onPlaybackProgress: (turnIndex: number, playedBytes: number) => void;
+    };
+
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['Please explain'],
+          outputTranscripts: ['Played portion'],
+          audioChunks: [new ArrayBuffer(4)],
+        }),
+      ),
+    );
+    act(() => callbacks.onPlaybackProgress(1, 4));
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          outputTranscripts: ['Played portion and unheard continuation'],
+          audioChunks: [new ArrayBuffer(4)],
+        }),
+      ),
+    );
+    act(() => mockSockets[0].message(serverEvent({ interrupted: true })));
+
+    await waitFor(
+      () =>
+        expect(mockCommitTurn).toHaveBeenCalledWith(
+          'session-1',
+          expect.objectContaining({
+            user_transcript: 'Please explain',
+            played_answer_transcript: 'Played portion',
+            interrupted: true,
+          }),
+        ),
+      { timeout: 1_500 },
+    );
+    expect(onTurnCommitted).toHaveBeenCalledWith({
+      anchorElementBid: 'element-1',
+      turnIndex: 1,
+      userTranscript: 'Please explain',
+      assistantTranscript: 'Played portion',
+    });
+  });
+
   it('keeps a failed history commit in the retry-only voice UI', async () => {
     mockCommitTurn.mockRejectedValueOnce(new Error('storage unavailable'));
     render(<Harness />);
