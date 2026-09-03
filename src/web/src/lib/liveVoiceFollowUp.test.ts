@@ -7,6 +7,7 @@ import {
   endLiveFollowUpSession,
   finalizeLiveFollowUpSession,
   heartbeatLiveFollowUpSession,
+  LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE,
   mergeLiveTranscript,
   parseGeminiLiveServerMessage,
   resolveGeminiLiveWebSocketUrl,
@@ -25,6 +26,10 @@ describe('live voice follow-up direct protocol helpers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('uses the stable server capacity business code', () => {
+    expect(LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE).toBe(4018);
   });
 
   it('uses the authenticated HTTP client for session lifecycle and turn reports', async () => {

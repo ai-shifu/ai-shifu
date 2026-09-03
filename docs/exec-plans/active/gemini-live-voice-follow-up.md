@@ -114,6 +114,14 @@ auditing, or another correctness-sensitive decision.
       nosniff` from every Live endpoint. The shared envelope and unrelated
       routes are unchanged; tests cover markup-like values and MIME headers.
       All 102 focused backend tests and the full pre-commit gate pass.
+- [x] 2026-09-04: Added stable business code `4018` for user/worker/global
+      capacity rejection. The client maps only that numeric code to
+      `capacity_exceeded`, stops audio, and waits 30 seconds before another
+      explicit attempt. This is backoff, not a promise that another tab's
+      credential has expired; locally known credential expiry still wins.
+      Focused verification passes with 104 backend tests, 94 frontend tests,
+      and TypeScript checking, including no analytics or microphone activity
+      from clicks during capacity backoff.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -387,6 +395,12 @@ attempt. The local credential-cooldown guard runs before that point: a disabled
 retry or re-entry while admission is still reserved starts no microphone,
 request, or analytics attempt. The existing aggregate attempt/result consumer
 and payload allowlist remain unchanged; the UI explains the retry deadline.
+An API capacity rejection uses business code `4018`, emits the existing bounded
+`capacity_exceeded` result, and applies a 30-second explicit-retry backoff when
+the occupying credential's expiry is unknown. It never infers capacity from
+localized or raw error text, retries automatically, or sends another attempt
+event while that backoff is active. Older servers without the new code retain
+the generic failure path until the server update is deployed.
 Result fires once per attempt: `success` after Gemini setup and local
 audio readiness, `failed` on a pre-connection terminal failure, or `cancelled`
 on explicit end/close/navigation before connection. Session end fires once for

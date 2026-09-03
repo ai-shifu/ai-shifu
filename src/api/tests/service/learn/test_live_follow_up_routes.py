@@ -369,8 +369,10 @@ def test_session_releases_capacity_when_token_or_redis_fails(
     assert released == [lease]
 
 
+@pytest.mark.parametrize("scope", ["user", "worker", "global"])
 def test_capacity_limit_is_bounded_before_token_mint(
     monkeypatch: pytest.MonkeyPatch,
+    scope: str,
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_session_validation(monkeypatch)
@@ -378,7 +380,7 @@ def test_capacity_limit_is_bounded_before_token_mint(
         routes,
         "acquire_live_follow_up_capacity",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            LiveFollowUpCapacityLimitError("user")
+            LiveFollowUpCapacityLimitError(scope)
         ),
     )
     monkeypatch.setattr(
@@ -386,8 +388,9 @@ def test_capacity_limit_is_bounded_before_token_mint(
         "mint_gemini_live_ephemeral_token",
         lambda **_kwargs: pytest.fail("capacity rejection reached token mint"),
     )
-    with pytest.raises(AppError):
+    with pytest.raises(AppError) as raised:
         _post_session(app, _valid_payload())
+    assert raised.value.code == 4018
 
 
 def _stub_active_direct_session(monkeypatch: pytest.MonkeyPatch) -> None:

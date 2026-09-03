@@ -9,6 +9,7 @@ import {
   encodeGeminiLiveAudioMessage,
   endLiveFollowUpSession,
   heartbeatLiveFollowUpSession,
+  LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE,
   parseGeminiLiveServerMessage,
   resolveGeminiLiveWebSocketUrl,
   type LiveFollowUpLearningMode,
@@ -45,6 +46,7 @@ import { LiveFollowUpTurnWriter } from './liveFollowUpTurnWriter';
 const SESSION_WARNING_BEFORE_EXPIRY_MS = 30_000;
 const GEMINI_LIVE_SETUP_TIMEOUT_MS = 20_000;
 const CREDENTIAL_RESERVATION_MARGIN_MS = 30_000;
+const CAPACITY_RETRY_BACKOFF_MS = 30_000;
 const MAX_INPUT_AUDIO_FRAME_BYTES = 8 * 1024;
 const MAX_BUFFERED_INPUT_AUDIO_BYTES = 8 * 1024;
 const MIN_HEARTBEAT_MS = 5_000;
@@ -1056,12 +1058,27 @@ export const useLiveVoiceFollowUp = ({
             });
           }, heartbeatMs);
         })
-        .catch(() => {
+        .catch(error => {
           if (attemptRef.current?.generation === generation) {
+            const capacityExceeded =
+              typeof error === 'object' &&
+              error !== null &&
+              'code' in error &&
+              error.code === LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE;
+            if (capacityExceeded) {
+              // Another tab/user may own admission. The expiry is unknown, so
+              // throttle explicit retries without promising available capacity.
+              admissionBlockedUntilRef.current = Math.max(
+                admissionBlockedUntilRef.current,
+                Date.now() + CAPACITY_RETRY_BACKOFF_MS,
+              );
+            }
             finishAttempt({
               reason: 'connection_error',
               keepOpen: true,
-              errorCode: 'session_create_failed',
+              errorCode: capacityExceeded
+                ? 'capacity_exceeded'
+                : 'session_create_failed',
               retryable: true,
               pendingOutcome: 'failed',
             });

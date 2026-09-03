@@ -4014,6 +4014,7 @@ export type I18nKey =
   | 'server.learn.generatedBlockNotFound'
   | 'server.learn.invalidAction'
   | 'server.learn.lessonFeedbackCommentPlaceholder'
+  | 'server.learn.liveFollowUpCapacityExceeded'
   | 'server.learn.llmStreamInterrupted'
   | 'server.learn.nextChapterButton'
   | 'server.learn.outputInProgress'

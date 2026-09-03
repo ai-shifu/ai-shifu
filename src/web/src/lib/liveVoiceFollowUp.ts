@@ -5,6 +5,7 @@ export const FOLLOW_UP_MODEL_CATALOG_API_PATH =
 export const LIVE_FOLLOW_UP_AUDIO_WORKLET_PATH =
   '/worklets/live-follow-up-audio.js' as const;
 export const GEMINI_LIVE_INPUT_MIME_TYPE = 'audio/pcm;rate=16000' as const;
+export const LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE = 4018;
 
 const GEMINI_LIVE_WEBSOCKET_ORIGIN =
   'wss://generativelanguage.googleapis.com' as const;

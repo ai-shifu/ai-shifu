@@ -52,6 +52,7 @@ jest.mock('./liveVoiceFollowUpAudio', () => ({
 }));
 
 jest.mock('@/lib/liveVoiceFollowUp', () => ({
+  LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE: 4018,
   createLiveFollowUpSession: (...args: unknown[]) => mockCreateSession(...args),
   heartbeatLiveFollowUpSession: (...args: unknown[]) =>
     mockHeartbeatSession(...args),
@@ -880,6 +881,75 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       ),
     ).toHaveLength(2);
   });
+
+  it('classifies capacity rejection and backs off explicit retries without another microphone request', async () => {
+    jest.useFakeTimers();
+    const rejectedAt = Date.now();
+    mockCreateSession.mockRejectedValueOnce(
+      Object.assign(new Error('private server message'), { code: 4018 }),
+    );
+    render(<Harness />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    });
+
+    expect(screen.getByTestId('error')).toHaveTextContent('capacity_exceeded');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+    expect(screen.getByTestId('retry-at')).toHaveTextContent(
+      String(rejectedAt + 30_000),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_result',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        outcome: 'failed',
+        error_code: 'capacity_exceeded',
+      },
+    );
+    expect(mockAudio.stop).toHaveBeenCalled();
+    const eventCount = mockTrackEvent.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(eventCount);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private server message',
+    );
+    act(() => jest.advanceTimersByTime(30_000));
+    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    });
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockActivateAudio).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([2001, '4018', undefined])(
+    'does not infer capacity from raw error text or an unknown code %s',
+    async code => {
+      mockCreateSession.mockRejectedValueOnce(
+        Object.assign(new Error('live_follow_up_capacity private error'), {
+          code,
+        }),
+      );
+      render(<Harness />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'start' }));
+      });
+      expect(screen.getByTestId('error')).toHaveTextContent(
+        'session_create_failed',
+      );
+      expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'private error',
+      );
+    },
+  );
 
   it('releases audio and ends the direct control-plane session on lesson changes', async () => {
     const { rerender } = render(<Harness learningMode='read' />);

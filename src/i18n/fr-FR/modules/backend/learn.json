@@ -10,6 +10,7 @@
     "generatedBlockNotFound": "Bloc généré introuvable",
     "invalidAction": "Action non valide",
     "lessonFeedbackCommentPlaceholder": "Facultatif : laissez votre commentaire",
+    "liveFollowUpCapacityExceeded": "La capacité des conversations vocales est atteinte. Veuillez réessayer plus tard.",
     "llmStreamInterrupted": "La connexion de génération a été interrompue. Veuillez actualiser puis réessayer.",
     "nextChapterButton": "Suivant",
     "outputInProgress": "Le contenu est encore en cours de génération. Veuillez patienter avant de réessayer.",

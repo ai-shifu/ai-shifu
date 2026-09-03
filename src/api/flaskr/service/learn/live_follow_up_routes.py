@@ -550,7 +550,7 @@ def register_live_follow_up_routes(
                 session=StoredLiveFollowUpSession(binding=binding, lease=lease),
             )
         except LiveFollowUpCapacityLimitError:
-            raise_param_error("live_follow_up_capacity")
+            raise_error("server.learn.liveFollowUpCapacityExceeded")
         except (LiveFollowUpCapacityError, LiveFollowUpSessionStoreError):
             if lease is not None:
                 with contextlib.suppress(Exception):
