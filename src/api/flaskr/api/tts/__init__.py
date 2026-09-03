@@ -8,6 +8,7 @@ This module provides integration with multiple Text-to-Speech providers:
 - Tencent (TRTC conversational SSE API)
 - Tencent TextToVoice (standard Tencent Cloud TTS API)
 - ElevenLabs (create-speech REST API)
+- Gemini (generateContent speech API)
 
 The provider can be selected per-Shifu configuration.
 """
@@ -41,6 +42,7 @@ from flaskr.api.tts.base import (
     VoiceSettings as VoiceSettings,
 )
 from flaskr.api.tts.elevenlabs_provider import ElevenLabsTTSProvider
+from flaskr.api.tts.gemini_provider import GeminiTTSProvider
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 from flaskr.api.tts.tencent_provider import TencentTTSProvider
 from flaskr.api.tts.tencent_texttovoice_provider import TencentTextToVoiceProvider
@@ -67,6 +69,7 @@ _PROVIDER_REGISTRY = {
     "tencent": TencentTTSProvider,
     "tencent_texttovoice": TencentTextToVoiceProvider,
     "elevenlabs": ElevenLabsTTSProvider,
+    "gemini": GeminiTTSProvider,
 }
 _PROVIDER_PRIORITY = (
     "minimax",
@@ -77,6 +80,7 @@ _PROVIDER_PRIORITY = (
     "tencent",
     "tencent_texttovoice",
     "elevenlabs",
+    "gemini",
 )
 _AUTO_DETECT_PROVIDER_PRIORITY = (
     "minimax",
@@ -85,8 +89,8 @@ _AUTO_DETECT_PROVIDER_PRIORITY = (
     "baidu",
     "aliyun",
 )
-_CONFIG_REQUIRES_CONFIGURED_PROVIDER = {"elevenlabs"}
-_CONFIG_REQUIRES_ALLOWED_MODEL = {"elevenlabs"}
+_CONFIG_REQUIRES_CONFIGURED_PROVIDER = {"elevenlabs", "gemini"}
+_CONFIG_REQUIRES_ALLOWED_MODEL = {"elevenlabs", "gemini"}
 
 # Provider instances (lazy initialized)
 _provider_instances: dict = {}
@@ -142,8 +146,9 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
     """Get a TTS provider instance.
 
     Args:
-        provider_name: Provider name ("minimax", "volcengine", "volcengine_http", "baidu", "aliyun", "tencent").
-                      If empty, auto-detects.
+        provider_name: Provider name ("minimax", "volcengine", "volcengine_http",
+                      "baidu", "aliyun", "tencent", "tencent_texttovoice",
+                      "elevenlabs", "gemini"). If empty, auto-detects.
 
     Returns:
         TTS provider instance

@@ -25,14 +25,16 @@ SUPPORTED_TTS_PROVIDERS = {
     "tencent",
     "tencent_texttovoice",
     "elevenlabs",
+    "gemini",
 }
 PROVIDERS_REQUIRING_MODEL = {
     "minimax",
     "volcengine",
     "tencent_texttovoice",
     "elevenlabs",
+    "gemini",
 }
-PROVIDERS_REQUIRING_LISTED_VOICE = {"elevenlabs"}
+PROVIDERS_REQUIRING_LISTED_VOICE = {"elevenlabs", "gemini"}
 
 
 @dataclass(frozen=True)
@@ -60,9 +62,14 @@ def _to_float(value: object, field_name: str) -> float:
 
 def _to_int(value: object, field_name: str) -> int:
     try:
-        return int(value)
+        number = float(value)
     except (TypeError, ValueError):
         _raise_param_error(f"Invalid {field_name}: {value!r}")
+    # Reject fractional values instead of silently truncating them: 0.5 must
+    # not pass as 0 for providers whose pitch is locked to a whole number.
+    if not math.isfinite(number) or not number.is_integer():
+        _raise_param_error(f"Invalid {field_name}: {value!r}")
+    return int(number)
 
 
 def validate_tts_settings_strict(

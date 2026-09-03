@@ -22,6 +22,7 @@ class TTSProvider(StrEnum):
     TENCENT = "tencent"
     TENCENT_TEXTTOVOICE = "tencent_texttovoice"
     ELEVENLABS = "elevenlabs"
+    GEMINI = "gemini"
 
 
 @dataclass

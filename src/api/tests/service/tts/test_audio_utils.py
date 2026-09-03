@@ -190,3 +190,41 @@ def test_export_audio_range_does_not_return_invalid_bytes_after_decode_failure(
 
     assert output == b""
     assert duration_ms == 0
+
+
+def test_pcm_duration_ms_uses_sample_geometry() -> None:
+    assert audio_utils.pcm_duration_ms(b"", sample_rate=24000) == 0
+    # 16-bit mono at 24 kHz is 48000 bytes per second.
+    assert audio_utils.pcm_duration_ms(b"\x00" * 48000, sample_rate=24000) == 1000
+    assert audio_utils.pcm_duration_ms(b"\x00" * 48000, sample_rate=16000) == 1500
+    assert (
+        audio_utils.pcm_duration_ms(b"\x00" * 48000, sample_rate=24000, channels=2)
+        == 500
+    )
+
+
+def test_export_pcm_to_mp3_returns_empty_for_empty_input() -> None:
+    assert audio_utils.export_pcm_to_mp3(b"", sample_rate=24000) == b""
+
+
+def test_export_pcm_to_mp3_requires_pydub(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", False)
+    with pytest.raises(ValueError, match="pydub is required"):
+        audio_utils.export_pcm_to_mp3(b"\x00\x00", sample_rate=24000)
+
+
+def test_export_pcm_to_mp3_produces_decodable_mp3() -> None:
+    if not audio_utils.PYDUB_AVAILABLE:
+        pytest.skip("pydub/ffmpeg not available")
+    from pydub.utils import which
+
+    if not which("ffmpeg"):
+        pytest.skip("ffmpeg not available")
+
+    pcm = b"\x00\x00" * 24000  # one second of silence, 16-bit mono
+    mp3 = audio_utils.export_pcm_to_mp3(pcm, sample_rate=24000)
+
+    assert mp3
+    duration = audio_utils.try_get_audio_duration_ms(mp3, audio_format="mp3")
+    assert duration is not None
+    assert 900 <= duration <= 1100

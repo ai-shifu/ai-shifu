@@ -367,7 +367,14 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     @pytest.mark.parametrize(
         "tts_provider",
-        ["elevenlabs", "tencent", "tencent_texttovoice", "volcengine", "minimax"],
+        [
+            "elevenlabs",
+            "gemini",
+            "tencent",
+            "tencent_texttovoice",
+            "volcengine",
+            "minimax",
+        ],
     )
     def test_non_speakable_segment_skips_configured_provider_call(
         self,
