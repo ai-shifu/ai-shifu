@@ -533,7 +533,7 @@ def register_live_follow_up_routes(
         return _session_response(binding=binding, token=token, history=history)
 
     def require_direct_session(session_bid: str) -> StoredLiveFollowUpSession:
-        if not session_bid or len(session_bid) > 64 or not is_gemini_live_enabled():
+        if not session_bid or len(session_bid) > 64:
             raise_param_error("live_follow_up_session")
         user_bid = _request_user_bid()
         if not user_bid:

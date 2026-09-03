@@ -407,6 +407,48 @@ def test_direct_session_rejects_changed_user_or_origin_before_touch(
         _post_action(app, "heartbeat")
 
 
+def test_disabled_flag_allows_an_issued_session_to_finish(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch, enabled=False)
+    _stub_active_direct_session(monkeypatch)
+    result = LiveTurnPersistenceResult(
+        ask_element_bid="ask-1",
+        answer_element_bid="answer-1",
+        history_saved=True,
+    )
+    monkeypatch.setattr(routes, "LiveFollowUpTrace", _FakeTrace)
+    monkeypatch.setattr(
+        routes,
+        "persist_live_follow_up_turn",
+        lambda *_args, **_kwargs: result,
+    )
+    monkeypatch.setattr(
+        routes,
+        "consume_live_follow_up_session",
+        lambda *_args, **_kwargs: _stored_session(),
+    )
+
+    heartbeat = _post_action(app, "heartbeat")
+    turn = _post_action(
+        app,
+        "turn",
+        {
+            "turn_index": 1,
+            "user_transcript": "Final question",
+            "played_answer_transcript": "Final answer",
+            "interrupted": False,
+            "usage_metadata": None,
+            "latency_ms": 100,
+        },
+    )
+    end = _post_action(app, "end", {"reason": "ended_by_user"})
+
+    assert heartbeat.status_code == 200
+    assert turn.status_code == 200
+    assert end.status_code == 200
+
+
 def test_turn_report_is_bounded_persisted_and_marked_non_billable_downstream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
