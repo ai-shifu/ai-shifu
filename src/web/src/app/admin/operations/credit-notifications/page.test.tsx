@@ -1971,6 +1971,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
           trigger_event: 'credit_granted',
           channel: 'email',
           template_code: '',
+          locale_template_codes: { 'fr-FR': 'EMAIL_FRENCH_GRANT' },
           enabled: false,
           conditions: {},
         },
@@ -1979,6 +1980,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     expect(policy.channel).toBe('sms');
     expect(policy.rules[0]?.channel).toBe('email');
+    expect(policy.rules[0]?.locale_template_codes).toEqual({
+      'fr-FR': 'EMAIL_FRENCH_GRANT',
+    });
   });
 
   it('requires confirmation before deleting a managed rule', async () => {

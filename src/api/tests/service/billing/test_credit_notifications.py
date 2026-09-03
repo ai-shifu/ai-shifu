@@ -923,6 +923,126 @@ def test_credit_notification_policy_allows_disabled_email_rule(
         )
 
 
+def test_disabled_email_expiring_rule_allows_historic_empty_windows(
+    credit_notifications_app: Flask,
+) -> None:
+    policy = save_credit_notification_policy(
+        credit_notifications_app,
+        {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "historic-email-expiring",
+                    "name": "Historic email expiry",
+                    "trigger_event": CREDIT_NOTIFICATION_TYPE_EXPIRING,
+                    "channel": CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                    "template_code": "",
+                    "enabled": False,
+                    "conditions": {"windows": []},
+                }
+            ],
+        },
+    )
+
+    assert policy["rules"][0]["conditions"]["windows"] == []
+
+
+def test_email_rule_rejects_template_params_missing_on_possible_event_paths(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    template = save_credit_notification_email_template(
+        app,
+        payload={
+            "template_name": "Grant with product",
+            "email_subject": "You bought ${product}",
+            "email_html_body": "<p>You bought ${product}.</p>",
+            "template_status": "active",
+            "applicable_notification_types": [CREDIT_NOTIFICATION_TYPE_GRANTED],
+        },
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "email-grant-product",
+                        "name": "Email grant product",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                        "channel": CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                        "template_code": template["template_code"],
+                        "enabled": True,
+                        "conditions": {},
+                    }
+                ],
+            },
+        )
+
+
+def test_fixed_low_balance_email_rule_rejects_estimated_days_placeholder(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    template = save_credit_notification_email_template(
+        app,
+        payload={
+            "template_name": "Low balance estimate",
+            "email_subject": "${estimated_remaining_days} days remaining",
+            "email_html_body": "<p>${estimated_remaining_days} days remaining.</p>",
+            "template_status": "active",
+            "applicable_notification_types": [CREDIT_NOTIFICATION_TYPE_LOW_BALANCE],
+        },
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "email-low-fixed-estimate",
+                        "name": "Fixed low balance estimate",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+                        "channel": CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                        "template_code": template["template_code"],
+                        "enabled": True,
+                        "conditions": {
+                            "thresholds": [{"kind": "fixed_credits", "value": "10"}]
+                        },
+                    }
+                ],
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    ("subject", "html_body"),
+    [
+        ("Broken ${credits", "<p>Credits</p>"),
+        ("Broken ${9credits}", "<p>Credits</p>"),
+        ("Credits", "<p>Broken ${credit-amount}</p>"),
+    ],
+)
+def test_email_template_rejects_invalid_or_incomplete_placeholders(
+    credit_notifications_app: Flask,
+    subject: str,
+    html_body: str,
+) -> None:
+    with pytest.raises(AppError):
+        save_credit_notification_email_template(
+            credit_notifications_app,
+            payload={
+                "template_name": "Broken template",
+                "email_subject": subject,
+                "email_html_body": html_body,
+            },
+        )
+
+
 def test_email_notification_delivery_uses_active_template_and_email_frequency(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -3126,7 +3246,7 @@ def test_low_balance_delivery_skips_template_params_missing_for_mode(
             status=CREDIT_NOTIFICATION_STATUS_PENDING,
             template_code="TPL-LOW",
             template_params_json={
-                "available_credits": "2.00",
+                "available_credits": "0.00",
                 "threshold": "5.00",
                 "threshold_kind": "fixed",
                 "trigger_days": "",

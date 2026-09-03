@@ -502,7 +502,7 @@ def _normalize_notification_rules(app: Flask, value: object) -> list[dict[str, o
             windows = _normalize_string_list(
                 conditions.get("windows", []), f"rules.{index}.conditions.windows"
             )
-            if (not windows and not legacy) or any(
+            if (not windows and not legacy and enabled) or any(
                 _parse_window_days(window) is None for window in windows
             ):
                 raise_param_error(f"rules.{index}.conditions.windows")
@@ -946,6 +946,55 @@ def _extract_template_placeholders(template_content: object) -> list[str]:
     return sorted(set(_TEMPLATE_PLACEHOLDER_PATTERN.findall(content)))
 
 
+def _has_invalid_template_placeholder(template_content: object) -> bool:
+    content = str(template_content or "")
+    offset = 0
+    while True:
+        offset = content.find("${", offset)
+        if offset < 0:
+            return False
+        match = _TEMPLATE_PLACEHOLDER_PATTERN.match(content, offset)
+        if match is None:
+            return True
+        offset = match.end()
+
+
+def _rule_guaranteed_template_placeholders(
+    notification_type: str, rule: dict[str, object]
+) -> set[str]:
+    if notification_type == CREDIT_NOTIFICATION_TYPE_EXPIRING:
+        return {"credits", "expires_at", "window"}
+    if notification_type == CREDIT_NOTIFICATION_TYPE_GRANTED:
+        # Manual and non-order grants do not have a product or expiry date.
+        return {"credits", "source"}
+    if notification_type != CREDIT_NOTIFICATION_TYPE_LOW_BALANCE:
+        return set()
+
+    fixed = {"available_credits", "threshold", "threshold_kind"}
+    estimated = {
+        "available_credits",
+        "threshold_kind",
+        "trigger_days",
+        "lookback_days",
+        "avg_daily_consumption",
+        "estimated_remaining_days",
+    }
+    conditions = rule.get("conditions")
+    thresholds = conditions.get("thresholds") if isinstance(conditions, dict) else []
+    possible = [
+        fixed
+        if str(threshold.get("kind") or "").strip() == LOW_BALANCE_THRESHOLD_KIND_FIXED
+        else estimated
+        for threshold in thresholds
+        if isinstance(threshold, dict)
+        and str(threshold.get("kind") or "").strip()
+        in {LOW_BALANCE_THRESHOLD_KIND_FIXED, LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS}
+    ]
+    if not possible:
+        return set()
+    return set.intersection(*possible)
+
+
 def _email_template_placeholders(template: NotificationTemplate) -> list[str]:
     return sorted(
         set(
@@ -1337,6 +1386,10 @@ def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, o
         or len(html_body) > EMAIL_TEMPLATE_BODY_MAX_LENGTH
     ):
         raise_param_error("email_template_content")
+    if _has_invalid_template_placeholder(subject) or _has_invalid_template_placeholder(
+        html_body
+    ):
+        raise_param_error("email_template_placeholders")
     if status not in {
         NOTIFICATION_TEMPLATE_STATUS_DRAFT,
         NOTIFICATION_TEMPLATE_STATUS_ACTIVE,
@@ -1982,6 +2035,17 @@ def _validate_credit_notification_policy_templates(
                     f"{rule.get('rule_bid')}.template_code unsupported placeholders: "
                     f"{','.join(sorted(unsupported))}"
                 )
+            if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+                unsatisfied = sorted(
+                    set(result.get("placeholders") or [])
+                    - _rule_guaranteed_template_placeholders(notification_type, rule)
+                )
+                if unsatisfied:
+                    raise_param_error(
+                        "rules."
+                        f"{rule.get('rule_bid')}.template_code:"
+                        f"template_params_unsatisfied:{','.join(unsatisfied)}"
+                    )
             if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
                 template_locale = str(result.get("locale") or "").strip()
                 if template_code == str(rule.get("template_code") or "").strip():
@@ -3832,9 +3896,12 @@ def deliver_credit_notification(
                 "notification_status": notification.status,
             }
 
-        if _should_skip_low_balance_zero_without_remaining_days(
-            notification.notification_type,
-            notification.template_params_json,
+        if (
+            notification.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+            and _should_skip_low_balance_zero_without_remaining_days(
+                notification.notification_type,
+                notification.template_params_json,
+            )
         ):
             reason = "zero_balance_missing_estimated_remaining_days"
             _finalize_notification(
@@ -4091,6 +4158,28 @@ def deliver_credit_notification(
                     "notification_status": notification.status,
                     "reason": reason,
                     "missing_template_params": missing_template_params,
+                }
+            if _should_skip_low_balance_zero_without_remaining_days(
+                notification.notification_type,
+                template_params,
+            ):
+                reason = "zero_balance_missing_estimated_remaining_days"
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                    now=now,
+                    mobile=mobile,
+                    error_code=reason,
+                    error_message=(
+                        "Low balance notification has zero available credits and "
+                        "empty estimated remaining days."
+                    ),
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                    "reason": reason,
                 }
 
         try:

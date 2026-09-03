@@ -52,7 +52,6 @@ type TemplateColumn = {
   key: string;
   header: React.ReactNode;
   className?: string;
-  stickyRight?: boolean;
 };
 
 type TemplateBindingStatus = 'loading' | 'ready' | 'unavailable';
@@ -320,7 +319,6 @@ export function CreditNotificationTemplateManagementTab({
         'module.operationsCreditNotifications.templateManagement.columns.action',
       ),
       className: 'w-24 min-w-24 whitespace-nowrap text-center',
-      stickyRight: true,
     },
   ];
   const templateTitle =
