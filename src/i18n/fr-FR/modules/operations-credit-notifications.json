@@ -524,12 +524,14 @@
     "emailDescription": "Gérez les modèles d’e-mail SMTP disponibles pour les règles de notification internationales.",
     "emailFields": {
       "htmlBody": "Corps de l’e-mail",
+      "htmlBodyPlaceholder": "Saisissez le corps de l’e-mail en anglais (HTML pris en charge)",
       "locale": "Langue",
       "name": "Nom du modèle",
       "notificationTypes": "Types de notification applicables",
       "notificationTypesHint": "Associez uniquement les événements sélectionnés. Une fois activé, ce modèle est disponible dans les règles pour ces événements uniquement.",
       "status": "Statut du modèle",
-      "subject": "Objet de l’e-mail"
+      "subject": "Objet de l’e-mail",
+      "subjectPlaceholder": "Saisissez un objet d’e-mail en anglais"
     },
     "emailLoadError": "La configuration du relais SMTP est incomplète. Les modèles d’e-mail restent gérables, mais l’envoi est indisponible.",
     "emailLocales": {
