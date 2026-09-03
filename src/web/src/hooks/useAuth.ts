@@ -229,10 +229,11 @@ export function useAuth(options: UseAuthOptions = {}) {
 
       return response;
     } catch (error: any) {
+      const credentialRejected = VERIFICATION_CREDENTIAL_ERROR_CODES.has(
+        error?.code,
+      );
       if (!loginCommitted) {
-        const failureCategory = VERIFICATION_CREDENTIAL_ERROR_CODES.has(
-          error?.code,
-        )
+        const failureCategory = credentialRejected
           ? 'credentials_rejected'
           : 'request_failed';
         trackEvent(
@@ -240,11 +241,15 @@ export function useAuth(options: UseAuthOptions = {}) {
           buildLoginResultAnalytics(method, 'failed', failureCategory),
         );
       }
-      toast({
-        title: t('module.auth.failed'),
-        description: error.message || t('common.core.networkError'),
-        variant: 'destructive',
-      });
+      if (credentialRejected) {
+        handleLoginError(error.code, error.message, method);
+      } else {
+        toast({
+          title: t('module.auth.failed'),
+          description: error.message || t('common.core.networkError'),
+          variant: 'destructive',
+        });
+      }
       options.onError?.(error);
       throw error;
     }

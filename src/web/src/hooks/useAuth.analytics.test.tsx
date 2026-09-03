@@ -297,9 +297,12 @@ describe('useAuth login analytics contract', () => {
     );
   });
 
-  it.each([1013, 1014])(
+  it.each([
+    [1013, 'module.auth.otpExpired'],
+    [1014, 'module.auth.otpInvalid'],
+  ])(
     'classifies rejected email verification error %s as rejected credentials',
-    async businessCode => {
+    async (businessCode, expectedDescription) => {
       const rejectedError = Object.assign(
         new Error('private email verification detail'),
         { code: businessCode },
@@ -330,6 +333,11 @@ describe('useAuth login analytics contract', () => {
         { skipErrorToast: true },
       );
       expect(mockToast).toHaveBeenCalledTimes(1);
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.auth.failed',
+        description: expectedDescription,
+        variant: 'destructive',
+      });
       expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
         'private email verification detail',
       );
