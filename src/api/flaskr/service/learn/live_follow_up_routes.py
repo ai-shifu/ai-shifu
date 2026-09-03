@@ -326,6 +326,21 @@ def _new_session_binding(
     )
 
 
+def _read_bounded_turn_payload() -> object:
+    if not request.is_json or (
+        request.content_length is not None
+        and request.content_length > _MAX_DIRECT_TURN_REPORT_BYTES
+    ):
+        raise_param_error("live_follow_up_turn")
+    raw = request.stream.read(_MAX_DIRECT_TURN_REPORT_BYTES + 1)
+    if len(raw) > _MAX_DIRECT_TURN_REPORT_BYTES:
+        raise_param_error("live_follow_up_turn")
+    try:
+        return json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise_param_error("live_follow_up_turn")
+
+
 def _validate_turn_payload(payload: object) -> LiveTurnPersistenceInput:
     if not isinstance(payload, dict):
         raise_param_error("live_follow_up_turn")
@@ -587,9 +602,7 @@ def register_live_follow_up_routes(
     )
     def commit_live_follow_up_turn_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid, allow_finalization=True)
-        if len(request.get_data(cache=True)) > _MAX_DIRECT_TURN_REPORT_BYTES:
-            raise_param_error("live_follow_up_turn")
-        turn = _validate_turn_payload(request.get_json(silent=True) or {})
+        turn = _validate_turn_payload(_read_bounded_turn_payload())
         touch_direct_session(session)
         try:
             reservation = reserve_live_follow_up_turn(

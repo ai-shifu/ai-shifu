@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from types import SimpleNamespace
 from typing import ClassVar
 
@@ -599,6 +600,29 @@ def test_turn_report_rejects_unbounded_or_invalid_client_data(
     )
     with pytest.raises(AppError):
         _post_action(app, "turn", payload)
+
+
+@pytest.mark.parametrize("known_length", [True, False])
+def test_oversized_turn_body_is_rejected_without_unbounded_buffering(
+    known_length: bool,
+) -> None:
+    app = Flask("bounded-live-body-test")
+    limit = routes._MAX_DIRECT_TURN_REPORT_BYTES
+    body = BytesIO(b"x" * (limit * 2))
+    environment: dict[str, object] = {
+        "wsgi.input": body,
+        "CONTENT_TYPE": "application/json",
+        "wsgi.input_terminated": True,
+    }
+    if known_length:
+        environment["CONTENT_LENGTH"] = str(limit * 2)
+    with (
+        app.test_request_context(method="POST", environ_overrides=environment),
+        pytest.raises(AppError),
+    ):
+        routes._read_bounded_turn_payload()
+
+    assert body.tell() == (0 if known_length else limit + 1)
 
 
 def test_end_consumes_binding_but_retains_capacity_until_token_expiry(
