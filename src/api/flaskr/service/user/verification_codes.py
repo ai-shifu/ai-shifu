@@ -257,7 +257,15 @@ def _consume_latest_code_from_db(
     if (latest.verify_code or "") != (code or ""):
         return "invalid"
 
-    latest.verify_code_used = 1
+    updated = UserVerifyCode.query.filter(
+        UserVerifyCode.id == latest.id,
+        UserVerifyCode.verify_code_used == 0,
+    ).update(
+        {UserVerifyCode.verify_code_used: 1},
+        synchronize_session="fetch",
+    )
+    if updated != 1:
+        return "expired"
     db.session.flush()
     return "ok"
 
@@ -356,7 +364,6 @@ def _consume_verification_code_locked(
                     code_keys=cache_keys,
                 )
                 raise_error("server.user.mailCheckError")
-            # Best-effort: mark the DB record as used if present.
             status = _consume_latest_code_from_db(
                 app,
                 kind="email",
@@ -364,12 +371,14 @@ def _consume_verification_code_locked(
                 code=code,
             )
             if status != "ok" and email_lower != email_key:
-                _consume_latest_code_from_db(
+                status = _consume_latest_code_from_db(
                     app,
                     kind="email",
                     identifier=email_lower,
                     code=code,
                 )
+            if status != "ok":
+                raise_error("server.user.mailSendExpired")
         else:
             status = _consume_latest_code_from_db(
                 app,
@@ -455,12 +464,14 @@ def _consume_verification_code_locked(
             code=code,
         )
         if status != "ok" and cached_identifier != identifier:
-            _consume_latest_code_from_db(
+            status = _consume_latest_code_from_db(
                 app,
                 kind="sms",
                 identifier=identifier,
                 code=code,
             )
+        if status != "ok":
+            raise_error("server.user.smsSendExpired")
     else:
         status = "expired"
         for lookup_identifier in lookup_identifiers:
