@@ -14,7 +14,7 @@ import logging
 import math
 import re
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import requests
 from requests import Response
@@ -95,7 +95,13 @@ _HTTP_SERVICE_UNAVAILABLE = 503
 
 
 def _load_gemini_voices() -> list[dict[str, str]]:
-    """Return the selectable voices, narrowed by the optional deployment allowlist."""
+    """Return the selectable voices, narrowed by the optional deployment allowlist.
+
+    An unset or blank ``GEMINI_TTS_VOICES_JSON`` exposes every built-in
+    prebuilt voice. A configured allowlist is fail-closed: invalid JSON or an
+    allowlist without a single built-in voice yields no voices, which marks the
+    provider as not configured instead of silently widening voice access.
+    """
     raw = get_config("GEMINI_TTS_VOICES_JSON")
     if raw in (None, "") or (isinstance(raw, str) and not raw.strip()):
         return [dict(item) for item in GEMINI_TTS_VOICES]
@@ -103,11 +109,8 @@ def _load_gemini_voices() -> list[dict[str, str]]:
     try:
         configured = parse_voice_list_json(raw, env_name="GEMINI_TTS_VOICES_JSON")
     except (TypeError, ValueError) as exc:
-        logger.warning(
-            "Ignoring invalid GEMINI_TTS_VOICES_JSON, using built-in voices: %s",
-            exc,
-        )
-        return [dict(item) for item in GEMINI_TTS_VOICES]
+        logger.warning("Ignoring invalid GEMINI_TTS_VOICES_JSON: %s", exc)
+        return []
 
     voices: list[dict[str, str]] = []
     for item in configured:
@@ -120,15 +123,34 @@ def _load_gemini_voices() -> list[dict[str, str]]:
         voices.append(item)
     if not voices:
         logger.warning(
-            "GEMINI_TTS_VOICES_JSON has no built-in voices, using built-in voices"
+            "GEMINI_TTS_VOICES_JSON contains no built-in Gemini voices; "
+            "the Gemini TTS provider is unavailable"
         )
-        return [dict(item) for item in GEMINI_TTS_VOICES]
     return voices
 
 
 def _resolve_api_base_url() -> str:
+    """Return the HTTPS base URL for the Gemini API.
+
+    The API key travels in a request header, so a cleartext endpoint is
+    rejected outright rather than leaking the key over ``http://``.
+    """
     configured = str(get_config("GEMINI_TTS_API_URL") or "").strip()
-    return (configured or GEMINI_TTS_DEFAULT_API_URL).rstrip("/")
+    base_url = (configured or GEMINI_TTS_DEFAULT_API_URL).rstrip("/")
+    parsed = urlparse(base_url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        message = "GEMINI_TTS_API_URL must be an https:// URL"
+        raise ValueError(message)
+    return base_url
+
+
+def _is_api_base_url_valid() -> bool:
+    try:
+        _resolve_api_base_url()
+    except ValueError as exc:
+        logger.warning("Ignoring invalid GEMINI_TTS_API_URL: %s", exc)
+        return False
+    return True
 
 
 def _parse_audio_mime_type(mime_type: str) -> tuple[bool, int]:
@@ -222,10 +244,14 @@ class GeminiTTSProvider(BaseTTSProvider):
         return "gemini"
 
     def is_configured(self) -> bool:
-        """Return whether the provider is switched on and has an API key."""
+        """Return whether the switch, API key, endpoint, and voices are all valid."""
         if not get_config("GEMINI_TTS_ENABLED"):
             return False
-        return bool(str(get_config("GEMINI_API_KEY") or "").strip())
+        if not str(get_config("GEMINI_API_KEY") or "").strip():
+            return False
+        if not _is_api_base_url_valid():
+            return False
+        return bool(_load_gemini_voices())
 
     def get_default_voice_settings(self) -> VoiceSettings:
         """Return a provider-level fallback using the first selectable voice."""
@@ -288,6 +314,9 @@ class GeminiTTSProvider(BaseTTSProvider):
         settings = voice_settings or self.get_default_voice_settings()
         voice_id = str(settings.voice_id or "").strip() or GEMINI_TTS_DEFAULT_VOICE
         approved_voice_ids = {voice["value"] for voice in self.get_supported_voices()}
+        if not approved_voice_ids:
+            message = "GEMINI_TTS_VOICES_JSON has no valid built-in voices"
+            raise ValueError(message)
         if voice_id not in approved_voice_ids:
             message = f"Gemini TTS voice is not approved: {voice_id}"
             raise ValueError(message)
@@ -301,9 +330,10 @@ class GeminiTTSProvider(BaseTTSProvider):
         if not math.isclose(speed, 1.0, abs_tol=1e-9):
             message = f"Gemini TTS speed is fixed at 1.0: {speed}"
             raise ValueError(message)
-        pitch = int(_coerce_finite_float(settings.pitch or 0, "pitch"))
-        if pitch != 0:
-            message = f"Gemini TTS pitch is fixed at 0: {pitch}"
+        pitch = _coerce_finite_float(settings.pitch or 0, "pitch")
+        # Compare before any integer conversion so 0.5 cannot truncate to 0.
+        if not math.isclose(pitch, 0.0, abs_tol=1e-9):
+            message = f"Gemini TTS pitch is fixed at 0: {settings.pitch!r}"
             raise ValueError(message)
 
         url = f"{_resolve_api_base_url()}/models/{quote(model_id, safe='')}:generateContent"

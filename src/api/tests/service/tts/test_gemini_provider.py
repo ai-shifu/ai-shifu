@@ -125,7 +125,7 @@ def test_load_voices_filters_allowlist_to_builtin_and_applies_labels(
     ]
 
 
-def test_load_voices_drops_unknown_names_and_falls_back_when_none_remain(
+def test_load_voices_drops_unknown_names_and_fails_closed_when_none_remain(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     _patch_config(
@@ -139,7 +139,8 @@ def test_load_voices_drops_unknown_names_and_falls_back_when_none_remain(
     assert "NotAVoice" in caplog.text
 
     _patch_config(monkeypatch, voices=json.dumps([{"value": "Nope", "label": "N"}]))
-    assert module._load_gemini_voices() == module.GEMINI_TTS_VOICES
+    assert module._load_gemini_voices() == []
+    assert module.GeminiTTSProvider().is_configured() is False
 
 
 @pytest.mark.parametrize(
@@ -152,13 +153,16 @@ def test_load_voices_drops_unknown_names_and_falls_back_when_none_remain(
         json.dumps([{"value": "Kore", "label": "A"}, {"value": "Kore", "label": "B"}]),
     ],
 )
-def test_load_voices_ignores_invalid_json(
+def test_load_voices_fails_closed_on_invalid_json(
     monkeypatch: pytest.MonkeyPatch, value: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     _patch_config(monkeypatch, voices=value)
     with caplog.at_level("WARNING"):
-        assert module._load_gemini_voices() == module.GEMINI_TTS_VOICES
+        assert module._load_gemini_voices() == []
     assert "GEMINI_TTS_VOICES_JSON" in caplog.text
+    assert module.GeminiTTSProvider().is_configured() is False
+    with pytest.raises(ValueError, match="no valid built-in voices"):
+        module.GeminiTTSProvider().synthesize("Hello")
 
 
 def test_provider_requires_enabled_flag_and_api_key(
@@ -174,6 +178,29 @@ def test_provider_requires_enabled_flag_and_api_key(
 
     _patch_config(monkeypatch, enabled=True, api_key="key")
     assert provider.is_configured() is True
+
+    _patch_config(monkeypatch, api_url="http://proxy.internal/v1beta")
+    assert provider.is_configured() is False
+
+    _patch_config(monkeypatch, api_url="https://proxy.internal/v1beta")
+    assert provider.is_configured() is True
+
+
+@pytest.mark.parametrize(
+    "api_url",
+    ["http://proxy.internal/v1beta", "proxy.internal/v1beta", "https://"],
+)
+def test_synthesize_rejects_non_https_endpoint_before_sending_key(
+    monkeypatch: pytest.MonkeyPatch, api_url: str
+) -> None:
+    _patch_config(monkeypatch, api_url=api_url)
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: pytest.fail("provider must reject before requesting"),
+    )
+    with pytest.raises(ValueError, match="https://"):
+        module.GeminiTTSProvider().synthesize("Hello")
 
 
 def test_provider_config_exposes_models_locked_ranges_and_voices(
@@ -517,6 +544,22 @@ def test_synthesize_rejects_non_json_and_non_object_bodies(
             "Hello",
             "Kore",
             "gemini-2.5-flash-preview-tts",
+            1.0,
+            0.5,
+            "pitch is fixed at 0",
+        ),
+        (
+            "Hello",
+            "Kore",
+            "gemini-2.5-flash-preview-tts",
+            1.0,
+            -0.5,
+            "pitch is fixed at 0",
+        ),
+        (
+            "Hello",
+            "Kore",
+            "gemini-2.5-flash-preview-tts",
             float("nan"),
             0,
             "Invalid Gemini TTS speed",
@@ -538,7 +581,7 @@ def test_synthesize_rejects_invalid_direct_settings(
     voice_id: str,
     model: str,
     speed: float,
-    pitch: int,
+    pitch: float,
     message: str,
 ) -> None:
     _patch_config(monkeypatch)
@@ -607,11 +650,22 @@ def test_strict_validation_accepts_locked_settings_and_rejects_others(
         {**valid, "speed": 0.9},
         {**valid, "speed": float("inf")},
         {**valid, "pitch": 1},
+        {**valid, "pitch": 0.5},
+        {**valid, "pitch": -0.5},
+        {**valid, "pitch": "0.5"},
         {**valid, "emotion": "happy"},
     ]
     for values in invalid_settings:
         with pytest.raises(AppError):
             validate_tts_settings_strict(provider="gemini", **values)
+
+    for integral_pitch in (0, 0.0, "0"):
+        assert (
+            validate_tts_settings_strict(
+                provider="gemini", **{**valid, "pitch": integral_pitch}
+            ).pitch
+            == 0
+        )
 
 
 def test_config_endpoint_hides_disabled_provider_and_exposes_allowlist(
@@ -630,6 +684,9 @@ def test_config_endpoint_hides_disabled_provider_and_exposes_allowlist(
     )
 
     _patch_config(monkeypatch, enabled=False)
+    assert tts_api.get_all_provider_configs() == {"providers": [], "model_options": []}
+
+    _patch_config(monkeypatch, voices="not-json")
     assert tts_api.get_all_provider_configs() == {"providers": [], "model_options": []}
 
     _patch_config(monkeypatch)
