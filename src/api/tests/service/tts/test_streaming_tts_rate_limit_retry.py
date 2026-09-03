@@ -126,3 +126,25 @@ def test_elevenlabs_http_429_uses_shared_retry(monkeypatch: object) -> None:
     assert result is success
     assert len(calls) == 2
     assert len(sleeps) == 1
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Gemini TTS HTTP 429 rate limit: quota exceeded",
+        "Gemini TTS HTTP 503 overloaded (rate limit): The model is overloaded",
+    ],
+)
+def test_gemini_http_429_and_503_use_shared_retry(
+    monkeypatch: object, message: str
+) -> None:
+    success = types.SimpleNamespace(audio_data=b"ok")
+    result, calls, sleeps = _run_retry(
+        monkeypatch,
+        [ValueError(message), success],
+        tts_provider="gemini",
+    )
+
+    assert result is success
+    assert len(calls) == 2
+    assert len(sleeps) == 1
