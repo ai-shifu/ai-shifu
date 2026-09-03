@@ -29,6 +29,11 @@ shared segmentation, SSE, caching, storage, and metering paths as MP3.
   From the China test host Google is unreachable, so `GEMINI_TTS_API_URL`
   points at the internal Google AI proxy (`.../googleai/v1beta`), which
   returned the same PCM payload in about 9 seconds.
+- [x] 2026-09-03: Rolled out to US production after #2751 and #2752 merged:
+  `credit_usage_rates` rows for both models (15x and 30x), the runtime
+  ConfigMap from deploy-config #15, and an API rollout restart. The config
+  payload lists both Gemini tiers with their credit multipliers and a live
+  synthesis from a production pod returned decodable MP3.
 
 ## Surprises & Discoveries
 
