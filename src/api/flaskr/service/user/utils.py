@@ -521,7 +521,10 @@ def send_sms_code(
             phone,
             ip,
             _SMS_CHALLENGE_POLICY,
-            lambda prepared: bool(send_sms_code_ali(app, phone, prepared.code)),
+            lambda prepared: bool(
+                send_sms_code_ali(app, phone, prepared.code)
+                or app.config.get("UNIVERSAL_VERIFICATION_CODE")
+            ),
         )
         return {"expire_in": challenge.expire_in}
 
