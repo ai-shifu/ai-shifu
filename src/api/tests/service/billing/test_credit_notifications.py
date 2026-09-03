@@ -869,14 +869,12 @@ def test_email_notification_delivery_uses_active_template_and_email_frequency(
         )
         dao.db.session.commit()
 
-    save_credit_notification_email_template(
+    email_template = save_credit_notification_email_template(
         app,
         payload={
-            "template_code": "EMAIL-GRANT",
             "template_name": "Credit granted",
             "locale": "en-US",
             "email_subject": "You received ${credits} credits",
-            "template_content": "Your credit balance is ${credits}.",
             "email_html_body": "<p>Your credit balance is ${credits}.</p>",
             "template_status": "active",
         },
@@ -891,7 +889,7 @@ def test_email_notification_delivery_uses_active_template_and_email_frequency(
                     "name": "Email credit granted",
                     "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
                     "channel": CREDIT_NOTIFICATION_CHANNEL_EMAIL,
-                    "template_code": "EMAIL-GRANT",
+                    "template_code": str(email_template["template_code"]),
                     "enabled": True,
                     "conditions": {},
                 }
@@ -970,6 +968,38 @@ def test_email_notification_delivery_uses_active_template_and_email_frequency(
         assert first.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
         assert first.recipient_snapshot == "teacher@example.com"
         assert second.error_code == "frequency_mobile_daily"
+
+
+def test_email_template_uses_one_body_and_preserves_generated_code_on_update(
+    credit_notifications_app: Flask,
+) -> None:
+    created = save_credit_notification_email_template(
+        credit_notifications_app,
+        payload={
+            "template_name": "Credit update",
+            "locale": "en-US",
+            "email_subject": "Your credits changed",
+            "email_html_body": "<p>Hello <strong>there</strong>.</p><p>Balance: ${credits}</p>",
+            "template_status": "draft",
+        },
+    )
+
+    updated = save_credit_notification_email_template(
+        credit_notifications_app,
+        notification_template_bid=str(created["notification_template_bid"]),
+        payload={
+            "template_name": "Credit update",
+            "locale": "en-US",
+            "email_subject": "Your credits changed",
+            "email_html_body": "<p>Your balance: ${credits}</p>",
+            "template_status": "active",
+        },
+    )
+
+    assert str(created["template_code"]).startswith("EMAIL_")
+    assert updated["template_code"] == created["template_code"]
+    assert updated["template_content"] == "Your balance: ${credits}"
+    assert updated["email_html_body"] == "<p>Your balance: ${credits}</p>"
 
 
 def test_credit_notification_policy_accepts_estimated_days_threshold(

@@ -500,9 +500,15 @@
       "htmlBody": "邮件正文",
       "locale": "语言",
       "name": "模板名称",
-      "plainBody": "纯文本正文",
       "status": "模板状态",
       "subject": "邮件主题"
+    },
+    "emailLocales": {
+      "arSA": "阿拉伯语",
+      "enUS": "英语（美国）",
+      "frFR": "法语",
+      "thTH": "泰语",
+      "zhCN": "中文（简体）"
     },
     "emailSaveError": "邮件模板保存失败，请稍后重试。",
     "emailStatus": {
@@ -510,6 +516,16 @@
       "draft": "草稿"
     },
     "emailTitle": "邮件模板",
+    "emailVariables": {
+      "availableCredits": "可用积分",
+      "collapse": "收起变量",
+      "credits": "到账积分",
+      "date": "有效期",
+      "estimatedRemainingDays": "预计可用天数",
+      "expand": "展开变量",
+      "expiresAt": "积分有效期",
+      "product": "套餐名称"
+    },
     "empty": "没有符合当前筛选条件的模板。",
     "loadError": "无法加载阿里云模板列表；如有本地缓存，将继续展示缓存模板。",
     "loading": "正在加载模板...",
