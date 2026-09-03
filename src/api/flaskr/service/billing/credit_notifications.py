@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from html import escape as escape_html
+from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -113,6 +114,58 @@ _SUPPORTED_NOTIFICATION_CHANNELS = {
 }
 _TEMPLATE_PLACEHOLDER_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _EMAIL_RECIPIENT_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class _EmailPlainTextParser(HTMLParser):
+    """Convert an operator-authored email body to a text email alternative."""
+
+    _BLOCK_TAGS = frozenset(
+        {
+            "address",
+            "article",
+            "br",
+            "div",
+            "footer",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "header",
+            "li",
+            "p",
+            "section",
+            "tr",
+        }
+    )
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        del attrs
+        if tag.lower() in self._BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in self._BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
+
+
+def _email_html_to_plain_text(value: str) -> str:
+    """Build the SMTP text alternative from the single managed email body."""
+    parser = _EmailPlainTextParser()
+    parser.feed(value)
+    parser.close()
+    lines = (" ".join(line.split()) for line in "".join(parser.parts).splitlines())
+    return "\n".join(line for line in lines if line)
+
+
 CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
     CREDIT_NOTIFICATION_TYPE_GRANTED: ("credits", "source", "expires_at"),
     CREDIT_NOTIFICATION_TYPE_EXPIRING: ("credits", "expires_at", "window"),
@@ -1119,35 +1172,34 @@ def list_credit_notification_email_templates(app: Flask) -> dict[str, object]:
         }
 
 
-def _normalize_email_template_payload(
-    payload: dict[str, object], *, require_template_code: bool
-) -> dict[str, object]:
+def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, object]:
     template_code = str(payload.get("template_code") or "").strip()
     template_name = str(payload.get("template_name") or "").strip()
     locale = str(payload.get("locale") or "").strip()
     subject = str(payload.get("email_subject") or "").strip()
-    plain_body = str(payload.get("template_content") or "").strip()
     html_body = str(payload.get("email_html_body") or "").strip()
     status = str(
         payload.get("template_status") or NOTIFICATION_TEMPLATE_STATUS_DRAFT
     ).strip()
-    if (require_template_code and not template_code) or len(template_code) > 128:
+    if len(template_code) > 128:
         raise_param_error("template_code")
     if not template_name or len(template_name) > 255:
         raise_param_error("template_name")
     if not locale or len(locale) > 16:
         raise_param_error("locale")
-    if not subject or not plain_body or not html_body:
+    if not subject or not html_body:
         raise_param_error("email_template_content")
     if status not in {
         NOTIFICATION_TEMPLATE_STATUS_DRAFT,
         NOTIFICATION_TEMPLATE_STATUS_ACTIVE,
     }:
         raise_param_error("template_status")
+    plain_body = _email_html_to_plain_text(html_body)
+    if not plain_body:
+        raise_param_error("email_template_content")
     placeholders = sorted(
         set(
             _extract_template_placeholders(subject)
-            + _extract_template_placeholders(plain_body)
             + _extract_template_placeholders(html_body)
         )
     )
@@ -1172,9 +1224,7 @@ def save_credit_notification_email_template(
 ) -> dict[str, object]:
     """Create or update one operator-managed SMTP email template."""
     normalized_bid = _normalize_bid(notification_template_bid)
-    normalized = _normalize_email_template_payload(
-        payload, require_template_code=bool(normalized_bid)
-    )
+    normalized = _normalize_email_template_payload(payload)
     with _maybe_app_context(app), unit_of_work():
         if normalized_bid:
             template = (
@@ -1190,6 +1240,7 @@ def save_credit_notification_email_template(
             )
             if template is None:
                 raise_param_error("notification_template_bid")
+            normalized["template_code"] = template.template_code
         else:
             generated_template_code = f"EMAIL_{generate_id(app).upper()}"
             normalized["template_code"] = generated_template_code

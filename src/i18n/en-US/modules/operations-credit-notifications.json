@@ -500,9 +500,15 @@
       "htmlBody": "Email body",
       "locale": "Language",
       "name": "Template name",
-      "plainBody": "Plain-text body",
       "status": "Template status",
       "subject": "Email subject"
+    },
+    "emailLocales": {
+      "arSA": "Arabic",
+      "enUS": "English (United States)",
+      "frFR": "French",
+      "thTH": "Thai",
+      "zhCN": "Chinese (Simplified)"
     },
     "emailSaveError": "The email template could not be saved. Please try again.",
     "emailStatus": {
@@ -510,6 +516,16 @@
       "draft": "Draft"
     },
     "emailTitle": "Email templates",
+    "emailVariables": {
+      "availableCredits": "Available credits",
+      "collapse": "Collapse variables",
+      "credits": "Granted credits",
+      "date": "Validity date",
+      "estimatedRemainingDays": "Estimated remaining days",
+      "expand": "Expand variables",
+      "expiresAt": "Credit expiry date",
+      "product": "Plan name"
+    },
     "empty": "No templates match the current filters.",
     "loadError": "The Alibaba Cloud template list could not be loaded. Local cached templates are shown when available.",
     "loading": "Loading templates...",

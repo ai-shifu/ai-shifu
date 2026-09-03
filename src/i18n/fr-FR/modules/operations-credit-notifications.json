@@ -500,9 +500,15 @@
       "htmlBody": "Corps de l’e-mail",
       "locale": "Langue",
       "name": "Nom du modèle",
-      "plainBody": "Corps en texte brut",
       "status": "Statut du modèle",
       "subject": "Objet de l’e-mail"
+    },
+    "emailLocales": {
+      "arSA": "Arabe",
+      "enUS": "Anglais (États-Unis)",
+      "frFR": "Français",
+      "thTH": "Thaï",
+      "zhCN": "Chinois simplifié"
     },
     "emailSaveError": "Le modèle d’e-mail n’a pas pu être enregistré. Réessayez plus tard.",
     "emailStatus": {
@@ -510,6 +516,16 @@
       "draft": "Brouillon"
     },
     "emailTitle": "Modèles d’e-mail",
+    "emailVariables": {
+      "availableCredits": "Crédits disponibles",
+      "collapse": "Réduire les variables",
+      "credits": "Crédits attribués",
+      "date": "Date de validité",
+      "estimatedRemainingDays": "Jours restants estimés",
+      "expand": "Développer les variables",
+      "expiresAt": "Date d’expiration des crédits",
+      "product": "Nom du forfait"
+    },
     "empty": "Aucun modèle ne correspond aux filtres.",
     "loadError": "La liste Alibaba Cloud n’a pas pu être chargée. Les modèles en cache restent affichés.",
     "loading": "Chargement des modèles...",

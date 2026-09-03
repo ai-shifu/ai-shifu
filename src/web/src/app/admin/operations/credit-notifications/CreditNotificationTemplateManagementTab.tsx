@@ -1,4 +1,4 @@
-import { Plus, RefreshCw, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, RefreshCw, Search } from 'lucide-react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
@@ -75,20 +75,64 @@ const TEMPLATE_TYPE_KEYS: Record<string, string> = {
 };
 
 const EMAIL_LOCALE_OPTIONS = [
-  { value: 'en-US', label: '英语（美国）' },
-  { value: 'zh-CN', label: '中文（简体）' },
-  { value: 'fr-FR', label: '法语' },
-  { value: 'th-TH', label: '泰语' },
-  { value: 'ar-SA', label: '阿拉伯语' },
+  {
+    value: 'en-US',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailLocales.enUS',
+  },
+  {
+    value: 'zh-CN',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailLocales.zhCN',
+  },
+  {
+    value: 'fr-FR',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailLocales.frFR',
+  },
+  {
+    value: 'th-TH',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailLocales.thTH',
+  },
+  {
+    value: 'ar-SA',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailLocales.arSA',
+  },
 ];
 
 const EMAIL_TEMPLATE_VARIABLES = [
-  { token: '${product}', label: '套餐名称' },
-  { token: '${date}', label: '有效期' },
-  { token: '${credits}', label: '到账积分' },
-  { token: '${expires_at}', label: '积分有效期' },
-  { token: '${available_credits}', label: '可用积分' },
-  { token: '${estimated_remaining_days}', label: '预计可用天数' },
+  {
+    token: '${product}',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailVariables.product',
+  },
+  {
+    token: '${date}',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailVariables.date',
+  },
+  {
+    token: '${credits}',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailVariables.credits',
+  },
+  {
+    token: '${expires_at}',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailVariables.expiresAt',
+  },
+  {
+    token: '${available_credits}',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailVariables.availableCredits',
+  },
+  {
+    token: '${estimated_remaining_days}',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailVariables.estimatedRemainingDays',
+  },
 ];
 
 export function CreditNotificationTemplateManagementTab({
@@ -139,6 +183,8 @@ export function CreditNotificationTemplateManagementTab({
   const [emailTemplateStatus, setEmailTemplateStatus] = React.useState('draft');
   const [emailTemplateLocale, setEmailTemplateLocale] = React.useState('en-US');
   const [savingEmailTemplate, setSavingEmailTemplate] = React.useState(false);
+  const [emailVariablesExpanded, setEmailVariablesExpanded] =
+    React.useState(true);
   const activeEmailFieldRef = React.useRef<
     HTMLInputElement | HTMLTextAreaElement | null
   >(null);
@@ -169,6 +215,7 @@ export function CreditNotificationTemplateManagementTab({
       setEditingTemplate(template);
       setEmailTemplateStatus(template.template_status || 'draft');
       setEmailTemplateLocale(template.locale || 'en-US');
+      setEmailVariablesExpanded(true);
     },
     [],
   );
@@ -279,32 +326,13 @@ export function CreditNotificationTemplateManagementTab({
     contactMode === 'email'
       ? t('module.operationsCreditNotifications.templateManagement.reload')
       : t('module.operationsCreditNotifications.templateManagement.refresh');
-  const emailInputFields = [
-    {
-      name: 'template_name',
-      label: t(
-        'module.operationsCreditNotifications.templateManagement.emailFields.name',
-      ),
-      value: editingTemplate?.template_name || '',
-    },
-  ];
-  const emailBodyFields = [
-    {
-      name: 'template_content',
-      label: t(
-        'module.operationsCreditNotifications.templateManagement.emailFields.plainBody',
-      ),
-      value: editingTemplate?.template_content || '',
-    },
-    {
-      name: 'email_html_body',
-      label: t(
-        'module.operationsCreditNotifications.templateManagement.emailFields.htmlBody',
-      ),
-      value: editingTemplate?.email_html_body || '',
-    },
-  ];
-
+  const emailVariablesToggleLabel = emailVariablesExpanded
+    ? t(
+        'module.operationsCreditNotifications.templateManagement.emailVariables.collapse',
+      )
+    : t(
+        'module.operationsCreditNotifications.templateManagement.emailVariables.expand',
+      );
   return (
     <div className='space-y-4 pb-6'>
       <div className='flex flex-wrap items-end justify-between gap-3'>
@@ -690,22 +718,25 @@ export function CreditNotificationTemplateManagementTab({
               }}
             >
               <div className='space-y-4 overflow-y-auto pe-1'>
-                <div className='grid gap-4 sm:grid-cols-2'>
-                  {emailInputFields.map(({ name, label, value }) => (
-                    <div key={name}>
-                      <Label htmlFor={`email-template-${name}`}>{label}</Label>
-                      <Input
-                        id={`email-template-${name}`}
-                        name={name}
-                        defaultValue={value}
-                        onFocus={event => {
-                          activeEmailFieldRef.current = event.currentTarget;
-                        }}
-                        required
-                      />
-                    </div>
-                  ))}
-                  <div>
+                <div className='grid gap-x-4 gap-y-5 sm:grid-cols-2'>
+                  <div className='space-y-2'>
+                    <Label htmlFor='email-template-template-name'>
+                      {t(
+                        'module.operationsCreditNotifications.templateManagement.emailFields.name',
+                      )}
+                    </Label>
+                    <Input
+                      id='email-template-template-name'
+                      name='template_name'
+                      className='h-10'
+                      defaultValue={editingTemplate.template_name || ''}
+                      onFocus={event => {
+                        activeEmailFieldRef.current = event.currentTarget;
+                      }}
+                      required
+                    />
+                  </div>
+                  <div className='space-y-2'>
                     <Label htmlFor='email-template-locale'>
                       {t(
                         'module.operationsCreditNotifications.templateManagement.emailFields.locale',
@@ -717,7 +748,7 @@ export function CreditNotificationTemplateManagementTab({
                     >
                       <SelectTrigger
                         id='email-template-locale'
-                        className='mt-2 bg-white'
+                        className='bg-white'
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -727,13 +758,13 @@ export function CreditNotificationTemplateManagementTab({
                             key={option.value}
                             value={option.value}
                           >
-                            {option.label}
+                            {t(option.labelKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+                  <div className='space-y-2'>
                     <Label htmlFor='email-template-status'>
                       {t(
                         'module.operationsCreditNotifications.templateManagement.emailFields.status',
@@ -745,7 +776,7 @@ export function CreditNotificationTemplateManagementTab({
                     >
                       <SelectTrigger
                         id='email-template-status'
-                        className='mt-2 bg-white'
+                        className='bg-white'
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -763,7 +794,7 @@ export function CreditNotificationTemplateManagementTab({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+                  <div className='space-y-2'>
                     <Label htmlFor='email-template-subject'>
                       {t(
                         'module.operationsCreditNotifications.templateManagement.emailFields.subject',
@@ -772,6 +803,7 @@ export function CreditNotificationTemplateManagementTab({
                     <Input
                       id='email-template-subject'
                       name='email_subject'
+                      className='h-10'
                       defaultValue={editingTemplate.email_subject || ''}
                       onFocus={event => {
                         activeEmailFieldRef.current = event.currentTarget;
@@ -781,58 +813,94 @@ export function CreditNotificationTemplateManagementTab({
                   </div>
                 </div>
                 <div className='rounded-md border border-border bg-muted/30 p-3'>
-                  <p className='text-sm font-medium'>
-                    {t(
-                      'module.operationsCreditNotifications.templateManagement.detail.variables',
-                    )}
-                  </p>
-                  <div className='mt-2 flex flex-wrap gap-2'>
-                    {EMAIL_TEMPLATE_VARIABLES.map(variable => (
-                      <Button
-                        key={variable.token}
-                        type='button'
-                        variant='outline'
-                        size='sm'
-                        onClick={() => {
-                          const field = activeEmailFieldRef.current;
-                          if (!field) return;
-                          const start =
-                            field.selectionStart ?? field.value.length;
-                          const end = field.selectionEnd ?? start;
-                          field.value =
-                            field.value.slice(0, start) +
-                            variable.token +
-                            field.value.slice(end);
-                          field.focus();
-                          field.setSelectionRange(
-                            start + variable.token.length,
-                            start + variable.token.length,
-                          );
-                        }}
-                      >
-                        <span>{variable.token}</span>
-                        <span className='ms-1 text-muted-foreground'>
-                          {variable.label}
-                        </span>
-                      </Button>
-                    ))}
+                  <div className='flex items-center justify-between gap-3'>
+                    <p className='text-sm font-medium'>
+                      {t(
+                        'module.operationsCreditNotifications.templateManagement.detail.variables',
+                      )}
+                    </p>
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon'
+                            className='h-7 w-7'
+                            aria-expanded={emailVariablesExpanded}
+                            aria-label={emailVariablesToggleLabel}
+                            onClick={() =>
+                              setEmailVariablesExpanded(expanded => !expanded)
+                            }
+                          >
+                            {emailVariablesExpanded ? (
+                              <ChevronUp className='h-4 w-4' />
+                            ) : (
+                              <ChevronDown className='h-4 w-4' />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {emailVariablesToggleLabel}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
+                  {emailVariablesExpanded ? (
+                    <div className='mt-2 flex flex-wrap gap-2'>
+                      {EMAIL_TEMPLATE_VARIABLES.map(variable => (
+                        <Button
+                          key={variable.token}
+                          type='button'
+                          variant='outline'
+                          size='sm'
+                          onClick={() => {
+                            const field = activeEmailFieldRef.current;
+                            if (!field) return;
+                            const start =
+                              field.selectionStart ?? field.value.length;
+                            const end = field.selectionEnd ?? start;
+                            field.value =
+                              field.value.slice(0, start) +
+                              variable.token +
+                              field.value.slice(end);
+                            field.focus();
+                            field.setSelectionRange(
+                              start + variable.token.length,
+                              start + variable.token.length,
+                            );
+                          }}
+                        >
+                          <span>{variable.token}</span>
+                          <span className='ms-1 text-muted-foreground'>
+                            {t(variable.labelKey)}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                {emailBodyFields.map(({ name, label, value }) => (
-                  <div key={name}>
-                    <Label htmlFor={`email-template-${name}`}>{label}</Label>
-                    <Textarea
-                      id={`email-template-${name}`}
-                      name={name}
-                      defaultValue={value}
-                      onFocus={event => {
-                        activeEmailFieldRef.current = event.currentTarget;
-                      }}
-                      required
-                      rows={6}
-                    />
-                  </div>
-                ))}
+                <div className='space-y-2'>
+                  <Label htmlFor='email-template-body'>
+                    {t(
+                      'module.operationsCreditNotifications.templateManagement.emailFields.htmlBody',
+                    )}
+                  </Label>
+                  <Textarea
+                    id='email-template-body'
+                    name='email_html_body'
+                    defaultValue={
+                      editingTemplate.email_html_body ||
+                      editingTemplate.template_content ||
+                      ''
+                    }
+                    onFocus={event => {
+                      activeEmailFieldRef.current = event.currentTarget;
+                    }}
+                    required
+                    rows={8}
+                  />
+                </div>
               </div>
               <DialogFooter className='mt-4 border-t border-border pt-4'>
                 <Button
