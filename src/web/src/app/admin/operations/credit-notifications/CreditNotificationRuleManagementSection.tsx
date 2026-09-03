@@ -335,7 +335,6 @@ export function CreditNotificationRuleManagementSection({
           {editingRule ? (
             <RuleEditor
               rule={editingRule}
-              contactMode={contactMode}
               templateOptions={templateOptions}
               resolveTypeLabel={resolveTypeLabel}
               onChange={setEditingRule}
@@ -396,13 +395,11 @@ export function CreditNotificationRuleManagementSection({
 }
 
 function RuleEditor({
-  contactMode,
   rule,
   templateOptions,
   resolveTypeLabel,
   onChange,
 }: {
-  contactMode: CreditNotificationRule['channel'];
   rule: CreditNotificationRule;
   templateOptions: AdminOperationCreditNotificationTemplateOption[];
   resolveTypeLabel: (value: string) => string;
@@ -527,7 +524,6 @@ function RuleEditor({
         </Select>
       </div>
       <RuleTemplateSelector
-        contactMode={contactMode}
         rule={rule}
         templateOptions={templateOptions}
         onChange={template_code => update({ template_code })}
@@ -697,12 +693,10 @@ function RuleEditor({
 }
 
 function RuleTemplateSelector({
-  contactMode,
   rule,
   templateOptions,
   onChange,
 }: {
-  contactMode: CreditNotificationRule['channel'];
   rule: CreditNotificationRule;
   templateOptions: AdminOperationCreditNotificationTemplateOption[];
   onChange: (templateCode: string) => void;
@@ -710,7 +704,7 @@ function RuleTemplateSelector({
   const { t } = useTranslation();
   const compatibleTemplates = templateOptions.filter(option => {
     const matchesChannel =
-      contactMode === 'email'
+      rule.channel === 'email'
         ? option.channel === 'email' &&
           option.provider === 'smtp' &&
           option.sync_status === 'local' &&
