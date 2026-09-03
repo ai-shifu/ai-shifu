@@ -29,7 +29,10 @@ from flaskr.api.tts import (
     synthesize_text,
 )
 from flaskr.api.tts.base import REQUEST_SCOPED_STREAM_VOLCENGINE_TIMESTAMP
-from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
+
+# Resolved by the request-scoped strategies through this module namespace so
+# existing tests can keep patching ``streaming_tts.MinimaxTTSProvider``.
+from flaskr.api.tts.minimax_provider import MinimaxTTSProvider  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
 from flaskr.dao import cleanup_session_after
 from flaskr.service.learn.learn_dtos import (
@@ -52,9 +55,9 @@ from flaskr.service.tts.audio_record_utils import (
 )
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
-    export_audio_range_best_effort,
+    export_audio_range_best_effort,  # noqa: F401 - test seam used by request_scoped_streams
     get_audio_duration_ms,
-    try_get_audio_duration_ms,
+    try_get_audio_duration_ms,  # noqa: F401 - test seam used by request_scoped_streams
 )
 from flaskr.service.tts.boundary_strategies import find_boundary_end
 from flaskr.service.tts.minimax_run_tts import (
@@ -66,6 +69,11 @@ from flaskr.service.tts.patterns import (
 from flaskr.service.tts.pipeline import (
     _find_next_av_boundary,
     build_av_segmentation_contract,
+)
+from flaskr.service.tts.request_scoped_streams import (
+    MinimaxHttpStreamStrategy,
+    RequestScopedSynthesisStrategy,
+    VolcengineTimestampStreamStrategy,
 )
 from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeoutError
 from flaskr.service.tts.subtitle_utils import (
@@ -214,6 +222,17 @@ def _should_use_volcengine_timestamp_stream(tts_provider: str) -> bool:
     )
 
 
+def _select_request_scoped_strategy(
+    tts_provider: str,
+) -> RequestScopedSynthesisStrategy | None:
+    """Pick the request-scoped strategy for a provider, or None for segments."""
+    if should_use_minimax_http_stream(tts_provider):
+        return MinimaxHttpStreamStrategy()
+    if _should_use_volcengine_timestamp_stream(tts_provider):
+        return VolcengineTimestampStreamStrategy()
+    return None
+
+
 _VISUAL_SKIP_KINDS = frozenset(
     {
         "fence",
@@ -232,8 +251,6 @@ _VISUAL_SKIP_KINDS = frozenset(
 # like `<div`, `<svg`, `![` or fenced code openers can span across chunks
 # without delaying speakable text submission more than necessary.
 _STREAM_BOUNDARY_GUARD_TAIL_CHARS = 12
-_MINIMAX_HTTP_STREAM_SEGMENT_TARGET_MS = 1500
-_MINIMAX_HTTP_STREAM_MAX_CHARS = 9500
 
 
 @dataclass
@@ -250,15 +267,6 @@ class TTSSegment:
     error: str | None = None
     is_ready: bool = False
     subtitle_cues: list[dict[str, Any]] = field(default_factory=list)
-
-
-@dataclass
-class _MinimaxFallbackAudio:
-    audio_data: bytes
-    duration_ms: int
-    word_count: int
-    usage_characters: int
-    audio_format: str
 
 
 class StreamingTTSProcessor:
@@ -322,10 +330,7 @@ class StreamingTTSProcessor:
         if emotion:
             self.voice_settings.emotion = emotion
         self.audio_settings = get_default_audio_settings(tts_provider)
-        self._use_minimax_http_stream = should_use_minimax_http_stream(tts_provider)
-        self._use_volcengine_timestamp_stream = _should_use_volcengine_timestamp_stream(
-            tts_provider
-        )
+        self._request_scoped_strategy = _select_request_scoped_strategy(tts_provider)
 
         # State
         self._buffer = ""
@@ -377,9 +382,9 @@ class StreamingTTSProcessor:
             return
 
         self._buffer += chunk
-        if self._use_minimax_http_stream or self._use_volcengine_timestamp_stream:
-            # Provider timestamp streams are request-scoped: send one request
-            # for the whole mdflow text element when this processor is finalized.
+        if self._request_scoped_strategy is not None:
+            # Request-scoped strategies send one request for the whole mdflow
+            # text element when this processor is finalized.
             return
 
         # Check if we should submit a new TTS task
@@ -908,110 +913,6 @@ class StreamingTTSProcessor:
             units.append(tail)
         return units or ([text.strip()] if (text or "").strip() else [])
 
-    def _split_minimax_http_stream_text(self, text: str) -> list[str]:
-        parts: list[str] = []
-        current = ""
-        for unit in self._sentence_units_for_tts(text):
-            if len(unit) > _MINIMAX_HTTP_STREAM_MAX_CHARS:
-                if current:
-                    parts.append(current)
-                    current = ""
-                for start in range(0, len(unit), _MINIMAX_HTTP_STREAM_MAX_CHARS):
-                    chunk = unit[start : start + _MINIMAX_HTTP_STREAM_MAX_CHARS].strip()
-                    if chunk:
-                        parts.append(chunk)
-                continue
-
-            candidate = f"{current}\n{unit}" if current else unit
-            if len(candidate) <= _MINIMAX_HTTP_STREAM_MAX_CHARS:
-                current = candidate
-                continue
-            if current:
-                parts.append(current)
-            current = unit
-
-        if current:
-            parts.append(current)
-        return parts
-
-    @staticmethod
-    def _minimax_subtitle_text(raw_item: dict[str, object]) -> str:
-        for key in ("text", "content", "sentence"):
-            text = str(raw_item.get(key, "") or "").strip()
-            if text:
-                return text
-        return ""
-
-    @staticmethod
-    def _minimax_subtitle_time_ms(
-        raw_item: dict[str, object],
-        keys: tuple[str, ...],
-        *,
-        default_ms: int = 0,
-    ) -> int:
-        for key in keys:
-            if key not in raw_item:
-                continue
-            raw_value = raw_item.get(key)
-            if raw_value is None or raw_value == "":
-                continue
-            try:
-                return round(float(raw_value))
-            except (TypeError, ValueError):
-                continue
-        return int(default_ms or 0)
-
-    @classmethod
-    def _minimax_raw_subtitle_key(cls, raw_item: dict[str, Any]) -> tuple[str, int]:
-        text = cls._minimax_subtitle_text(raw_item)
-        start_ms = cls._minimax_subtitle_time_ms(
-            raw_item,
-            ("time_begin", "start_ms", "start_time", "begin_time", "start", "begin"),
-        )
-        return text, start_ms
-
-    def _extend_unique_minimax_subtitles(
-        self,
-        target: list[dict[str, Any]],
-        incoming: list[dict[str, Any]],
-    ) -> None:
-        seen_indexes = {
-            self._minimax_raw_subtitle_key(item): index
-            for index, item in enumerate(target)
-        }
-        search_start = 0
-        for raw_item in incoming or []:
-            if not isinstance(raw_item, dict):
-                continue
-            key = self._minimax_raw_subtitle_key(raw_item)
-            if not key[0]:
-                continue
-            existing_index = seen_indexes.get(key)
-            if existing_index is not None:
-                target[existing_index] = raw_item
-                search_start = max(search_start, existing_index + 1)
-                continue
-            normalized_text = self._normalize_subtitle_compare_text(key[0])
-            matching_index = None
-            for index in range(search_start, len(target)):
-                target_text = self._normalize_subtitle_compare_text(
-                    self._minimax_subtitle_text(target[index])
-                )
-                if target_text == normalized_text:
-                    matching_index = index
-                    break
-            if matching_index is not None:
-                previous_key = self._minimax_raw_subtitle_key(target[matching_index])
-                if seen_indexes.get(previous_key) == matching_index:
-                    seen_indexes.pop(previous_key, None)
-                target[matching_index] = raw_item
-                seen_indexes[key] = matching_index
-                search_start = matching_index + 1
-                continue
-            target.append(raw_item)
-            seen_indexes[key] = len(target) - 1
-            search_start = len(target)
-
     @staticmethod
     def _normalize_subtitle_compare_text(text: str) -> str:
         return "".join(str(text or "").lower().split())
@@ -1090,242 +991,9 @@ class StreamingTTSProcessor:
             return 0
         return max(int(cue.get("end_ms", 0) or 0) for cue in normalized_cues)
 
-    def _build_minimax_provider_subtitle_cues(
-        self,
-        *,
-        request_subtitles: list[dict[str, object]],
-        subtitle_offset_ms: int,
-    ) -> list[dict[str, object]]:
-        return normalize_subtitle_cues(
-            self._minimax_subtitles_to_cues(
-                request_subtitles,
-                offset_ms=subtitle_offset_ms,
-            )
-        )
-
-    def _minimax_subtitles_to_cues(
-        self,
-        subtitles: list[dict[str, Any]],
-        *,
-        offset_ms: int = 0,
-    ) -> list[dict[str, object]]:
-        cues: list[dict[str, Any]] = []
-        for raw_item in subtitles or []:
-            if not isinstance(raw_item, dict):
-                continue
-            text = self._minimax_subtitle_text(raw_item)
-            if not text:
-                continue
-            start_ms = self._minimax_subtitle_time_ms(
-                raw_item,
-                (
-                    "time_begin",
-                    "start_ms",
-                    "start_time",
-                    "begin_time",
-                    "start",
-                    "begin",
-                ),
-            )
-            end_ms = self._minimax_subtitle_time_ms(
-                raw_item,
-                ("time_end", "end_ms", "end_time", "finish_time", "end", "finish"),
-                default_ms=start_ms,
-            )
-            start_ms = max(start_ms + int(offset_ms or 0), 0)
-            end_ms = max(end_ms + int(offset_ms or 0), start_ms)
-            cues.append(
-                {
-                    "text": text,
-                    "start_ms": start_ms,
-                    "end_ms": end_ms,
-                    "segment_index": 0,
-                    "position": self.position,
-                }
-            )
-        return cues
-
     @staticmethod
     def _subtitle_cue_text(cue: dict[str, object]) -> str:
         return str(cue.get("text", "") or "").strip()
-
-    def _scale_minimax_cues_to_live_request(
-        self,
-        subtitle_cues: list[dict[str, Any]],
-        *,
-        provider_offset_ms: int,
-        live_offset_ms: int,
-        live_request_end_ms: int,
-    ) -> list[dict[str, object]]:
-        normalized_cues = normalize_subtitle_cues(subtitle_cues)
-        if not normalized_cues or live_request_end_ms <= 0:
-            return []
-
-        safe_provider_offset_ms = max(int(provider_offset_ms or 0), 0)
-        safe_live_offset_ms = max(int(live_offset_ms or 0), 0)
-        safe_live_request_end_ms = max(int(live_request_end_ms or 0), 0)
-        source_end_ms = max(
-            self._subtitle_cues_end_ms(normalized_cues) - safe_provider_offset_ms,
-            0,
-        )
-        if source_end_ms <= 0:
-            source_end_ms = safe_live_request_end_ms
-        scale = safe_live_request_end_ms / source_end_ms if source_end_ms > 0 else 1.0
-
-        live_cues: list[dict[str, Any]] = []
-        for cue in normalized_cues:
-            text = self._subtitle_cue_text(cue)
-            if not text:
-                continue
-            source_start_ms = max(
-                int(cue.get("start_ms", 0) or 0) - safe_provider_offset_ms,
-                0,
-            )
-            source_cue_end_ms = max(
-                int(cue.get("end_ms", source_start_ms) or source_start_ms)
-                - safe_provider_offset_ms,
-                source_start_ms,
-            )
-            start_ms = min(
-                round(source_start_ms * scale),
-                safe_live_request_end_ms,
-            )
-            end_ms = min(
-                round(source_cue_end_ms * scale),
-                safe_live_request_end_ms,
-            )
-            live_cues.append(
-                {
-                    "text": text,
-                    "start_ms": safe_live_offset_ms + max(start_ms, 0),
-                    "end_ms": safe_live_offset_ms + max(end_ms, start_ms),
-                    "segment_index": int(cue.get("segment_index", 0) or 0),
-                    "position": self.position,
-                }
-            )
-        return live_cues
-
-    def _merge_minimax_live_request_cues(
-        self,
-        previous_live_cues: list[dict[str, Any]],
-        incoming_live_cues: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        previous = normalize_subtitle_cues(previous_live_cues)
-        incoming = normalize_subtitle_cues(incoming_live_cues)
-        if not previous:
-            return incoming
-        if not incoming:
-            return previous
-
-        frozen_prefix = [dict(cue) for cue in previous[:-1]]
-        previous_tail = dict(previous[-1])
-        incoming_tail_index: int | None = None
-
-        if len(incoming) >= len(previous):
-            candidate_index = len(previous) - 1
-            candidate = incoming[candidate_index]
-            if self._subtitle_cue_text(candidate) == self._subtitle_cue_text(
-                previous_tail
-            ):
-                incoming_tail_index = candidate_index
-
-        if incoming_tail_index is None:
-            for index in range(max(len(frozen_prefix), 0), len(incoming)):
-                candidate = incoming[index]
-                if self._subtitle_cue_text(candidate) == self._subtitle_cue_text(
-                    previous_tail
-                ):
-                    incoming_tail_index = index
-                    break
-
-        if incoming_tail_index is None:
-            previous_end_ms = int(previous_tail.get("end_ms", 0) or 0)
-            remaining = [
-                dict(cue)
-                for cue in incoming
-                if int(cue.get("end_ms", 0) or 0) > previous_end_ms
-            ]
-            return [dict(cue) for cue in previous] + remaining
-
-        tail_candidate = incoming[incoming_tail_index]
-        previous_tail["end_ms"] = max(
-            int(previous_tail.get("end_ms", 0) or 0),
-            int(tail_candidate.get("end_ms", 0) or 0),
-        )
-        remaining = [dict(cue) for cue in incoming[incoming_tail_index + 1 :]]
-        return [*frozen_prefix, previous_tail, *remaining]
-
-    def _normalize_minimax_live_request_cues(
-        self,
-        live_cues: list[dict[str, Any]],
-        *,
-        live_offset_ms: int,
-        live_request_end_ms: int,
-    ) -> list[dict[str, object]]:
-        normalized_cues = normalize_subtitle_cues(live_cues)
-        if not normalized_cues:
-            return []
-
-        timeline_start_ms = max(int(live_offset_ms or 0), 0)
-        timeline_end_ms = timeline_start_ms + max(int(live_request_end_ms or 0), 0)
-        if timeline_end_ms <= timeline_start_ms:
-            return []
-
-        bounded: list[dict[str, Any]] = []
-        last_end_ms = timeline_start_ms
-        for cue in normalized_cues:
-            text = self._subtitle_cue_text(cue)
-            if not text:
-                continue
-            start_ms = max(int(cue.get("start_ms", 0) or 0), timeline_start_ms)
-            end_ms = max(int(cue.get("end_ms", start_ms) or start_ms), start_ms)
-            start_ms = max(start_ms, last_end_ms)
-            if start_ms >= timeline_end_ms:
-                continue
-            end_ms = min(max(end_ms, start_ms + 1), timeline_end_ms)
-            bounded.append(
-                {
-                    "text": text,
-                    "start_ms": start_ms,
-                    "end_ms": end_ms,
-                    "segment_index": int(cue.get("segment_index", 0) or 0),
-                    "position": self.position,
-                }
-            )
-            last_end_ms = end_ms
-
-        if bounded:
-            bounded[-1]["start_ms"] = min(
-                int(bounded[-1].get("start_ms", 0) or 0),
-                max(timeline_end_ms - 1, timeline_start_ms),
-            )
-            bounded[-1]["end_ms"] = timeline_end_ms
-        return normalize_subtitle_cues(bounded)
-
-    def _build_minimax_live_request_subtitle_cues(
-        self,
-        subtitle_cues: list[dict[str, Any]],
-        *,
-        provider_offset_ms: int,
-        live_offset_ms: int,
-        live_request_end_ms: int,
-        previous_live_cues: list[dict[str, object]] | None = None,
-    ) -> list[dict[str, object]]:
-        incoming_live_cues = self._scale_minimax_cues_to_live_request(
-            subtitle_cues,
-            provider_offset_ms=provider_offset_ms,
-            live_offset_ms=live_offset_ms,
-            live_request_end_ms=live_request_end_ms,
-        )
-        merged_live_cues = self._merge_minimax_live_request_cues(
-            previous_live_cues or [],
-            incoming_live_cues,
-        )
-        return self._normalize_minimax_live_request_cues(
-            merged_live_cues,
-            live_offset_ms=live_offset_ms,
-            live_request_end_ms=live_request_end_ms,
-        )
 
     def _store_stream_audio_segment(
         self,
@@ -1482,398 +1150,6 @@ class StreamingTTSProcessor:
             # connection instead of leaving it for the next statement.
             cleanup_session_after(e, source="streaming tts finalize")
 
-    def _synthesize_minimax_complete_fallback(
-        self,
-        provider: MinimaxTTSProvider,
-        *,
-        request_text: str,
-        request_format: str,
-        request_index: int,
-    ) -> _MinimaxFallbackAudio | None:
-        try:
-            result = provider.synthesize(
-                text=request_text,
-                voice_settings=self.voice_settings,
-                audio_settings=self.audio_settings,
-                model=self.tts_model,
-            )
-        except Exception as exc:
-            logger.warning(
-                "MiniMax complete synthesis fallback failed. request_index=%s, "
-                "text_length=%s, error=%s",
-                request_index,
-                len(request_text or ""),
-                exc,
-            )
-            logger.debug("MiniMax complete synthesis fallback traceback", exc_info=True)
-            return None
-
-        audio_data = result.audio_data or b""
-        audio_format = (
-            result.format or request_format or self.audio_settings.format or "mp3"
-        )
-        decoded_duration_ms = try_get_audio_duration_ms(
-            audio_data,
-            audio_format=audio_format,
-        )
-        if decoded_duration_ms is None or decoded_duration_ms <= 0:
-            logger.warning(
-                "MiniMax complete synthesis fallback returned undecodable audio. "
-                "request_index=%s, bytes=%s, format=%s",
-                request_index,
-                len(audio_data),
-                audio_format,
-            )
-            return None
-
-        return _MinimaxFallbackAudio(
-            audio_data=audio_data,
-            duration_ms=int(result.duration_ms or decoded_duration_ms or 0),
-            word_count=int(result.word_count or 0),
-            usage_characters=int(getattr(result, "usage_characters", 0) or 0),
-            audio_format=audio_format,
-        )
-
-    def _finalize_minimax_http_stream(
-        self,
-        *,
-        raw_text: str,
-        cleaned_text: str,
-        cleaned_text_length: int,
-        commit: bool,
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        request_texts = self._split_minimax_http_stream_text(cleaned_text)
-        if not self._enabled or not request_texts:
-            return
-
-        provider = MinimaxTTSProvider()
-        live_subtitle_cues: list[dict[str, Any]] = []
-        final_subtitle_cues: list[dict[str, Any]] = []
-        subtitle_offset_ms = 0
-        live_offset_ms = 0
-
-        from flaskr.service.tts.tts_usage_recorder import record_tts_segment_usage
-
-        for request_index, request_text in enumerate(request_texts):
-            if _should_skip_non_speakable_tts_text(request_text, self.tts_provider):
-                _log_skipped_non_speakable_tts_text(
-                    segment_index=request_index,
-                    text=request_text,
-                    tts_provider=self.tts_provider,
-                    tts_model=self.tts_model,
-                )
-                continue
-
-            request_started_at = time.monotonic()
-            audio_chunks: list[bytes] = []
-            source_emitted_ms = 0
-            live_request_emitted_ms = 0
-            request_duration_ms = 0
-            request_word_count = 0
-            request_usage_characters = 0
-            request_format = self.audio_settings.format or "mp3"
-            request_subtitles: list[dict[str, Any]] = []
-            request_final_subtitle_cues: list[dict[str, Any]] = []
-            request_final_subtitle_cues_are_provider = False
-            request_live_subtitle_cues: list[dict[str, Any]] = []
-
-            for chunk in provider.stream_synthesize(
-                text=request_text,
-                voice_settings=self.voice_settings,
-                audio_settings=self.audio_settings,
-                model=self.tts_model,
-            ):
-                if chunk.audio_data:
-                    audio_chunks.append(chunk.audio_data)
-                if chunk.format:
-                    request_format = chunk.format
-                if chunk.is_final:
-                    request_duration_ms = int(chunk.duration_ms or request_duration_ms)
-                    request_word_count = int(chunk.word_count or request_word_count)
-                    request_usage_characters = int(
-                        getattr(chunk, "usage_characters", 0)
-                        or request_usage_characters
-                    )
-                if chunk.subtitles:
-                    self._extend_unique_minimax_subtitles(
-                        request_subtitles,
-                        chunk.subtitles,
-                    )
-
-                accumulated_audio = b"".join(audio_chunks)
-                if not accumulated_audio:
-                    continue
-
-                progressive_request_subtitle_cues = (
-                    self._build_minimax_provider_subtitle_cues(
-                        request_subtitles=request_subtitles,
-                        subtitle_offset_ms=subtitle_offset_ms,
-                    )
-                )
-                request_subtitle_coverage_end_ms = max(
-                    self._subtitle_cues_end_ms(progressive_request_subtitle_cues)
-                    - int(subtitle_offset_ms or 0),
-                    0,
-                )
-
-                if chunk.is_final:
-                    if request_duration_ms <= 0:
-                        decoded_duration_ms = try_get_audio_duration_ms(
-                            accumulated_audio,
-                            audio_format=request_format or "mp3",
-                        )
-                        if decoded_duration_ms is not None:
-                            request_duration_ms = int(decoded_duration_ms or 0)
-                    if progressive_request_subtitle_cues and (
-                        self._subtitle_cues_cover_text(
-                            progressive_request_subtitle_cues,
-                            request_text,
-                        )
-                    ):
-                        request_final_subtitle_cues = progressive_request_subtitle_cues
-                        request_final_subtitle_cues_are_provider = True
-                        target_end_ms = max(
-                            request_subtitle_coverage_end_ms, source_emitted_ms
-                        )
-                    else:
-                        if progressive_request_subtitle_cues:
-                            logger.debug(
-                                "MiniMax subtitles did not cover full request text; "
-                                "using fallback cues. request_index=%s, subtitles=%s",
-                                request_index,
-                                len(progressive_request_subtitle_cues),
-                            )
-                        request_final_subtitle_cues = (
-                            self._build_minimax_fallback_subtitle_cues(
-                                request_text,
-                                duration_ms=int(
-                                    request_duration_ms
-                                    or source_emitted_ms
-                                    or live_request_emitted_ms
-                                    or 0
-                                ),
-                                offset_ms=subtitle_offset_ms,
-                            )
-                        )
-                        target_end_ms = max(
-                            int(request_duration_ms or 0), source_emitted_ms
-                        )
-                    event_request_subtitle_cues = request_final_subtitle_cues
-                else:
-                    if not progressive_request_subtitle_cues:
-                        continue
-                    target_end_ms = request_subtitle_coverage_end_ms
-                    event_request_subtitle_cues = progressive_request_subtitle_cues
-
-                if target_end_ms <= source_emitted_ms:
-                    continue
-
-                audio_piece = b""
-                piece_duration_ms = 0
-                audio_piece, piece_duration_ms = export_audio_range_best_effort(
-                    accumulated_audio,
-                    start_ms=source_emitted_ms,
-                    end_ms=target_end_ms,
-                    input_format=request_format or "mp3",
-                    output_format=self.audio_settings.format or "mp3",
-                )
-
-                if (
-                    not chunk.is_final
-                    and piece_duration_ms < _MINIMAX_HTTP_STREAM_SEGMENT_TARGET_MS
-                ):
-                    continue
-
-                if (
-                    not audio_piece
-                    and chunk.is_final
-                    and source_emitted_ms == 0
-                    and target_end_ms >= int(request_duration_ms or 0)
-                ):
-                    decoded_duration_ms = try_get_audio_duration_ms(
-                        accumulated_audio,
-                        audio_format=request_format or "mp3",
-                    )
-                    if decoded_duration_ms is not None and decoded_duration_ms > 0:
-                        audio_piece = accumulated_audio
-                        piece_duration_ms = int(
-                            request_duration_ms or decoded_duration_ms
-                        )
-                    else:
-                        logger.warning(
-                            "MiniMax HTTP stream produced undecodable final audio; "
-                            "will try complete synthesis fallback. request_index=%s, "
-                            "bytes=%s, format=%s, trace_id=%s",
-                            request_index,
-                            len(accumulated_audio or b""),
-                            request_format or "mp3",
-                            getattr(chunk, "trace_id", ""),
-                        )
-
-                if not audio_piece or piece_duration_ms <= 0:
-                    continue
-
-                source_emitted_ms = max(source_emitted_ms, int(target_end_ms or 0))
-                live_request_emitted_ms += int(piece_duration_ms or 0)
-                request_live_subtitle_cues = (
-                    self._build_minimax_live_request_subtitle_cues(
-                        event_request_subtitle_cues,
-                        provider_offset_ms=subtitle_offset_ms,
-                        live_offset_ms=live_offset_ms,
-                        live_request_end_ms=live_request_emitted_ms,
-                        previous_live_cues=request_live_subtitle_cues,
-                    )
-                )
-                progressive_subtitle_cues = normalize_subtitle_cues(
-                    list(live_subtitle_cues or []) + request_live_subtitle_cues
-                )
-                _segment_index, event = self._store_stream_audio_segment(
-                    audio_data=audio_piece,
-                    duration_ms=piece_duration_ms,
-                    text=request_text,
-                    subtitle_cues=progressive_subtitle_cues,
-                )
-                yield event
-
-            fallback_audio: _MinimaxFallbackAudio | None = None
-            if live_request_emitted_ms <= 0:
-                fallback_audio = self._synthesize_minimax_complete_fallback(
-                    provider,
-                    request_text=request_text,
-                    request_format=request_format,
-                    request_index=request_index,
-                )
-                if fallback_audio is not None:
-                    request_duration_ms = int(fallback_audio.duration_ms or 0)
-                    if fallback_audio.word_count:
-                        request_word_count = int(fallback_audio.word_count or 0)
-                    if fallback_audio.usage_characters:
-                        request_usage_characters = int(
-                            fallback_audio.usage_characters or 0
-                        )
-
-            if request_duration_ms <= 0:
-                request_duration_ms = source_emitted_ms or live_request_emitted_ms
-            if request_word_count:
-                self._word_count_total += request_word_count
-            self._output_char_total += resolve_tts_billable_chars(
-                request_text,
-                request_usage_characters,
-            )
-            if not request_final_subtitle_cues:
-                request_subtitle_cues = self._minimax_subtitles_to_cues(
-                    request_subtitles,
-                    offset_ms=subtitle_offset_ms,
-                )
-                if request_subtitle_cues and self._subtitle_cues_cover_text(
-                    request_subtitle_cues,
-                    request_text,
-                ):
-                    request_final_subtitle_cues = request_subtitle_cues
-                    request_final_subtitle_cues_are_provider = True
-                else:
-                    if request_subtitle_cues:
-                        logger.debug(
-                            "MiniMax subtitles did not cover full request text; "
-                            "using fallback cues. request_index=%s, subtitles=%s",
-                            request_index,
-                            len(request_subtitle_cues),
-                        )
-                    request_final_subtitle_cues = (
-                        self._build_minimax_fallback_subtitle_cues(
-                            request_text,
-                            duration_ms=int(
-                                request_duration_ms
-                                or source_emitted_ms
-                                or live_request_emitted_ms
-                                or 0
-                            ),
-                            offset_ms=subtitle_offset_ms,
-                        )
-                    )
-            if (
-                fallback_audio is not None
-                and not request_final_subtitle_cues_are_provider
-            ):
-                request_final_subtitle_cues = (
-                    self._build_minimax_fallback_subtitle_cues(
-                        request_text,
-                        duration_ms=int(fallback_audio.duration_ms or 0),
-                        offset_ms=subtitle_offset_ms,
-                    )
-                )
-            if fallback_audio is not None and live_request_emitted_ms <= 0:
-                live_request_emitted_ms = int(fallback_audio.duration_ms or 0)
-                request_live_subtitle_cues = (
-                    self._build_minimax_live_request_subtitle_cues(
-                        request_final_subtitle_cues,
-                        provider_offset_ms=subtitle_offset_ms,
-                        live_offset_ms=live_offset_ms,
-                        live_request_end_ms=live_request_emitted_ms,
-                    )
-                )
-                progressive_subtitle_cues = normalize_subtitle_cues(
-                    list(live_subtitle_cues or []) + request_live_subtitle_cues
-                )
-                _segment_index, event = self._store_stream_audio_segment(
-                    audio_data=fallback_audio.audio_data,
-                    duration_ms=fallback_audio.duration_ms,
-                    text=request_text,
-                    subtitle_cues=progressive_subtitle_cues,
-                )
-                yield event
-            final_subtitle_cues.extend(request_final_subtitle_cues)
-            if not request_live_subtitle_cues and live_request_emitted_ms > 0:
-                request_live_subtitle_cues = (
-                    self._build_minimax_live_request_subtitle_cues(
-                        request_final_subtitle_cues,
-                        provider_offset_ms=subtitle_offset_ms,
-                        live_offset_ms=live_offset_ms,
-                        live_request_end_ms=live_request_emitted_ms,
-                    )
-                )
-            live_subtitle_cues = normalize_subtitle_cues(
-                list(live_subtitle_cues or []) + request_live_subtitle_cues
-            )
-            live_offset_ms += int(live_request_emitted_ms or 0)
-            request_subtitle_end_ms = self._subtitle_cues_end_ms(
-                request_final_subtitle_cues
-            )
-            if request_subtitle_end_ms > subtitle_offset_ms:
-                subtitle_offset_ms = request_subtitle_end_ms
-            else:
-                subtitle_offset_ms += int(request_duration_ms or source_emitted_ms or 0)
-
-            record_tts_segment_usage(
-                app=self.app,
-                usage_context=self.usage_context,
-                provider=self.tts_provider or "",
-                model=self.tts_model or "",
-                segment_text=request_text,
-                word_count=request_word_count,
-                duration_ms=int(request_duration_ms or 0),
-                latency_ms=int((time.monotonic() - request_started_at) * 1000),
-                voice_settings=self.voice_settings,
-                audio_settings=self.audio_settings,
-                is_stream=True,
-                parent_usage_bid=self._usage_parent_bid,
-                segment_index=request_index,
-                usage_characters=request_usage_characters,
-            )
-
-        with self._lock:
-            all_segments = list(self._all_audio_data)
-
-        yield from self._yield_audio_complete_from_segments(
-            all_segments=all_segments,
-            raw_text=raw_text,
-            cleaned_text=cleaned_text,
-            cleaned_text_length=cleaned_text_length,
-            subtitle_cues=final_subtitle_cues,
-            event_subtitle_cues=live_subtitle_cues,
-            commit=commit,
-        )
-
     def _apply_subtitle_context(
         self, subtitle_cues: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
@@ -1885,6 +1161,34 @@ class StreamingTTSProcessor:
             contextualized.append(item)
         return normalize_subtitle_cues(contextualized)
 
+    @property
+    def _use_minimax_http_stream(self) -> bool:
+        return isinstance(self._request_scoped_strategy, MinimaxHttpStreamStrategy)
+
+    @property
+    def _use_volcengine_timestamp_stream(self) -> bool:
+        return isinstance(
+            self._request_scoped_strategy, VolcengineTimestampStreamStrategy
+        )
+
+    def _finalize_minimax_http_stream(
+        self,
+        *,
+        raw_text: str,
+        cleaned_text: str,
+        cleaned_text_length: int,
+        commit: bool,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        # Explicit entry point for callers that drive the MiniMax request-scoped
+        # path directly, independent of how this processor was configured.
+        yield from MinimaxHttpStreamStrategy().finalize(
+            self,
+            raw_text=raw_text,
+            cleaned_text=cleaned_text,
+            cleaned_text_length=cleaned_text_length,
+            commit=commit,
+        )
+
     def _finalize_volcengine_timestamp_stream(
         self,
         *,
@@ -1893,104 +1197,13 @@ class StreamingTTSProcessor:
         cleaned_text_length: int,
         commit: bool,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        request_text = (cleaned_text or "").strip()
-        if not self._enabled or not request_text:
-            return
-        if _should_skip_non_speakable_tts_text(request_text, self.tts_provider):
-            _log_skipped_non_speakable_tts_text(
-                segment_index=0,
-                text=request_text,
-                tts_provider=self.tts_provider,
-                tts_model=self.tts_model,
-            )
-            return
-
-        request_started_at = time.monotonic()
-        result = self._synthesize_text_with_retry(
-            text=request_text,
-            voice_settings=self.voice_settings,
-            audio_settings=self.audio_settings,
-            tts_model=self.tts_model,
-            tts_provider=self.tts_provider,
-            segment_index=0,
-        )
-        if not result.audio_data:
-            logger.warning("Volcengine timestamp stream returned no audio")
-            return
-
-        request_duration_ms = int(result.duration_ms or 0)
-        if request_duration_ms <= 0:
-            request_duration_ms = get_audio_duration_ms(
-                result.audio_data,
-                audio_format=result.format or self.audio_settings.format or "mp3",
-            )
-        request_word_count = int(result.word_count or 0)
-        request_usage_characters = int(getattr(result, "usage_characters", 0) or 0)
-        if request_word_count:
-            self._word_count_total += request_word_count
-        self._output_char_total += resolve_tts_billable_chars(
-            request_text,
-            request_usage_characters,
-        )
-
-        provider_subtitle_cues = self._apply_subtitle_context(
-            list(getattr(result, "subtitle_cues", []) or [])
-        )
-        if provider_subtitle_cues and self._subtitle_cues_cover_text(
-            provider_subtitle_cues,
-            request_text,
-        ):
-            final_subtitle_cues = provider_subtitle_cues
-        else:
-            if provider_subtitle_cues:
-                logger.debug(
-                    "Volcengine subtitles did not cover full request text; "
-                    "using fallback cues. subtitles=%s",
-                    len(provider_subtitle_cues),
-                )
-            final_subtitle_cues = self._build_minimax_fallback_subtitle_cues(
-                request_text,
-                duration_ms=int(request_duration_ms or 0),
-            )
-            final_subtitle_cues = self._apply_subtitle_context(final_subtitle_cues)
-
-        _segment_index, event = self._store_stream_audio_segment(
-            audio_data=result.audio_data,
-            duration_ms=int(request_duration_ms or 0),
-            text=request_text,
-            subtitle_cues=final_subtitle_cues,
-        )
-        yield event
-
-        from flaskr.service.tts.tts_usage_recorder import record_tts_segment_usage
-
-        record_tts_segment_usage(
-            app=self.app,
-            usage_context=self.usage_context,
-            provider=self.tts_provider or "",
-            model=self.tts_model or "",
-            segment_text=request_text,
-            word_count=request_word_count,
-            duration_ms=int(request_duration_ms or 0),
-            latency_ms=int((time.monotonic() - request_started_at) * 1000),
-            voice_settings=self.voice_settings,
-            audio_settings=self.audio_settings,
-            is_stream=True,
-            parent_usage_bid=self._usage_parent_bid,
-            segment_index=0,
-            usage_characters=request_usage_characters,
-        )
-
-        with self._lock:
-            all_segments = list(self._all_audio_data)
-
-        yield from self._yield_audio_complete_from_segments(
-            all_segments=all_segments,
+        # Explicit entry point for callers that drive the Volcengine
+        # request-scoped path directly.
+        yield from VolcengineTimestampStreamStrategy().finalize(
+            self,
             raw_text=raw_text,
             cleaned_text=cleaned_text,
             cleaned_text_length=cleaned_text_length,
-            subtitle_cues=final_subtitle_cues,
-            event_subtitle_cues=final_subtitle_cues,
             commit=commit,
         )
 
@@ -2023,21 +1236,11 @@ class StreamingTTSProcessor:
             logger.debug("TTS finalize: TTS not enabled, returning early")
             return
 
-        if self._use_minimax_http_stream:
+        if self._request_scoped_strategy is not None:
             self._raw_offset = len(self._buffer)
             self._buffer = ""
-            yield from self._finalize_minimax_http_stream(
-                raw_text=raw_text,
-                cleaned_text=cleaned_text.strip(),
-                cleaned_text_length=cleaned_text_length,
-                commit=commit,
-            )
-            return
-
-        if self._use_volcengine_timestamp_stream:
-            self._raw_offset = len(self._buffer)
-            self._buffer = ""
-            yield from self._finalize_volcengine_timestamp_stream(
+            yield from self._request_scoped_strategy.finalize(
+                self,
                 raw_text=raw_text,
                 cleaned_text=cleaned_text.strip(),
                 cleaned_text_length=cleaned_text_length,
