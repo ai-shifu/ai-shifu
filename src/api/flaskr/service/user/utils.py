@@ -17,6 +17,7 @@ import jwt
 from flask import Flask, has_app_context, has_request_context, request
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.cache_provider import redis_cache as distributed_cache
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
 from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
@@ -452,11 +453,12 @@ def _prepare_verification_challenge(
         app,
         kind=kind,
         identifier=identifier,
-    ):
+        cache_provider=distributed_cache,
+    ) as challenge_cache:
         identifier_limit_key = (
             _redis_prefix(app, policy.identifier_limit_prefix_config) + identifier
         )
-        last_send_time = redis.get(identifier_limit_key)
+        last_send_time = challenge_cache.get(identifier_limit_key)
         interval = int(app.config[policy.interval_config])
         if last_send_time and int(time.time()) - int(last_send_time) < interval:
             raise_error(policy.rate_limit_error)
@@ -467,11 +469,11 @@ def _prepare_verification_challenge(
             app,
             kind=kind,
             identifier=identifier,
-            cache_provider=redis,
+            cache_provider=challenge_cache,
         )
         code_key = _redis_prefix(app, policy.code_prefix_config) + identifier
-        redis.set(code_key, code, ex=expire_in)
-        redis.set(identifier_limit_key, int(time.time()), ex=interval)
+        challenge_cache.set(code_key, code, ex=expire_in)
+        challenge_cache.set(identifier_limit_key, int(time.time()), ex=interval)
 
         is_email = policy.verify_code_type == 2
         record = create_and_commit_user_verify_code(
@@ -489,10 +491,10 @@ def _prepare_verification_challenge(
         try:
             delivered = deliver(challenge)
         except Exception:
-            redis.delete(code_key, identifier_limit_key)
+            challenge_cache.delete(code_key, identifier_limit_key)
             raise
         if not delivered:
-            redis.delete(code_key, identifier_limit_key)
+            challenge_cache.delete(code_key, identifier_limit_key)
             raise_error("server.common.unknownError")
         challenge.record.verify_code_send = 1
         db.session.commit()
