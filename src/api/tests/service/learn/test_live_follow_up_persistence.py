@@ -194,6 +194,10 @@ def test_live_turn_persists_interrupted_empty_answer_idempotently(app: Flask) ->
         assert usage_row.total == 48
         assert usage_row.generated_block_bid == first.answer_block_bid
         assert usage_row.extra["gemini_usage"] == usage
+        assert usage_row.extra["usage_source"] == (
+            "gemini_live_follow_up_client_report"
+        )
+        assert usage_row.extra["usage_attestation"] == "client_reported_untrusted"
         assert usage_row.extra["interaction_mode"] == "live_voice"
         assert usage_row.extra["live_session_bid"] == session_bid
         assert usage_row.extra["live_turn_index"] == 3
@@ -272,6 +276,44 @@ def test_live_turn_without_final_user_transcript_only_records_usage(app: Flask) 
         ]
 
 
+def test_live_turn_bounds_and_allowlists_untrusted_usage(app: Flask) -> None:
+    """Client reports cannot inject metadata or overflow usage counters."""
+    session_bid = str(uuid.uuid4())
+    context = _persistence_context(session_bid=session_bid)
+    turn = LiveTurnPersistenceInput(
+        turn_index=8,
+        user_transcript="",
+        played_answer_transcript="",
+        interrupted=False,
+        usage_metadata={
+            "promptTokenCount": float("nan"),
+            "candidatesTokenCount": 10**100,
+            "totalTokenCount": -5,
+            "thoughtsTokenCount": True,
+            "rawError": "must not persist",
+            "candidatesTokensDetails": [
+                {"modality": "audio", "tokenCount": 12.9},
+                {"modality": "SECRET", "tokenCount": 99},
+                {"modality": "TEXT", "tokenCount": float("inf")},
+            ],
+        },
+    )
+
+    with app.app_context():
+        result = persist_live_follow_up_turn(app, context, turn)
+        usage_row = BillUsageRecord.query.filter_by(usage_bid=result.usage_bid).one()
+
+        assert usage_row.input == 0
+        assert usage_row.output == 2_147_483_647
+        assert usage_row.total == 2_147_483_647
+        assert usage_row.extra["gemini_usage"] == {
+            "candidatesTokenCount": 2_147_483_647,
+            "totalTokenCount": 0,
+            "candidatesTokensDetails": [{"modality": "AUDIO", "tokenCount": 12}],
+        }
+        assert "rawError" not in usage_row.extra["gemini_usage"]
+
+
 def test_live_turn_does_not_acknowledge_failed_usage_write(app: Flask) -> None:
     """A best-effort recorder failure remains retryable instead of losing usage."""
     session_bid = str(uuid.uuid4())
@@ -299,7 +341,7 @@ def test_live_turn_does_not_acknowledge_failed_usage_write(app: Flask) -> None:
 
 
 def test_live_turn_retry_after_usage_failure_is_idempotent(app: Flask) -> None:
-    """A retry fills trusted usage without duplicating committed history."""
+    """A retry fills client-reported usage without duplicating history."""
     session_bid = str(uuid.uuid4())
     context = _persistence_context(session_bid=session_bid)
     turn = LiveTurnPersistenceInput(

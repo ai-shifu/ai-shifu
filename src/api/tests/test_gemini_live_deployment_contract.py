@@ -1,6 +1,5 @@
-"""Protect the deployment contract required by Gemini Live WebSockets."""
+"""Protect the deployment contract for browser-direct Gemini Live."""
 
-import ast
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -10,94 +9,34 @@ def _read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def _nginx_location(source: str, marker: str) -> str:
-    location_start = source.index(marker)
-    location_end = source.index("\n        }", location_start)
-    return source[location_start:location_end]
+def test_live_does_not_require_an_internal_websocket_route() -> None:
+    route_source = _read("src/api/flaskr/service/learn/live_follow_up_routes.py")
+    requirements = _read("src/api/requirements.txt")
+    assert "/live-follow-up/ws/" not in route_source
+    assert "Flask-Sock" not in requirements
+    assert "simple-websocket" not in requirements
+    assert "wsproto" not in requirements
 
-
-def test_gunicorn_defaults_use_four_gthread_workers_with_sixteen_threads() -> None:
-    tree = ast.parse(_read("src/api/gunicorn.conf.py"))
-    assignments: dict[str, object] = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target = node.targets[0]
-        if isinstance(target, ast.Name):
-            assignments[target.id] = ast.literal_eval(node.value)
-
-    assert assignments["worker_class"] == "gthread"
-    assert assignments["workers"] == 4
-    assert assignments["threads"] == 16
-
-
-def test_every_versioned_api_startup_uses_the_live_safe_worker_shape() -> None:
-    startup_files = (
-        "src/api/Dockerfile",
-        "docker/docker-compose.yml",
-        "docker/docker-compose.latest.yml",
-        "docker/docker-compose.dev.yml",
-        "docker/docker-compose.runtime-harness.yml",
-        ".cursor/run-api.sh",
-        "INSTALL_MANUAL.md",
-    )
-
-    for relative_path in startup_files:
-        source = _read(relative_path)
-        active_lines = [
-            line
-            for line in source.splitlines()
-            if "exec gunicorn" in line
-            or line.lstrip().startswith("CMD gunicorn")
-            or line.lstrip().startswith("gunicorn -")
-        ]
-        assert active_lines, relative_path
-        for line in active_lines:
-            assert "-k gthread" in line, (relative_path, line)
-            assert "--threads 16" in line, (relative_path, line)
-            assert "-w 4" in line, (relative_path, line)
-
-
-def test_nginx_live_route_preserves_upgrade_and_idle_timeout() -> None:
     for relative_path in ("docker/nginx.conf", "docker/nginx.dev.conf"):
         source = _read(relative_path)
-        location = _nginx_location(
-            source, "location ^~ /api/learn/live-follow-up/ws/ {"
-        )
-
-        assert "proxy_http_version 1.1;" in location
-        assert "proxy_set_header Upgrade $http_upgrade;" in location
-        assert "proxy_set_header Connection $ai_shifu_connection_upgrade;" in location
-        assert "proxy_buffering off;" in location
-        assert "proxy_request_buffering off;" in location
-        assert "proxy_read_timeout 75s;" in location
-        assert "proxy_send_timeout 75s;" in location
+        assert "location ^~ /api/learn/live-follow-up/ws/" not in source
+        assert "$ai_shifu_connection_upgrade" not in source
 
 
-def test_nginx_live_transport_preserves_non_default_port_in_host() -> None:
+def test_live_does_not_require_feature_specific_nginx_host_handling() -> None:
     for relative_path in ("docker/nginx.conf", "docker/nginx.dev.conf"):
         source = _read(relative_path)
-        assert (
-            "map $http_host $ai_shifu_request_host {\n"
-            "        default $http_host;\n"
-            '        "" $host;\n'
-            "    }"
-        ) in source
-        for marker in (
-            "location ^~ /api/learn/live-follow-up/ws/ {",
-            "location  /api/{",
-        ):
-            location = _nginx_location(source, marker)
-            assert "proxy_set_header Host $ai_shifu_request_host;" in location
-            assert "proxy_set_header Host $host;" not in location
+        assert "$ai_shifu_request_host" not in source
 
 
-def test_live_server_dependencies_are_exactly_pinned() -> None:
-    requirements = set(_read("src/api/requirements.txt").splitlines())
+def test_direct_transport_uses_only_google_constrained_websocket() -> None:
+    backend = _read("src/api/flaskr/service/learn/gemini_live_token.py")
+    frontend = _read("src/web/src/lib/liveVoiceFollowUp.ts")
 
-    assert "Flask-Sock==0.7.0" in requirements
-    assert "simple-websocket==1.1.0" in requirements
-    assert "wsproto==1.3.2" in requirements
+    assert "BidiGenerateContentConstrained" in backend
+    assert "BidiGenerateContentConstrained" in frontend
+    assert "https://generativelanguage.googleapis.com/v1beta/auth_tokens" in backend
+    assert "wss://generativelanguage.googleapis.com" in frontend
 
 
 def test_live_feature_flag_defaults_off_in_deployment_examples() -> None:

@@ -8,7 +8,7 @@ services:
   ai-shifu-api-dev:
     <<: *ai-shifu-api-dev-image
     #    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
-    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-otel-collector/4318'; do sleep 1; done && python scripts/repair_dev_migration_state.py && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gthread --threads 16 -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
+    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-otel-collector/4318'; do sleep 1; done && python scripts/repair_dev_migration_state.py && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gevent -w 1 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
     env_file:
       - ./.env
     environment:

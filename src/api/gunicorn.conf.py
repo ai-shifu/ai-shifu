@@ -7,15 +7,6 @@
 import os
 import sys
 
-# Keep one deployment-wide default for HTTP and WebSocket traffic. Individual
-# entrypoints repeat these values explicitly so operators can see the runtime
-# shape without depending on Gunicorn's implicit config discovery.
-bind = "0.0.0.0:5800"
-worker_class = "gthread"
-workers = 4
-threads = 16
-timeout = 300
-
 
 def _gevent_worker_requested(argv: object) -> bool:
     """Report whether the command line selects the gevent worker class.

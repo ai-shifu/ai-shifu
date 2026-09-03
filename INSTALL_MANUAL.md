@@ -97,23 +97,22 @@ These variables are essential for the application to run:
 #### Optional Gemini Live Voice Follow-Up
 
 Gemini Live is disabled by default. Leave `GEMINI_LIVE_ENABLED=false` until
-the API is running behind a WebSocket-capable ingress and the bundled Nginx
-Live route has been verified. To expose the allowlisted Live follow-up model,
-configure a valid `GEMINI_API_KEY`, keep Redis available for one-time session
-tickets and capacity leases, and then set:
+the browser-direct flow has been verified in the target environment. To expose
+the allowlisted Live follow-up model, configure a valid `GEMINI_API_KEY`, keep
+Redis available for authenticated session bindings and capacity leases, and
+then set:
 
 ```bash
 GEMINI_LIVE_ENABLED=true
 ```
 
-Production ingress must preserve the original `Host` authority, including any
-non-default port, together with `X-Forwarded-Proto`, WebSocket `Upgrade`, and
-`Connection` headers. It must allow at least 75 seconds of idle read/write time
-and use HTTPS so the microphone and Secure session cookie are available. It
-must expose both the Live session POST and WebSocket path through the Cook Web
-browser origin; the strict, exact-path HttpOnly ticket is intentionally never
-sent through a cross-site browser connection. Disable the flag to roll back
-Live without changing courses that use text follow-up models.
+The API mints a one-use, short-lived Gemini credential constrained to the
+selected model, voice, and server-built prompt. The browser then opens the
+Gemini Live WebSocket directly, so the AI-Shifu ingress does not need a
+WebSocket Upgrade route. Production still needs HTTPS for microphone access,
+and the browser must be able to reach `generativelanguage.googleapis.com`.
+Disable the flag to roll back Live without changing courses that use text
+follow-up models.
 
 ### Step 4: Build Latest Docker Images & Start the Stack
 
@@ -174,7 +173,7 @@ pip install -r requirements.txt
 flask db upgrade
 
 # Start the API server
-gunicorn -k gthread --threads 16 -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
+gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 ```
 
 #### Step 5.4: Start Web Frontend & CMS

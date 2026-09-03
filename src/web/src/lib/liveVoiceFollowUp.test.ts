@@ -1,10 +1,15 @@
-import {
-  createLiveFollowUpSession,
-  parseLiveFollowUpServerMessage,
-  resolveLiveFollowUpWebSocketUrl,
-} from './liveVoiceFollowUp';
-
 import request from '@/lib/request';
+
+import {
+  commitLiveFollowUpTurn,
+  createLiveFollowUpSession,
+  encodeGeminiLiveAudioMessage,
+  endLiveFollowUpSession,
+  heartbeatLiveFollowUpSession,
+  mergeLiveTranscript,
+  parseGeminiLiveServerMessage,
+  resolveGeminiLiveWebSocketUrl,
+} from './liveVoiceFollowUp';
 
 jest.mock('@/lib/request', () => ({
   __esModule: true,
@@ -14,140 +19,144 @@ jest.mock('@/lib/request', () => ({
   },
 }));
 
-jest.mock('@/c-utils/envUtils', () => ({
-  getResolvedBaseURL: () => 'https://api.example.test',
-}));
-
-describe('live voice follow-up protocol helpers', () => {
-  const originalLocation = window.location;
+describe('live voice follow-up direct protocol helpers', () => {
   const mockedPost = jest.mocked(request.post);
 
   beforeEach(() => {
     jest.clearAllMocks();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { origin: 'https://web.example.test' },
-    });
   });
 
-  afterEach(() => {
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: originalLocation,
-    });
-  });
-
-  it('keeps the ticket POST and websocket on the browser origin', async () => {
-    const payload: Parameters<typeof createLiveFollowUpSession>[2] = {
+  it('uses the authenticated HTTP client for session lifecycle and turn reports', async () => {
+    const sessionPayload = {
       anchor_element_bid: 'anchor-1',
       preview_mode: false,
-      learning_mode: 'read',
-      surface: 'read_content',
+      learning_mode: 'read' as const,
+      surface: 'read_content' as const,
     };
-    mockedPost.mockResolvedValue({
-      session_bid: 'session-1',
-      ws_path: '/api/learn/live-follow-up/ws/session-1',
-      expires_at: '2030-01-01T00:00:00Z',
+    await createLiveFollowUpSession('course/1', 'outline/1', sessionPayload);
+    await heartbeatLiveFollowUpSession('session/1');
+    await commitLiveFollowUpTurn('session/1', {
+      turn_index: 1,
+      user_transcript: 'Question',
+      played_answer_transcript: 'Answer',
+      interrupted: false,
+      usage_metadata: { totalTokenCount: 3 },
+      latency_ms: 100,
     });
+    await endLiveFollowUpSession('session/1', 'ended_by_user');
 
-    await createLiveFollowUpSession('course/1', 'outline/1', payload);
-
-    expect(mockedPost).toHaveBeenCalledWith(
-      'https://web.example.test/api/learn/shifu/course%2F1/live-follow-up/outline%2F1/session',
-      payload,
+    expect(mockedPost).toHaveBeenNthCalledWith(
+      1,
+      '/api/learn/shifu/course%2F1/live-follow-up/outline%2F1/session',
+      sessionPayload,
       { skipErrorToast: true, credentials: 'include' },
     );
+    expect(mockedPost).toHaveBeenNthCalledWith(
+      2,
+      '/api/learn/live-follow-up/session/session%2F1/heartbeat',
+      {},
+      { skipErrorToast: true, credentials: 'include' },
+    );
+    expect(mockedPost).toHaveBeenNthCalledWith(
+      3,
+      '/api/learn/live-follow-up/session/session%2F1/turn',
+      expect.objectContaining({ turn_index: 1 }),
+      { skipErrorToast: true, credentials: 'include' },
+    );
+    expect(mockedPost).toHaveBeenNthCalledWith(
+      4,
+      '/api/learn/live-follow-up/session/session%2F1/end',
+      { reason: 'ended_by_user' },
+      { skipErrorToast: true, credentials: 'include' },
+    );
+  });
+
+  it('only appends an ephemeral token to the official constrained endpoint', () => {
+    const endpoint =
+      'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
     expect(
-      resolveLiveFollowUpWebSocketUrl('/api/learn/live-follow-up/ws/session-1'),
-    ).toBe('wss://web.example.test/api/learn/live-follow-up/ws/session-1');
+      resolveGeminiLiveWebSocketUrl(endpoint, 'auth_tokens/short-lived'),
+    ).toBe(`${endpoint}?access_token=auth_tokens%2Fshort-lived`);
     expect(() =>
-      resolveLiveFollowUpWebSocketUrl(
-        'https://attacker.example/api/learn/live-follow-up/ws/session-1',
+      resolveGeminiLiveWebSocketUrl(
+        'wss://attacker.example/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained',
+        'auth_tokens/short-lived',
       ),
-    ).toThrow('Invalid live follow-up WebSocket path');
+    ).toThrow('Invalid Gemini Live session transport');
+    expect(() =>
+      resolveGeminiLiveWebSocketUrl(endpoint, 'long-lived-api-key'),
+    ).toThrow('Invalid Gemini Live session transport');
   });
 
-  it('uses the configured transport base outside a browser', async () => {
-    const browserWindow = window;
-    Object.defineProperty(globalThis, 'window', {
-      configurable: true,
-      value: undefined,
+  it('encodes PCM as Gemini realtime input JSON', () => {
+    const payload = JSON.parse(
+      encodeGeminiLiveAudioMessage(new Uint8Array([1, 2, 3]).buffer),
+    );
+    expect(payload).toEqual({
+      realtimeInput: {
+        audio: { mimeType: 'audio/pcm;rate=16000', data: 'AQID' },
+      },
     });
-
-    try {
-      await createLiveFollowUpSession('course-1', 'outline-1', {
-        anchor_element_bid: 'anchor-1',
-        preview_mode: true,
-        learning_mode: 'listen',
-        surface: 'teacher_preview',
-      });
-
-      expect(mockedPost).toHaveBeenCalledWith(
-        'https://api.example.test/api/learn/shifu/course-1/live-follow-up/outline-1/session',
-        expect.any(Object),
-        { skipErrorToast: true, credentials: 'include' },
-      );
-      expect(
-        resolveLiveFollowUpWebSocketUrl(
-          '/api/learn/live-follow-up/ws/session-1',
-        ),
-      ).toBe('wss://api.example.test/api/learn/live-follow-up/ws/session-1');
-    } finally {
-      Object.defineProperty(globalThis, 'window', {
-        configurable: true,
-        value: browserWindow,
-      });
-    }
   });
 
-  it('parses bounded control messages and optional speaking turn identity', () => {
+  it('parses all relevant Gemini parts without exposing raw errors', () => {
     expect(
-      parseLiveFollowUpServerMessage(
+      parseGeminiLiveServerMessage(
         JSON.stringify({
-          type: 'state',
-          state: 'speaking',
-          turn_index: 3,
-          private_error: 'must not leak',
-        }),
-      ),
-    ).toEqual({ type: 'state', state: 'speaking', turn_index: 3 });
-    expect(
-      parseLiveFollowUpServerMessage(
-        JSON.stringify({
-          type: 'transcript',
-          role: 'assistant',
-          turn_index: 3,
-          text: 'Hello',
-          final: true,
-          audio: 'ignored',
+          serverContent: {
+            modelTurn: {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: 'audio/pcm;rate=24000',
+                    data: 'AQID',
+                  },
+                },
+              ],
+            },
+            inputTranscription: { text: 'Question' },
+            outputTranscription: { text: 'Answer' },
+            interrupted: true,
+            turnComplete: true,
+          },
+          usageMetadata: { totalTokenCount: 3 },
+          sessionResumptionUpdate: {
+            newHandle: 'private-handle',
+            resumable: true,
+          },
         }),
       ),
     ).toEqual({
-      type: 'transcript',
-      role: 'assistant',
-      turn_index: 3,
-      text: 'Hello',
-      final: true,
+      setupComplete: false,
+      audioChunks: [new Uint8Array([1, 2, 3]).buffer],
+      interimInputTranscripts: [],
+      inputTranscripts: ['Question'],
+      outputTranscripts: ['Answer'],
+      interrupted: true,
+      turnComplete: true,
+      generationComplete: false,
+      usageMetadata: { totalTokenCount: 3 },
+      resumptionHandle: 'private-handle',
+      resumable: true,
+      goAway: false,
+      upstreamError: false,
     });
   });
 
-  it('rejects malformed and unknown messages', () => {
-    expect(parseLiveFollowUpServerMessage('not json')).toBeNull();
+  it('rejects malformed JSON and invalid audio while merging transcript deltas', () => {
+    expect(parseGeminiLiveServerMessage('not json')).toBeNull();
     expect(
-      parseLiveFollowUpServerMessage(
-        JSON.stringify({ type: 'state', state: 'private-state' }),
-      ),
-    ).toBeNull();
-    expect(
-      parseLiveFollowUpServerMessage(
+      parseGeminiLiveServerMessage(
         JSON.stringify({
-          type: 'transcript',
-          role: 'assistant',
-          turn_index: '3',
-          text: 'Hello',
-          final: true,
+          serverContent: {
+            modelTurn: {
+              parts: [{ inlineData: { mimeType: 'audio/pcm', data: '$$$' } }],
+            },
+          },
         }),
       ),
     ).toBeNull();
+    expect(mergeLiveTranscript('hello wor', 'world')).toBe('hello world');
+    expect(mergeLiveTranscript('hello', 'hello world')).toBe('hello world');
   });
 });

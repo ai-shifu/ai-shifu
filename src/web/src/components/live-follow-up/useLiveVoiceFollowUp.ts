@@ -5,25 +5,34 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import {
+  commitLiveFollowUpTurn,
   createLiveFollowUpSession,
-  parseLiveFollowUpServerMessage,
-  resolveLiveFollowUpWebSocketUrl,
+  encodeGeminiLiveAudioMessage,
+  endLiveFollowUpSession,
+  heartbeatLiveFollowUpSession,
+  parseGeminiLiveServerMessage,
+  resolveGeminiLiveWebSocketUrl,
   type LiveFollowUpLearningMode,
+  type LiveFollowUpSession,
   type LiveFollowUpState,
   type LiveFollowUpSurface,
   type LiveFollowUpTranscriptRole,
 } from '@/lib/liveVoiceFollowUp';
 
 import {
+  GeminiLiveTurnAccumulator,
+  GEMINI_LIVE_RECONCILIATION_MS,
+  type GeminiLiveTranscriptUpdate,
+  type GeminiLiveTurnCommit,
+} from './geminiLiveTurnAccumulator';
+import {
   buildLiveVoiceFollowUpAttemptAnalytics,
   buildLiveVoiceFollowUpResultAnalytics,
   buildLiveVoiceFollowUpSessionEndAnalytics,
-  normalizeLiveVoiceFollowUpEndReason,
-  normalizeLiveVoiceFollowUpErrorCode,
-  shouldTrackLiveVoiceFollowUp,
   LIVE_VOICE_FOLLOW_UP_ATTEMPT_EVENT,
   LIVE_VOICE_FOLLOW_UP_RESULT_EVENT,
   LIVE_VOICE_FOLLOW_UP_SESSION_END_EVENT,
+  shouldTrackLiveVoiceFollowUp,
   type LiveVoiceFollowUpEndReason,
   type LiveVoiceFollowUpErrorCode,
   type LiveVoiceFollowUpOutcome,
@@ -35,10 +44,10 @@ import {
 
 const SESSION_WARNING_MS = 14 * 60 * 1000 + 30 * 1000;
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
-// Keep at most 250 ms of 16 kHz mono PCM16 queued in the browser. Frames
-// captured while the uplink is stalled are dropped so recovery cannot burst
-// enough stale audio to trip the server's real-time input limiter.
+const MAX_INPUT_AUDIO_FRAME_BYTES = 8 * 1024;
 const MAX_BUFFERED_INPUT_AUDIO_BYTES = 8 * 1024;
+const MIN_HEARTBEAT_MS = 5_000;
+const MAX_HEARTBEAT_MS = 30_000;
 
 export type LiveVoiceTranscript = {
   role: LiveFollowUpTranscriptRole;
@@ -97,6 +106,14 @@ type UseLiveVoiceFollowUpOptions = {
   }) => void;
 };
 
+type FinishAttemptOptions = {
+  reason: LiveVoiceFollowUpEndReason;
+  keepOpen: boolean;
+  errorCode?: LiveVoiceFollowUpErrorCode | null;
+  retryable?: boolean;
+  pendingOutcome?: LiveVoiceFollowUpOutcome;
+};
+
 const initialState: LiveVoiceFollowUpViewState = {
   open: false,
   state: 'ended',
@@ -142,10 +159,7 @@ const sortTranscripts = (items: LiveVoiceTranscript[]) =>
     return left.role === 'user' ? -1 : 1;
   });
 
-const sendWebSocketPayload = (
-  websocket: WebSocket | null,
-  payload: string | ArrayBuffer,
-) => {
+const sendWebSocketPayload = (websocket: WebSocket | null, payload: string) => {
   if (websocket?.readyState !== WebSocket.OPEN) {
     return false;
   }
@@ -157,17 +171,21 @@ const sendWebSocketPayload = (
   }
 };
 
-const sendInputAudioFrame = (
-  websocket: WebSocket | null,
-  frame: ArrayBuffer,
-) => {
-  if (
-    websocket?.readyState !== WebSocket.OPEN ||
-    websocket.bufferedAmount + frame.byteLength > MAX_BUFFERED_INPUT_AUDIO_BYTES
-  ) {
-    return false;
+const directSessionEndReason = (reason: LiveVoiceFollowUpEndReason) => {
+  switch (reason) {
+    case 'user_end':
+    case 'user_close':
+      return 'ended_by_user';
+    case 'lesson_changed':
+    case 'page_hidden':
+    case 'replaced':
+    case 'timeout':
+      return reason;
+    case 'connection_closed':
+      return 'client_disconnected';
+    default:
+      return 'connection_error';
   }
-  return sendWebSocketPayload(websocket, frame);
 };
 
 export const useLiveVoiceFollowUp = ({
@@ -186,14 +204,23 @@ export const useLiveVoiceFollowUp = ({
   const lastTargetRef = useRef<StartTarget | null>(null);
   const generationRef = useRef(0);
   const websocketRef = useRef<WebSocket | null>(null);
+  const sessionRef = useRef<LiveFollowUpSession | null>(null);
   const audioRef = useRef<LiveVoiceFollowUpAudio | null>(null);
   const mutedRef = useRef(false);
-  const outputTurnIndexRef = useRef<number | null>(null);
+  const setupReadyRef = useRef(false);
   const reconnectingRef = useRef(false);
+  const resumptionHandleRef = useRef<string | null>(null);
+  const outputTurnIndexRef = useRef<number | null>(null);
   const transcriptsRef = useRef<LiveVoiceTranscript[]>([]);
-  const committedTurnIndexesRef = useRef<Set<number>>(new Set());
+  const accumulatorRef = useRef<GeminiLiveTurnAccumulator | null>(null);
+  const commitTimerRef = useRef<number | null>(null);
+  const commitChainRef = useRef<Promise<void>>(Promise.resolve());
+  const finishAttemptRef = useRef<
+    ((options: FinishAttemptOptions) => void) | null
+  >(null);
   const warningTimerRef = useRef<number | null>(null);
   const timeoutTimerRef = useRef<number | null>(null);
+  const heartbeatTimerRef = useRef<number | null>(null);
   const unmountedRef = useRef(false);
   const sessionScopeKey = `${shifuBid}:${outlineBid}:${sessionScope}:${previewMode ? 'preview' : 'learner'}`;
   const previousSessionScopeKeyRef = useRef(sessionScopeKey);
@@ -267,19 +294,137 @@ export const useLiveVoiceFollowUp = ({
   );
 
   const clearTimers = useCallback(() => {
-    if (warningTimerRef.current !== null) {
-      window.clearTimeout(warningTimerRef.current);
-      warningTimerRef.current = null;
-    }
-    if (timeoutTimerRef.current !== null) {
-      window.clearTimeout(timeoutTimerRef.current);
-      timeoutTimerRef.current = null;
+    for (const timerRef of [
+      warningTimerRef,
+      timeoutTimerRef,
+      heartbeatTimerRef,
+      commitTimerRef,
+    ]) {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
   }, []);
 
+  const applyTranscriptUpdates = useCallback(
+    (updates: GeminiLiveTranscriptUpdate[]) => {
+      if (!updates.length) {
+        return;
+      }
+      for (const update of updates) {
+        transcriptsRef.current = sortTranscripts([
+          ...transcriptsRef.current.filter(
+            transcript =>
+              transcript.turnIndex !== update.turnIndex ||
+              transcript.role !== update.role,
+          ),
+          update,
+        ]);
+      }
+      setViewState(previous => ({
+        ...previous,
+        transcripts: transcriptsRef.current,
+      }));
+    },
+    [],
+  );
+
+  const persistCommits = useCallback(
+    (
+      sessionBid: string,
+      anchorElementBid: string,
+      commits: GeminiLiveTurnCommit[],
+      generation: number,
+    ) => {
+      for (const commit of commits) {
+        commitChainRef.current = commitChainRef.current
+          .then(async () => {
+            await commitLiveFollowUpTurn(sessionBid, {
+              turn_index: commit.turnIndex,
+              user_transcript: commit.userTranscript,
+              played_answer_transcript: commit.playedAnswerTranscript,
+              interrupted: commit.interrupted,
+              usage_metadata: commit.usageMetadata,
+              latency_ms: commit.latencyMs,
+            });
+            const activeAttempt = attemptRef.current;
+            if (activeAttempt?.generation === generation) {
+              activeAttempt.hadExchange = true;
+            }
+            try {
+              onTurnCommitted?.({
+                anchorElementBid,
+                turnIndex: commit.turnIndex,
+                userTranscript: commit.userTranscript,
+                assistantTranscript: commit.playedAnswerTranscript,
+              });
+            } catch {}
+          })
+          .catch(() => {
+            if (attemptRef.current?.generation === generation) {
+              finishAttemptRef.current?.({
+                reason: 'connection_error',
+                keepOpen: true,
+                errorCode: 'server_error',
+                retryable: true,
+                pendingOutcome: 'failed',
+              });
+            }
+          });
+      }
+    },
+    [onTurnCommitted],
+  );
+
+  const flushReadyCommits = useCallback(
+    (generation: number, force = false) => {
+      const attempt = attemptRef.current;
+      const session = sessionRef.current;
+      const accumulator = accumulatorRef.current;
+      if (
+        !attempt ||
+        attempt.generation !== generation ||
+        !session ||
+        !accumulator
+      ) {
+        return;
+      }
+      const commits = force
+        ? accumulator.finishSession()
+        : accumulator.popReady();
+      persistCommits(
+        session.session_bid,
+        attempt.anchorElementBid,
+        commits,
+        generation,
+      );
+    },
+    [persistCommits],
+  );
+
+  const scheduleCommitFlush = useCallback(
+    (generation: number) => {
+      if (commitTimerRef.current !== null) {
+        window.clearTimeout(commitTimerRef.current);
+      }
+      commitTimerRef.current = window.setTimeout(() => {
+        commitTimerRef.current = null;
+        flushReadyCommits(generation);
+      }, GEMINI_LIVE_RECONCILIATION_MS);
+    },
+    [flushReadyCommits],
+  );
+
   const teardownTransport = useCallback(
-    ({ sendEndControl = false }: { sendEndControl?: boolean } = {}) => {
+    (reason: LiveVoiceFollowUpEndReason) => {
       clearTimers();
+      setupReadyRef.current = false;
+      reconnectingRef.current = false;
+      resumptionHandleRef.current = null;
+      outputTurnIndexRef.current = null;
+
       const websocket = websocketRef.current;
       websocketRef.current = null;
       if (websocket) {
@@ -288,38 +433,41 @@ export const useLiveVoiceFollowUp = ({
         websocket.onerror = null;
         websocket.onclose = null;
       }
-      const closeWebSocket = () => {
-        if (!websocket) {
-          return;
-        }
-        if (sendEndControl) {
-          sendWebSocketPayload(websocket, JSON.stringify({ type: 'end' }));
+
+      const attempt = attemptRef.current;
+      const session = sessionRef.current;
+      const accumulator = accumulatorRef.current;
+      sessionRef.current = null;
+      accumulatorRef.current = null;
+      const audio = audioRef.current;
+      audioRef.current = null;
+
+      const finalize = async () => {
+        await audio?.stop().catch(() => {});
+        if (attempt && session && accumulator) {
+          persistCommits(
+            session.session_bid,
+            attempt.anchorElementBid,
+            accumulator.finishSession(),
+            attempt.generation,
+          );
+          await commitChainRef.current.catch(() => {});
+          await endLiveFollowUpSession(
+            session.session_bid,
+            directSessionEndReason(reason),
+          ).catch(() => {});
         }
         if (
-          websocket.readyState === WebSocket.OPEN ||
-          websocket.readyState === WebSocket.CONNECTING
+          websocket?.readyState === WebSocket.OPEN ||
+          websocket?.readyState === WebSocket.CONNECTING
         ) {
           websocket.close(1000, 'session ended');
         }
       };
-      const audio = audioRef.current;
-      audioRef.current = null;
-      if (audio) {
-        // `stop` waits for the worklet's bounded playback-progress flush ACK.
-        // Keep this attempt's socket open until that checkpoint and the final
-        // end control have been sent.
-        void audio
-          .stop()
-          .catch(() => {})
-          .finally(closeWebSocket);
-      } else {
-        closeWebSocket();
-      }
-      outputTurnIndexRef.current = null;
-      reconnectingRef.current = false;
+      void finalize();
       releaseExclusive();
     },
-    [clearTimers, releaseExclusive],
+    [clearTimers, persistCommits, releaseExclusive],
   );
 
   const finishAttempt = useCallback(
@@ -329,17 +477,9 @@ export const useLiveVoiceFollowUp = ({
       errorCode = null,
       retryable = false,
       pendingOutcome = 'cancelled',
-      sendEndControl = false,
-    }: {
-      reason: LiveVoiceFollowUpEndReason;
-      keepOpen: boolean;
-      errorCode?: LiveVoiceFollowUpErrorCode | null;
-      retryable?: boolean;
-      pendingOutcome?: LiveVoiceFollowUpOutcome;
-      sendEndControl?: boolean;
-    }) => {
+    }: FinishAttemptOptions) => {
       const attempt = attemptRef.current;
-      teardownTransport({ sendEndControl });
+      teardownTransport(reason);
       if (attempt) {
         if (!attempt.attemptResultReported) {
           reportAttemptResult(attempt, pendingOutcome, errorCode || 'none');
@@ -361,7 +501,6 @@ export const useLiveVoiceFollowUp = ({
     },
     [reportAttemptResult, reportSessionEnd, teardownTransport],
   );
-  const finishAttemptRef = useRef(finishAttempt);
   finishAttemptRef.current = finishAttempt;
 
   const start = useCallback(
@@ -370,7 +509,6 @@ export const useLiveVoiceFollowUp = ({
       if (!normalizedAnchor || !shifuBid || !outlineBid) {
         return;
       }
-
       if (attemptRef.current) {
         finishAttempt({ reason: 'replaced', keepOpen: false });
       }
@@ -392,9 +530,11 @@ export const useLiveVoiceFollowUp = ({
       };
       attemptRef.current = attempt;
       mutedRef.current = false;
-      reconnectingRef.current = false;
+      setupReadyRef.current = false;
       transcriptsRef.current = [];
-      committedTurnIndexesRef.current.clear();
+      const attemptAccumulator = new GeminiLiveTurnAccumulator();
+      accumulatorRef.current = attemptAccumulator;
+      commitChainRef.current = Promise.resolve();
 
       if (analyticsEnabled) {
         trackSafely(
@@ -407,13 +547,7 @@ export const useLiveVoiceFollowUp = ({
           }),
         );
       }
-
-      setViewState({
-        ...initialState,
-        open: true,
-        state: 'connecting',
-      });
-
+      setViewState({ ...initialState, open: true, state: 'connecting' });
       requestExclusive(() => {
         finishAttempt({ reason: 'replaced', keepOpen: false });
       });
@@ -436,9 +570,7 @@ export const useLiveVoiceFollowUp = ({
         }));
       };
 
-      let attemptWebSocket: WebSocket | null = null;
-
-      const startServerDeadlineIfNeeded = (currentAttempt: ActiveAttempt) => {
+      const startSessionTimers = (currentAttempt: ActiveAttempt) => {
         if (currentAttempt.serverReadyAt !== null) {
           return;
         }
@@ -461,41 +593,47 @@ export const useLiveVoiceFollowUp = ({
         }, SESSION_TIMEOUT_MS);
       };
 
-      // Both operations are deliberately launched synchronously from the
-      // button handler. In particular, microphone permission and
-      // AudioContext.resume() must not wait for the HTTP response.
-      let audioPromise: Promise<LiveVoiceFollowUpAudio>;
-      try {
-        audioPromise = LiveVoiceFollowUpAudio.activate({
+      const activateAudio = () =>
+        LiveVoiceFollowUpAudio.activate({
           onInputFrame: frame => {
             const currentAttempt = attemptRef.current;
+            const websocket = websocketRef.current;
             if (
-              currentAttempt?.generation === generation &&
-              currentAttempt.serverVoiceState !== null
+              currentAttempt?.generation !== generation ||
+              !setupReadyRef.current ||
+              websocket?.readyState !== WebSocket.OPEN ||
+              frame.byteLength > MAX_INPUT_AUDIO_FRAME_BYTES ||
+              websocket.bufferedAmount + frame.byteLength * 2 >
+                MAX_BUFFERED_INPUT_AUDIO_BYTES
             ) {
-              sendInputAudioFrame(websocketRef.current, frame);
+              return;
             }
+            sendWebSocketPayload(
+              websocket,
+              encodeGeminiLiveAudioMessage(frame),
+            );
           },
           onPlaybackProgress: (turnIndex, playedBytes) => {
-            sendWebSocketPayload(
-              attemptWebSocket,
-              JSON.stringify({
-                type: 'playback_progress',
-                turn_index: turnIndex,
-                played_bytes: playedBytes,
-              }),
-            );
+            attemptAccumulator.recordPlaybackProgress(turnIndex, playedBytes);
+            flushReadyCommits(generation);
           },
           onPlaybackComplete: turnIndex => {
-            sendWebSocketPayload(
-              attemptWebSocket,
-              JSON.stringify({
-                type: 'playback_complete',
-                turn_index: turnIndex,
-              }),
-            );
+            attemptAccumulator.markPlaybackComplete(turnIndex);
+            flushReadyCommits(generation);
+            if (outputTurnIndexRef.current === turnIndex) {
+              outputTurnIndexRef.current = null;
+              const currentAttempt = attemptRef.current;
+              if (currentAttempt?.generation === generation) {
+                currentAttempt.serverVoiceState = 'listening';
+                setViewState(previous => ({ ...previous, state: 'listening' }));
+              }
+            }
           },
         });
+
+      let audioPromise: Promise<LiveVoiceFollowUpAudio>;
+      try {
+        audioPromise = activateAudio();
       } catch (error) {
         audioPromise = Promise.reject(error);
       }
@@ -505,25 +643,21 @@ export const useLiveVoiceFollowUp = ({
             void audio.stop().catch(() => {});
             return;
           }
-          // Retain the live audio graph as soon as activation succeeds. The
-          // session POST may still be pending, but close/hide/scope changes
-          // must be able to stop the microphone immediately.
           audioRef.current = audio;
           audio.setMuted(mutedRef.current);
           attemptRef.current.audioActivated = true;
           markConnectedIfReady();
         })
         .catch(error => {
-          if (attemptRef.current?.generation !== generation) {
-            return;
+          if (attemptRef.current?.generation === generation) {
+            finishAttempt({
+              reason: 'connection_error',
+              keepOpen: true,
+              errorCode: resolveActivationErrorCode(error),
+              retryable: true,
+              pendingOutcome: 'failed',
+            });
           }
-          finishAttempt({
-            reason: 'connection_error',
-            keepOpen: true,
-            errorCode: resolveActivationErrorCode(error),
-            retryable: true,
-            pendingOutcome: 'failed',
-          });
         });
 
       let sessionPromise: ReturnType<typeof createLiveFollowUpSession>;
@@ -538,236 +672,237 @@ export const useLiveVoiceFollowUp = ({
         sessionPromise = Promise.reject(error);
       }
 
-      // Consume the one-time ticket as soon as the POST resolves. A microphone
-      // permission prompt can remain open longer than the ticket TTL, so the
-      // WebSocket setup must not wait for audio activation.
-      void sessionPromise
-        .then(session => {
+      const openGeminiSocket = (
+        session: LiveFollowUpSession,
+        resumptionHandle: string | null,
+      ) => {
+        const previous = websocketRef.current;
+        if (previous) {
+          previous.onopen = null;
+          previous.onmessage = null;
+          previous.onerror = null;
+          previous.onclose = null;
+          if (
+            previous.readyState === WebSocket.OPEN ||
+            previous.readyState === WebSocket.CONNECTING
+          ) {
+            previous.close(1000, 'session resuming');
+          }
+        }
+        setupReadyRef.current = false;
+        const websocket = new WebSocket(
+          resolveGeminiLiveWebSocketUrl(
+            session.websocket_url,
+            session.ephemeral_token,
+          ),
+        );
+        websocketRef.current = websocket;
+
+        websocket.onopen = () => {
           if (attemptRef.current?.generation !== generation) {
+            websocket.close();
             return;
           }
-          const websocket = new WebSocket(
-            resolveLiveFollowUpWebSocketUrl(session.ws_path),
-          );
-          attemptWebSocket = websocket;
-          websocket.binaryType = 'arraybuffer';
-          websocketRef.current = websocket;
-
-          websocket.onopen = () => {
-            const currentAttempt = attemptRef.current;
-            if (currentAttempt?.generation !== generation) {
-              websocket.close();
-            }
+          const setup = {
+            setup: {
+              ...session.setup.setup,
+              sessionResumption: resumptionHandle
+                ? { handle: resumptionHandle }
+                : {},
+              ...(resumptionHandle ? { historyConfig: undefined } : {}),
+            },
           };
+          sendWebSocketPayload(websocket, JSON.stringify(setup));
+        };
 
-          websocket.onmessage = event => {
-            if (attemptRef.current?.generation !== generation) {
-              return;
-            }
-            if (event.data instanceof ArrayBuffer) {
-              const turnIndex = outputTurnIndexRef.current;
-              if (turnIndex !== null) {
-                audioRef.current?.enqueueOutput(event.data, turnIndex);
-              }
-              return;
-            }
-            if (typeof event.data !== 'string') {
-              return;
-            }
-            const message = parseLiveFollowUpServerMessage(event.data);
-            if (!message) {
-              return;
-            }
-            switch (message.type) {
-              case 'state':
-                const isResumeHandshakeListening =
-                  message.state === 'listening' && reconnectingRef.current;
-                if (message.state === 'reconnecting') {
-                  reconnectingRef.current = true;
-                } else if (message.state === 'listening') {
-                  reconnectingRef.current = false;
-                }
-                if (
-                  message.state === 'listening' ||
-                  message.state === 'speaking'
-                ) {
-                  const currentAttempt = attemptRef.current;
-                  if (currentAttempt?.generation === generation) {
-                    currentAttempt.serverVoiceState = message.state;
-                    startServerDeadlineIfNeeded(currentAttempt);
-                    markConnectedIfReady();
-                  }
-                } else if (attemptRef.current?.generation === generation) {
-                  attemptRef.current.serverVoiceState = null;
-                }
-                if (
-                  message.state === 'speaking' &&
-                  typeof message.turn_index === 'number'
-                ) {
-                  outputTurnIndexRef.current = message.turn_index;
-                }
-                if (message.state === 'listening') {
-                  const completedTurnIndex = outputTurnIndexRef.current;
-                  if (
-                    completedTurnIndex !== null &&
-                    !isResumeHandshakeListening
-                  ) {
-                    audioRef.current?.finishOutput(completedTurnIndex);
-                  }
-                  if (!isResumeHandshakeListening) {
-                    outputTurnIndexRef.current = null;
-                  }
-                }
-                if (
-                  message.state !== 'listening' &&
-                  message.state !== 'speaking'
-                ) {
-                  setViewState(previous => ({
-                    ...previous,
-                    state: message.state,
-                  }));
-                } else if (attemptRef.current?.connectedAt !== null) {
-                  setViewState(previous => ({
-                    ...previous,
-                    state: message.state,
-                  }));
-                }
-                break;
-              case 'transcript':
-                if (message.role === 'assistant') {
-                  outputTurnIndexRef.current = message.turn_index;
-                }
-                transcriptsRef.current = sortTranscripts([
-                  ...transcriptsRef.current.filter(
-                    transcript =>
-                      transcript.turnIndex !== message.turn_index ||
-                      transcript.role !== message.role,
-                  ),
-                  {
-                    role: message.role,
-                    turnIndex: message.turn_index,
-                    text: message.text,
-                    final: message.final,
-                  },
-                ]);
-                setViewState(previous => {
-                  return {
-                    ...previous,
-                    transcripts: transcriptsRef.current,
-                  };
-                });
-                break;
-              case 'interrupted':
-                audioRef.current?.clearPlayback();
-                outputTurnIndexRef.current = null;
-                setViewState(previous => ({
-                  ...previous,
-                  state: 'listening',
-                }));
-                break;
-              case 'turn_committed':
-                if (attemptRef.current) {
-                  attemptRef.current.hadExchange = true;
-                  if (
-                    !committedTurnIndexesRef.current.has(message.turn_index)
-                  ) {
-                    committedTurnIndexesRef.current.add(message.turn_index);
-                    const turnTranscripts = transcriptsRef.current.filter(
-                      transcript => transcript.turnIndex === message.turn_index,
-                    );
-                    try {
-                      onTurnCommitted?.({
-                        anchorElementBid: attemptRef.current.anchorElementBid,
-                        turnIndex: message.turn_index,
-                        userTranscript:
-                          turnTranscripts.find(
-                            transcript => transcript.role === 'user',
-                          )?.text ?? '',
-                        assistantTranscript:
-                          turnTranscripts.find(
-                            transcript => transcript.role === 'assistant',
-                          )?.text ?? '',
-                      });
-                    } catch {}
-                  }
-                }
-                break;
-              case 'error': {
-                const errorCode = normalizeLiveVoiceFollowUpErrorCode(
-                  message.code,
-                );
-                finishAttempt({
-                  reason: 'connection_error',
-                  keepOpen: true,
-                  errorCode,
-                  retryable: message.retryable,
-                  pendingOutcome: 'failed',
-                });
-                break;
-              }
-              case 'session_end': {
-                const endedBeforeConnection =
-                  attemptRef.current?.connectedAt === null;
-                finishAttempt({
-                  reason: normalizeLiveVoiceFollowUpEndReason(message.reason),
-                  keepOpen: true,
-                  retryable: true,
-                  errorCode: endedBeforeConnection ? 'server_error' : null,
-                  pendingOutcome: endedBeforeConnection
-                    ? 'failed'
-                    : 'cancelled',
-                });
-                break;
-              }
-            }
-          };
-          websocket.onerror = () => {
-            if (attemptRef.current?.generation !== generation) {
-              return;
-            }
+        websocket.onmessage = event => {
+          if (
+            attemptRef.current?.generation !== generation ||
+            typeof event.data !== 'string'
+          ) {
+            return;
+          }
+          const message = parseGeminiLiveServerMessage(event.data);
+          if (!message) {
+            return;
+          }
+          if (message.upstreamError) {
             finishAttempt({
               reason: 'connection_error',
               keepOpen: true,
-              errorCode: 'websocket_failed',
+              errorCode: 'server_error',
               retryable: true,
               pendingOutcome: 'failed',
             });
-          };
-          websocket.onclose = () => {
-            if (attemptRef.current?.generation !== generation) {
+            return;
+          }
+          if (message.resumable === false) {
+            resumptionHandleRef.current = null;
+          } else if (message.resumptionHandle) {
+            resumptionHandleRef.current = message.resumptionHandle;
+          }
+          if (message.setupComplete) {
+            if (!resumptionHandle && session.history) {
+              sendWebSocketPayload(websocket, JSON.stringify(session.history));
+            }
+            setupReadyRef.current = true;
+            reconnectingRef.current = false;
+            const currentAttempt = attemptRef.current;
+            if (currentAttempt?.generation === generation) {
+              currentAttempt.serverVoiceState = 'listening';
+              startSessionTimers(currentAttempt);
+              markConnectedIfReady();
+            }
+            setViewState(previousState => ({
+              ...previousState,
+              state:
+                attemptRef.current?.connectedAt === null
+                  ? 'connecting'
+                  : 'listening',
+            }));
+          }
+
+          const ingest = attemptAccumulator.process(message);
+          applyTranscriptUpdates(ingest.transcriptUpdates);
+          if (ingest.audioTurnIndex !== null) {
+            outputTurnIndexRef.current = ingest.audioTurnIndex;
+            for (const chunk of ingest.audioChunks) {
+              audioRef.current?.enqueueOutput(chunk, ingest.audioTurnIndex);
+            }
+            const currentAttempt = attemptRef.current;
+            if (currentAttempt?.generation === generation) {
+              currentAttempt.serverVoiceState = 'speaking';
+              if (currentAttempt.connectedAt !== null) {
+                setViewState(previousState => ({
+                  ...previousState,
+                  state: 'speaking',
+                }));
+              }
+            }
+          }
+          if (ingest.interruptedTurnIndex !== null) {
+            audioRef.current?.clearPlayback();
+            outputTurnIndexRef.current = null;
+            const currentAttempt = attemptRef.current;
+            if (currentAttempt?.generation === generation) {
+              currentAttempt.serverVoiceState = 'listening';
+              setViewState(previousState => ({
+                ...previousState,
+                state: 'listening',
+              }));
+            }
+          }
+          if (ingest.terminalTurnIndex !== null) {
+            audioRef.current?.finishOutput(ingest.terminalTurnIndex);
+            scheduleCommitFlush(generation);
+          }
+
+          if (message.goAway) {
+            const handle = resumptionHandleRef.current;
+            if (!handle) {
+              finishAttempt({
+                reason: 'connection_error',
+                keepOpen: true,
+                errorCode: 'network_error',
+                retryable: true,
+                pendingOutcome: 'failed',
+              });
               return;
             }
-            finishAttempt({
-              reason: 'connection_closed',
-              keepOpen: true,
-              errorCode: 'network_error',
-              retryable: true,
-              pendingOutcome: 'failed',
-            });
-          };
-        })
-        .catch(() => {
+            reconnectingRef.current = true;
+            const currentAttempt = attemptRef.current;
+            if (currentAttempt?.generation === generation) {
+              currentAttempt.serverVoiceState = null;
+            }
+            setViewState(previousState => ({
+              ...previousState,
+              state: 'reconnecting',
+            }));
+            openGeminiSocket(session, handle);
+          }
+        };
+
+        websocket.onerror = () => {
           if (attemptRef.current?.generation !== generation) {
             return;
           }
           finishAttempt({
             reason: 'connection_error',
             keepOpen: true,
-            errorCode: 'session_create_failed',
+            errorCode: 'websocket_failed',
             retryable: true,
             pendingOutcome: 'failed',
           });
+        };
+        websocket.onclose = () => {
+          if (attemptRef.current?.generation !== generation) {
+            return;
+          }
+          finishAttempt({
+            reason: 'connection_closed',
+            keepOpen: true,
+            errorCode: 'network_error',
+            retryable: true,
+            pendingOutcome: 'failed',
+          });
+        };
+      };
+
+      void sessionPromise
+        .then(session => {
+          if (attemptRef.current?.generation !== generation) {
+            void endLiveFollowUpSession(
+              session.session_bid,
+              'client_disconnected',
+            ).catch(() => {});
+            return;
+          }
+          sessionRef.current = session;
+          openGeminiSocket(session, null);
+          const heartbeatMs = Math.min(
+            MAX_HEARTBEAT_MS,
+            Math.max(MIN_HEARTBEAT_MS, session.heartbeat_interval_ms),
+          );
+          heartbeatTimerRef.current = window.setInterval(() => {
+            if (attemptRef.current?.generation !== generation) {
+              return;
+            }
+            void heartbeatLiveFollowUpSession(session.session_bid).catch(() => {
+              if (attemptRef.current?.generation === generation) {
+                finishAttempt({
+                  reason: 'connection_error',
+                  keepOpen: true,
+                  errorCode: 'server_error',
+                  retryable: true,
+                  pendingOutcome: 'failed',
+                });
+              }
+            });
+          }, heartbeatMs);
+        })
+        .catch(() => {
+          if (attemptRef.current?.generation === generation) {
+            finishAttempt({
+              reason: 'connection_error',
+              keepOpen: true,
+              errorCode: 'session_create_failed',
+              retryable: true,
+              pendingOutcome: 'failed',
+            });
+          }
         });
     },
     [
       analyticsEnabled,
+      applyTranscriptUpdates,
       finishAttempt,
+      flushReadyCommits,
       learningMode,
-      onTurnCommitted,
       outlineBid,
       previewMode,
       reportAttemptResult,
       requestExclusive,
+      scheduleCommitFlush,
       shifuBid,
       trackSafely,
     ],
@@ -787,7 +922,7 @@ export const useLiveVoiceFollowUp = ({
       if (muted) {
         sendWebSocketPayload(
           websocketRef.current,
-          JSON.stringify({ type: 'audio_stream_end' }),
+          JSON.stringify({ realtimeInput: { audioStreamEnd: true } }),
         );
       }
       return { ...previous, muted };
@@ -795,11 +930,7 @@ export const useLiveVoiceFollowUp = ({
   }, []);
 
   const end = useCallback(() => {
-    finishAttempt({
-      reason: 'user_end',
-      keepOpen: false,
-      sendEndControl: true,
-    });
+    finishAttempt({ reason: 'user_end', keepOpen: false });
   }, [finishAttempt]);
 
   const close = useCallback(() => {
@@ -840,7 +971,7 @@ export const useLiveVoiceFollowUp = ({
     return () => {
       unmountedRef.current = true;
       if (attemptRef.current) {
-        finishAttemptRef.current({
+        finishAttemptRef.current?.({
           reason: 'lesson_changed',
           keepOpen: false,
         });

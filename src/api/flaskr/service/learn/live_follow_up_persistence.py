@@ -1,8 +1,9 @@
-"""Persist transcript-only Gemini Live follow-up turns and trusted usage."""
+"""Persist transcript-only Gemini Live turns and non-billable client usage."""
 
 from __future__ import annotations
 
 import json
+import math
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -325,24 +326,63 @@ def _persist_transcript_history(
     )
 
 
-def _safe_usage_metadata(value: object, *, depth: int = 0) -> object:
-    """Copy trusted Gemini counters without retaining arbitrary raw events."""
-    if depth > 6:
-        return None
-    if value is None or isinstance(value, (bool, int, float)):
-        return value
-    if isinstance(value, str):
-        return value[:128]
-    if isinstance(value, dict):
-        return {
-            str(key)[:80]: _safe_usage_metadata(item, depth=depth + 1)
-            for key, item in list(value.items())[:100]
-        }
-    if isinstance(value, (list, tuple)):
-        return [
-            _safe_usage_metadata(item, depth=depth + 1) for item in list(value)[:100]
-        ]
+_USAGE_COUNTER_KEYS = frozenset(
+    {
+        "cachedContentTokenCount",
+        "candidatesTokenCount",
+        "promptTokenCount",
+        "responseTokenCount",
+        "thoughtsTokenCount",
+        "toolUsePromptTokenCount",
+        "totalTokenCount",
+    }
+)
+_USAGE_DETAIL_KEYS = frozenset(
+    {
+        "cacheTokensDetails",
+        "candidatesTokensDetails",
+        "promptTokensDetails",
+        "responseTokensDetails",
+        "toolUsePromptTokensDetails",
+    }
+)
+_USAGE_MODALITIES = frozenset({"AUDIO", "IMAGE", "TEXT", "VIDEO"})
+_MAX_CLIENT_USAGE_COUNT = 2_147_483_647
+
+
+def _safe_usage_count(value: object) -> int | None:
+    if type(value) is int:
+        return min(_MAX_CLIENT_USAGE_COUNT, max(0, value))
+    if type(value) is float and math.isfinite(value):
+        return min(_MAX_CLIENT_USAGE_COUNT, max(0, int(value)))
     return None
+
+
+def _safe_usage_metadata(value: object) -> dict[str, object]:
+    """Allowlist untrusted browser-reported Gemini counters and modalities."""
+    if not isinstance(value, dict):
+        return {}
+    safe: dict[str, object] = {}
+    for key in _USAGE_COUNTER_KEYS:
+        count = _safe_usage_count(value.get(key))
+        if count is not None:
+            safe[key] = count
+    for key in _USAGE_DETAIL_KEYS:
+        raw_details = value.get(key)
+        if not isinstance(raw_details, list):
+            continue
+        details: list[dict[str, object]] = []
+        for item in raw_details[:16]:
+            if not isinstance(item, dict):
+                continue
+            modality = str(item.get("modality") or "").upper()
+            token_count = _safe_usage_count(item.get("tokenCount"))
+            if modality not in _USAGE_MODALITIES or token_count is None:
+                continue
+            details.append({"modality": modality, "tokenCount": token_count})
+        if details:
+            safe[key] = details
+    return safe
 
 
 def _usage_int(usage: dict[str, Any], *keys: str) -> int:
@@ -372,7 +412,7 @@ def _persist_usage(
     if existing is not None:
         return usage_bid
 
-    usage = dict(turn.usage_metadata or {})
+    usage = _safe_usage_metadata(turn.usage_metadata)
     prompt_tokens = _usage_int(usage, "promptTokenCount", "prompt_token_count")
     output_tokens = _usage_int(
         usage, "responseTokenCount", "response_token_count", "candidatesTokenCount"
@@ -382,7 +422,10 @@ def _persist_usage(
         usage, "cachedContentTokenCount", "cached_content_token_count"
     )
     if not total_tokens:
-        total_tokens = prompt_tokens + output_tokens
+        total_tokens = min(
+            _MAX_CLIENT_USAGE_COUNT,
+            prompt_tokens + output_tokens,
+        )
     recorded_usage_bid = record_llm_usage(
         app,
         UsageContext(
@@ -411,7 +454,8 @@ def _persist_usage(
         total=total_tokens,
         latency_ms=max(0, int(turn.latency_ms or 0)),
         extra={
-            "usage_source": "gemini_live_follow_up",
+            "usage_source": "gemini_live_follow_up_client_report",
+            "usage_attestation": "client_reported_untrusted",
             "interaction_mode": "live_voice",
             "live_session_bid": context.session_bid,
             "live_turn_index": int(turn.turn_index),

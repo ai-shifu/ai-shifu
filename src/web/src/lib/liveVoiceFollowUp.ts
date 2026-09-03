@@ -1,10 +1,15 @@
 import request from '@/lib/request';
-import { getResolvedBaseURL } from '@/c-utils/envUtils';
 
 export const FOLLOW_UP_MODEL_CATALOG_API_PATH =
   '/api/llm/follow-up-model-list' as const;
 export const LIVE_FOLLOW_UP_AUDIO_WORKLET_PATH =
   '/worklets/live-follow-up-audio.js' as const;
+export const GEMINI_LIVE_INPUT_MIME_TYPE = 'audio/pcm;rate=16000' as const;
+
+const GEMINI_LIVE_WEBSOCKET_ORIGIN =
+  'wss://generativelanguage.googleapis.com' as const;
+const GEMINI_LIVE_CONSTRAINED_PATH =
+  '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained' as const;
 
 export type FollowUpInteractionMode = 'text' | 'live_voice';
 export type FollowUpBillingMode = 'billable' | 'free_preview';
@@ -40,10 +45,38 @@ export type LiveFollowUpSessionRequest = {
   surface: LiveFollowUpSurface;
 };
 
+export type GeminiLiveSetupMessage = {
+  setup: Record<string, unknown>;
+};
+
+export type GeminiLiveHistoryMessage = {
+  clientContent: {
+    turns: Array<{
+      role: 'user' | 'model';
+      parts: Array<{ text: string }>;
+    }>;
+    turnComplete: true;
+  };
+};
+
 export type LiveFollowUpSession = {
   session_bid: string;
-  ws_path: string;
+  ephemeral_token: string;
+  websocket_url: string;
+  setup: GeminiLiveSetupMessage;
+  history: GeminiLiveHistoryMessage | null;
   expires_at: string;
+  new_session_expires_at: string;
+  heartbeat_interval_ms: number;
+};
+
+export type LiveFollowUpTurnReport = {
+  turn_index: number;
+  user_transcript: string;
+  played_answer_transcript: string;
+  interrupted: boolean;
+  usage_metadata: Record<string, unknown> | null;
+  latency_ms: number;
 };
 
 export type LiveFollowUpState =
@@ -55,53 +88,24 @@ export type LiveFollowUpState =
 
 export type LiveFollowUpTranscriptRole = 'user' | 'assistant';
 
-export type LiveFollowUpServerMessage =
-  | {
-      type: 'state';
-      state: LiveFollowUpState;
-      turn_index?: number;
-    }
-  | {
-      type: 'transcript';
-      role: LiveFollowUpTranscriptRole;
-      turn_index: number;
-      text: string;
-      final: boolean;
-    }
-  | {
-      type: 'interrupted';
-      turn_index?: number;
-    }
-  | {
-      type: 'turn_committed';
-      turn_index: number;
-    }
-  | {
-      type: 'error';
-      code: string;
-      retryable: boolean;
-    }
-  | {
-      type: 'session_end';
-      reason: string;
-    };
-
-const resolveLiveFollowUpTransportBaseUrl = (): URL => {
-  const rawBaseUrl =
-    typeof window !== 'undefined'
-      ? window.location?.origin
-      : getResolvedBaseURL();
-
-  if (!rawBaseUrl) {
-    throw new Error('Live follow-up transport origin is unavailable');
-  }
-
-  const baseUrl = new URL(rawBaseUrl);
-  if (baseUrl.protocol !== 'http:' && baseUrl.protocol !== 'https:') {
-    throw new Error('Live follow-up transport origin is invalid');
-  }
-  return new URL(baseUrl.origin);
+export type GeminiLiveServerEvent = {
+  setupComplete: boolean;
+  audioChunks: ArrayBuffer[];
+  interimInputTranscripts: string[];
+  inputTranscripts: string[];
+  outputTranscripts: string[];
+  interrupted: boolean;
+  turnComplete: boolean;
+  generationComplete: boolean;
+  usageMetadata: Record<string, unknown> | null;
+  resumptionHandle: string | null;
+  resumable: boolean | null;
+  goAway: boolean;
+  upstreamError: boolean;
 };
+
+const liveFollowUpSessionPath = (sessionBid: string, action: string) =>
+  `/api/learn/live-follow-up/session/${encodeURIComponent(sessionBid)}/${action}`;
 
 export const createLiveFollowUpSession = (
   shifuBid: string,
@@ -109,15 +113,39 @@ export const createLiveFollowUpSession = (
   payload: LiveFollowUpSessionRequest,
 ): Promise<LiveFollowUpSession> => {
   const sessionPath = `/api/learn/shifu/${encodeURIComponent(shifuBid)}/live-follow-up/${encodeURIComponent(outlineBid)}/session`;
-  const sessionUrl = new URL(
-    sessionPath,
-    resolveLiveFollowUpTransportBaseUrl(),
-  ).toString();
-  return request.post(sessionUrl, payload, {
+  return request.post(sessionPath, payload, {
     skipErrorToast: true,
     credentials: 'include',
   }) as Promise<LiveFollowUpSession>;
 };
+
+export const heartbeatLiveFollowUpSession = (
+  sessionBid: string,
+): Promise<unknown> =>
+  request.post(
+    liveFollowUpSessionPath(sessionBid, 'heartbeat'),
+    {},
+    { skipErrorToast: true, credentials: 'include' },
+  );
+
+export const commitLiveFollowUpTurn = (
+  sessionBid: string,
+  payload: LiveFollowUpTurnReport,
+): Promise<unknown> =>
+  request.post(liveFollowUpSessionPath(sessionBid, 'turn'), payload, {
+    skipErrorToast: true,
+    credentials: 'include',
+  });
+
+export const endLiveFollowUpSession = (
+  sessionBid: string,
+  reason: string,
+): Promise<unknown> =>
+  request.post(
+    liveFollowUpSessionPath(sessionBid, 'end'),
+    { reason },
+    { skipErrorToast: true, credentials: 'include' },
+  );
 
 export const getFollowUpModelCatalog = (): Promise<
   FollowUpModelCatalogItem[]
@@ -126,38 +154,102 @@ export const getFollowUpModelCatalog = (): Promise<
     skipErrorToast: true,
   }) as Promise<FollowUpModelCatalogItem[]>;
 
-export const resolveLiveFollowUpWebSocketUrl = (wsPath: string): string => {
-  const baseUrl = resolveLiveFollowUpTransportBaseUrl();
-  const url = new URL(wsPath, baseUrl);
+export const resolveGeminiLiveWebSocketUrl = (
+  websocketUrl: string,
+  ephemeralToken: string,
+): string => {
+  const url = new URL(websocketUrl);
   if (
-    !url.pathname.startsWith('/api/learn/live-follow-up/ws/') ||
-    url.origin !== baseUrl.origin
+    url.origin !== GEMINI_LIVE_WEBSOCKET_ORIGIN ||
+    url.pathname !== GEMINI_LIVE_CONSTRAINED_PATH ||
+    url.search ||
+    url.hash ||
+    !ephemeralToken.startsWith('auth_tokens/') ||
+    ephemeralToken.length > 1024
   ) {
-    throw new Error('Invalid live follow-up WebSocket path');
+    throw new Error('Invalid Gemini Live session transport');
   }
-  if (url.protocol === 'https:') {
-    url.protocol = 'wss:';
-  } else if (url.protocol === 'http:') {
-    url.protocol = 'ws:';
-  }
+  url.searchParams.set('access_token', ephemeralToken);
   return url.toString();
 };
 
-const isTranscriptRole = (
-  value: unknown,
-): value is LiveFollowUpTranscriptRole =>
-  value === 'user' || value === 'assistant';
+const readMapping = (
+  source: Record<string, unknown> | null,
+  ...keys: string[]
+): Record<string, unknown> | null => {
+  if (!source) {
+    return null;
+  }
+  for (const key of keys) {
+    const value = source[key];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+  }
+  return null;
+};
 
-const isLiveState = (value: unknown): value is LiveFollowUpState =>
-  value === 'connecting' ||
-  value === 'listening' ||
-  value === 'speaking' ||
-  value === 'reconnecting' ||
-  value === 'ended';
+const readValue = (
+  source: Record<string, unknown> | null,
+  ...keys: string[]
+) => {
+  if (!source) {
+    return undefined;
+  }
+  for (const key of keys) {
+    if (key in source) {
+      return source[key];
+    }
+  }
+  return undefined;
+};
 
-export const parseLiveFollowUpServerMessage = (
+const transcriptFragments = (value: unknown): string[] => {
+  if (typeof value === 'string') {
+    return value ? [value] : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap(transcriptFragments);
+  }
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+  const text = (value as Record<string, unknown>).text;
+  return typeof text === 'string' && text ? [text] : [];
+};
+
+const decodeBase64Audio = (value: string): ArrayBuffer | null => {
+  try {
+    const binary = window.atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes.buffer;
+  } catch {
+    return null;
+  }
+};
+
+export const encodeGeminiLiveAudioMessage = (frame: ArrayBuffer): string => {
+  const bytes = new Uint8Array(frame);
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return JSON.stringify({
+    realtimeInput: {
+      audio: {
+        mimeType: GEMINI_LIVE_INPUT_MIME_TYPE,
+        data: window.btoa(binary),
+      },
+    },
+  });
+};
+
+export const parseGeminiLiveServerMessage = (
   payload: string,
-): LiveFollowUpServerMessage | null => {
+): GeminiLiveServerEvent | null => {
   let parsed: Record<string, unknown>;
   try {
     const value = JSON.parse(payload);
@@ -169,58 +261,88 @@ export const parseLiveFollowUpServerMessage = (
     return null;
   }
 
-  switch (parsed.type) {
-    case 'state':
-      return isLiveState(parsed.state)
-        ? {
-            type: 'state',
-            state: parsed.state,
-            ...(Number.isInteger(parsed.turn_index)
-              ? { turn_index: Number(parsed.turn_index) }
-              : {}),
-          }
-        : null;
-    case 'transcript':
-      return isTranscriptRole(parsed.role) &&
-        Number.isInteger(parsed.turn_index) &&
-        typeof parsed.text === 'string' &&
-        typeof parsed.final === 'boolean'
-        ? {
-            type: 'transcript',
-            role: parsed.role,
-            turn_index: Number(parsed.turn_index),
-            text: parsed.text,
-            final: parsed.final,
-          }
-        : null;
-    case 'interrupted':
-      return {
-        type: 'interrupted',
-        ...(Number.isInteger(parsed.turn_index)
-          ? { turn_index: Number(parsed.turn_index) }
-          : {}),
-      };
-    case 'turn_committed':
-      return Number.isInteger(parsed.turn_index)
-        ? {
-            type: 'turn_committed',
-            turn_index: Number(parsed.turn_index),
-          }
-        : null;
-    case 'error':
-      return typeof parsed.code === 'string' &&
-        typeof parsed.retryable === 'boolean'
-        ? {
-            type: 'error',
-            code: parsed.code,
-            retryable: parsed.retryable,
-          }
-        : null;
-    case 'session_end':
-      return typeof parsed.reason === 'string'
-        ? { type: 'session_end', reason: parsed.reason }
-        : null;
-    default:
+  const serverContent = readMapping(parsed, 'serverContent', 'server_content');
+  const modelTurn = readMapping(serverContent, 'modelTurn', 'model_turn');
+  const parts = Array.isArray(modelTurn?.parts) ? modelTurn.parts : [];
+  const audioChunks: ArrayBuffer[] = [];
+  for (const part of parts) {
+    if (!part || typeof part !== 'object' || Array.isArray(part)) {
+      continue;
+    }
+    const inlineData = readMapping(
+      part as Record<string, unknown>,
+      'inlineData',
+      'inline_data',
+    );
+    const mimeType = String(
+      inlineData?.mimeType || inlineData?.mime_type || '',
+    ).toLowerCase();
+    const encoded = inlineData?.data;
+    if (!mimeType.startsWith('audio/pcm') || typeof encoded !== 'string') {
+      continue;
+    }
+    const audio = decodeBase64Audio(encoded);
+    if (!audio) {
       return null;
+    }
+    audioChunks.push(audio);
   }
+
+  const resumption = readMapping(
+    parsed,
+    'sessionResumptionUpdate',
+    'session_resumption_update',
+  );
+  const resumptionHandle =
+    resumption?.newHandle || resumption?.new_handle || null;
+  const resumable = resumption?.resumable;
+
+  return {
+    setupComplete: 'setupComplete' in parsed || 'setup_complete' in parsed,
+    audioChunks,
+    interimInputTranscripts: transcriptFragments(
+      readValue(
+        serverContent,
+        'interimInputTranscription',
+        'interim_input_transcription',
+      ),
+    ),
+    inputTranscripts: transcriptFragments(
+      readValue(serverContent, 'inputTranscription', 'input_transcription'),
+    ),
+    outputTranscripts: transcriptFragments(
+      readValue(serverContent, 'outputTranscription', 'output_transcription'),
+    ),
+    interrupted: readValue(serverContent, 'interrupted') === true,
+    turnComplete:
+      readValue(serverContent, 'turnComplete', 'turn_complete') === true,
+    generationComplete:
+      readValue(serverContent, 'generationComplete', 'generation_complete') ===
+      true,
+    usageMetadata:
+      readMapping(parsed, 'usageMetadata', 'usage_metadata') || null,
+    resumptionHandle:
+      typeof resumptionHandle === 'string' && resumptionHandle
+        ? resumptionHandle
+        : null,
+    resumable: typeof resumable === 'boolean' ? resumable : null,
+    goAway: Boolean(readMapping(parsed, 'goAway', 'go_away')),
+    upstreamError: Boolean(readMapping(parsed, 'error')),
+  };
+};
+
+export const mergeLiveTranscript = (current: string, incoming: string) => {
+  if (!incoming || incoming === current || current.startsWith(incoming)) {
+    return current;
+  }
+  if (!current || incoming.startsWith(current) || incoming.endsWith(current)) {
+    return incoming;
+  }
+  const maximumOverlap = Math.min(current.length, incoming.length);
+  for (let overlap = maximumOverlap; overlap > 0; overlap -= 1) {
+    if (current.slice(-overlap) === incoming.slice(0, overlap)) {
+      return current + incoming.slice(overlap);
+    }
+  }
+  return current + incoming;
 };
