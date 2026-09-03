@@ -441,6 +441,10 @@
       "trigger": "Trigger event",
       "windows": "Expiry reminder windows"
     },
+    "legacySmsMigrationHint": "Legacy SMS rules were detected. Bind email templates and enable the migrated rules when ready.",
+    "migrateLegacySmsRules": "Migrate to email rules",
+    "migrateLegacySmsRulesDescription": "This replaces the three legacy SMS rules, keeps their trigger conditions, clears SMS templates, and creates three disabled email rules. The migration takes effect only after you save the configuration at the bottom of this page.",
+    "migrateLegacySmsRulesTitle": "Migrate legacy SMS rules",
     "newRule": "New rule",
     "noConditions": "No additional conditions",
     "saveRule": "Save rule",

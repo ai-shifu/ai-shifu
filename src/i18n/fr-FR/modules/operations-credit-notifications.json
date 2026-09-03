@@ -441,6 +441,10 @@
       "trigger": "Événement déclencheur",
       "windows": "Fenêtres de rappel d’expiration"
     },
+    "legacySmsMigrationHint": "Des règles SMS héritées ont été détectées. Associez des modèles d'e-mail et activez les règles migrées lorsque vous êtes prêt.",
+    "migrateLegacySmsRules": "Migrer vers des règles e-mail",
+    "migrateLegacySmsRulesDescription": "Cette action remplace les trois règles SMS héritées, conserve leurs conditions de déclenchement, efface les modèles SMS et crée trois règles e-mail désactivées. La migration prend effet après l'enregistrement de la configuration en bas de page.",
+    "migrateLegacySmsRulesTitle": "Migrer les règles SMS héritées",
     "newRule": "Nouvelle règle",
     "noConditions": "Aucune condition supplémentaire",
     "saveRule": "Enregistrer la règle",

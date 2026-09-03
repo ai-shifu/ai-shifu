@@ -41,6 +41,7 @@ export function CreditNotificationConfigTab({
   saveConfig,
   resolveTypeLabel,
   onRuleAction,
+  onLegacyRulesMigrated,
 }: {
   policy: AdminOperationCreditNotificationPolicy;
   configLoaded: boolean;
@@ -58,6 +59,7 @@ export function CreditNotificationConfigTab({
     action: 'created' | 'edited' | 'deleted' | 'toggled',
     triggerEvent: 'credit_expiring' | 'credit_granted' | 'low_balance',
   ) => void;
+  onLegacyRulesMigrated: () => void;
 }) {
   const { t } = useTranslation();
   const loginMethodsEnabled = useEnvStore(
@@ -161,6 +163,7 @@ export function CreditNotificationConfigTab({
           resolveTypeLabel={resolveTypeLabel}
           updatePolicy={updatePolicy}
           onRuleAction={onRuleAction}
+          onLegacyRulesMigrated={onLegacyRulesMigrated}
         />
 
         <CreditNotificationDeliveryRulesSection

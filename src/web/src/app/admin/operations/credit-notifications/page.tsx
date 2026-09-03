@@ -62,6 +62,7 @@ import {
 
 import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
 import {
+  NOTIFICATION_LEGACY_SMS_RULES_MIGRATED_EVENT,
   NOTIFICATION_RULE_ACTION_EVENT,
   NOTIFICATION_RULE_TRACKING_CONTEXT,
 } from './notificationRuleTracking';
@@ -849,6 +850,12 @@ export default function AdminOperationCreditNotificationsPage() {
                 action,
                 trigger_event: triggerEvent,
               })
+            }
+            onLegacyRulesMigrated={() =>
+              trackTemplateEventSafely(
+                NOTIFICATION_LEGACY_SMS_RULES_MIGRATED_EVENT,
+                { channel: 'email', rule_count: '3' },
+              )
             }
           />
         </TabsContent>

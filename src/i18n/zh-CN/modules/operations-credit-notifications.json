@@ -441,6 +441,10 @@
       "trigger": "触发事件",
       "windows": "到期提醒窗口"
     },
+    "legacySmsMigrationHint": "检测到旧版短信规则。迁移后请绑定邮件模板并按需启用规则。",
+    "migrateLegacySmsRules": "迁移为邮件规则",
+    "migrateLegacySmsRulesDescription": "将替换当前三条旧版短信规则，保留触发条件，清空短信模板，并生成三条关闭状态的邮件规则。迁移结果需点击页面底部“保存配置”后才会生效。",
+    "migrateLegacySmsRulesTitle": "迁移旧版短信规则",
     "newRule": "新建规则",
     "noConditions": "无需额外条件",
     "saveRule": "保存规则",
