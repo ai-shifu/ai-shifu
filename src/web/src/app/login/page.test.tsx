@@ -26,6 +26,21 @@ const mockPasswordLogin = jest.fn(
     />
   ),
 );
+const mockEmailLogin = jest.fn(
+  ({
+    loginContext,
+    courseId,
+  }: {
+    loginContext?: string;
+    courseId?: string;
+  }) => (
+    <div
+      data-testid='email-login'
+      data-login-context={loginContext}
+      data-course-id={courseId}
+    />
+  ),
+);
 
 const mockUserState = {
   userInfo: null as { language?: string } | null,
@@ -100,7 +115,8 @@ jest.mock('@/components/auth/PhoneLogin', () => ({
 }));
 
 jest.mock('@/components/auth/EmailLogin', () => ({
-  EmailLogin: () => <div data-testid='email-login' />,
+  EmailLogin: (props: { loginContext?: string; courseId?: string }) =>
+    mockEmailLogin(props),
 }));
 
 jest.mock('@/components/auth/FeedbackForm', () => ({
@@ -196,6 +212,7 @@ describe('AuthPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPasswordLogin.mockClear();
+    mockEmailLogin.mockClear();
     mockUserState.userInfo = null;
     mockUserState.isLoggedIn = false;
     mockUserState.isInitialized = true;
@@ -288,6 +305,24 @@ describe('AuthPage', () => {
       expect(screen.getByTestId('password-login')).toBeInTheDocument();
     });
     expect(screen.queryByTestId('phone-login')).not.toBeInTheDocument();
+  });
+
+  it('passes the current login context into email verification login', async () => {
+    mockEnvState.loginMethodsEnabled = ['email'];
+    mockEnvState.defaultLoginMethod = 'email';
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('email-login')).toBeInTheDocument();
+    });
+    expect(mockEmailLogin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        loginContext: 'admin',
+        courseId: undefined,
+        referralMetadata: {},
+      }),
+    );
   });
 
   it('uses email-only password login when Google and password are enabled without phone', async () => {

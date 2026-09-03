@@ -1,5 +1,6 @@
 """Provide shared utilities for user accounts."""
 
+import contextlib
 import html
 import json
 import secrets
@@ -7,6 +8,8 @@ import smtplib
 import string
 import time
 import uuid
+from collections.abc import Callable
+from dataclasses import dataclass
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -27,6 +30,11 @@ from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user.captcha import consume_captcha_ticket
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import SessionMetadata, token_store
+from flaskr.service.user.verification_codes import (
+    clear_verification_attempts,
+    verification_cache_provider,
+    verification_code_lock,
+)
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
@@ -363,6 +371,137 @@ def _email_verification_translation_keys_used() -> None:
     _("server.user.emailVerificationPlainBodySingular")
 
 
+@dataclass(frozen=True, slots=True)
+class _VerificationChallengePolicy:
+    ip_limit_count_config: str
+    ip_limit_time_config: str
+    identifier_limit_prefix_config: str
+    code_prefix_config: str
+    interval_config: str
+    expire_time_config: str
+    rate_limit_error: str
+    verify_code_type: int
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedVerificationChallenge:
+    code: str
+    expire_in: int
+    record: UserVerifyCode
+
+
+_SMS_CHALLENGE_POLICY = _VerificationChallengePolicy(
+    ip_limit_count_config="IP_SMS_LIMIT_COUNT",
+    ip_limit_time_config="IP_SMS_LIMIT_TIME",
+    identifier_limit_prefix_config="REDIS_KEY_PREFIX_PHONE_LIMIT",
+    code_prefix_config="REDIS_KEY_PREFIX_PHONE_CODE",
+    interval_config="SMS_CODE_INTERVAL",
+    expire_time_config="PHONE_CODE_EXPIRE_TIME",
+    rate_limit_error="server.user.smsSendTooFrequent",
+    verify_code_type=1,
+)
+_EMAIL_CHALLENGE_POLICY = _VerificationChallengePolicy(
+    ip_limit_count_config="IP_MAIL_LIMIT_COUNT",
+    ip_limit_time_config="IP_MAIL_LIMIT_TIME",
+    identifier_limit_prefix_config="REDIS_KEY_PREFIX_MAIL_LIMIT",
+    code_prefix_config="REDIS_KEY_PREFIX_MAIL_CODE",
+    interval_config="MAIL_CODE_INTERVAL",
+    expire_time_config="MAIL_CODE_EXPIRE_TIME",
+    rate_limit_error="server.user.emailSendTooFrequent",
+    verify_code_type=2,
+)
+
+
+def _enforce_verification_ip_limit(
+    app: Flask,
+    ip: str | None,
+    policy: _VerificationChallengePolicy,
+) -> None:
+    if not ip:
+        return
+
+    ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
+    if redis.get(ip_ban_key):
+        raise_error("server.user.ipBanned")
+
+    ip_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_LIMIT") + ip
+    ip_send_count = redis.get(ip_limit_key)
+    if ip_send_count:
+        if int(ip_send_count) >= int(app.config[policy.ip_limit_count_config]):
+            redis.set(ip_ban_key, 1, ex=int(app.config["IP_BAN_TIME"]))
+            raise_error("server.user.ipBanned")
+        redis.incr(ip_limit_key)
+        return
+
+    redis.set(
+        ip_limit_key,
+        1,
+        ex=int(app.config[policy.ip_limit_time_config]),
+    )
+
+
+def _prepare_verification_challenge(
+    app: Flask,
+    identifier: str,
+    ip: str | None,
+    policy: _VerificationChallengePolicy,
+    deliver: Callable[[_PreparedVerificationChallenge], bool],
+) -> _PreparedVerificationChallenge:
+    _enforce_verification_ip_limit(app, ip, policy)
+    kind = "email" if policy.verify_code_type == 2 else "sms"
+    challenge_cache = verification_cache_provider()
+    with verification_code_lock(
+        app,
+        kind=kind,
+        identifier=identifier,
+        cache_provider=challenge_cache,
+    ) as challenge_cache:
+        identifier_limit_key = (
+            _redis_prefix(app, policy.identifier_limit_prefix_config) + identifier
+        )
+        last_send_time = challenge_cache.get(identifier_limit_key)
+        interval = int(app.config[policy.interval_config])
+        if last_send_time and int(time.time()) - int(last_send_time) < interval:
+            raise_error(policy.rate_limit_error)
+
+        code = "".join(secrets.choice(string.digits) for _ in range(4))
+        expire_in = int(app.config[policy.expire_time_config])
+        clear_verification_attempts(
+            app,
+            kind=kind,
+            identifier=identifier,
+            cache_provider=challenge_cache,
+        )
+        code_key = _redis_prefix(app, policy.code_prefix_config) + identifier
+        challenge_cache.set(code_key, code, ex=expire_in)
+        challenge_cache.set(identifier_limit_key, int(time.time()), ex=interval)
+
+        is_email = policy.verify_code_type == 2
+        record = create_and_commit_user_verify_code(
+            mail=identifier if is_email else None,
+            phone=None if is_email else identifier,
+            verify_code=code,
+            verify_code_type=policy.verify_code_type,
+            ip=ip,
+        )
+        challenge = _PreparedVerificationChallenge(
+            code=code,
+            expire_in=expire_in,
+            record=record,
+        )
+        try:
+            delivered = deliver(challenge)
+        except Exception:
+            challenge_cache.delete(code_key, identifier_limit_key)
+            raise
+        if not delivered:
+            challenge_cache.delete(code_key, identifier_limit_key)
+            raise_error("server.common.unknownError")
+        challenge.record.verify_code_send = 1
+        db.session.commit()
+        return challenge
+
+
 # send sms code
 def send_sms_code(
     app: Flask,
@@ -380,69 +519,17 @@ def send_sms_code(
             raise_param_error("mobile format invalid")
         if require_captcha:
             consume_captcha_ticket(app, captcha_ticket)
-
-        # Check IP ban status
-        if ip:
-            ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
-            if redis.get(ip_ban_key):
-                raise_error("server.user.ipBanned")
-
-            # Check IP sending frequency
-            ip_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_LIMIT") + ip
-            ip_send_count = redis.get(ip_limit_key)
-
-            if ip_send_count:
-                ip_send_count = int(ip_send_count)
-                if ip_send_count >= int(app.config["IP_SMS_LIMIT_COUNT"]):
-                    # Ban the IP
-                    redis.set(ip_ban_key, 1, ex=int(app.config["IP_BAN_TIME"]))
-                    raise_error("server.user.ipBanned")
-                else:
-                    redis.incr(ip_limit_key)
-            else:
-                redis.set(ip_limit_key, 1, ex=int(app.config["IP_SMS_LIMIT_TIME"]))
-
-        # Check phone sending frequency limit
-        phone_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_PHONE_LIMIT") + phone
-        last_send_time = redis.get(phone_limit_key)
-
-        if last_send_time:
-            last_send_time = int(last_send_time)
-            current_time = int(time.time())
-            time_diff = current_time - last_send_time
-
-            interval = int(app.config["SMS_CODE_INTERVAL"])
-            if time_diff < interval:
-                raise_error("server.user.smsSendTooFrequent")
-
-        characters = string.digits
-        # Generate a random string of length 4
-        random_string = "".join(secrets.choice(characters) for _ in range(4))
-        # 发送短信验证码
-        redis.set(
-            _redis_prefix(app, "REDIS_KEY_PREFIX_PHONE_CODE") + phone,
-            random_string,
-            ex=app.config["PHONE_CODE_EXPIRE_TIME"],
+        challenge = _prepare_verification_challenge(
+            app,
+            phone,
+            ip,
+            _SMS_CHALLENGE_POLICY,
+            lambda prepared: bool(
+                send_sms_code_ali(app, phone, prepared.code)
+                or app.config.get("UNIVERSAL_VERIFICATION_CODE")
+            ),
         )
-
-        # Record the sending time
-        redis.set(
-            phone_limit_key, int(time.time()), ex=int(app.config["SMS_CODE_INTERVAL"])
-        )
-
-        user_verify_code = create_and_commit_user_verify_code(
-            mail=None,
-            phone=phone,
-            verify_code=random_string,
-            verify_code_type=1,  # 1: SMS, 2: Email
-            ip=ip,
-        )
-
-        send_res = send_sms_code_ali(app, phone, random_string)
-        if send_res:
-            user_verify_code.verify_code_send = 1
-            db.session.commit()
-        return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
+        return {"expire_in": challenge.expire_in}
 
 
 def send_email_code(
@@ -454,91 +541,55 @@ def send_email_code(
         if not email:
             raise_error("server.common.unknownError")
 
-        # Check IP ban status
-        if ip:
-            ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
-            if redis.get(ip_ban_key):
-                raise_error("server.user.ipBanned")
+        def _deliver_email(challenge: _PreparedVerificationChallenge) -> bool:
+            msg = MIMEMultipart("alternative")
+            msg["From"] = app.config["SMTP_SENDER"]
+            msg["To"] = email
+            msg["X-Auto-Response-Suppress"] = "All"
+            subject, plain_body, html_body = _format_email_verification_message(
+                challenge.code,
+                challenge.expire_in,
+                language=language,
+            )
+            msg["Subject"] = subject
+            msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-            # Check IP sending frequency
-            ip_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_LIMIT") + ip
-            ip_send_count = redis.get(ip_limit_key)
+            server = None
+            try:
+                smtp_port = int(app.config["SMTP_PORT"])
+                smtp_server = app.config["SMTP_SERVER"]
+                smtp_username = app.config["SMTP_USERNAME"]
+                smtp_password = app.config["SMTP_PASSWORD"]
+                smtp_sender = app.config["SMTP_SENDER"]
 
-            if ip_send_count:
-                ip_send_count = int(ip_send_count)
-                if ip_send_count >= int(app.config["IP_MAIL_LIMIT_COUNT"]):
-                    # Ban the IP
-                    redis.set(ip_ban_key, 1, ex=int(app.config["IP_BAN_TIME"]))
-                    raise_error("server.user.ipBanned")
+                # Port 465 uses implicit SSL; 587 uses STARTTLS
+                if smtp_port == 465:
+                    server = smtplib.SMTP_SSL(smtp_server, smtp_port)
                 else:
-                    redis.incr(ip_limit_key)
+                    server = smtplib.SMTP(smtp_server, smtp_port)
+                    server.starttls()
+                server.login(smtp_username, smtp_password)
+                server.sendmail(smtp_sender, email, msg.as_string())
+                app.logger.info("Verification code sent to %s", email)
+            except Exception:
+                app.logger.exception("Failed to send verification code to %s", email)
+                raise_error("server.user.emailSendFailed")
             else:
-                redis.set(ip_limit_key, 1, ex=int(app.config["IP_MAIL_LIMIT_TIME"]))
+                return True
+            finally:
+                if server:
+                    with contextlib.suppress(Exception):
+                        server.quit()
 
-        # Check the transmission frequency limit
-        email_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_MAIL_LIMIT") + email
-        last_send_time = redis.get(email_limit_key)
-
-        if last_send_time:
-            last_send_time = int(last_send_time)
-            current_time = int(time.time())
-            time_diff = current_time - last_send_time
-
-            interval = int(app.config["MAIL_CODE_INTERVAL"])
-            if time_diff < interval:
-                raise_error("server.user.emailSendTooFrequent")
-
-        # Create the email content
-        msg = MIMEMultipart("alternative")
-        msg["From"] = app.config["SMTP_SENDER"]
-        msg["To"] = email
-        msg["X-Auto-Response-Suppress"] = "All"
-        characters = string.digits
-        random_string = "".join(secrets.choice(characters) for _ in range(4))
-        # to set redis
-        redis.set(
-            _redis_prefix(app, "REDIS_KEY_PREFIX_MAIL_CODE") + email,
-            random_string,
-            ex=app.config["MAIL_CODE_EXPIRE_TIME"],
+        challenge = _prepare_verification_challenge(
+            app,
+            email,
+            ip,
+            _EMAIL_CHALLENGE_POLICY,
+            _deliver_email,
         )
-
-        # Record the sending time of this time
-        redis.set(
-            email_limit_key, int(time.time()), ex=int(app.config["MAIL_CODE_INTERVAL"])
-        )
-
-        subject, plain_body, html_body = _format_email_verification_message(
-            random_string, int(app.config["MAIL_CODE_EXPIRE_TIME"]), language=language
-        )
-        msg["Subject"] = subject
-        msg.attach(MIMEText(plain_body, "plain", "utf-8"))
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
-
-        user_verify_code = create_and_commit_user_verify_code(
-            mail=email,
-            phone=None,
-            verify_code=random_string,
-            verify_code_type=2,  # 1: SMS, 2: Email
-            ip=ip,
-        )
-
-        try:
-            # Connect to the SMTP server
-            server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
-            server.starttls()
-            server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
-
-            # Send the email
-            server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
-            server.quit()
-
-            app.logger.info("Verification code sent to %s", email)
-            user_verify_code.verify_code_send = 1
-            db.session.commit()
-        except Exception:
-            app.logger.exception("Failed to send verification code to %s", email)
-            raise_error("server.user.emailSendFailed")
-        return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
+        return {"expire_in": challenge.expire_in}
 
 
 def create_and_commit_user_verify_code(

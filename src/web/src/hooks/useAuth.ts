@@ -33,6 +33,16 @@ type ApiError = Error & {
   code?: number;
 };
 
+type VerificationLoginMethod = 'email' | 'sms';
+
+type SendVerificationCodeResult = {
+  rateLimited: boolean;
+};
+
+const SMS_SEND_TOO_FREQUENT_CODE = 1012;
+const EMAIL_SEND_TOO_FREQUENT_CODE = 1033;
+const VERIFICATION_CREDENTIAL_ERROR_CODES = new Set([1013, 1014]);
+
 interface UseAuthOptions {
   onSuccess?: (userInfo: UserInfo) => void;
   onError?: (error: any) => void;
@@ -119,7 +129,6 @@ export function useAuth(options: UseAuthOptions = {}) {
         description = t('module.auth.credentialError');
         break;
       case 1003:
-        // For SMS context, 1003 means OTP expired; for email context, it means wrong credentials
         description =
           context === 'sms'
             ? t('module.auth.otpExpired')
@@ -159,33 +168,48 @@ export function useAuth(options: UseAuthOptions = {}) {
     return false;
   };
 
-  // SMS verification login with automatic retry on token expiration
-  const loginWithSmsCode = async (
-    mobile: string,
-    sms_code: string,
+  const loginWithVerificationCode = async (
+    method: VerificationLoginMethod,
+    identifier: string,
+    code: string,
     language: string,
     referralMetadata?: ReferralLoginMetadata,
   ) => {
-    trackEvent('learner_login_attempt', buildLoginAttemptAnalytics('sms'));
+    trackEvent('learner_login_attempt', buildLoginAttemptAnalytics(method));
     let loginCommitted = false;
     try {
       const referralPayload = buildReferralLoginPayload(referralMetadata);
       const response = await callWithTokenRefresh(() =>
-        apiService.smsLogin({
-          mobile,
-          sms_code,
-          language,
-          login_context: options.loginContext,
-          course_id: options.courseId,
-          ...referralPayload,
-        }),
+        method === 'sms'
+          ? apiService.smsLogin(
+              {
+                mobile: identifier,
+                sms_code: code,
+                language,
+                login_context: options.loginContext,
+                course_id: options.courseId,
+                ...referralPayload,
+              },
+              { skipErrorToast: true },
+            )
+          : apiService.emailLogin(
+              {
+                email: identifier,
+                code,
+                language,
+                login_context: options.loginContext,
+                course_id: options.courseId,
+                ...referralPayload,
+              },
+              { skipErrorToast: true },
+            ),
       );
 
       const success = await processLoginResponse(response, () => {
         loginCommitted = true;
         trackEvent(
           'learner_login_result',
-          buildLoginResultAnalytics('sms', 'success'),
+          buildLoginResultAnalytics(method, 'success'),
         );
       });
       if (success && referralPayload.invite_code) {
@@ -194,50 +218,62 @@ export function useAuth(options: UseAuthOptions = {}) {
       if (!success) {
         trackEvent(
           'learner_login_result',
-          buildLoginResultAnalytics('sms', 'failed', 'credentials_rejected'),
+          buildLoginResultAnalytics(method, 'failed', 'credentials_rejected'),
         );
         handleLoginError(
           response.code,
           response.message || response.msg,
-          'sms',
+          method,
         );
       }
 
       return response;
     } catch (error: any) {
+      const credentialRejected = VERIFICATION_CREDENTIAL_ERROR_CODES.has(
+        error?.code,
+      );
       if (!loginCommitted) {
+        const failureCategory = credentialRejected
+          ? 'credentials_rejected'
+          : 'request_failed';
         trackEvent(
           'learner_login_result',
-          buildLoginResultAnalytics('sms', 'failed', 'request_failed'),
+          buildLoginResultAnalytics(method, 'failed', failureCategory),
         );
       }
-      toast({
-        title: t('module.auth.failed'),
-        description: error.message || t('common.core.networkError'),
-        variant: 'destructive',
-      });
+      if (credentialRejected) {
+        handleLoginError(error.code, error.message, method);
+      } else {
+        toast({
+          title: t('module.auth.failed'),
+          description: error.message || t('common.core.networkError'),
+          variant: 'destructive',
+        });
+      }
       options.onError?.(error);
       throw error;
     }
   };
 
-  // Send SMS verification code with automatic token refresh
-  const sendSmsCode = async (mobile: string, captchaTicket: string) => {
+  const sendVerificationCode = async (
+    apiCall: () => Promise<ApiResponse>,
+    rateLimitCode: number,
+  ): Promise<SendVerificationCodeResult> => {
     try {
-      const response = await callWithTokenRefresh(() =>
-        apiService.sendSmsCode({
-          mobile,
-          captcha_ticket: captchaTicket,
-          language: i18n.language,
-        }),
-      );
+      const response = await callWithTokenRefresh(apiCall);
 
+      if (response.code === rateLimitCode) {
+        return { rateLimited: true };
+      }
       if (response.code !== 0) {
         throw buildApiError(response);
       }
 
-      return response;
+      return { rateLimited: false };
     } catch (error: any) {
+      if (error?.code === rateLimitCode) {
+        return { rateLimited: true };
+      }
       toast({
         title: t('module.auth.sendFailed'),
         description: error.message || t('common.core.networkError'),
@@ -247,9 +283,61 @@ export function useAuth(options: UseAuthOptions = {}) {
     }
   };
 
+  // Keep the public channel methods stable while sharing orchestration.
+  const loginWithSmsCode = async (
+    mobile: string,
+    smsCode: string,
+    language: string,
+    referralMetadata?: ReferralLoginMetadata,
+  ) =>
+    loginWithVerificationCode(
+      'sms',
+      mobile,
+      smsCode,
+      language,
+      referralMetadata,
+    );
+
+  const loginWithEmailCode = async (
+    email: string,
+    code: string,
+    language: string,
+    referralMetadata?: ReferralLoginMetadata,
+  ) =>
+    loginWithVerificationCode('email', email, code, language, referralMetadata);
+
+  const sendSmsCode = async (mobile: string, captchaTicket: string) =>
+    sendVerificationCode(
+      () =>
+        apiService.sendSmsCode(
+          {
+            mobile,
+            captcha_ticket: captchaTicket,
+            language: i18n.language,
+          },
+          { skipErrorToast: true },
+        ),
+      SMS_SEND_TOO_FREQUENT_CODE,
+    );
+
+  const sendEmailCode = async (email: string) =>
+    sendVerificationCode(
+      () =>
+        apiService.sendEmailCode(
+          {
+            email,
+            language: i18n.language,
+          },
+          { skipErrorToast: true },
+        ),
+      EMAIL_SEND_TOO_FREQUENT_CODE,
+    );
+
   return {
     loginWithSmsCode,
     sendSmsCode,
+    loginWithEmailCode,
+    sendEmailCode,
     callWithTokenRefresh,
   };
 }
