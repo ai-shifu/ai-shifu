@@ -25,14 +25,16 @@ SUPPORTED_TTS_PROVIDERS = {
     "tencent",
     "tencent_texttovoice",
     "elevenlabs",
+    "gemini",
 }
 PROVIDERS_REQUIRING_MODEL = {
     "minimax",
     "volcengine",
     "tencent_texttovoice",
     "elevenlabs",
+    "gemini",
 }
-PROVIDERS_REQUIRING_LISTED_VOICE = {"elevenlabs"}
+PROVIDERS_REQUIRING_LISTED_VOICE = {"elevenlabs", "gemini"}
 
 
 @dataclass(frozen=True)

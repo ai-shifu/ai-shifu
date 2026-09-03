@@ -115,6 +115,7 @@ _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
 _EMPTY_AUDIO_RETRY_PROVIDERS = {
     "",
     "elevenlabs",
+    "gemini",
     "tencent",
     "tencent_texttovoice",
     "volcengine",
@@ -143,6 +144,7 @@ _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
 _NON_SPEAKABLE_TTS_SKIP_PROVIDERS = {
     "elevenlabs",
+    "gemini",
     "minimax",
     "tencent",
     "tencent_texttovoice",
