@@ -30,7 +30,7 @@ type LiveVoiceFollowUpDialogProps = {
 export const LiveVoiceFollowUpDialog = ({
   controller,
 }: LiveVoiceFollowUpDialogProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -107,6 +107,16 @@ export const LiveVoiceFollowUpDialog = ({
               </div>
             ) : null}
 
+            {controller.retryAvailableAt !== null ? (
+              <p className='text-sm text-muted-foreground'>
+                {t('module.chat.liveVoiceRetryAvailableAt', {
+                  time: new Date(
+                    controller.retryAvailableAt,
+                  ).toLocaleTimeString(i18n.language),
+                })}
+              </p>
+            ) : null}
+
             {controller.transcripts.length === 0 ? (
               <div className='flex min-h-[45vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground'>
                 <div className='flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary'>
@@ -152,10 +162,12 @@ export const LiveVoiceFollowUpDialog = ({
 
         <footer className='shrink-0 border-t border-border bg-background px-5 py-4 sm:px-8'>
           <div className='mx-auto flex w-full max-w-4xl items-center justify-center gap-3'>
-            {controller.state === 'ended' && controller.retryable ? (
+            {controller.state === 'ended' &&
+            (controller.retryable || controller.retryAvailableAt !== null) ? (
               <Button
                 type='button'
                 onClick={controller.retry}
+                disabled={!controller.retryable}
                 className='min-w-32'
               >
                 <RotateCw className='h-4 w-4' />

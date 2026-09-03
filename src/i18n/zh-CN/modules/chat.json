@@ -47,6 +47,7 @@
   "liveVoiceMute": "静音麦克风",
   "liveVoicePrivacyNotice": "你的语音会发送至 AI 服务，最终转写会写入追问历史；原始音频不会保存。",
   "liveVoiceRetry": "重试",
+  "liveVoiceRetryAvailableAt": "可在 {time} 后重试；现有语音凭证过期前无法重新连接。",
   "liveVoiceState": {
     "connecting": "正在连接",
     "ended": "已结束",
@@ -55,7 +56,7 @@
     "speaking": "正在回答"
   },
   "liveVoiceTimeWarning": "本次语音会话将在 30 秒后结束。",
-  "liveVoiceTimedOut": "本次 15 分钟语音会话已结束，可以重新发起。",
+  "liveVoiceTimedOut": "本次 15 分钟语音会话已结束。",
   "liveVoiceTitle": "语音追问",
   "liveVoiceUnmute": "取消静音",
   "liveVoiceYou": "你",

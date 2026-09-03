@@ -44,6 +44,7 @@ import {
 
 const SESSION_WARNING_BEFORE_EXPIRY_MS = 30_000;
 const GEMINI_LIVE_SETUP_TIMEOUT_MS = 20_000;
+const CREDENTIAL_RESERVATION_MARGIN_MS = 30_000;
 const MAX_INPUT_AUDIO_FRAME_BYTES = 8 * 1024;
 const MAX_BUFFERED_INPUT_AUDIO_BYTES = 8 * 1024;
 const MIN_HEARTBEAT_MS = 5_000;
@@ -82,6 +83,7 @@ export type LiveVoiceFollowUpViewState = {
   transcripts: LiveVoiceTranscript[];
   errorCode: LiveVoiceFollowUpErrorCode | null;
   retryable: boolean;
+  retryAvailableAt: number | null;
   endReason: LiveVoiceFollowUpEndReason | null;
 };
 
@@ -124,6 +126,7 @@ const initialState: LiveVoiceFollowUpViewState = {
   transcripts: [],
   errorCode: null,
   retryable: false,
+  retryAvailableAt: null,
   endReason: null,
 };
 
@@ -207,6 +210,7 @@ export const useLiveVoiceFollowUp = ({
   const generationRef = useRef(0);
   const websocketRef = useRef<WebSocket | null>(null);
   const sessionRef = useRef<LiveFollowUpSession | null>(null);
+  const admissionBlockedUntilRef = useRef(0);
   const audioRef = useRef<LiveVoiceFollowUpAudio | null>(null);
   const mutedRef = useRef(false);
   const setupReadyRef = useRef(false);
@@ -508,13 +512,18 @@ export const useLiveVoiceFollowUp = ({
       }
       attemptRef.current = null;
       if (!unmountedRef.current) {
+        const retryAvailableAt =
+          retryable && admissionBlockedUntilRef.current > Date.now()
+            ? admissionBlockedUntilRef.current
+            : null;
         setViewState(previous => ({
           ...previous,
           open: keepOpen,
           state: 'ended',
           warning: false,
           errorCode,
-          retryable,
+          retryable: retryable && retryAvailableAt === null,
+          retryAvailableAt,
           endReason: reason,
         }));
       }
@@ -530,9 +539,21 @@ export const useLiveVoiceFollowUp = ({
         return;
       }
       if (attemptRef.current) {
-        finishAttempt({ reason: 'replaced', keepOpen: false });
+        setViewState(previous => ({ ...previous, open: true }));
+        return;
       }
-
+      if (admissionBlockedUntilRef.current > Date.now()) {
+        lastTargetRef.current = { anchorElementBid: normalizedAnchor, surface };
+        setViewState(previous => ({
+          ...previous,
+          open: true,
+          state: 'ended',
+          retryable: false,
+          retryAvailableAt: admissionBlockedUntilRef.current,
+          errorCode: 'capacity_exceeded',
+        }));
+        return;
+      }
       const generation = ++generationRef.current;
       const target = { anchorElementBid: normalizedAnchor, surface };
       lastTargetRef.current = target;
@@ -915,7 +936,25 @@ export const useLiveVoiceFollowUp = ({
 
       void sessionPromise
         .then(session => {
+          const expiresAt = Date.parse(session.expires_at);
+          if (Number.isFinite(expiresAt)) {
+            admissionBlockedUntilRef.current = Math.max(
+              admissionBlockedUntilRef.current,
+              expiresAt + CREDENTIAL_RESERVATION_MARGIN_MS,
+            );
+          }
           if (attemptRef.current?.generation !== generation) {
+            if (!unmountedRef.current) {
+              setViewState(previous =>
+                previous.open && previous.state === 'ended'
+                  ? {
+                      ...previous,
+                      retryable: false,
+                      retryAvailableAt: admissionBlockedUntilRef.current,
+                    }
+                  : previous,
+              );
+            }
             void endLiveFollowUpSession(
               session.session_bid,
               'client_disconnected',
@@ -974,10 +1013,31 @@ export const useLiveVoiceFollowUp = ({
   );
 
   const retry = useCallback(() => {
+    if (admissionBlockedUntilRef.current > Date.now()) {
+      return;
+    }
     if (lastTargetRef.current) {
       start(lastTargetRef.current);
     }
   }, [start]);
+
+  useEffect(() => {
+    const deadline = viewState.retryAvailableAt;
+    if (deadline === null) {
+      return;
+    }
+    const timeout = window.setTimeout(
+      () => {
+        setViewState(previous =>
+          previous.retryAvailableAt === deadline
+            ? { ...previous, retryAvailableAt: null, retryable: true }
+            : previous,
+        );
+      },
+      Math.max(0, deadline - Date.now()),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [viewState.retryAvailableAt]);
 
   const toggleMuted = useCallback(() => {
     setViewState(previous => {

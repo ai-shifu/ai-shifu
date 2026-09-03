@@ -177,6 +177,12 @@ auditing, or another correctness-sensitive decision.
   until their binding or credential expires.
   - Why: disabling the feature cannot revoke Google's credential, and must not
     discard the final transcripts of an already active direct session.
+- Decision: after a credential is issued, disable retry until its expiry plus
+  the capacity safety margin and display the eligible retry time in all five
+  locales. Re-entry shares that guard; no microphone, API request, or analytics
+  attempt starts while the credential reservation is known to remain active.
+  - Why: an immediate retry cannot succeed under the deliberately retained
+    one-credential-per-user admission limit.
 - Decision: carry the original outline ID through every asynchronous turn
   acknowledgement and compare it with the history store's current lesson
   scope at write time.
@@ -332,8 +338,12 @@ effort and independent from the user-visible operation.
 The business question is the share of accepted production learner voice
 attempts that connect, their bounded failure outcomes, and whether connected
 sessions produce an exchange. An attempt fires after local ID validation and
-before microphone/session startup. Each explicit initial click or retry is one
-attempt. Result fires once per attempt: `success` after Gemini setup and local
+before microphone/session startup. Each accepted initial click or retry is one
+attempt. The local credential-cooldown guard runs before that point: a disabled
+retry or re-entry while admission is still reserved starts no microphone,
+request, or analytics attempt. The existing aggregate attempt/result consumer
+and payload allowlist remain unchanged; the UI explains the retry deadline.
+Result fires once per attempt: `success` after Gemini setup and local
 audio readiness, `failed` on a pre-connection terminal failure, or `cancelled`
 on explicit end/close/navigation before connection. Session end fires once for
 a previously connected session.

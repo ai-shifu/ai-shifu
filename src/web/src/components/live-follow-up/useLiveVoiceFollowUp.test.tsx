@@ -243,6 +243,7 @@ const Harness = ({
       <span data-testid='muted'>{String(controller.muted)}</span>
       <span data-testid='error'>{controller.errorCode || ''}</span>
       <span data-testid='retryable'>{String(controller.retryable)}</span>
+      <span data-testid='retry-at'>{String(controller.retryAvailableAt)}</span>
       <span data-testid='transcripts'>
         {JSON.stringify(controller.transcripts)}
       </span>
@@ -679,7 +680,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       { timeout: 1500 },
     );
     expect(screen.getByTestId('error')).toHaveTextContent('server_error');
-    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
   });
 
   it('ends the input stream when muted without opening a text fallback', async () => {
@@ -737,11 +738,13 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
 
     expect(screen.getByTestId('state')).toHaveTextContent('ended');
     expect(screen.getByTestId('error')).toHaveTextContent('network_error');
-    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
   });
 
-  it('fails retryably when Gemini never acknowledges setup', async () => {
+  it('defers retry until the credential reservation expires after setup stalls', async () => {
     jest.useFakeTimers();
+    const expiresAt = Date.now() + 60_000;
+    mockCreateSession.mockResolvedValueOnce(sessionResponse(expiresAt));
     render(<Harness />);
     await startAndOpen();
 
@@ -751,7 +754,16 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
 
     expect(screen.getByTestId('state')).toHaveTextContent('ended');
     expect(screen.getByTestId('error')).toHaveTextContent('network_error');
-    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+    expect(screen.getByTestId('retry-at')).toHaveTextContent(
+      String(expiresAt + 30_000),
+    );
+    const eventCount = mockTrackEvent.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(eventCount);
     await act(async () => {
       await Promise.resolve();
     });
@@ -760,9 +772,15 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       'session-1',
       'connection_error',
     );
+    act(() => jest.advanceTimersByTime(expiresAt + 30_000 - Date.now()));
+    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
   });
 
   it('surfaces microphone denial and allows an explicit retry', async () => {
+    mockCreateSession.mockRejectedValueOnce(new Error('no credential issued'));
     mockActivateAudio.mockRejectedValueOnce(
       new DOMException('denied', 'NotAllowedError'),
     );
@@ -820,7 +838,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
 
     expect(screen.getByTestId('state')).toHaveTextContent('ended');
     expect(screen.getByTestId('error')).toHaveTextContent('server_error');
-    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
   });
 
   it('stops stale audio that resolves after the dialog closes', async () => {
