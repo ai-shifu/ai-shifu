@@ -264,6 +264,7 @@ def consume_verification_code(
     *,
     identifier: str,
     code: str,
+    kind: CodeKind | None = None,
     cache_provider: CacheProvider | None = None,
 ) -> None:
     """Validate and consume a verification code for an email or phone identifier."""
@@ -283,14 +284,11 @@ def consume_verification_code(
         # affect cache/db state.
         return
 
-    if "@" in identifier:
-        kind: CodeKind = "email"
-    else:
-        kind = "sms"
+    resolved_kind: CodeKind = kind or ("email" if "@" in identifier else "sms")
 
     with verification_code_lock(
         app,
-        kind=kind,
+        kind=resolved_kind,
         identifier=identifier,
         cache_provider=cache_provider,
     ):
@@ -298,6 +296,7 @@ def consume_verification_code(
             app,
             identifier=identifier,
             code=code,
+            kind=resolved_kind,
             cache=cache,
         )
 
@@ -307,10 +306,11 @@ def _consume_verification_code_locked(
     *,
     identifier: str,
     code: str,
+    kind: CodeKind,
     cache: CacheProvider,
 ) -> None:
     """Consume a code while the normalized identifier lock is held."""
-    is_email = "@" in identifier
+    is_email = kind == "email"
     if is_email:
         email_key = identifier
         email_lower = email_key.lower()

@@ -53,6 +53,7 @@ def verify_email_code(
         app,
         identifier=email_key,
         code=code,
+        kind="email",
     )
 
     normalized_email = email_key.lower() if email_key else ""
