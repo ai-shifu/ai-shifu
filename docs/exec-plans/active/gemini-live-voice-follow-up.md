@@ -94,6 +94,12 @@ auditing, or another correctness-sensitive decision.
       before materializing the last turn and restoring course-audio ownership.
       The focused suites pass 86 backend tests and 76 frontend tests, with
       TypeScript, translation, lint/format, architecture, and harness coverage.
+- [x] 2026-09-04: Opted all Live HTTP endpoints into a sensitive-body policy.
+      Generic request/response logging omits their bodies, responses use
+      `Cache-Control: no-store`, and per-request size limits run before shared
+      authentication/context JSON parsing. Other routes retain their existing
+      logging and limits. Regression coverage includes known-length rejection
+      without reading input and bounded unknown-length parsing.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

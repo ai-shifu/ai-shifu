@@ -11,6 +11,7 @@ from typing import ClassVar
 
 import pytest
 from flask import Flask, request
+from flaskr.common.http import get_sensitive_body_limit, init_sensitive_body_policy
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import live_follow_up_routes as routes
 from flaskr.service.learn.gemini_live_token import (
@@ -98,6 +99,7 @@ def _route_app(monkeypatch: pytest.MonkeyPatch, *, enabled: bool = True) -> Flas
     app = Flask("live-follow-up-route-test")
     app.testing = True
     app.config.update(ENV="production", SECRET_KEY="test-secret")
+    init_sensitive_body_policy(app)
 
     @app.before_request
     def install_user() -> None:
@@ -183,6 +185,36 @@ def _post_action(
     )
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/learn/shifu/course-1/live-follow-up/chapter-1/session",
+        "/api/learn/live-follow-up/session/session-1/heartbeat",
+        "/api/learn/live-follow-up/session/session-1/turn",
+        "/api/learn/live-follow-up/session/session-1/finalize",
+        "/api/learn/live-follow-up/session/session-1/end",
+    ],
+)
+def test_all_live_routes_protect_bodies_before_shared_parsing(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    app = _route_app(monkeypatch)
+    with app.test_request_context(path, method="POST"):
+        assert get_sensitive_body_limit() == 60 * 1024
+    body = BytesIO(b"x" * (60 * 1024 + 1))
+    response = app.test_client().post(
+        path,
+        environ_overrides={
+            "wsgi.input": body,
+            "CONTENT_TYPE": "application/json",
+            "CONTENT_LENGTH": str(len(body.getvalue())),
+        },
+    )
+    assert response.status_code == 413
+    assert body.tell() == 0
+    assert response.headers["Cache-Control"] == "no-store"
+
+
 def test_disabled_or_unavailable_model_stops_before_token_mint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -256,6 +288,7 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
     assert body["heartbeat_interval_ms"] == 15_000
     assert "ws_path" not in body
     assert response.headers.get("Set-Cookie") is None
+    assert response.headers["Cache-Control"] == "no-store"
     assert "systemInstruction" not in body["setup"]["setup"]
     assert body["history"]["clientContent"]["turns"][0]["parts"][0]["text"] == (
         "Earlier question"
@@ -602,6 +635,9 @@ def test_turn_report_rejects_unbounded_or_invalid_client_data(
         "persist_live_follow_up_turn",
         lambda *_args, **_kwargs: pytest.fail("invalid report was persisted"),
     )
+    if len(json.dumps(payload).encode()) > routes._MAX_DIRECT_TURN_REPORT_BYTES:
+        assert _post_action(app, "turn", payload).status_code == 413
+        return
     with pytest.raises(AppError):
         _post_action(app, "turn", payload)
 

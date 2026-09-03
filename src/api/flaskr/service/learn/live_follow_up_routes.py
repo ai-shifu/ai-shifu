@@ -13,7 +13,7 @@ from urllib.parse import urlsplit, urlunsplit
 from flask import Flask, Response, request
 from flaskr.api.langfuse import get_request_id
 from flaskr.api.llm import is_live_follow_up_model_available
-from flaskr.common.http import make_common_response
+from flaskr.common.http import make_common_response, sensitive_body
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.i18n import get_current_language
 from flaskr.service.common import raise_error
@@ -337,7 +337,12 @@ def _read_bounded_turn_payload() -> object:
         and request.content_length > _MAX_DIRECT_TURN_REPORT_BYTES
     ):
         raise_param_error("live_follow_up_turn")
-    raw = request.stream.read(_MAX_DIRECT_TURN_REPORT_BYTES + 1)
+    configured_limit = request.max_content_length
+    request.max_content_length = min(
+        configured_limit or _MAX_DIRECT_TURN_REPORT_BYTES + 1,
+        _MAX_DIRECT_TURN_REPORT_BYTES + 1,
+    )
+    raw = request.get_data(cache=True)
     if len(raw) > _MAX_DIRECT_TURN_REPORT_BYTES:
         raise_param_error("live_follow_up_turn")
     try:
@@ -427,6 +432,7 @@ def register_live_follow_up_routes(
         path_prefix + "/shifu/<shifu_bid>/live-follow-up/<outline_bid>/session",
         methods=["POST"],
     )
+    @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     @with_shifu_context()
     def create_live_follow_up_session_api(
         shifu_bid: str,
@@ -590,6 +596,7 @@ def register_live_follow_up_routes(
         path_prefix + "/live-follow-up/session/<session_bid>/heartbeat",
         methods=["POST"],
     )
+    @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def heartbeat_live_follow_up_session_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid)
         touch_direct_session(session)
@@ -661,6 +668,7 @@ def register_live_follow_up_routes(
         path_prefix + "/live-follow-up/session/<session_bid>/turn",
         methods=["POST"],
     )
+    @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def commit_live_follow_up_turn_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid, allow_finalization=True)
         turn = _validate_turn_payload(_read_bounded_turn_payload())
@@ -713,6 +721,7 @@ def register_live_follow_up_routes(
         path_prefix + "/live-follow-up/session/<session_bid>/finalize",
         methods=["POST"],
     )
+    @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def finalize_live_follow_up_session_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid, allow_finalization=True)
         payload = _read_bounded_turn_payload()
@@ -750,6 +759,7 @@ def register_live_follow_up_routes(
         path_prefix + "/live-follow-up/session/<session_bid>/end",
         methods=["POST"],
     )
+    @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def end_live_follow_up_session_api(session_bid: str) -> Response:
         require_direct_session(session_bid, allow_finalization=True)
         payload = request.get_json(silent=True) or {}

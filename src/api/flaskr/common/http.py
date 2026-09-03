@@ -8,6 +8,9 @@ import json
 from functools import wraps
 from typing import TYPE_CHECKING, ParamSpec, TypeVar
 
+from flask import Flask, Response, current_app, request
+from werkzeug.exceptions import RequestEntityTooLarge
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -22,6 +25,52 @@ by_pass_login_func = [
     "invoke",
     "update_lesson",
 ]
+
+
+def sensitive_body(*, max_bytes: int) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Omit a route's bodies from logs and bound parsing before authentication."""
+
+    def decorate(func: Callable[P, R]) -> Callable[P, R]:
+        func._sensitive_body_max_bytes = max_bytes
+        return func
+
+    return decorate
+
+
+def get_sensitive_body_limit() -> int | None:
+    """Resolve the matched endpoint's opt-in body policy without reading input."""
+    view = current_app.view_functions.get(request.endpoint)
+    return getattr(view, "_sensitive_body_max_bytes", None)
+
+
+def init_sensitive_body_policy(app: Flask) -> None:
+    """Install body limits before authentication or other shared JSON parsing."""
+
+    @app.before_request
+    def limit_sensitive_request_body() -> None:
+        max_bytes = get_sensitive_body_limit()
+        if max_bytes is None:
+            return
+        configured_limit = request.max_content_length
+        max_bytes = (
+            min(max_bytes, configured_limit)
+            if configured_limit is not None
+            else max_bytes
+        )
+        if request.content_length is not None and request.content_length > max_bytes:
+            raise RequestEntityTooLarge
+        # Werkzeug may return a truncated stream at its limit without raising.
+        # Read one bounded overflow byte for chunked bodies and cache accepted
+        # input so auth/context parsing cannot consume it before the route.
+        request.max_content_length = max_bytes + 1
+        if len(request.get_data(cache=True)) > max_bytes:
+            raise RequestEntityTooLarge
+
+    @app.after_request
+    def prevent_sensitive_body_caching(response: Response) -> Response:
+        if get_sensitive_body_limit() is not None:
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
 
 def bypass_token_validation(func: Callable[P, R]) -> Callable[P, R]:
@@ -67,5 +116,8 @@ __all__ = [
     "by_pass_login_func",
     "bypass_token_validation",
     "fmt",
+    "get_sensitive_body_limit",
+    "init_sensitive_body_policy",
     "make_common_response",
+    "sensitive_body",
 ]
