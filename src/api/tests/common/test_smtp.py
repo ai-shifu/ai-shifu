@@ -19,6 +19,7 @@ def _smtp_app() -> Flask:
         SMTP_USERNAME="mailer",
         SMTP_PASSWORD="password",
         SMTP_SENDER="no-reply@example.com",
+        SMTP_SENDER_NAME="AI Shifu",
     )
     return app
 
@@ -70,3 +71,4 @@ def test_smtp_send_keeps_provider_acceptance_when_quit_fails(
     assert calls["connection"] == ("smtp.example.com", 587, 10.0)
     assert "tls_context" in calls
     assert calls["closed"] is True
+    assert "AI Shifu <no-reply@example.com>" in str(calls["sendmail"])

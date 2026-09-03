@@ -591,6 +591,7 @@ function RuleEditor({
             update({
               trigger_event: value as KnownNotificationType,
               template_code: '',
+              locale_template_codes: {},
               conditions:
                 value === 'credit_expiring'
                   ? { windows: [] }
@@ -812,16 +813,51 @@ function RuleTemplateSelector({
     );
   });
 
+  if (rule.channel === 'email') {
+    const englishTemplates = compatibleTemplates.filter(
+      template => template.locale === 'en-US',
+    );
+    return (
+      <div className='sm:col-span-2'>
+        <div>
+          <Label>
+            {t(
+              'module.operationsCreditNotifications.ruleManagement.fields.englishFallbackTemplate',
+            )}
+          </Label>
+          <Select
+            value={rule.template_code}
+            onValueChange={onChange}
+          >
+            <SelectTrigger className='mt-1'>
+              <SelectValue
+                placeholder={t(
+                  'module.operationsCreditNotifications.ruleManagement.selectEnglishFallbackTemplate',
+                )}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {englishTemplates.map(template => (
+                <SelectItem
+                  key={template.template_code}
+                  value={template.template_code}
+                >
+                  {template.template_name || template.template_code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <Label>
-        {rule.channel === 'email'
-          ? t(
-              'module.operationsCreditNotifications.ruleManagement.fields.emailTemplate',
-            )
-          : t(
-              'module.operationsCreditNotifications.ruleManagement.fields.template',
-            )}
+        {t(
+          'module.operationsCreditNotifications.ruleManagement.fields.template',
+        )}
       </Label>
       <Select
         value={rule.template_code}
@@ -829,15 +865,9 @@ function RuleTemplateSelector({
       >
         <SelectTrigger className='mt-1'>
           <SelectValue
-            placeholder={
-              rule.channel === 'email'
-                ? t(
-                    'module.operationsCreditNotifications.ruleManagement.selectEmailTemplate',
-                  )
-                : t(
-                    'module.operationsCreditNotifications.ruleManagement.selectTemplate',
-                  )
-            }
+            placeholder={t(
+              'module.operationsCreditNotifications.ruleManagement.selectTemplate',
+            )}
           />
         </SelectTrigger>
         <SelectContent>

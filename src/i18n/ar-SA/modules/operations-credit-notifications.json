@@ -435,6 +435,8 @@
     "fields": {
       "emailTemplate": "قالب البريد الإلكتروني",
       "enabled": "تفعيل القاعدة",
+      "englishFallbackTemplate": "قالب إنجليزي احتياطي",
+      "localizedTemplates": "قوالب محلية اختيارية",
       "name": "اسم القاعدة",
       "template": "قالب SMS",
       "thresholds": "حدود الرصيد المنخفض",
@@ -447,8 +449,10 @@
     "migrateLegacySmsRulesTitle": "ترحيل قواعد SMS القديمة",
     "newRule": "قاعدة جديدة",
     "noConditions": "لا توجد شروط إضافية",
+    "noLocalizedTemplate": "استخدم القالب الإنجليزي الاحتياطي",
     "saveRule": "حفظ القاعدة",
     "selectEmailTemplate": "اختر قالب البريد الإلكتروني",
+    "selectEnglishFallbackTemplate": "اختر القالب الإنجليزي المطلوب",
     "selectTemplate": "اختر قالب SMS",
     "title": "قواعد الإشعار"
   },

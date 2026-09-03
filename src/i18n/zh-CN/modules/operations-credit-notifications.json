@@ -435,6 +435,8 @@
     "fields": {
       "emailTemplate": "邮件模板",
       "enabled": "启用规则",
+      "englishFallbackTemplate": "英文兜底模板",
+      "localizedTemplates": "可选的本地化模板",
       "name": "规则名称",
       "template": "短信模板",
       "thresholds": "余额提醒阈值",
@@ -447,8 +449,10 @@
     "migrateLegacySmsRulesTitle": "迁移旧版短信规则",
     "newRule": "新建规则",
     "noConditions": "无需额外条件",
+    "noLocalizedTemplate": "使用英文兜底模板",
     "saveRule": "保存规则",
     "selectEmailTemplate": "选择邮件模板",
+    "selectEnglishFallbackTemplate": "选择必填英文模板",
     "selectTemplate": "选择短信模板",
     "title": "通知规则"
   },

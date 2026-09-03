@@ -1506,6 +1506,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="SMTP sender email address",
         group="email",
     ),
+    "SMTP_SENDER_NAME": EnvVar(
+        name="SMTP_SENDER_NAME",
+        default="",
+        description="Optional SMTP sender display name",
+        group="email",
+    ),
     # Flask Configuration
     "FLASK_APP": EnvVar(
         name="FLASK_APP",

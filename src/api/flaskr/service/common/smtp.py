@@ -5,6 +5,7 @@ from __future__ import annotations
 import smtplib
 import ssl
 from contextlib import suppress
+from email.headerregistry import Address
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import TYPE_CHECKING
@@ -56,13 +57,18 @@ def send_smtp_email(
     """Send one MIME alternative email using the configured SMTP relay."""
     server_name = str(app.config.get("SMTP_SERVER") or "").strip()
     sender = str(app.config.get("SMTP_SENDER") or "").strip()
+    sender_name = str(app.config.get("SMTP_SENDER_NAME") or "").strip()
     username = str(app.config.get("SMTP_USERNAME") or "").strip()
     password = str(app.config.get("SMTP_PASSWORD") or "")
     if not is_smtp_configured(app):
         raise SmtpConfigurationError(_INCOMPLETE_SMTP_CONFIGURATION_MESSAGE)
 
     message = MIMEMultipart("alternative")
-    message["From"] = sender
+    message["From"] = (
+        str(Address(display_name=sender_name, addr_spec=sender))
+        if sender_name
+        else sender
+    )
     message["To"] = recipient
     message["Subject"] = subject.replace("\r", "").replace("\n", "").strip()
     message["X-Auto-Response-Suppress"] = "All"

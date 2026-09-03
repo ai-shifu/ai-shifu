@@ -435,6 +435,8 @@
     "fields": {
       "emailTemplate": "Modèle d’e-mail",
       "enabled": "Activer la règle",
+      "englishFallbackTemplate": "Modèle anglais de secours",
+      "localizedTemplates": "Modèles localisés facultatifs",
       "name": "Nom de la règle",
       "template": "Modèle SMS",
       "thresholds": "Seuils de solde faible",
@@ -447,8 +449,10 @@
     "migrateLegacySmsRulesTitle": "Migrer les règles SMS héritées",
     "newRule": "Nouvelle règle",
     "noConditions": "Aucune condition supplémentaire",
+    "noLocalizedTemplate": "Utiliser le modèle anglais de secours",
     "saveRule": "Enregistrer la règle",
     "selectEmailTemplate": "Sélectionner un modèle d’e-mail",
+    "selectEnglishFallbackTemplate": "Sélectionner le modèle anglais requis",
     "selectTemplate": "Sélectionner un modèle SMS",
     "title": "Règles de notification"
   },

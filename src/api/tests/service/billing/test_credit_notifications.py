@@ -68,6 +68,7 @@ from flaskr.service.billing.tasks import (
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.config.models import Config
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     create_user_entity,
     mark_user_roles,
@@ -1040,6 +1041,98 @@ def test_email_notification_delivery_uses_active_template_and_email_frequency(
         assert first.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
         assert first.recipient_snapshot == "teacher@example.com"
         assert second.error_code == "frequency_mobile_daily"
+
+
+def test_email_rule_uses_recipient_locale_and_persists_selected_template(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    with app.app_context():
+        creator = UserEntity.query.filter_by(user_bid="creator-1").one()
+        creator.language = "fr-FR"
+        upsert_credential(
+            app,
+            user_bid="creator-1",
+            provider_name="email",
+            subject_id="teacher@example.com",
+            subject_format="email",
+            identifier="teacher@example.com",
+            metadata={},
+            verified=True,
+        )
+        dao.db.session.commit()
+
+    english = save_credit_notification_email_template(
+        app,
+        payload={
+            "template_name": "English grant",
+            "locale": "en-US",
+            "email_subject": "Credits received",
+            "email_html_body": "<p>Credits received.</p>",
+            "template_status": "active",
+        },
+    )
+    french = save_credit_notification_email_template(
+        app,
+        payload={
+            "template_name": "French grant",
+            "locale": "fr-FR",
+            "email_subject": "Crédits reçus",
+            "email_html_body": "<p>Crédits reçus.</p>",
+            "template_status": "active",
+        },
+    )
+    with app.app_context():
+        # Legacy localized templates remain deliverable even though the current
+        # operator UI creates English-only templates.
+        legacy_french = NotificationTemplate.query.filter_by(
+            template_code=french["template_code"]
+        ).one()
+        legacy_french.locale = "fr-FR"
+        dao.db.session.commit()
+    policy = save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "localized-email-grant",
+                    "name": "Localized email grant",
+                    "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                    "channel": CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                    "template_code": english["template_code"],
+                    "locale_template_codes": {"fr-FR": french["template_code"]},
+                    "enabled": True,
+                    "conditions": {},
+                }
+            ],
+        },
+    )
+
+    staged = credit_notifications._stage_notification_record(
+        app,
+        notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+        creator_bid="creator-1",
+        source_type=CREDIT_SOURCE_TYPE_MANUAL,
+        source_bid="localized-email-grant-source",
+        dedupe_key="localized-email-grant:1",
+        template_params={"credits": "12.50"},
+        policy=policy,
+        rule=policy["rules"][0],
+    )
+
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid=staged.notification_bid
+        ).one()
+        assert notification.template_code == french["template_code"]
+    assert (
+        credit_notifications._notification_datetime_param(
+            app, datetime(2026, 6, 30, 0, 0, 0), policy["rules"][0]
+        )
+        == "2026-06-30T00:00:00Z"
+    )
 
 
 def test_email_template_uses_one_body_and_preserves_generated_code_on_update(

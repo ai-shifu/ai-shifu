@@ -77,34 +77,6 @@ const TEMPLATE_TYPE_KEYS: Record<string, string> = {
   '6': 'module.operationsCreditNotifications.templateManagement.type.6',
 };
 
-const EMAIL_LOCALE_OPTIONS = [
-  {
-    value: 'en-US',
-    labelKey:
-      'module.operationsCreditNotifications.templateManagement.emailLocales.enUS',
-  },
-  {
-    value: 'zh-CN',
-    labelKey:
-      'module.operationsCreditNotifications.templateManagement.emailLocales.zhCN',
-  },
-  {
-    value: 'fr-FR',
-    labelKey:
-      'module.operationsCreditNotifications.templateManagement.emailLocales.frFR',
-  },
-  {
-    value: 'th-TH',
-    labelKey:
-      'module.operationsCreditNotifications.templateManagement.emailLocales.thTH',
-  },
-  {
-    value: 'ar-SA',
-    labelKey:
-      'module.operationsCreditNotifications.templateManagement.emailLocales.arSA',
-  },
-];
-
 const EMAIL_TEMPLATE_VARIABLES = [
   {
     token: '${product}',
@@ -207,7 +179,6 @@ export function CreditNotificationTemplateManagementTab({
   const [editingTemplate, setEditingTemplate] =
     React.useState<AdminOperationCreditNotificationTemplateOption | null>(null);
   const [emailTemplateStatus, setEmailTemplateStatus] = React.useState('draft');
-  const [emailTemplateLocale, setEmailTemplateLocale] = React.useState('en-US');
   const [emailTemplateNotificationTypes, setEmailTemplateNotificationTypes] =
     React.useState<CreditNotificationType[]>([]);
   const [savingEmailTemplate, setSavingEmailTemplate] = React.useState(false);
@@ -248,7 +219,6 @@ export function CreditNotificationTemplateManagementTab({
     (template: AdminOperationCreditNotificationTemplateOption) => {
       setEditingTemplate(template);
       setEmailTemplateStatus(template.template_status || 'draft');
-      setEmailTemplateLocale(template.locale || 'en-US');
       setEmailTemplateNotificationTypes(
         template.compatible_notification_types || [],
       );
@@ -778,7 +748,7 @@ export function CreditNotificationTemplateManagementTab({
                   unknown
                 >;
                 payload.template_status = emailTemplateStatus;
-                payload.locale = emailTemplateLocale;
+                payload.locale = 'en-US';
                 payload.applicable_notification_types =
                   emailTemplateNotificationTypes;
                 setSavingEmailTemplate(true);
@@ -823,27 +793,14 @@ export function CreditNotificationTemplateManagementTab({
                         'module.operationsCreditNotifications.templateManagement.emailFields.locale',
                       )}
                     </Label>
-                    <Select
-                      value={emailTemplateLocale}
-                      onValueChange={setEmailTemplateLocale}
-                    >
-                      <SelectTrigger
-                        id='email-template-locale'
-                        className='bg-white'
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EMAIL_LOCALE_OPTIONS.map(option => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                          >
-                            {t(option.labelKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      id='email-template-locale'
+                      className='h-10 bg-muted'
+                      value={t(
+                        'module.operationsCreditNotifications.templateManagement.emailLocales.enUS',
+                      )}
+                      disabled
+                    />
                   </div>
                   <div className='space-y-2'>
                     <Label htmlFor='email-template-status'>
