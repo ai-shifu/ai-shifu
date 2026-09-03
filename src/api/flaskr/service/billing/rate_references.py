@@ -29,7 +29,11 @@ def format_credit_multiplier(value: Decimal | None) -> str | None:
     if value is None or value <= 0:
         return None
     rounded = value.quantize(Decimal("0.01"))
-    text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
+    if rounded == rounded.to_integral_value():
+        # Whole numbers must not lose trailing zeros: stripping "30" to "3".
+        text = str(int(rounded))
+    else:
+        text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
     return f"{text or '0'}x"
 
 
