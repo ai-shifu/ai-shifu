@@ -268,7 +268,7 @@ def consume_verification_code(
     cache_provider: CacheProvider | None = None,
 ) -> None:
     """Validate and consume a verification code for an email or phone identifier."""
-    cache = cache_provider or redis
+    cache = cache_provider or distributed_lock_cache
     identifier = (identifier or "").strip()
     code = (code or "").strip()
     # Keep helper-level parameter checks for direct service callers such as
@@ -290,7 +290,7 @@ def consume_verification_code(
         app,
         kind=resolved_kind,
         identifier=identifier,
-        cache_provider=cache_provider,
+        cache_provider=cache,
     ):
         _consume_verification_code_locked(
             app,
