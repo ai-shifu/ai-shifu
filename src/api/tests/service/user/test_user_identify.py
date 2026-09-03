@@ -418,6 +418,7 @@ def test_send_email_code_stores_lowercase_identifier(
     import flaskr.service.user.utils as user_utils
     from flaskr.dao import db
     from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
     from flaskr.service.user.models import UserVerifyCode
 
     from tests.common.fixtures.fake_redis import FakeRedis
@@ -444,7 +445,8 @@ def test_send_email_code_stores_lowercase_identifier(
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
-    monkeypatch.setattr(user_utils, "distributed_cache", fake_redis)
+    monkeypatch.setattr(verification_codes, "redis", fake_redis)
+    monkeypatch.setattr(verification_codes, "get_redis_client", lambda: None)
     monkeypatch.setattr(user_utils.smtplib, "SMTP", _FakeSMTP, raising=False)
     fixed_digits = iter("1234")
     monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
@@ -539,7 +541,6 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     lock_observations: list[bool] = []
     delivery_observations: list[bool] = []
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
-    monkeypatch.setattr(user_utils, "distributed_cache", fake_redis)
     monkeypatch.setattr(
         verification_codes,
         "distributed_lock_cache",
@@ -598,6 +599,8 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
             "PHONE_CODE_EXPIRE_TIME": 300,
             "MAIL_CODE_INTERVAL": 60,
             "MAIL_CODE_EXPIRE_TIME": 300,
+            "REDIS_HOST": "redis",
+            "REDIS_PORT": 6379,
         }
     )
     policy = getattr(user_utils, policy_name)
@@ -707,6 +710,8 @@ def test_prepare_verification_challenge_fails_when_attempt_reset_is_not_durable(
             "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail-code:",
             "MAIL_CODE_INTERVAL": 60,
             "MAIL_CODE_EXPIRE_TIME": 300,
+            "REDIS_HOST": "redis",
+            "REDIS_PORT": 6379,
         }
     )
     attempt_key = verification_codes._verification_attempt_key(
@@ -725,8 +730,18 @@ def test_prepare_verification_challenge_fails_when_attempt_reset_is_not_durable(
     strict_cache = _AttemptResetUnavailableRedis()
     fallback_cache = FakeRedis()
     delivered = False
-    monkeypatch.setattr(user_utils, "distributed_cache", strict_cache)
     monkeypatch.setattr(user_utils, "redis", fallback_cache)
+    monkeypatch.setattr(
+        verification_codes,
+        "distributed_lock_cache",
+        strict_cache,
+    )
+    configured_client = object()
+    monkeypatch.setattr(
+        verification_codes,
+        "get_redis_client",
+        lambda: configured_client,
+    )
     monkeypatch.setattr(
         user_utils,
         "_redis_prefix",
@@ -780,7 +795,6 @@ def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
-    monkeypatch.setattr(user_utils, "distributed_cache", fake_redis)
     monkeypatch.setattr(user_utils.smtplib, "SMTP_SSL", _FailingSMTPSSL)
     monkeypatch.setattr(
         user_utils.smtplib,
@@ -854,7 +868,6 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
-    monkeypatch.setattr(user_utils, "distributed_cache", fake_redis)
     monkeypatch.setattr(user_utils.smtplib, "SMTP", _FakeSMTP, raising=False)
     fixed_digits = iter("5678")
     monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
@@ -1147,6 +1160,37 @@ def test_verification_code_lock_renews_redis_lease(
     assert not fake_redis.locks
 
 
+@pytest.mark.parametrize(
+    ("redis_host", "redis_port", "expected_provider"),
+    [
+        ("", None, "fallback"),
+        ("redis", 6379, "strict"),
+    ],
+)
+def test_verification_cache_provider_distinguishes_disabled_and_configured_redis(
+    monkeypatch: pytest.MonkeyPatch,
+    redis_host: str,
+    redis_port: int | None,
+    expected_provider: str,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    fallback_cache = _FakeRedis()
+    strict_cache = _FakeRedis()
+    monkeypatch.setattr(verification_codes, "redis", fallback_cache)
+    monkeypatch.setattr(verification_codes, "distributed_lock_cache", strict_cache)
+    monkeypatch.setattr(
+        verification_codes,
+        "get_redis_client",
+        lambda: object() if redis_host and redis_port else None,
+    )
+
+    provider = verification_codes.verification_cache_provider()
+
+    expected = fallback_cache if expected_provider == "fallback" else strict_cache
+    assert provider is expected
+
+
 def test_verification_code_lock_does_not_use_process_local_fallback(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
@@ -1165,6 +1209,12 @@ def test_verification_code_lock_does_not_use_process_local_fallback(
         verification_codes,
         "distributed_lock_cache",
         distributed_cache,
+    )
+    configured_client = object()
+    monkeypatch.setattr(
+        verification_codes,
+        "get_redis_client",
+        lambda: configured_client,
     )
 
     with app.app_context(), pytest.raises(AppError):
@@ -1326,6 +1376,7 @@ def test_consume_verification_code_fails_when_replay_state_cannot_be_persisted(
             identifier=email,
             code=code,
             kind="email",
+            cache_provider=strict_cache,
         )
 
     assert code_key in strict_cache.values
