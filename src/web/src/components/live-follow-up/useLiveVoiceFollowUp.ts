@@ -44,6 +44,7 @@ import {
 
 const SESSION_WARNING_MS = 14 * 60 * 1000 + 30 * 1000;
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+const GEMINI_LIVE_SETUP_TIMEOUT_MS = 20_000;
 const MAX_INPUT_AUDIO_FRAME_BYTES = 8 * 1024;
 const MAX_BUFFERED_INPUT_AUDIO_BYTES = 8 * 1024;
 const MIN_HEARTBEAT_MS = 5_000;
@@ -220,6 +221,7 @@ export const useLiveVoiceFollowUp = ({
   >(null);
   const warningTimerRef = useRef<number | null>(null);
   const timeoutTimerRef = useRef<number | null>(null);
+  const setupTimerRef = useRef<number | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
   const unmountedRef = useRef(false);
   const sessionScopeKey = `${shifuBid}:${outlineBid}:${sessionScope}:${previewMode ? 'preview' : 'learner'}`;
@@ -297,6 +299,7 @@ export const useLiveVoiceFollowUp = ({
     for (const timerRef of [
       warningTimerRef,
       timeoutTimerRef,
+      setupTimerRef,
       heartbeatTimerRef,
       commitTimerRef,
     ]) {
@@ -701,6 +704,25 @@ export const useLiveVoiceFollowUp = ({
           }
         }
         setupReadyRef.current = false;
+        if (setupTimerRef.current !== null) {
+          window.clearTimeout(setupTimerRef.current);
+        }
+        setupTimerRef.current = window.setTimeout(() => {
+          setupTimerRef.current = null;
+          if (
+            attemptRef.current?.generation !== generation ||
+            setupReadyRef.current
+          ) {
+            return;
+          }
+          finishAttempt({
+            reason: 'connection_error',
+            keepOpen: true,
+            errorCode: 'network_error',
+            retryable: true,
+            pendingOutcome: 'failed',
+          });
+        }, GEMINI_LIVE_SETUP_TIMEOUT_MS);
         const websocket = new WebSocket(
           resolveGeminiLiveWebSocketUrl(
             session.websocket_url,
@@ -753,6 +775,10 @@ export const useLiveVoiceFollowUp = ({
             resumptionHandleRef.current = message.resumptionHandle;
           }
           if (message.setupComplete) {
+            if (setupTimerRef.current !== null) {
+              window.clearTimeout(setupTimerRef.current);
+              setupTimerRef.current = null;
+            }
             if (!resumptionHandle && session.history) {
               sendWebSocketPayload(websocket, JSON.stringify(session.history));
             }

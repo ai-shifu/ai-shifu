@@ -669,6 +669,28 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(screen.getByTestId('retryable')).toHaveTextContent('true');
   });
 
+  it('fails retryably when Gemini never acknowledges setup', async () => {
+    jest.useFakeTimers();
+    render(<Harness />);
+    await startAndOpen();
+
+    act(() => {
+      jest.advanceTimersByTime(20_000);
+    });
+
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('error')).toHaveTextContent('network_error');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockAudio.stop).toHaveBeenCalled();
+    expect(mockEndSession).toHaveBeenCalledWith(
+      'session-1',
+      'connection_error',
+    );
+  });
+
   it('surfaces microphone denial and allows an explicit retry', async () => {
     mockActivateAudio.mockRejectedValueOnce(
       new DOMException('denied', 'NotAllowedError'),
@@ -690,7 +712,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     ).toHaveLength(2);
   });
 
-  it('releases audio, the direct session, and capacity on lesson changes', async () => {
+  it('releases audio and ends the direct control-plane session on lesson changes', async () => {
     const { rerender } = render(<Harness learningMode='read' />);
     await startAndOpen();
     await makeReady();
