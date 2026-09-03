@@ -361,6 +361,41 @@ export default function AdminOperationCreditNotificationsPage() {
     [fetchTemplateOptions, trackTemplateEventSafely],
   );
 
+  const updateEmailTemplateStatus = React.useCallback(
+    async (
+      notificationTemplateBid: string,
+      templateStatus: 'active' | 'disabled',
+    ) => {
+      const trackingPayload = {
+        channel: 'email',
+        provider: 'smtp',
+        action: 'status_updated',
+      };
+      trackTemplateEventSafely(
+        NOTIFICATION_TEMPLATE_SAVE_ATTEMPT_EVENT,
+        trackingPayload,
+      );
+      try {
+        await api.updateAdminOperationCreditNotificationEmailTemplateStatus({
+          notification_template_bid: notificationTemplateBid,
+          template_status: templateStatus,
+        });
+        await fetchTemplateOptions('initial');
+        trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SAVE_RESULT_EVENT, {
+          ...trackingPayload,
+          outcome: 'success',
+        });
+      } catch (error) {
+        trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SAVE_RESULT_EVENT, {
+          ...trackingPayload,
+          outcome: 'failed',
+        });
+        throw error;
+      }
+    },
+    [fetchTemplateOptions, trackTemplateEventSafely],
+  );
+
   const fetchOverview = React.useCallback(async () => {
     const response = (await api.getAdminOperationCreditNotificationsOverview(
       {},
@@ -833,6 +868,7 @@ export default function AdminOperationCreditNotificationsPage() {
             }
             refresh={() => fetchTemplateOptions('manual')}
             saveEmailTemplate={saveEmailTemplate}
+            updateEmailTemplateStatus={updateEmailTemplateStatus}
             onViewed={() =>
               trackTemplateEventSafely(
                 NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT,

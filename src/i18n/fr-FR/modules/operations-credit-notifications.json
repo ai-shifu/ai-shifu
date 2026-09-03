@@ -5,7 +5,9 @@
     "applyTemplate": "Appliquer le modèle",
     "changeTemplate": "Changer le modèle",
     "detail": "Détails",
+    "disable": "Désactiver",
     "dryRun": "Estimer l’envoi",
+    "enable": "Activer",
     "more": "Plus",
     "refresh": "Actualiser",
     "requeue": "Relancer",
@@ -473,6 +475,7 @@
     "templates": "Gestion des modèles"
   },
   "templateManagement": {
+    "allEmailStatuses": "Tous les statuts de modèle",
     "allStatuses": "Tous les statuts de validation",
     "bindingsLoading": "Chargement des liaisons",
     "bindingsUnavailable": "Informations de liaison indisponibles",
@@ -514,8 +517,10 @@
     "emailSaveError": "Le modèle d’e-mail n’a pas pu être enregistré. Réessayez plus tard.",
     "emailStatus": {
       "active": "Actif",
+      "disabled": "Désactivé",
       "draft": "Brouillon"
     },
+    "emailStatusFilter": "Statut du modèle",
     "emailTitle": "Modèles d’e-mail",
     "emailVariables": {
       "availableCredits": "Crédits disponibles",
@@ -524,6 +529,7 @@
       "estimatedRemainingDays": "Jours restants estimés",
       "expand": "Développer les variables",
       "expiresAt": "Date d’expiration des crédits",
+      "product": "Nom du forfait",
       "window": "Fenêtre de rappel d’expiration"
     },
     "empty": "Aucun modèle ne correspond aux filtres.",

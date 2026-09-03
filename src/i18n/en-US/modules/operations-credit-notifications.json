@@ -5,7 +5,9 @@
     "applyTemplate": "Apply template",
     "changeTemplate": "Change template",
     "detail": "Details",
+    "disable": "Disable",
     "dryRun": "Estimate Send",
+    "enable": "Enable",
     "more": "More",
     "refresh": "Refresh",
     "requeue": "Requeue",
@@ -473,6 +475,7 @@
     "templates": "Template management"
   },
   "templateManagement": {
+    "allEmailStatuses": "All template statuses",
     "allStatuses": "All review statuses",
     "bindingsLoading": "Loading bindings",
     "bindingsUnavailable": "Binding information unavailable",
@@ -513,9 +516,11 @@
     },
     "emailSaveError": "The email template could not be saved. Please try again.",
     "emailStatus": {
-      "active": "Active",
+      "active": "Enabled",
+      "disabled": "Disabled",
       "draft": "Draft"
     },
+    "emailStatusFilter": "Template status",
     "emailTitle": "Email templates",
     "emailVariables": {
       "availableCredits": "Available credits",
@@ -524,6 +529,7 @@
       "estimatedRemainingDays": "Estimated remaining days",
       "expand": "Expand variables",
       "expiresAt": "Credit expiry date",
+      "product": "Plan name",
       "window": "Expiry reminder window"
     },
     "empty": "No templates match the current filters.",

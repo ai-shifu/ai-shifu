@@ -104,6 +104,11 @@ const EMAIL_LOCALE_OPTIONS = [
 
 const EMAIL_TEMPLATE_VARIABLES = [
   {
+    token: '${product}',
+    labelKey:
+      'module.operationsCreditNotifications.templateManagement.emailVariables.product',
+  },
+  {
     token: '${window}',
     labelKey:
       'module.operationsCreditNotifications.templateManagement.emailVariables.window',
@@ -142,6 +147,7 @@ export function CreditNotificationTemplateManagementTab({
   onFilterApplied,
   onDetailOpened,
   saveEmailTemplate,
+  updateEmailTemplateStatus,
 }: {
   templates: AdminOperationCreditNotificationTemplateOption[];
   active: boolean;
@@ -156,6 +162,10 @@ export function CreditNotificationTemplateManagementTab({
   saveEmailTemplate: (
     payload: Record<string, string>,
     notificationTemplateBid?: string,
+  ) => Promise<void>;
+  updateEmailTemplateStatus: (
+    notificationTemplateBid: string,
+    templateStatus: 'active' | 'disabled',
   ) => Promise<void>;
 }) {
   const { t } = useTranslation();
@@ -194,11 +204,17 @@ export function CreditNotificationTemplateManagementTab({
   }, [active, contactMode, onViewed]);
 
   const statusLabel = React.useCallback(
-    (value: string) =>
-      TEMPLATE_STATUS_KEYS[value]
+    (value: string) => {
+      if (contactMode === 'email') {
+        return t(
+          `module.operationsCreditNotifications.templateManagement.emailStatus.${value}`,
+        );
+      }
+      return TEMPLATE_STATUS_KEYS[value]
         ? t(TEMPLATE_STATUS_KEYS[value])
-        : value || '--',
-    [t],
+        : value || '--';
+    },
+    [contactMode, t],
   );
   const typeLabel = React.useCallback(
     (value: string) =>
@@ -271,9 +287,14 @@ export function CreditNotificationTemplateManagementTab({
     },
     {
       key: 'status',
-      header: t(
-        'module.operationsCreditNotifications.templateManagement.columns.status',
-      ),
+      header:
+        contactMode === 'email'
+          ? t(
+              'module.operationsCreditNotifications.templateManagement.emailFields.status',
+            )
+          : t(
+              'module.operationsCreditNotifications.templateManagement.columns.status',
+            ),
       className: 'w-28 min-w-28 whitespace-nowrap',
     },
     {
@@ -416,17 +437,27 @@ export function CreditNotificationTemplateManagementTab({
         >
           <SelectTrigger
             className='h-10 min-w-48 bg-white'
-            aria-label={t(
-              'module.operationsCreditNotifications.templateManagement.statusFilter',
-            )}
+            aria-label={
+              contactMode === 'email'
+                ? t(
+                    'module.operationsCreditNotifications.templateManagement.emailStatusFilter',
+                  )
+                : t(
+                    'module.operationsCreditNotifications.templateManagement.statusFilter',
+                  )
+            }
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='__all__'>
-              {t(
-                'module.operationsCreditNotifications.templateManagement.allStatuses',
-              )}
+              {contactMode === 'email'
+                ? t(
+                    'module.operationsCreditNotifications.templateManagement.allEmailStatuses',
+                  )
+                : t(
+                    'module.operationsCreditNotifications.templateManagement.allStatuses',
+                  )}
             </SelectItem>
             {statuses.map(value => (
               <SelectItem
@@ -543,6 +574,28 @@ export function CreditNotificationTemplateManagementTab({
                       },
                       ...(contactMode === 'email'
                         ? [
+                            {
+                              key: 'toggle-status',
+                              label:
+                                row.template_status === 'active'
+                                  ? t(
+                                      'module.operationsCreditNotifications.actions.disable',
+                                    )
+                                  : t(
+                                      'module.operationsCreditNotifications.actions.enable',
+                                    ),
+                              onClick: () => {
+                                const notificationTemplateBid =
+                                  row.notification_template_bid;
+                                if (!notificationTemplateBid) return;
+                                void updateEmailTemplateStatus(
+                                  notificationTemplateBid,
+                                  row.template_status === 'active'
+                                    ? 'disabled'
+                                    : 'active',
+                                );
+                              },
+                            },
                             {
                               key: 'edit',
                               label: t(
@@ -788,6 +841,11 @@ export function CreditNotificationTemplateManagementTab({
                         <SelectItem value='active'>
                           {t(
                             'module.operationsCreditNotifications.templateManagement.emailStatus.active',
+                          )}
+                        </SelectItem>
+                        <SelectItem value='disabled'>
+                          {t(
+                            'module.operationsCreditNotifications.templateManagement.emailStatus.disabled',
                           )}
                         </SelectItem>
                       </SelectContent>

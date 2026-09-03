@@ -60,6 +60,7 @@ jest.mock('@/api', () => ({
     requeueAdminOperationCreditNotification: jest.fn(),
     syncAdminOperationCreditNotificationTemplate: jest.fn(),
     updateAdminOperationCreditNotificationEmailTemplate: jest.fn(),
+    updateAdminOperationCreditNotificationEmailTemplateStatus: jest.fn(),
     updateAdminOperationCreditNotificationConfig: jest.fn(),
   },
 }));
@@ -246,6 +247,8 @@ const mockCreateEmailTemplate =
   api.createAdminOperationCreditNotificationEmailTemplate as jest.Mock;
 const mockUpdateEmailTemplate =
   api.updateAdminOperationCreditNotificationEmailTemplate as jest.Mock;
+const mockUpdateEmailTemplateStatus =
+  api.updateAdminOperationCreditNotificationEmailTemplateStatus as jest.Mock;
 const mockGetRecords = api.getAdminOperationCreditNotifications as jest.Mock;
 const mockGetOverview =
   api.getAdminOperationCreditNotificationsOverview as jest.Mock;
@@ -357,6 +360,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockGetEmailTemplates.mockReset();
     mockCreateEmailTemplate.mockReset();
     mockUpdateEmailTemplate.mockReset();
+    mockUpdateEmailTemplateStatus.mockReset();
     mockGetRecords.mockReset();
     mockGetOverview.mockReset();
     mockDryRun.mockReset();
@@ -432,6 +436,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
     mockCreateEmailTemplate.mockResolvedValue({});
     mockUpdateEmailTemplate.mockResolvedValue({});
+    mockUpdateEmailTemplateStatus.mockResolvedValue({});
     mockDryRun.mockResolvedValue({
       status: 'ok',
       candidate_count: 1,
@@ -646,6 +651,64 @@ describe('AdminOperationCreditNotificationsPage', () => {
       'operator_notification_template_library_viewed',
       { channel: 'email', provider: 'smtp' },
     );
+  });
+
+  it('enables a draft email template without opening its editor', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    mockGetEmailTemplates.mockResolvedValue({
+      items: [
+        {
+          notification_template_bid: 'email-template-1',
+          channel: 'email',
+          provider: 'smtp',
+          template_code: 'EMAIL_CREDIT_GRANTED',
+          template_name: 'Credit granted',
+          template_content: 'You received ${credits} credits.',
+          email_subject: 'Credits received',
+          email_html_body: '<p>You received ${credits} credits.</p>',
+          locale: 'en-US',
+          template_status: 'draft',
+          template_type: 'email',
+          sync_status: 'local',
+          error_code: '',
+          error_message: '',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'local',
+        },
+      ],
+      source: 'local',
+      provider_available: true,
+      error_code: '',
+      error_message: '',
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+    await screen.findByText('Credit granted');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByText(
+        'module.operationsCreditNotifications.actions.enable',
+      ),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateEmailTemplateStatus).toHaveBeenCalledWith({
+        notification_template_bid: 'email-template-1',
+        template_status: 'active',
+      });
+    });
+    expect(mockUpdateEmailTemplate).not.toHaveBeenCalled();
   });
 
   it('tracks successful email template creation with one email body', async () => {

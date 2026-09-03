@@ -85,6 +85,7 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     save_operator_credit_notification_email_template,
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
+    update_operator_credit_notification_email_template_status,
 )
 from flaskr.service.shifu.admin_operations.user_credits import (
     get_operator_user_credit_usage_detail,
@@ -1117,6 +1118,28 @@ def register_admin_operations_routes(
                 app,
                 payload=payload,
                 notification_template_bid=notification_template_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/credit-notifications/email-templates/<notification_template_bid>/status",
+        methods=["PUT"],
+    )
+    def admin_operation_update_credit_notification_email_template_status(
+        notification_template_bid: str,
+    ) -> str:
+        """Update one operator-managed notification email template's availability."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_email_template_status")
+        return make_common_response(
+            update_operator_credit_notification_email_template_status(
+                app,
+                notification_template_bid=notification_template_bid,
+                template_status=str(payload.get("template_status") or ""),
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
             )
         )

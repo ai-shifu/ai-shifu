@@ -5,7 +5,9 @@
     "applyTemplate": "تطبيق القالب",
     "changeTemplate": "تغيير القالب",
     "detail": "التفاصيل",
+    "disable": "إيقاف",
     "dryRun": "تجربة الإشعار",
+    "enable": "تفعيل",
     "more": "المزيد",
     "refresh": "تحديث",
     "requeue": "إعادة الإرسال",
@@ -473,6 +475,7 @@
     "templates": "إدارة القوالب"
   },
   "templateManagement": {
+    "allEmailStatuses": "كل حالات القوالب",
     "allStatuses": "كل حالات المراجعة",
     "bindingsLoading": "جارٍ تحميل معلومات الربط",
     "bindingsUnavailable": "معلومات الربط غير متاحة",
@@ -514,8 +517,10 @@
     "emailSaveError": "تعذر حفظ قالب البريد الإلكتروني. يرجى المحاولة لاحقاً.",
     "emailStatus": {
       "active": "نشط",
+      "disabled": "موقوف",
       "draft": "مسودة"
     },
+    "emailStatusFilter": "حالة القالب",
     "emailTitle": "قوالب البريد الإلكتروني",
     "emailVariables": {
       "availableCredits": "الرصيد المتاح",
@@ -524,6 +529,7 @@
       "estimatedRemainingDays": "الأيام المتبقية المقدرة",
       "expand": "توسيع المتغيرات",
       "expiresAt": "تاريخ انتهاء الرصيد",
+      "product": "اسم الباقة",
       "window": "نافذة تذكير الانتهاء"
     },
     "empty": "لا توجد قوالب تطابق عوامل التصفية.",

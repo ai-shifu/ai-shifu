@@ -50,6 +50,7 @@ from flaskr.service.billing.credit_notifications import (
     scan_low_balance_notifications,
     stage_credit_granted_notification,
     sync_credit_notification_template,
+    update_credit_notification_email_template_status,
 )
 from flaskr.service.billing.models import (
     BillingDailyLedgerSummary,
@@ -999,6 +1000,31 @@ def test_email_template_uses_one_body_and_preserves_generated_code_on_update(
     assert str(created["template_code"]).startswith("EMAIL_")
     assert updated["template_code"] == created["template_code"]
     assert updated["template_content"] == "Your balance: ${credits}"
+    assert updated["email_html_body"] == "<p>Your balance: ${credits}</p>"
+
+
+def test_email_template_status_can_be_updated_without_replacing_content(
+    credit_notifications_app: Flask,
+) -> None:
+    created = save_credit_notification_email_template(
+        credit_notifications_app,
+        payload={
+            "template_name": "Credit update",
+            "locale": "en-US",
+            "email_subject": "Your credits changed",
+            "email_html_body": "<p>Your balance: ${credits}</p>",
+            "template_status": "draft",
+        },
+    )
+
+    updated = update_credit_notification_email_template_status(
+        credit_notifications_app,
+        notification_template_bid=str(created["notification_template_bid"]),
+        template_status="disabled",
+    )
+
+    assert updated["template_status"] == "disabled"
+    assert updated["email_subject"] == "Your credits changed"
     assert updated["email_html_body"] == "<p>Your balance: ${credits}</p>"
 
 

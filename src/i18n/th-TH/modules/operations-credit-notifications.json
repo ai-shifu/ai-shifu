@@ -5,7 +5,9 @@
     "applyTemplate": "ใช้เทมเพลต",
     "changeTemplate": "เปลี่ยนเทมเพลต",
     "detail": "รายละเอียด",
+    "disable": "ปิดใช้งาน",
     "dryRun": "จำลองการแจ้งเตือน",
+    "enable": "เปิดใช้งาน",
     "more": "เพิ่มเติม",
     "refresh": "รีเฟรช",
     "requeue": "ส่งใหม่",
@@ -473,6 +475,7 @@
     "templates": "จัดการเทมเพลต"
   },
   "templateManagement": {
+    "allEmailStatuses": "สถานะเทมเพลตทั้งหมด",
     "allStatuses": "สถานะการตรวจสอบทั้งหมด",
     "bindingsLoading": "กำลังโหลดข้อมูลการเชื่อมโยง",
     "bindingsUnavailable": "ไม่สามารถโหลดข้อมูลการเชื่อมโยงได้",
@@ -514,8 +517,10 @@
     "emailSaveError": "ไม่สามารถบันทึกเทมเพลตอีเมลได้ โปรดลองอีกครั้งภายหลัง",
     "emailStatus": {
       "active": "เปิดใช้งาน",
+      "disabled": "ปิดใช้งานแล้ว",
       "draft": "ฉบับร่าง"
     },
+    "emailStatusFilter": "สถานะเทมเพลต",
     "emailTitle": "เทมเพลตอีเมล",
     "emailVariables": {
       "availableCredits": "เครดิตคงเหลือ",
@@ -524,6 +529,7 @@
       "estimatedRemainingDays": "จำนวนวันที่คาดว่าใช้ได้",
       "expand": "ขยายตัวแปร",
       "expiresAt": "วันหมดอายุของเครดิต",
+      "product": "ชื่อแพ็กเกจ",
       "window": "ช่วงเวลาแจ้งเตือนหมดอายุ"
     },
     "empty": "ไม่มีเทมเพลตที่ตรงกับตัวกรอง",

@@ -96,6 +96,7 @@ NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN = "aliyun"
 NOTIFICATION_TEMPLATE_PROVIDER_SMTP = "smtp"
 NOTIFICATION_TEMPLATE_STATUS_ACTIVE = "active"
 NOTIFICATION_TEMPLATE_STATUS_DRAFT = "draft"
+NOTIFICATION_TEMPLATE_STATUS_DISABLED = "disabled"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_LOCAL = "local"
 ALIYUN_TEMPLATE_LIST_PAGE_SIZE = 50
 ALIYUN_TEMPLATE_LIST_MAX_PAGES = 100
@@ -1215,6 +1216,7 @@ def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, o
     if status not in {
         NOTIFICATION_TEMPLATE_STATUS_DRAFT,
         NOTIFICATION_TEMPLATE_STATUS_ACTIVE,
+        NOTIFICATION_TEMPLATE_STATUS_DISABLED,
     }:
         raise_param_error("template_status")
     plain_body = _email_html_to_plain_text(html_body)
@@ -1298,6 +1300,48 @@ def save_credit_notification_email_template(
         template.error_message = ""
         template.last_synced_at = now
         template.updated_at = now
+        template.metadata_json = {"updated_by": _normalize_bid(updated_by)}
+        db.session.add(template)
+        db.session.flush()
+        _validate_credit_notification_policy_templates(
+            app, load_credit_notification_policy()
+        )
+        return _serialize_template_option(app, template, source="local")
+
+
+def update_credit_notification_email_template_status(
+    app: Flask,
+    *,
+    notification_template_bid: str,
+    template_status: str,
+    updated_by: str = "",
+) -> dict[str, object]:
+    """Update an operator-managed SMTP email template's availability only."""
+    normalized_bid = _normalize_bid(notification_template_bid)
+    normalized_status = str(template_status or "").strip()
+    if not normalized_bid:
+        raise_param_error("notification_template_bid")
+    if normalized_status not in {
+        NOTIFICATION_TEMPLATE_STATUS_DRAFT,
+        NOTIFICATION_TEMPLATE_STATUS_ACTIVE,
+        NOTIFICATION_TEMPLATE_STATUS_DISABLED,
+    }:
+        raise_param_error("template_status")
+    with _maybe_app_context(app), unit_of_work():
+        template = (
+            NotificationTemplate.query.filter(
+                NotificationTemplate.deleted == 0,
+                NotificationTemplate.notification_template_bid == normalized_bid,
+                NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
+            )
+            .with_for_update()
+            .first()
+        )
+        if template is None:
+            raise_param_error("notification_template_bid")
+        template.template_status = normalized_status
+        template.updated_at = now_utc()
         template.metadata_json = {"updated_by": _normalize_bid(updated_by)}
         db.session.add(template)
         db.session.flush()
