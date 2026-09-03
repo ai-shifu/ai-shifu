@@ -5,7 +5,9 @@
     "applyTemplate": "应用模板",
     "changeTemplate": "更换模板",
     "detail": "详情",
+    "disable": "停用",
     "dryRun": "试算通知",
+    "enable": "启用",
     "more": "更多",
     "refresh": "刷新",
     "requeue": "重发",
@@ -473,6 +475,7 @@
     "templates": "模板管理"
   },
   "templateManagement": {
+    "allEmailStatuses": "全部模板状态",
     "allStatuses": "全部审核状态",
     "bindingsLoading": "正在加载绑定关系",
     "bindingsUnavailable": "绑定关系加载失败",
@@ -514,8 +517,10 @@
     "emailSaveError": "邮件模板保存失败，请稍后重试。",
     "emailStatus": {
       "active": "已启用",
+      "disabled": "已停用",
       "draft": "草稿"
     },
+    "emailStatusFilter": "模板状态",
     "emailTitle": "邮件模板",
     "emailVariables": {
       "availableCredits": "可用积分",
@@ -524,6 +529,7 @@
       "estimatedRemainingDays": "预计可用天数",
       "expand": "展开变量",
       "expiresAt": "积分有效期",
+      "product": "套餐名称",
       "window": "到期提醒时间"
     },
     "empty": "没有符合当前筛选条件的模板。",

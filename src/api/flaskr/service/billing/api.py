@@ -25,6 +25,7 @@ from flaskr.service.billing.credit_notifications import (
     save_credit_notification_email_template,
     save_credit_notification_policy,
     sync_credit_notification_template,
+    update_credit_notification_email_template_status,
 )
 from flaskr.service.billing.customization import (
     build_provider_config_overrides,
@@ -165,4 +166,5 @@ __all__ = [
     "save_credit_notification_policy",
     "sync_credit_notification_template",
     "to_decimal",
+    "update_credit_notification_email_template_status",
 ]
