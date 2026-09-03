@@ -8,6 +8,7 @@ import smtplib
 import string
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -443,6 +444,7 @@ def _prepare_verification_challenge(
     identifier: str,
     ip: str | None,
     policy: _VerificationChallengePolicy,
+    deliver: Callable[[_PreparedVerificationChallenge], bool],
 ) -> _PreparedVerificationChallenge:
     _enforce_verification_ip_limit(app, ip, policy)
     kind = "email" if policy.verify_code_type == 2 else "sms"
@@ -482,11 +484,15 @@ def _prepare_verification_challenge(
             verify_code_type=policy.verify_code_type,
             ip=ip,
         )
-    return _PreparedVerificationChallenge(
-        code=code,
-        expire_in=expire_in,
-        record=record,
-    )
+        challenge = _PreparedVerificationChallenge(
+            code=code,
+            expire_in=expire_in,
+            record=record,
+        )
+        if deliver(challenge):
+            challenge.record.verify_code_send = 1
+            db.session.commit()
+        return challenge
 
 
 # send sms code
@@ -511,11 +517,8 @@ def send_sms_code(
             phone,
             ip,
             _SMS_CHALLENGE_POLICY,
+            lambda prepared: bool(send_sms_code_ali(app, phone, prepared.code)),
         )
-        send_res = send_sms_code_ali(app, phone, challenge.code)
-        if send_res:
-            challenge.record.verify_code_send = 1
-            db.session.commit()
         return {"expire_in": challenge.expire_in}
 
 
@@ -527,56 +530,55 @@ def send_email_code(
         email = str(email or "").strip().lower()
         if not email:
             raise_error("server.common.unknownError")
+
+        def _deliver_email(challenge: _PreparedVerificationChallenge) -> bool:
+            msg = MIMEMultipart("alternative")
+            msg["From"] = app.config["SMTP_SENDER"]
+            msg["To"] = email
+            msg["X-Auto-Response-Suppress"] = "All"
+            subject, plain_body, html_body = _format_email_verification_message(
+                challenge.code,
+                challenge.expire_in,
+                language=language,
+            )
+            msg["Subject"] = subject
+            msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+            server = None
+            try:
+                smtp_port = int(app.config["SMTP_PORT"])
+                smtp_server = app.config["SMTP_SERVER"]
+                smtp_username = app.config["SMTP_USERNAME"]
+                smtp_password = app.config["SMTP_PASSWORD"]
+                smtp_sender = app.config["SMTP_SENDER"]
+
+                # Port 465 uses implicit SSL; 587 uses STARTTLS
+                if smtp_port == 465:
+                    server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+                else:
+                    server = smtplib.SMTP(smtp_server, smtp_port)
+                    server.starttls()
+                server.login(smtp_username, smtp_password)
+                server.sendmail(smtp_sender, email, msg.as_string())
+                app.logger.info("Verification code sent to %s", email)
+            except Exception:
+                app.logger.exception("Failed to send verification code to %s", email)
+                raise_error("server.user.emailSendFailed")
+            else:
+                return True
+            finally:
+                if server:
+                    with contextlib.suppress(Exception):
+                        server.quit()
+
         challenge = _prepare_verification_challenge(
             app,
             email,
             ip,
             _EMAIL_CHALLENGE_POLICY,
+            _deliver_email,
         )
-
-        # Create the email content
-        msg = MIMEMultipart("alternative")
-        msg["From"] = app.config["SMTP_SENDER"]
-        msg["To"] = email
-        msg["X-Auto-Response-Suppress"] = "All"
-        subject, plain_body, html_body = _format_email_verification_message(
-            challenge.code,
-            challenge.expire_in,
-            language=language,
-        )
-        msg["Subject"] = subject
-        msg.attach(MIMEText(plain_body, "plain", "utf-8"))
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
-
-        server = None
-        try:
-            smtp_port = int(app.config["SMTP_PORT"])
-            smtp_server = app.config["SMTP_SERVER"]
-            smtp_username = app.config["SMTP_USERNAME"]
-            smtp_password = app.config["SMTP_PASSWORD"]
-            smtp_sender = app.config["SMTP_SENDER"]
-
-            # Port 465 uses implicit SSL; 587 uses STARTTLS
-            if smtp_port == 465:
-                server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-            else:
-                server = smtplib.SMTP(smtp_server, smtp_port)
-                server.starttls()
-            server.login(smtp_username, smtp_password)
-
-            # Send the email
-            server.sendmail(smtp_sender, email, msg.as_string())
-
-            app.logger.info("Verification code sent to %s", email)
-            challenge.record.verify_code_send = 1
-            db.session.commit()
-        except Exception:
-            app.logger.exception("Failed to send verification code to %s", email)
-            raise_error("server.user.emailSendFailed")
-        finally:
-            if server:
-                with contextlib.suppress(Exception):
-                    server.quit()
         return {"expire_in": challenge.expire_in}
 
 

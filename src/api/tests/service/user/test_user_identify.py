@@ -536,6 +536,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     fake_redis = FakeRedis()
     captured_records: list[dict[str, object]] = []
     lock_observations: list[bool] = []
+    delivery_observations: list[bool] = []
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
     monkeypatch.setattr(
         verification_codes,
@@ -569,6 +570,11 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     )
     monkeypatch.setattr(
         user_utils,
+        "db",
+        SimpleNamespace(session=SimpleNamespace(commit=lambda: None)),
+    )
+    monkeypatch.setattr(
+        user_utils,
         "_redis_prefix",
         lambda current_app, config_key: current_app.config[config_key],
     )
@@ -593,11 +599,25 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
         }
     )
     policy = getattr(user_utils, policy_name)
+
+    def _deliver(_challenge: object) -> bool:
+        lock_key = (
+            verification_codes._verification_attempt_key(
+                fake_app,
+                "email" if policy.verify_code_type == 2 else "sms",
+                identifier,
+            )
+            + ":lock"
+        )
+        delivery_observations.append(fake_redis._locks.get(lock_key, False))
+        return True
+
     challenge = user_utils._prepare_verification_challenge(
         fake_app,
         identifier,
         "203.0.113.10",
         policy,
+        _deliver,
     )
 
     assert challenge.code == "1111"
@@ -618,6 +638,8 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
         }
     ]
     assert lock_observations == [True]
+    assert delivery_observations == [True]
+    assert challenge.record.verify_code_send == 1
     assert fake_redis._locks == {}
 
     with pytest.raises(AppError) as rate_error:
@@ -626,6 +648,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
             identifier,
             "203.0.113.10",
             policy,
+            _deliver,
         )
     assert rate_error.value.code == expected_rate_code
 
@@ -635,6 +658,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
             next_identifier,
             "203.0.113.10",
             policy,
+            _deliver,
         )
     assert ip_error.value.code == 9999
 
