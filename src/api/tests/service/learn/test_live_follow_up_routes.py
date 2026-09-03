@@ -27,6 +27,7 @@ from flaskr.service.learn.live_follow_up_persistence import (
 from flaskr.service.learn.live_follow_up_session_store import (
     LiveFollowUpSessionBinding,
     LiveFollowUpSessionStoreUnavailableError,
+    LiveFollowUpTurnReservation,
     StoredLiveFollowUpSession,
 )
 
@@ -354,6 +355,25 @@ def _stub_active_direct_session(monkeypatch: pytest.MonkeyPatch) -> None:
         "touch_live_follow_up_session",
         lambda *_args, **_kwargs: None,
     )
+    monkeypatch.setattr(
+        routes,
+        "reserve_live_follow_up_turn",
+        lambda _app, *, session_bid, turn_index: LiveFollowUpTurnReservation(
+            session_bid=session_bid,
+            turn_index=turn_index,
+            claim="claim-1",
+        ),
+    )
+    monkeypatch.setattr(
+        routes,
+        "commit_live_follow_up_turn_reservation",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        routes,
+        "release_live_follow_up_turn_reservation",
+        lambda *_args, **_kwargs: None,
+    )
 
 
 def test_heartbeat_renews_lease_and_binding(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -405,6 +425,7 @@ def test_turn_report_is_bounded_persisted_and_marked_non_billable_downstream(
     _FakeTrace.instances.clear()
     monkeypatch.setattr(routes, "LiveFollowUpTrace", _FakeTrace)
     persisted: list[tuple[object, object]] = []
+    reservations: list[LiveFollowUpTurnReservation] = []
     result = LiveTurnPersistenceResult(
         ask_element_bid="ask-1",
         answer_element_bid="answer-1",
@@ -415,12 +436,17 @@ def test_turn_report_is_bounded_persisted_and_marked_non_billable_downstream(
         "persist_live_follow_up_turn",
         lambda _app, context, turn: persisted.append((context, turn)) or result,
     )
+    monkeypatch.setattr(
+        routes,
+        "commit_live_follow_up_turn_reservation",
+        lambda _app, *, reservation: reservations.append(reservation),
+    )
 
     response = _post_action(
         app,
         "turn",
         {
-            "turn_index": 2,
+            "turn_index": 1,
             "user_transcript": " Question ",
             "played_answer_transcript": " Answer ",
             "interrupted": True,
@@ -437,13 +463,56 @@ def test_turn_report_is_bounded_persisted_and_marked_non_billable_downstream(
     assert turn.interrupted is True
     assert body == {
         "session_bid": "session-1",
-        "turn_index": 2,
+        "turn_index": 1,
         "history_saved": True,
         "ask_element_bid": "ask-1",
         "answer_element_bid": "answer-1",
     }
     assert _FakeTrace.instances[0].recorded == [(turn, result)]
     assert _FakeTrace.instances[0].closed == ["turn_committed"]
+    assert [(item.session_bid, item.turn_index) for item in reservations] == [
+        ("session-1", 1)
+    ]
+
+
+def test_failed_turn_persistence_releases_only_its_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_active_direct_session(monkeypatch)
+    released: list[LiveFollowUpTurnReservation] = []
+
+    def fail_persistence(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError
+
+    monkeypatch.setattr(
+        routes,
+        "persist_live_follow_up_turn",
+        fail_persistence,
+    )
+    monkeypatch.setattr(
+        routes,
+        "release_live_follow_up_turn_reservation",
+        lambda _app, *, reservation: released.append(reservation),
+    )
+
+    with pytest.raises(AppError):
+        _post_action(
+            app,
+            "turn",
+            {
+                "turn_index": 1,
+                "user_transcript": "Question",
+                "played_answer_transcript": "",
+                "interrupted": True,
+                "usage_metadata": None,
+                "latency_ms": 100,
+            },
+        )
+
+    assert [(item.session_bid, item.turn_index) for item in released] == [
+        ("session-1", 1)
+    ]
 
 
 @pytest.mark.parametrize(

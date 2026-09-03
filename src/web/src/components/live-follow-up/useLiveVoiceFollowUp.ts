@@ -214,7 +214,7 @@ export const useLiveVoiceFollowUp = ({
   const transcriptsRef = useRef<LiveVoiceTranscript[]>([]);
   const accumulatorRef = useRef<GeminiLiveTurnAccumulator | null>(null);
   const commitTimerRef = useRef<number | null>(null);
-  const commitChainRef = useRef<Promise<void>>(Promise.resolve());
+  const commitChainRef = useRef<Promise<void> | null>(null);
   const finishAttemptRef = useRef<
     ((options: FinishAttemptOptions) => void) | null
   >(null);
@@ -339,40 +339,49 @@ export const useLiveVoiceFollowUp = ({
       generation: number,
     ) => {
       for (const commit of commits) {
-        commitChainRef.current = commitChainRef.current
-          .then(async () => {
-            await commitLiveFollowUpTurn(sessionBid, {
-              turn_index: commit.turnIndex,
-              user_transcript: commit.userTranscript,
-              played_answer_transcript: commit.playedAnswerTranscript,
-              interrupted: commit.interrupted,
-              usage_metadata: commit.usageMetadata,
-              latency_ms: commit.latencyMs,
-            });
-            const activeAttempt = attemptRef.current;
-            if (activeAttempt?.generation === generation) {
-              activeAttempt.hadExchange = true;
-            }
-            try {
-              onTurnCommitted?.({
-                anchorElementBid,
-                turnIndex: commit.turnIndex,
-                userTranscript: commit.userTranscript,
-                assistantTranscript: commit.playedAnswerTranscript,
-              });
-            } catch {}
-          })
-          .catch(() => {
-            if (attemptRef.current?.generation === generation) {
-              finishAttemptRef.current?.({
-                reason: 'connection_error',
-                keepOpen: true,
-                errorCode: 'server_error',
-                retryable: true,
-                pendingOutcome: 'failed',
-              });
-            }
+        const persistCommit = async () => {
+          await commitLiveFollowUpTurn(sessionBid, {
+            turn_index: commit.turnIndex,
+            user_transcript: commit.userTranscript,
+            played_answer_transcript: commit.playedAnswerTranscript,
+            interrupted: commit.interrupted,
+            usage_metadata: commit.usageMetadata,
+            latency_ms: commit.latencyMs,
           });
+          const activeAttempt = attemptRef.current;
+          if (activeAttempt?.generation === generation) {
+            activeAttempt.hadExchange = true;
+          }
+          try {
+            onTurnCommitted?.({
+              anchorElementBid,
+              turnIndex: commit.turnIndex,
+              userTranscript: commit.userTranscript,
+              assistantTranscript: commit.playedAnswerTranscript,
+            });
+          } catch {}
+        };
+        const previousCommit = commitChainRef.current;
+        const pendingCommit = previousCommit
+          ? previousCommit.then(persistCommit)
+          : persistCommit();
+        const handledCommit = pendingCommit.catch(() => {
+          if (attemptRef.current?.generation === generation) {
+            finishAttemptRef.current?.({
+              reason: 'connection_error',
+              keepOpen: true,
+              errorCode: 'server_error',
+              retryable: true,
+              pendingOutcome: 'failed',
+            });
+          }
+        });
+        commitChainRef.current = handledCommit;
+        void handledCommit.then(() => {
+          if (commitChainRef.current === handledCommit) {
+            commitChainRef.current = null;
+          }
+        });
       }
     },
     [onTurnCommitted],
@@ -442,16 +451,19 @@ export const useLiveVoiceFollowUp = ({
       const audio = audioRef.current;
       audioRef.current = null;
 
+      if (attempt && session && accumulator) {
+        persistCommits(
+          session.session_bid,
+          attempt.anchorElementBid,
+          accumulator.finishSession(),
+          attempt.generation,
+        );
+      }
+      const pendingCommit = commitChainRef.current;
       const finalize = async () => {
         await audio?.stop().catch(() => {});
-        if (attempt && session && accumulator) {
-          persistCommits(
-            session.session_bid,
-            attempt.anchorElementBid,
-            accumulator.finishSession(),
-            attempt.generation,
-          );
-          await commitChainRef.current.catch(() => {});
+        if (attempt && session) {
+          await pendingCommit?.catch(() => {});
           await endLiveFollowUpSession(
             session.session_bid,
             directSessionEndReason(reason),
@@ -534,7 +546,6 @@ export const useLiveVoiceFollowUp = ({
       transcriptsRef.current = [];
       const attemptAccumulator = new GeminiLiveTurnAccumulator();
       accumulatorRef.current = attemptAccumulator;
-      commitChainRef.current = Promise.resolve();
 
       if (analyticsEnabled) {
         trackSafely(

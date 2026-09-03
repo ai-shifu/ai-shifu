@@ -61,13 +61,13 @@ describe('live voice follow-up direct protocol helpers', () => {
       3,
       '/api/learn/live-follow-up/session/session%2F1/turn',
       expect.objectContaining({ turn_index: 1 }),
-      { skipErrorToast: true, credentials: 'include' },
+      { skipErrorToast: true, credentials: 'include', keepalive: true },
     );
     expect(mockedPost).toHaveBeenNthCalledWith(
       4,
       '/api/learn/live-follow-up/session/session%2F1/end',
       { reason: 'ended_by_user' },
-      { skipErrorToast: true, credentials: 'include' },
+      { skipErrorToast: true, credentials: 'include', keepalive: true },
     );
   });
 

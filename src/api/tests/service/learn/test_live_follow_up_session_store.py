@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import time
+from dataclasses import replace
 
 import pytest
 from flask import Flask
@@ -12,6 +14,7 @@ from flaskr.service.learn.live_follow_up_session_store import (
     LiveFollowUpSessionBinding,
     LiveFollowUpSessionRejectedError,
     LiveFollowUpSessionStoreUnavailableError,
+    LiveFollowUpTurnState,
     StoredLiveFollowUpSession,
 )
 
@@ -41,6 +44,54 @@ class _FakeRedis:
     def eval(
         self, script: str, _key_count: int, key: str, *args: str
     ) -> int | str | None:
+        if "live_follow_up_reserve_turn" in script:
+            raw = self.values.get(key)
+            if raw is None:
+                return 0
+            record = json.loads(raw)
+            state = record["turn_state"]
+            turn_index = int(args[0])
+            if (
+                state["pending_index"] is not None
+                or turn_index != state["last_committed_index"] + 1
+                or turn_index > int(args[2])
+            ):
+                return -2
+            state["pending_index"] = turn_index
+            state["pending_claim"] = args[1]
+            self.values[key] = json.dumps(record)
+            return 1
+        if "live_follow_up_commit_turn" in script:
+            raw = self.values.get(key)
+            if raw is None:
+                return 0
+            record = json.loads(raw)
+            state = record["turn_state"]
+            if (
+                state["pending_index"] != int(args[0])
+                or state["pending_claim"] != args[1]
+            ):
+                return -2
+            state["last_committed_index"] = int(args[0])
+            state["pending_index"] = None
+            state["pending_claim"] = ""
+            self.values[key] = json.dumps(record)
+            return 1
+        if "live_follow_up_release_turn" in script:
+            raw = self.values.get(key)
+            if raw is None:
+                return 0
+            record = json.loads(raw)
+            state = record["turn_state"]
+            if (
+                state["pending_index"] != int(args[0])
+                or state["pending_claim"] != args[1]
+            ):
+                return -2
+            state["pending_index"] = None
+            state["pending_claim"] = ""
+            self.values[key] = json.dumps(record)
+            return 1
         if "EXPIRE" in script:
             if key not in self.values:
                 return 0
@@ -57,7 +108,11 @@ def _app() -> Flask:
     return app
 
 
-def _session(**overrides: object) -> StoredLiveFollowUpSession:
+def _session(
+    *,
+    turn_state: LiveFollowUpTurnState | None = None,
+    **overrides: object,
+) -> StoredLiveFollowUpSession:
     binding_values: dict[str, object] = {
         "session_bid": "session-1",
         "user_bid": "user-1",
@@ -81,6 +136,7 @@ def _session(**overrides: object) -> StoredLiveFollowUpSession:
             user_bid="user-1",
             worker_id="worker-1",
         ),
+        turn_state=turn_state or LiveFollowUpTurnState(),
     )
 
 
@@ -111,6 +167,119 @@ def test_touch_requires_an_existing_binding(monkeypatch: pytest.MonkeyPatch) -> 
 
     store.store_live_follow_up_session(app, session=_session())
     store.touch_live_follow_up_session(app, session_bid="session-1")
+
+
+def test_turn_reservations_are_ordered_and_one_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis = _FakeRedis()
+    monkeypatch.setattr(store, "_redis_client", lambda: redis)
+    app = _app()
+    store.store_live_follow_up_session(app, session=_session())
+
+    first = store.reserve_live_follow_up_turn(
+        app,
+        session_bid="session-1",
+        turn_index=1,
+    )
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.reserve_live_follow_up_turn(
+            app,
+            session_bid="session-1",
+            turn_index=1,
+        )
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.reserve_live_follow_up_turn(
+            app,
+            session_bid="session-1",
+            turn_index=2,
+        )
+    forged = replace(first, claim="different-claim")
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.commit_live_follow_up_turn_reservation(app, reservation=forged)
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.release_live_follow_up_turn_reservation(app, reservation=forged)
+
+    store.commit_live_follow_up_turn_reservation(app, reservation=first)
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.reserve_live_follow_up_turn(
+            app,
+            session_bid="session-1",
+            turn_index=1,
+        )
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.reserve_live_follow_up_turn(
+            app,
+            session_bid="session-1",
+            turn_index=3,
+        )
+
+    second = store.reserve_live_follow_up_turn(
+        app,
+        session_bid="session-1",
+        turn_index=2,
+    )
+    store.commit_live_follow_up_turn_reservation(app, reservation=second)
+    assert (
+        store.load_live_follow_up_session(
+            app,
+            session_bid="session-1",
+        ).turn_state.last_committed_index
+        == 2
+    )
+
+
+def test_failed_turn_reservation_can_be_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis = _FakeRedis()
+    monkeypatch.setattr(store, "_redis_client", lambda: redis)
+    app = _app()
+    store.store_live_follow_up_session(app, session=_session())
+
+    failed = store.reserve_live_follow_up_turn(
+        app,
+        session_bid="session-1",
+        turn_index=1,
+    )
+    store.release_live_follow_up_turn_reservation(app, reservation=failed)
+
+    retried = store.reserve_live_follow_up_turn(
+        app,
+        session_bid="session-1",
+        turn_index=1,
+    )
+    assert retried.claim != failed.claim
+
+
+def test_turn_reservations_stop_at_the_session_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis = _FakeRedis()
+    monkeypatch.setattr(store, "_redis_client", lambda: redis)
+    app = _app()
+    store.store_live_follow_up_session(
+        app,
+        session=_session(
+            turn_state=LiveFollowUpTurnState(
+                last_committed_index=store.LIVE_FOLLOW_UP_MAX_TURNS - 1,
+            )
+        ),
+    )
+
+    final = store.reserve_live_follow_up_turn(
+        app,
+        session_bid="session-1",
+        turn_index=store.LIVE_FOLLOW_UP_MAX_TURNS,
+    )
+    store.commit_live_follow_up_turn_reservation(app, reservation=final)
+
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.reserve_live_follow_up_turn(
+            app,
+            session_bid="session-1",
+            turn_index=store.LIVE_FOLLOW_UP_MAX_TURNS + 1,
+        )
 
 
 def test_consume_is_atomic_and_one_time(monkeypatch: pytest.MonkeyPatch) -> None:

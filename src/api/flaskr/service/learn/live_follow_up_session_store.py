@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import secrets
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .live_follow_up_capacity import (
@@ -19,11 +20,13 @@ if TYPE_CHECKING:
     from redis import Redis
 
 LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS = LIVE_FOLLOW_UP_LEASE_TTL_SECONDS
-_SESSION_RECORD_VERSION = 1
+LIVE_FOLLOW_UP_MAX_TURNS = 200
+_SESSION_RECORD_VERSION = 2
 _ERROR_INVALID_SESSION = "invalid_session"
 _ERROR_REDIS_UNAVAILABLE = "redis_unavailable"
 _ERROR_SESSION_EXPIRED = "session_expired"
 _ERROR_SESSION_NOT_STORED = "session_not_stored"
+_ERROR_TURN_REJECTED = "turn_rejected"
 
 _TOUCH_SESSION_SCRIPT = """
 if redis.call('EXISTS', KEYS[1]) == 0 then
@@ -39,6 +42,98 @@ if payload then
     redis.call('DEL', KEYS[1])
 end
 return payload
+"""
+
+_RESERVE_TURN_SCRIPT = """
+-- live_follow_up_reserve_turn
+local payload = redis.call('GET', KEYS[1])
+if not payload then
+    return 0
+end
+local decoded, record = pcall(cjson.decode, payload)
+if not decoded or type(record) ~= 'table' or record['version'] ~= 2 then
+    return -1
+end
+local state = record['turn_state']
+if type(state) ~= 'table' then
+    return -1
+end
+local last_index = tonumber(state['last_committed_index'])
+local requested_index = tonumber(ARGV[1])
+local max_turns = tonumber(ARGV[3])
+if not last_index or not requested_index or not max_turns
+    or last_index < 0 or last_index % 1 ~= 0
+    or requested_index < 1 or requested_index % 1 ~= 0 then
+    return -1
+end
+local pending_index = state['pending_index']
+if pending_index ~= nil and pending_index ~= cjson.null then
+    return -2
+end
+if requested_index ~= last_index + 1 or requested_index > max_turns then
+    return -2
+end
+local ttl = redis.call('TTL', KEYS[1])
+if ttl < 1 then
+    return 0
+end
+state['pending_index'] = requested_index
+state['pending_claim'] = ARGV[2]
+redis.call('SET', KEYS[1], cjson.encode(record), 'EX', ttl)
+return 1
+"""
+
+_COMMIT_TURN_SCRIPT = """
+-- live_follow_up_commit_turn
+local payload = redis.call('GET', KEYS[1])
+if not payload then
+    return 0
+end
+local decoded, record = pcall(cjson.decode, payload)
+if not decoded or type(record) ~= 'table' or record['version'] ~= 2 then
+    return -1
+end
+local state = record['turn_state']
+if type(state) ~= 'table'
+    or tonumber(state['pending_index']) ~= tonumber(ARGV[1])
+    or state['pending_claim'] ~= ARGV[2] then
+    return -2
+end
+local ttl = redis.call('TTL', KEYS[1])
+if ttl < 1 then
+    return 0
+end
+state['last_committed_index'] = tonumber(ARGV[1])
+state['pending_index'] = cjson.null
+state['pending_claim'] = ''
+redis.call('SET', KEYS[1], cjson.encode(record), 'EX', ttl)
+return 1
+"""
+
+_RELEASE_TURN_SCRIPT = """
+-- live_follow_up_release_turn
+local payload = redis.call('GET', KEYS[1])
+if not payload then
+    return 0
+end
+local decoded, record = pcall(cjson.decode, payload)
+if not decoded or type(record) ~= 'table' or record['version'] ~= 2 then
+    return -1
+end
+local state = record['turn_state']
+if type(state) ~= 'table'
+    or tonumber(state['pending_index']) ~= tonumber(ARGV[1])
+    or state['pending_claim'] ~= ARGV[2] then
+    return -2
+end
+local ttl = redis.call('TTL', KEYS[1])
+if ttl < 1 then
+    return 0
+end
+state['pending_index'] = cjson.null
+state['pending_claim'] = ''
+redis.call('SET', KEYS[1], cjson.encode(record), 'EX', ttl)
+return 1
 """
 
 
@@ -74,11 +169,30 @@ class LiveFollowUpSessionBinding:
 
 
 @dataclass(frozen=True)
+class LiveFollowUpTurnState:
+    """Server-owned ordering and in-flight reservation for turn reports."""
+
+    last_committed_index: int = 0
+    pending_index: int | None = None
+    pending_claim: str = ""
+
+
+@dataclass(frozen=True)
 class StoredLiveFollowUpSession:
     """Session binding plus the Redis capacity lease owned by it."""
 
     binding: LiveFollowUpSessionBinding
     lease: LiveFollowUpCapacityLease
+    turn_state: LiveFollowUpTurnState = field(default_factory=LiveFollowUpTurnState)
+
+
+@dataclass(frozen=True)
+class LiveFollowUpTurnReservation:
+    """Opaque server claim for one ordered Live turn persistence attempt."""
+
+    session_bid: str
+    turn_index: int
+    claim: str
 
 
 def _redis_client() -> Redis | None:
@@ -127,13 +241,36 @@ def _validate_binding(binding: LiveFollowUpSessionBinding) -> None:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
 
 
+def _validate_turn_state(state: LiveFollowUpTurnState) -> None:
+    if (
+        type(state.last_committed_index) is not int
+        or not 0 <= state.last_committed_index <= LIVE_FOLLOW_UP_MAX_TURNS
+        or not isinstance(state.pending_claim, str)
+        or len(state.pending_claim) > 128
+    ):
+        raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
+    if state.pending_index is None:
+        if state.pending_claim:
+            raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
+        return
+    if (
+        type(state.pending_index) is not int
+        or state.pending_index != state.last_committed_index + 1
+        or state.pending_index > LIVE_FOLLOW_UP_MAX_TURNS
+        or not state.pending_claim
+    ):
+        raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
+
+
 def _serialize_session(session: StoredLiveFollowUpSession) -> str:
     _validate_binding(session.binding)
+    _validate_turn_state(session.turn_state)
     return json.dumps(
         {
             "version": _SESSION_RECORD_VERSION,
             "binding": asdict(session.binding),
             "lease": asdict(session.lease),
+            "turn_state": asdict(session.turn_state),
         },
         ensure_ascii=True,
         separators=(",", ":"),
@@ -147,17 +284,23 @@ def _decode_session(raw: bytes | str) -> StoredLiveFollowUpSession:
         record: Any = json.loads(text)
     except (TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION) from exc
-    if not isinstance(record, dict) or record.get("version") != 1:
+    if not isinstance(record, dict) or record.get("version") != _SESSION_RECORD_VERSION:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
     try:
         binding = LiveFollowUpSessionBinding(**record["binding"])
         lease = LiveFollowUpCapacityLease(**record["lease"])
+        turn_state = LiveFollowUpTurnState(**record["turn_state"])
     except (KeyError, TypeError) as exc:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION) from exc
     _validate_binding(binding)
+    _validate_turn_state(turn_state)
     if not lease.lease_id or not lease.user_bid or not lease.worker_id:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
-    return StoredLiveFollowUpSession(binding=binding, lease=lease)
+    return StoredLiveFollowUpSession(
+        binding=binding,
+        lease=lease,
+        turn_state=turn_state,
+    )
 
 
 def store_live_follow_up_session(
@@ -231,6 +374,95 @@ def touch_live_follow_up_session(app: Flask, *, session_bid: str) -> None:
         ) from exc
     if not touched:
         raise LiveFollowUpSessionRejectedError(_ERROR_SESSION_EXPIRED)
+
+
+def _run_turn_reservation_script(
+    app: Flask,
+    *,
+    script: str,
+    reservation: LiveFollowUpTurnReservation,
+    extra_args: tuple[str, ...] = (),
+) -> int:
+    try:
+        result = _require_redis().eval(
+            script,
+            1,
+            _session_key(app, reservation.session_bid),
+            str(reservation.turn_index),
+            reservation.claim,
+            *extra_args,
+        )
+    except LiveFollowUpSessionStoreError:
+        raise
+    except Exception as exc:
+        raise LiveFollowUpSessionStoreUnavailableError(
+            _ERROR_REDIS_UNAVAILABLE
+        ) from exc
+    try:
+        return int(result)
+    except (TypeError, ValueError) as exc:
+        raise LiveFollowUpSessionStoreUnavailableError(
+            _ERROR_REDIS_UNAVAILABLE
+        ) from exc
+
+
+def reserve_live_follow_up_turn(
+    app: Flask,
+    *,
+    session_bid: str,
+    turn_index: int,
+) -> LiveFollowUpTurnReservation:
+    """Atomically reserve the next bounded turn index for this session."""
+    if (
+        not session_bid
+        or type(turn_index) is not int
+        or not 1 <= turn_index <= LIVE_FOLLOW_UP_MAX_TURNS
+    ):
+        raise LiveFollowUpSessionRejectedError(_ERROR_TURN_REJECTED)
+    reservation = LiveFollowUpTurnReservation(
+        session_bid=session_bid,
+        turn_index=turn_index,
+        claim=secrets.token_urlsafe(32),
+    )
+    result = _run_turn_reservation_script(
+        app,
+        script=_RESERVE_TURN_SCRIPT,
+        reservation=reservation,
+        extra_args=(str(LIVE_FOLLOW_UP_MAX_TURNS),),
+    )
+    if result != 1:
+        raise LiveFollowUpSessionRejectedError(_ERROR_TURN_REJECTED)
+    return reservation
+
+
+def commit_live_follow_up_turn_reservation(
+    app: Flask,
+    *,
+    reservation: LiveFollowUpTurnReservation,
+) -> None:
+    """Advance the ordered turn cursor after durable persistence succeeds."""
+    result = _run_turn_reservation_script(
+        app,
+        script=_COMMIT_TURN_SCRIPT,
+        reservation=reservation,
+    )
+    if result != 1:
+        raise LiveFollowUpSessionRejectedError(_ERROR_TURN_REJECTED)
+
+
+def release_live_follow_up_turn_reservation(
+    app: Flask,
+    *,
+    reservation: LiveFollowUpTurnReservation,
+) -> None:
+    """Release only the matching in-flight claim after persistence fails."""
+    result = _run_turn_reservation_script(
+        app,
+        script=_RELEASE_TURN_SCRIPT,
+        reservation=reservation,
+    )
+    if result != 1:
+        raise LiveFollowUpSessionRejectedError(_ERROR_TURN_REJECTED)
 
 
 def consume_live_follow_up_session(

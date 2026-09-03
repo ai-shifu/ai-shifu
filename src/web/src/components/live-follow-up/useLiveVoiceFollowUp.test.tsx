@@ -494,6 +494,46 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     );
   });
 
+  it('starts the final turn report before audio teardown on pagehide', async () => {
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['Question before leaving'],
+        }),
+      ),
+    );
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          outputTranscripts: ['Partial answer before leaving'],
+          audioChunks: [new ArrayBuffer(4)],
+          turnComplete: true,
+        }),
+      ),
+    );
+    expect(screen.getByTestId('transcripts')).toHaveTextContent(
+      'Question before leaving',
+    );
+
+    act(() => window.dispatchEvent(new Event('pagehide')));
+
+    expect(mockCommitTurn).toHaveBeenCalledWith(
+      'session-1',
+      expect.objectContaining({
+        user_transcript: 'Question before leaving',
+      }),
+    );
+    expect(mockCommitTurn.mock.invocationCallOrder[0]).toBeLessThan(
+      mockAudio.stop.mock.invocationCallOrder[0],
+    );
+    await waitFor(() =>
+      expect(mockEndSession).toHaveBeenCalledWith('session-1', 'page_hidden'),
+    );
+  });
+
   it('publishes only the played answer checkpoint after interruption', async () => {
     const onTurnCommitted = jest.fn();
     render(<Harness onTurnCommitted={onTurnCommitted} />);

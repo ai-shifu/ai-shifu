@@ -61,6 +61,12 @@ auditing, or another correctness-sensitive decision.
       expected skip, and 181 frontend integration tests passed. Ruff, Python
       formatting, frontend formatting/lint, TypeScript, and architecture
       boundaries also pass.
+- [x] 2026-09-03: Closed direct-report security and lifecycle review gaps.
+      Redis now atomically accepts only the next turn, caps a 15-minute session
+      at 200 turns, and protects the in-flight write with an opaque claim.
+      Turn/end requests use Fetch keepalive, turn bodies are capped at 60 KiB,
+      and page teardown starts the final turn report before stopping audio.
+      The focused Live suites pass with 72 backend and 49 frontend tests.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -93,6 +99,9 @@ auditing, or another correctness-sensitive decision.
 - Gemini may deliver final input transcription after `turnComplete`. The
   browser accumulator therefore keeps the completed turn mutable for 500 ms
   before sending the HTTP turn report.
+- Fetch keepalive has a bounded request-body budget. Keeping the authenticated
+  request under 60 KiB makes lifecycle-safe transcript persistence explicit
+  instead of relying on browser behavior for an oversized payload.
 
 ## Decision Log
 
@@ -138,6 +147,16 @@ auditing, or another correctness-sensitive decision.
   transcript strings, bounded numeric usage fields, a bounded turn index and
   latency, and an interruption boolean. Force `billable=0` and never settle it.
   - Why: the client can fabricate any report after direct connection.
+- Decision: accept at most 200 reports per session and require the exact next
+  one-based turn index. Reserve that index atomically in the Redis session with
+  a server-only claim, advance it only after durable persistence, and release
+  only the matching claim after a failed write.
+  - Why: authentication alone must not let a modified client manufacture an
+    unbounded number of history and usage rows or race duplicate turn reports.
+- Decision: send turn and end requests with Fetch keepalive, cap each turn body
+  at 60 KiB, and enqueue the terminal turn before asynchronous audio shutdown.
+  - Why: `visibilitychange` and `pagehide` may suspend ordinary asynchronous
+    work before transcript history reaches the backend.
 - Decision: save only final user transcript and answer text through the local
   playback watermark. Keep deterministic turn BIDs; save an empty interrupted
   ANSWER when appropriate; do not create history when final user transcript is

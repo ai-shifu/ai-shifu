@@ -54,12 +54,16 @@ from flaskr.service.learn.live_follow_up_persistence import (
     persist_live_follow_up_turn,
 )
 from flaskr.service.learn.live_follow_up_session_store import (
+    LIVE_FOLLOW_UP_MAX_TURNS,
     LiveFollowUpSessionBinding,
     LiveFollowUpSessionRejectedError,
     LiveFollowUpSessionStoreError,
     StoredLiveFollowUpSession,
+    commit_live_follow_up_turn_reservation,
     consume_live_follow_up_session,
     load_live_follow_up_session,
+    release_live_follow_up_turn_reservation,
+    reserve_live_follow_up_turn,
     store_live_follow_up_session,
     touch_live_follow_up_session,
 )
@@ -81,7 +85,7 @@ _ALLOWED_LEARNING_MODES = frozenset({"read", "listen"})
 _ALLOWED_SURFACES = frozenset({"read_content", "listen_player", "teacher_preview"})
 _MAX_DIRECT_TRANSCRIPT_CHARS = 32_000
 _MAX_DIRECT_USAGE_BYTES = 64 * 1024
-_MAX_DIRECT_TURN_INDEX = 10_000
+_MAX_DIRECT_TURN_REPORT_BYTES = 60 * 1024
 
 
 class LiveFollowUpModelUnavailableError(RuntimeError):
@@ -334,7 +338,7 @@ def _validate_turn_payload(payload: object) -> LiveTurnPersistenceInput:
     latency_ms = payload.get("latency_ms", 0)
     if (
         type(turn_index) is not int
-        or not 0 <= turn_index <= _MAX_DIRECT_TURN_INDEX
+        or not 1 <= turn_index <= LIVE_FOLLOW_UP_MAX_TURNS
         or not isinstance(user_transcript, str)
         or len(user_transcript) > _MAX_DIRECT_TRANSCRIPT_CHARS
         or not isinstance(answer_transcript, str)
@@ -577,17 +581,28 @@ def register_live_follow_up_routes(
     )
     def commit_live_follow_up_turn_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid)
+        if len(request.get_data(cache=True)) > _MAX_DIRECT_TURN_REPORT_BYTES:
+            raise_param_error("live_follow_up_turn")
         turn = _validate_turn_payload(request.get_json(silent=True) or {})
         renew_direct_session(session)
-        binding = session.binding
-        trace = LiveFollowUpTrace(
-            app,
-            session_bid=binding.session_bid,
-            user_bid=binding.user_bid,
-            shifu_bid=binding.shifu_bid,
-            outline_item_bid=binding.outline_bid,
-        )
         try:
+            reservation = reserve_live_follow_up_turn(
+                app,
+                session_bid=session_bid,
+                turn_index=turn.turn_index,
+            )
+        except LiveFollowUpSessionStoreError:
+            raise_param_error("live_follow_up_turn")
+        binding = session.binding
+        trace: LiveFollowUpTrace | None = None
+        try:
+            trace = LiveFollowUpTrace(
+                app,
+                session_bid=binding.session_bid,
+                user_bid=binding.user_bid,
+                shifu_bid=binding.shifu_bid,
+                outline_item_bid=binding.outline_bid,
+            )
             result = persist_live_follow_up_turn(
                 app,
                 LiveTurnPersistenceContext(
@@ -604,9 +619,18 @@ def register_live_follow_up_routes(
                 ),
                 turn,
             )
+            commit_live_follow_up_turn_reservation(
+                app,
+                reservation=reservation,
+            )
             with contextlib.suppress(Exception):
                 trace.record_turn(turn, result)
         except Exception:
+            with contextlib.suppress(Exception):
+                release_live_follow_up_turn_reservation(
+                    app,
+                    reservation=reservation,
+                )
             app.logger.error(  # noqa: TRY400 - never log transcript values
                 "Gemini Live direct turn persistence failed session=%s turn=%s",
                 session_bid,
@@ -614,8 +638,9 @@ def register_live_follow_up_routes(
             )
             raise_param_error("live_follow_up_turn")
         finally:
-            with contextlib.suppress(Exception):
-                trace.close(end_reason="turn_committed")
+            if trace is not None:
+                with contextlib.suppress(Exception):
+                    trace.close(end_reason="turn_committed")
         return make_common_response(
             {
                 "session_bid": session_bid,
