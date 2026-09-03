@@ -240,6 +240,7 @@ def verify_phone_code(
         app,
         identifier=raw_phone,
         code=code,
+        kind="sms",
     )
 
     created_new_user = False
