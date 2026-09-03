@@ -848,6 +848,9 @@ export function CreditNotificationTemplateManagementTab({
                       name='email_subject'
                       className='h-10'
                       defaultValue={editingTemplate.email_subject || ''}
+                      placeholder={t(
+                        'module.operationsCreditNotifications.templateManagement.emailFields.subjectPlaceholder',
+                      )}
                       onFocus={event => {
                         activeEmailFieldRef.current = event.currentTarget;
                       }}
@@ -977,6 +980,9 @@ export function CreditNotificationTemplateManagementTab({
                       editingTemplate.template_content ||
                       ''
                     }
+                    placeholder={t(
+                      'module.operationsCreditNotifications.templateManagement.emailFields.htmlBodyPlaceholder',
+                    )}
                     onFocus={event => {
                       activeEmailFieldRef.current = event.currentTarget;
                     }}

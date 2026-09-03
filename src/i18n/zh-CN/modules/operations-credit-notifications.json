@@ -524,12 +524,14 @@
     "emailDescription": "管理可供海外通知规则使用的 SMTP 邮件模板。",
     "emailFields": {
       "htmlBody": "邮件正文",
+      "htmlBodyPlaceholder": "请输入英文邮件正文（支持 HTML）",
       "locale": "语言",
       "name": "模板名称",
       "notificationTypes": "适用通知类型",
       "notificationTypesHint": "仅关联所选事件；模板启用后，通知规则中只会显示这些事件可用的模板。",
       "status": "模板状态",
-      "subject": "邮件主题"
+      "subject": "邮件主题",
+      "subjectPlaceholder": "请输入英文邮件主题"
     },
     "emailLoadError": "SMTP 中继配置不完整。仍可管理邮件模板，但暂时无法投递邮件。",
     "emailLocales": {

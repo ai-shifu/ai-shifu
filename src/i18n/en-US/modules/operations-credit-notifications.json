@@ -524,12 +524,14 @@
     "emailDescription": "Manage the SMTP email templates available to overseas notification rules.",
     "emailFields": {
       "htmlBody": "Email body",
+      "htmlBodyPlaceholder": "Enter the English email body (HTML supported)",
       "locale": "Language",
       "name": "Template name",
       "notificationTypes": "Applicable notification types",
       "notificationTypesHint": "Associate only the selected events. Once enabled, this template is available in rules for those events only.",
       "status": "Template status",
-      "subject": "Email subject"
+      "subject": "Email subject",
+      "subjectPlaceholder": "Enter an English email subject"
     },
     "emailLoadError": "SMTP relay configuration is incomplete. Email templates can still be managed, but delivery is unavailable.",
     "emailLocales": {
