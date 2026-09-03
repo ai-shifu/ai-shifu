@@ -68,6 +68,7 @@ import {
 import {
   NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT,
   NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT,
+  NOTIFICATION_EMAIL_TEMPLATE_TRACKING_CONTEXT,
   NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT,
   NOTIFICATION_TEMPLATE_SAVE_ATTEMPT_EVENT,
   NOTIFICATION_TEMPLATE_SAVE_RESULT_EVENT,
@@ -264,9 +265,13 @@ export default function AdminOperationCreditNotificationsPage() {
       const requestId = templateListRequestIdRef.current + 1;
       templateListRequestIdRef.current = requestId;
       setTemplateListLoading(true);
+      const templateTrackingContext =
+        contactMode === 'email'
+          ? NOTIFICATION_EMAIL_TEMPLATE_TRACKING_CONTEXT
+          : NOTIFICATION_TEMPLATE_TRACKING_CONTEXT;
       if (mode === 'manual') {
         trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_ATTEMPT_EVENT, {
-          ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+          ...templateTrackingContext,
         });
       }
       try {
@@ -284,7 +289,7 @@ export default function AdminOperationCreditNotificationsPage() {
         );
         if (mode === 'manual') {
           trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT, {
-            ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+            ...templateTrackingContext,
             outcome: response.provider_available ? 'success' : 'failed',
             source: response.source || 'local',
           });
@@ -298,7 +303,7 @@ export default function AdminOperationCreditNotificationsPage() {
         setTemplateListError(resolvedError.message || 'template_list_failed');
         if (mode === 'manual') {
           trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT, {
-            ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+            ...templateTrackingContext,
             outcome: 'failed',
             source: 'local',
           });

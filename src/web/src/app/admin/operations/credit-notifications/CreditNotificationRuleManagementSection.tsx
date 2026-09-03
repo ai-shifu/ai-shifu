@@ -54,11 +54,13 @@ type RuleAction = 'created' | 'edited' | 'deleted' | 'toggled';
 const createRuleBid = () =>
   `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const createDraftRule = (): CreditNotificationRule => ({
+const createDraftRule = (
+  channel: CreditNotificationRule['channel'],
+): CreditNotificationRule => ({
   rule_bid: createRuleBid(),
   name: '',
   trigger_event: 'credit_granted',
-  channel: 'sms',
+  channel,
   template_code: '',
   enabled: false,
   conditions: {},
@@ -100,12 +102,14 @@ const ruleConditionsSummary = (
 };
 
 export function CreditNotificationRuleManagementSection({
+  contactMode,
   policy,
   templateOptions,
   resolveTypeLabel,
   updatePolicy,
   onRuleAction,
 }: {
+  contactMode: CreditNotificationRule['channel'];
   policy: AdminOperationCreditNotificationPolicy;
   templateOptions: AdminOperationCreditNotificationTemplateOption[];
   resolveTypeLabel: (value: string) => string;
@@ -171,7 +175,7 @@ export function CreditNotificationRuleManagementSection({
     [t],
   );
   const openNewRule = () => {
-    setEditingRule(createDraftRule());
+    setEditingRule(createDraftRule(contactMode));
     setIsNewRule(true);
   };
   const openEditRule = (rule: CreditNotificationRule) => {
@@ -331,6 +335,7 @@ export function CreditNotificationRuleManagementSection({
           {editingRule ? (
             <RuleEditor
               rule={editingRule}
+              contactMode={contactMode}
               templateOptions={templateOptions}
               resolveTypeLabel={resolveTypeLabel}
               onChange={setEditingRule}
@@ -391,11 +396,13 @@ export function CreditNotificationRuleManagementSection({
 }
 
 function RuleEditor({
+  contactMode,
   rule,
   templateOptions,
   resolveTypeLabel,
   onChange,
 }: {
+  contactMode: CreditNotificationRule['channel'];
   rule: CreditNotificationRule;
   templateOptions: AdminOperationCreditNotificationTemplateOption[];
   resolveTypeLabel: (value: string) => string;
@@ -520,6 +527,7 @@ function RuleEditor({
         </Select>
       </div>
       <RuleTemplateSelector
+        contactMode={contactMode}
         rule={rule}
         templateOptions={templateOptions}
         onChange={template_code => update({ template_code })}
@@ -689,24 +697,34 @@ function RuleEditor({
 }
 
 function RuleTemplateSelector({
+  contactMode,
   rule,
   templateOptions,
   onChange,
 }: {
+  contactMode: CreditNotificationRule['channel'];
   rule: CreditNotificationRule;
   templateOptions: AdminOperationCreditNotificationTemplateOption[];
   onChange: (templateCode: string) => void;
 }) {
   const { t } = useTranslation();
-  const compatibleTemplates = templateOptions.filter(
-    option =>
-      option.channel === 'sms' &&
-      option.provider === 'aliyun' &&
-      option.sync_status === 'synced' &&
-      option.template_status === 'AUDIT_STATE_PASS' &&
+  const compatibleTemplates = templateOptions.filter(option => {
+    const matchesChannel =
+      contactMode === 'email'
+        ? option.channel === 'email' &&
+          option.provider === 'smtp' &&
+          option.sync_status === 'local' &&
+          option.template_status === 'active'
+        : option.channel === 'sms' &&
+          option.provider === 'aliyun' &&
+          option.sync_status === 'synced' &&
+          option.template_status === 'AUDIT_STATE_PASS';
+    return (
+      matchesChannel &&
       (!option.compatible_notification_types ||
-        option.compatible_notification_types.includes(rule.trigger_event)),
-  );
+        option.compatible_notification_types.includes(rule.trigger_event))
+    );
+  });
 
   return (
     <div>

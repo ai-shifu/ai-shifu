@@ -503,6 +503,7 @@
       "status": "Statut du modèle",
       "subject": "Objet de l’e-mail"
     },
+    "emailLoadError": "La configuration du relais SMTP est incomplète. Les modèles d’e-mail restent gérables, mais l’envoi est indisponible.",
     "emailLocales": {
       "arSA": "Arabe",
       "enUS": "Anglais (États-Unis)",

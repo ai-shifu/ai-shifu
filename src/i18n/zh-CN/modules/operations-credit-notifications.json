@@ -503,6 +503,7 @@
       "status": "模板状态",
       "subject": "邮件主题"
     },
+    "emailLoadError": "SMTP 中继配置不完整。仍可管理邮件模板，但暂时无法投递邮件。",
     "emailLocales": {
       "arSA": "阿拉伯语",
       "enUS": "英语（美国）",

@@ -1002,6 +1002,52 @@ def test_email_template_uses_one_body_and_preserves_generated_code_on_update(
     assert updated["email_html_body"] == "<p>Your balance: ${credits}</p>"
 
 
+def test_active_email_template_cannot_be_drafted_while_bound_to_enabled_rule(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    created = save_credit_notification_email_template(
+        app,
+        payload={
+            "template_name": "Credit update",
+            "locale": "en-US",
+            "email_subject": "Your credits changed",
+            "email_html_body": "<p>Your balance: ${credits}</p>",
+            "template_status": "active",
+        },
+    )
+    save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "email-grant",
+                    "name": "Email credit granted",
+                    "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                    "channel": CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                    "template_code": created["template_code"],
+                    "enabled": True,
+                    "conditions": {},
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_email_template(
+            app,
+            notification_template_bid=str(created["notification_template_bid"]),
+            payload={
+                "template_name": "Credit update",
+                "locale": "en-US",
+                "email_subject": "Your credits changed",
+                "email_html_body": "<p>Your balance: ${credits}</p>",
+                "template_status": "draft",
+            },
+        )
+
+
 def test_credit_notification_policy_accepts_estimated_days_threshold(
     credit_notifications_app: Flask,
 ) -> None:
@@ -1921,6 +1967,7 @@ def test_credit_notification_list_filters_delivery_status_and_skip_reason(
             CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE,
             "missing_mobile",
         ),
+        ("notification-email-contact", "skipped", "missing_email"),
         (
             "notification-policy",
             CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
@@ -1980,7 +2027,7 @@ def test_credit_notification_list_filters_delivery_status_and_skip_reason(
         app,
         filters={"delivery_status": "not_sent"},
     )
-    assert not_sent_payload["total"] == 6
+    assert not_sent_payload["total"] == 7
     assert {item["delivery_status"] for item in not_sent_payload["items"]} == {
         "not_sent"
     }
@@ -1993,7 +2040,7 @@ def test_credit_notification_list_filters_delivery_status_and_skip_reason(
     }
 
     assert (
-        list_credit_notifications(app, filters={"skip_reason": "contact"})["total"] == 1
+        list_credit_notifications(app, filters={"skip_reason": "contact"})["total"] == 2
     )
     assert (
         list_credit_notifications(app, filters={"skip_reason": "policy"})["items"][0][
@@ -2020,7 +2067,7 @@ def test_credit_notification_list_filters_delivery_status_and_skip_reason(
             filters={"skip_reason": "stale"},
         )["items"]
     } == {"notification-policy-stale", "notification-stale"}
-    assert list_credit_notifications(app, filters={"status": "skipped"})["total"] == 6
+    assert list_credit_notifications(app, filters={"status": "skipped"})["total"] == 7
 
 
 def test_credit_notification_list_matches_google_email_credential(
@@ -3107,6 +3154,28 @@ def test_send_credit_notification_task_raises_retryable_on_provider_failure(
 
     with pytest.raises(CreditNotificationRetryableError):
         send_credit_notification_task(notification_bid="notification-retry-1")
+
+
+def test_send_credit_notification_task_retries_transient_smtp_failure(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks._create_task_app",
+        lambda: app,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks._deliver_credit_notification",
+        lambda _app, *, notification_bid: {
+            "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+            "notification_bid": notification_bid,
+            "error_code": "smtp_exception",
+        },
+    )
+
+    with pytest.raises(CreditNotificationRetryableError):
+        send_credit_notification_task(notification_bid="notification-smtp-retry-1")
 
 
 def test_send_credit_notification_task_does_not_retry_config_failure(
