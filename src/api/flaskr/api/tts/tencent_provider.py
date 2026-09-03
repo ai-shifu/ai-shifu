@@ -26,6 +26,7 @@ from flaskr.api.tts.base import (
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -1140,6 +1141,11 @@ def parse_tencent_sse_message(
 
 class TencentTTSProvider(BaseTTSProvider):
     """Stream synthesized speech through Tencent TTS."""
+
+    capabilities = ProviderCapabilities(
+        retry_on_empty_audio=True,
+        skip_non_speakable_text=True,
+    )
 
     @property
     def provider_name(self) -> str:

@@ -30,6 +30,9 @@ from flaskr.api.tts.base import (
 from flaskr.api.tts.base import (
     BaseTTSProvider as BaseTTSProvider,
 )
+from flaskr.api.tts.base import (
+    ProviderCapabilities as ProviderCapabilities,
+)
 
 # Re-export base classes for backward compatibility
 from flaskr.api.tts.base import (
@@ -82,15 +85,55 @@ _PROVIDER_PRIORITY = (
     "elevenlabs",
     "gemini",
 )
-_AUTO_DETECT_PROVIDER_PRIORITY = (
-    "minimax",
-    "volcengine",
-    "volcengine_http",
-    "baidu",
-    "aliyun",
+
+
+def get_provider_capabilities(provider_name: str) -> ProviderCapabilities:
+    """Return the declared capabilities of a registered provider.
+
+    Unknown or empty names return the conservative defaults so callers can
+    branch on capability flags without first checking registration.
+    """
+    provider_cls = _PROVIDER_REGISTRY.get(_normalize_provider_name(provider_name))
+    if provider_cls is None:
+        return ProviderCapabilities()
+    return _capabilities_of(provider_cls)
+
+
+def _capabilities_of(provider_cls: object) -> ProviderCapabilities:
+    # Registry entries are duck-typed (tests substitute minimal fakes), so a
+    # class without a declaration gets the conservative defaults.
+    capabilities = getattr(provider_cls, "capabilities", None)
+    if isinstance(capabilities, ProviderCapabilities):
+        return capabilities
+    return ProviderCapabilities()
+
+
+def list_provider_names() -> tuple[str, ...]:
+    """Return registered provider names in default selection order."""
+    return tuple(name for name in _PROVIDER_PRIORITY if name in _PROVIDER_REGISTRY)
+
+
+def _auto_detectable_provider_names() -> tuple[str, ...]:
+    return tuple(
+        name
+        for name in list_provider_names()
+        if _capabilities_of(_PROVIDER_REGISTRY[name]).auto_detectable
+    )
+
+
+# Derived views kept for callers and tests that inspect the registry shape.
+# The source of truth is each provider's ``capabilities`` declaration.
+_AUTO_DETECT_PROVIDER_PRIORITY = _auto_detectable_provider_names()
+_CONFIG_REQUIRES_CONFIGURED_PROVIDER = frozenset(
+    name
+    for name in list_provider_names()
+    if _capabilities_of(_PROVIDER_REGISTRY[name]).expose_only_when_configured
 )
-_CONFIG_REQUIRES_CONFIGURED_PROVIDER = {"elevenlabs", "gemini"}
-_CONFIG_REQUIRES_ALLOWED_MODEL = {"elevenlabs", "gemini"}
+_CONFIG_REQUIRES_ALLOWED_MODEL = frozenset(
+    name
+    for name in list_provider_names()
+    if _capabilities_of(_PROVIDER_REGISTRY[name]).restrict_models_to_allowlist
+)
 
 # Provider instances (lazy initialized)
 _provider_instances: dict = {}
@@ -134,12 +177,12 @@ def _iter_provider_classes(
     *, include_explicit_only: bool = True
 ) -> Iterator[tuple[str, type[BaseTTSProvider]]]:
     provider_priority = (
-        _PROVIDER_PRIORITY if include_explicit_only else _AUTO_DETECT_PROVIDER_PRIORITY
+        list_provider_names()
+        if include_explicit_only
+        else _auto_detectable_provider_names()
     )
     for name in provider_priority:
-        provider_cls = _PROVIDER_REGISTRY.get(name)
-        if provider_cls:
-            yield name, provider_cls
+        yield name, _PROVIDER_REGISTRY[name]
 
 
 def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
@@ -551,13 +594,14 @@ def get_all_provider_configs() -> dict:
     for name, provider_cls in _iter_provider_classes():
         try:
             provider = provider_cls()
+            capabilities = _capabilities_of(provider_cls)
             if (
-                name in _CONFIG_REQUIRES_CONFIGURED_PROVIDER
+                capabilities.expose_only_when_configured
                 and not provider.is_configured()
             ):
                 continue
             payload = provider.get_provider_config().to_dict()
-            if name in _CONFIG_REQUIRES_ALLOWED_MODEL and allowed_model_keys:
+            if capabilities.restrict_models_to_allowlist and allowed_model_keys:
                 allowed_models = [
                     item
                     for item in payload.get("models") or []
