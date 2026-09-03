@@ -453,7 +453,11 @@ def _load_usage_rate_unit_cost(
 
 def _format_credit_multiplier_label(value: Decimal) -> str:
     rounded = value.quantize(Decimal("0.01"))
-    text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
+    if rounded == rounded.to_integral_value():
+        # Whole numbers must not lose trailing zeros: stripping "30" to "3".
+        text = str(int(rounded))
+    else:
+        text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
     return f"{text or '0'}x"
 
 
