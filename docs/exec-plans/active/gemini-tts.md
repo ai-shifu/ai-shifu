@@ -61,8 +61,16 @@ shared segmentation, SSE, caching, storage, and metering paths as MP3.
 - Expose exactly `gemini-3.1-flash-tts-preview`,
   `gemini-2.5-flash-preview-tts`, and `gemini-2.5-pro-preview-tts`.
 - Ship the thirty prebuilt voices as the built-in catalog; the optional
-  `GEMINI_TTS_VOICES_JSON` allowlist narrows or relabels them and falls back
-  to the built-in catalog when invalid.
+  `GEMINI_TTS_VOICES_JSON` allowlist narrows or relabels them. A configured
+  allowlist is fail-closed: invalid JSON or no built-in voice left makes the
+  provider unavailable instead of silently widening voice access (review
+  feedback on the first revision).
+- Require an `https://` value for `GEMINI_TTS_API_URL` because the API key is
+  sent in a request header; the shared key is still sent to whatever trusted
+  endpoint the deployment configures, matching how the other provider base
+  URLs in this repository are treated.
+- Reject fractional pitch values both in the provider and in strict
+  validation instead of truncating them to the locked integer.
 - Keep the provider explicit-only (not auto-detected) and hide it from the
   config payload unless it is configured and allowlisted, matching ElevenLabs.
 - Send each sentence-sized segment as one unary request; provider-native
