@@ -6,7 +6,11 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from flaskr.api.tts import get_tts_provider
+from flaskr.api.tts import (
+    get_provider_capabilities,
+    get_tts_provider,
+    list_provider_names,
+)
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.tts.cloned_voice_registry import (
     find_ready_cloned_voice,
@@ -16,25 +20,24 @@ from flaskr.service.tts.cloned_voice_registry import (
 if TYPE_CHECKING:
     from flask import Flask
 
-SUPPORTED_TTS_PROVIDERS = {
-    "minimax",
-    "volcengine",
-    "volcengine_http",
-    "baidu",
-    "aliyun",
-    "tencent",
-    "tencent_texttovoice",
-    "elevenlabs",
-    "gemini",
-}
-PROVIDERS_REQUIRING_MODEL = {
-    "minimax",
-    "volcengine",
-    "tencent_texttovoice",
-    "elevenlabs",
-    "gemini",
-}
-PROVIDERS_REQUIRING_LISTED_VOICE = {"elevenlabs", "gemini"}
+
+def _supported_provider_names() -> frozenset[str]:
+    return frozenset(list_provider_names())
+
+
+# Derived views of the provider capability declarations, kept for callers
+# that still import these names. Runtime checks read the capabilities directly.
+SUPPORTED_TTS_PROVIDERS = _supported_provider_names()
+PROVIDERS_REQUIRING_MODEL = frozenset(
+    name
+    for name in list_provider_names()
+    if get_provider_capabilities(name).requires_model
+)
+PROVIDERS_REQUIRING_LISTED_VOICE = frozenset(
+    name
+    for name in list_provider_names()
+    if get_provider_capabilities(name).requires_listed_voice
+)
 
 
 @dataclass(frozen=True)
@@ -91,15 +94,16 @@ def validate_tts_settings_strict(
     normalized_provider = (provider or "").strip().lower()
     if not normalized_provider:
         _raise_param_error("TTS provider is required when TTS is enabled")
-    if normalized_provider not in SUPPORTED_TTS_PROVIDERS:
+    if normalized_provider not in _supported_provider_names():
         _raise_param_error(f"Unsupported TTS provider: {normalized_provider}")
+    capabilities = get_provider_capabilities(normalized_provider)
 
     normalized_voice_id = (voice_id or "").strip()
     if not normalized_voice_id:
         _raise_param_error("TTS voice_id is required when TTS is enabled")
 
     normalized_model = (model or "").strip()
-    if normalized_provider in PROVIDERS_REQUIRING_MODEL and not normalized_model:
+    if capabilities.requires_model and not normalized_model:
         _raise_param_error(
             f"TTS model is required for provider '{normalized_provider}'"
         )
@@ -131,10 +135,7 @@ def validate_tts_settings_strict(
         for v in (cfg.voices or [])
         if (v.get("value") or "").strip()
     }
-    if (
-        normalized_provider in PROVIDERS_REQUIRING_LISTED_VOICE
-        and normalized_voice_id not in allowed_voices
-    ):
+    if capabilities.requires_listed_voice and normalized_voice_id not in allowed_voices:
         _raise_param_error(
             f"Invalid TTS voice_id for provider '{normalized_provider}': {normalized_voice_id}"
         )
@@ -167,10 +168,7 @@ def validate_tts_settings_strict(
             for m in (cfg.models or [])
             if (m.get("value") or "").strip()
         }
-        if (
-            normalized_provider in PROVIDERS_REQUIRING_MODEL
-            and normalized_model not in allowed_models
-        ):
+        if capabilities.requires_model and normalized_model not in allowed_models:
             _raise_param_error(
                 f"Invalid TTS model for provider '{normalized_provider}': {normalized_model}"
             )

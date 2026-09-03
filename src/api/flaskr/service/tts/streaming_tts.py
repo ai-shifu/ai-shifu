@@ -24,9 +24,11 @@ from flaskr.api.tts import (
     VoiceSettings,
     get_default_audio_settings,
     get_default_voice_settings,
+    get_provider_capabilities,
     is_tts_configured,
     synthesize_text,
 )
+from flaskr.api.tts.base import REQUEST_SCOPED_STREAM_VOLCENGINE_TIMESTAMP
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 from flaskr.common.log import AppLoggerProxy
 from flaskr.dao import cleanup_session_after
@@ -112,14 +114,6 @@ def _get_tts_executor() -> ThreadPoolExecutor:
 
 
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
-_EMPTY_AUDIO_RETRY_PROVIDERS = {
-    "",
-    "elevenlabs",
-    "gemini",
-    "tencent",
-    "tencent_texttovoice",
-    "volcengine",
-}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
 # Provider throttling (e.g. Tencent LimitExceeded.AccessLimit) hits whole
 # bursts of concurrent segments at once; retries back off longer than the
@@ -141,16 +135,6 @@ _RATE_LIMIT_ERROR_MARKERS = (
     "rate limit",
 )
 _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
-_VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
-_NON_SPEAKABLE_TTS_SKIP_PROVIDERS = {
-    "elevenlabs",
-    "gemini",
-    "minimax",
-    "tencent",
-    "tencent_texttovoice",
-    "volcengine",
-}
-
 _VISUAL_SLIDE_KINDS = frozenset(
     {
         "fence",
@@ -167,11 +151,14 @@ _VISUAL_SLIDE_KINDS = frozenset(
 
 
 def _is_retryable_empty_audio_error(error: Exception, provider_name: str) -> bool:
-    normalized_provider = (provider_name or "").strip().lower()
-    return (
-        normalized_provider in _EMPTY_AUDIO_RETRY_PROVIDERS
-        and _EMPTY_AUDIO_ERROR_MESSAGE in str(error)
-    )
+    if _EMPTY_AUDIO_ERROR_MESSAGE not in str(error):
+        return False
+    normalized_provider = _normalize_tts_provider(provider_name)
+    if not normalized_provider:
+        # The auto-detected provider is unknown here; keep the historical
+        # behavior of retrying once rather than failing the segment.
+        return True
+    return get_provider_capabilities(normalized_provider).retry_on_empty_audio
 
 
 def _is_retryable_rate_limit_error(error: Exception) -> bool:
@@ -198,9 +185,8 @@ def _normalize_tts_provider(tts_provider: str) -> str:
 
 
 def _should_skip_non_speakable_tts_text(text: str, tts_provider: str) -> bool:
-    return _normalize_tts_provider(
-        tts_provider
-    ) in _NON_SPEAKABLE_TTS_SKIP_PROVIDERS and not has_speakable_text(text)
+    capabilities = get_provider_capabilities(_normalize_tts_provider(tts_provider))
+    return capabilities.skip_non_speakable_text and not has_speakable_text(text)
 
 
 def _log_skipped_non_speakable_tts_text(
@@ -222,8 +208,10 @@ def _log_skipped_non_speakable_tts_text(
 
 
 def _should_use_volcengine_timestamp_stream(tts_provider: str) -> bool:
-    normalized_provider = (tts_provider or "").strip().lower()
-    return normalized_provider in _VOLCENGINE_TIMESTAMP_PROVIDERS
+    capabilities = get_provider_capabilities(_normalize_tts_provider(tts_provider))
+    return (
+        capabilities.request_scoped_stream == REQUEST_SCOPED_STREAM_VOLCENGINE_TIMESTAMP
+    )
 
 
 _VISUAL_SKIP_KINDS = frozenset(
