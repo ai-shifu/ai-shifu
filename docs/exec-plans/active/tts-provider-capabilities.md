@@ -10,14 +10,17 @@ the four-tier rollout produced two follow-up incidents.
 
 ## Progress
 
-- [x] 2026-09-03: Inventoried every provider-name set: registry priority and
+- [x] 2026-09-03 16:30-16:45 CST (UTC+08:00): Inventoried every provider-name set: registry priority and
   auto-detect tuples, config exposure sets, strict validation sets, streaming
   empty-audio retry and non-speakable skip sets, the Volcengine timestamp and
   MiniMax HTTP stream selectors, and the segmentation byte-limit branches.
-- [x] 2026-09-03: Added `ProviderCapabilities` to `base.py`, declared it on all
+- [x] 2026-09-03 16:45-17:30 CST (UTC+08:00): Added `ProviderCapabilities` to `base.py`, declared it on all
   nine providers, and derived every former set from the declarations.
-- [x] 2026-09-03: Added a parity test that pins the former literal sets as
+- [x] 2026-09-03 17:30-17:50 CST (UTC+08:00): Added a parity test that pins the former literal sets as
   golden values and proves the derived views reproduce them.
+- [x] 2026-09-03 18:00-18:40 CST (UTC+08:00): Verified the refactor on the
+  dev01 and devus test environments; the TTS config payloads match the
+  pre-refactor output on both.
 - [ ] Follow-up: extract the MiniMax HTTP and Volcengine timestamp
   request-scoped finalize paths from `StreamingTTSProcessor` into strategy
   objects selected through `request_scoped_stream`.
