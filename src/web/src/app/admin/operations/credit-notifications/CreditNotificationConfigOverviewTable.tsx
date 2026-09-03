@@ -1,4 +1,8 @@
 import type { ReactNode } from 'react';
+import {
+  getAdminStickyRightCellClass,
+  getAdminStickyRightHeaderClass,
+} from '@/app/admin/components/adminTableStyles';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -13,6 +17,7 @@ export type CreditNotificationConfigOverviewColumn = {
   key: string;
   header: ReactNode;
   className?: string;
+  stickyRight?: boolean;
 };
 
 type CreditNotificationConfigOverviewTableProps<Row extends { key: string }> = {
@@ -41,7 +46,11 @@ export function CreditNotificationConfigOverviewTable<
             {columns.map(column => (
               <TableHead
                 key={column.key}
-                className={cn('px-3', column.className)}
+                className={
+                  column.stickyRight
+                    ? getAdminStickyRightHeaderClass(column.className)
+                    : cn('px-3', column.className)
+                }
               >
                 {column.header}
               </TableHead>
@@ -54,7 +63,11 @@ export function CreditNotificationConfigOverviewTable<
               {columns.map(column => (
                 <TableCell
                   key={column.key}
-                  className={cn(CELL_CLASS_NAME, column.className)}
+                  className={
+                    column.stickyRight
+                      ? getAdminStickyRightCellClass(column.className)
+                      : cn(CELL_CLASS_NAME, column.className)
+                  }
                 >
                   {renderCell(row, column)}
                 </TableCell>
