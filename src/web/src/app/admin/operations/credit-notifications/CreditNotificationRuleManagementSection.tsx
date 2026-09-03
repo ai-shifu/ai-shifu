@@ -145,9 +145,14 @@ export function CreditNotificationRuleManagementSection({
       },
       {
         key: 'template',
-        header: t(
-          'module.operationsCreditNotifications.ruleManagement.columns.template',
-        ),
+        header:
+          contactMode === 'email'
+            ? t(
+                'module.operationsCreditNotifications.ruleManagement.columns.emailTemplate',
+              )
+            : t(
+                'module.operationsCreditNotifications.ruleManagement.columns.template',
+              ),
         className: 'min-w-[180px]',
       },
       {
@@ -172,7 +177,7 @@ export function CreditNotificationRuleManagementSection({
         className: 'w-[128px] text-right',
       },
     ],
-    [t],
+    [contactMode, t],
   );
   const openNewRule = () => {
     setEditingRule(createDraftRule(contactMode));
@@ -209,9 +214,15 @@ export function CreditNotificationRuleManagementSection({
     <>
       <CreditNotificationConfigSection
         title={t('module.operationsCreditNotifications.ruleManagement.title')}
-        description={t(
-          'module.operationsCreditNotifications.ruleManagement.description',
-        )}
+        description={
+          contactMode === 'email'
+            ? t(
+                'module.operationsCreditNotifications.ruleManagement.descriptionEmail',
+              )
+            : t(
+                'module.operationsCreditNotifications.ruleManagement.description',
+              )
+        }
         action={
           <Button
             type='button'
@@ -723,9 +734,13 @@ function RuleTemplateSelector({
   return (
     <div>
       <Label>
-        {t(
-          'module.operationsCreditNotifications.ruleManagement.fields.template',
-        )}
+        {rule.channel === 'email'
+          ? t(
+              'module.operationsCreditNotifications.ruleManagement.fields.emailTemplate',
+            )
+          : t(
+              'module.operationsCreditNotifications.ruleManagement.fields.template',
+            )}
       </Label>
       <Select
         value={rule.template_code}
@@ -733,9 +748,15 @@ function RuleTemplateSelector({
       >
         <SelectTrigger className='mt-1'>
           <SelectValue
-            placeholder={t(
-              'module.operationsCreditNotifications.ruleManagement.selectTemplate',
-            )}
+            placeholder={
+              rule.channel === 'email'
+                ? t(
+                    'module.operationsCreditNotifications.ruleManagement.selectEmailTemplate',
+                  )
+                : t(
+                    'module.operationsCreditNotifications.ruleManagement.selectTemplate',
+                  )
+            }
           />
         </SelectTrigger>
         <SelectContent>

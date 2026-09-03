@@ -63,13 +63,17 @@ from .consts import (
 )
 from .models import (
     BillingDailyLedgerSummary,
+    BillingOrder,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
     NotificationRecord,
     NotificationTemplate,
 )
-from .notifications import load_creator_mobile_snapshot
+from .notifications import (
+    load_creator_mobile_snapshot,
+    resolve_notification_product_name,
+)
 from .primitives import is_billing_enabled
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import quantize_credit_amount as _quantize_credit_amount
@@ -185,7 +189,7 @@ def _email_html_to_plain_text(value: str) -> str:
 
 
 CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
-    CREDIT_NOTIFICATION_TYPE_GRANTED: ("credits", "source", "expires_at"),
+    CREDIT_NOTIFICATION_TYPE_GRANTED: ("credits", "source", "expires_at", "product"),
     CREDIT_NOTIFICATION_TYPE_EXPIRING: ("credits", "expires_at", "window"),
     CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: (
         "available_credits",
@@ -930,6 +934,43 @@ def _email_template_placeholders(template: NotificationTemplate) -> list[str]:
     )
 
 
+def _compatible_notification_types_for_placeholders(
+    placeholders: list[str],
+) -> list[str]:
+    return [
+        notification_type
+        for notification_type in (
+            CREDIT_NOTIFICATION_TYPE_EXPIRING,
+            CREDIT_NOTIFICATION_TYPE_GRANTED,
+            CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+        )
+        if set(placeholders).issubset(
+            _supported_template_placeholders(notification_type)
+        )
+    ]
+
+
+def _template_applicable_notification_types(
+    template: NotificationTemplate,
+    placeholders: list[str],
+) -> list[str]:
+    metadata = template.metadata_json
+    configured = (
+        metadata.get("applicable_notification_types")
+        if isinstance(metadata, dict)
+        else None
+    )
+    compatible = _compatible_notification_types_for_placeholders(placeholders)
+    if not isinstance(configured, list):
+        return compatible
+    configured_types = {str(item or "").strip() for item in configured}
+    return [
+        notification_type
+        for notification_type in compatible
+        if notification_type in configured_types
+    ]
+
+
 def _is_valid_email_recipient(value: object) -> bool:
     return bool(_EMAIL_RECIPIENT_PATTERN.fullmatch(str(value or "").strip()))
 
@@ -954,6 +995,44 @@ def load_creator_email_snapshot(creator_bid: str) -> str:
         if _is_valid_email_recipient(email):
             return email
     return ""
+
+
+def _credit_grant_product_name(
+    ledger: CreditLedgerEntry,
+    rule: dict[str, object],
+) -> str:
+    metadata = ledger.metadata_json if isinstance(ledger.metadata_json, dict) else {}
+    order_bid = str(metadata.get("bill_order_bid") or "").strip()
+    if not order_bid and str(ledger.idempotency_key or "").startswith("grant:"):
+        order_bid = str(ledger.source_bid or "").strip()
+    if not order_bid:
+        return ""
+    order = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid == order_bid,
+        )
+        .order_by(BillingOrder.id.desc())
+        .first()
+    )
+    if order is None:
+        return ""
+    channel = str(rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
+    template_code = str(rule.get("template_code") or "").strip()
+    template = (
+        NotificationTemplate.query.filter(
+            NotificationTemplate.deleted == 0,
+            NotificationTemplate.channel == channel,
+            NotificationTemplate.template_code == template_code,
+        )
+        .order_by(NotificationTemplate.id.desc())
+        .first()
+    )
+    locale = str(template.locale or "").strip() if template is not None else ""
+    return resolve_notification_product_name(
+        order,
+        language=locale or "zh-CN",
+    )
 
 
 def _json_safe(value: object) -> object:
@@ -1012,17 +1091,9 @@ def _serialize_template_option(
             if str(item or "").strip()
         ]
     )
-    compatible_notification_types = [
-        notification_type
-        for notification_type in (
-            CREDIT_NOTIFICATION_TYPE_EXPIRING,
-            CREDIT_NOTIFICATION_TYPE_GRANTED,
-            CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
-        )
-        if set(placeholders).issubset(
-            _supported_template_placeholders(notification_type)
-        )
-    ]
+    compatible_notification_types = _template_applicable_notification_types(
+        template, placeholders
+    )
     return {
         "notification_template_bid": template.notification_template_bid,
         "channel": template.channel,
@@ -1228,6 +1299,36 @@ def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, o
             + _extract_template_placeholders(html_body)
         )
     )
+    raw_notification_types = payload.get("applicable_notification_types")
+    if raw_notification_types is None:
+        notification_types = _compatible_notification_types_for_placeholders(
+            placeholders
+        )
+    elif isinstance(raw_notification_types, list):
+        notification_types = [
+            str(item or "").strip() for item in raw_notification_types
+        ]
+    else:
+        notification_types = [
+            item.strip()
+            for item in str(raw_notification_types).split(",")
+            if item.strip()
+        ]
+    notification_types = list(dict.fromkeys(notification_types))
+    valid_notification_types = {
+        CREDIT_NOTIFICATION_TYPE_EXPIRING,
+        CREDIT_NOTIFICATION_TYPE_GRANTED,
+        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+    }
+    if any(item not in valid_notification_types for item in notification_types):
+        raise_param_error("applicable_notification_types")
+    compatible_notification_types = set(
+        _compatible_notification_types_for_placeholders(placeholders)
+    )
+    if any(item not in compatible_notification_types for item in notification_types):
+        raise_param_error("applicable_notification_types")
+    if status == NOTIFICATION_TEMPLATE_STATUS_ACTIVE and not notification_types:
+        raise_param_error("applicable_notification_types")
     return {
         "template_code": template_code,
         "template_name": template_name,
@@ -1237,6 +1338,7 @@ def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, o
         "email_html_body": html_body,
         "template_status": status,
         "placeholders": placeholders,
+        "applicable_notification_types": notification_types,
     }
 
 
@@ -1300,7 +1402,12 @@ def save_credit_notification_email_template(
         template.error_message = ""
         template.last_synced_at = now
         template.updated_at = now
-        template.metadata_json = {"updated_by": _normalize_bid(updated_by)}
+        metadata = dict(template.metadata_json or {})
+        metadata["updated_by"] = _normalize_bid(updated_by)
+        metadata["applicable_notification_types"] = list(
+            normalized["applicable_notification_types"]
+        )
+        template.metadata_json = metadata
         db.session.add(template)
         db.session.flush()
         _validate_credit_notification_policy_templates(
@@ -1340,9 +1447,18 @@ def update_credit_notification_email_template_status(
         )
         if template is None:
             raise_param_error("notification_template_bid")
+        if (
+            normalized_status == NOTIFICATION_TEMPLATE_STATUS_ACTIVE
+            and not _template_applicable_notification_types(
+                template, _email_template_placeholders(template)
+            )
+        ):
+            raise_param_error("applicable_notification_types")
         template.template_status = normalized_status
         template.updated_at = now_utc()
-        template.metadata_json = {"updated_by": _normalize_bid(updated_by)}
+        metadata = dict(template.metadata_json or {})
+        metadata["updated_by"] = _normalize_bid(updated_by)
+        template.metadata_json = metadata
         db.session.add(template)
         db.session.flush()
         _validate_credit_notification_policy_templates(
@@ -1388,6 +1504,9 @@ def _serialize_notification_template(
         "variable_attribute": template.variable_attribute_json or {},
         "provider_response": template.provider_response_json or {},
         "placeholders": actual,
+        "applicable_notification_types": _template_applicable_notification_types(
+            template, actual
+        ),
         "supported_placeholders": supported,
         "unused_supported_placeholders": unused_supported,
         "unsupported_placeholders": unsupported,
@@ -1774,6 +1893,13 @@ def _validate_credit_notification_policy_templates(
         if str(result.get("template_status") or "").strip() != expected_template_status:
             raise_param_error(
                 f"rules.{rule.get('rule_bid')}.template_code:template_not_approved"
+            )
+        if (
+            channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+            and notification_type not in result.get("applicable_notification_types", [])
+        ):
+            raise_param_error(
+                f"rules.{rule.get('rule_bid')}.template_code:template_event_not_supported"
             )
         unsupported = [
             str(item or "").strip()
@@ -2296,6 +2422,16 @@ def stage_credit_granted_notification(
         rules = _matching_notification_rules(policy, CREDIT_NOTIFICATION_TYPE_GRANTED)
 
         def _stage(rule: dict[str, object]) -> CreditNotificationStageResult:
+            template_params: dict[str, object] = {
+                "credits": _amount_text(ledger.amount),
+                "source": str(
+                    (ledger.metadata_json or {}).get("grant_source")
+                    or ledger.source_type
+                ),
+                "expires_at": _serialize_dt(app, ledger.expires_at),
+            }
+            if product_name := _credit_grant_product_name(ledger, rule):
+                template_params["product"] = product_name
             return _stage_notification_record(
                 app,
                 notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
@@ -2305,14 +2441,7 @@ def stage_credit_granted_notification(
                 dedupe_key=_rule_dedupe_key(
                     build_credit_granted_dedupe_key(ledger.ledger_bid), rule
                 ),
-                template_params={
-                    "credits": _amount_text(ledger.amount),
-                    "source": str(
-                        (ledger.metadata_json or {}).get("grant_source")
-                        or ledger.source_type
-                    ),
-                    "expires_at": _serialize_dt(app, ledger.expires_at),
-                },
+                template_params=template_params,
                 metadata={
                     "wallet_bucket_bid": ledger.wallet_bucket_bid,
                     "ledger_bid": ledger.ledger_bid,

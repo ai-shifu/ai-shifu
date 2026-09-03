@@ -7,6 +7,7 @@ import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import {
@@ -41,6 +42,7 @@ import {
 } from '@/components/ui/tooltip';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import type {
+  CreditNotificationType,
   AdminOperationCreditNotificationPolicy,
   AdminOperationCreditNotificationTemplateOption,
 } from '../operation-credit-notification-types';
@@ -135,6 +137,24 @@ const EMAIL_TEMPLATE_VARIABLES = [
   },
 ];
 
+const EMAIL_TEMPLATE_NOTIFICATION_TYPES: Array<{
+  value: CreditNotificationType;
+  labelKey: string;
+}> = [
+  {
+    value: 'credit_granted',
+    labelKey: 'module.operationsCreditNotifications.type.credit_granted',
+  },
+  {
+    value: 'credit_expiring',
+    labelKey: 'module.operationsCreditNotifications.type.credit_expiring',
+  },
+  {
+    value: 'low_balance',
+    labelKey: 'module.operationsCreditNotifications.type.low_balance',
+  },
+];
+
 export function CreditNotificationTemplateManagementTab({
   templates,
   active,
@@ -160,7 +180,7 @@ export function CreditNotificationTemplateManagementTab({
   onFilterApplied: (filter: 'keyword' | 'status') => void;
   onDetailOpened: () => void;
   saveEmailTemplate: (
-    payload: Record<string, string>,
+    payload: Record<string, unknown>,
     notificationTemplateBid?: string,
   ) => Promise<void>;
   updateEmailTemplateStatus: (
@@ -187,6 +207,8 @@ export function CreditNotificationTemplateManagementTab({
     React.useState<AdminOperationCreditNotificationTemplateOption | null>(null);
   const [emailTemplateStatus, setEmailTemplateStatus] = React.useState('draft');
   const [emailTemplateLocale, setEmailTemplateLocale] = React.useState('en-US');
+  const [emailTemplateNotificationTypes, setEmailTemplateNotificationTypes] =
+    React.useState<CreditNotificationType[]>([]);
   const [savingEmailTemplate, setSavingEmailTemplate] = React.useState(false);
   const [emailVariablesExpanded, setEmailVariablesExpanded] =
     React.useState(true);
@@ -226,6 +248,9 @@ export function CreditNotificationTemplateManagementTab({
       setEditingTemplate(template);
       setEmailTemplateStatus(template.template_status || 'draft');
       setEmailTemplateLocale(template.locale || 'en-US');
+      setEmailTemplateNotificationTypes(
+        template.compatible_notification_types || [],
+      );
       setEmailVariablesExpanded(true);
     },
     [],
@@ -323,7 +348,7 @@ export function CreditNotificationTemplateManagementTab({
       header: t(
         'module.operationsCreditNotifications.templateManagement.columns.action',
       ),
-      className: 'w-24 min-w-24 whitespace-nowrap text-center',
+      className: 'w-20 min-w-20 whitespace-nowrap text-center',
     },
   ];
   const templateTitle =
@@ -748,10 +773,12 @@ export function CreditNotificationTemplateManagementTab({
                 const form = new FormData(event.currentTarget);
                 const payload = Object.fromEntries(form.entries()) as Record<
                   string,
-                  string
+                  unknown
                 >;
                 payload.template_status = emailTemplateStatus;
                 payload.locale = emailTemplateLocale;
+                payload.applicable_notification_types =
+                  emailTemplateNotificationTypes;
                 setSavingEmailTemplate(true);
                 void saveEmailTemplate(
                   payload,
@@ -867,6 +894,46 @@ export function CreditNotificationTemplateManagementTab({
                       }}
                       required
                     />
+                  </div>
+                </div>
+                <div className='rounded-md border border-border bg-muted/30 p-3'>
+                  <p className='text-sm font-medium text-foreground'>
+                    {t(
+                      'module.operationsCreditNotifications.templateManagement.emailFields.notificationTypes',
+                    )}
+                  </p>
+                  <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                    {t(
+                      'module.operationsCreditNotifications.templateManagement.emailFields.notificationTypesHint',
+                    )}
+                  </p>
+                  <div className='mt-3 grid gap-2 sm:grid-cols-3'>
+                    {EMAIL_TEMPLATE_NOTIFICATION_TYPES.map(option => {
+                      const checked = emailTemplateNotificationTypes.includes(
+                        option.value,
+                      );
+                      return (
+                        <label
+                          key={option.value}
+                          className='flex cursor-pointer items-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-sm'
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={value => {
+                              setEmailTemplateNotificationTypes(current =>
+                                value
+                                  ? [...new Set([...current, option.value])]
+                                  : current.filter(
+                                      notificationType =>
+                                        notificationType !== option.value,
+                                    ),
+                              );
+                            }}
+                          />
+                          {t(option.labelKey)}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
                 <div className='rounded-md border border-border bg-muted/30 p-3'>

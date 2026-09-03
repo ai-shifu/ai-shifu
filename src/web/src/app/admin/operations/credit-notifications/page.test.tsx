@@ -745,6 +745,11 @@ describe('AdminOperationCreditNotificationsPage', () => {
       ),
       { target: { value: '<p>You received credits.</p>' } },
     );
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'module.operationsCreditNotifications.type.credit_granted',
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'common.core.save' }));
 
     await waitFor(() => {
@@ -753,6 +758,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
           template_name: 'Credit granted',
           locale: 'en-US',
           template_status: 'draft',
+          applicable_notification_types: ['credit_granted'],
         }),
       );
     });
@@ -1392,6 +1398,11 @@ describe('AdminOperationCreditNotificationsPage', () => {
       }),
     );
     const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(
+        'module.operationsCreditNotifications.ruleManagement.fields.emailTemplate',
+      ),
+    ).toBeInTheDocument();
     fireEvent.change(
       within(dialog).getByLabelText(
         'module.operationsCreditNotifications.ruleManagement.fields.name',
@@ -1425,6 +1436,63 @@ describe('AdminOperationCreditNotificationsPage', () => {
         }),
       );
     });
+  });
+
+  it('uses email delivery controls without SMS-only budget or cost fields', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.fields.enabledEmail',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.deliveryRules.descriptionEmail',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.config.deliveryRules.edit',
+      }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(
+        'module.operationsCreditNotifications.config.fields.perRecipientPerDay',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(
+        'module.operationsCreditNotifications.config.fields.dailySmsLimit',
+      ),
+    ).not.toBeInTheDocument();
+
+    await closeDialog();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.dryRun',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsCreditNotifications.dryRun.metrics.created',
+        ),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(
+        'module.operationsCreditNotifications.dryRun.metrics.cost',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it('preserves legacy type settings as rules when the API has no rules field', async () => {

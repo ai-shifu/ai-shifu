@@ -121,18 +121,24 @@ export function CreditNotificationConfigTab({
                   className='text-sm font-medium text-foreground'
                 >
                   {t(
-                    'module.operationsCreditNotifications.config.fields.enabled',
+                    contactMode === 'email'
+                      ? 'module.operationsCreditNotifications.config.fields.enabledEmail'
+                      : 'module.operationsCreditNotifications.config.fields.enabled',
                   )}
                 </Label>
                 <HelpTooltip>
                   {t(
-                    'module.operationsCreditNotifications.config.fieldTips.enabled',
+                    contactMode === 'email'
+                      ? 'module.operationsCreditNotifications.config.fieldTips.enabledEmail'
+                      : 'module.operationsCreditNotifications.config.fieldTips.enabled',
                   )}
                 </HelpTooltip>
               </div>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>
                 {t(
-                  'module.operationsCreditNotifications.config.masterSwitchDescription',
+                  contactMode === 'email'
+                    ? 'module.operationsCreditNotifications.config.masterSwitchDescriptionEmail'
+                    : 'module.operationsCreditNotifications.config.masterSwitchDescription',
                 )}
               </p>
             </div>
@@ -158,6 +164,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationDeliveryRulesSection
+          contactMode={contactMode}
           policy={policy}
           updatePolicy={updatePolicy}
           getIntegerInputValue={getIntegerInputValue}
@@ -176,6 +183,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationDryRunPanel
+          contactMode={contactMode}
           dryRunResult={dryRunResult}
           dryRunError={dryRunError}
           dryRun={dryRun}

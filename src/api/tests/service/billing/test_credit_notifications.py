@@ -54,6 +54,7 @@ from flaskr.service.billing.credit_notifications import (
 )
 from flaskr.service.billing.models import (
     BillingDailyLedgerSummary,
+    BillingOrder,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
@@ -567,6 +568,76 @@ def test_credit_granted_notification_stages_once_and_delivers_sms(
         assert notification.recipient_snapshot == "13800000000"
 
 
+def test_order_backed_credit_grant_includes_product_template_param(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-PRODUCT",
+        placeholders=["credits", "product"],
+    )
+    save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "rules": [
+                {
+                    "rule_bid": "grant-product",
+                    "name": "Purchased credits",
+                    "trigger_event": CREDIT_NOTIFICATION_TYPE_GRANTED,
+                    "channel": "sms",
+                    "template_code": "TPL-GRANT-PRODUCT",
+                    "enabled": True,
+                    "conditions": {},
+                }
+            ],
+        },
+    )
+    with app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="order-product-1",
+                creator_bid="creator-1",
+                product_bid="product-growth-1",
+            )
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-product-1",
+                creator_bid="creator-1",
+                wallet_bid="wallet-creator-1",
+                wallet_bucket_bid="bucket-creator-1",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid="order-product-1",
+                idempotency_key="grant:order-product-1",
+                amount=Decimal("12.5"),
+                balance_after=Decimal("12.5"),
+                metadata_json={"bill_order_bid": "order-product-1"},
+            )
+        )
+        dao.db.session.commit()
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.resolve_notification_product_name",
+        lambda _order, **_kwargs: "Growth monthly",
+    )
+
+    staged = stage_credit_granted_notification(
+        app,
+        ledger_bid="ledger-product-1",
+        enqueue=False,
+    )
+
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid=staged["notification_bid"]
+        ).one()
+        assert notification.template_params_json["product"] == "Growth monthly"
+
+
 def test_credit_notification_skips_unknown_channel_without_sending_sms(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -1001,6 +1072,40 @@ def test_email_template_uses_one_body_and_preserves_generated_code_on_update(
     assert updated["template_code"] == created["template_code"]
     assert updated["template_content"] == "Your balance: ${credits}"
     assert updated["email_html_body"] == "<p>Your balance: ${credits}</p>"
+
+
+def test_email_template_persists_applicable_notification_types(
+    credit_notifications_app: Flask,
+) -> None:
+    created = save_credit_notification_email_template(
+        credit_notifications_app,
+        payload={
+            "template_name": "Credit expiry",
+            "locale": "en-US",
+            "email_subject": "Your credits expire in ${window}",
+            "email_html_body": "<p>Your credits expire in ${window}.</p>",
+            "template_status": "active",
+            "applicable_notification_types": [CREDIT_NOTIFICATION_TYPE_EXPIRING],
+        },
+    )
+
+    assert created["compatible_notification_types"] == [
+        CREDIT_NOTIFICATION_TYPE_EXPIRING
+    ]
+
+    with pytest.raises(AppError):
+        save_credit_notification_email_template(
+            credit_notifications_app,
+            notification_template_bid=str(created["notification_template_bid"]),
+            payload={
+                "template_name": "Credit expiry",
+                "locale": "en-US",
+                "email_subject": "Your credits expire in ${window}",
+                "email_html_body": "<p>Your credits expire in ${window}.</p>",
+                "template_status": "active",
+                "applicable_notification_types": [CREDIT_NOTIFICATION_TYPE_GRANTED],
+            },
+        )
 
 
 def test_email_template_status_can_be_updated_without_replacing_content(

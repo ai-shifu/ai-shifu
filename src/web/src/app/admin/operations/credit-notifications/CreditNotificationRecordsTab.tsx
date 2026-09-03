@@ -47,7 +47,7 @@ const DEFAULT_COLUMN_WIDTHS = {
   creator: 220,
   source: 220,
   error: 220,
-  action: 120,
+  action: 96,
 } as const;
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const TABLE_CELL_CLASS =

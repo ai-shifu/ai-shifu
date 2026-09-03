@@ -20,7 +20,9 @@
     "deliveryRules": {
       "active": "已开启",
       "description": "集中查看每日上限、免打扰、用量保护和老师端低余额策略，减少误发和超量发送。",
+      "descriptionEmail": "集中查看邮件频控、免打扰和老师端低余额策略，减少误发和过量发送。",
       "dialogDescription": "这些规则会控制短信每天最多发多少、什么时间不发，以及老师端低积分时如何提醒。保存配置后才会生效。",
+      "dialogDescriptionEmail": "这些规则会控制邮件频控、免打扰时段，以及老师端低积分时如何提醒。保存配置后才会生效。",
       "dialogTitle": "发送保护规则",
       "edit": "编辑发送规则",
       "inactive": "未开启",
@@ -28,9 +30,11 @@
       "summaries": {
         "budget": "每日 {limit} 条；单条 {cost}；试算：{dryRun}。",
         "frequency": "手机号 {perMobile} 条/天；老师同类通知 {perCreatorType} 条/天。",
+        "frequencyEmail": "同一收件人 {perRecipient} 封/天；老师同类通知 {perCreatorType} 封/天。",
         "quietHoursOff": "未开启免打扰时段，通知会按扫描结果发送。",
         "quietHoursOn": "{timezone} 时间 {start} - {end} 暂停发送。",
-        "softlimit": "低于 {threshold} 积分；提醒 {teacherAlert}；禁调试 {debugLock}；短信 {sms}。"
+        "softlimit": "低于 {threshold} 积分；提醒 {teacherAlert}；禁调试 {debugLock}；短信 {sms}。",
+        "softlimitEmail": "低于 {threshold} 积分；提醒 {teacherAlert}；禁调试 {debugLock}。"
       },
       "yes": "是"
     },
@@ -45,6 +49,7 @@
       "creatorList": "填写老师ID，多个值用逗号分隔。",
       "dailySmsLimit": "超过每日上限后，当天不再继续发送新短信。",
       "enabled": "控制积分短信通知的启用状态，仅对后续通知生效。",
+      "enabledEmail": "控制积分钱包邮件通知的启用状态，仅对后续通知生效。",
       "estimatedDays": "预计还能使用多少天时触发低余额提醒。",
       "fallbackFixedValue": "日消耗数据不足时，回退到固定余额阈值。",
       "lookbackDays": "用最近多少天的消耗计算日均消耗。",
@@ -53,6 +58,7 @@
       "optedOutCreators": "已退订名单由用户退订行为生成，仅支持查看。",
       "perCreatorPerTypePerDay": "同一老师、同一通知类型一天内最多生成的短信数量。",
       "perMobilePerDay": "同一个手机号一天内最多收到的积分短信数量。",
+      "perRecipientPerDay": "同一邮箱一天内最多收到的积分邮件数量。",
       "quietEnd": "免打扰结束时间，格式如 08:00。",
       "quietStart": "免打扰开始时间，格式如 22:00。",
       "smsUnitCost": "用于试算预计短信费用，实际扣费以短信供应商为准。",
@@ -72,6 +78,7 @@
       "disableDebug": "余额不足时禁止调试",
       "dryRunRequired": "发送前要求试算",
       "enabled": "启用积分短信通知",
+      "enabledEmail": "启用积分邮件通知",
       "estimatedDays": "剩余可用天数",
       "estimatedDaysEnabled": "按可用天数提醒",
       "fallbackFixedValue": "数据不足时按余额提醒",
@@ -83,6 +90,7 @@
       "optedOutCreators": "已退订老师",
       "perCreatorPerTypePerDay": "同一老师同类型每日上限",
       "perMobilePerDay": "同手机号每日上限",
+      "perRecipientPerDay": "同一收件人每日上限",
       "quietEnd": "免打扰结束",
       "quietHoursEnabled": "启用免打扰",
       "quietStart": "免打扰开始",
@@ -126,6 +134,7 @@
     "loadFailed": "通知策略读取失败，请刷新后重试。",
     "loadRequired": "通知策略尚未成功读取，不能保存配置。",
     "masterSwitchDescription": "关闭后将停止生成新的积分短信通知，历史通知记录不受影响。",
+    "masterSwitchDescriptionEmail": "关闭后将停止生成新的积分邮件通知，历史通知记录不受影响。",
     "placeholders": {
       "available": "可用占位符",
       "available_credits": "当前可用积分",
@@ -169,6 +178,7 @@
     "sectionDescriptions": {
       "budget": "控制每日短信发送上限，并用于试算预计费用。",
       "frequency": "限制同一手机号或同一老师一天内收到的短信数量。",
+      "frequencyEmail": "限制同一收件人或同一老师一天内收到的邮件数量。",
       "lists": "名单中的老师将不再接收积分短信。已退订名单由用户退订行为生成，仅支持查看。",
       "quietHours": "在免打扰时段内，短信将按策略延后或跳过发送。",
       "softlimit": "余额低于保护线时，可提醒老师并限制继续调试，避免继续消耗。"
@@ -335,6 +345,7 @@
   "dryRun": {
     "candidateCount": "预计命中 {count} 条",
     "description": "按当前配置预估会命中多少通知，不会真实发送短信。",
+    "descriptionEmail": "按当前配置预估会命中多少通知，不会真实发送邮件。",
     "empty": "暂无试算结果。",
     "metrics": {
       "candidate": "预计命中",
@@ -406,6 +417,7 @@
     "columns": {
       "actions": "操作",
       "conditions": "触发条件",
+      "emailTemplate": "邮件模板",
       "enabled": "状态",
       "name": "规则名称",
       "template": "短信模板",
@@ -415,11 +427,13 @@
     "deleteDescription": "删除后需保存通知配置才会生效，是否继续？",
     "deleteTitle": "删除通知规则",
     "description": "按触发事件、短信模板和条件配置可独立启停的通知规则。",
+    "descriptionEmail": "按触发事件、邮件模板和条件配置可独立启停的通知规则。",
     "dialogDescription": "保存配置后，规则将用于后续通知投递。",
     "edit": "编辑",
     "editRule": "编辑通知规则",
     "empty": "尚未配置通知规则。",
     "fields": {
+      "emailTemplate": "邮件模板",
       "enabled": "启用规则",
       "name": "规则名称",
       "template": "短信模板",
@@ -430,6 +444,7 @@
     "newRule": "新建规则",
     "noConditions": "无需额外条件",
     "saveRule": "保存规则",
+    "selectEmailTemplate": "选择邮件模板",
     "selectTemplate": "选择短信模板",
     "title": "通知规则"
   },
@@ -503,6 +518,8 @@
       "htmlBody": "邮件正文",
       "locale": "语言",
       "name": "模板名称",
+      "notificationTypes": "适用通知类型",
+      "notificationTypesHint": "仅关联所选事件；模板启用后，通知规则中只会显示这些事件可用的模板。",
       "status": "模板状态",
       "subject": "邮件主题"
     },
