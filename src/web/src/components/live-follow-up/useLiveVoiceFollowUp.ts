@@ -42,8 +42,7 @@ import {
   LiveVoiceFollowUpAudio,
 } from './liveVoiceFollowUpAudio';
 
-const SESSION_WARNING_MS = 14 * 60 * 1000 + 30 * 1000;
-const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+const SESSION_WARNING_BEFORE_EXPIRY_MS = 30_000;
 const GEMINI_LIVE_SETUP_TIMEOUT_MS = 20_000;
 const MAX_INPUT_AUDIO_FRAME_BYTES = 8 * 1024;
 const MAX_BUFFERED_INPUT_AUDIO_BYTES = 8 * 1024;
@@ -591,14 +590,33 @@ export const useLiveVoiceFollowUp = ({
         }));
       };
 
-      const startSessionTimers = (currentAttempt: ActiveAttempt) => {
+      const startSessionTimers = (
+        currentAttempt: ActiveAttempt,
+        expiresAt: string,
+      ) => {
         if (currentAttempt.serverReadyAt !== null) {
-          return;
+          return true;
         }
-        currentAttempt.serverReadyAt = Date.now();
-        warningTimerRef.current = window.setTimeout(() => {
-          setViewState(previous => ({ ...previous, warning: true }));
-        }, SESSION_WARNING_MS);
+        const now = Date.now();
+        const expiresAtMs = Date.parse(expiresAt);
+        const remainingMs = expiresAtMs - now;
+        if (!Number.isFinite(expiresAtMs) || remainingMs <= 0) {
+          finishAttempt({
+            reason: 'timeout',
+            keepOpen: true,
+            retryable: true,
+            errorCode: 'server_error',
+            pendingOutcome: 'failed',
+          });
+          return false;
+        }
+        currentAttempt.serverReadyAt = now;
+        warningTimerRef.current = window.setTimeout(
+          () => {
+            setViewState(previous => ({ ...previous, warning: true }));
+          },
+          Math.max(0, remainingMs - SESSION_WARNING_BEFORE_EXPIRY_MS),
+        );
         timeoutTimerRef.current = window.setTimeout(() => {
           const timedOutAttempt = attemptRef.current;
           const endedBeforeConnection =
@@ -611,7 +629,8 @@ export const useLiveVoiceFollowUp = ({
             errorCode: endedBeforeConnection ? 'server_error' : null,
             pendingOutcome: endedBeforeConnection ? 'failed' : 'cancelled',
           });
-        }, SESSION_TIMEOUT_MS);
+        }, remainingMs);
+        return true;
       };
 
       const activateAudio = () =>
@@ -794,7 +813,9 @@ export const useLiveVoiceFollowUp = ({
             const currentAttempt = attemptRef.current;
             if (currentAttempt?.generation === generation) {
               currentAttempt.serverVoiceState = 'listening';
-              startSessionTimers(currentAttempt);
+              if (!startSessionTimers(currentAttempt, session.expires_at)) {
+                return;
+              }
               markConnectedIfReady();
             }
             setViewState(previousState => ({

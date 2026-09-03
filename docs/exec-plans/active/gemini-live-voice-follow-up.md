@@ -22,8 +22,9 @@ AI-Shifu ingress.
 
 The first release supports reading mode, listen mode, and teacher preview;
 classroom remains excluded. It is available to every teacher only when
-`GEMINI_LIVE_ENABLED=true`. Sessions warn at 14 minutes 30 seconds and end at
-15 minutes. Usage and transcripts reported after the media plane moves into the
+`GEMINI_LIVE_ENABLED=true`. Sessions warn 30 seconds before the issued token's
+absolute 15-minute expiry and end at that expiry, including provisioning and
+connection time. Usage and transcripts reported after the media plane moves into the
 browser are explicitly client-reported and untrusted. They are bounded,
 persisted only with `billable=0`, and must never drive settlement, permissions,
 auditing, or another correctness-sensitive decision.
@@ -73,6 +74,13 @@ auditing, or another correctness-sensitive decision.
       20 seconds. Capacity admission now remains reserved through the full
       disclosed token lifetime instead of being released by heartbeat loss or
       `/end`.
+- [x] 2026-09-04: Anchored warning/end timers to the issued token expiry,
+      preserved authenticated finalization for existing sessions after the
+      feature flag is disabled, and prevented delayed turn acknowledgements
+      from writing into a different lesson's active history state.
+      Verification passes with 72 backend tests, 69 frontend tests,
+      TypeScript, lint/format checks, architecture boundaries, repository
+      harness, and the full pre-commit gate.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -158,6 +166,16 @@ auditing, or another correctness-sensitive decision.
   - Why: Gemini exposes no token revocation. Releasing admission on `/end` or a
     missed heartbeat would let a modified browser retain the old Google socket
     and mint another token outside the 24/6/1 limits.
+- Decision: apply the feature flag only to new-session admission. Already
+  issued sessions keep authenticated heartbeat, turn-report, and end access
+  until their binding or credential expires.
+  - Why: disabling the feature cannot revoke Google's credential, and must not
+    discard the final transcripts of an already active direct session.
+- Decision: carry the original outline ID through every asynchronous turn
+  acknowledgement and compare it with the history store's current lesson
+  scope at write time.
+  - Why: a terminal HTTP report may complete after navigation; its durable
+    history belongs to the original lesson, not the newly displayed one.
 - Decision: treat every browser turn report as untrusted. Accept only bounded
   transcript strings, bounded numeric usage fields, a bounded turn index and
   latency, and an interruption boolean. Force `billable=0` and never settle it.

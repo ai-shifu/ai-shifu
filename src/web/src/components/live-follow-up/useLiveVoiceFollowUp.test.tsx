@@ -131,7 +131,7 @@ const serverEvent = (
   ...overrides,
 });
 
-const sessionResponse = () => ({
+const sessionResponse = (expiresAtMs = Date.now() + 15 * 60 * 1000) => ({
   session_bid: 'session-1',
   ephemeral_token: 'auth_tokens/browser-only',
   websocket_url:
@@ -150,8 +150,8 @@ const sessionResponse = () => ({
       turnComplete: true as const,
     },
   },
-  expires_at: '2030-01-01T00:15:00Z',
-  new_session_expires_at: '2030-01-01T00:00:30Z',
+  expires_at: new Date(expiresAtMs).toISOString(),
+  new_session_expires_at: new Date(Date.now() + 30_000).toISOString(),
   heartbeat_interval_ms: 15_000,
 });
 
@@ -407,6 +407,26 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     act(() => mockSockets[0].message(serverEvent({ interrupted: true })));
     expect(mockAudio.clearPlayback).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('state')).toHaveTextContent('listening');
+  });
+
+  it('anchors the warning and timeout to the issued token expiry', async () => {
+    jest.useFakeTimers();
+    const issuedAt = Date.now();
+    mockCreateSession.mockResolvedValueOnce(sessionResponse(issuedAt + 60_000));
+    render(<Harness />);
+    await startAndOpen();
+    act(() => jest.advanceTimersByTime(10_000));
+    await makeReady();
+
+    act(() => jest.advanceTimersByTime(issuedAt + 29_999 - Date.now()));
+    expect(screen.getByTestId('warning')).toHaveTextContent('false');
+
+    act(() => jest.advanceTimersByTime(1));
+    expect(screen.getByTestId('warning')).toHaveTextContent('true');
+
+    act(() => jest.advanceTimersByTime(30_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('warning')).toHaveTextContent('false');
   });
 
   it('commits final client transcripts and usage through authenticated HTTP', async () => {
