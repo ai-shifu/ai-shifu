@@ -4058,6 +4058,8 @@ def _resolve_notification_skip_reason(status: str, error_code: str = "") -> str:
         return CREDIT_NOTIFICATION_SKIP_REASON_CONTACT
     if normalized_status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE:
         return CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE
+    if normalized_error_code == "missing_template_params":
+        return CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS
     if (
         normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED
         or normalized_error_code == "expiry_extended"
@@ -4103,7 +4105,11 @@ def _notification_skip_reason_condition(
     channel_condition = NotificationRecord.error_code == "unsupported_channel"
     stale_condition = or_(
         (NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED)
-        & ~or_(contact_condition, channel_condition),
+        & ~or_(
+            contact_condition,
+            channel_condition,
+            NotificationRecord.error_code == "missing_template_params",
+        ),
         NotificationRecord.error_code == "expiry_extended",
     )
     template_params_condition = (
