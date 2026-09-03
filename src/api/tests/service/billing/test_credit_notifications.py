@@ -1019,6 +1019,51 @@ def test_fixed_low_balance_email_rule_rejects_estimated_days_placeholder(
         )
 
 
+def test_fallback_low_balance_email_rule_rejects_estimated_days_placeholder(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    template = save_credit_notification_email_template(
+        app,
+        payload={
+            "template_name": "Low balance estimate with fallback",
+            "email_subject": "${estimated_remaining_days} days remaining",
+            "email_html_body": "<p>${estimated_remaining_days} days remaining.</p>",
+            "template_status": "active",
+            "applicable_notification_types": [CREDIT_NOTIFICATION_TYPE_LOW_BALANCE],
+        },
+    )
+
+    with pytest.raises(AppError):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "rules": [
+                    {
+                        "rule_bid": "email-low-estimated-fallback",
+                        "name": "Estimated low balance fallback",
+                        "trigger_event": CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+                        "channel": CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                        "template_code": template["template_code"],
+                        "enabled": True,
+                        "conditions": {
+                            "thresholds": [
+                                {
+                                    "kind": "estimated_days",
+                                    "days": 7,
+                                    "lookback_days": 7,
+                                    "min_consumed_days": 2,
+                                    "fallback_fixed_value": "5",
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+        )
+
+
 @pytest.mark.parametrize(
     ("subject", "html_body"),
     [

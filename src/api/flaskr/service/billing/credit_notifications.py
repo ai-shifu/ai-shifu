@@ -981,15 +981,19 @@ def _rule_guaranteed_template_placeholders(
     }
     conditions = rule.get("conditions")
     thresholds = conditions.get("thresholds") if isinstance(conditions, dict) else []
-    possible = [
-        fixed
-        if str(threshold.get("kind") or "").strip() == LOW_BALANCE_THRESHOLD_KIND_FIXED
-        else estimated
-        for threshold in thresholds
-        if isinstance(threshold, dict)
-        and str(threshold.get("kind") or "").strip()
-        in {LOW_BALANCE_THRESHOLD_KIND_FIXED, LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS}
-    ]
+    possible: list[set[str]] = []
+    for threshold in thresholds:
+        if not isinstance(threshold, dict):
+            continue
+        kind = str(threshold.get("kind") or "").strip()
+        if kind == LOW_BALANCE_THRESHOLD_KIND_FIXED:
+            possible.append(fixed)
+        elif kind == LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS:
+            possible.append(estimated)
+            if str(threshold.get("fallback_fixed_value") or "").strip():
+                # Sparse consumption history takes the fixed-credit fallback,
+                # which does not populate estimated-day-only parameters.
+                possible.append(fixed)
     if not possible:
         return set()
     return set.intersection(*possible)
