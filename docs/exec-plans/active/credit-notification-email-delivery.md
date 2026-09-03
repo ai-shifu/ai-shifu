@@ -23,11 +23,14 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
 - [x] 2026-09-02 14:28 CST: Created the stacked feature branch and inspected
   existing notification template, verified-email, policy, delivery, admin
   route, and template-management contracts.
-- [x] 2026-09-02: Implemented the data model, SMTP adapter, operator template
+- [x] 2026-09-02 17:10 CST: Implemented the data model, SMTP adapter, operator template
   create/update interface, policy validation, email recipient staging,
   delivery, and focused notification regression coverage.
-- [x] 2026-09-02: Added focused SMTP delivery and channel-specific frequency
+- [x] 2026-09-02 17:10 CST: Added focused SMTP delivery and channel-specific frequency
   regression coverage, plus the affected admin-page test suite.
+- [x] 2026-09-03 10:45 CST: Resolved review findings for email-rule selection,
+  SMTP transport safety and retry classification, template/rule validation,
+  contact-error visibility, and the affected frontend regression tests.
 - [ ] Validate with a controlled devus recipient after the database migration
   is deployed.
 
@@ -48,11 +51,12 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
   a narrow shared SMTP send helper; keep verification-code rate limiting,
   verification-code content, and persistence in the user service.
 - 2026-09-02: Formal notification email templates are created and maintained
-  by operators. Code owns rendering, variable validation, default safe HTML
-  shell, and UI strings, but not production subject/body copy.
-- 2026-09-02: Use `channel=email`, `provider=smtp`, and a stable operator
-  supplied `template_code`. Only enabled templates with valid variables can be
-  bound to an enabled email rule.
+  by operators. Code owns rendering, variable validation, the plain-text
+  fallback, and UI strings, but not production subject/body copy.
+- 2026-09-03: Use `channel=email`, `provider=smtp`, and a server-generated
+  stable `EMAIL_<id>` template Code. Operators maintain one HTML-capable email
+  body; the service derives the text alternative. Only enabled templates with
+  valid variables can be bound to an enabled email rule.
 - 2026-09-02: Email frequency is counted separately from SMS by including the
   channel in per-recipient/per-type frequency keys. A single rule still emits
   one channel only, so this does not create duplicate notices.
@@ -112,33 +116,37 @@ add a separate top-level menu. Shared translations live under `src/i18n/`.
 2. Add a local SMTP template repository/service that permits create, update,
    enable, and disable only for
    `email + smtp` rows. Keep Aliyun synchronized rows read-only.
-3. Extract a shared SMTP message builder/sender with TLS, authenticated login,
-   MIME alternative bodies, recipient normalization, and provider-safe error
-   mapping. Do not log recipient addresses or template bodies.
+3. Extract a shared SMTP message builder/sender with a bounded timeout,
+   verified TLS context, authenticated login, MIME alternative bodies,
+   recipient normalization, cleanup that cannot overwrite an accepted send,
+   and provider-safe error mapping. Do not log recipient addresses or template
+   bodies.
 4. Add channel-aware recipient staging and channel-specific frequency keys.
    Preserve current SMS keys and behavior exactly.
 5. Wire the email branch into notification dispatch and retry. Store recipient
    snapshots, provider result metadata, and bounded failure reasons on the
    existing `NotificationRecord`.
 6. Extend the template-management tab and rule editor for overseas email:
-   table create/edit, language/status filters, and active-template-only
-   selection. Keep all user-facing text in shared i18n.
+   table create/edit, one email body with generated text alternative,
+   language/status filters, and active-template-only SMTP selection. Keep all
+   user-facing text in shared i18n.
 7. Seed no production copy from source. Have an operator create the initial
    three templates in devus, run dry-run/test-send, bind disabled rules, then
    explicitly enable each rule after delivery confirmation.
 
 ## Validation and Acceptance
 
-- A devus operator can create an English email template with valid subject,
-  plain body, HTML body, locale, and stable code; invalid/missing placeholders
-  prevent binding to an enabled rule.
+- A devus operator can create an English email template with a valid subject,
+  one email body, locale, and server-generated stable Code; invalid/missing
+  placeholders prevent binding to an enabled rule.
 - An overseas account with a verified email receives each configured credit
   notification exactly once through SMTP, and the record shows `email` plus
   the email snapshot.
 - An account without a valid email never invokes SMTP and has an observable
   skipped/contact error record.
-- Email retry is idempotent: provider failure retries the same record, while a
-  sent record is not resent.
+- Transient SMTP failures retry the same record, while a sent record is not
+  resent. SMTP cannot provide strict exactly-once guarantees after an ambiguous
+  network failure, so the service must not claim stronger semantics.
 - Email and SMS frequency limits are independently enforced; existing domestic
   SMS frequency tests remain unchanged.
 - Domestic template sync, SMS rule selection, and SMS delivery continue to

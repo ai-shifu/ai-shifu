@@ -326,6 +326,12 @@ export function CreditNotificationTemplateManagementTab({
     contactMode === 'email'
       ? t('module.operationsCreditNotifications.templateManagement.reload')
       : t('module.operationsCreditNotifications.templateManagement.refresh');
+  const smsLoadError = t(
+    'module.operationsCreditNotifications.templateManagement.loadError',
+  );
+  const emailLoadError = t(
+    'module.operationsCreditNotifications.templateManagement.emailLoadError',
+  );
   const emailVariablesToggleLabel = emailVariablesExpanded
     ? t(
         'module.operationsCreditNotifications.templateManagement.emailVariables.collapse',
@@ -440,9 +446,7 @@ export function CreditNotificationTemplateManagementTab({
       </div>
       {error ? (
         <p className='text-sm text-destructive'>
-          {t(
-            'module.operationsCreditNotifications.templateManagement.loadError',
-          )}
+          {contactMode === 'email' ? emailLoadError : smsLoadError}
         </p>
       ) : null}
       {rows.length ? (

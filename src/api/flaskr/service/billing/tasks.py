@@ -602,6 +602,7 @@ def send_credit_notification_task(
     if payload.get("status") == "failed_provider" and payload.get("error_code") in {
         "provider_failed",
         "provider_exception",
+        "smtp_exception",
     }:
         message = "retrying credit notification"
         raise CreditNotificationRetryableError(message)

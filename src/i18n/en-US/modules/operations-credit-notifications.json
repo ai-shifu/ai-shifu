@@ -503,6 +503,7 @@
       "status": "Template status",
       "subject": "Email subject"
     },
+    "emailLoadError": "SMTP relay configuration is incomplete. Email templates can still be managed, but delivery is unavailable.",
     "emailLocales": {
       "arSA": "Arabic",
       "enUS": "English (United States)",

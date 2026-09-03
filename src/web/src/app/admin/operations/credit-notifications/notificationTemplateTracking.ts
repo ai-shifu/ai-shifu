@@ -17,3 +17,8 @@ export const NOTIFICATION_TEMPLATE_TRACKING_CONTEXT = {
   channel: 'sms',
   provider: 'aliyun',
 } as const;
+
+export const NOTIFICATION_EMAIL_TEMPLATE_TRACKING_CONTEXT = {
+  channel: 'email',
+  provider: 'smtp',
+} as const;

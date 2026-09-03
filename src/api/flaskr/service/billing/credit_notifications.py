@@ -22,7 +22,11 @@ from flaskr.common.observability import record_credit_notification_event
 from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.common.smtp import send_smtp_email
+from flaskr.service.common.smtp import (
+    SmtpConfigurationError,
+    is_smtp_configured,
+    send_smtp_email,
+)
 from flaskr.service.config import get_config
 from flaskr.service.config.funcs import add_config
 from flaskr.service.user.consts import (
@@ -95,6 +99,8 @@ NOTIFICATION_TEMPLATE_STATUS_DRAFT = "draft"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_LOCAL = "local"
 ALIYUN_TEMPLATE_LIST_PAGE_SIZE = 50
 ALIYUN_TEMPLATE_LIST_MAX_PAGES = 100
+EMAIL_TEMPLATE_SUBJECT_MAX_LENGTH = 255
+EMAIL_TEMPLATE_BODY_MAX_LENGTH = 100_000
 NOTIFICATION_TEMPLATE_APPROVAL_MAX_AGE = timedelta(hours=24)
 NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED = "synced"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER = "failed_provider"
@@ -1147,6 +1153,7 @@ def _local_notification_template_options(app: Flask) -> list[dict[str, object]]:
 def list_credit_notification_email_templates(app: Flask) -> dict[str, object]:
     """Return locally managed SMTP email templates."""
     with _maybe_app_context(app):
+        provider_available = is_smtp_configured(app)
         templates = (
             NotificationTemplate.query.filter(
                 NotificationTemplate.deleted == 0,
@@ -1164,11 +1171,11 @@ def list_credit_notification_email_templates(app: Flask) -> dict[str, object]:
                 for template in templates
             ],
             "source": "local",
-            "provider_available": bool(
-                str(app.config.get("SMTP_SERVER") or "").strip()
+            "provider_available": provider_available,
+            "error_code": "" if provider_available else "smtp_configuration_missing",
+            "error_message": (
+                "" if provider_available else "SMTP relay configuration is incomplete."
             ),
-            "error_code": "",
-            "error_message": "",
         }
 
 
@@ -1187,7 +1194,12 @@ def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, o
         raise_param_error("template_name")
     if not locale or len(locale) > 16:
         raise_param_error("locale")
-    if not subject or not html_body:
+    if (
+        not subject
+        or not html_body
+        or len(subject) > EMAIL_TEMPLATE_SUBJECT_MAX_LENGTH
+        or len(html_body) > EMAIL_TEMPLATE_BODY_MAX_LENGTH
+    ):
         raise_param_error("email_template_content")
     if status not in {
         NOTIFICATION_TEMPLATE_STATUS_DRAFT,
@@ -1278,6 +1290,9 @@ def save_credit_notification_email_template(
         template.metadata_json = {"updated_by": _normalize_bid(updated_by)}
         db.session.add(template)
         db.session.flush()
+        _validate_credit_notification_policy_templates(
+            app, load_credit_notification_policy()
+        )
         return _serialize_template_option(app, template, source="local")
 
 
@@ -3533,6 +3548,28 @@ def deliver_credit_notification(
                 "notification_status": notification.status,
             }
 
+        if _should_skip_low_balance_zero_without_remaining_days(
+            notification.notification_type,
+            notification.template_params_json,
+        ):
+            reason = "zero_balance_missing_estimated_remaining_days"
+            _finalize_notification(
+                notification,
+                status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                now=now,
+                error_code=reason,
+                error_message=(
+                    "Low balance notification has zero available credits and "
+                    "empty estimated remaining days."
+                ),
+            )
+            return {
+                "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                "notification_bid": notification.notification_bid,
+                "notification_status": notification.status,
+                "reason": reason,
+            }
+
         if notification.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
             recipient = str(notification.recipient_snapshot or "").strip().lower()
             if not _is_valid_email_recipient(recipient):
@@ -3612,6 +3649,21 @@ def deliver_credit_notification(
                     plain_body=plain_body,
                     html_body=html_body,
                 )
+            except SmtpConfigurationError as exc:
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                    now=now,
+                    error_code="smtp_configuration_error",
+                    error_message=str(exc),
+                    provider_response={"provider": "smtp", "error": str(exc)},
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                    "error_code": "smtp_configuration_error",
+                }
             except (OSError, RuntimeError, ValueError) as exc:
                 _finalize_notification(
                     notification,
@@ -3625,6 +3677,7 @@ def deliver_credit_notification(
                     "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
                     "notification_bid": notification.notification_bid,
                     "notification_status": notification.status,
+                    "error_code": "smtp_exception",
                 }
             _finalize_notification(
                 notification,
@@ -3695,29 +3748,6 @@ def deliver_credit_notification(
                 mobile=mobile,
                 error_code=reason,
                 error_message=f"Notification blocked by policy: {reason}.",
-            )
-            return {
-                "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
-                "notification_bid": notification.notification_bid,
-                "notification_status": notification.status,
-                "reason": reason,
-            }
-
-        if _should_skip_low_balance_zero_without_remaining_days(
-            notification.notification_type,
-            notification.template_params_json,
-        ):
-            reason = "zero_balance_missing_estimated_remaining_days"
-            _finalize_notification(
-                notification,
-                status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
-                now=now,
-                mobile=mobile,
-                error_code=reason,
-                error_message=(
-                    "Low balance notification has zero available credits and "
-                    "empty estimated remaining days."
-                ),
             )
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
@@ -4010,7 +4040,10 @@ def _resolve_notification_skip_reason(status: str, error_code: str = "") -> str:
     normalized_error_code = str(error_code or "").strip()
     if normalized_error_code == "unsupported_channel":
         return CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL
-    if normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE:
+    if normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE or (
+        normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED
+        and normalized_error_code in {"missing_email", "invalid_email"}
+    ):
         return CREDIT_NOTIFICATION_SKIP_REASON_CONTACT
     if normalized_status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE:
         return CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE
@@ -4048,13 +4081,18 @@ def _notification_skip_reason_condition(
     contact_condition = (
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
     )
+    contact_condition = or_(
+        contact_condition,
+        (NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED)
+        & NotificationRecord.error_code.in_(("missing_email", "invalid_email")),
+    )
     duplicate_condition = (
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE
     )
     channel_condition = NotificationRecord.error_code == "unsupported_channel"
     stale_condition = or_(
         (NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED)
-        & ~channel_condition,
+        & ~or_(contact_condition, channel_condition),
         NotificationRecord.error_code == "expiry_extended",
     )
     template_params_condition = (

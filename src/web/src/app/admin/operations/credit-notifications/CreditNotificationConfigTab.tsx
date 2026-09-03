@@ -149,6 +149,7 @@ export function CreditNotificationConfigTab({
         </ConfigSection>
 
         <CreditNotificationRuleManagementSection
+          contactMode={contactMode === 'email' ? 'email' : 'sms'}
           policy={policy}
           templateOptions={templateOptions}
           resolveTypeLabel={resolveTypeLabel}
