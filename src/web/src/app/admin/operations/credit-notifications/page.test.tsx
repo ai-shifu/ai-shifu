@@ -1554,6 +1554,99 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
   });
 
+  it('migrates overseas legacy SMS rules to disabled email rules only after confirmation', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: true,
+      types: {
+        credit_expiring: {
+          enabled: true,
+          template_code: 'SMS-EXPIRING',
+          windows: ['7d', '1d'],
+          merge_same_creator: true,
+        },
+        credit_granted: {
+          enabled: true,
+          template_code: 'SMS-GRANTED',
+        },
+        low_balance: {
+          enabled: true,
+          template_code: 'SMS-LOW-BALANCE',
+          thresholds: [{ kind: 'fixed', value: '100' }],
+        },
+      },
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRules',
+      }),
+    );
+    const confirmation = await screen.findByRole('alertdialog');
+    fireEvent.click(
+      within(confirmation).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRules',
+      }),
+    );
+
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rules: [
+            {
+              rule_bid: 'email-credit_expiring',
+              name: 'credit_expiring',
+              trigger_event: 'credit_expiring',
+              channel: 'email',
+              template_code: '',
+              enabled: false,
+              conditions: {
+                windows: ['7d', '1d'],
+                merge_same_creator: true,
+              },
+            },
+            {
+              rule_bid: 'email-credit_granted',
+              name: 'credit_granted',
+              trigger_event: 'credit_granted',
+              channel: 'email',
+              template_code: '',
+              enabled: false,
+              conditions: {},
+            },
+            {
+              rule_bid: 'email-low_balance',
+              name: 'low_balance',
+              trigger_event: 'low_balance',
+              channel: 'email',
+              template_code: '',
+              enabled: false,
+              conditions: {
+                thresholds: [{ kind: 'fixed', value: '100' }],
+              },
+            },
+          ],
+        }),
+      );
+    });
+    const savedPolicy = mockUpdateConfig.mock.calls[0]?.[0];
+    expect(JSON.stringify(savedPolicy?.rules)).not.toContain('SMS-');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_legacy_sms_rules_migrated',
+      { channel: 'email', rule_count: '3' },
+    );
+  });
+
   it('keeps fixed thresholds when editing an estimated-days rule condition', async () => {
     mockGetConfig.mockResolvedValueOnce({
       enabled: false,

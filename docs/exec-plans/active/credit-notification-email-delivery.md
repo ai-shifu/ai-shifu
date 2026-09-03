@@ -31,6 +31,10 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
 - [x] 2026-09-03 10:45 CST: Resolved review findings for email-rule selection,
   SMTP transport safety and retry classification, template/rule validation,
   contact-error visibility, and the affected frontend regression tests.
+- [x] 2026-09-03: Added an explicit overseas-only migration from synthesized
+  legacy SMS rules to disabled managed email rules, with no automatic policy
+  mutation on page load, an operator confirmation, and focused UI/event
+  regression coverage.
 - [ ] Validate with a controlled devus recipient after the database migration
   is deployed.
 
@@ -88,6 +92,14 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
   resolve the purchased product from the order-backed credit ledger entry.
   Do not invent a duplicate purchase-success event just for credit delivery;
   non-order grants continue to use templates without `${product}`.
+- 2026-09-03: Existing overseas configurations may still expose the three
+  synthesized legacy SMS rules. Provide a deliberate operator-confirmed
+  migration instead of silently changing them on render: replace the complete
+  managed `rules` list with matching disabled email rules, preserve trigger
+  conditions, and clear SMS template bindings. The existing legacy `types`
+  data remains for rollback compatibility, but is ignored once the managed
+  `rules` list is saved. This updates the existing configuration JSON only;
+  it requires no new schema migration.
 
 ## Outcomes & Retrospective
 
@@ -156,6 +168,10 @@ add a separate top-level menu. Shared translations live under `src/i18n/`.
 8. Make the overseas configuration surface channel-aware: show recipient-based
    frequency wording and email templates, keep quiet hours and balance
    protection, and omit SMS-only cost and budget controls.
+9. Add an overseas-only legacy-rule migration action with confirmation and
+   frontend coverage. It must create disabled email rules without template
+   bindings and must not mutate or save configuration until the operator
+   explicitly confirms the existing configuration save action.
 
 ## Validation and Acceptance
 
@@ -176,6 +192,9 @@ add a separate top-level menu. Shared translations live under `src/i18n/`.
   pass their current test suites.
 - The Alembic migration upgrades cleanly on MySQL and remains compatible with
   the already-applied #2746 recipient migration.
+- Overseas legacy SMS rules can be explicitly migrated to disabled email rules;
+  their SMS template bindings do not survive the migration, and no legacy rule
+  remains active after the migrated policy is saved.
 
 ## Idempotence and Recovery
 

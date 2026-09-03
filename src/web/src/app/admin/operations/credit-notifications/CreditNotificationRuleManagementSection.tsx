@@ -51,6 +51,22 @@ import type { UpdatePolicy } from './useCreditNotificationConfigTabState';
 
 type RuleAction = 'created' | 'edited' | 'deleted' | 'toggled';
 
+const createMigratedEmailRules = (
+  rules: CreditNotificationRule[],
+  resolveTypeLabel: (value: string) => string,
+): CreditNotificationRule[] =>
+  rules.map(rule => ({
+    rule_bid: `email-${rule.trigger_event}`,
+    name: resolveTypeLabel(rule.trigger_event),
+    trigger_event: rule.trigger_event,
+    channel: 'email',
+    template_code: '',
+    enabled: false,
+    conditions: JSON.parse(
+      JSON.stringify(rule.conditions),
+    ) as CreditNotificationRule['conditions'],
+  }));
+
 const createRuleBid = () =>
   `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -108,6 +124,7 @@ export function CreditNotificationRuleManagementSection({
   resolveTypeLabel,
   updatePolicy,
   onRuleAction,
+  onLegacyRulesMigrated,
 }: {
   contactMode: CreditNotificationRule['channel'];
   policy: AdminOperationCreditNotificationPolicy;
@@ -118,6 +135,7 @@ export function CreditNotificationRuleManagementSection({
     action: RuleAction,
     triggerEvent: KnownNotificationType,
   ) => void;
+  onLegacyRulesMigrated: () => void;
 }) {
   const { t } = useTranslation();
   const [editingRule, setEditingRule] = useState<CreditNotificationRule | null>(
@@ -126,7 +144,13 @@ export function CreditNotificationRuleManagementSection({
   const [isNewRule, setIsNewRule] = useState(false);
   const [deletingRule, setDeletingRule] =
     useState<CreditNotificationRule | null>(null);
+  const [confirmingLegacyMigration, setConfirmingLegacyMigration] =
+    useState(false);
   const rows = policy.rules;
+  const canMigrateLegacySmsRules =
+    contactMode === 'email' &&
+    rows.length > 0 &&
+    rows.every(rule => rule.legacy);
   const columns = useMemo(
     () => [
       {
@@ -209,6 +233,13 @@ export function CreditNotificationRuleManagementSection({
     onRuleAction('deleted', deletingRule.trigger_event);
     setDeletingRule(null);
   };
+  const migrateLegacySmsRules = () => {
+    updatePolicy(draft => {
+      draft.rules = createMigratedEmailRules(draft.rules, resolveTypeLabel);
+    });
+    onLegacyRulesMigrated();
+    setConfirmingLegacyMigration(false);
+  };
 
   return (
     <>
@@ -224,16 +255,37 @@ export function CreditNotificationRuleManagementSection({
               )
         }
         action={
-          <Button
-            type='button'
-            size='sm'
-            onClick={openNewRule}
-          >
-            <Plus className='mr-1.5 h-4 w-4' />
-            {t('module.operationsCreditNotifications.ruleManagement.newRule')}
-          </Button>
+          <div className='flex items-center gap-2'>
+            {canMigrateLegacySmsRules ? (
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                onClick={() => setConfirmingLegacyMigration(true)}
+              >
+                {t(
+                  'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRules',
+                )}
+              </Button>
+            ) : null}
+            <Button
+              type='button'
+              size='sm'
+              onClick={openNewRule}
+            >
+              <Plus className='mr-1.5 h-4 w-4' />
+              {t('module.operationsCreditNotifications.ruleManagement.newRule')}
+            </Button>
+          </div>
         }
       >
+        {canMigrateLegacySmsRules ? (
+          <p className='mb-4 text-sm text-muted-foreground'>
+            {t(
+              'module.operationsCreditNotifications.ruleManagement.legacySmsMigrationHint',
+            )}
+          </p>
+        ) : null}
         {rows.length ? (
           <CreditNotificationConfigOverviewTable
             columns={columns}
@@ -397,6 +449,35 @@ export function CreditNotificationRuleManagementSection({
               onClick={deleteRule}
             >
               {t('module.operationsCreditNotifications.ruleManagement.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={confirmingLegacyMigration}
+        onOpenChange={open => !open && setConfirmingLegacyMigration(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t(
+                'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRulesTitle',
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRulesDescription',
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t('module.operationsCreditNotifications.ruleManagement.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={migrateLegacySmsRules}>
+              {t(
+                'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRules',
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
