@@ -63,6 +63,7 @@ type StartTarget = {
 };
 
 type ActiveAttempt = StartTarget & {
+  outlineBid: string;
   generation: number;
   attemptStartedAt: number;
   audioActivated: boolean;
@@ -100,6 +101,7 @@ type UseLiveVoiceFollowUpOptions = {
   learningMode: LiveFollowUpLearningMode;
   sessionScope: LiveFollowUpLearningMode | 'classroom';
   onTurnCommitted?: (turn: {
+    outlineBid: string;
     anchorElementBid: string;
     turnIndex: number;
     userTranscript: string;
@@ -337,6 +339,7 @@ export const useLiveVoiceFollowUp = ({
   const persistCommits = useCallback(
     (
       sessionBid: string,
+      outlineBid: string,
       anchorElementBid: string,
       commits: GeminiLiveTurnCommit[],
       generation: number,
@@ -357,6 +360,7 @@ export const useLiveVoiceFollowUp = ({
           }
           try {
             onTurnCommitted?.({
+              outlineBid,
               anchorElementBid,
               turnIndex: commit.turnIndex,
               userTranscript: commit.userTranscript,
@@ -408,6 +412,7 @@ export const useLiveVoiceFollowUp = ({
         : accumulator.popReady();
       persistCommits(
         session.session_bid,
+        attempt.outlineBid,
         attempt.anchorElementBid,
         commits,
         generation,
@@ -457,6 +462,7 @@ export const useLiveVoiceFollowUp = ({
       if (attempt && session && accumulator) {
         persistCommits(
           session.session_bid,
+          attempt.outlineBid,
           attempt.anchorElementBid,
           accumulator.finishSession(),
           attempt.generation,
@@ -533,6 +539,7 @@ export const useLiveVoiceFollowUp = ({
       lastTargetRef.current = target;
       const attempt: ActiveAttempt = {
         ...target,
+        outlineBid,
         generation,
         attemptStartedAt: Date.now(),
         audioActivated: false,

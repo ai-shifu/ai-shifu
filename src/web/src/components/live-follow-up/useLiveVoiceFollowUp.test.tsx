@@ -167,12 +167,14 @@ const createDeferred = <T,>() => {
 
 const Harness = ({
   shifuBid = 'course-1',
+  outlineBid = 'lesson-1',
   previewMode = false,
   learningMode = 'read',
   sessionScope = learningMode,
   onTurnCommitted,
 }: {
   shifuBid?: string;
+  outlineBid?: string;
   previewMode?: boolean;
   learningMode?: 'read' | 'listen';
   sessionScope?: 'read' | 'listen' | 'classroom';
@@ -182,7 +184,7 @@ const Harness = ({
 }) => {
   const controller = useLiveVoiceFollowUp({
     shifuBid,
-    outlineBid: 'lesson-1',
+    outlineBid,
     previewMode,
     learningMode,
     sessionScope,
@@ -442,12 +444,59 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       { timeout: 1500 },
     );
     expect(onTurnCommitted).toHaveBeenCalledWith({
+      outlineBid: 'lesson-1',
       anchorElementBid: 'element-1',
       turnIndex: 1,
       userTranscript: 'Question',
       assistantTranscript: 'Answer',
     });
   });
+
+  it.each([true, false])(
+    'keeps the original lesson on a delayed commit (started before navigation: %s)',
+    async startedBeforeNavigation => {
+      jest.useFakeTimers();
+      const pendingCommit = createDeferred<object>();
+      mockCommitTurn.mockReturnValueOnce(pendingCommit.promise);
+      const onTurnCommitted = jest.fn();
+      const { rerender } = render(
+        <Harness onTurnCommitted={onTurnCommitted} />,
+      );
+      await startAndOpen();
+      await makeReady();
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            inputTranscripts: ['Question from the old lesson'],
+            turnComplete: true,
+          }),
+        ),
+      );
+      if (startedBeforeNavigation) {
+        act(() => jest.advanceTimersByTime(500));
+        expect(mockCommitTurn).toHaveBeenCalledTimes(1);
+      }
+
+      rerender(
+        <Harness
+          outlineBid='lesson-2'
+          onTurnCommitted={onTurnCommitted}
+        />,
+      );
+      expect(mockCommitTurn).toHaveBeenCalledTimes(1);
+      expect(onTurnCommitted).not.toHaveBeenCalled();
+
+      await act(async () => pendingCommit.resolve({}));
+
+      expect(onTurnCommitted).toHaveBeenCalledWith({
+        outlineBid: 'lesson-1',
+        anchorElementBid: 'element-1',
+        turnIndex: 1,
+        userTranscript: 'Question from the old lesson',
+        assistantTranscript: '',
+      });
+    },
+  );
 
   it('commits a completed reconciliation-window turn before ending the session', async () => {
     const onTurnCommitted = jest.fn();
@@ -481,6 +530,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       ),
     );
     expect(onTurnCommitted).toHaveBeenCalledWith({
+      outlineBid: 'lesson-1',
       anchorElementBid: 'element-1',
       turnIndex: 1,
       userTranscript: 'Question before close',
@@ -576,6 +626,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       { timeout: 1_500 },
     );
     expect(onTurnCommitted).toHaveBeenCalledWith({
+      outlineBid: 'lesson-1',
       anchorElementBid: 'element-1',
       turnIndex: 1,
       userTranscript: 'Please explain',
