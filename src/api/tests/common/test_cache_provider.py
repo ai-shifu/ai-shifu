@@ -1,5 +1,6 @@
 """Verify shared cache provider fallback behavior."""
 
+import pytest
 from flaskr.common.cache_provider import FallbackCacheProvider, InMemoryCacheProvider
 
 
@@ -32,17 +33,10 @@ class _UnavailableLockProvider:
         return _UnavailableLock()
 
 
-def test_fallback_cache_lock_handles_primary_acquire_failure() -> None:
+def test_fallback_cache_lock_keeps_primary_acquire_failure_fail_closed() -> None:
     fallback = InMemoryCacheProvider()
     provider = FallbackCacheProvider(_UnavailableLockProvider(), fallback)  # type: ignore[arg-type]
 
-    first_lock = provider.lock("verification-lock")
-    assert first_lock.acquire(blocking=True, blocking_timeout=1)
-    assert first_lock.extend(10, replace_ttl=True)
-
-    competing_lock = provider.lock("verification-lock")
-    assert not competing_lock.acquire(blocking=False)
-
-    first_lock.release()
-    assert competing_lock.acquire(blocking=False)
-    competing_lock.release()
+    lock = provider.lock("shared-distributed-lock")
+    with pytest.raises(ConnectionError):
+        lock.acquire(blocking=True, blocking_timeout=1)
