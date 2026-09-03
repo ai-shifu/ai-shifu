@@ -278,6 +278,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
   beforeEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    mockTrackEvent.mockReset();
     mockSockets.length = 0;
     mockActivateAudio.mockResolvedValue(mockAudio);
     mockCreateSession.mockResolvedValue(sessionResponse());
@@ -627,6 +628,10 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     fireEvent.click(screen.getByRole('button', { name: 'end' }));
     expect(mockCommitTurn).not.toHaveBeenCalled();
     expect(mockReleaseExclusive).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_voice_follow_up_session_end',
+      expect.anything(),
+    );
     act(() => callbacks.onPlaybackProgress(1, 4));
     await act(async () => stoppedAudio.resolve());
 
@@ -637,6 +642,10 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       }),
     );
     expect(mockReleaseExclusive).toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_session_end',
+      expect.objectContaining({ had_exchange: true, end_reason: 'user_end' }),
+    );
   });
 
   it('initiates all unacknowledged turns before the document is discarded', async () => {
@@ -890,17 +899,217 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(screen.getByTestId('state')).toHaveTextContent('ended');
   });
 
-  it('does not emit learner analytics for teacher preview', async () => {
-    render(<Harness previewMode />);
-    await startAndOpen();
-    await makeReady();
-    fireEvent.click(screen.getByRole('button', { name: 'end' }));
+  it.each([{ previewMode: true }, { sessionScope: 'classroom' as const }])(
+    'does not emit learner analytics for excluded scope %j',
+    async options => {
+      render(<Harness {...options} />);
+      await startAndOpen();
+      await makeReady();
+      fireEvent.click(screen.getByRole('button', { name: 'end' }));
 
-    expect(mockTrackEvent).not.toHaveBeenCalled();
-    await waitFor(() =>
-      expect(mockEndSession).toHaveBeenCalledWith('session-1', 'ended_by_user'),
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(mockEndSession).toHaveBeenCalledWith(
+          'session-1',
+          'ended_by_user',
+        ),
+      );
+    },
+  );
+
+  it.each([
+    {
+      shifuBid: 'course-2',
+      outlineBid: 'lesson-2',
+      learningMode: 'listen' as const,
+    },
+    { previewMode: true },
+    { sessionScope: 'classroom' as const },
+  ])(
+    'keeps connected analytics bound to the originating attempt after %j',
+    async destination => {
+      jest.useFakeTimers();
+      const { rerender, unmount } = render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      act(() => jest.advanceTimersByTime(1250));
+
+      rerender(<Harness {...destination} />);
+      await waitFor(() =>
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'learner_voice_follow_up_session_end',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            duration_ms: 1250,
+            had_exchange: false,
+            end_reason: 'lesson_changed',
+          },
+        ),
+      );
+      unmount();
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_session_end',
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
+  it('attributes cancellation before connection to the original learner attempt', async () => {
+    const { rerender } = render(<Harness />);
+    await startAndOpen();
+    rerender(
+      <Harness
+        shifuBid='course-2'
+        outlineBid='lesson-2'
+        learningMode='listen'
+        previewMode
+      />,
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_result',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        outcome: 'cancelled',
+        error_code: 'none',
+      },
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_result',
+      ),
+    ).toHaveLength(1);
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_voice_follow_up_session_end',
+      expect.anything(),
     );
   });
+
+  it('does not turn a preview attempt into learner analytics after navigation', async () => {
+    const { rerender } = render(<Harness previewMode />);
+    await startAndOpen();
+    await makeReady();
+    rerender(<Harness />);
+    await waitFor(() => expect(mockEndSession).toHaveBeenCalled());
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  it.each(['end', 'close', 'pagehide'] as const)(
+    'counts a completed exchange before a pending HTTP acknowledgement on %s',
+    async action => {
+      jest.useFakeTimers();
+      const pendingCommit = createDeferred<object>();
+      mockCommitTurn.mockReturnValueOnce(pendingCommit.promise);
+      const { unmount } = render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      const callbacks = mockActivateAudio.mock.calls[0][0] as {
+        onPlaybackComplete: (turnIndex: number) => void;
+      };
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            inputTranscripts: ['Private question'],
+            outputTranscripts: ['Private answer'],
+            audioChunks: [new ArrayBuffer(4)],
+            turnComplete: true,
+          }),
+        ),
+      );
+      act(() => callbacks.onPlaybackComplete(1));
+      act(() => jest.advanceTimersByTime(500));
+      expect(mockCommitTurn).toHaveBeenCalledTimes(1);
+      if (action === 'pagehide') {
+        act(() => window.dispatchEvent(new Event('pagehide')));
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: action }));
+      }
+      await waitFor(() =>
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'learner_voice_follow_up_session_end',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            duration_ms: 500,
+            had_exchange: true,
+            end_reason:
+              action === 'pagehide' ? 'page_hidden' : `user_${action}`,
+          },
+        ),
+      );
+      unmount();
+      await act(async () => pendingCommit.resolve({}));
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_session_end',
+        ),
+      ).toHaveLength(1);
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'Private',
+      );
+    },
+  );
+
+  it.each([false, true])(
+    'does not count a usage-only or unheard turn as an exchange (has input: %s)',
+    async hasInput => {
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            inputTranscripts: hasInput ? ['Question'] : [],
+            outputTranscripts: hasInput ? ['Unheard answer'] : [],
+            audioChunks: hasInput ? [new ArrayBuffer(4)] : [],
+            usageMetadata: { totalTokenCount: 5 },
+            turnComplete: true,
+          }),
+        ),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'end' }));
+      await waitFor(() =>
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'learner_voice_follow_up_session_end',
+          expect.objectContaining({ had_exchange: false }),
+        ),
+      );
+    },
+  );
+
+  it.each(['sync', 'async'])(
+    'keeps conversation and cleanup working when analytics fail %s',
+    async failure => {
+      mockTrackEvent.mockImplementation(() => {
+        if (failure === 'sync') {
+          throw new Error('tracking unavailable');
+        }
+        return Promise.reject(new Error('tracking unavailable'));
+      });
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      fireEvent.click(screen.getByRole('button', { name: 'end' }));
+      await waitFor(() =>
+        expect(mockEndSession).toHaveBeenCalledWith(
+          'session-1',
+          'ended_by_user',
+        ),
+      );
+      expect(mockAudio.stop).toHaveBeenCalled();
+      expect(mockReleaseExclusive).toHaveBeenCalled();
+      expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    },
+  );
 
   it('fails closed when Gemini rejects the constrained setup', async () => {
     render(<Harness />);

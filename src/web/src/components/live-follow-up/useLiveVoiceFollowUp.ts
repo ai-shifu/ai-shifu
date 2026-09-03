@@ -63,7 +63,10 @@ type StartTarget = {
 };
 
 type ActiveAttempt = StartTarget & {
+  shifuBid: string;
   outlineBid: string;
+  learningMode: LiveFollowUpLearningMode;
+  analyticsEnabled: boolean;
   generation: number;
   attemptStartedAt: number;
   audioActivated: boolean;
@@ -73,6 +76,22 @@ type ActiveAttempt = StartTarget & {
   attemptResultReported: boolean;
   sessionEndReported: boolean;
   hadExchange: boolean;
+};
+
+const recordCompletedExchange = (
+  attempt: ActiveAttempt | null,
+  commits: GeminiLiveTurnCommit[],
+) => {
+  if (
+    attempt &&
+    commits.some(
+      commit => commit.userTranscript && commit.playedAnswerTranscript,
+    )
+  ) {
+    // An exchange describes locally observed conversation, not HTTP storage
+    // latency or success. Usage-only and unheard responses do not count.
+    attempt.hadExchange = true;
+  }
 };
 
 export type LiveVoiceFollowUpViewState = {
@@ -244,7 +263,7 @@ export const useLiveVoiceFollowUp = ({
 
   const analyticsEnabled = shouldTrackLiveVoiceFollowUp({
     previewMode,
-    learningMode,
+    learningMode: sessionScope,
   });
 
   const reportAttemptResult = useCallback(
@@ -257,30 +276,34 @@ export const useLiveVoiceFollowUp = ({
         return;
       }
       attempt.attemptResultReported = true;
-      if (!analyticsEnabled) {
+      if (!attempt.analyticsEnabled) {
         return;
       }
       trackSafely(
         LIVE_VOICE_FOLLOW_UP_RESULT_EVENT,
         buildLiveVoiceFollowUpResultAnalytics({
-          shifuBid,
-          outlineBid,
-          learningMode,
+          shifuBid: attempt.shifuBid,
+          outlineBid: attempt.outlineBid,
+          learningMode: attempt.learningMode,
           surface: attempt.surface,
           outcome,
           errorCode,
         }),
       );
     },
-    [analyticsEnabled, learningMode, outlineBid, shifuBid, trackSafely],
+    [trackSafely],
   );
 
   const reportSessionEnd = useCallback(
-    (attempt: ActiveAttempt, reason: LiveVoiceFollowUpEndReason) => {
+    (
+      attempt: ActiveAttempt,
+      reason: LiveVoiceFollowUpEndReason,
+      endedAt: number,
+    ) => {
       if (
         attempt.sessionEndReported ||
         attempt.connectedAt === null ||
-        !analyticsEnabled
+        !attempt.analyticsEnabled
       ) {
         return;
       }
@@ -288,17 +311,17 @@ export const useLiveVoiceFollowUp = ({
       trackSafely(
         LIVE_VOICE_FOLLOW_UP_SESSION_END_EVENT,
         buildLiveVoiceFollowUpSessionEndAnalytics({
-          shifuBid,
-          outlineBid,
-          learningMode,
+          shifuBid: attempt.shifuBid,
+          outlineBid: attempt.outlineBid,
+          learningMode: attempt.learningMode,
           surface: attempt.surface,
-          durationMs: Date.now() - attempt.connectedAt,
+          durationMs: endedAt - attempt.connectedAt,
           hadExchange: attempt.hadExchange,
           endReason: reason,
         }),
       );
     },
-    [analyticsEnabled, learningMode, outlineBid, shifuBid, trackSafely],
+    [trackSafely],
   );
 
   const clearTimers = useCallback(() => {
@@ -353,10 +376,6 @@ export const useLiveVoiceFollowUp = ({
       const writer = new LiveFollowUpTurnWriter(
         sessionBid,
         commit => {
-          const activeAttempt = attemptRef.current;
-          if (activeAttempt?.generation === generation) {
-            activeAttempt.hadExchange = true;
-          }
           try {
             onTurnCommitted?.({
               outlineBid,
@@ -429,6 +448,7 @@ export const useLiveVoiceFollowUp = ({
       const commits = force
         ? accumulator.finishSession()
         : accumulator.popReady();
+      recordCompletedExchange(attempt, commits);
       persistCommits(
         session.session_bid,
         attempt.outlineBid,
@@ -455,6 +475,7 @@ export const useLiveVoiceFollowUp = ({
 
   const teardownTransport = useCallback(
     (reason: LiveVoiceFollowUpEndReason) => {
+      const endedAt = Date.now();
       clearTimers();
       setupReadyRef.current = false;
       reconnectingRef.current = false;
@@ -496,12 +517,15 @@ export const useLiveVoiceFollowUp = ({
       turnWriterRef.current = null;
       const endReason = directSessionEndReason(reason);
       const flushForUnload = () => {
-        if (writer) {
-          try {
-            void writer
-              .handOffForUnload(accumulator?.finishSession() ?? [], endReason)
-              .catch(() => {});
-          } catch {}
+        try {
+          const commits = accumulator?.finishSession() ?? [];
+          recordCompletedExchange(attempt, commits);
+          void writer?.handOffForUnload(commits, endReason).catch(() => {});
+        } catch {
+        } finally {
+          if (attempt) {
+            reportSessionEnd(attempt, reason, endedAt);
+          }
         }
       };
       closingFinalizersRef.current.add(flushForUnload);
@@ -520,16 +544,24 @@ export const useLiveVoiceFollowUp = ({
           releaseExclusive();
         }
         try {
-          writer?.enqueue(accumulator?.finishSession() ?? []);
+          const commits = accumulator?.finishSession() ?? [];
+          recordCompletedExchange(attempt, commits);
+          if (attempt) {
+            reportSessionEnd(attempt, reason, endedAt);
+          }
+          writer?.enqueue(commits);
           await writer?.finish(endReason);
         } catch {
         } finally {
+          if (attempt) {
+            reportSessionEnd(attempt, reason, endedAt);
+          }
           closingFinalizersRef.current.delete(flushForUnload);
         }
       };
       void finalize();
     },
-    [clearTimers, getTurnWriter, releaseExclusive],
+    [clearTimers, getTurnWriter, releaseExclusive, reportSessionEnd],
   );
 
   const finishAttempt = useCallback(
@@ -546,7 +578,6 @@ export const useLiveVoiceFollowUp = ({
         if (!attempt.attemptResultReported) {
           reportAttemptResult(attempt, pendingOutcome, errorCode || 'none');
         }
-        reportSessionEnd(attempt, reason);
       }
       attemptRef.current = null;
       if (!unmountedRef.current) {
@@ -566,7 +597,7 @@ export const useLiveVoiceFollowUp = ({
         }));
       }
     },
-    [reportAttemptResult, reportSessionEnd, teardownTransport],
+    [reportAttemptResult, teardownTransport],
   );
   finishAttemptRef.current = finishAttempt;
 
@@ -597,7 +628,10 @@ export const useLiveVoiceFollowUp = ({
       lastTargetRef.current = target;
       const attempt: ActiveAttempt = {
         ...target,
+        shifuBid,
         outlineBid,
+        learningMode,
+        analyticsEnabled,
         generation,
         attemptStartedAt: Date.now(),
         audioActivated: false,
@@ -1135,6 +1169,7 @@ export const useLiveVoiceFollowUp = ({
 
   useEffect(() => {
     unmountedRef.current = false;
+    const closingFinalizers = closingFinalizersRef.current;
     return () => {
       unmountedRef.current = true;
       if (attemptRef.current) {
@@ -1143,7 +1178,7 @@ export const useLiveVoiceFollowUp = ({
           keepOpen: false,
         });
       }
-      closingFinalizersRef.current.forEach(finalize => finalize());
+      closingFinalizers.forEach(finalize => finalize());
     };
   }, []);
 

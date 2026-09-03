@@ -100,6 +100,15 @@ auditing, or another correctness-sensitive decision.
       authentication/context JSON parsing. Other routes retain their existing
       logging and limits. Regression coverage includes known-length rejection
       without reading input and bounded unknown-length parsing.
+- [x] 2026-09-04: Snapshot analytics dimensions and eligibility at the original
+      click. Terminal events preserve that snapshot across lesson/mode/preview
+      changes. `had_exchange` reflects a finalized local user/played-answer
+      pair, including reports awaiting HTTP acknowledgement, and excludes
+      usage-only or unheard turns. End duration stops at transport teardown.
+      Verification passes with 101 focused backend tests, 89 frontend tests,
+      TypeScript, and the full pre-commit gate. HTTP policy tests use the
+      repository-pinned Flask 3.1.3 / Werkzeug 3.1.6 in an isolated dependency
+      directory; the shared local virtualenv still had Flask 3.0.3.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -376,7 +385,17 @@ and payload allowlist remain unchanged; the UI explains the retry deadline.
 Result fires once per attempt: `success` after Gemini setup and local
 audio readiness, `failed` on a pre-connection terminal failure, or `cancelled`
 on explicit end/close/navigation before connection. Session end fires once for
-a previously connected session.
+a previously connected session, after final local playback/turn reconciliation
+but without waiting for HTTP acknowledgement. Pagehide/unmount emits in the
+same lifecycle callback using the latest acknowledged playback checkpoint.
+Dimensions and eligibility are captured at the originating click, not read
+from a later render. `duration_ms` ends when transport teardown starts;
+`had_exchange` means at least one finalized turn contains both a nonempty final
+user transcript and a nonempty played-answer transcript. It measures observed
+conversation, not history-storage success; pending and already acknowledged
+reports count equally, while usage-only and unheard turns do not count.
+This corrects the v1 producer race without changing event names or payload
+keys; the aggregate attempt/result/session-end consumer needs no migration.
 
 Common fields are `shifu_bid`, `outline_bid`, `learning_mode=read|listen`, and
 `surface=read_content|listen_player`. Result adds bounded `outcome` and
