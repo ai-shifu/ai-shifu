@@ -36,7 +36,8 @@ def test_direct_transport_uses_only_google_constrained_websocket() -> None:
     assert "BidiGenerateContentConstrained" in backend
     assert "BidiGenerateContentConstrained" in frontend
     assert "https://generativelanguage.googleapis.com/v1beta/auth_tokens" in backend
-    assert "wss://generativelanguage.googleapis.com" in frontend
+    assert "url.origin !== GEMINI_LIVE_WEBSOCKET_ORIGIN" in frontend
+    assert "url.pathname !== GEMINI_LIVE_CONSTRAINED_PATH" in frontend
 
 
 def test_live_feature_flag_defaults_off_in_deployment_examples() -> None:
