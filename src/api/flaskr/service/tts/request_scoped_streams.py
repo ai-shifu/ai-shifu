@@ -27,8 +27,10 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
-    from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
-    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+    from flaskr.service.tts.streaming_tts import (
+        RunMarkdownFlowDTO,
+        StreamingTTSProcessor,
+    )
 
 _MINIMAX_HTTP_STREAM_SEGMENT_TARGET_MS = 1500
 _MINIMAX_HTTP_STREAM_MAX_CHARS = 9500
