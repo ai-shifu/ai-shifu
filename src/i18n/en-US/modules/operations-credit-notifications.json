@@ -521,11 +521,10 @@
       "availableCredits": "Available credits",
       "collapse": "Collapse variables",
       "credits": "Granted credits",
-      "date": "Validity date",
       "estimatedRemainingDays": "Estimated remaining days",
       "expand": "Expand variables",
       "expiresAt": "Credit expiry date",
-      "product": "Plan name"
+      "window": "Expiry reminder window"
     },
     "empty": "No templates match the current filters.",
     "loadError": "The Alibaba Cloud template list could not be loaded. Local cached templates are shown when available.",

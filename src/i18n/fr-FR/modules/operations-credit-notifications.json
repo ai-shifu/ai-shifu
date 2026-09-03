@@ -521,11 +521,10 @@
       "availableCredits": "Crédits disponibles",
       "collapse": "Réduire les variables",
       "credits": "Crédits attribués",
-      "date": "Date de validité",
       "estimatedRemainingDays": "Jours restants estimés",
       "expand": "Développer les variables",
       "expiresAt": "Date d’expiration des crédits",
-      "product": "Nom du forfait"
+      "window": "Fenêtre de rappel d’expiration"
     },
     "empty": "Aucun modèle ne correspond aux filtres.",
     "loadError": "La liste Alibaba Cloud n’a pas pu être chargée. Les modèles en cache restent affichés.",

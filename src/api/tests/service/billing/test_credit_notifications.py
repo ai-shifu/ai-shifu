@@ -1002,6 +1002,15 @@ def test_email_template_uses_one_body_and_preserves_generated_code_on_update(
     assert updated["email_html_body"] == "<p>Your balance: ${credits}</p>"
 
 
+def test_email_plain_text_alternative_excludes_non_visible_html_content() -> None:
+    plain_body = credit_notifications._email_html_to_plain_text(
+        "<head><title>Ignore</title><style>.hidden { color: red; }</style>"
+        "<script>window.secret = true;</script></head><p>Visible body</p>"
+    )
+
+    assert plain_body == "Visible body"
+
+
 def test_active_email_template_cannot_be_drafted_while_bound_to_enabled_rule(
     credit_notifications_app: Flask,
 ) -> None:
