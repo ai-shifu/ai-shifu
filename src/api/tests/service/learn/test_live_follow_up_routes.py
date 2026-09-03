@@ -177,12 +177,24 @@ def _post_action(
     *,
     origin: str = "https://learn.example.com",
 ) -> object:
-    return app.test_client().post(
+    response = app.test_client().post(
         f"/api/learn/live-follow-up/session/session-1/{action}",
         json=payload if payload is not None else {},
         headers={"Origin": origin},
         base_url="https://learn.example.com",
     )
+    if response.status_code == 200:
+        assert response.mimetype == "application/json"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+    return response
+
+
+def test_live_response_never_interprets_reflected_values_as_html() -> None:
+    payload = {"session_bid": "<script>alert('test')</script>"}
+    response = routes._make_live_response(payload)
+    assert response.mimetype == "application/json"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.json == {"code": 0, "message": "success", "data": payload}
 
 
 @pytest.mark.parametrize(
@@ -289,6 +301,8 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
     assert "ws_path" not in body
     assert response.headers.get("Set-Cookie") is None
     assert response.headers["Cache-Control"] == "no-store"
+    assert response.mimetype == "application/json"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert "systemInstruction" not in body["setup"]["setup"]
     assert body["history"]["clientContent"]["turns"][0]["parts"][0]["text"] == (
         "Earlier question"

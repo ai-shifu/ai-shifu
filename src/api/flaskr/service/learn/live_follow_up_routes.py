@@ -96,6 +96,15 @@ class LiveFollowUpModelUnavailableError(RuntimeError):
     """Signal that Gemini no longer advertises the required Bidi capability."""
 
 
+def _make_live_response(data: dict[str, object]) -> Response:
+    serialized = make_common_response(data)
+    return Response(
+        serialized,
+        mimetype="application/json",
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
 def _request_user_bid() -> str:
     user = getattr(request, "user", None)
     return str(getattr(user, "user_id", "") or "").strip()
@@ -402,7 +411,7 @@ def _session_response(
     token: GeminiLiveEphemeralToken,
     history: tuple[GeminiLiveHistoryTurn, ...],
 ) -> Response:
-    return make_common_response(
+    return _make_live_response(
         {
             "session_bid": binding.session_bid,
             "ephemeral_token": token.token,
@@ -604,7 +613,7 @@ def register_live_follow_up_routes(
             session.binding.expires_at_epoch,
             tz=UTC,
         )
-        return make_common_response(
+        return _make_live_response(
             {"session_bid": session_bid, "expires_at": to_utc_iso(expires_at)}
         )
 
@@ -682,7 +691,7 @@ def register_live_follow_up_routes(
         except LiveFollowUpSessionStoreError:
             raise_param_error("live_follow_up_turn")
         result = persist_reserved_turn(session, turn, reservation)
-        return make_common_response(
+        return _make_live_response(
             {
                 "session_bid": session_bid,
                 "turn_index": turn.turn_index,
@@ -748,7 +757,7 @@ def register_live_follow_up_routes(
             consume_live_follow_up_session(app, session_bid=session_bid)
         except LiveFollowUpSessionStoreError:
             raise_param_error("live_follow_up_session")
-        return make_common_response(
+        return _make_live_response(
             {
                 "session_bid": session_bid,
                 "turn_indices": [turn.turn_index for turn in turns],
@@ -785,4 +794,4 @@ def register_live_follow_up_routes(
         # releasing admission here would let one user keep the old socket and
         # mint another token outside the 24/6/1 capacity bounds. The Redis
         # reservation therefore expires naturally with the token.
-        return make_common_response({"session_bid": session_bid, "reason": end_reason})
+        return _make_live_response({"session_bid": session_bid, "reason": end_reason})

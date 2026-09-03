@@ -109,6 +109,11 @@ auditing, or another correctness-sensitive decision.
       TypeScript, and the full pre-commit gate. HTTP policy tests use the
       repository-pinned Flask 3.1.3 / Werkzeug 3.1.6 in an isolated dependency
       directory; the shared local virtualenv still had Flask 3.0.3.
+- [x] 2026-09-04: Addressed CodeQL's reflected-HTML findings by returning
+      explicit `application/json` responses with `X-Content-Type-Options:
+      nosniff` from every Live endpoint. The shared envelope and unrelated
+      routes are unchanged; tests cover markup-like values and MIME headers.
+      All 102 focused backend tests and the full pre-commit gate pass.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
