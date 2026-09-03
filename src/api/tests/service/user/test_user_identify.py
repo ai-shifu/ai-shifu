@@ -1121,6 +1121,46 @@ def test_consume_verification_code_accepts_prefixed_pending_cache_key(
             db.session.commit()
 
 
+def test_database_verification_code_claim_is_single_use(app: object) -> None:
+    from flaskr.dao import db
+    from flaskr.service.user import verification_codes
+    from flaskr.service.user.models import UserVerifyCode
+
+    email = "single-claim@example.com"
+    code = "2468"
+    with app.app_context():
+        record = UserVerifyCode(
+            phone="",
+            mail=email,
+            verify_code=code,
+            verify_code_type=2,
+            verify_code_send=1,
+            verify_code_used=0,
+            user_ip="",
+        )
+        db.session.add(record)
+        db.session.commit()
+        try:
+            first_status = verification_codes._consume_latest_code_from_db(
+                app,
+                kind="email",
+                identifier=email,
+                code=code,
+            )
+            second_status = verification_codes._consume_latest_code_from_db(
+                app,
+                kind="email",
+                identifier=email,
+                code=code,
+            )
+
+            assert first_status == "ok"
+            assert second_status == "expired"
+        finally:
+            UserVerifyCode.query.filter_by(id=record.id).delete()
+            db.session.commit()
+
+
 def test_verification_code_lock_renews_redis_lease(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
