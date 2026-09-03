@@ -22,7 +22,13 @@ shared segmentation, SSE, caching, storage, and metering paths as MP3.
   and environment declarations.
 - [x] 2026-09-03: Added focused provider tests plus audio-utility and
   streaming regression coverage; regenerated the Docker env example.
-- [ ] Credentialed smoke test against the live API from a test environment.
+- [x] 2026-09-03: Credentialed smoke tests. From the US dev pod (direct
+  Google access) both `gemini-3.1-flash-tts-preview` and
+  `gemini-2.5-flash-preview-tts` returned MP3 in about 3 seconds for a
+  43-character sentence, with `duration_ms` matching the decoded MP3 length.
+  From the China test host Google is unreachable, so `GEMINI_TTS_API_URL`
+  points at the internal Google AI proxy (`.../googleai/v1beta`), which
+  returned the same PCM payload in about 9 seconds.
 
 ## Surprises & Discoveries
 
@@ -36,6 +42,10 @@ shared segmentation, SSE, caching, storage, and metering paths as MP3.
 - Preview TTS models report overload as HTTP 503. The shared streaming retry
   matches on a "rate limit" marker in the error text, so 503 is reported the
   same way as 429 to opt into the staggered retry.
+- Hosts in mainland China cannot reach `generativelanguage.googleapis.com`.
+  The dedicated `GEMINI_TTS_API_URL` lets those deployments route the TTS
+  call through the existing Google AI proxy while keeping the default for
+  overseas clusters.
 - Gemini exposes neither speed nor pitch. Locking both ranges to a single
   value keeps the generic editor working because strict validation uses
   inclusive bounds and the editor clamps into the advertised range.
