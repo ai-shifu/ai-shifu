@@ -32,16 +32,14 @@ _ERROR_INVALID_RESPONSE = "invalid_token_response"
 _ERROR_PROVISION_FAILED = "token_provision_failed"
 _LOCKED_BIDI_SETUP_FIELDS = (
     "model",
-    "generation_config",
-    "system_instruction",
+    "generationConfig",
+    "systemInstruction",
     "tools",
-    "input_audio_transcription",
-    "output_audio_transcription",
-    "realtime_input_config",
-    "context_window_compression",
-    "proactivity",
-    "safety_settings",
-    "history_config",
+    "inputAudioTranscription",
+    "outputAudioTranscription",
+    "realtimeInputConfig",
+    "contextWindowCompression",
+    "historyConfig",
 )
 
 
@@ -110,8 +108,6 @@ def _bidi_setup(
             "triggerTokens": "25000",
             "slidingWindow": {"targetTokens": "8000"},
         },
-        "proactivity": {"proactiveAudio": False},
-        "safetySettings": [],
         "sessionResumption": {},
         "historyConfig": {
             "initialHistoryInClientContent": include_initial_history,

@@ -61,15 +61,19 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
     assert payload["expireTime"] == "2026-09-03T04:20:06Z"
     assert payload["newSessionExpireTime"] == "2026-09-03T04:05:36Z"
     locked_fields = set(payload["fieldMask"].split(","))
-    assert "session_resumption" not in locked_fields
-    assert {
+    assert locked_fields == {
         "model",
-        "generation_config",
-        "system_instruction",
+        "generationConfig",
+        "systemInstruction",
         "tools",
-        "proactivity",
-        "history_config",
-    }.issubset(locked_fields)
+        "inputAudioTranscription",
+        "outputAudioTranscription",
+        "realtimeInputConfig",
+        "contextWindowCompression",
+        "historyConfig",
+    }
+    assert "sessionResumption" not in locked_fields
+    assert not any("_" in field for field in locked_fields)
     setup = payload["bidiGenerateContentSetup"]
     assert setup["model"] == "models/gemini-3.1-flash-live-preview"
     generation_config = setup["generationConfig"]
@@ -83,7 +87,8 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
     assert setup["outputAudioTranscription"] == {}
     assert setup["historyConfig"] == {"initialHistoryInClientContent": True}
     assert setup["tools"] == []
-    assert setup["proactivity"] == {"proactiveAudio": False}
+    assert "proactivity" not in setup
+    assert "safetySettings" not in setup
 
 
 def test_browser_setup_omits_private_prompt_and_uses_constrained_endpoint() -> None:
