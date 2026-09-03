@@ -164,6 +164,7 @@ export default function AdminOperationCreditNotificationsPage() {
   >(null);
   const requestIdRef = React.useRef(0);
   const templateListRequestIdRef = React.useRef(0);
+  const templateContactModeRef = React.useRef<string | null>(null);
   const configLoadStartedRef = React.useRef(false);
   const isConfigDirty = React.useMemo(
     () => JSON.stringify(policy) !== JSON.stringify(savedPolicy),
@@ -264,6 +265,7 @@ export default function AdminOperationCreditNotificationsPage() {
     async (mode: 'initial' | 'manual' = 'initial') => {
       const requestId = templateListRequestIdRef.current + 1;
       templateListRequestIdRef.current = requestId;
+      templateContactModeRef.current = contactMode;
       setTemplateListLoading(true);
       const templateTrackingContext =
         contactMode === 'email'
@@ -465,6 +467,17 @@ export default function AdminOperationCreditNotificationsPage() {
     }
     void loadConfigResources();
   }, [activeTab, isReady, loadConfigResources]);
+
+  React.useEffect(() => {
+    if (
+      !isReady ||
+      (activeTab !== 'config' && activeTab !== 'templates') ||
+      templateContactModeRef.current === contactMode
+    ) {
+      return;
+    }
+    void fetchTemplateOptions();
+  }, [activeTab, contactMode, fetchTemplateOptions, isReady]);
 
   const updateDraftFilter = React.useCallback(
     (field: keyof NotificationFilters, value: string) => {

@@ -521,11 +521,10 @@
       "availableCredits": "可用积分",
       "collapse": "收起变量",
       "credits": "到账积分",
-      "date": "有效期",
       "estimatedRemainingDays": "预计可用天数",
       "expand": "展开变量",
       "expiresAt": "积分有效期",
-      "product": "套餐名称"
+      "window": "到期提醒时间"
     },
     "empty": "没有符合当前筛选条件的模板。",
     "loadError": "无法加载阿里云模板列表；如有本地缓存，将继续展示缓存模板。",

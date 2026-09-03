@@ -104,14 +104,9 @@ const EMAIL_LOCALE_OPTIONS = [
 
 const EMAIL_TEMPLATE_VARIABLES = [
   {
-    token: '${product}',
+    token: '${window}',
     labelKey:
-      'module.operationsCreditNotifications.templateManagement.emailVariables.product',
-  },
-  {
-    token: '${date}',
-    labelKey:
-      'module.operationsCreditNotifications.templateManagement.emailVariables.date',
+      'module.operationsCreditNotifications.templateManagement.emailVariables.window',
   },
   {
     token: '${credits}',
