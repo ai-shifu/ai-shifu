@@ -77,6 +77,7 @@ class MockWebSocket {
   static readonly CLOSED = 3;
 
   readonly url: string;
+  binaryType: BinaryType = 'blob';
   bufferedAmount = 0;
   readyState = MockWebSocket.CONNECTING;
   onopen: (() => void) | null = null;
@@ -102,6 +103,13 @@ class MockWebSocket {
   message(message: GeminiLiveServerEvent) {
     mockParseServerMessage.mockReturnValueOnce(message);
     this.onmessage?.(new MessageEvent('message', { data: '{}' }));
+  }
+
+  binaryMessage(message: GeminiLiveServerEvent) {
+    mockParseServerMessage.mockReturnValueOnce(message);
+    const data = new Uint8Array([123, 125]).buffer;
+    this.onmessage?.(new MessageEvent('message', { data }));
+    return data;
   }
 
   fail() {
@@ -284,6 +292,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     jest.useRealTimers();
     jest.clearAllMocks();
     mockTrackEvent.mockReset();
+    mockParseServerMessage.mockReset();
     mockSockets.length = 0;
     mockActivateAudio.mockResolvedValue(mockAudio);
     mockCreateSession.mockResolvedValue(sessionResponse());
@@ -329,6 +338,55 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       'auth_tokens/browser-only',
     );
     expect(mockSockets[0].url).toContain('generativelanguage.googleapis.com');
+    expect(mockSockets[0].binaryType).toBe('arraybuffer');
+  });
+
+  it('accepts binary setup and interruption in order without timing out or duplicating success', async () => {
+    jest.useFakeTimers();
+    render(<Harness />);
+    await startAndOpen();
+
+    let setupFrame!: ArrayBuffer;
+    act(() => {
+      setupFrame = mockSockets[0].binaryMessage(
+        serverEvent({ setupComplete: true }),
+      );
+    });
+    expect(mockParseServerMessage).toHaveBeenCalledWith(setupFrame);
+    expect(screen.getByTestId('state')).toHaveTextContent('listening');
+
+    const pcm = new Uint8Array([1, 2, 3, 4]).buffer;
+    act(() => {
+      mockSockets[0].binaryMessage(
+        serverEvent({ audioChunks: [pcm], outputTranscripts: ['Answer'] }),
+      );
+      mockSockets[0].binaryMessage(serverEvent({ interrupted: true }));
+    });
+    expect(mockAudio.enqueueOutput).toHaveBeenCalledWith(pcm, 1);
+    expect(mockAudio.clearPlayback).toHaveBeenCalledTimes(1);
+    expect(mockAudio.enqueueOutput.mock.invocationCallOrder[0]).toBeLessThan(
+      mockAudio.clearPlayback.mock.invocationCallOrder[0],
+    );
+    act(() => jest.advanceTimersByTime(20_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('listening');
+    expect(mockSockets[0].close).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_result',
+      ),
+    ).toEqual([
+      [
+        'learner_voice_follow_up_result',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+          outcome: 'success',
+          error_code: 'none',
+        },
+      ],
+    ]);
   });
 
   it('sends setup first, then history, and reports success only when audio is ready', async () => {
@@ -1032,6 +1090,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     act(() => mockSockets[0].message(serverEvent({ goAway: true })));
 
     expect(mockSockets).toHaveLength(2);
+    expect(mockSockets[1].binaryType).toBe('arraybuffer');
     expect(mockResolveWebSocketUrl).toHaveBeenLastCalledWith(
       sessionResponse().websocket_url,
       'auth_tokens/browser-only',
@@ -1042,7 +1101,9 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       handle: 'resume-handle',
     });
     expect(resumedSetup.setup).not.toHaveProperty('historyConfig');
-    act(() => mockSockets[1].message(serverEvent({ setupComplete: true })));
+    act(() =>
+      mockSockets[1].binaryMessage(serverEvent({ setupComplete: true })),
+    );
     expect(mockSockets[1].send).toHaveBeenCalledTimes(1);
     act(() => jest.advanceTimersByTime(20_000));
     expect(screen.getByTestId('state')).toHaveTextContent('listening');
