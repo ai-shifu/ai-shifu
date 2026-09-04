@@ -147,6 +147,35 @@ describe('GeminiLiveTurnAccumulator', () => {
     ]);
   });
 
+  it('ignores stale playback completion after interruption', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.process(
+      event({
+        inputTranscripts: ['Question'],
+        outputTranscripts: ['Heard'],
+        audioChunks: [new ArrayBuffer(4)],
+      }),
+      2000,
+    );
+    accumulator.recordPlaybackProgress(1, 4);
+    accumulator.process(
+      event({
+        outputTranscripts: ['Heard and unheard continuation'],
+        audioChunks: [new ArrayBuffer(4)],
+      }),
+      2050,
+    );
+    accumulator.process(event({ interrupted: true }), 2100);
+    accumulator.markPlaybackComplete(1);
+    expect(accumulator.popReady(2601)).toEqual([
+      expect.objectContaining({
+        userTranscript: 'Question',
+        playedAnswerTranscript: 'Heard',
+        interrupted: true,
+      }),
+    ]);
+  });
+
   it('does not fabricate a final user transcript when Gemini never supplied one', () => {
     const accumulator = new GeminiLiveTurnAccumulator();
     accumulator.process(

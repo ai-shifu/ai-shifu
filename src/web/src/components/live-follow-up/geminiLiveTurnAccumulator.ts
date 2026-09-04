@@ -233,7 +233,7 @@ export class GeminiLiveTurnAccumulator {
 
   markPlaybackComplete(turnIndex: number) {
     const state = this.turns.get(turnIndex);
-    if (!state) {
+    if (!state || state.terminalReason === 'interrupted') {
       return;
     }
     state.audioPlayedBytes = state.audioSentBytes;

@@ -953,7 +953,9 @@ export const useLiveVoiceFollowUp = ({
             }
           }
           if (ingest.terminalTurnIndex !== null) {
-            audioRef.current?.finishOutput(ingest.terminalTurnIndex);
+            if (ingest.terminalTurnIndex !== ingest.interruptedTurnIndex) {
+              audioRef.current?.finishOutput(ingest.terminalTurnIndex);
+            }
             scheduleCommitFlush(generation);
           }
 

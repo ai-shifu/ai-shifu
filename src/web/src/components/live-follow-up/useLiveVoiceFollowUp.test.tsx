@@ -693,6 +693,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     await makeReady();
     const callbacks = mockActivateAudio.mock.calls[0][0] as {
       onPlaybackProgress: (turnIndex: number, playedBytes: number) => void;
+      onPlaybackComplete: (turnIndex: number) => void;
     };
 
     act(() =>
@@ -714,6 +715,11 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       ),
     );
     act(() => mockSockets[0].message(serverEvent({ interrupted: true })));
+    expect(mockAudio.clearPlayback).toHaveBeenCalled();
+    expect(mockAudio.finishOutput).not.toHaveBeenCalled();
+    // A stale completion already in the MessagePort queue must not advance
+    // the interrupted turn beyond the actual consumed-byte checkpoint.
+    act(() => callbacks.onPlaybackComplete(1));
 
     await waitFor(
       () =>
