@@ -136,7 +136,6 @@ def _bidi_setup(
             "triggerTokens": "25000",
             "slidingWindow": {"targetTokens": "8000"},
         },
-        "sessionResumption": {},
         "historyConfig": {
             "initialHistoryInClientContent": include_initial_history,
         },
@@ -240,8 +239,9 @@ def mint_gemini_live_ephemeral_token(
         "expireTime": to_utc_iso(expires_at),
         "newSessionExpireTime": to_utc_iso(new_session_expires_at),
         # Keep every security-sensitive top-level setup field server-owned.
-        # Session resumption is intentionally excluded so the browser can add
-        # the latest server-issued handle after a GoAway.
+        # Exclude session resumption from both the constraints and their mask:
+        # Gemini rejects setup fields outside the mask, and the browser must
+        # remain free to add the latest server-issued handle after a GoAway.
         "fieldMask": ",".join(_LOCKED_BIDI_SETUP_FIELDS),
         "bidiGenerateContentSetup": _bidi_setup(
             model=normalized_model,
