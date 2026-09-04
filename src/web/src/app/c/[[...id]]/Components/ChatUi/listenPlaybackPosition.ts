@@ -191,17 +191,10 @@ export const writeListenPlaybackPositionToStorage = ({
   scope,
   positionSeconds,
   durationSeconds,
-  isOpenEnded = false,
 }: {
   scope: ListenPlaybackPositionScope;
   positionSeconds: number;
   durationSeconds: number;
-  /**
-   * Streamed audio has no stable final duration while new segments are still
-   * arriving. Keep a meaningful offset instead of treating the current
-   * buffered segment boundary as the end of the logical audio.
-   */
-  isOpenEnded?: boolean;
 }) => {
   if (!isBrowser() || !isValidScope(scope)) {
     return;
@@ -209,11 +202,9 @@ export const writeListenPlaybackPositionToStorage = ({
 
   const storageKey = getListenPlaybackPositionStorageKey(scope);
   try {
-    const isResumablePosition = isOpenEnded
-      ? Number.isFinite(positionSeconds) &&
-        positionSeconds >= MINIMUM_RESUMABLE_POSITION_SECONDS
-      : isResumableListenPlaybackPosition({ positionSeconds, durationSeconds });
-    if (!isResumablePosition) {
+    if (
+      !isResumableListenPlaybackPosition({ positionSeconds, durationSeconds })
+    ) {
       window.localStorage.removeItem(storageKey);
       clearLessonPlaybackTargetIfMatching(scope);
       return;
