@@ -138,6 +138,8 @@ export const commitLiveFollowUpTurn = (
     credentials: 'include',
   });
 
+// Session creation has already resolved the runtime API URL. The shared
+// keepalive path uses that cache to start fetch in the lifecycle callback itself.
 export const finalizeLiveFollowUpSession = (
   sessionBid: string,
   turns: LiveFollowUpTurnReport[],

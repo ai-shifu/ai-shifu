@@ -215,6 +215,14 @@ auditing, or another correctness-sensitive decision.
       turn's 500 ms reconciliation window. Interim-only speech remains excluded
       from durable history. All 14 accumulator tests pass, covering final-first,
       response-first, and coalesced interim/response ordering.
+- [x] 2026-09-04: Start native keepalive fetch synchronously from the shared
+      request transport, using the runtime API URL already resolved before
+      session admission. Read current auth/language/trace headers at send time;
+      preserve shared response handling and ordinary HTTP/SSE preparation.
+      Lifecycle regressions use the real transport and configuration cache for
+      same-origin and split-domain pagehide, plus end, auth recovery, and cold
+      configuration rejection. All 33 focused tests, 2,121 frontend tests, and
+      TypeScript checking pass.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -250,6 +258,12 @@ auditing, or another correctness-sensitive decision.
 - Fetch keepalive has a bounded request-body budget. Keeping the authenticated
   request under 60 KiB makes lifecycle-safe transcript persistence explicit
   instead of relying on browser behavior for an oversized payload.
+- Calling an async request wrapper during pagehide is not enough: even an
+  already-resolved configuration promise suspends before native fetch. The
+  shared keepalive path reads the existing runtime cache synchronously (with
+  `undefined` distinct from a ready empty/same-origin base) and starts fetch
+  before returning to the lifecycle caller. Session admission warms that cache;
+  an unexpected cold relative keepalive fails without starting another lookup.
 - The Gemini `auth_tokens` resource exposes token creation but no revocation.
   After a credential reaches the browser, closing the AI-Shifu control-plane
   binding cannot prove that the Google socket closed. Capacity therefore has
