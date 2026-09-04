@@ -147,6 +147,75 @@ describe('GeminiLiveTurnAccumulator', () => {
     ]);
   });
 
+  it.each([
+    { responseComplete: false, interruptionComplete: false },
+    { responseComplete: false, interruptionComplete: true },
+    { responseComplete: true, interruptionComplete: true },
+  ])(
+    'assigns coalesced barge-in speech to the next turn: %j',
+    ({ responseComplete, interruptionComplete }) => {
+      const accumulator = new GeminiLiveTurnAccumulator();
+      accumulator.process(
+        event({
+          inputTranscripts: ['First question'],
+          outputTranscripts: ['First answer'],
+          audioChunks: [new ArrayBuffer(8)],
+          turnComplete: responseComplete,
+        }),
+        2_000,
+      );
+      accumulator.recordPlaybackProgress(1, 8);
+      const interrupted = accumulator.process(
+        event({
+          interrupted: true,
+          turnComplete: interruptionComplete,
+          inputTranscripts: ['Follow-up question'],
+        }),
+        2_100,
+      );
+      expect(interrupted.interruptedTurnIndex).toBe(1);
+      expect(interrupted.transcriptUpdates).toContainEqual({
+        role: 'user',
+        turnIndex: 1,
+        text: 'First question',
+        final: true,
+      });
+      expect(interrupted.transcriptUpdates).toContainEqual({
+        role: 'user',
+        turnIndex: 2,
+        text: 'Follow-up question',
+        final: false,
+      });
+      if (!interruptionComplete) {
+        accumulator.process(event({ turnComplete: true }), 2_200);
+      }
+      expect(accumulator.popReady(2_601)).toEqual([
+        expect.objectContaining({
+          turnIndex: 1,
+          userTranscript: 'First question',
+          interrupted: true,
+        }),
+      ]);
+      accumulator.process(
+        event({
+          outputTranscripts: ['Follow-up answer'],
+          audioChunks: [new ArrayBuffer(8)],
+          turnComplete: true,
+        }),
+        2_700,
+      );
+      accumulator.markPlaybackComplete(2);
+      expect(accumulator.popReady(3_201)).toEqual([
+        expect.objectContaining({
+          turnIndex: 2,
+          userTranscript: 'Follow-up question',
+          playedAnswerTranscript: 'Follow-up answer',
+          interrupted: false,
+        }),
+      ]);
+    },
+  );
+
   it('ignores stale playback completion after interruption', () => {
     const accumulator = new GeminiLiveTurnAccumulator();
     accumulator.process(

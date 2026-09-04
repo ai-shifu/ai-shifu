@@ -89,11 +89,12 @@ export class GeminiLiveTurnAccumulator {
       this.interruptedAwaitingTurnComplete.length
         ? this.interruptedAwaitingTurnComplete[0]
         : null;
-    const inputState = event.interrupted
-      ? this.activeState()
+    let inputState = event.interrupted
+      ? this.activeState(now)
       : this.selectInputState(event.inputTranscripts, now);
-    const responseState =
-      trailingInterruptedTurnIndex !== null
+    const responseState = event.interrupted
+      ? (this.turns.get(this.lastResponseTurnIndex ?? -1) ?? inputState)
+      : trailingInterruptedTurnIndex !== null
         ? this.state(trailingInterruptedTurnIndex, now)
         : event.inputTranscripts.length
           ? inputState
@@ -161,6 +162,9 @@ export class GeminiLiveTurnAccumulator {
       terminalTurnIndex = responseState.turnIndex;
       transcriptUpdates.push(...this.finalUpdates(responseState));
       this.advance(responseState);
+      // Speech coalesced with the interruption belongs to the learner's next
+      // question, not to the response whose playback was just cancelled.
+      inputState = this.activeState(now);
       if (!event.turnComplete) {
         this.interruptedAwaitingTurnComplete.push(responseState.turnIndex);
       }
