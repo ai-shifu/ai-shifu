@@ -53,6 +53,7 @@ export class LiveFollowUpTurnWriter {
   private handoff: Promise<void> | null = null;
   private finishing: Promise<void> | null = null;
   private normalQueueStopped = false;
+  private queueGeneration = 0;
 
   constructor(
     readonly sessionBid: string,
@@ -99,9 +100,11 @@ export class LiveFollowUpTurnWriter {
 
   enqueue(commits: GeminiLiveTurnCommit[]) {
     this.remember(commits);
+    const generation = this.queueGeneration;
     for (const commit of commits) {
       const persist = async () => {
         if (
+          generation !== this.queueGeneration ||
           this.handoff ||
           this.normalQueueStopped ||
           !this.pending.has(commit.turnIndex)
@@ -116,7 +119,11 @@ export class LiveFollowUpTurnWriter {
       };
       const pending = this.chain ? this.chain.then(persist) : persist();
       this.chain = pending.catch(() => {
-        if (!this.handoff && !this.normalQueueStopped) {
+        if (
+          generation === this.queueGeneration &&
+          !this.handoff &&
+          !this.normalQueueStopped
+        ) {
           this.onError();
         }
       });
@@ -172,6 +179,11 @@ export class LiveFollowUpTurnWriter {
         this.handoff = null;
         this.finishing = null;
         this.normalQueueStopped = false;
+        // Recovery must not depend on the unresolved fetch that triggered it.
+        // Invalidate its queued successors before starting a fresh chain. A
+        // late active-request ACK may still publish once through the ID guard.
+        this.queueGeneration += 1;
+        this.chain = null;
         this.enqueue(this.outstanding());
         throw error;
       }

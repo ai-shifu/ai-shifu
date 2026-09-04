@@ -147,17 +147,22 @@ describe('Live lifecycle reports through the shared request transport', () => {
     expect(mockToast).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])(
-    'starts bounded finalization when native turn fetch stalls (transient failure=%s)',
-    async transientFailure => {
+  it.each([0, 1, 3])(
+    'recovers a stalled native turn request (rejected finalizations=%i)',
+    async rejectedFinalizations => {
       await createSession();
       jest.useFakeTimers();
       try {
         let finalizationRequests = 0;
+        let turnRequests = 0;
         fetchMock.mockImplementation((url: string) => {
-          if (url.endsWith('/turn')) return new Promise(() => {});
+          if (url.endsWith('/turn')) {
+            turnRequests += 1;
+            if (turnRequests === 1) return new Promise(() => {});
+            return Promise.resolve(response({ code: 0, data: {} }));
+          }
           finalizationRequests += 1;
-          if (transientFailure && finalizationRequests === 1) {
+          if (finalizationRequests <= rejectedFinalizations) {
             return Promise.resolve({ ...response({}), ok: false, status: 503 });
           }
           return Promise.resolve(
@@ -184,16 +189,26 @@ describe('Live lifecycle reports through the shared request transport', () => {
           })),
         );
         const finished = writer.finish('ended_by_user');
+        const completion =
+          rejectedFinalizations === 3
+            ? expect(finished).rejects.toThrow()
+            : expect(finished).resolves.toBeUndefined();
         await jest.advanceTimersByTimeAsync(4999);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(fetchMock.mock.calls[0][0]).toMatch(/\/turn$/);
         await jest.advanceTimersByTimeAsync(1);
         expect(fetchMock).toHaveBeenCalledTimes(2);
-        if (transientFailure) await jest.advanceTimersByTimeAsync(1000);
-        await finished;
+        await jest.advanceTimersByTimeAsync(
+          Math.min(rejectedFinalizations, 2) * 1000,
+        );
+        await completion;
 
-        expect(fetchMock).toHaveBeenCalledTimes(transientFailure ? 3 : 2);
-        for (const call of fetchMock.mock.calls.slice(1)) {
+        expect(fetchMock).toHaveBeenCalledTimes(
+          rejectedFinalizations === 3 ? 6 : 2 + rejectedFinalizations,
+        );
+        for (const call of fetchMock.mock.calls.filter(([url]) =>
+          url.endsWith('/finalize'),
+        )) {
           expect(call).toEqual([
             `${window.location.origin}/api/learn/live-follow-up/session/live%2Fsession/finalize`,
             expect.objectContaining({
@@ -205,6 +220,18 @@ describe('Live lifecycle reports through the shared request transport', () => {
               }),
             }),
           ]);
+        }
+        if (rejectedFinalizations === 3) {
+          const recovered = fetchMock.mock.calls
+            .filter(([url]) => url.endsWith('/turn'))
+            .slice(1);
+          expect(
+            recovered.map(([, config]) => JSON.parse(config.body).turn_index),
+          ).toEqual([1, 2]);
+          recovered.forEach(([, config]) => {
+            expect(config.credentials).toBe('include');
+            expect(config.headers.Token).toBe('initial-token');
+          });
         }
         expect(committed).toHaveBeenCalledTimes(2);
         expect(jest.getTimerCount()).toBe(0);
