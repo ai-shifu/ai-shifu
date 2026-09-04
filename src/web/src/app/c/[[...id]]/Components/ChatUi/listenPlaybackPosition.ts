@@ -1,5 +1,7 @@
 const LISTEN_PLAYBACK_POSITION_STORAGE_PREFIX =
   'course_listen_playback_position:v1';
+const LISTEN_LESSON_PLAYBACK_STORAGE_PREFIX =
+  'course_listen_playback_lesson:v1';
 
 const MINIMUM_RESUMABLE_POSITION_SECONDS = 2;
 
@@ -14,6 +16,11 @@ type StoredListenPlaybackPosition = {
   positionSeconds: number;
   source: string;
 };
+
+export type ListenLessonPlaybackTarget = Pick<
+  ListenPlaybackPositionScope,
+  'elementBid' | 'source'
+>;
 
 const isBrowser = () => typeof window !== 'undefined';
 
@@ -36,6 +43,33 @@ const getListenPlaybackPositionStorageKey = (
   ]
     .map(value => encodeURIComponent(value))
     .join(':');
+
+const getListenLessonPlaybackStorageKey = (
+  scope: Pick<ListenPlaybackPositionScope, 'courseId' | 'lessonId'>,
+) =>
+  [LISTEN_LESSON_PLAYBACK_STORAGE_PREFIX, scope.courseId, scope.lessonId]
+    .map(value => encodeURIComponent(value))
+    .join(':');
+
+const clearLessonPlaybackTargetIfMatching = (
+  scope: ListenPlaybackPositionScope,
+) => {
+  const lessonStorageKey = getListenLessonPlaybackStorageKey(scope);
+  try {
+    const storedValue = window.localStorage.getItem(lessonStorageKey);
+    const storedTarget = storedValue
+      ? (JSON.parse(storedValue) as Partial<ListenLessonPlaybackTarget>)
+      : null;
+    if (
+      storedTarget?.elementBid === scope.elementBid &&
+      storedTarget.source === scope.source
+    ) {
+      window.localStorage.removeItem(lessonStorageKey);
+    }
+  } catch {
+    // Storage access and malformed legacy values are best-effort.
+  }
+};
 
 export const normalizeListenPlaybackSource = (source: string) => {
   const normalizedSource = source.trim();
@@ -114,6 +148,45 @@ export const readListenPlaybackPositionFromStorage = (
   }
 };
 
+export const readListenLessonPlaybackTargetFromStorage = ({
+  courseId,
+  lessonId,
+}: Pick<ListenPlaybackPositionScope, 'courseId' | 'lessonId'>) => {
+  if (!isBrowser() || !courseId.trim() || !lessonId.trim()) {
+    return null;
+  }
+
+  const storageKey = getListenLessonPlaybackStorageKey({ courseId, lessonId });
+  try {
+    const storedValue = window.localStorage.getItem(storageKey);
+    const parsedValue = storedValue
+      ? (JSON.parse(storedValue) as Partial<ListenLessonPlaybackTarget>)
+      : null;
+    if (
+      !parsedValue ||
+      typeof parsedValue.elementBid !== 'string' ||
+      !parsedValue.elementBid.trim() ||
+      typeof parsedValue.source !== 'string' ||
+      !parsedValue.source.trim()
+    ) {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return {
+      elementBid: parsedValue.elementBid,
+      source: parsedValue.source,
+    } satisfies ListenLessonPlaybackTarget;
+  } catch {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // localStorage can be unavailable in private mode or embedded contexts.
+    }
+    return null;
+  }
+};
+
 export const writeListenPlaybackPositionToStorage = ({
   scope,
   positionSeconds,
@@ -133,6 +206,7 @@ export const writeListenPlaybackPositionToStorage = ({
       !isResumableListenPlaybackPosition({ positionSeconds, durationSeconds })
     ) {
       window.localStorage.removeItem(storageKey);
+      clearLessonPlaybackTargetIfMatching(scope);
       return;
     }
 
@@ -142,6 +216,13 @@ export const writeListenPlaybackPositionToStorage = ({
         positionSeconds,
         source: scope.source,
       } satisfies StoredListenPlaybackPosition),
+    );
+    window.localStorage.setItem(
+      getListenLessonPlaybackStorageKey(scope),
+      JSON.stringify({
+        elementBid: scope.elementBid,
+        source: scope.source,
+      } satisfies ListenLessonPlaybackTarget),
     );
   } catch {
     // localStorage can be unavailable in private mode or embedded contexts.
@@ -157,6 +238,7 @@ export const clearListenPlaybackPositionFromStorage = (
 
   try {
     window.localStorage.removeItem(getListenPlaybackPositionStorageKey(scope));
+    clearLessonPlaybackTargetIfMatching(scope);
   } catch {
     // localStorage can be unavailable in private mode or embedded contexts.
   }

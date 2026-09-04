@@ -101,9 +101,13 @@ jest.mock('markdown-flow-ui/slide', () => {
           | React.ReactNode
           | ((context: SlideCustomActionContext) => React.ReactNode);
         elementList?: Array<typeof slideCustomActionElement>;
+        requestedStepIndex?: number;
       }) => {
         const [isActive, setIsActive] = ReactRuntime.useState(false);
         const currentElement =
+          (typeof props.requestedStepIndex === 'number'
+            ? props.elementList?.[props.requestedStepIndex]
+            : undefined) ??
           props.elementList?.find(element => Boolean(element.audio_url)) ??
           props.elementList?.[0] ??
           slideCustomActionElement;
@@ -1541,6 +1545,59 @@ describe('ListenModeSlideRenderer', () => {
 
     await waitFor(() => {
       expect(audioElement.currentTime).toBe(36);
+    });
+  });
+
+  it('returns to the last resumable audio in a lesson before restoring its position', async () => {
+    writeListenPlaybackPositionToStorage({
+      scope: {
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+        elementBid: 'content-2',
+        source: 'https://audio.example.com/content-2.mp3',
+      },
+      positionSeconds: 36,
+      durationSeconds: 60,
+    });
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'First',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+          },
+          {
+            type: 'content',
+            content: 'Second',
+            element_bid: 'content-2',
+            audio_url: 'https://audio.example.com/content-2.mp3',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = await screen.findByTestId('slide-audio');
+    await waitFor(() => {
+      expect(audioElement).toHaveAttribute(
+        'src',
+        'https://audio.example.com/content-2.mp3',
+      );
+    });
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    await waitFor(() => {
+      expect((audioElement as HTMLAudioElement).currentTime).toBe(36);
     });
   });
 
