@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 import requests
 from flaskr.util.datetime import now_utc, to_utc_iso
@@ -67,6 +68,29 @@ class GeminiLiveEphemeralToken:
 def _qualified_model(model: str) -> str:
     normalized = str(model or "").strip()
     return normalized if normalized.startswith("models/") else f"models/{normalized}"
+
+
+def _token_endpoint(api_base_url: str | None) -> str:
+    """Use the server's Gemini base URL, preserving any reverse-proxy prefix."""
+    base_url = str(api_base_url or "").strip()
+    if not base_url:
+        return GEMINI_LIVE_AUTH_TOKEN_ENDPOINT
+    base_url = base_url.rstrip("/")
+    try:
+        parsed = urlsplit(base_url)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.port == 0
+            or parsed.username is not None
+            or parsed.password is not None
+            or "?" in base_url
+            or "#" in base_url
+        ):
+            raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION)
+    except ValueError:
+        raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION) from None
+    return f"{base_url}/v1beta/auth_tokens"
 
 
 def _bidi_setup(
@@ -189,6 +213,7 @@ def build_gemini_live_history_message(
 def mint_gemini_live_ephemeral_token(
     *,
     api_key: str,
+    api_base_url: str | None = None,
     model: str = GEMINI_LIVE_MODEL_ID,
     voice_name: str,
     system_instruction: str,
@@ -203,6 +228,7 @@ def mint_gemini_live_ephemeral_token(
     normalized_instruction = str(system_instruction or "").strip()
     if not all((normalized_key, normalized_model, normalized_voice)):
         raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION)
+    endpoint = _token_endpoint(api_base_url)
 
     issued_at = current_time or now_utc()
     expires_at = issued_at + timedelta(seconds=GEMINI_LIVE_TOKEN_LIFETIME_SECONDS)
@@ -226,13 +252,15 @@ def mint_gemini_live_ephemeral_token(
     }
     try:
         response = request_post(
-            GEMINI_LIVE_AUTH_TOKEN_ENDPOINT,
+            endpoint,
             headers={
                 "Content-Type": "application/json",
                 "x-goog-api-key": normalized_key,
             },
             json=payload,
             timeout=GEMINI_LIVE_TOKEN_REQUEST_TIMEOUT_SECONDS,
+            # A redirect must not forward the custom API-key header elsewhere.
+            allow_redirects=False,
         )
         response.raise_for_status()
         body = response.json()

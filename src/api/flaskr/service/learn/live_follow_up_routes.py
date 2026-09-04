@@ -529,6 +529,7 @@ def register_live_follow_up_routes(
             lease = acquire_live_follow_up_capacity(app, user_bid=user_bid)
             token = mint_gemini_live_ephemeral_token(
                 api_key=api_key,
+                api_base_url=str(get_config("GEMINI_API_URL", "") or "").strip(),
                 model=provisional_binding.model,
                 voice_name=voice,
                 system_instruction=system_instruction,
