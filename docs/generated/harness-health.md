@@ -6,7 +6,7 @@ This generated report summarizes the repository harness control plane.
 
 ## Knowledge System
 
-- Design docs: `12`
+- Design docs: `13`
 - Product specs: `10`
 - References: `4`
 - Active ExecPlans: `24`

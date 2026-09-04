@@ -43,7 +43,12 @@ import {
   resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
+import { useTracking } from '@/c-common/hooks/useTracking';
 export type { AskMessage } from './askState';
+
+type FollowUpSubmissionMethod = 'button' | 'keyboard';
+
+const FOLLOW_UP_SUBMIT_EVENT = 'learner_follow_up_submit';
 
 export interface AskBlockProps {
   askList?: AskMessage[];
@@ -79,6 +84,7 @@ export default function AskBlock({
     i18n.resolvedLanguage ?? i18n.language,
   );
   const { mobileStyle } = useContext(AppContext);
+  const { trackEvent } = useTracking();
   const courseAvatar = useCourseStore(state => state.courseAvatar);
   const isCurrentUserCourseOwner = useCourseStore(
     state => state.isCurrentUserCourseOwner,
@@ -115,6 +121,7 @@ export default function AskBlock({
   const currentContentRef = useRef<string>('');
   const currentAnswerElementBidRef = useRef<string>('');
   const isStreamingRef = useRef(false);
+  const pendingSubmissionMethodRef = useRef<FollowUpSubmissionMethod>('button');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobileDialog, setShowMobileDialog] = useState(hasDisplayMessages);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
@@ -228,6 +235,8 @@ export default function AskBlock({
   );
 
   const handleSendCustomQuestion = useCallback(async () => {
+    const submissionMethod = pendingSubmissionMethodRef.current;
+    pendingSubmissionMethodRef.current = 'button';
     const question = inputValue.trim();
     if (creditInsufficientAudience === null) {
       return;
@@ -240,6 +249,13 @@ export default function AskBlock({
     if (!question) {
       return;
     }
+
+    try {
+      void trackEvent(FOLLOW_UP_SUBMIT_EVENT, {
+        surface: mobileStyle ? 'learner_mobile' : 'learner_desktop',
+        submission_method: submissionMethod,
+      });
+    } catch {}
 
     // Close any previous SSE connection
     sseRef.current?.close();
@@ -457,12 +473,31 @@ export default function AskBlock({
     setAskList,
     updateStreamingAnswerMessage,
     t,
+    mobileStyle,
+    trackEvent,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      pendingSubmissionMethodRef.current = 'button';
       setInputValue(e.target.value);
     },
     [],
+  );
+  const handleInputKeyDownCapture = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (
+        mobileStyle ||
+        event.key !== 'Enter' ||
+        event.shiftKey ||
+        event.nativeEvent.isComposing ||
+        event.keyCode === 229
+      ) {
+        return;
+      }
+
+      pendingSubmissionMethodRef.current = 'keyboard';
+    },
+    [mobileStyle],
   );
 
   // Decide which messages to display
@@ -767,6 +802,7 @@ export default function AskBlock({
       <div
         className={cn(extraClass)}
         ref={inputWrapperRef}
+        onKeyDownCapture={handleInputKeyDownCapture}
       >
         <MarkdownFlowInput
           locale={markdownFlowLocale}
