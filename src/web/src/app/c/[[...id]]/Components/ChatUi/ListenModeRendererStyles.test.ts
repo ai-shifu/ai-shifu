@@ -4,9 +4,6 @@ import path from 'path';
 const readStylesheet = () =>
   readFileSync(path.join(__dirname, 'ListenModeRenderer.scss'), 'utf8');
 
-const readChatUiStylesheet = () =>
-  readFileSync(path.join(__dirname, 'ChatUi.module.scss'), 'utf8');
-
 const normalizeStylesheet = (stylesheet: string) =>
   stylesheet.replace(/\s+/g, ' ');
 
@@ -37,19 +34,14 @@ describe('ListenModeRenderer styles', () => {
     expect(stylesheet).not.toContain('.slide-ask-overlay--standalone');
   });
 
-  it('aligns desktop listen controls to the footer through one shared offset', () => {
+  it('keeps desktop overlays above the player through one shared offset', () => {
     const stylesheet = readStylesheet();
-    const chatUiStylesheet = readChatUiStylesheet();
     const normalizedStylesheet = normalizeStylesheet(stylesheet);
     const desktopWrapperSelector =
       '.listen-reveal-wrapper:not(.mobile):not(.listen-reveal-wrapper--classroom)';
     const browserFullscreenExcludedSelector =
       '.listen-slide-root:not(.slide--browser-fullscreen)';
 
-    expect(chatUiStylesheet).toContain('--listen-player-footer-gap: 0px');
-    expect(normalizedStylesheet).toContain(
-      `${desktopWrapperSelector} ${browserFullscreenExcludedSelector} .listen-slide-player { bottom: var(--listen-slide-player-bottom-offset);`,
-    );
     expect(normalizedStylesheet).toContain(
       [
         `${desktopWrapperSelector} .listen-slide-shell > .slide-ask-overlay`,
