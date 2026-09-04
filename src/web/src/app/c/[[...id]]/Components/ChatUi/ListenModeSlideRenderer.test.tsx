@@ -143,6 +143,7 @@ jest.mock('markdown-flow-ui/slide', () => {
             nextMarkerIndex >= 0 ? nextMarkerIndex : elementList.length,
           )
           .find(element => Boolean(element.audio_url));
+        const playerCustomActionElement = currentAudioElement ?? currentElement;
         ReactRuntime.useEffect(() => {
           props.onStepChange?.(currentElement, currentIndex);
         }, [currentElement, currentIndex, props.onStepChange]);
@@ -151,13 +152,13 @@ jest.mock('markdown-flow-ui/slide', () => {
         }, []);
         const slideCustomActionContext = ReactRuntime.useMemo(
           () => ({
-            currentElement,
+            currentElement: playerCustomActionElement,
             currentIndex,
             isActive,
             setActive: setIsActive,
             toggleActive,
           }),
-          [currentElement, currentIndex, isActive, toggleActive],
+          [playerCustomActionElement, currentIndex, isActive, toggleActive],
         );
         const mountId = ReactRuntime.useMemo(() => {
           mockSlideMountId += 1;
@@ -1694,7 +1695,7 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
-  it('persists and restores audio owned by the current marker step', async () => {
+  it('persists and restores segment playback owned by the current marker step', async () => {
     const items = [
       {
         type: 'interaction',
@@ -1706,6 +1707,15 @@ describe('ListenModeSlideRenderer', () => {
         content: 'The explanation belongs to the interaction step.',
         element_bid: 'content-1',
         audio_url: 'https://audio.example.com/content-1.mp3',
+        audio_segments: [
+          {
+            audio_data: 'segment-audio',
+            duration_ms: 60_000,
+            is_final: true,
+            position: 0,
+            segment_index: 0,
+          },
+        ],
         is_marker: false,
       },
       {
@@ -1730,6 +1740,7 @@ describe('ListenModeSlideRenderer', () => {
       configurable: true,
       value: 60,
     });
+    firstAudio.src = 'blob:https://audio.example.com/temporary-segment';
     fireEvent.loadedMetadata(firstAudio);
     firstAudio.currentTime = 24;
     fireEvent.timeUpdate(firstAudio);

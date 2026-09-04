@@ -42,6 +42,10 @@ whole lesson. Restoring a position never starts audio automatically.
   the active marker step, while the playing audio can be a non-marker member
   of that step. Resume and the lesson timeline now resolve the exact source
   within the confirmed step boundary, with a mode-switch regression test.
+- [x] 2026-09-04 16:20 CST: Corrected finalized audio identity during segment
+  playback. The browser source may be a temporary segment URL, so persistence
+  now uses the Slide player's current logical audio element and its finalized
+  source; regression coverage simulates that temporary source.
 
 ## Surprises & Discoveries
 
@@ -53,6 +57,10 @@ whole lesson. Restoring a position never starts audio automatically.
   broader element list. `onStepChange` confirms the rendered marker step, not
   necessarily the exact audio-owning element: the learner must match the
   native source only within that marker's bounded element range.
+- The player deliberately prefers streamed audio segments even after a final
+  URL becomes available. Its native `audio.src` can therefore be a temporary
+  segment URL, while the player custom-action context still identifies the
+  finalized logical audio element.
 
 ## Decision Log
 
@@ -80,8 +88,9 @@ whole lesson. Restoring a position never starts audio automatically.
 - 2026-09-04: Place the lesson-wide timeline below the player and reserve
   player-footer space so it does not overlap the chat input.
 - 2026-09-04: Use the UI callback as the authoritative active-step boundary,
-  then require an exact native-source match inside that boundary. This keeps
-  identity strict without dropping audio emitted by a non-marker child.
+  then use the player custom-action context as the authoritative current audio
+  identity. This keeps identity stable for non-marker children and for native
+  segment URLs that cannot be matched to a finalized MP3 URL.
 
 ## Outcomes & Retrospective
 

@@ -864,10 +864,6 @@ const ListenModeSlideRenderer = ({
   const [fullscreenPortalContainer, setFullscreenPortalContainer] =
     useState<HTMLElement | null>(null);
   const [currentStepBlockBid, setCurrentStepBlockBid] = useState('');
-  const currentStepElementRef = useRef<ListenSlideElement | undefined>(
-    undefined,
-  );
-  const currentStepIndexRef = useRef(-1);
   const [playerCustomActionState, setPlayerCustomActionState] =
     useState<PlayerCustomActionState>({
       currentElement: undefined,
@@ -1178,8 +1174,6 @@ const ListenModeSlideRenderer = ({
     [lessonPlaybackTimeline],
   );
   const [requestedStepIndex, setRequestedStepIndex] = useState<number>();
-  const elementListRef = useRef(elementList);
-  elementListRef.current = elementList;
   const restoredLessonPlaybackTargetRef = useRef('');
   const pendingLessonSeekRef = useRef<{
     elementBid: string;
@@ -1221,51 +1215,35 @@ const ListenModeSlideRenderer = ({
     );
   }, [elementList, lessonId, shifuBid]);
 
-  const resolveListenPlaybackPositionScope = useCallback(
-    (audioElement: HTMLAudioElement) => {
-      const audioSource = normalizeListenPlaybackSource(
-        audioElement.currentSrc || audioElement.src,
-      );
-      const currentStepIndex = currentStepIndexRef.current;
-      const currentStepElement = currentStepElementRef.current;
-      const currentElementList = elementListRef.current;
+  const resolveListenPlaybackPositionScope = useCallback(() => {
+    // The native player can be playing a temporary segment URL. The Slide
+    // custom-action context instead identifies the logical audio element
+    // currently selected by the player, including non-marker children.
+    const activeAudioElement = playerCustomActionElementRef.current;
+    const elementBid = activeAudioElement?.blockBid?.trim() ?? '';
+    const source = normalizeListenPlaybackSource(
+      String(activeAudioElement?.audio_url ?? ''),
+    );
 
-      // Slide reports the marker that owns the active step. A step can contain
-      // additional non-marker audio elements, so resolve the native source
-      // within that confirmed marker boundary rather than requiring the marker
-      // itself to own the source.
-      const activeAudioElement = currentElementList.find(
-        (element, elementIndex) =>
-          getListenSlideStepIndex(currentElementList, elementIndex) ===
-            currentStepIndex &&
-          normalizeListenPlaybackSource(String(element.audio_url ?? '')) ===
-            audioSource,
-      );
-      const elementBid = activeAudioElement?.blockBid?.trim() ?? '';
+    if (
+      !elementBid ||
+      !source ||
+      activeAudioElement?.is_audio_streaming ||
+      activeAudioElement?.isAudioStreaming
+    ) {
+      return null;
+    }
 
-      if (
-        !elementBid ||
-        !audioSource ||
-        currentStepIndex < 0 ||
-        !currentStepElement ||
-        activeAudioElement?.is_audio_streaming ||
-        activeAudioElement?.isAudioStreaming
-      ) {
-        return null;
-      }
-
-      return {
-        courseId: shifuBid,
-        lessonId,
-        elementBid,
-        source: audioSource,
-      } satisfies ListenPlaybackPositionScope;
-    },
-    [lessonId, shifuBid],
-  );
+    return {
+      courseId: shifuBid,
+      lessonId,
+      elementBid,
+      source,
+    } satisfies ListenPlaybackPositionScope;
+  }, [lessonId, shifuBid]);
   const syncPlaybackTimeline = useCallback(
     (audioElement: HTMLAudioElement) => {
-      const scope = resolveListenPlaybackPositionScope(audioElement);
+      const scope = resolveListenPlaybackPositionScope();
       const durationSeconds = audioElement.duration;
 
       if (!scope || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
@@ -1974,8 +1952,6 @@ const ListenModeSlideRenderer = ({
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
       const currentElement = element as ListenSlideElement | undefined;
-      currentStepElementRef.current = currentElement;
-      currentStepIndexRef.current = index;
       const blockBid = currentElement?.blockBid;
       if (blockBid && blockBid !== 'empty-ppt') {
         setCurrentStepBlockBid(blockBid);
