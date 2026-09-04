@@ -187,8 +187,6 @@ type TtsPreviewOptions = {
   demoAudioUrl?: string;
 };
 
-type FollowUpCatalogStatus = 'idle' | 'loading' | 'ready' | 'failed';
-
 type InitialAskConfiguration = {
   model: string;
   interactionMode: 'text' | 'live_voice';
@@ -251,8 +249,6 @@ export default function ShifuSettingDialog({
   const [followUpModels, setFollowUpModels] = useState<
     FollowUpModelCatalogItem[]
   >([]);
-  const [followUpCatalogStatus, setFollowUpCatalogStatus] =
-    useState<FollowUpCatalogStatus>('idle');
   const initialAskConfigurationRef = useRef<InitialAskConfiguration | null>(
     null,
   );
@@ -312,25 +308,17 @@ export default function ShifuSettingDialog({
       return;
     }
     let cancelled = false;
-    setFollowUpCatalogStatus('loading');
     setFollowUpModels([]);
     void getFollowUpModelCatalog()
       .then(items => {
         if (cancelled) {
           return;
         }
-        if (Array.isArray(items)) {
-          setFollowUpModels(items);
-          setFollowUpCatalogStatus('ready');
-          return;
-        }
-        setFollowUpModels([]);
-        setFollowUpCatalogStatus('failed');
+        setFollowUpModels(Array.isArray(items) ? items : []);
       })
       .catch(() => {
         if (!cancelled) {
           setFollowUpModels([]);
-          setFollowUpCatalogStatus('failed');
         }
       });
     return () => {
@@ -825,7 +813,9 @@ export default function ShifuSettingDialog({
   );
   const preservedAskConfiguration = initialAskConfigurationRef.current;
   const isUncataloguedExistingAskModel = Boolean(
-    askModel &&
+    // The empty Default alias also needs its saved config while no catalog
+    // is available; absence of metadata must not erase provider settings.
+    (askModel || !followUpModels.length) &&
     preservedAskConfiguration?.model === askModel &&
     !selectedFollowUpModel,
   );
@@ -1708,15 +1698,8 @@ export default function ShifuSettingDialog({
         }
         return false;
       }
-      if (
-        followUpCatalogStatus === 'idle' ||
-        followUpCatalogStatus === 'loading'
-      ) {
-        if (needClose) {
-          updateOpen(true);
-        }
-        return false;
-      }
+      // The optional catalog must not gate saving/closing. The loaded course
+      // configuration is preserved when its model is not in the catalog yet.
       const isNameValid = await form.trigger('name');
       const isPriceValid = await form.trigger('price');
       if (!isPriceValid) {
@@ -1747,15 +1730,7 @@ export default function ShifuSettingDialog({
       await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [
-      currentShifu?.readonly,
-      followUpCatalogStatus,
-      form,
-      onSubmit,
-      settingsLoading,
-      t,
-      updateOpen,
-    ],
+    [currentShifu?.readonly, form, onSubmit, settingsLoading, t, updateOpen],
   );
 
   useEffect(() => {

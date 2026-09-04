@@ -223,6 +223,12 @@ auditing, or another correctness-sensitive decision.
       same-origin and split-domain pagehide, plus end, auth recovery, and cold
       configuration rejection. All 33 focused tests, 2,121 frontend tests, and
       TypeScript checking pass.
+- [x] 2026-09-04: Keep the normal validated settings save/close path available
+      while the optional follow-up catalog is pending. Preserve existing Live
+      configuration and the empty Default model's provider settings without
+      metadata; save edited course fields and ignore late catalog responses
+      after close. All 27 settings/model tests pass, including exact save-event
+      timing/payload, no event on failure, and analytics fail-open behavior.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -500,6 +506,15 @@ in read/listen; exclude teacher preview and classroom. Keep analytics best
 effort and independent from the user-visible operation.
 
 ## Product Analytics Contract (v1)
+
+The existing `creator_shifu_setting_save` remains a successful-save event,
+including manual close/autosave while the optional follow-up catalog is still
+loading. Settings retain the saved follow-up configuration and mode when its
+model is absent from that catalog. Emit once after each successful save, never
+on catalog completion, failed validation, or failed persistence. The teacher
+population, `save_type`, payload allowlist, aggregate settings-adoption consumer,
+and fail-open behavior are unchanged; this restores the existing save path and
+needs no new event or consumer migration.
 
 The business question is the share of accepted production learner voice
 attempts that connect, their bounded failure outcomes, and whether connected

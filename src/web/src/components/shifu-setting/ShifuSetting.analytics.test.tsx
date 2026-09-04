@@ -196,75 +196,96 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
-  it('emits the exact allowlist only after the settings API succeeds', async () => {
-    const save = createDeferred<void>();
-    mockSaveShifuDetail.mockReturnValue(save.promise);
-    const { onSave } = renderOpenSettings();
+  it.each([false, true])(
+    'emits the exact allowlist only after the settings API succeeds (catalog pending=%s)',
+    async pendingCatalog => {
+      if (pendingCatalog) {
+        mockGetFollowUpModelCatalog.mockReturnValue(new Promise(() => {}));
+      }
+      const save = createDeferred<void>();
+      mockSaveShifuDetail.mockReturnValue(save.promise);
+      const { onSave } = renderOpenSettings();
 
-    await screen.findByDisplayValue('Private course name');
-    fireEvent.click(screen.getByLabelText('close-settings'));
+      await screen.findByDisplayValue('Private course name');
+      fireEvent.click(screen.getByLabelText('close-settings'));
 
-    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
-    expect(mockTrackEvent).not.toHaveBeenCalled();
-    expect(onSave).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
 
-    await act(async () => {
-      save.resolve();
-      await save.promise;
-    });
+      await act(async () => {
+        save.resolve();
+        await save.promise;
+      });
 
-    await waitFor(() => {
-      expect(mockTrackEvent).toHaveBeenCalledWith(
-        'creator_shifu_setting_save',
-        {
-          shifu_bid: 'course-1',
-          save_type: 'manual',
-          tts_enabled: false,
-          default_listen_mode_enabled: false,
-          use_learner_language: true,
-          follow_up_mode: 'text',
-        },
+      await waitFor(() => {
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'creator_shifu_setting_save',
+          {
+            shifu_bid: 'course-1',
+            save_type: 'manual',
+            tts_enabled: false,
+            default_listen_mode_enabled: false,
+            use_learner_language: true,
+            follow_up_mode: 'text',
+          },
+        );
+      });
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('name');
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('description');
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
+        'system_prompt',
       );
-    });
-    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('name');
-    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('description');
-    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('system_prompt');
-    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
-      'ask_provider_config',
-    );
-    expect(onSave).toHaveBeenCalledTimes(1);
-  });
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
+        'ask_provider_config',
+      );
+      expect(onSave).toHaveBeenCalledTimes(1);
+    },
+  );
 
-  it('emits nothing when the settings API fails', async () => {
-    mockSaveShifuDetail.mockRejectedValue(new Error('Private API failure'));
-    const { onSave } = renderOpenSettings();
+  it.each([false, true])(
+    'emits nothing when the settings API fails (catalog pending=%s)',
+    async pendingCatalog => {
+      if (pendingCatalog) {
+        mockGetFollowUpModelCatalog.mockReturnValue(new Promise(() => {}));
+      }
+      mockSaveShifuDetail.mockRejectedValue(new Error('Private API failure'));
+      const { onSave } = renderOpenSettings();
 
-    await screen.findByDisplayValue('Private course name');
-    fireEvent.click(screen.getByLabelText('close-settings'));
+      await screen.findByDisplayValue('Private course name');
+      fireEvent.click(screen.getByLabelText('close-settings'));
 
-    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
-    await act(async () => {
-      await Promise.resolve();
-    });
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await Promise.resolve();
+      });
 
-    expect(mockTrackEvent).not.toHaveBeenCalled();
-    expect(onSave).not.toHaveBeenCalled();
-  });
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('close-settings')).toBeInTheDocument();
+    },
+  );
 
-  it('completes the successful save flow when analytics throws', async () => {
-    mockTrackEvent.mockImplementation(() => {
-      throw new Error('analytics unavailable');
-    });
-    const { onSave } = renderOpenSettings();
+  it.each([false, true])(
+    'completes the successful save flow when analytics throws (catalog pending=%s)',
+    async pendingCatalog => {
+      if (pendingCatalog) {
+        mockGetFollowUpModelCatalog.mockReturnValue(new Promise(() => {}));
+      }
+      mockTrackEvent.mockImplementation(() => {
+        throw new Error('analytics unavailable');
+      });
+      const { onSave } = renderOpenSettings();
 
-    await screen.findByDisplayValue('Private course name');
-    fireEvent.click(screen.getByLabelText('close-settings'));
+      await screen.findByDisplayValue('Private course name');
+      fireEvent.click(screen.getByLabelText('close-settings'));
 
-    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
-  });
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
+    },
+  );
 
   it('keeps text debug gated while exposing Live and the saved default model', async () => {
     mockEnvState.billingEnabled = 'true';
@@ -425,32 +446,66 @@ describe('ShifuSettingDialog analytics producer', () => {
     },
   );
 
-  it('does not save while the follow-up catalog is unresolved', async () => {
-    const catalog = createDeferred<unknown[]>();
-    mockGetFollowUpModelCatalog.mockReturnValue(catalog.promise);
-    renderOpenSettings();
-    await screen.findByDisplayValue('Private course name');
+  it.each([false, true])(
+    'saves and closes before the catalog resolves (edited=%s)',
+    async edited => {
+      const catalog = createDeferred<unknown[]>();
+      mockGetFollowUpModelCatalog.mockReturnValue(catalog.promise);
+      const { onSave } = renderOpenSettings();
+      const name = await screen.findByDisplayValue('Private course name');
+      if (edited) {
+        fireEvent.change(name, { target: { value: 'Updated course name' } });
+      }
 
-    fireEvent.click(screen.getByLabelText('close-settings'));
+      fireEvent.click(screen.getByLabelText('close-settings'));
 
-    expect(mockSaveShifuDetail).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('close-settings')).toBeInTheDocument();
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
+      expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1);
+      expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          name: edited ? 'Updated course name' : 'Private course name',
+          ask_model: '',
+          ask_provider_config: {
+            provider: 'llm',
+            mode: 'provider_only',
+            config: { api_key: 'private-provider-secret' },
+          },
+        }),
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        {
+          shifu_bid: 'course-1',
+          save_type: 'manual',
+          tts_enabled: false,
+          default_listen_mode_enabled: false,
+          use_learner_language: true,
+          follow_up_mode: 'text',
+        },
+      );
 
-    await act(async () => {
-      catalog.resolve([]);
-      await catalog.promise;
-    });
-    fireEvent.click(screen.getByLabelText('close-settings'));
-    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
-  });
+      await act(async () => {
+        catalog.resolve([
+          { model: 'late-live-model', interaction_mode: 'live_voice' },
+        ]);
+        await catalog.promise;
+      });
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
+      expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    },
+  );
 
-  it.each(['unavailable', 'failed'] as const)(
+  it.each(['unavailable', 'failed', 'loading'] as const)(
     'preserves an existing Live config when the catalog is %s',
     async catalogState => {
       if (catalogState === 'failed') {
         mockGetFollowUpModelCatalog.mockRejectedValue(
           new Error('catalog unavailable'),
         );
+      } else if (catalogState === 'loading') {
+        mockGetFollowUpModelCatalog.mockReturnValue(new Promise(() => {}));
       } else {
         mockGetFollowUpModelCatalog.mockResolvedValue([]);
       }
@@ -505,6 +560,8 @@ describe('ShifuSettingDialog analytics producer', () => {
           expect.objectContaining({ follow_up_mode: 'live_voice' }),
         );
       });
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     },
   );
 
