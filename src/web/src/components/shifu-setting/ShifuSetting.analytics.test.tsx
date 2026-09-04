@@ -266,7 +266,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
   });
 
-  it('keeps text debug configuration gated while exposing free Live models', async () => {
+  it('keeps text debug gated while exposing Live and the saved default model', async () => {
     mockEnvState.billingEnabled = 'true';
     mockGetFollowUpModelCatalog.mockResolvedValue([
       {
@@ -302,7 +302,7 @@ describe('ShifuSettingDialog analytics producer', () => {
         }),
       );
       expect(latestProps.askModelOptions).toEqual([
-        expect.objectContaining({ value: 'text-model', disabled: true }),
+        expect.objectContaining({ value: 'text-model', disabled: false }),
         expect.objectContaining({
           value: 'gemini-3.1-flash-live-preview',
           disabled: false,
@@ -311,17 +311,24 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
-  it.each([false, undefined])(
-    'allows reverting to the saved text model without debug permission (%s)',
-    async debugAllowed => {
+  it.each(
+    [false, undefined].flatMap(debugAllowed => [
+      { debugAllowed, savedModel: 'saved-text', markedDefault: false },
+      { debugAllowed, savedModel: '', markedDefault: true },
+      { debugAllowed, savedModel: '', markedDefault: false },
+    ]),
+  )(
+    'allows reverting to saved "$savedModel" (default=$markedDefault, debug=$debugAllowed)',
+    async ({ debugAllowed, savedModel, markedDefault }) => {
       mockEnvState.billingEnabled = 'true';
       mockBillingOverview.debug_allowed = debugAllowed;
-      mockGetFollowUpModelCatalog.mockResolvedValue([
+      const textModels = [
         {
           model: 'saved-text',
           display_name: 'Saved',
           interaction_mode: 'text',
           voices: [],
+          is_default: markedDefault,
         },
         {
           model: 'other-text',
@@ -329,6 +336,14 @@ describe('ShifuSettingDialog analytics producer', () => {
           interaction_mode: 'text',
           voices: [],
         },
+      ];
+      // A marked default takes precedence over the first catalog entry;
+      // without a marker, ModelList uses that first entry for its Default alias.
+      if (markedDefault) {
+        textModels.reverse();
+      }
+      mockGetFollowUpModelCatalog.mockResolvedValue([
+        ...textModels,
         {
           model: 'live-model',
           display_name: 'Live',
@@ -346,7 +361,7 @@ describe('ShifuSettingDialog analytics producer', () => {
         avatar: '',
         temperature: 0,
         system_prompt: '',
-        ask_model: 'saved-text',
+        ask_model: savedModel,
         ask_temperature: 0,
         ask_provider_config: {
           provider: 'llm',
@@ -366,10 +381,14 @@ describe('ShifuSettingDialog analytics producer', () => {
           isLiveVoiceFollowUp: boolean;
           textDebugAllowed: boolean;
         };
-      await waitFor(() => expect(latestProps().askModel).toBe('saved-text'));
+      await waitFor(() => expect(latestProps().askModel).toBe(savedModel));
       const expectedOptions = [
-        expect.objectContaining({ value: 'saved-text', disabled: false }),
-        expect.objectContaining({ value: 'other-text', disabled: true }),
+        ...textModels.map(item =>
+          expect.objectContaining({
+            value: item.model,
+            disabled: item.model !== 'saved-text',
+          }),
+        ),
         expect.objectContaining({ value: 'live-model', disabled: false }),
       ];
       expect(latestProps().askModelOptions).toEqual(expectedOptions);
@@ -377,13 +396,13 @@ describe('ShifuSettingDialog analytics producer', () => {
       expect(latestProps().isLiveVoiceFollowUp).toBe(true);
       expect(latestProps().askModelOptions).toEqual(expectedOptions);
       expect(latestProps().textDebugAllowed).toBe(false);
-      act(() => latestProps().onAskModelChange('saved-text'));
+      act(() => latestProps().onAskModelChange(savedModel));
       expect(latestProps().isLiveVoiceFollowUp).toBe(false);
       fireEvent.click(screen.getByLabelText('close-settings'));
       await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
       expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
         expect.objectContaining({
-          ask_model: 'saved-text',
+          ask_model: savedModel,
           ask_provider_config: {
             provider: 'llm',
             mode: 'provider_only',

@@ -800,7 +800,11 @@ export default function ShifuSettingDialog({
       value: item.provider,
       label: item.title || item.provider,
     })) || [];
-  const savedAskModel = initialAskConfigurationRef.current?.model || '';
+  // ModelList's empty-value Default alias inherits the effective model's
+  // disabled flag, so preserve that model as a valid round-trip target too.
+  const savedAskModel =
+    initialAskConfigurationRef.current?.model ||
+    (followUpModels.find(item => item.is_default) || followUpModels[0])?.model;
   const followUpModelOptions = useMemo(
     () =>
       followUpModels.map(item => ({

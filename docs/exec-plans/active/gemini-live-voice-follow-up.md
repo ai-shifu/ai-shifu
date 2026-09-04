@@ -182,6 +182,11 @@ auditing, or another correctness-sensitive decision.
       backend tests, including physical writer disconnect and lock takeover.
       The full frontend suite passes 2,086 tests, plus TypeScript and the full
       repository pre-commit gate.
+- [x] 2026-09-04: Preserve the saved empty-value Default model as a selectable
+      return target after trying Live without billing debug permission. Match
+      ModelList's explicit-default/first-entry resolution, retain all other
+      text restrictions, and cover the saved empty value and exact save event.
+      All 22 focused model/settings tests pass.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
