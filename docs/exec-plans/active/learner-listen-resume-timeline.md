@@ -1,12 +1,11 @@
-# Learner listen resume and timeline
+# Learner listen resume
 
 ## Purpose / Big Picture
 
 Learners can leave and return to a listening lesson in the same browser without
-losing their position. The listen controls expose one lesson-wide timeline for
-finalized audio. During an in-progress lesson learners can seek within audio
-that has already been generated; completed lesson history can seek across the
-whole lesson. Restoring a position never starts audio automatically.
+losing their position. Restoring a position returns to the correct audio item
+and never starts audio automatically. Listen mode deliberately has no
+lesson-wide progress bar or cross-item seek control.
 
 ## Progress
 
@@ -46,6 +45,9 @@ whole lesson. Restoring a position never starts audio automatically.
   playback. The browser source may be a temporary segment URL, so persistence
   now uses the Slide player's current logical audio element and its finalized
   source; regression coverage simulates that temporary source.
+- [x] 2026-09-04 16:45 CST: Removed the lesson-wide timeline, cross-item seek,
+  duration preloading, related styling, copy, analytics, and tests after
+  usability review. Storage-backed same-audio resume remains intact.
 
 ## Surprises & Discoveries
 
@@ -71,22 +73,13 @@ whole lesson. Restoring a position never starts audio automatically.
   generated audio file cannot resume at an unrelated offset.
 - 2026-09-04: Restore after metadata readiness and never call `play()` as part
   of restoration, preserving browser autoplay policies.
-- 2026-09-04: Track accepted manual timeline seeks, not automatic restores or
-  timeline renders. This produces an adoption signal without render noise.
-- 2026-09-04: A seek is bounded by the end of finalized/generated lesson audio,
-  regardless of completion state. This prevents a learner jumping into an
-  ungenerated future segment without artificially blocking navigation within
-  the material that is already available.
-- 2026-09-04: Use server-provided durations when available and otherwise read
-  finalized audio metadata in the browser. Resume storage pairs the native
-  player's current source with the player-confirmed current step; a mismatched
-  source is deliberately ignored rather than guessed.
+- 2026-09-04: Do not expose a lesson-wide progress or seek control. Fixed
+  output and segmented audio make a lesson duration misleading; retaining only
+  per-audio resume keeps the control surface accurate.
 - 2026-09-04: A per-audio timestamp alone cannot resume a lesson after refresh,
   because the player initially renders its first slide. Store the latest
   resumable audio identity per course and lesson, request that slide first, and
   then apply its source-scoped timestamp.
-- 2026-09-04: Place the lesson-wide timeline below the player and reserve
-  player-footer space so it does not overlap the chat input.
 - 2026-09-04: Use the UI callback as the authoritative active-step boundary,
   then use the player custom-action context as the authoritative current audio
   identity. This keeps identity stable for non-marker children and for native
@@ -94,9 +87,8 @@ whole lesson. Restoring a position never starts audio automatically.
 
 ## Outcomes & Retrospective
 
-Implemented same-browser playback resume, a finite-audio timeline, and a
-privacy-safe manual-seek adoption event. The feature deliberately excludes
-streaming and unknown-duration sources.
+Implemented same-browser playback resume for finalized audio. The feature
+deliberately excludes streaming and unknown-duration sources.
 
 ## Context and Orientation
 
@@ -113,10 +105,7 @@ URL and duration while streaming tracks may not have a finite duration.
 2. Extend the native-audio integration to report metadata, time updates, seek,
    pause, ended, unmount, and visibility changes.
 3. Restore exactly once for a matching audio identity after metadata is ready.
-4. Add a lesson-wide timeline from finalized audio durations. It can seek
-   across generated material, while future/unfinalized audio remains absent
-   from the range.
-5. Cover the behavior with focused storage, hook, and component tests.
+4. Cover the behavior with focused storage, hook, and component tests.
 
 ## Concrete Steps
 
@@ -125,20 +114,13 @@ URL and duration while streaming tracks may not have a finite duration.
 2. Define the storage key and serialized value, then implement validation and
    lifecycle helpers.
 3. Wire persistence and restoration through `ListenModeSlideRenderer`.
-4. Extend the UI library with an imperative slide-target request, then map a
-   lesson timeline seek to its target slide and audio offset.
-5. Render and style the timeline below the player with keyboard-accessible
-   restricted seek behavior.
-6. Run focused tests, type checking, linting, and the relevant browser suite
+4. Run focused tests, type checking, linting, and the relevant browser suite
    if the harness surface changes.
 
 ## Validation and Acceptance
 
 - A paused, finite audio item resumes at the saved offset after refresh or
   returning to listen mode, but remains paused.
-- The displayed timeline aggregates finalized audio across the lesson. Both
-  active and completed lessons can seek across generated audio, but no control
-  position exists for ungenerated material.
 - Seek changes are immediately eligible for persistence; normal playback saves
   at a bounded cadence and flushes on pause, unmount, and page hiding.
 - Positions near the beginning or completion are not restored; a natural end
@@ -147,8 +129,6 @@ URL and duration while streaming tracks may not have a finite duration.
   position.
 - Streaming/unknown-duration audio cannot be sought and does not write an
   invalid position.
-- Desktop and mobile expose the same control semantics without obstructing the
-  existing playback controls.
 
 ## Idempotence and Recovery
 
@@ -162,33 +142,3 @@ the feature.
 - Browser `HTMLAudioElement` metadata,
   `timeupdate`, `pause`, `ended`, and visibility events.
 - Browser `localStorage`; no new API endpoint, database table, or migration.
-- `markdown-flow-ui` exposes a requested slide-step prop so a lesson-level
-  seek can move its embedded player to the matching audio segment.
-
-### learner_listen_timeline_seek
-
-- Business question: Do learners use timeline seeking in listen mode enough to
-  retain and improve the control?
-- Metric definition: Count accepted seek actions, grouped by the fixed surface
-  enum, over a reporting window. It is not a completion or retention metric.
-- Event name: `learner_listen_timeline_seek`.
-- Actor and surface: Learners on `learner_desktop` or `learner_mobile`.
-  Anonymous trial learners are included; teacher/classroom mode and streaming
-  or unknown-duration audio are excluded because no timeline is available.
-- Trigger: A user commits a changed value through the timeline range control
-  after the audio has a finite duration.
-- Count unit and deduplication: One accepted value commit. Repeated deliberate
-  seeks are meaningful and are not deduplicated; rendering, resume restore,
-  and time updates never emit an event.
-- Correlation: No course, lesson, audio URL, user text, or title is sent; the
-  shared tracker provides its existing identity context.
-- Consumers: Learner experience owner uses the event count by surface to judge
-  timeline adoption after release.
-- Compatibility: New additive event family.
-- Verification: Component tests cover both surface values, no event for
-  disabled/unchanged timeline states, exact payload, and tracking failure
-  isolation.
-
-| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
-| --- | --- | --- | --- | --- | --- |
-| `surface` | string | `learner_desktop`, `learner_mobile` | 2 | non-personal | Compare control adoption by form factor. |

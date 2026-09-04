@@ -24,7 +24,6 @@ import type { ChatContentItem } from '@/c-types/chatUi';
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
 );
-const mockTrackEvent = jest.fn();
 const mockAskBlock = jest.fn(
   ({
     element_bid,
@@ -51,15 +50,6 @@ jest.mock('react-i18next', () => ({
       language: 'zh-CN',
       resolvedLanguage: 'zh-CN',
     },
-  }),
-}));
-
-jest.mock('@/c-common/hooks/useTracking', () => ({
-  useTracking: () => ({
-    EVENT_NAMES: {
-      LEARNER_LISTEN_TIMELINE_SEEK: 'learner_listen_timeline_seek',
-    },
-    trackEvent: mockTrackEvent,
   }),
 }));
 
@@ -287,7 +277,6 @@ describe('ListenModeSlideRenderer', () => {
     getMockSlide().mockClear();
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
-    mockTrackEvent.mockClear();
     mockIsLessonFeedbackInteractionContent.mockClear();
   });
 
@@ -1518,11 +1507,6 @@ describe('ListenModeSlideRenderer', () => {
     await waitFor(() => {
       expect(audioElement.currentTime).toBe(24);
       expect(playSpy).not.toHaveBeenCalled();
-      expect(
-        screen.getByRole('slider', {
-          name: 'module.chat.listenPlaybackTimelineAriaLabel',
-        }),
-      ).toBeInTheDocument();
     });
   });
 
@@ -1691,7 +1675,6 @@ describe('ListenModeSlideRenderer', () => {
 
     await waitFor(() => {
       expect((audioElement as HTMLAudioElement).currentTime).toBe(18);
-      expect(screen.getByRole('slider')).toBeInTheDocument();
     });
   });
 
@@ -1746,7 +1729,6 @@ describe('ListenModeSlideRenderer', () => {
     fireEvent.timeUpdate(firstAudio);
 
     await waitFor(() => {
-      expect(screen.getByRole('slider')).toBeInTheDocument();
       expect(
         readListenPlaybackPositionFromStorage({
           courseId: 'course-1',
@@ -1822,223 +1804,6 @@ describe('ListenModeSlideRenderer', () => {
         (screen.getByTestId('slide-audio') as HTMLAudioElement).currentTime,
       ).toBe(24);
     });
-  });
-
-  it('removes the timeline when its active audio element is removed', async () => {
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'Hello',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    fireEvent.loadedMetadata(audioElement);
-    expect(await screen.findByRole('slider')).toBeInTheDocument();
-
-    audioElement.remove();
-
-    await waitFor(() => {
-      expect(screen.queryByRole('slider')).not.toBeInTheDocument();
-    });
-  });
-
-  it('persists an accepted timeline seek and records the surface without audio details', async () => {
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'Hello',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-          },
-        ]}
-        mobileStyle={true}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    fireEvent.loadedMetadata(audioElement);
-
-    const timeline = await screen.findByRole('slider', {
-      name: 'module.chat.listenPlaybackTimelineAriaLabel',
-    });
-    audioElement.currentTime = 12;
-    fireEvent.timeUpdate(audioElement);
-    expect(timeline).toHaveValue('12');
-
-    fireEvent.pointerDown(timeline);
-    fireEvent.change(timeline, { target: { value: '30' } });
-    fireEvent.pointerUp(timeline);
-
-    await waitFor(() => {
-      expect(audioElement.currentTime).toBe(30);
-      expect(mockTrackEvent).toHaveBeenCalledWith(
-        'learner_listen_timeline_seek',
-        { surface: 'learner_mobile' },
-      );
-      expect(
-        readListenPlaybackPositionFromStorage({
-          courseId: 'course-1',
-          lessonId: 'lesson-1',
-          elementBid: 'content-1',
-          source: 'https://audio.example.com/content-1.mp3',
-        }),
-      ).toBe(30);
-    });
-  });
-
-  it('persists and tracks a timeline seek that switches to another audio block', async () => {
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'First',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-            audioDurationMs: 60_000,
-          },
-          {
-            type: 'content',
-            content: 'Second',
-            element_bid: 'content-2',
-            audio_url: 'https://audio.example.com/content-2.mp3',
-            audioDurationMs: 60_000,
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    fireEvent.loadedMetadata(audioElement);
-
-    const timeline = await screen.findByRole('slider');
-    fireEvent.pointerDown(timeline);
-    fireEvent.change(timeline, { target: { value: '90' } });
-    fireEvent.pointerUp(timeline);
-
-    await waitFor(() => {
-      expect(audioElement).toHaveAttribute(
-        'src',
-        'https://audio.example.com/content-2.mp3',
-      );
-      expect(mockTrackEvent).toHaveBeenCalledWith(
-        'learner_listen_timeline_seek',
-        { surface: 'learner_desktop' },
-      );
-    });
-    fireEvent.loadedMetadata(audioElement);
-
-    await waitFor(() => {
-      expect(audioElement.currentTime).toBe(30);
-      expect(
-        readListenPlaybackPositionFromStorage({
-          courseId: 'course-1',
-          lessonId: 'lesson-1',
-          elementBid: 'content-2',
-          source: 'https://audio.example.com/content-2.mp3',
-        }),
-      ).toBe(30);
-    });
-  });
-
-  it('keeps timeline seeking functional when analytics tracking fails', async () => {
-    mockTrackEvent.mockRejectedValueOnce(new Error('tracking unavailable'));
-
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'Hello',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    fireEvent.loadedMetadata(audioElement);
-
-    const timeline = await screen.findByRole('slider');
-    fireEvent.pointerDown(timeline);
-    fireEvent.change(timeline, { target: { value: '30' } });
-    fireEvent.pointerUp(timeline);
-
-    await waitFor(() => {
-      expect(audioElement.currentTime).toBe(30);
-      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  it('does not show a timeline or emit events for streaming audio', () => {
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'Hello',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-            isAudioStreaming: true,
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    fireEvent.loadedMetadata(audioElement);
-
-    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
-    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   it('renders the current playback speed as text in the trigger control', () => {
