@@ -242,6 +242,14 @@ auditing, or another correctness-sensitive decision.
       Clock regressions cover both expiry boundaries and binding replacement;
       205 focused backend tests pass with two expected environment-dependent
       skips. Full frontend verification passes 2,131 tests and TypeScript.
+- [x] 2026-09-04: Cover Redis Lua's 14-digit numeric round trip when a finalizer
+      waits for an earlier write. Binding comparison tolerates only 100
+      microseconds of expiry rounding, with exact comparison of every other
+      field; an actual expiry change is still rejected. Both predecessor cases
+      reproduced the rejection before the fix, while all 13 changed-binding
+      cases remain rejected. The admission deadline itself is not extended.
+      All 215 focused backend tests pass with the same two environment skips;
+      76 accumulator/controller regressions and the full pre-commit gate pass.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -348,8 +356,8 @@ auditing, or another correctness-sensitive decision.
   new finalization requests, not as cancellation of an already accepted bounded
   batch. Under the existing connection-owned DB lock, compare the binding and
   reload the committed cursor once at the server-captured admission time. Renew
-  Redis retention to 300 seconds before each write, covering the normal API
-  worker timeout; ordinary heartbeats may extend but never shorten retention.
+  Redis retention to 300 seconds before each write; ordinary heartbeats may
+  extend but never shorten this bounded in-flight retention.
   - Why: teardown has stopped browser heartbeats, and slow persistence must not
     discard the remainder of a valid batch. This does not extend the Gemini
     token, media lifetime, capacity reservation, or authorization for any new

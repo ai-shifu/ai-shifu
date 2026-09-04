@@ -5,7 +5,9 @@ from __future__ import annotations
 import contextlib
 import hmac
 import json
+import math
 import time
+from dataclasses import replace
 from datetime import UTC, datetime
 from itertools import pairwise
 from urllib.parse import urlsplit, urlunsplit
@@ -743,7 +745,18 @@ def register_live_follow_up_routes(
                     current_time=admitted_at,
                     allow_finalization=True,
                 )
-                if bound_session.binding != session.binding:
+                # Redis Lua serializes epoch seconds at 14 significant digits.
+                # Allow only that rounding noise; all other binding fields match
+                # exactly and the stored admission deadline stays unchanged.
+                if replace(
+                    bound_session.binding,
+                    expires_at_epoch=session.binding.expires_at_epoch,
+                ) != session.binding or not math.isclose(
+                    bound_session.binding.expires_at_epoch,
+                    session.binding.expires_at_epoch,
+                    rel_tol=0,
+                    abs_tol=0.0001,
+                ):
                     raise LiveFollowUpSessionRejectedError
                 for turn in turns:
                     if turn.turn_index <= bound_session.turn_state.last_committed_index:

@@ -758,7 +758,9 @@ def test_finalize_skips_durable_turns_and_saves_remaining_reports_in_order(
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
-    session = _stored_session()
+    session = _stored_session(
+        expires_at_epoch=int(datetime.now(tz=UTC).timestamp()) + 900.123456
+    )
     state = LiveFollowUpTurnState(
         last_committed_index=0 if in_flight else 1,
         pending_index=1 if in_flight else None,
@@ -775,7 +777,14 @@ def test_finalize_skips_durable_turns_and_saves_remaining_reports_in_order(
 
     @contextmanager
     def wait_for_predecessor(_app: Flask, _session_bid: str) -> object:
-        nonlocal state
+        nonlocal session, state
+        # A predecessor's Redis Lua write round-trips numbers at 14 digits.
+        rounded_expiry = float(format(session.binding.expires_at_epoch, ".14g"))
+        assert rounded_expiry != session.binding.expires_at_epoch
+        session = replace(
+            session,
+            binding=replace(session.binding, expires_at_epoch=rounded_expiry),
+        )
         state = LiveFollowUpTurnState(last_committed_index=1)
         yield
 
@@ -909,13 +918,34 @@ def test_accepted_finalization_outlives_binding_and_admission_deadlines(
     assert get_binding("") is None
 
 
-@pytest.mark.parametrize("field", ["user_bid", "origin", "shifu_bid"])
+@pytest.mark.parametrize(
+    "field",
+    [
+        "session_bid",
+        "user_bid",
+        "origin",
+        "shifu_bid",
+        "outline_bid",
+        "anchor_element_bid",
+        "progress_record_bid",
+        "preview_mode",
+        "model",
+        "voice_name",
+        "language",
+        "learning_mode",
+        "expires_at_epoch",
+    ],
+)
 def test_finalization_rejects_a_replaced_binding_under_the_write_lock(
     monkeypatch: pytest.MonkeyPatch, field: str
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
     session = _stored_session()
+    replacement = {
+        "preview_mode": True,
+        "expires_at_epoch": session.binding.expires_at_epoch + 0.01,
+    }.get(field, "changed")
     locked = False
 
     @contextmanager
@@ -928,7 +958,7 @@ def test_finalization_rejects_a_replaced_binding_under_the_write_lock(
         routes,
         "load_live_follow_up_session",
         lambda *_a, **_k: (
-            replace(session, binding=replace(session.binding, **{field: "changed"}))
+            replace(session, binding=replace(session.binding, **{field: replacement}))
             if locked
             else session
         ),
