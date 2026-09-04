@@ -32,10 +32,195 @@ const acknowledgement = {
 
 describe('Live turn report handoff', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.resetAllMocks();
     jest.mocked(commitLiveFollowUpTurn).mockResolvedValue(acknowledgement);
     jest.mocked(endLiveFollowUpSession).mockResolvedValue({});
     jest.mocked(finalizeLiveFollowUpSession).mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it.each(['ended_by_user', 'connection_error'])(
+    'hands off a stalled normal request within five seconds (%s)',
+    async reason => {
+      let completeFirst!: () => void;
+      jest.mocked(commitLiveFollowUpTurn).mockReturnValueOnce(
+        new Promise(resolve => {
+          completeFirst = () => resolve(acknowledgement);
+        }),
+      );
+      const committed = jest.fn();
+      const onError = jest.fn();
+      const writer = new LiveFollowUpTurnWriter(
+        'session-1',
+        committed,
+        onError,
+      );
+      writer.enqueue([turn(1), turn(2)]);
+      const finished = writer.finish(reason);
+      expect(writer.finish(reason)).toBe(finished);
+
+      await jest.advanceTimersByTimeAsync(4999);
+      expect(finalizeLiveFollowUpSession).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      await finished;
+
+      expect(finalizeLiveFollowUpSession).toHaveBeenCalledTimes(1);
+      expect(finalizeLiveFollowUpSession).toHaveBeenCalledWith(
+        'session-1',
+        [
+          expect.objectContaining({ turn_index: 1 }),
+          expect.objectContaining({ turn_index: 2 }),
+        ],
+        reason,
+      );
+      expect(endLiveFollowUpSession).not.toHaveBeenCalled();
+      expect(committed.mock.calls.map(([value]) => value.turnIndex)).toEqual([
+        1, 2,
+      ]);
+      completeFirst();
+      await jest.advanceTimersByTimeAsync(45_000);
+      expect(committed).toHaveBeenCalledTimes(2);
+      expect(commitLiveFollowUpTurn).toHaveBeenCalledTimes(1);
+      expect(onError).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
+
+  it('clears the drain deadline when normal writes finish promptly', async () => {
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      jest.fn(),
+      jest.fn(),
+    );
+    writer.enqueue([turn(1), turn(2)]);
+    await writer.finish('ended_by_user');
+    expect(endLiveFollowUpSession).toHaveBeenCalledTimes(1);
+    expect(finalizeLiveFollowUpSession).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+    await jest.advanceTimersByTimeAsync(45_000);
+    expect(finalizeLiveFollowUpSession).not.toHaveBeenCalled();
+  });
+
+  it('does not finalize twice when pagehide overtakes the bounded drain', async () => {
+    jest
+      .mocked(commitLiveFollowUpTurn)
+      .mockReturnValueOnce(new Promise(() => {}));
+    const committed = jest.fn();
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      committed,
+      jest.fn(),
+    );
+    writer.enqueue([turn(1), turn(2)]);
+    const finished = writer.finish('ended_by_user');
+    await jest.advanceTimersByTimeAsync(1000);
+    await writer.handOffForUnload([], 'page_hidden');
+    await jest.advanceTimersByTimeAsync(5000);
+    await finished;
+    expect(finalizeLiveFollowUpSession).toHaveBeenCalledTimes(1);
+    expect(endLiveFollowUpSession).not.toHaveBeenCalled();
+    expect(committed).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['resolve', 'reject'])(
+    'retries an oversized retained backlog without restarting the old queue (%s)',
+    async lateResult => {
+      let completeFirst!: () => void;
+      jest.mocked(commitLiveFollowUpTurn).mockReturnValueOnce(
+        new Promise((resolve, reject) => {
+          completeFirst = () =>
+            lateResult === 'resolve'
+              ? resolve(acknowledgement)
+              : reject(new Error('late response failure'));
+        }),
+      );
+      const committed = jest.fn();
+      const onError = jest.fn();
+      const writer = new LiveFollowUpTurnWriter(
+        'session-1',
+        committed,
+        onError,
+      );
+      writer.enqueue(
+        [1, 2, 3].map(index => ({
+          ...turn(index),
+          userTranscript: 'x'.repeat(25_000),
+        })),
+      );
+      expect(onError).toHaveBeenCalledTimes(1);
+      const finished = writer.finish('connection_error');
+      await jest.advanceTimersByTimeAsync(5000);
+      await finished;
+      completeFirst();
+      await jest.advanceTimersByTimeAsync(45_000);
+
+      expect(
+        jest
+          .mocked(commitLiveFollowUpTurn)
+          .mock.calls.map(([, report]) => report.turn_index),
+      ).toEqual([1, 1, 2, 3]);
+      expect(committed.mock.calls.map(([value]) => value.turnIndex)).toEqual([
+        1, 2, 3,
+      ]);
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(endLiveFollowUpSession).toHaveBeenCalledTimes(1);
+      expect(finalizeLiveFollowUpSession).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
+
+  it('bounds a stalled oversized retry without consuming a partial outbox', async () => {
+    jest.mocked(commitLiveFollowUpTurn).mockReturnValue(new Promise(() => {}));
+    const committed = jest.fn();
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      committed,
+      jest.fn(),
+    );
+    writer.enqueue(
+      [1, 2, 3].map(index => ({
+        ...turn(index),
+        userTranscript: 'x'.repeat(25_000),
+      })),
+    );
+    const rejected = expect(writer.finish('connection_error')).rejects.toThrow(
+      'timed out',
+    );
+    await jest.advanceTimersByTimeAsync(15_000);
+    await rejected;
+
+    expect(commitLiveFollowUpTurn).toHaveBeenCalledTimes(2);
+    expect(finalizeLiveFollowUpSession).not.toHaveBeenCalled();
+    expect(endLiveFollowUpSession).not.toHaveBeenCalled();
+    expect(committed).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('does not acknowledge or consume the outbox when the fallback finalizer fails', async () => {
+    jest
+      .mocked(commitLiveFollowUpTurn)
+      .mockReturnValueOnce(new Promise(() => {}));
+    jest
+      .mocked(finalizeLiveFollowUpSession)
+      .mockRejectedValue(new Error('offline'));
+    const committed = jest.fn();
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      committed,
+      jest.fn(),
+    );
+    writer.enqueue([turn(1), turn(2)]);
+    const rejected = expect(writer.finish('ended_by_user')).rejects.toThrow(
+      'offline',
+    );
+    await jest.advanceTimersByTimeAsync(5000);
+    await rejected;
+    expect(committed).not.toHaveBeenCalled();
+    expect(endLiveFollowUpSession).not.toHaveBeenCalled();
   });
 
   it('initiates a single batch before the outstanding normal request completes', async () => {

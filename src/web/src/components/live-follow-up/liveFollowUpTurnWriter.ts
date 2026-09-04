@@ -9,6 +9,26 @@ import {
 import type { GeminiLiveTurnCommit } from './geminiLiveTurnAccumulator';
 
 const MAX_UNLOAD_REPORT_BYTES = 60 * 1024 - 256;
+const NORMAL_DRAIN_TIMEOUT_MS = 5_000;
+const RETAINED_TURN_TIMEOUT_MS = 10_000;
+const WAIT_EXPIRED = Symbol('Live report wait expired');
+
+const waitForReport = async <T>(
+  report: Promise<T>,
+  timeoutMs: number,
+): Promise<T | typeof WAIT_EXPIRED> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      report,
+      new Promise<typeof WAIT_EXPIRED>(resolve => {
+        timer = setTimeout(() => resolve(WAIT_EXPIRED), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 const toReport = (commit: GeminiLiveTurnCommit): LiveFollowUpTurnReport => ({
   turn_index: commit.turnIndex,
@@ -30,6 +50,7 @@ export class LiveFollowUpTurnWriter {
   private chain: Promise<void> | null = null;
   private handoff: Promise<void> | null = null;
   private finishing: Promise<void> | null = null;
+  private normalQueueStopped = false;
 
   constructor(
     readonly sessionBid: string,
@@ -78,7 +99,7 @@ export class LiveFollowUpTurnWriter {
     this.remember(commits);
     for (const commit of commits) {
       const persist = async () => {
-        if (this.handoff) {
+        if (this.handoff || this.normalQueueStopped) {
           return;
         }
         const acknowledgement = await commitLiveFollowUpTurn(
@@ -89,7 +110,7 @@ export class LiveFollowUpTurnWriter {
       };
       const pending = this.chain ? this.chain.then(persist) : persist();
       this.chain = pending.catch(() => {
-        if (!this.handoff) {
+        if (!this.handoff && !this.normalQueueStopped) {
           this.onError();
         }
       });
@@ -138,9 +159,19 @@ export class LiveFollowUpTurnWriter {
     if (this.handoff) {
       return this.handoff;
     }
-    await this.chain;
+    // Teardown has stopped heartbeats. Do not let an unbounded fetch consume
+    // the 45-second binding TTL before the retained outbox reaches /finalize.
+    const drained = await waitForReport(
+      this.chain ?? Promise.resolve(),
+      NORMAL_DRAIN_TIMEOUT_MS,
+    );
     if (this.handoff) {
       return this.handoff;
+    }
+    if (drained === WAIT_EXPIRED) {
+      // The active request may still acknowledge later. Stop its successors;
+      // the idempotent finalizer or ordered retry now owns the retained turns.
+      this.normalQueueStopped = true;
     }
     if (this.pending.size) {
       const outstanding = this.outstanding();
@@ -153,10 +184,15 @@ export class LiveFollowUpTurnWriter {
         if (this.handoff) {
           return this.handoff;
         }
-        const acknowledgement = await commitLiveFollowUpTurn(
-          this.sessionBid,
-          toReport(commit),
+        const acknowledgement = await waitForReport(
+          commitLiveFollowUpTurn(this.sessionBid, toReport(commit)),
+          RETAINED_TURN_TIMEOUT_MS,
         );
+        if (acknowledgement === WAIT_EXPIRED) {
+          // An over-budget backlog cannot use one keepalive. Retain it on
+          // failure; never consume the binding with only a partial batch.
+          throw new Error('Live turn report timed out');
+        }
         this.publish(commit, acknowledgement);
       }
     }
