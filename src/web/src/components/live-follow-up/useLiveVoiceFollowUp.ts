@@ -113,6 +113,7 @@ type ActiveAttempt = StartTarget & {
   connectedAt: number | null;
   attemptResultReported: boolean;
   sessionEndReported: boolean;
+  connectedPausePending: boolean;
   hadExchange: boolean;
 };
 
@@ -836,12 +837,13 @@ export const useLiveVoiceFollowUp = ({
               currentAttempt.audioActivated = true;
               if (
                 currentAttempt.analyticsEnabled &&
-                currentAttempt.connectedAt !== null
+                currentAttempt.connectedPausePending
               )
                 trackSafely(
                   LIVE_VOICE_FOLLOW_UP_RESUME_EVENT,
                   buildLiveVoiceFollowUpAttemptAnalytics(currentAttempt),
                 );
+              currentAttempt.connectedPausePending = false;
               flushPendingTextRef.current();
               return audio;
             });
@@ -894,6 +896,7 @@ export const useLiveVoiceFollowUp = ({
         connectedAt: null,
         attemptResultReported: false,
         sessionEndReported: false,
+        connectedPausePending: false,
         hadExchange: false,
       };
       attemptRef.current = attempt;
@@ -1658,6 +1661,9 @@ export const useLiveVoiceFollowUp = ({
       const attempt = attemptRef.current;
       if (!attempt || pausedRef.current) return;
       pausedRef.current = true;
+      // Setup may finish while paused. Only an already-connected pause owns a
+      // matching resume event; connection readiness alone cannot establish it.
+      attempt.connectedPausePending = attempt.connectedAt !== null;
       // Paused output is no longer speaking even if Gemini finishes later.
       // Neither the resume hint nor a future submit should inherit that state.
       if (attempt.serverVoiceState === 'speaking')

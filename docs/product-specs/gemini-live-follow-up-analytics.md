@@ -50,15 +50,15 @@ Panel opening, disabled controls, invalid/empty/over-limit input, capacity
 cooldown, re-renders, duplicate pending sends, and duplicate microphone requests
 emit nothing. Later deliberate submissions/operations count again.
 
-| Event | Exact trigger | Additional fields beyond common fields |
-| --- | --- | --- |
-| `learner_voice_follow_up_attempt` | Once after local guards accept a new connection, before activation/session POST | none |
-| `learner_voice_follow_up_result` | Once per attempt: setup and playback ready, pre-connection failure, or cancellation | `outcome`, `error_code` |
-| `learner_voice_follow_up_session_end` | Once per connected session after teardown and bounded local turn reconciliation, independent of HTTP persistence | `duration_ms`, `had_exchange`, `end_reason` |
-| `learner_voice_follow_up_text_submit` | Once per locally accepted explicit text submit, before sending/queueing; not a delivery acknowledgement | `submission_method`, `interrupted` |
-| `learner_voice_follow_up_microphone_result` | Once when an explicit on/off operation settles; editing/navigation may cancel a pending on operation | `enabled`, `outcome`, `error_code` |
-| `learner_voice_follow_up_pause` | Once when an already connected session transitions from active to paused and capture/playback are stopped | `reason` |
-| `learner_voice_follow_up_resume` | Once when explicit typed input or microphone activation resumes the paused session after its playback is ready | none |
+| Event                                       | Exact trigger                                                                                                    | Additional fields beyond common fields      |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `learner_voice_follow_up_attempt`           | Once after local guards accept a new connection, before activation/session POST                                  | none                                        |
+| `learner_voice_follow_up_result`            | Once per attempt: setup and playback ready, pre-connection failure, or cancellation                              | `outcome`, `error_code`                     |
+| `learner_voice_follow_up_session_end`       | Once per connected session after teardown and bounded local turn reconciliation, independent of HTTP persistence | `duration_ms`, `had_exchange`, `end_reason` |
+| `learner_voice_follow_up_text_submit`       | Once per locally accepted explicit text submit, before sending/queueing; not a delivery acknowledgement          | `submission_method`, `interrupted`          |
+| `learner_voice_follow_up_microphone_result` | Once when an explicit on/off operation settles; editing/navigation may cancel a pending on operation             | `enabled`, `outcome`, `error_code`          |
+| `learner_voice_follow_up_pause`             | Once when an already connected session transitions from active to paused and capture/playback are stopped        | `reason`                                    |
+| `learner_voice_follow_up_resume`            | Once when explicit typed input or microphone activation resumes the paused session after its playback is ready   | none                                        |
 
 In-memory attempt/generation, pending-text, and microphone-operation guards own
 deduplication; no cross-session persisted dedupe. A retry starts a new attempt,
@@ -72,6 +72,9 @@ panel, returning to the page, and pause/resume requests on an unconnected sessio
 emit neither pause nor resume. A successful explicit resume uses the existing
 session and emits no new attempt/result; it does not replay old audio or input,
 and the microphone remains off unless the accepted action explicitly enables it.
+If setup completes while already paused, that readiness does not retroactively
+create a connected pause. A later resume event requires an actual connected
+pause transition, regardless of whether best-effort event delivery succeeded.
 If the connection cannot be recovered, the normal final-failure path applies.
 Ending, changing the lesson, unloading, and natural expiry still end the session.
 Natural expiry silently releases resources: only the next explicit input starts

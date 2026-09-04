@@ -43,6 +43,11 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-05: Codex review of `201e096f8` found resume telemetry without
+      an originating connected pause when setup finished in the background.
+      Track the connected-pause transition independently of event delivery;
+      do not infer it from later connection readiness. The new regression
+      failed before correction, and all 128 controller tests now pass.
 - [x] 2026-09-05: Follow-up regression review found that a discarded answer
       could leave `speaking` state behind after pause. Reset only the audible
       speaking state, preserving connecting/reconnecting. Both microphone and
@@ -299,7 +304,7 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
       directory; the shared local virtualenv still had Flask 3.0.3.
 - [x] 2026-09-04: Addressed CodeQL's reflected-HTML findings by returning
       explicit `application/json` responses with `X-Content-Type-Options:
-    nosniff` from every Live endpoint. The shared envelope and unrelated
+  nosniff` from every Live endpoint. The shared envelope and unrelated
       routes are unchanged; tests cover markup-like values and MIME headers.
       All 102 focused backend tests and the full pre-commit gate pass.
 - [x] 2026-09-04: Added stable business code `4018` for user/worker/global

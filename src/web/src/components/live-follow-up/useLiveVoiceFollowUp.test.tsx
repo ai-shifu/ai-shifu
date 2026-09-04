@@ -418,6 +418,76 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     ]);
   });
 
+  it('does not emit a resume without a connected pause when setup finishes while paused', async () => {
+    render(<Harness />);
+    await startAndOpen();
+    fireEvent.click(screen.getByRole('button', { name: 'pause' }));
+    expect(screen.getByTestId('paused')).toHaveTextContent('true');
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_voice_follow_up_pause',
+      expect.anything(),
+    );
+    await makeReady();
+    expect(screen.getByTestId('paused')).toHaveTextContent('true');
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'text' })),
+    );
+    expect(mockAudio.resumeOutput).toHaveBeenCalledTimes(1);
+    expect(mockSockets[0].send).toHaveBeenCalledWith(
+      JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) =>
+          name === 'learner_voice_follow_up_pause' ||
+          name === 'learner_voice_follow_up_resume',
+      ),
+    ).toEqual([]);
+    for (const name of [
+      'learner_voice_follow_up_attempt',
+      'learner_voice_follow_up_result',
+      'learner_voice_follow_up_text_submit',
+    ]) {
+      expect(
+        mockTrackEvent.mock.calls.filter(([event]) => event === name),
+      ).toHaveLength(1);
+    }
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    act(() => mockSockets[0].message(serverEvent({ turnComplete: true })));
+    fireEvent.click(screen.getByRole('button', { name: 'pause' }));
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' })),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) =>
+          name === 'learner_voice_follow_up_pause' ||
+          name === 'learner_voice_follow_up_resume',
+      ),
+    ).toEqual([
+      [
+        'learner_voice_follow_up_pause',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+          reason: 'panel_closed',
+        },
+      ],
+      [
+        'learner_voice_follow_up_resume',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+        },
+      ],
+    ]);
+  });
+
   it.each(['text', 'microphone'] as const)(
     'resumes on explicit %s with native playback activation and validated admission',
     async action => {
