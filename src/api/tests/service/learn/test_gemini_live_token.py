@@ -101,6 +101,10 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
         ("", GEMINI_LIVE_AUTH_TOKEN_ENDPOINT),
         ("  \n ", GEMINI_LIVE_AUTH_TOKEN_ENDPOINT),
         ("https://generativelanguage.googleapis.com/", GEMINI_LIVE_AUTH_TOKEN_ENDPOINT),
+        (
+            "https://generativelanguage.googleapis.com/v1beta/",
+            GEMINI_LIVE_AUTH_TOKEN_ENDPOINT,
+        ),
         ("https://proxy.example.com", "https://proxy.example.com/v1beta/auth_tokens"),
         (
             " https://proxy.example.com/google/ ",
@@ -109,6 +113,22 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
         (
             "https://proxy.example.com:8443/api/google",
             "https://proxy.example.com:8443/api/google/v1beta/auth_tokens",
+        ),
+        (
+            "https://proxy.example.com/google/v1beta",
+            "https://proxy.example.com/google/v1beta/auth_tokens",
+        ),
+        (
+            " https://proxy.example.com:8443/google/v1beta/ ",
+            "https://proxy.example.com:8443/google/v1beta/auth_tokens",
+        ),
+        (
+            "https://proxy.example.com/v1beta/google",
+            "https://proxy.example.com/v1beta/google/v1beta/auth_tokens",
+        ),
+        (
+            "https://v1beta",
+            "https://v1beta/v1beta/auth_tokens",
         ),
     ],
 )
