@@ -1658,6 +1658,10 @@ export const useLiveVoiceFollowUp = ({
       const attempt = attemptRef.current;
       if (!attempt || pausedRef.current) return;
       pausedRef.current = true;
+      // Paused output is no longer speaking even if Gemini finishes later.
+      // Neither the resume hint nor a future submit should inherit that state.
+      if (attempt.serverVoiceState === 'speaking')
+        attempt.serverVoiceState = 'listening';
       resumeGenerationRef.current += 1;
       stopMicrophone();
       pendingTextRef.current?.resolve(false);
@@ -1695,6 +1699,7 @@ export const useLiveVoiceFollowUp = ({
         ...previous,
         open: false,
         paused: true,
+        state: previous.state === 'speaking' ? 'listening' : previous.state,
         muted: true,
         microphonePending: false,
         textPending: textTransitionRef.current,

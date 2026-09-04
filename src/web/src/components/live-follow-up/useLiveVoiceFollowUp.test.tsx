@@ -481,6 +481,53 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     },
   );
 
+  it.each(['microphone', 'text'] as const)(
+    'does not retain the discarded reply speaking state when resuming with %s',
+    async action => {
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            inputTranscripts: ['Previous question'],
+            outputTranscripts: ['Previous answer'],
+            audioChunks: [new ArrayBuffer(4)],
+          }),
+        ),
+      );
+      expect(screen.getByTestId('state')).toHaveTextContent('speaking');
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'pause' })),
+      );
+      act(() => mockSockets[0].message(serverEvent({ turnComplete: true })));
+      expect(mockAudio.finishOutput).toHaveBeenCalledWith(1);
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: action })),
+      );
+      // flush_and_clear discarded the queue. A later worklet finish emits a
+      // drained callback even though this turn no longer owns audible output.
+      act(() => mockActivateAudio.mock.calls[0][0].onPlaybackComplete(1));
+      if (action === 'text') {
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'learner_voice_follow_up_text_submit',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            submission_method: 'keyboard',
+            interrupted: false,
+          },
+        );
+      } else {
+        expect(screen.getByTestId('muted')).toHaveTextContent('false');
+      }
+      expect(screen.getByTestId('state')).toHaveTextContent('listening');
+      expect(mockAudio.enqueueOutput).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('never replays a paused reply after resume and preserves its played watermark', async () => {
     jest.useFakeTimers();
     render(<Harness />);

@@ -43,6 +43,11 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-05: Follow-up regression review found that a discarded answer
+      could leave `speaking` state behind after pause. Reset only the audible
+      speaking state, preserving connecting/reconnecting. Both microphone and
+      keyboard reproductions failed before correction; all 127 controller
+      tests now pass, including a non-interrupted next text-submit event.
 - [x] 2026-09-05: User approved pause/continue for panel collapse and temporary
       backgrounding, with no visible 15-minute limit. Explicit End, different
       anchor/lesson/course, page unload, and expiry still retire the connection.
