@@ -7,7 +7,7 @@ import {
 
 import type { GeminiLiveTurnCommit } from './geminiLiveTurnAccumulator';
 
-const MAX_PENDING_REPORT_BYTES = 60 * 1024 - 256;
+const MAX_UNLOAD_REPORT_BYTES = 60 * 1024 - 256;
 
 const toReport = (commit: GeminiLiveTurnCommit): LiveFollowUpTurnReport => ({
   turn_index: commit.turnIndex,
@@ -18,12 +18,17 @@ const toReport = (commit: GeminiLiveTurnCommit): LiveFollowUpTurnReport => ({
   latency_ms: commit.latencyMs,
 });
 
-/** Retains unacknowledged turns so teardown can initiate one bounded request. */
+const fitsUnloadRequest = (commits: GeminiLiveTurnCommit[]) =>
+  new Blob([JSON.stringify(commits.map(toReport))]).size <=
+  MAX_UNLOAD_REPORT_BYTES;
+
+/** Retains normal reports independently of the single unload request budget. */
 export class LiveFollowUpTurnWriter {
   private readonly pending = new Map<number, GeminiLiveTurnCommit>();
   private readonly notified = new Set<number>();
   private chain: Promise<void> | null = null;
   private handoff: Promise<void> | null = null;
+  private finishing: Promise<void> | null = null;
 
   constructor(
     readonly sessionBid: string,
@@ -32,19 +37,18 @@ export class LiveFollowUpTurnWriter {
   ) {}
 
   private remember(commits: GeminiLiveTurnCommit[]) {
-    const next = new Map(this.pending);
     for (const commit of commits) {
-      next.set(commit.turnIndex, commit);
-    }
-    if (
-      new Blob([JSON.stringify([...next.values()].map(toReport))]).size >
-      MAX_PENDING_REPORT_BYTES
-    ) {
-      throw new Error('Live transcript backlog exceeded its bound');
-    }
-    for (const commit of commits) {
+      if (!fitsUnloadRequest([commit])) {
+        throw new Error('Live transcript report exceeded its bound');
+      }
       this.pending.set(commit.turnIndex, commit);
     }
+  }
+
+  private outstanding() {
+    return [...this.pending.values()].sort(
+      (left, right) => left.turnIndex - right.turnIndex,
+    );
   }
 
   private publish(commit: GeminiLiveTurnCommit) {
@@ -75,6 +79,11 @@ export class LiveFollowUpTurnWriter {
         }
       });
     }
+    if (!fitsUnloadRequest(this.outstanding())) {
+      // Stop taking more speech under backpressure, but only after every valid
+      // commit has been retained and queued. Foreground teardown drains them.
+      this.onError();
+    }
   }
 
   handOffForUnload(commits: GeminiLiveTurnCommit[], reason: string) {
@@ -82,9 +91,13 @@ export class LiveFollowUpTurnWriter {
       return this.handoff;
     }
     this.remember(commits);
-    const outstanding = [...this.pending.values()].sort(
-      (left, right) => left.turnIndex - right.turnIndex,
-    );
+    const outstanding = this.outstanding();
+    if (!fitsUnloadRequest(outstanding)) {
+      // Never send an oversized keepalive or end the binding with a truncated
+      // batch. Retain/drain the normal queue while the document is alive;
+      // browsers cannot guarantee an over-budget backlog survives unload.
+      return this.finish(reason);
+    }
     // Do not await the active normal request: keepalive only protects requests
     // already initiated before pagehide discards this document. The backend
     // waits for an in-flight predecessor and skips its durable acknowledgement.
@@ -98,7 +111,15 @@ export class LiveFollowUpTurnWriter {
     return this.handoff;
   }
 
-  async finish(reason: string) {
+  finish(reason: string): Promise<void> {
+    if (this.handoff) {
+      return this.handoff;
+    }
+    this.finishing ??= this.finishNormally(reason);
+    return this.finishing;
+  }
+
+  private async finishNormally(reason: string) {
     if (this.handoff) {
       return this.handoff;
     }
@@ -107,7 +128,19 @@ export class LiveFollowUpTurnWriter {
       return this.handoff;
     }
     if (this.pending.size) {
-      return this.handOffForUnload([], reason);
+      const outstanding = this.outstanding();
+      if (fitsUnloadRequest(outstanding)) {
+        return this.handOffForUnload([], reason);
+      }
+      // Retry retained reports individually before closing the binding. Normal
+      // requests are not subject to fetch's aggregate keepalive byte budget.
+      for (const commit of outstanding) {
+        if (this.handoff) {
+          return this.handoff;
+        }
+        await commitLiveFollowUpTurn(this.sessionBid, toReport(commit));
+        this.publish(commit);
+      }
     }
     await endLiveFollowUpSession(this.sessionBid, reason);
   }
