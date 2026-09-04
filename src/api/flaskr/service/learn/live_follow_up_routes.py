@@ -5,7 +5,6 @@ from __future__ import annotations
 import contextlib
 import hmac
 import json
-import time
 from datetime import UTC, datetime
 from itertools import pairwise
 from urllib.parse import urlsplit, urlunsplit
@@ -49,9 +48,11 @@ from flaskr.service.learn.live_follow_up_config import (
     normalize_live_follow_up_provider_config,
 )
 from flaskr.service.learn.live_follow_up_persistence import (
+    LiveFollowUpPersistenceError,
     LiveTurnPersistenceContext,
     LiveTurnPersistenceInput,
     LiveTurnPersistenceResult,
+    live_follow_up_persistence_lock,
     persist_live_follow_up_turn,
 )
 from flaskr.service.learn.live_follow_up_session_store import (
@@ -89,7 +90,6 @@ _ALLOWED_SURFACES = frozenset({"read_content", "listen_player", "teacher_preview
 _MAX_DIRECT_TRANSCRIPT_CHARS = 32_000
 _MAX_DIRECT_USAGE_BYTES = 64 * 1024
 _MAX_DIRECT_TURN_REPORT_BYTES = 60 * 1024
-_FINALIZE_PREDECESSOR_WAIT_SECONDS = 5
 
 
 class LiveFollowUpModelUnavailableError(RuntimeError):
@@ -683,14 +683,17 @@ def register_live_follow_up_routes(
         turn = _validate_turn_payload(_read_bounded_turn_payload())
         touch_direct_session(session)
         try:
-            reservation = reserve_live_follow_up_turn(
-                app,
-                session_bid=session_bid,
-                turn_index=turn.turn_index,
-            )
-        except LiveFollowUpSessionStoreError:
+            with live_follow_up_persistence_lock(app, session_bid):
+                session = require_direct_session(session_bid, allow_finalization=True)
+                reservation = reserve_live_follow_up_turn(
+                    app,
+                    session_bid=session_bid,
+                    turn_index=turn.turn_index,
+                    recover_pending=True,
+                )
+                result = persist_reserved_turn(session, turn, reservation)
+        except (LiveFollowUpSessionStoreError, LiveFollowUpPersistenceError):
             raise_param_error("live_follow_up_turn")
-        result = persist_reserved_turn(session, turn, reservation)
         return _make_live_response(
             {
                 "session_bid": session_bid,
@@ -700,31 +703,6 @@ def register_live_follow_up_routes(
                 "answer_element_bid": result.answer_element_bid,
             }
         )
-
-    def reserve_finalizing_turn(
-        session_bid: str, turn_index: int, deadline: float
-    ) -> tuple[StoredLiveFollowUpSession, LiveFollowUpTurnReservation | None]:
-        while True:
-            session = require_direct_session(session_bid, allow_finalization=True)
-            state = session.turn_state
-            if turn_index <= state.last_committed_index:
-                return session, None
-            if state.pending_index is None:
-                if turn_index != state.last_committed_index + 1:
-                    raise_param_error("live_follow_up_turn")
-                try:
-                    return session, reserve_live_follow_up_turn(
-                        app, session_bid=session_bid, turn_index=turn_index
-                    )
-                except LiveFollowUpSessionRejectedError:
-                    # A normal report may have reserved this index after our
-                    # read. Never steal its claim or write concurrently.
-                    pass
-                except LiveFollowUpSessionStoreError:
-                    raise_param_error("live_follow_up_turn")
-            if time.monotonic() >= deadline:
-                raise_param_error("live_follow_up_turn")
-            time.sleep(0.05)
 
     @app.route(
         path_prefix + "/live-follow-up/session/<session_bid>/finalize",
@@ -746,17 +724,24 @@ def register_live_follow_up_routes(
         ):
             raise_param_error("live_follow_up_turn")
         touch_direct_session(session)
-        deadline = time.monotonic() + _FINALIZE_PREDECESSOR_WAIT_SECONDS
-        for turn in turns:
-            bound_session, reservation = reserve_finalizing_turn(
-                session_bid, turn.turn_index, deadline
-            )
-            if reservation is not None:
-                persist_reserved_turn(bound_session, turn, reservation)
         try:
-            consume_live_follow_up_session(app, session_bid=session_bid)
-        except LiveFollowUpSessionStoreError:
-            raise_param_error("live_follow_up_session")
+            with live_follow_up_persistence_lock(app, session_bid):
+                for turn in turns:
+                    bound_session = require_direct_session(
+                        session_bid, allow_finalization=True
+                    )
+                    if turn.turn_index <= bound_session.turn_state.last_committed_index:
+                        continue
+                    reservation = reserve_live_follow_up_turn(
+                        app,
+                        session_bid=session_bid,
+                        turn_index=turn.turn_index,
+                        recover_pending=True,
+                    )
+                    persist_reserved_turn(bound_session, turn, reservation)
+                consume_live_follow_up_session(app, session_bid=session_bid)
+        except (LiveFollowUpSessionStoreError, LiveFollowUpPersistenceError):
+            raise_param_error("live_follow_up_turn")
         return _make_live_response(
             {
                 "session_bid": session_bid,
@@ -784,10 +769,11 @@ def register_live_follow_up_routes(
         }:
             end_reason = "connection_error"
         try:
-            consume_live_follow_up_session(app, session_bid=session_bid)
+            with live_follow_up_persistence_lock(app, session_bid):
+                consume_live_follow_up_session(app, session_bid=session_bid)
         except LiveFollowUpSessionRejectedError:
             pass
-        except LiveFollowUpSessionStoreError:
+        except (LiveFollowUpSessionStoreError, LiveFollowUpPersistenceError):
             raise_param_error("live_follow_up_session")
         # The browser has already received a credential that Gemini accepts
         # until its fixed expireTime. Gemini exposes no revoke operation, so

@@ -67,7 +67,11 @@ if not last_index or not requested_index or not max_turns
 end
 local pending_index = state['pending_index']
 if pending_index ~= nil and pending_index ~= cjson.null then
-    return -2
+    -- Recovery is only enabled while holding the connection-scoped database
+    -- lock, which proves that the previous writer has exited.
+    if ARGV[4] ~= '1' or tonumber(pending_index) ~= requested_index then
+        return -2
+    end
 end
 if requested_index ~= last_index + 1 or requested_index > max_turns then
     return -2
@@ -414,8 +418,9 @@ def reserve_live_follow_up_turn(
     *,
     session_bid: str,
     turn_index: int,
+    recover_pending: bool = False,
 ) -> LiveFollowUpTurnReservation:
-    """Atomically reserve the next bounded turn index for this session."""
+    """Reserve the next index; recovery requires the session's DB write lock."""
     if (
         not session_bid
         or type(turn_index) is not int
@@ -431,7 +436,7 @@ def reserve_live_follow_up_turn(
         app,
         script=_RESERVE_TURN_SCRIPT,
         reservation=reservation,
-        extra_args=(str(LIVE_FOLLOW_UP_MAX_TURNS),),
+        extra_args=(str(LIVE_FOLLOW_UP_MAX_TURNS), "1" if recover_pending else "0"),
     )
     if result != 1:
         raise LiveFollowUpSessionRejectedError(_ERROR_TURN_REJECTED)

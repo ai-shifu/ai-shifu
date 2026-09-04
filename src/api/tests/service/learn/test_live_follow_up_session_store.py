@@ -52,7 +52,10 @@ class _FakeRedis:
             state = record["turn_state"]
             turn_index = int(args[0])
             if (
-                state["pending_index"] is not None
+                (
+                    state["pending_index"] is not None
+                    and (args[3] != "1" or state["pending_index"] != turn_index)
+                )
                 or turn_index != state["last_committed_index"] + 1
                 or turn_index > int(args[2])
             ):
@@ -250,6 +253,40 @@ def test_failed_turn_reservation_can_be_retried(
         turn_index=1,
     )
     assert retried.claim != failed.claim
+
+
+def test_orphaned_claim_can_be_replaced_without_advancing_or_reviving_old_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis = _FakeRedis()
+    monkeypatch.setattr(store, "_redis_client", lambda: redis)
+    app = _app()
+    store.store_live_follow_up_session(app, session=_session())
+    abandoned = store.reserve_live_follow_up_turn(
+        app, session_bid="session-1", turn_index=1
+    )
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.reserve_live_follow_up_turn(
+            app, session_bid="session-1", turn_index=2, recover_pending=True
+        )
+    recovered = store.reserve_live_follow_up_turn(
+        app, session_bid="session-1", turn_index=1, recover_pending=True
+    )
+    assert recovered.claim != abandoned.claim
+    for action in (
+        store.commit_live_follow_up_turn_reservation,
+        store.release_live_follow_up_turn_reservation,
+    ):
+        with pytest.raises(LiveFollowUpSessionRejectedError):
+            action(app, reservation=abandoned)
+    state = store.load_live_follow_up_session(app, session_bid="session-1").turn_state
+    assert state.last_committed_index == 0
+    assert state.pending_claim == recovered.claim
+    store.commit_live_follow_up_turn_reservation(app, reservation=recovered)
+    next_turn = store.reserve_live_follow_up_turn(
+        app, session_bid="session-1", turn_index=2
+    )
+    store.commit_live_follow_up_turn_reservation(app, reservation=next_turn)
 
 
 def test_turn_reservations_stop_at_the_session_budget(

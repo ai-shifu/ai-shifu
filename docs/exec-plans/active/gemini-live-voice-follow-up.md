@@ -168,6 +168,12 @@ auditing, or another correctness-sensitive decision.
 - [x] 2026-09-04: Reconciled `main` commit `75a105e5d` (credit notification
       email delivery). Regenerated shared documentation indexes and i18n keys
       from both features' source files; no voice runtime behavior changed.
+- [x] 2026-09-04: Recover orphaned Redis turn claims only after acquiring the
+      session's connection-scoped MySQL write lock. The lock covers reservation,
+      history/usage persistence, acknowledgement, and session consumption, with
+      a five-second acquisition bound and a fresh DB read context. A terminated
+      worker releases ownership; a slow live writer cannot be displaced by a
+      timer. No schema or ordinary follow-up behavior changes are required.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

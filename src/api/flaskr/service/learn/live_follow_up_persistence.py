@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import json
 import math
 import uuid
@@ -31,11 +33,13 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
 )
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from .live_follow_up_config import GEMINI_LIVE_MODEL_ID
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from flask import Flask
 
 _LIVE_TURN_NAMESPACE = uuid.UUID("53108c61-7df0-5264-8f6c-f1438f13fd2a")
@@ -43,6 +47,49 @@ _LIVE_TURN_NAMESPACE = uuid.UUID("53108c61-7df0-5264-8f6c-f1438f13fd2a")
 
 class LiveFollowUpPersistenceError(RuntimeError):
     """Signal that a required transcript or usage write was not durable."""
+
+
+@contextlib.contextmanager
+def live_follow_up_persistence_lock(app: Flask, session_bid: str) -> Iterator[None]:
+    """Serialize reservation, durable writes, and acknowledgement across workers.
+
+    A connection-scoped MySQL lock cannot expire mid-write and is released on
+    worker disconnect. Once acquired, a leftover Redis claim can safely be
+    replaced. This follows the onboarding publication lock's database boundary.
+    """
+    lock_name = "ai-shifu:live:" + hashlib.sha256(session_bid.encode()).hexdigest()[:48]
+    with db.engine.connect() as connection:
+        try:
+            acquired = connection.execute(
+                text("SELECT GET_LOCK(:name, 5)"), {"name": lock_name}
+            ).scalar()
+        except BaseException:
+            # A cancelled acquisition may have succeeded on MySQL. Never put
+            # that connection back into the pool with an unowned named lock.
+            connection.invalidate()
+            raise
+        if acquired != 1:
+            message = "Gemini Live persistence is busy"
+            raise LiveFollowUpPersistenceError(message)
+        try:
+            # Do not reuse a request's pre-lock repeatable-read snapshot.
+            with app.app_context():
+                yield
+        finally:
+            try:
+                released = connection.execute(
+                    text("SELECT RELEASE_LOCK(:name)"), {"name": lock_name}
+                ).scalar()
+                if released != 1:
+                    connection.invalidate()
+            except Exception:
+                # Cleanup cannot turn a durable write into a reported failure.
+                with contextlib.suppress(Exception):
+                    connection.invalidate()
+                app.logger.warning("Gemini Live persistence lock cleanup failed")
+            except BaseException:
+                connection.invalidate()
+                raise
 
 
 def deterministic_live_turn_bid(
