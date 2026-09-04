@@ -189,10 +189,7 @@ describe('Live lifecycle reports through the shared request transport', () => {
           })),
         );
         const finished = writer.finish('ended_by_user');
-        const completion =
-          rejectedFinalizations === 3
-            ? expect(finished).rejects.toThrow()
-            : expect(finished).resolves.toBeUndefined();
+        const completion = expect(finished).resolves.toBeUndefined();
         await jest.advanceTimersByTimeAsync(4999);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(fetchMock.mock.calls[0][0]).toMatch(/\/turn$/);
@@ -204,7 +201,7 @@ describe('Live lifecycle reports through the shared request transport', () => {
         await completion;
 
         expect(fetchMock).toHaveBeenCalledTimes(
-          rejectedFinalizations === 3 ? 6 : 2 + rejectedFinalizations,
+          rejectedFinalizations === 3 ? 7 : 2 + rejectedFinalizations,
         );
         for (const call of fetchMock.mock.calls.filter(([url]) =>
           url.endsWith('/finalize'),

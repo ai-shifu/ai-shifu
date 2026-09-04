@@ -97,6 +97,17 @@ auditing, or another correctness-sensitive decision.
       TypeScript passed, including real shared-transport recovery after three
       HTTP 503 finalizer rejections while the original native fetch stays pending.
       Full frontend rerun: 227 suites / 2,182 tests passed.
+- [x] 2026-09-04: Addressed review `discussion_r3935201692`: keep `finish()`
+      attached to the recovered drain instead of rejecting after enqueue.
+      Retry only the earliest unacknowledged index; a rejected/stalled recovery
+      request cannot advance its successors. One monotonic 25-second closing
+      budget covers the normal drain, finalizer attempts, ordered recovery, and
+      binding close. Pagehide can still hand off the retained outbox during
+      recovery, without restarting media or duplicating session-end analytics.
+      Four regressions failed before correction. All 113 focused tests and
+      TypeScript passed, including controller teardown/pagehide, repeated
+      failure, stuck requests, and a backward wall-clock jump. Full frontend:
+      227 suites / 2,189 tests passed.
 - [ ] 2026-09-04: Follow valid review threads and recheck current-head CI.
       Complete real-Gemini and physical
       Safari/iOS/mobile Chrome acceptance before claiming those environments:
@@ -503,6 +514,16 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Decision Log
 
+- Decision: a single close operation owns persistence through recovery, with
+  a 25-second elapsed-time budget rather than fire-and-forget successor writes.
+  - Why: teardown intentionally stops media and heartbeats immediately. A
+    healthy 15-second heartbeat against the 45-second binding TTL, plus the
+    existing 30-second absolute expiry grace, leaves only a bounded admission
+    window. Finalizer/turn/end waits share that deadline; no new request starts
+    after it. Retry the earliest pending index before any successor. Exhausted
+    connectivity is still a failed save, never a fabricated acknowledgement or
+    an end request that consumes an incomplete outbox. The monotonic clock
+    prevents local clock changes from extending recovery.
 - Decision: omit the Course Prompt from Live only, rather than heuristically
   editing its formatting or teaching rules. Use `prompts/live_follow_up.md`
   as the shared builder's explicit fallback while passing no course prompt.
@@ -770,7 +791,11 @@ takeover still fails, clear its rejected state and resume/requeue unacknowledged
 normal writes on a fresh queue generation, detached from the old unresolved
 request. Old queued successors cannot join that recovered chain; a late active
 request may acknowledge only once. Never treat rejection as successful
-ownership transfer.
+ownership transfer. `finish()` owns and awaits recovery: retry the earliest
+unacknowledged turn after a temporary failure or bounded wait, before issuing
+any successor. A single monotonic 25-second budget spans all closing requests,
+including finalization and binding close, and cannot be extended by a retry.
+Pagehide may initiate keepalive during that owned recovery operation.
 On unload, synchronously initiate one bounded keepalive
 finalization batch instead when the backlog fits. An over-budget backlog stays
 in an ordered queue and drains only while the document remains alive, with a

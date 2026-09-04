@@ -11,6 +11,9 @@ import type { GeminiLiveTurnCommit } from './geminiLiveTurnAccumulator';
 const MAX_UNLOAD_REPORT_BYTES = 60 * 1024 - 256;
 const NORMAL_DRAIN_TIMEOUT_MS = 5_000;
 const RETAINED_TURN_TIMEOUT_MS = 10_000;
+// A 45-second binding renewed every 15 seconds leaves at least 30 seconds at
+// normal teardown. Keep closing requests inside that budget and expiry grace.
+const CLOSING_TIMEOUT_MS = 25_000;
 const MAX_FINALIZATION_ATTEMPTS = 3;
 const FINALIZATION_RETRY_DELAY_MS = 1_000;
 const WAIT_EXPIRED = Symbol('Live report wait expired');
@@ -52,6 +55,9 @@ export class LiveFollowUpTurnWriter {
   private chain: Promise<void> | null = null;
   private handoff: Promise<void> | null = null;
   private finishing: Promise<void> | null = null;
+  private recovery: Promise<void> | null = null;
+  private closingDeadline: number | null = null;
+  private finalized = false;
   private normalQueueStopped = false;
   private queueGeneration = 0;
 
@@ -136,6 +142,8 @@ export class LiveFollowUpTurnWriter {
   }
 
   handOffForUnload(commits: GeminiLiveTurnCommit[], reason: string) {
+    if (this.finalized)
+      return this.handoff ?? this.finishing ?? Promise.resolve();
     if (this.handoff) {
       return this.handoff;
     }
@@ -161,39 +169,37 @@ export class LiveFollowUpTurnWriter {
     const reports = outstanding.map(toReport);
     for (let attempt = 1; ; attempt += 1) {
       try {
-        await finalizeLiveFollowUpSession(this.sessionBid, reports, reason);
+        await this.waitForClosingRequest(() =>
+          finalizeLiveFollowUpSession(this.sessionBid, reports, reason),
+        );
         outstanding.forEach(commit => this.publish(commit));
+        this.finalized = true;
         return;
       } catch (error) {
-        if (attempt < MAX_FINALIZATION_ATTEMPTS) {
+        if (
+          attempt < MAX_FINALIZATION_ATTEMPTS &&
+          this.remainingClosingTime() > FINALIZATION_RETRY_DELAY_MS
+        ) {
           // The predecessor can still own the bounded backend write lock.
           // Retry the same idempotent batch without re-enabling its successors.
-          await new Promise(resolve =>
-            setTimeout(resolve, FINALIZATION_RETRY_DELAY_MS),
-          );
+          await this.waitBeforeRetry();
           continue;
         }
-        // A rejected takeover is not ownership transfer. Restore retained
-        // writes, including successors that already skipped while it ran.
-        // Enqueue's pending guard skips duplicates when an old ACK arrives.
         this.handoff = null;
-        this.finishing = null;
-        this.normalQueueStopped = false;
-        // Recovery must not depend on the unresolved fetch that triggered it.
-        // Invalidate its queued successors before starting a fresh chain. A
-        // late active-request ACK may still publish once through the ID guard.
-        this.queueGeneration += 1;
-        this.chain = null;
-        this.enqueue(this.outstanding());
-        throw error;
+        // A pagehide batch started during recovery must not await the very
+        // recovery operation that may be waiting for that batch.
+        if (this.recovery || this.remainingClosingTime() <= 0) throw error;
+        return this.startRecovery(reason);
       }
     }
   }
 
   finish(reason: string): Promise<void> {
+    if (this.finishing) return this.finishing;
     if (this.handoff) {
       return this.handoff;
     }
+    if (this.recovery) return this.recovery;
     this.finishing ??= this.finishNormally(reason);
     return this.finishing;
   }
@@ -206,7 +212,7 @@ export class LiveFollowUpTurnWriter {
     // the 45-second binding TTL before the retained outbox reaches /finalize.
     const drained = await waitForReport(
       this.chain ?? Promise.resolve(),
-      NORMAL_DRAIN_TIMEOUT_MS,
+      Math.min(NORMAL_DRAIN_TIMEOUT_MS, this.remainingClosingTime()),
     );
     if (this.handoff) {
       return this.handoff;
@@ -221,24 +227,80 @@ export class LiveFollowUpTurnWriter {
       if (fitsUnloadRequest(outstanding)) {
         return this.handOffForUnload([], reason);
       }
-      // Retry retained reports individually before closing the binding. Normal
-      // requests are not subject to fetch's aggregate keepalive byte budget.
-      for (const commit of outstanding) {
-        if (this.handoff) {
-          return this.handoff;
+      return this.startRecovery(reason);
+    }
+    await this.closeBinding(reason);
+  }
+
+  private remainingClosingTime() {
+    this.closingDeadline ??= performance.now() + CLOSING_TIMEOUT_MS;
+    return Math.max(0, this.closingDeadline - performance.now());
+  }
+
+  private async waitForClosingRequest<T>(
+    request: () => Promise<T>,
+  ): Promise<T> {
+    const remaining = this.remainingClosingTime();
+    if (remaining <= 0) throw new Error('Live turn report timed out');
+    const result = await waitForReport(
+      request(),
+      Math.min(RETAINED_TURN_TIMEOUT_MS, remaining),
+    );
+    if (result === WAIT_EXPIRED) throw new Error('Live turn report timed out');
+    return result;
+  }
+
+  private waitBeforeRetry() {
+    const remaining = this.remainingClosingTime();
+    if (remaining <= 0) throw new Error('Live turn report timed out');
+    return new Promise<void>(resolve =>
+      setTimeout(resolve, Math.min(FINALIZATION_RETRY_DELAY_MS, remaining)),
+    );
+  }
+
+  private startRecovery(reason: string) {
+    if (this.recovery) return this.recovery;
+    // Detach from the stalled normal chain and keep every retry attached to
+    // finish(). Only the earliest unacknowledged index can advance the cursor.
+    this.normalQueueStopped = true;
+    this.queueGeneration += 1;
+    this.chain = null;
+    this.recovery = this.recoverInOrder(reason);
+    return this.recovery;
+  }
+
+  private async recoverInOrder(reason: string) {
+    while (!this.finalized) {
+      if (this.handoff) {
+        // A lifecycle callback can initiate a bounded keepalive while a normal
+        // recovery write is pending. Join it before issuing another successor.
+        try {
+          await this.handoff;
+        } catch {
+          if (this.remainingClosingTime() <= 0)
+            throw new Error('Live turn report timed out');
         }
-        const acknowledgement = await waitForReport(
+        if (this.finalized) return;
+      }
+      const commit = this.outstanding()[0];
+      if (!commit) break;
+      try {
+        const acknowledgement = await this.waitForClosingRequest(() =>
           commitLiveFollowUpTurn(this.sessionBid, toReport(commit)),
-          RETAINED_TURN_TIMEOUT_MS,
         );
-        if (acknowledgement === WAIT_EXPIRED) {
-          // An over-budget backlog cannot use one keepalive. Retain it on
-          // failure; never consume the binding with only a partial batch.
-          throw new Error('Live turn report timed out');
-        }
         this.publish(commit, acknowledgement);
+      } catch {
+        if (this.finalized) return;
+        await this.waitBeforeRetry();
       }
     }
-    await endLiveFollowUpSession(this.sessionBid, reason);
+    if (!this.finalized) await this.closeBinding(reason);
+  }
+
+  private async closeBinding(reason: string) {
+    await this.waitForClosingRequest(() =>
+      endLiveFollowUpSession(this.sessionBid, reason),
+    );
+    this.finalized = true;
   }
 }
