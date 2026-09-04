@@ -273,8 +273,14 @@ auditing, or another correctness-sensitive decision.
       Reject unsafe URLs and disable redirects/fallback hosts. Seventeen
       targeted cases reproduced the missing configuration before the fix;
       all 97 focused token/route/deployment tests pass afterward.
-- [ ] 2026-09-04: Correct the provider-reported token FieldMask mismatch,
-      verify real constrained token creation, and deploy the connection fixes.
+- [x] 2026-09-04: Remove client-owned `sessionResumption` from token setup
+      constraints as well as their FieldMask. Three regressions reproduced
+      the mismatch before the fix; all 97 focused tests pass afterward.
+      Candidate code using the dev container's existing proxy/key now mints
+      a real token (HTTP 200). A client-side direct Google WebSocket using that
+      token completes `setupComplete`; neither probe records audio or secrets.
+- [ ] Deploy the two connection fixes through a focused dev release PR and
+      recheck the running image, HTTP health, token minting, and direct setup.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -478,8 +484,11 @@ Automated evidence after the pivot currently covers token constraints,
 Redis fail-closed behavior, admission and Origin binding, direct-session
 lifecycle, report bounds, deterministic/non-billable persistence, protocol
 parsing, transcript reconciliation, audio backpressure, interruption,
-resumption, retry-only failures, analytics, and TypeScript. Real provider and
-browser acceptance remains outstanding and is not inferred from unit tests.
+resumption, retry-only failures, analytics, and TypeScript. Candidate code has
+also passed real ephemeral-token issuance through the dev server's existing
+Gemini proxy and direct client-side Google WebSocket `setupComplete`. This
+synthetic, no-audio check does not establish browser microphone, multi-turn,
+or resumption acceptance; those checks remain outstanding.
 
 ## Context and Orientation
 

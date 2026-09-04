@@ -76,6 +76,8 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
     assert "sessionResumption" not in locked_fields
     assert not any("_" in field for field in locked_fields)
     setup = payload["bidiGenerateContentSetup"]
+    assert set(setup).issubset(locked_fields)
+    assert "sessionResumption" not in setup
     assert setup["model"] == "models/gemini-3.1-flash-live-preview"
     generation_config = setup["generationConfig"]
     assert generation_config["responseModalities"] == ["AUDIO"]
@@ -194,6 +196,9 @@ def test_token_allows_blank_prompt_without_unlocking_browser_instruction(
     payload = calls[0]["json"]
     assert "systemInstruction" in payload["fieldMask"].split(",")
     assert "systemInstruction" not in payload["bidiGenerateContentSetup"]
+    assert set(payload["bidiGenerateContentSetup"]).issubset(
+        payload["fieldMask"].split(",")
+    )
 
 
 @pytest.mark.parametrize("missing", ["api_key", "model", "voice_name"])
@@ -227,6 +232,7 @@ def test_browser_setup_omits_private_prompt_and_uses_constrained_endpoint() -> N
     )
     assert setup["setup"]["model"] == "models/gemini-3.1-flash-live-preview"
     assert "systemInstruction" not in setup["setup"]
+    assert setup["setup"]["sessionResumption"] == {}
     assert setup["setup"]["historyConfig"] == {"initialHistoryInClientContent": True}
 
     resumed = build_gemini_live_client_setup(
