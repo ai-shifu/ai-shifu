@@ -22,10 +22,18 @@ const turn = (turnIndex: number): GeminiLiveTurnCommit => ({
   latencyMs: 10,
 });
 
+const acknowledgement = {
+  session_bid: 'session-1',
+  turn_index: 1,
+  history_saved: true,
+  ask_element_bid: 'ask-1',
+  answer_element_bid: 'answer-1',
+};
+
 describe('Live turn report handoff', () => {
   beforeEach(() => {
     jest.resetAllMocks();
-    jest.mocked(commitLiveFollowUpTurn).mockResolvedValue({});
+    jest.mocked(commitLiveFollowUpTurn).mockResolvedValue(acknowledgement);
     jest.mocked(endLiveFollowUpSession).mockResolvedValue({});
     jest.mocked(finalizeLiveFollowUpSession).mockResolvedValue({});
   });
@@ -34,7 +42,7 @@ describe('Live turn report handoff', () => {
     let completeFirst!: () => void;
     jest.mocked(commitLiveFollowUpTurn).mockReturnValueOnce(
       new Promise(resolve => {
-        completeFirst = () => resolve({});
+        completeFirst = () => resolve(acknowledgement);
       }),
     );
     const committed = jest.fn();
@@ -112,7 +120,7 @@ describe('Live turn report handoff', () => {
     };
     writer.enqueue([interrupted]);
     await writer.finish('ended_by_user');
-    expect(committed).toHaveBeenCalledWith(interrupted);
+    expect(committed).toHaveBeenCalledWith(interrupted, acknowledgement);
   });
 
   it('rejects an individual report that cannot fit the API request bound', () => {
@@ -133,7 +141,7 @@ describe('Live turn report handoff', () => {
       let completeFirst!: () => void;
       jest.mocked(commitLiveFollowUpTurn).mockReturnValueOnce(
         new Promise(resolve => {
-          completeFirst = () => resolve({});
+          completeFirst = () => resolve(acknowledgement);
         }),
       );
       const committed = jest.fn();
@@ -243,7 +251,11 @@ describe('Live turn report handoff', () => {
         if (calls === 1) {
           throw new Error('response lost after commit');
         }
-        return { turn_index: report.turn_index, history_saved: true };
+        return {
+          ...acknowledgement,
+          turn_index: report.turn_index,
+          history_saved: true,
+        };
       });
     const committed = jest.fn();
     const writer = new LiveFollowUpTurnWriter(

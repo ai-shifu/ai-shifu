@@ -29,6 +29,10 @@ import {
   buildLiveVoiceFollowUpAttemptAnalytics,
   buildLiveVoiceFollowUpResultAnalytics,
   buildLiveVoiceFollowUpSessionEndAnalytics,
+  buildLiveVoiceFollowUpTextAnalytics,
+  buildLiveVoiceFollowUpMicrophoneAnalytics,
+  LIVE_VOICE_FOLLOW_UP_TEXT_SUBMIT_EVENT,
+  LIVE_VOICE_FOLLOW_UP_MICROPHONE_RESULT_EVENT,
   LIVE_VOICE_FOLLOW_UP_ATTEMPT_EVENT,
   LIVE_VOICE_FOLLOW_UP_RESULT_EVENT,
   LIVE_VOICE_FOLLOW_UP_SESSION_END_EVENT,
@@ -59,9 +63,22 @@ export type LiveVoiceTranscript = {
   final: boolean;
 };
 
-type StartTarget = {
+export type LiveVoiceFollowUpTarget = {
   anchorElementBid: string;
   surface: LiveFollowUpSurface;
+};
+type StartTarget = LiveVoiceFollowUpTarget;
+
+export type LiveVoiceFollowUpHistoryTurn = {
+  sessionBid: string;
+  outlineBid: string;
+  anchorElementBid: string;
+  turnIndex: number;
+  userTranscript: string;
+  assistantTranscript: string;
+  interrupted: boolean;
+  askElementBid?: string;
+  answerElementBid?: string;
 };
 
 type ActiveAttempt = StartTarget & {
@@ -100,8 +117,11 @@ export type LiveVoiceFollowUpViewState = {
   open: boolean;
   state: LiveFollowUpState;
   muted: boolean;
+  microphonePending: boolean;
+  microphoneError: LiveVoiceFollowUpErrorCode | null;
+  textPending: boolean;
+  anchorElementBid: string | null;
   warning: boolean;
-  transcripts: LiveVoiceTranscript[];
   errorCode: LiveVoiceFollowUpErrorCode | null;
   retryable: boolean;
   retryAvailableAt: number | null;
@@ -110,6 +130,13 @@ export type LiveVoiceFollowUpViewState = {
 
 export type LiveVoiceFollowUpController = LiveVoiceFollowUpViewState & {
   start: (target: StartTarget) => void;
+  startMicrophone: (target: StartTarget) => void;
+  stopMicrophone: (explicit?: boolean) => void;
+  sendText: (
+    target: StartTarget,
+    text: string,
+    method: 'keyboard' | 'button',
+  ) => Promise<boolean>;
   retry: () => void;
   toggleMuted: () => void;
   end: () => void;
@@ -122,12 +149,19 @@ type UseLiveVoiceFollowUpOptions = {
   previewMode: boolean;
   learningMode: LiveFollowUpLearningMode;
   sessionScope: LiveFollowUpLearningMode | 'classroom';
-  onTurnCommitted?: (turn: {
+  onTurnCommitted?: (turn: LiveVoiceFollowUpHistoryTurn) => void;
+  onTurnFinalized?: (turn: LiveVoiceFollowUpHistoryTurn) => void;
+  onTranscript?: (
+    update: LiveVoiceTranscript & {
+      sessionBid: string;
+      outlineBid: string;
+      anchorElementBid: string;
+    },
+  ) => void;
+  onSessionFinished?: (session: {
+    sessionBid: string;
     outlineBid: string;
     anchorElementBid: string;
-    turnIndex: number;
-    userTranscript: string;
-    assistantTranscript: string;
   }) => void;
 };
 
@@ -142,9 +176,12 @@ type FinishAttemptOptions = {
 const initialState: LiveVoiceFollowUpViewState = {
   open: false,
   state: 'ended',
-  muted: false,
+  muted: true,
+  microphonePending: false,
+  microphoneError: null,
+  textPending: false,
+  anchorElementBid: null,
   warning: false,
-  transcripts: [],
   errorCode: null,
   retryable: false,
   retryAvailableAt: null,
@@ -173,17 +210,6 @@ const resolveActivationErrorCode = (
   }
   return 'session_create_failed';
 };
-
-const sortTranscripts = (items: LiveVoiceTranscript[]) =>
-  [...items].sort((left, right) => {
-    if (left.turnIndex !== right.turnIndex) {
-      return left.turnIndex - right.turnIndex;
-    }
-    if (left.role === right.role) {
-      return 0;
-    }
-    return left.role === 'user' ? -1 : 1;
-  });
 
 const sendWebSocketPayload = (websocket: WebSocket | null, payload: string) => {
   if (websocket?.readyState !== WebSocket.OPEN) {
@@ -221,6 +247,9 @@ export const useLiveVoiceFollowUp = ({
   learningMode,
   sessionScope,
   onTurnCommitted,
+  onTurnFinalized,
+  onTranscript,
+  onSessionFinished,
 }: UseLiveVoiceFollowUpOptions): LiveVoiceFollowUpController => {
   const { trackEvent } = useTracking();
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
@@ -234,12 +263,20 @@ export const useLiveVoiceFollowUp = ({
   const admissionBlockedUntilRef = useRef(0);
   const audioRef = useRef<LiveVoiceFollowUpAudio | null>(null);
   const audioActivationAbortRef = useRef<AbortController | null>(null);
-  const mutedRef = useRef(false);
+  const audioReadyRef = useRef<Promise<LiveVoiceFollowUpAudio> | null>(null);
+  const microphoneAbortRef = useRef<AbortController | null>(null);
+  const mutedRef = useRef(true);
+  const pendingTextRef = useRef<{
+    text: string;
+    resolve: (sent: boolean) => void;
+  } | null>(null);
+  const textTransitionRef = useRef(false);
+  const textTimerRef = useRef<number | null>(null);
+  const flushPendingTextRef = useRef<() => void>(() => {});
   const setupReadyRef = useRef(false);
   const reconnectingRef = useRef(false);
   const resumptionHandleRef = useRef<string | null>(null);
   const outputTurnIndexRef = useRef<number | null>(null);
-  const transcriptsRef = useRef<LiveVoiceTranscript[]>([]);
   const accumulatorRef = useRef<GeminiLiveTurnAccumulator | null>(null);
   const commitTimerRef = useRef<number | null>(null);
   const turnWriterRef = useRef<LiveFollowUpTurnWriter | null>(null);
@@ -349,21 +386,19 @@ export const useLiveVoiceFollowUp = ({
         return;
       }
       for (const update of updates) {
-        transcriptsRef.current = sortTranscripts([
-          ...transcriptsRef.current.filter(
-            transcript =>
-              transcript.turnIndex !== update.turnIndex ||
-              transcript.role !== update.role,
-          ),
-          update,
-        ]);
+        const attempt = attemptRef.current;
+        const session = sessionRef.current;
+        if (attempt && session) {
+          onTranscript?.({
+            ...update,
+            sessionBid: session.session_bid,
+            outlineBid: attempt.outlineBid,
+            anchorElementBid: attempt.anchorElementBid,
+          });
+        }
       }
-      setViewState(previous => ({
-        ...previous,
-        transcripts: transcriptsRef.current,
-      }));
     },
-    [],
+    [onTranscript],
   );
 
   const getTurnWriter = useCallback(
@@ -378,14 +413,18 @@ export const useLiveVoiceFollowUp = ({
       }
       const writer = new LiveFollowUpTurnWriter(
         sessionBid,
-        commit => {
+        (commit, acknowledgement) => {
           try {
             onTurnCommitted?.({
               outlineBid,
               anchorElementBid,
+              sessionBid,
               turnIndex: commit.turnIndex,
               userTranscript: commit.userTranscript,
               assistantTranscript: commit.playedAnswerTranscript,
+              interrupted: commit.interrupted,
+              askElementBid: acknowledgement?.ask_element_bid,
+              answerElementBid: acknowledgement?.answer_element_bid,
             });
           } catch {}
         },
@@ -416,6 +455,17 @@ export const useLiveVoiceFollowUp = ({
       generation: number,
     ) => {
       try {
+        commits.forEach(commit =>
+          onTurnFinalized?.({
+            sessionBid,
+            outlineBid,
+            anchorElementBid,
+            turnIndex: commit.turnIndex,
+            userTranscript: commit.userTranscript,
+            assistantTranscript: commit.playedAnswerTranscript,
+            interrupted: commit.interrupted,
+          }),
+        );
         getTurnWriter(
           sessionBid,
           outlineBid,
@@ -432,7 +482,7 @@ export const useLiveVoiceFollowUp = ({
         });
       }
     },
-    [getTurnWriter],
+    [getTurnWriter, onTurnFinalized],
   );
 
   const flushReadyCommits = useCallback(
@@ -498,6 +548,16 @@ export const useLiveVoiceFollowUp = ({
     (reason: LiveVoiceFollowUpEndReason) => {
       const endedAt = Date.now();
       clearTimers();
+      if (textTimerRef.current !== null)
+        window.clearTimeout(textTimerRef.current);
+      textTimerRef.current = null;
+      textTransitionRef.current = false;
+      pendingTextRef.current?.resolve(false);
+      pendingTextRef.current = null;
+      microphoneAbortRef.current?.abort();
+      microphoneAbortRef.current = null;
+      mutedRef.current = true;
+      audioReadyRef.current = null;
       audioActivationAbortRef.current?.abort();
       audioActivationAbortRef.current = null;
       setupReadyRef.current = false;
@@ -539,9 +599,29 @@ export const useLiveVoiceFollowUp = ({
           : null;
       turnWriterRef.current = null;
       const endReason = directSessionEndReason(reason);
+      const publishFinal = (commits: GeminiLiveTurnCommit[]) => {
+        if (!attempt || !session) return;
+        commits.forEach(commit =>
+          onTurnFinalized?.({
+            sessionBid: session.session_bid,
+            outlineBid: attempt.outlineBid,
+            anchorElementBid: attempt.anchorElementBid,
+            turnIndex: commit.turnIndex,
+            userTranscript: commit.userTranscript,
+            assistantTranscript: commit.playedAnswerTranscript,
+            interrupted: commit.interrupted,
+          }),
+        );
+        onSessionFinished?.({
+          sessionBid: session.session_bid,
+          outlineBid: attempt.outlineBid,
+          anchorElementBid: attempt.anchorElementBid,
+        });
+      };
       const flushForUnload = () => {
         try {
           const commits = accumulator?.finishSession() ?? [];
+          publishFinal(commits);
           recordCompletedExchange(attempt, commits);
           void writer?.handOffForUnload(commits, endReason).catch(() => {});
         } catch {
@@ -568,6 +648,7 @@ export const useLiveVoiceFollowUp = ({
         }
         try {
           const commits = accumulator?.finishSession() ?? [];
+          publishFinal(commits);
           recordCompletedExchange(attempt, commits);
           if (attempt) {
             reportSessionEnd(attempt, reason, endedAt);
@@ -584,7 +665,14 @@ export const useLiveVoiceFollowUp = ({
       };
       void finalize();
     },
-    [clearTimers, getTurnWriter, releaseExclusive, reportSessionEnd],
+    [
+      clearTimers,
+      getTurnWriter,
+      releaseExclusive,
+      reportSessionEnd,
+      onTurnFinalized,
+      onSessionFinished,
+    ],
   );
 
   const finishAttempt = useCallback(
@@ -612,6 +700,9 @@ export const useLiveVoiceFollowUp = ({
           ...previous,
           open: keepOpen,
           state: 'ended',
+          muted: true,
+          microphonePending: false,
+          textPending: false,
           warning: false,
           errorCode,
           retryable: retryable && retryAvailableAt === null,
@@ -628,23 +719,24 @@ export const useLiveVoiceFollowUp = ({
     ({ anchorElementBid, surface }: StartTarget) => {
       const normalizedAnchor = anchorElementBid.trim();
       if (!normalizedAnchor || !shifuBid || !outlineBid) {
-        return;
+        return false;
       }
+      if (sessionScope === 'classroom') return false;
       if (attemptRef.current) {
-        setViewState(previous => ({ ...previous, open: true }));
-        return;
+        return attemptRef.current.anchorElementBid === normalizedAnchor;
       }
       if (admissionBlockedUntilRef.current > Date.now()) {
         lastTargetRef.current = { anchorElementBid: normalizedAnchor, surface };
         setViewState(previous => ({
           ...previous,
           open: true,
+          anchorElementBid: normalizedAnchor,
           state: 'ended',
           retryable: false,
           retryAvailableAt: admissionBlockedUntilRef.current,
           errorCode: 'capacity_exceeded',
         }));
-        return;
+        return false;
       }
       const generation = ++generationRef.current;
       const target = { anchorElementBid: normalizedAnchor, surface };
@@ -666,9 +758,8 @@ export const useLiveVoiceFollowUp = ({
         hadExchange: false,
       };
       attemptRef.current = attempt;
-      mutedRef.current = false;
+      mutedRef.current = true;
       setupReadyRef.current = false;
-      transcriptsRef.current = [];
       const attemptAccumulator = new GeminiLiveTurnAccumulator();
       accumulatorRef.current = attemptAccumulator;
 
@@ -683,7 +774,12 @@ export const useLiveVoiceFollowUp = ({
           }),
         );
       }
-      setViewState({ ...initialState, open: true, state: 'connecting' });
+      setViewState({
+        ...initialState,
+        open: true,
+        state: 'connecting',
+        anchorElementBid: normalizedAnchor,
+      });
       requestExclusive(() => {
         finishAttempt({ reason: 'replaced', keepOpen: false });
       });
@@ -704,6 +800,7 @@ export const useLiveVoiceFollowUp = ({
         }
         // Resumption also waits for setup, but must not emit another result.
         if (currentAttempt.connectedAt !== null) {
+          flushPendingTextRef.current();
           return;
         }
         currentAttempt.connectedAt = Date.now();
@@ -712,6 +809,7 @@ export const useLiveVoiceFollowUp = ({
           ...previous,
           state: currentAttempt.serverVoiceState || 'listening',
         }));
+        flushPendingTextRef.current();
       };
 
       const startSessionTimers = (
@@ -767,6 +865,7 @@ export const useLiveVoiceFollowUp = ({
               const websocket = websocketRef.current;
               if (
                 currentAttempt?.generation !== generation ||
+                mutedRef.current ||
                 !setupReadyRef.current ||
                 websocket?.readyState !== WebSocket.OPEN ||
                 frame.byteLength > MAX_INPUT_AUDIO_FRAME_BYTES ||
@@ -809,6 +908,7 @@ export const useLiveVoiceFollowUp = ({
       } catch (error) {
         audioPromise = Promise.reject(error);
       }
+      audioReadyRef.current = audioPromise;
       void audioPromise
         .then(audio => {
           if (audioActivationAbortRef.current === audioActivationAbort) {
@@ -977,7 +1077,10 @@ export const useLiveVoiceFollowUp = ({
 
           const ingest = attemptAccumulator.process(message);
           applyTranscriptUpdates(ingest.transcriptUpdates);
-          if (ingest.audioTurnIndex !== null) {
+          if (
+            ingest.audioTurnIndex !== null &&
+            !attemptAccumulator.suppressPlayback(ingest.audioTurnIndex)
+          ) {
             outputTurnIndexRef.current = ingest.audioTurnIndex;
             for (const chunk of ingest.audioChunks) {
               audioRef.current?.enqueueOutput(chunk, ingest.audioTurnIndex);
@@ -1010,6 +1113,17 @@ export const useLiveVoiceFollowUp = ({
               audioRef.current?.finishOutput(ingest.terminalTurnIndex);
             }
             scheduleCommitFlush(generation);
+          }
+          if (
+            !attemptAccumulator.textHandoffPending &&
+            (ingest.audioTurnIndex !== null ||
+              ingest.terminalTurnIndex !== null)
+          ) {
+            textTransitionRef.current = false;
+            if (textTimerRef.current !== null)
+              window.clearTimeout(textTimerRef.current);
+            textTimerRef.current = null;
+            setViewState(previous => ({ ...previous, textPending: false }));
           }
 
           if (message.goAway) {
@@ -1139,6 +1253,7 @@ export const useLiveVoiceFollowUp = ({
             });
           }
         });
+      return true;
     },
     [
       analyticsEnabled,
@@ -1152,8 +1267,231 @@ export const useLiveVoiceFollowUp = ({
       requestExclusive,
       scheduleCommitFlush,
       shifuBid,
+      sessionScope,
       trackSafely,
     ],
+  );
+
+  const stopMicrophone = useCallback(
+    (explicit = false) => {
+      const wasEnabled = !mutedRef.current;
+      const attempt = attemptRef.current;
+      microphoneAbortRef.current?.abort();
+      microphoneAbortRef.current = null;
+      mutedRef.current = true;
+      audioRef.current?.stopMicrophone();
+      if (wasEnabled) {
+        sendWebSocketPayload(
+          websocketRef.current,
+          JSON.stringify({ realtimeInput: { audioStreamEnd: true } }),
+        );
+      }
+      setViewState(previous => ({
+        ...previous,
+        muted: true,
+        microphonePending: false,
+      }));
+      if (explicit && wasEnabled && attempt?.analyticsEnabled) {
+        trackSafely(
+          LIVE_VOICE_FOLLOW_UP_MICROPHONE_RESULT_EVENT,
+          buildLiveVoiceFollowUpMicrophoneAnalytics({
+            ...attempt,
+            enabled: false,
+            outcome: 'success',
+            errorCode: 'none',
+          }),
+        );
+      }
+    },
+    [trackSafely],
+  );
+
+  const startMicrophone = useCallback(
+    (target: StartTarget) => {
+      if (
+        microphoneAbortRef.current ||
+        !mutedRef.current ||
+        textTransitionRef.current ||
+        !start(target)
+      )
+        return;
+      const attempt = attemptRef.current!;
+      const abort = new AbortController();
+      microphoneAbortRef.current = abort;
+      setViewState(previous => ({
+        ...previous,
+        microphonePending: true,
+        microphoneError: null,
+      }));
+      let capture: Promise<MediaStream>;
+      try {
+        capture = LiveVoiceFollowUpAudio.requestMicrophone(abort.signal);
+      } catch (error) {
+        capture = Promise.reject(error);
+      }
+      const report = (
+        outcome: LiveVoiceFollowUpOutcome,
+        errorCode: LiveVoiceFollowUpErrorCode,
+      ) => {
+        if (attempt.analyticsEnabled)
+          trackSafely(
+            LIVE_VOICE_FOLLOW_UP_MICROPHONE_RESULT_EVENT,
+            buildLiveVoiceFollowUpMicrophoneAnalytics({
+              ...attempt,
+              enabled: true,
+              outcome,
+              errorCode,
+            }),
+          );
+      };
+      const ready = audioReadyRef.current;
+      void capture
+        .then(async stream => {
+          const release = () =>
+            stream.getTracks().forEach(track => track.stop());
+          abort.signal.addEventListener('abort', release, { once: true });
+          try {
+            if (abort.signal.aborted)
+              throw new DOMException('Microphone cancelled', 'AbortError');
+            const audio = await ready;
+            if (
+              abort.signal.aborted ||
+              attemptRef.current !== attempt ||
+              !audio
+            ) {
+              throw new DOMException('Microphone cancelled', 'AbortError');
+            }
+            audio.attachMicrophone(stream);
+            mutedRef.current = false;
+            setViewState(previous => ({
+              ...previous,
+              muted: false,
+              microphonePending: false,
+            }));
+            report('success', 'none');
+          } catch (error) {
+            release();
+            throw error;
+          } finally {
+            abort.signal.removeEventListener('abort', release);
+          }
+        })
+        .catch(error => {
+          const cancelled = abort.signal.aborted;
+          const errorCode = cancelled
+            ? 'none'
+            : resolveActivationErrorCode(error);
+          report(cancelled ? 'cancelled' : 'failed', errorCode);
+          if (attemptRef.current === attempt && !cancelled) {
+            setViewState(previous => ({
+              ...previous,
+              muted: true,
+              microphonePending: false,
+              microphoneError: errorCode,
+            }));
+          }
+        })
+        .finally(() => {
+          if (microphoneAbortRef.current === abort)
+            microphoneAbortRef.current = null;
+        });
+    },
+    [start, trackSafely],
+  );
+
+  const flushPendingText = useCallback(() => {
+    const pending = pendingTextRef.current;
+    const attempt = attemptRef.current;
+    const accumulator = accumulatorRef.current;
+    if (
+      !pending ||
+      !attempt ||
+      !accumulator ||
+      !setupReadyRef.current ||
+      !attempt.audioActivated
+    )
+      return;
+    const websocket = websocketRef.current;
+    if (
+      !websocket ||
+      websocket.bufferedAmount > MAX_BUFFERED_INPUT_AUDIO_BYTES ||
+      !sendWebSocketPayload(
+        websocket,
+        JSON.stringify({ realtimeInput: { text: pending.text } }),
+      )
+    ) {
+      finishAttempt({
+        reason: 'connection_error',
+        keepOpen: true,
+        errorCode: 'network_error',
+        retryable: true,
+        pendingOutcome: 'failed',
+      });
+      return;
+    }
+    // WebSocket send is synchronous; register before any provider message can run.
+    const submitted = accumulator.submitText(pending.text);
+    pendingTextRef.current = null;
+    if (!submitted) {
+      pending.resolve(false);
+      return;
+    }
+    applyTranscriptUpdates([submitted.update]);
+    if (submitted.interruptedTurnIndex !== null) {
+      outputTurnIndexRef.current = null;
+      void audioRef.current
+        ?.interruptPlayback()
+        .then(() => flushReadyCommits(attempt.generation))
+        .catch(() => {});
+    }
+    pending.resolve(true);
+    textTimerRef.current = window.setTimeout(() => {
+      if (attemptRef.current === attempt && textTransitionRef.current) {
+        finishAttempt({
+          reason: 'connection_error',
+          keepOpen: true,
+          errorCode: 'server_error',
+          retryable: true,
+        });
+      }
+    }, GEMINI_LIVE_SETUP_TIMEOUT_MS);
+  }, [applyTranscriptUpdates, finishAttempt, flushReadyCommits]);
+  flushPendingTextRef.current = flushPendingText;
+
+  const sendText = useCallback(
+    (target: StartTarget, text: string, method: 'keyboard' | 'button') => {
+      const question = text.trim();
+      // Bound the typed part of the existing 60 KiB finalization report.
+      if (
+        !question ||
+        question.length > 8000 ||
+        textTransitionRef.current ||
+        !start(target)
+      ) {
+        return Promise.resolve(false);
+      }
+      const attempt = attemptRef.current!;
+      const interrupted =
+        outputTurnIndexRef.current !== null ||
+        attempt.serverVoiceState === 'speaking';
+      stopMicrophone();
+      textTransitionRef.current = true;
+      setViewState(previous => ({ ...previous, textPending: true }));
+      if (attempt.analyticsEnabled)
+        trackSafely(
+          LIVE_VOICE_FOLLOW_UP_TEXT_SUBMIT_EVENT,
+          buildLiveVoiceFollowUpTextAnalytics({
+            ...attempt,
+            submissionMethod: method,
+            interrupted,
+          }),
+        );
+      return new Promise<boolean>(resolve => {
+        pendingTextRef.current = { text: question, resolve };
+        flushPendingText();
+      });
+    },
+    [flushPendingText, start, stopMicrophone, trackSafely],
   );
 
   const retry = useCallback(() => {
@@ -1184,27 +1522,23 @@ export const useLiveVoiceFollowUp = ({
   }, [viewState.retryAvailableAt]);
 
   const toggleMuted = useCallback(() => {
-    setViewState(previous => {
-      const muted = !previous.muted;
-      mutedRef.current = muted;
-      audioRef.current?.setMuted(muted);
-      if (muted) {
-        sendWebSocketPayload(
-          websocketRef.current,
-          JSON.stringify({ realtimeInput: { audioStreamEnd: true } }),
-        );
-      }
-      return { ...previous, muted };
-    });
-  }, []);
+    if (!mutedRef.current) stopMicrophone(true);
+    else if (lastTargetRef.current) startMicrophone(lastTargetRef.current);
+  }, [startMicrophone, stopMicrophone]);
 
   const end = useCallback(() => {
     finishAttempt({ reason: 'user_end', keepOpen: false });
   }, [finishAttempt]);
 
   const close = useCallback(() => {
-    finishAttempt({ reason: 'user_close', keepOpen: false });
-  }, [finishAttempt]);
+    finishAttempt({
+      reason:
+        previousSessionScopeKeyRef.current !== sessionScopeKey
+          ? 'lesson_changed'
+          : 'user_close',
+      keepOpen: false,
+    });
+  }, [finishAttempt, sessionScopeKey]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -1240,8 +1574,7 @@ export const useLiveVoiceFollowUp = ({
     // Failed attempts no longer own a transport, but their retry target and
     // dialog still belong to the old scope. Keep credential admission intact.
     lastTargetRef.current = null;
-    transcriptsRef.current = [];
-    mutedRef.current = false;
+    mutedRef.current = true;
     // The listen player consumes this reason to avoid resuming old lesson audio.
     setViewState({ ...initialState, endReason: 'lesson_changed' });
   }, [finishAttempt, sessionScopeKey]);
@@ -1264,6 +1597,9 @@ export const useLiveVoiceFollowUp = ({
   return {
     ...viewState,
     start,
+    startMicrophone,
+    stopMicrophone,
+    sendText,
     retry,
     toggleMuted,
     end,

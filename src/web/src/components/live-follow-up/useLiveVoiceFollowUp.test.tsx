@@ -9,7 +9,10 @@ import {
 
 import type { GeminiLiveServerEvent } from '@/lib/liveVoiceFollowUp';
 
-import { useLiveVoiceFollowUp } from './useLiveVoiceFollowUp';
+import {
+  useLiveVoiceFollowUp,
+  type LiveVoiceTranscript,
+} from './useLiveVoiceFollowUp';
 
 const mockTrackEvent = jest.fn();
 const mockCreateSession = jest.fn();
@@ -21,6 +24,7 @@ const mockResolveWebSocketUrl = jest.fn();
 const mockEncodeAudio = jest.fn();
 const mockParseServerMessage = jest.fn();
 const mockActivateAudio = jest.fn();
+const mockRequestMicrophone = jest.fn();
 const mockRequestExclusive = jest.fn();
 const mockReleaseExclusive = jest.fn();
 
@@ -29,6 +33,9 @@ const mockAudio = {
   enqueueOutput: jest.fn(),
   finishOutput: jest.fn(),
   setMuted: jest.fn(),
+  attachMicrophone: jest.fn(),
+  stopMicrophone: jest.fn(),
+  interruptPlayback: jest.fn().mockResolvedValue(undefined),
   stop: jest.fn().mockResolvedValue(undefined),
 };
 
@@ -48,6 +55,7 @@ jest.mock('./liveVoiceFollowUpAudio', () => ({
   LiveVoiceAudioUnavailableError: class extends Error {},
   LiveVoiceFollowUpAudio: {
     activate: (...args: unknown[]) => mockActivateAudio(...args),
+    requestMicrophone: (...args: unknown[]) => mockRequestMicrophone(...args),
   },
 }));
 
@@ -196,6 +204,10 @@ const Harness = ({
     typeof useLiveVoiceFollowUp
   >[0]['onTurnCommitted'];
 }) => {
+  const [transcripts, setTranscripts] = React.useState<LiveVoiceTranscript[]>(
+    [],
+  );
+  React.useEffect(() => setTranscripts([]), [outlineBid, sessionScope]);
   const controller = useLiveVoiceFollowUp({
     shifuBid,
     outlineBid,
@@ -203,9 +215,73 @@ const Harness = ({
     learningMode,
     sessionScope,
     onTurnCommitted,
+    onTranscript: update =>
+      setTranscripts(previous =>
+        [
+          ...previous.filter(
+            item =>
+              item.turnIndex !== update.turnIndex || item.role !== update.role,
+          ),
+          {
+            role: update.role,
+            turnIndex: update.turnIndex,
+            text: update.text,
+            final: update.final,
+          },
+        ].sort(
+          (a, b) => a.turnIndex - b.turnIndex || (a.role === 'user' ? -1 : 1),
+        ),
+      ),
   });
   return (
     <div>
+      <button
+        type='button'
+        onClick={() =>
+          controller.startMicrophone({
+            anchorElementBid,
+            surface: previewMode ? 'teacher_preview' : 'read_content',
+          })
+        }
+      >
+        microphone
+      </button>
+      <button
+        type='button'
+        onClick={() => controller.stopMicrophone()}
+      >
+        edit
+      </button>
+      <button
+        type='button'
+        onClick={() => {
+          void controller.sendText(
+            {
+              anchorElementBid,
+              surface: previewMode ? 'teacher_preview' : 'read_content',
+            },
+            'Typed question',
+            'keyboard',
+          );
+        }}
+      >
+        text
+      </button>
+      <button
+        type='button'
+        onClick={() => {
+          void controller.sendText(
+            {
+              anchorElementBid,
+              surface: previewMode ? 'teacher_preview' : 'read_content',
+            },
+            'Next question',
+            'button',
+          );
+        }}
+      >
+        interrupt-text
+      </button>
       <button
         type='button'
         onClick={() =>
@@ -257,12 +333,14 @@ const Harness = ({
       <span data-testid='warning'>{String(controller.warning)}</span>
       <span data-testid='muted'>{String(controller.muted)}</span>
       <span data-testid='error'>{controller.errorCode || ''}</span>
+      <span data-testid='microphone-error'>
+        {controller.microphoneError || ''}
+      </span>
+      <span data-testid='text-pending'>{String(controller.textPending)}</span>
       <span data-testid='end-reason'>{controller.endReason || ''}</span>
       <span data-testid='retryable'>{String(controller.retryable)}</span>
       <span data-testid='retry-at'>{String(controller.retryAvailableAt)}</span>
-      <span data-testid='transcripts'>
-        {JSON.stringify(controller.transcripts)}
-      </span>
+      <span data-testid='transcripts'>{JSON.stringify(transcripts)}</span>
     </div>
   );
 };
@@ -281,6 +359,217 @@ const makeReady = async (socket = mockSockets.at(-1)!) => {
 };
 
 describe('useLiveVoiceFollowUp browser-direct transport', () => {
+  it('starts only on deliberate input and sends typed questions without microphone access', async () => {
+    render(<Harness />);
+    expect(mockCreateSession).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    expect(mockSockets[0].send).toHaveBeenCalledWith(
+      JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_text_submit',
+      ),
+    ).toEqual([
+      [
+        'learner_voice_follow_up_text_submit',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+          submission_method: 'keyboard',
+          interrupted: false,
+        },
+      ],
+    ]);
+    expect(screen.getByTestId('muted')).toHaveTextContent('true');
+    expect(screen.getByTestId('transcripts')).toHaveTextContent(
+      'Typed question',
+    );
+  });
+
+  it('interrupts typed answers, drops late playback, and saves each question once', async () => {
+    jest.useFakeTimers();
+    const onTurnCommitted = jest.fn();
+    render(<Harness onTurnCommitted={onTurnCommitted} />);
+    await startAndOpen();
+    await makeReady();
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          outputTranscripts: ['Heard'],
+          audioChunks: [new ArrayBuffer(4)],
+        }),
+      ),
+    );
+    act(() => mockActivateAudio.mock.calls[0][0].onPlaybackProgress(1, 4));
+    fireEvent.click(screen.getByRole('button', { name: 'interrupt-text' }));
+    expect(mockAudio.interruptPlayback).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'interrupt-text' }));
+    const sentText = mockSockets[0].send.mock.calls.filter(([message]) =>
+      String(message).includes('realtimeInput'),
+    );
+    expect(sentText).toHaveLength(2);
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          outputTranscripts: ['Heard then unheard'],
+          audioChunks: [new ArrayBuffer(4)],
+        }),
+      ),
+    );
+    expect(mockAudio.enqueueOutput).toHaveBeenCalledTimes(1);
+    act(() => mockSockets[0].message(serverEvent({ interrupted: true })));
+    act(() => mockSockets[0].message(serverEvent({ turnComplete: true })));
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          outputTranscripts: ['Next answer'],
+          audioChunks: [new ArrayBuffer(4)],
+          turnComplete: true,
+        }),
+      ),
+    );
+    act(() => mockActivateAudio.mock.calls[0][0].onPlaybackComplete(2));
+    await act(async () => {
+      jest.advanceTimersByTime(501);
+    });
+    expect(mockCommitTurn).toHaveBeenCalledTimes(2);
+    expect(mockCommitTurn).toHaveBeenNthCalledWith(
+      1,
+      'session-1',
+      expect.objectContaining({
+        turn_index: 1,
+        user_transcript: 'Typed question',
+        played_answer_transcript: 'Heard',
+        interrupted: true,
+      }),
+    );
+    expect(mockCommitTurn).toHaveBeenNthCalledWith(
+      2,
+      'session-1',
+      expect.objectContaining({
+        turn_index: 2,
+        user_transcript: 'Next question',
+        played_answer_transcript: 'Next answer',
+      }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_text_submit',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        submission_method: 'button',
+        interrupted: true,
+      },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+      /Typed question|Heard|Next answer|ephemeral/,
+    );
+  });
+
+  it('keeps keyboard and playback working after optional microphone denial', async () => {
+    mockRequestMicrophone.mockRejectedValue(
+      new DOMException('Denied', 'NotAllowedError'),
+    );
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    expect(screen.getByTestId('microphone-error')).toHaveTextContent(
+      'microphone_denied',
+    );
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    expect(mockSockets[0].send).toHaveBeenCalledWith(
+      JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_microphone_result',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        enabled: true,
+        outcome: 'failed',
+        error_code: 'microphone_denied',
+      },
+    );
+  });
+
+  it('cancels a pending permission on editing and releases its late stream exactly once', async () => {
+    const permission = createDeferred<MediaStream>();
+    const stop = jest.fn();
+    mockRequestMicrophone.mockReturnValue(permission.promise);
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'edit' }));
+    await act(async () =>
+      permission.resolve({
+        getTracks: () => [{ stop }],
+      } as unknown as MediaStream),
+    );
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(mockAudio.attachMicrophone).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_microphone_result',
+      ),
+    ).toEqual([
+      [
+        'learner_voice_follow_up_microphone_result',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+          enabled: true,
+          outcome: 'cancelled',
+          error_code: 'none',
+        },
+      ],
+    ]);
+  });
+
+  it.each([false, true])(
+    'new input tracking is fail-open (reject=%s)',
+    async rejected => {
+      mockTrackEvent.mockImplementation(() => {
+        if (rejected) return Promise.reject(new Error('analytics blocked'));
+        throw new Error('analytics blocked');
+      });
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'text' }));
+      await waitFor(() => expect(mockSockets).toHaveLength(1));
+      act(() => mockSockets[0].open());
+      await makeReady();
+      expect(mockSockets[0].send).toHaveBeenCalledWith(
+        JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+      );
+      act(() => mockSockets[0].message(serverEvent({ turnComplete: true })));
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() =>
+        expect(mockAudio.attachMicrophone).toHaveBeenCalledTimes(1),
+      );
+    },
+  );
+
   beforeAll(() => {
     Object.defineProperty(global, 'WebSocket', {
       configurable: true,
@@ -295,6 +584,9 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     mockParseServerMessage.mockReset();
     mockSockets.length = 0;
     mockActivateAudio.mockResolvedValue(mockAudio);
+    mockRequestMicrophone
+      .mockReset()
+      .mockResolvedValue({ getTracks: () => [{ stop: jest.fn() }] });
     mockCreateSession.mockResolvedValue(sessionResponse());
     mockHeartbeatSession.mockResolvedValue({});
     mockCommitTurn.mockResolvedValue({});
@@ -527,6 +819,10 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     act(() => callbacks.onInputFrame(new ArrayBuffer(1280)));
     expect(mockEncodeAudio).not.toHaveBeenCalled();
     await makeReady();
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() =>
+      expect(mockAudio.attachMicrophone).toHaveBeenCalledTimes(1),
+    );
     mockSockets[0].send.mockClear();
 
     act(() => callbacks.onInputFrame(new ArrayBuffer(1280)));
@@ -621,13 +917,15 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
         }),
       { timeout: 1500 },
     );
-    expect(onTurnCommitted).toHaveBeenCalledWith({
-      outlineBid: 'lesson-1',
-      anchorElementBid: 'element-1',
-      turnIndex: 1,
-      userTranscript: 'Question',
-      assistantTranscript: 'Answer',
-    });
+    expect(onTurnCommitted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outlineBid: 'lesson-1',
+        anchorElementBid: 'element-1',
+        turnIndex: 1,
+        userTranscript: 'Question',
+        assistantTranscript: 'Answer',
+      }),
+    );
   });
 
   it.each([true, false])(
@@ -666,13 +964,15 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
 
       await act(async () => pendingCommit.resolve({}));
 
-      expect(onTurnCommitted).toHaveBeenCalledWith({
-        outlineBid: 'lesson-1',
-        anchorElementBid: 'element-1',
-        turnIndex: 1,
-        userTranscript: 'Question from the old lesson',
-        assistantTranscript: '',
-      });
+      expect(onTurnCommitted).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outlineBid: 'lesson-1',
+          anchorElementBid: 'element-1',
+          turnIndex: 1,
+          userTranscript: 'Question from the old lesson',
+          assistantTranscript: '',
+        }),
+      );
     },
   );
 
@@ -709,13 +1009,15 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
           }),
         ),
       );
-      expect(onTurnCommitted).toHaveBeenCalledWith({
-        outlineBid: 'lesson-1',
-        anchorElementBid: 'element-1',
-        turnIndex: 1,
-        userTranscript: 'Question before close',
-        assistantTranscript: 'Answer before close',
-      });
+      expect(onTurnCommitted).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outlineBid: 'lesson-1',
+          anchorElementBid: 'element-1',
+          turnIndex: 1,
+          userTranscript: 'Question before close',
+          assistantTranscript: 'Answer before close',
+        }),
+      );
       await waitFor(() =>
         expect(mockEndSession).toHaveBeenCalledWith(
           'session-1',
@@ -900,13 +1202,15 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
         ),
       { timeout: 1_500 },
     );
-    expect(onTurnCommitted).toHaveBeenCalledWith({
-      outlineBid: 'lesson-1',
-      anchorElementBid: 'element-1',
-      turnIndex: 1,
-      userTranscript: 'Please explain',
-      assistantTranscript: 'Played portion',
-    });
+    expect(onTurnCommitted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outlineBid: 'lesson-1',
+        anchorElementBid: 'element-1',
+        turnIndex: 1,
+        userTranscript: 'Please explain',
+        assistantTranscript: 'Played portion',
+      }),
+    );
   });
 
   it('rechecks the reconciliation deadline when a timer fires before the wall clock reaches it', async () => {
@@ -1066,11 +1370,15 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     render(<Harness />);
     await startAndOpen();
     await makeReady();
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() =>
+      expect(mockAudio.attachMicrophone).toHaveBeenCalledTimes(1),
+    );
     mockSockets[0].send.mockClear();
 
     fireEvent.click(screen.getByRole('button', { name: 'mute' }));
 
-    expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+    expect(mockAudio.stopMicrophone).toHaveBeenCalledTimes(1);
     expect(mockSockets[0].send).toHaveBeenCalledWith(
       JSON.stringify({ realtimeInput: { audioStreamEnd: true } }),
     );
@@ -1108,6 +1416,90 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     act(() => jest.advanceTimersByTime(20_000));
     expect(screen.getByTestId('state')).toHaveTextContent('listening');
     expect(mockSockets[1].close).not.toHaveBeenCalled();
+  });
+
+  it('sends a question queued during GoAway only after resumed setup is ready', async () => {
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          resumptionHandle: 'resume-handle',
+          resumable: true,
+          goAway: true,
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    expect(mockSockets[1].send).not.toHaveBeenCalled();
+    act(() => mockSockets[1].open());
+    expect(mockSockets[1].send).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      mockSockets[1].message(serverEvent({ setupComplete: true })),
+    );
+    expect(mockSockets[1].send).toHaveBeenLastCalledWith(
+      JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+    );
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_attempt',
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_text_submit',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('tracks each explicit microphone operation once and drops capture after editing', async () => {
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() =>
+      expect(mockAudio.attachMicrophone).toHaveBeenCalledTimes(1),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'mute' }));
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_microphone_result',
+      ),
+    ).toEqual([
+      [
+        'learner_voice_follow_up_microphone_result',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+          enabled: true,
+          outcome: 'success',
+          error_code: 'none',
+        },
+      ],
+      [
+        'learner_voice_follow_up_microphone_result',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+          enabled: false,
+          outcome: 'success',
+          error_code: 'none',
+        },
+      ],
+    ]);
+    mockSockets[0].send.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'edit' }));
+    act(() =>
+      mockActivateAudio.mock.calls[0][0].onInputFrame(new ArrayBuffer(1280)),
+    );
+    expect(mockSockets[0].send).not.toHaveBeenCalled();
   });
 
   it('still times out a resumed socket that never acknowledges setup', async () => {
@@ -1464,7 +1856,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(screen.getByTestId('open')).toHaveTextContent('false');
     expect(screen.getByTestId('error')).toBeEmptyDOMElement();
     expect(screen.getByTestId('transcripts')).toHaveTextContent('[]');
-    expect(screen.getByTestId('muted')).toHaveTextContent('false');
+    expect(screen.getByTestId('muted')).toHaveTextContent('true');
     expect(screen.getByTestId('retryable')).toHaveTextContent('false');
     expect(screen.getByTestId('retry-at')).toHaveTextContent('null');
     const events = [...mockTrackEvent.mock.calls];
@@ -1533,6 +1925,12 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     'does not emit learner analytics for excluded scope %j',
     async options => {
       render(<Harness {...options} />);
+      if ('sessionScope' in options && options.sessionScope === 'classroom') {
+        fireEvent.click(screen.getByRole('button', { name: 'start' }));
+        expect(mockCreateSession).not.toHaveBeenCalled();
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+        return;
+      }
       await startAndOpen();
       await makeReady();
       fireEvent.click(screen.getByRole('button', { name: 'end' }));

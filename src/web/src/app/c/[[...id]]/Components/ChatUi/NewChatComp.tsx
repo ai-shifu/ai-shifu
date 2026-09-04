@@ -59,7 +59,6 @@ import {
   buildAskListByAnchorElementBid,
   hasStreamingAskMessage,
 } from './askState';
-import type { AskMessage } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
@@ -106,13 +105,17 @@ import type {
   LessonUpdateHandler,
   NextLessonIdGetter,
 } from './useChatLogicHook.types';
-import { LiveVoiceFollowUpDialog } from '@/components/live-follow-up/LiveVoiceFollowUpDialog';
+import type { LiveVoiceFollowUpHistoryTurn } from '@/components/live-follow-up/useLiveVoiceFollowUp';
+import {
+  finalizeLiveAskTurn,
+  upsertLiveAskTranscript,
+  type LiveAskTranscriptUpdate,
+} from './liveFollowUpAskHistory';
 import { useLiveVoiceFollowUp } from '@/components/live-follow-up/useLiveVoiceFollowUp';
 import {
   hasLiveVoiceFollowUpHistory,
   resolveFollowUpPresentationMode,
   resolveLiveVoiceFollowUpAvailability,
-  shouldPauseCourseAudioForLiveVoice,
 } from './liveVoiceFollowUpMode';
 
 // Max concurrent listen-mode audio backfill requests. Entering listen mode used
@@ -321,30 +324,40 @@ export const NewChatComponents = ({
     state => state.askListByAnchorElementBid,
   );
   const handleLiveTurnCommitted = useCallback(
-    ({
-      outlineBid,
-      anchorElementBid,
-      userTranscript,
-      assistantTranscript,
-    }: {
+    (turn: LiveVoiceFollowUpHistoryTurn) => {
+      setAskList(
+        turn.anchorElementBid,
+        previous => finalizeLiveAskTurn(previous, turn),
+        turn.outlineBid,
+      );
+    },
+    [setAskList],
+  );
+  const handleLiveTranscript = useCallback(
+    (update: LiveAskTranscriptUpdate) => {
+      setAskList(
+        update.anchorElementBid,
+        previous => upsertLiveAskTranscript(previous, update),
+        update.outlineBid,
+      );
+    },
+    [setAskList],
+  );
+  const handleLiveSessionFinished = useCallback(
+    (session: {
+      sessionBid: string;
       outlineBid: string;
       anchorElementBid: string;
-      turnIndex: number;
-      userTranscript: string;
-      assistantTranscript: string;
     }) => {
-      const committedMessages: AskMessage[] = [];
-      if (userTranscript) {
-        committedMessages.push({ type: 'ask', content: userTranscript });
-      }
-      committedMessages.push({
-        type: 'answer',
-        content: assistantTranscript,
-      });
       setAskList(
-        anchorElementBid,
-        previous => [...previous, ...committedMessages],
-        outlineBid,
+        session.anchorElementBid,
+        previous =>
+          previous.filter(
+            message =>
+              message.live_session_bid !== session.sessionBid ||
+              !message.isStreaming,
+          ),
+        session.outlineBid,
       );
     },
     [setAskList],
@@ -360,6 +373,9 @@ export const NewChatComponents = ({
         ? 'listen'
         : 'read',
     onTurnCommitted: handleLiveTurnCommitted,
+    onTurnFinalized: handleLiveTurnCommitted,
+    onTranscript: handleLiveTranscript,
+    onSessionFinished: handleLiveSessionFinished,
   });
   const {
     configured: isLiveVoiceFollowUpConfigured,
@@ -369,7 +385,8 @@ export const NewChatComponents = ({
     isClassroomMode,
   });
   const isFollowUpUnavailable = followUpMode === 'disabled';
-  const startLiveVoiceFollowUp = liveVoiceFollowUp.start;
+  const closeLiveVoiceFollowUp = liveVoiceFollowUp.close;
+  const liveVoiceAnchor = liveVoiceFollowUp.anchorElementBid;
   const promptContextKey = `${resolvedLessonId}:${
     isClassroomMode ? 'classroom' : isListenModeActive ? 'listen' : 'read'
   }`;
@@ -1292,36 +1309,19 @@ export const NewChatComponents = ({
   const handleClickAskButton = useCallback(
     (blockBid: string) => {
       if (isLiveVoiceFollowUpConfigured) {
-        if (isLiveVoiceFollowUpSupported) {
-          startLiveVoiceFollowUp({
-            anchorElementBid: blockBid,
-            surface: previewMode ? 'teacher_preview' : 'read_content',
-          });
-        }
-        return;
+        if (!isLiveVoiceFollowUpSupported) return;
+        if (liveVoiceAnchor && liveVoiceAnchor !== blockBid)
+          closeLiveVoiceFollowUp();
       }
       toggleAskExpanded(blockBid);
     },
     [
       isLiveVoiceFollowUpConfigured,
       isLiveVoiceFollowUpSupported,
-      startLiveVoiceFollowUp,
-      previewMode,
+      liveVoiceAnchor,
+      closeLiveVoiceFollowUp,
       toggleAskExpanded,
     ],
-  );
-
-  const handleListenLiveVoiceStart = useCallback(
-    (blockBid: string) => {
-      if (!isLiveVoiceFollowUpSupported) {
-        return;
-      }
-      startLiveVoiceFollowUp({
-        anchorElementBid: blockBid,
-        surface: previewMode ? 'teacher_preview' : 'listen_player',
-      });
-    },
-    [isLiveVoiceFollowUpSupported, previewMode, startLiveVoiceFollowUp],
   );
 
   useEffect(() => {
@@ -1446,19 +1446,8 @@ export const NewChatComponents = ({
                 configured: isLiveVoiceFollowUpConfigured,
                 supported: isLiveVoiceFollowUpSupported,
               })}
-              onLiveVoiceFollowUpStart={
-                isLiveVoiceFollowUpSupported
-                  ? handleListenLiveVoiceStart
-                  : undefined
-              }
-              pausePlaybackForLiveVoice={shouldPauseCourseAudioForLiveVoice({
-                open: liveVoiceFollowUp.open,
-                state: liveVoiceFollowUp.state,
-              })}
-              restorePlaybackAfterLiveVoice={
-                liveVoiceFollowUp.endReason !== 'page_hidden' &&
-                liveVoiceFollowUp.endReason !== 'lesson_changed' &&
-                liveVoiceFollowUp.endReason !== 'replaced'
+              liveVoice={
+                isLiveVoiceFollowUpSupported ? liveVoiceFollowUp : undefined
               }
             />
           </>
@@ -1564,6 +1553,7 @@ export const NewChatComponents = ({
                   const parentKey = item.parent_element_bid || baseKey;
                   if (item.type === ChatContentItemType.ASK) {
                     if (
+                      !isLiveVoiceFollowUpSupported &&
                       isLiveVoiceFollowUpConfigured &&
                       !hasLiveVoiceFollowUpHistory(item.ask_list)
                     ) {
@@ -1581,22 +1571,23 @@ export const NewChatComponents = ({
                         }}
                       >
                         <AskBlock
-                          isExpanded={
-                            isLiveVoiceFollowUpConfigured
-                              ? true
-                              : item.isAskExpanded
+                          isExpanded={item.isAskExpanded}
+                          readonlyHistory={
+                            isLiveVoiceFollowUpConfigured &&
+                            !isLiveVoiceFollowUpSupported
                           }
-                          readonlyHistory={isLiveVoiceFollowUpConfigured}
+                          followUpMode={followUpMode}
+                          liveVoice={
+                            isLiveVoiceFollowUpSupported
+                              ? liveVoiceFollowUp
+                              : undefined
+                          }
                           printMode={isPreparingLessonPdf}
                           shifu_bid={shifuBid}
                           outline_bid={resolvedLessonId}
                           preview_mode={previewMode}
                           element_bid={item.parent_element_bid || ''}
-                          onToggleAskExpanded={
-                            isLiveVoiceFollowUpConfigured
-                              ? undefined
-                              : handleClickAskButton
-                          }
+                          onToggleAskExpanded={handleClickAskButton}
                           askList={(item.ask_list || []) as any[]}
                         />
                       </div>
@@ -1932,7 +1923,6 @@ export const NewChatComponents = ({
           : lessonFeedbackPopupContent
         : null}
       {isPreparingLessonPdf ? <LessonPdfPreparingOverlay /> : null}
-      <LiveVoiceFollowUpDialog controller={liveVoiceFollowUp} />
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {

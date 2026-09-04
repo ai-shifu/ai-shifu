@@ -9,6 +9,34 @@ export const LIVE_VOICE_FOLLOW_UP_RESULT_EVENT =
   'learner_voice_follow_up_result' as const;
 export const LIVE_VOICE_FOLLOW_UP_SESSION_END_EVENT =
   'learner_voice_follow_up_session_end' as const;
+export const LIVE_VOICE_FOLLOW_UP_TEXT_SUBMIT_EVENT =
+  'learner_voice_follow_up_text_submit' as const;
+export const LIVE_VOICE_FOLLOW_UP_MICROPHONE_RESULT_EVENT =
+  'learner_voice_follow_up_microphone_result' as const;
+
+export const buildLiveVoiceFollowUpTextAnalytics = (
+  input: LiveVoiceFollowUpBaseAnalyticsInput & {
+    submissionMethod: 'keyboard' | 'button';
+    interrupted: boolean;
+  },
+) => ({
+  ...buildLiveVoiceFollowUpAttemptAnalytics(input),
+  submission_method: input.submissionMethod,
+  interrupted: input.interrupted,
+});
+
+export const buildLiveVoiceFollowUpMicrophoneAnalytics = (
+  input: LiveVoiceFollowUpBaseAnalyticsInput & {
+    enabled: boolean;
+    outcome: LiveVoiceFollowUpOutcome;
+    errorCode: LiveVoiceFollowUpErrorCode;
+  },
+) => ({
+  ...buildLiveVoiceFollowUpAttemptAnalytics(input),
+  enabled: input.enabled,
+  outcome: input.outcome,
+  error_code: input.errorCode,
+});
 
 export type LiveVoiceFollowUpOutcome = 'success' | 'failed' | 'cancelled';
 

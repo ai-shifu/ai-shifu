@@ -8,7 +8,6 @@ import {
   hasLiveVoiceFollowUpHistory,
   resolveFollowUpPresentationMode,
   resolveLiveVoiceFollowUpAvailability,
-  shouldPauseCourseAudioForLiveVoice,
 } from './liveVoiceFollowUpMode';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 
@@ -144,18 +143,6 @@ describe('NewChatComp mode projections', () => {
         { type: ChatContentItemType.ASK, content: 'Transcribed question' },
       ]),
     ).toBe(true);
-  });
-
-  it('pauses course audio only while a Live voice transport is active', () => {
-    expect(
-      shouldPauseCourseAudioForLiveVoice({ open: true, state: 'listening' }),
-    ).toBe(true);
-    expect(
-      shouldPauseCourseAudioForLiveVoice({ open: true, state: 'ended' }),
-    ).toBe(false);
-    expect(
-      shouldPauseCourseAudioForLiveVoice({ open: false, state: 'ended' }),
-    ).toBe(false);
   });
 
   it('keeps desktop read projection free of mobile follow-up markup', () => {

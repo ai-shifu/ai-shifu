@@ -6,6 +6,8 @@ User-facing workflow and page behavior specifications live here.
 
 - [Dashboard Entry Page (v2) Technical Design](../product-specs/dashboard-entry-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+- [Embedded Gemini Live Follow-Up Analytics](../product-specs/gemini-live-follow-up-analytics.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-04` | Canonical: `true`
 - [MDFlow Element Backfill](../product-specs/mdflow-element-backfill.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Mobile 404 Follow-up: Sequencing Improvement Plan](../product-specs/mobile-404-sequencing-followup.md)

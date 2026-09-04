@@ -11,6 +11,7 @@ import { AppContext } from '../AppContext';
 import { BLOCK_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { useAskStateStore } from './useAskStateStore';
+import { mockLiveVoiceController } from '@/components/live-follow-up/liveVoiceFollowUp.test-support';
 
 const mockTrackEvent = jest.fn();
 
@@ -200,6 +201,135 @@ class MockRunSource {
 }
 
 describe('AskBlock', () => {
+  it.each([false, true])(
+    'uses the original input for Live without opening the microphone (mobile=%s)',
+    async mobileStyle => {
+      const liveVoice = mockLiveVoiceController();
+      render(
+        <AppContext.Provider value={{ mobileStyle } as any}>
+          <AskBlock
+            shifu_bid='course-1'
+            outline_bid='lesson-1'
+            element_bid='element-1'
+            isExpanded
+            followUpMode='live_voice'
+            liveVoice={liveVoice}
+          />
+        </AppContext.Provider>,
+      );
+      expect(screen.getAllByRole('textbox')).toHaveLength(1);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(liveVoice.start).not.toHaveBeenCalled();
+      expect(liveVoice.startMicrophone).not.toHaveBeenCalled();
+      fireEvent.change(screen.getByRole('textbox'), {
+        target: { value: 'Typed question' },
+      });
+      expect(liveVoice.stopMicrophone).toHaveBeenCalled();
+      if (mobileStyle)
+        fireEvent.click(screen.getByRole('button', { name: 'send' }));
+      else
+        fireEvent.keyDown(screen.getByRole('textbox'), {
+          key: 'Enter',
+          code: 'Enter',
+        });
+      await waitFor(() =>
+        expect(liveVoice.sendText).toHaveBeenCalledWith(
+          { anchorElementBid: 'element-1', surface: 'read_content' },
+          'Typed question',
+          mobileStyle ? 'button' : 'keyboard',
+        ),
+      );
+      expect(mockGetRunMessage).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue(''));
+    },
+  );
+
+  it('retains the draft on failed Live delivery and never uses credit/SSE gating', async () => {
+    mockIsCurrentUserCourseOwner = null;
+    const liveVoice = mockLiveVoiceController({
+      sendText: jest.fn().mockResolvedValue(false),
+    });
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        liveVoice={liveVoice}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Keep this draft' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+    await waitFor(() => expect(liveVoice.sendText).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('textbox')).toHaveValue('Keep this draft');
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+  });
+
+  it('closes only its own Live session when the original panel collapses', () => {
+    const liveVoice = mockLiveVoiceController({
+      anchorElementBid: 'element-1',
+      open: true,
+      state: 'listening',
+    });
+    const props = {
+      shifu_bid: 'course-1',
+      outline_bid: 'lesson-1',
+      element_bid: 'element-1',
+      followUpMode: 'live_voice' as const,
+      liveVoice,
+    };
+    const { rerender } = render(
+      <AskBlock
+        {...props}
+        isExpanded
+      />,
+    );
+    rerender(
+      <AskBlock
+        {...props}
+        isExpanded={false}
+      />,
+    );
+    expect(liveVoice.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders Live history with the existing bubbles and no typewriter', () => {
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        readonlyHistory
+        askList={[
+          {
+            type: 'ask',
+            content: 'Question',
+            element_bid: 'ask-1',
+            interaction_mode: 'live_voice',
+          },
+          {
+            type: 'answer',
+            content: 'Spoken answer',
+            element_bid: 'answer-1',
+            interaction_mode: 'live_voice',
+            shouldUseTypewriter: false,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Question')).toBeInTheDocument();
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
+      'data-typewriter',
+      'false',
+    );
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
   let activeRun:
     | {
         source: MockRunSource;

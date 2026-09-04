@@ -3,12 +3,14 @@
 ## Purpose / Big Picture
 
 Courses whose effective follow-up model is
-`gemini-3.1-flash-live-preview` open a fullscreen, voice-only follow-up dialog
-from an explicit learner click. The click begins microphone acquisition in the
-same browser activation. Learner and Gemini audio then flows continuously with
-automatic VAD, interruption, mute, live transcripts, end, and retry. Completed
-or interrupted turns appear in the existing ASK/ANSWER history; original audio
-is never stored and no text fallback is offered.
+`gemini-3.1-flash-live-preview` use the existing AskBlock layout in reading,
+listening, and teacher preview. Opening the panel only reveals history and the
+input; the first keyboard submission or explicit microphone click starts Live.
+Keyboard and microphone input both receive native audio answers and transcripts.
+Editing text stops microphone capture; only an explicit click starts it again.
+Both input methods can interrupt an answer. Completed or interrupted turns
+appear in the existing ASK/ANSWER history; original audio is never stored and
+Live input never falls back to the ordinary text/SSE provider.
 
 The long-lived Gemini API key remains on the backend. The backend mints a
 one-use, short-lived [Gemini ephemeral token](https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens)
@@ -37,6 +39,75 @@ persisted only with `billable=0`, and must never drive settlement, permissions,
 auditing, or another correctness-sensitive decision.
 
 ## Progress
+
+- [x] 2026-09-04: Integrate Live into the existing AskBlock; separate playback,
+      microphone, and connection activation; add keyboard interruption and
+      shared-store reconciliation. All 227 frontend suites / 2,163 tests passed;
+      TypeScript, lint, translation usage, and architecture checks passed.
+      Full `lefthook run pre-commit --all-files` passed after staging the
+      deleted dialog and the locale sort; required Ruff 0.16.5 ran in an
+      isolated temporary tool environment. Latest focused rerun: 192 passed.
+- [x] 2026-09-04: Local Chrome acceptance with the real AskBlock, controller,
+      AudioContext, and AudioWorklet plus mocked HTTPS/Gemini frames and capture:
+      opening created no audio/capture, Enter sent text without permission,
+      playback and transcripts rendered in existing bubbles, denied permission
+      retained keyboard use, editing ended capture tracks, and End closed the
+      output context while preserving the draft/panel/history. Desktop and
+      390px mobile layouts were visually checked. Temporary fixture removed.
+- [ ] 2026-09-04: Submit the embedded revision to PR #2744, follow valid review
+      threads, and recheck current-head CI. Complete real-Gemini and physical
+      Safari/iOS/mobile Chrome acceptance before claiming those environments:
+      no Gemini credential is available in the local environment for this run.
+
+### Embedded AskBlock interaction contract (2026-09-04)
+
+This revision supersedes the standalone-dialog and automatic-microphone UI
+described in the earlier delivery journal below. Keep one controller in the
+read/listen parent. AskBlock remains the only message renderer and the existing
+ask store remains its source of truth. Merge provisional messages by session,
+turn, and role, then bind the existing turn-report acknowledgement element IDs.
+No new HTTP endpoint, database migration, credential, or deployment setting is
+required. Preserve the AUDIO-only setup, automatic VAD, native safety, free
+preview accounting, and Course Prompt exclusion.
+
+Use realtimeInput.text for keyboard questions. Stop queued playback immediately
+on a typed interruption but reconcile the old turn at the upstream interruption
+or completion boundary. Accept only one pending handoff, retain failed drafts,
+and never replay a question automatically after an ambiguous disconnect.
+Closing/collapsing the panel or changing anchor ends Live; ending Live itself
+leaves the panel/history visible. Page hide, scope change, timeout, and unmount
+release capture and playback. The existing listen custom-action panel owns
+course pause/resume; a still-open panel never resumes course audio.
+
+Analytics extends the existing adoption/connection consumer with typed-use and
+microphone-operation counts per reporting window. Production read/listen guests
+and members are included; teacher preview, classroom, disabled/invalid actions,
+and duplicate re-entry are excluded. All producers are fail-open. Shared payload
+fields are shifu_bid, outline_bid, learning_mode, and surface, using the existing
+bounded types. No content, model, voice, credential, or raw error is collected.
+
+- learner_voice_follow_up_attempt starts at an accepted connection operation,
+  not panel open. Existing result/end payloads and once-per-attempt/session
+  guards remain; success means setup plus playback readiness, independently of
+  optional microphone permission. Existing aggregate consumers must segment the
+  pre/post-release periods; historical automatic-microphone attempts are not
+  an exact denominator for the new manually activated microphone operations.
+- learner_voice_follow_up_text_submit fires once per accepted explicit text
+  submission before connection/send. Additional fields: submission_method
+  (keyboard|button) and interrupted (boolean). The pending handoff guard dedupes
+  rapid re-entry; this is accepted use, not delivery or answer success.
+- learner_voice_follow_up_microphone_result fires once when an explicit on/off
+  operation settles. Additional fields: enabled (requested boolean), outcome
+  (success|failed|cancelled), and the existing bounded error_code. Cancellation
+  on navigation or editing settles the original operation exactly once;
+  implicit capture cleanup does not create another operation. A generation
+  guard prevents late permissions from enabling capture or double reporting.
+
+These two new event series are additive, without backfill or dual writes to
+learner_follow_up_submit, whose ordinary-text contract remains unchanged.
+Product adoption queries group their counts by surface/method/outcome and use
+the existing connection result/end series for session reliability. Tests assert
+exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 - [x] 2026-09-02: Started from current `origin/main` on
       `sunner/gemini-live-voice-follow-up`; pull request #2732 is not a
@@ -654,15 +725,23 @@ in the normal queue and drains only while the document remains alive; it is not
 silently discarded or sent in a request the browser will reject. Capacity is
 not released early.
 
-### Phase 3: voice experience, privacy, and rollout
+### Phase 3: embedded experience, privacy, and verification
 
-The shared read/listen parent owns one dialog/controller. Entering Live pauses
-course audio through the exclusive-audio hook and restores prior listening
-intent on exit. The dialog shows connecting/listening/speaking/reconnecting,
-both transcripts, mute, end, warning, and retry. Microphone denial, provider
-rejection, failed history commit, heartbeat failure, and network loss remain in
-that dialog. Page hide, lesson/course change, unmount, close, and timeout stop
-tracks, clear buffers, close the AudioContext, and release the socket.
+The shared read/listen parent owns one controller, without a separate dialog.
+The existing AskBlock owns history, keyboard input, responsive panels, and its
+fullscreen option. Opening it does not activate audio, microphone, or transport.
+The first text submission activates playback in the user event stack without
+requesting capture. An explicit microphone click also requests capture in that
+stack; permission denial leaves keyboard input available. Editing stops capture
+without disconnecting. Only explicit microphone activation can restart it.
+
+Compact controls show connection/microphone state, end, warning, and retry.
+All failures remain in AskBlock; no Live input enters the ordinary SSE path.
+Ending Live leaves the panel open. The original listen custom-action panel owns
+pause/resume intent, so ending a session inside the panel never resumes the
+course. Page hide, lesson/course/anchor change, unmount, panel collapse, and
+timeout stop tracks, clear playback, close the AudioContext, and release the
+socket. No deployment settings or production environment change in this phase.
 
 Maintain disclosure, five locales, privacy copy, and the existing event family:
 `learner_voice_follow_up_attempt`, `learner_voice_follow_up_result`, and
@@ -670,7 +749,13 @@ Maintain disclosure, five locales, privacy copy, and the existing event family:
 in read/listen; exclude teacher preview and classroom. Keep analytics best
 effort and independent from the user-visible operation.
 
-## Product Analytics Contract (v1)
+## Product Analytics Contract (v2: embedded input)
+
+The [canonical embedded analytics contract](../../product-specs/gemini-live-follow-up-analytics.md)
+owns the new input-method consumers, complete payloads, and the deployment-time
+break between automatic-microphone v1 and lazy-connection v2. The connection
+details below continue to apply except that opening the panel is no attempt:
+accepted text submission, explicit microphone activation, or retry starts one.
 
 The existing `creator_shifu_setting_save` remains a successful-save event,
 including manual close/autosave while the optional follow-up catalog is still
@@ -684,7 +769,7 @@ needs no new event or consumer migration.
 The business question is the share of accepted production learner voice
 attempts that connect, their bounded failure outcomes, and whether connected
 sessions produce an exchange. An attempt fires after local ID validation and
-before microphone/session startup. Each accepted initial click or retry is one
+before playback/session startup. Each accepted connection start or retry is one
 attempt. The local credential-cooldown guard runs before that point: a disabled
 retry or re-entry while admission is still reserved starts no microphone,
 request, or analytics attempt. The existing aggregate attempt/result consumer
@@ -694,7 +779,7 @@ An API capacity rejection uses business code `4018`, emits the existing bounded
 the occupying credential's expiry is unknown. A stalled session POST is a
 `failed` result with the existing `network_error` code after 20 seconds, followed
 by the same explicit-retry backoff; late responses never emit another result.
-This adds no event/payload version or consumer migration. It never infers capacity from
+This does not change the capacity error payload. It never infers capacity from
 localized or raw error text, retries automatically, or sends another attempt
 event while that backoff is active. Older servers without the new code retain
 the generic failure path until the server update is deployed.
@@ -711,7 +796,7 @@ user transcript and a nonempty played-answer transcript. It measures observed
 conversation, not history-storage success; pending and already acknowledged
 reports count equally, while usage-only and unheard turns do not count.
 This corrects the v1 producer race without changing event names or payload
-keys; the aggregate attempt/result/session-end consumer needs no migration.
+keys; consumers must nevertheless split v1/v2 activation cohorts as documented.
 
 Common fields are `shifu_bid`, `outline_bid`, `learning_mode=read|listen`, and
 `surface=read_content|listen_player`. Result adds bounded `outcome` and
@@ -737,8 +822,8 @@ IDs, WSS/HTTP URLs, token, resumption handle, and raw error are prohibited.
 6. Add focused token, store, route, protocol, accumulator, and controller
    coverage, then run existing Live persistence/audio/analytics suites.
 7. Run repository static/harness/pre-commit gates and update the open PR.
-8. Deploy with the flag off, enable on dev, test a real session, then complete
-   supported-browser acceptance before production enablement.
+8. For the embedded revision, validate locally, update the feature PR, and
+   follow current-head CI and review feedback. Do not change deployments.
 
 ## Validation and Acceptance
 
@@ -761,6 +846,10 @@ IDs, WSS/HTTP URLs, token, resumption handle, and raw error are prohibited.
   validation, PCM encoding, over-8-KiB and buffered-frame drops, multi-part
   audio, transcripts, interruption, mute, resumption, session errors, explicit
   retry, cleanup, and analytics exclusions.
+- Embedded tests cover panel-open inactivity, text without microphone permission,
+  explicit capture success/denial/cancellation, editing release, typed and voice
+  interruption, delayed old-turn boundaries, resume-queued input, stable history
+  IDs and deduplication, draft preservation, no second TTS, and original layouts.
 - Accumulator/persistence tests cover late final input, the 500 ms window,
   playback watermarks, interrupted/empty answer, no fabricated user history,
   deterministic retries, transaction rollback, numeric usage allowlist,

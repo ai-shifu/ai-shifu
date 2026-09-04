@@ -129,14 +129,22 @@ export const heartbeatLiveFollowUpSession = (
     { skipErrorToast: true, credentials: 'include' },
   );
 
+export type LiveFollowUpTurnAcknowledgement = {
+  session_bid: string;
+  turn_index: number;
+  history_saved: boolean;
+  ask_element_bid: string;
+  answer_element_bid: string;
+};
+
 export const commitLiveFollowUpTurn = (
   sessionBid: string,
   payload: LiveFollowUpTurnReport,
-): Promise<unknown> =>
+): Promise<LiveFollowUpTurnAcknowledgement> =>
   request.post(liveFollowUpSessionPath(sessionBid, 'turn'), payload, {
     skipErrorToast: true,
     credentials: 'include',
-  });
+  }) as Promise<LiveFollowUpTurnAcknowledgement>;
 
 // Session creation has already resolved the runtime API URL. The shared
 // keepalive path uses that cache to start fetch in the lifecycle callback itself.

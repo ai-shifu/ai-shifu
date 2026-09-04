@@ -38,24 +38,62 @@ const resolveAudioContextConstructor = (): AudioContextConstructor | null => {
 };
 
 /**
- * Owns one microphone + playback graph for a Live follow-up session.
- * `activate` deliberately asks for the microphone and resumes AudioContext
- * before its first await so callers can invoke it directly from the click
- * stack (required by Safari/iOS user activation rules).
+ * Owns playback and optional microphone capture. Playback activation and
+ * requestMicrophone must be called in the real user-activation stack.
  */
 export class LiveVoiceFollowUpAudio {
   private nextFlushRequestId = 1;
   private readonly flushResolvers = new Map<number, () => void>();
   private stopPromise: Promise<void> | null = null;
+  private stream: MediaStream | null = null;
+  private source: MediaStreamAudioSourceNode | null = null;
+  private capture: AudioWorkletNode | null = null;
+  private silentGain: GainNode | null = null;
 
   private constructor(
     private readonly context: AudioContext,
-    private readonly stream: MediaStream,
-    private readonly source: MediaStreamAudioSourceNode,
-    private readonly capture: AudioWorkletNode,
     private readonly playback: AudioWorkletNode,
-    private readonly silentGain: GainNode,
+    private readonly callbacks: LiveVoiceAudioCallbacks,
   ) {}
+
+  static requestMicrophone(signal: AbortSignal): Promise<MediaStream> {
+    const aborted = () =>
+      new DOMException('Microphone cancelled', 'AbortError');
+    if (signal.aborted) return Promise.reject(aborted());
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return Promise.reject(new LiveVoiceAudioUnavailableError());
+    }
+    // Initiate permission before returning, not after audio worklet setup.
+    const pending = navigator.mediaDevices.getUserMedia({
+      audio: {
+        autoGainControl: true,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        sampleRate: { ideal: 16000 },
+      },
+      video: false,
+    });
+    return new Promise((resolve, reject) => {
+      const cancel = () => reject(aborted());
+      signal.addEventListener('abort', cancel, { once: true });
+      void pending.then(
+        stream => {
+          signal.removeEventListener('abort', cancel);
+          if (signal.aborted) {
+            stream.getTracks().forEach(track => track.stop());
+            reject(aborted());
+          } else {
+            resolve(stream);
+          }
+        },
+        error => {
+          signal.removeEventListener('abort', cancel);
+          reject(error);
+        },
+      );
+    });
+  }
 
   static activate(
     callbacks: LiveVoiceAudioCallbacks,
@@ -67,44 +105,24 @@ export class LiveVoiceFollowUpAudio {
       return Promise.reject(aborted());
     }
     const AudioContextClass = resolveAudioContextConstructor();
-    if (
-      !AudioContextClass ||
-      typeof navigator === 'undefined' ||
-      !navigator.mediaDevices?.getUserMedia
-    ) {
+    if (!AudioContextClass) {
       return Promise.reject(new LiveVoiceAudioUnavailableError());
     }
 
     const context = new AudioContextClass({ latencyHint: 'interactive' });
     let resumePromise: Promise<void> | undefined;
-    let microphonePromise: Promise<MediaStream> | undefined;
     let workletPromise: Promise<void> | undefined;
     let released = false;
     const releasePendingAudio = () => {
       if (released) return;
       released = true;
-      // getUserMedia cannot cancel an open permission prompt. Stop any stream
-      // already acquired, or immediately when a late permission result arrives.
-      void microphonePromise
-        ?.then(stream => stream.getTracks().forEach(track => track.stop()))
-        .catch(() => {});
       void resumePromise?.catch(() => {});
       void workletPromise?.catch(() => {});
       void context.close().catch(() => {});
     };
     try {
-      // Keep both calls in the real click stack, even with cancellation.
+      // Resume before the first await, including keyboard-only sessions.
       resumePromise = context.resume();
-      microphonePromise = navigator.mediaDevices.getUserMedia({
-        audio: {
-          autoGainControl: true,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: { ideal: 16000 },
-        },
-        video: false,
-      });
       workletPromise = context.audioWorklet.addModule(
         LIVE_FOLLOW_UP_AUDIO_WORKLET_PATH,
       );
@@ -122,45 +140,21 @@ export class LiveVoiceFollowUpAudio {
     signal?.addEventListener('abort', cancelActivation, { once: true });
 
     return Promise.race([
-      Promise.all([resumePromise, microphonePromise, workletPromise]),
+      Promise.all([resumePromise, workletPromise]),
       cancelled,
     ])
-      .then(([, stream]) => {
+      .then(() => {
         if (signal?.aborted) throw aborted();
-        const source = context.createMediaStreamSource(stream);
-        const capture = new AudioWorkletNode(
-          context,
-          'live-follow-up-capture',
-          { channelCount: 1, numberOfInputs: 1, numberOfOutputs: 1 },
-        );
         const playback = new AudioWorkletNode(
           context,
           'live-follow-up-playback',
           { channelCount: 1, numberOfInputs: 0, numberOfOutputs: 1 },
         );
-        const silentGain = context.createGain();
-        silentGain.gain.value = 0;
-
-        const audio = new LiveVoiceFollowUpAudio(
-          context,
-          stream,
-          source,
-          capture,
-          playback,
-          silentGain,
-        );
-        capture.port.onmessage = event => {
-          if (event.data instanceof ArrayBuffer) {
-            callbacks.onInputFrame(event.data);
-          }
-        };
+        const audio = new LiveVoiceFollowUpAudio(context, playback, callbacks);
         playback.port.onmessage = event => {
           audio.handlePlaybackMessage(event.data, callbacks);
         };
 
-        source.connect(capture);
-        capture.connect(silentGain);
-        silentGain.connect(context.destination);
         playback.connect(context.destination);
 
         return audio;
@@ -175,7 +169,58 @@ export class LiveVoiceFollowUpAudio {
   }
 
   setMuted(muted: boolean) {
-    this.capture.port.postMessage({ type: 'muted', muted });
+    this.capture?.port.postMessage({ type: 'muted', muted });
+  }
+
+  attachMicrophone(stream: MediaStream) {
+    if (this.stopPromise || this.context.state === 'closed') {
+      stream.getTracks().forEach(track => track.stop());
+      throw new LiveVoiceAudioUnavailableError();
+    }
+    this.stopMicrophone();
+    this.stream = stream;
+    try {
+      this.source = this.context.createMediaStreamSource(stream);
+      this.capture = new AudioWorkletNode(
+        this.context,
+        'live-follow-up-capture',
+        {
+          channelCount: 1,
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+        },
+      );
+      this.silentGain = this.context.createGain();
+      this.silentGain.gain.value = 0;
+      this.capture.port.onmessage = event => {
+        if (event.data instanceof ArrayBuffer)
+          this.callbacks.onInputFrame(event.data);
+      };
+      this.source.connect(this.capture);
+      this.capture.connect(this.silentGain);
+      this.silentGain.connect(this.context.destination);
+    } catch (error) {
+      this.stopMicrophone();
+      throw error;
+    }
+  }
+
+  stopMicrophone() {
+    this.stream?.getTracks().forEach(track => track.stop());
+    this.source?.disconnect();
+    if (this.capture) {
+      this.capture.port.onmessage = null;
+      this.capture.disconnect();
+    }
+    this.silentGain?.disconnect();
+    this.stream = null;
+    this.source = null;
+    this.capture = null;
+    this.silentGain = null;
+  }
+
+  interruptPlayback() {
+    return this.flushAndClearPlayback();
   }
 
   enqueueOutput(buffer: ArrayBuffer, turnIndex: number) {
@@ -271,12 +316,8 @@ export class LiveVoiceFollowUpAudio {
   private async stopInternal() {
     // Stop capture immediately, while keeping the playback port alive long
     // enough to flush its final consumed-byte checkpoint.
-    this.stream.getTracks().forEach(track => track.stop());
-    this.source.disconnect();
-    this.capture.disconnect();
-    this.silentGain.disconnect();
+    this.stopMicrophone();
     await this.flushAndClearPlayback();
-    this.capture.port.onmessage = null;
     this.playback.port.onmessage = null;
     this.playback.disconnect();
     this.flushResolvers.forEach(resolve => resolve());

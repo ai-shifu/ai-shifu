@@ -213,7 +213,11 @@ const projectListenAnswerFeedbackItems = (
 
   return askList
     .filter(
-      message => message?.type === 'answer' && Boolean(message.content?.trim()),
+      message =>
+        message?.type === 'answer' &&
+        Boolean(message.content?.trim()) &&
+        message.interaction_mode !== 'live_voice' &&
+        message.payload?.interaction_mode !== 'live_voice',
     )
     .map((message, index) => {
       const fallbackElementBid = `answer-${item.parent_element_bid || 'feedback'}-${index}`;
