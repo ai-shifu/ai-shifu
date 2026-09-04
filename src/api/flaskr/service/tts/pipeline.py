@@ -30,6 +30,7 @@ from flaskr.api.tts import (
     VoiceSettings,
     get_default_audio_settings,
     get_default_voice_settings,
+    get_provider_capabilities,
     is_tts_configured,
     synthesize_text,
 )
@@ -652,7 +653,7 @@ def split_text_for_tts(
     - Applies `preprocess_for_tts` (removes markdown/code/SVG, etc).
     - Splits by newline and sentence endings.
     - Packs units into segments with a configurable maximum character size.
-    - Applies provider-specific byte constraints when needed.
+    - Applies provider-declared byte constraints when needed.
     """
     cleaned = preprocess_for_tts(text or "")
     if not cleaned:
@@ -663,13 +664,14 @@ def split_text_for_tts(
     units = _split_by_sentence_and_newline(cleaned)
     segments = _split_text_by_max_chars(units, max_chars=max_chars)
 
-    # Provider-specific byte constraints
-    if (provider_name or "").strip().lower() == "baidu":
-        # Baidu requires <= 1024 bytes in GBK encoding.
-        segments = _split_text_by_max_bytes(segments, max_bytes=1024, encoding="gbk")
-    elif (provider_name or "").strip().lower() == "volcengine_http":
-        # Volcengine HTTP v1/tts requires <= 1024 bytes in UTF-8 encoding.
-        segments = _split_text_by_max_bytes(segments, max_bytes=1024, encoding="utf-8")
+    # Provider-declared byte constraints (e.g. Baidu GBK, Volcengine HTTP UTF-8).
+    capabilities = get_provider_capabilities(provider_name)
+    if capabilities.segment_max_bytes:
+        segments = _split_text_by_max_bytes(
+            segments,
+            max_bytes=int(capabilities.segment_max_bytes),
+            encoding=capabilities.segment_encoding or "utf-8",
+        )
 
     return [s for s in segments if s and s.strip()]
 

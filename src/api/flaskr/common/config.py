@@ -1506,6 +1506,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="SMTP sender email address",
         group="email",
     ),
+    "SMTP_SENDER_NAME": EnvVar(
+        name="SMTP_SENDER_NAME",
+        default="",
+        description="Optional SMTP sender display name",
+        group="email",
+    ),
     # Flask Configuration
     "FLASK_APP": EnvVar(
         name="FLASK_APP",
@@ -1581,6 +1587,39 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
             "JSON array of approved ElevenLabs voices. Each item must contain "
             'non-empty value and label fields, e.g. [{"value":"voice_id",'
             '"label":"Display name"}].'
+        ),
+        group="tts",
+        required=False,
+    ),
+    "GEMINI_TTS_ENABLED": EnvVar(
+        name="GEMINI_TTS_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Expose Google Gemini as a TTS provider. Synthesis reuses "
+            "GEMINI_API_KEY, so this explicit switch keeps deployments that "
+            "only use Gemini for LLM calls from listing it as a voice option."
+        ),
+        group="tts",
+    ),
+    "GEMINI_TTS_API_URL": EnvVar(
+        name="GEMINI_TTS_API_URL",
+        default="https://generativelanguage.googleapis.com/v1beta",
+        description=(
+            "Base URL of the Gemini generateContent API used for speech "
+            "synthesis. Independent of GEMINI_API_URL, which configures the "
+            "LiteLLM chat endpoint."
+        ),
+        group="tts",
+    ),
+    "GEMINI_TTS_VOICES_JSON": EnvVar(
+        name="GEMINI_TTS_VOICES_JSON",
+        default="",
+        description=(
+            "Optional JSON array narrowing or relabeling the built-in Gemini "
+            "prebuilt voices. Each item must contain non-empty value and label "
+            'fields, e.g. [{"value":"Kore","label":"Kore (Firm)"}]. The value '
+            "must be a prebuilt voice name; empty exposes every built-in voice."
         ),
         group="tts",
         required=False,

@@ -62,12 +62,14 @@ import {
 
 import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
 import {
+  NOTIFICATION_LEGACY_SMS_RULES_MIGRATED_EVENT,
   NOTIFICATION_RULE_ACTION_EVENT,
   NOTIFICATION_RULE_TRACKING_CONTEXT,
 } from './notificationRuleTracking';
 import {
   NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT,
   NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT,
+  NOTIFICATION_EMAIL_TEMPLATE_TRACKING_CONTEXT,
   NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT,
   NOTIFICATION_TEMPLATE_SAVE_ATTEMPT_EVENT,
   NOTIFICATION_TEMPLATE_SAVE_RESULT_EVENT,
@@ -163,6 +165,7 @@ export default function AdminOperationCreditNotificationsPage() {
   >(null);
   const requestIdRef = React.useRef(0);
   const templateListRequestIdRef = React.useRef(0);
+  const templateContactModeRef = React.useRef<string | null>(null);
   const configLoadStartedRef = React.useRef(false);
   const isConfigDirty = React.useMemo(
     () => JSON.stringify(policy) !== JSON.stringify(savedPolicy),
@@ -263,10 +266,15 @@ export default function AdminOperationCreditNotificationsPage() {
     async (mode: 'initial' | 'manual' = 'initial') => {
       const requestId = templateListRequestIdRef.current + 1;
       templateListRequestIdRef.current = requestId;
+      templateContactModeRef.current = contactMode;
       setTemplateListLoading(true);
+      const templateTrackingContext =
+        contactMode === 'email'
+          ? NOTIFICATION_EMAIL_TEMPLATE_TRACKING_CONTEXT
+          : NOTIFICATION_TEMPLATE_TRACKING_CONTEXT;
       if (mode === 'manual') {
         trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_ATTEMPT_EVENT, {
-          ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+          ...templateTrackingContext,
         });
       }
       try {
@@ -284,7 +292,7 @@ export default function AdminOperationCreditNotificationsPage() {
         );
         if (mode === 'manual') {
           trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT, {
-            ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+            ...templateTrackingContext,
             outcome: response.provider_available ? 'success' : 'failed',
             source: response.source || 'local',
           });
@@ -298,7 +306,7 @@ export default function AdminOperationCreditNotificationsPage() {
         setTemplateListError(resolvedError.message || 'template_list_failed');
         if (mode === 'manual') {
           trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SYNC_RESULT_EVENT, {
-            ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
+            ...templateTrackingContext,
             outcome: 'failed',
             source: 'local',
           });
@@ -314,7 +322,7 @@ export default function AdminOperationCreditNotificationsPage() {
 
   const saveEmailTemplate = React.useCallback(
     async (
-      payload: Record<string, string>,
+      payload: Record<string, unknown>,
       notificationTemplateBid?: string,
     ) => {
       const action = notificationTemplateBid ? 'updated' : 'created';
@@ -338,6 +346,41 @@ export default function AdminOperationCreditNotificationsPage() {
             payload,
           );
         }
+        await fetchTemplateOptions('initial');
+        trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SAVE_RESULT_EVENT, {
+          ...trackingPayload,
+          outcome: 'success',
+        });
+      } catch (error) {
+        trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SAVE_RESULT_EVENT, {
+          ...trackingPayload,
+          outcome: 'failed',
+        });
+        throw error;
+      }
+    },
+    [fetchTemplateOptions, trackTemplateEventSafely],
+  );
+
+  const updateEmailTemplateStatus = React.useCallback(
+    async (
+      notificationTemplateBid: string,
+      templateStatus: 'active' | 'disabled',
+    ) => {
+      const trackingPayload = {
+        channel: 'email',
+        provider: 'smtp',
+        action: 'status_updated',
+      };
+      trackTemplateEventSafely(
+        NOTIFICATION_TEMPLATE_SAVE_ATTEMPT_EVENT,
+        trackingPayload,
+      );
+      try {
+        await api.updateAdminOperationCreditNotificationEmailTemplateStatus({
+          notification_template_bid: notificationTemplateBid,
+          template_status: templateStatus,
+        });
         await fetchTemplateOptions('initial');
         trackTemplateEventSafely(NOTIFICATION_TEMPLATE_SAVE_RESULT_EVENT, {
           ...trackingPayload,
@@ -460,6 +503,17 @@ export default function AdminOperationCreditNotificationsPage() {
     }
     void loadConfigResources();
   }, [activeTab, isReady, loadConfigResources]);
+
+  React.useEffect(() => {
+    if (
+      !isReady ||
+      (activeTab !== 'config' && activeTab !== 'templates') ||
+      templateContactModeRef.current === contactMode
+    ) {
+      return;
+    }
+    void fetchTemplateOptions();
+  }, [activeTab, contactMode, fetchTemplateOptions, isReady]);
 
   const updateDraftFilter = React.useCallback(
     (field: keyof NotificationFilters, value: string) => {
@@ -797,6 +851,12 @@ export default function AdminOperationCreditNotificationsPage() {
                 trigger_event: triggerEvent,
               })
             }
+            onLegacyRulesMigrated={() =>
+              trackTemplateEventSafely(
+                NOTIFICATION_LEGACY_SMS_RULES_MIGRATED_EVENT,
+                { channel: 'email', rule_count: '3' },
+              )
+            }
           />
         </TabsContent>
 
@@ -815,6 +875,7 @@ export default function AdminOperationCreditNotificationsPage() {
             }
             refresh={() => fetchTemplateOptions('manual')}
             saveEmailTemplate={saveEmailTemplate}
+            updateEmailTemplateStatus={updateEmailTemplateStatus}
             onViewed={() =>
               trackTemplateEventSafely(
                 NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT,

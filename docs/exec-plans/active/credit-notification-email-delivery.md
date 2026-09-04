@@ -23,11 +23,21 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
 - [x] 2026-09-02 14:28 CST: Created the stacked feature branch and inspected
   existing notification template, verified-email, policy, delivery, admin
   route, and template-management contracts.
-- [x] 2026-09-02: Implemented the data model, SMTP adapter, operator template
+- [x] 2026-09-02 17:10 CST: Implemented the data model, SMTP adapter, operator template
   create/update interface, policy validation, email recipient staging,
   delivery, and focused notification regression coverage.
-- [x] 2026-09-02: Added focused SMTP delivery and channel-specific frequency
+- [x] 2026-09-02 17:10 CST: Added focused SMTP delivery and channel-specific frequency
   regression coverage, plus the affected admin-page test suite.
+- [x] 2026-09-03 10:45 CST: Resolved review findings for email-rule selection,
+  SMTP transport safety and retry classification, template/rule validation,
+  contact-error visibility, and the affected frontend regression tests.
+- [x] 2026-09-03: Added an explicit overseas-only migration from synthesized
+  legacy SMS rules to disabled managed email rules, with no automatic policy
+  mutation on page load, an operator confirmation, and focused UI/event
+  regression coverage.
+- [x] 2026-09-03: Added locale-aware email-template binding, explicit UTC
+  rendering, and a configurable sender display name for managed overseas
+  notifications, with backend and frontend regression coverage.
 - [ ] Validate with a controlled devus recipient after the database migration
   is deployed.
 
@@ -48,11 +58,12 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
   a narrow shared SMTP send helper; keep verification-code rate limiting,
   verification-code content, and persistence in the user service.
 - 2026-09-02: Formal notification email templates are created and maintained
-  by operators. Code owns rendering, variable validation, default safe HTML
-  shell, and UI strings, but not production subject/body copy.
-- 2026-09-02: Use `channel=email`, `provider=smtp`, and a stable operator
-  supplied `template_code`. Only enabled templates with valid variables can be
-  bound to an enabled email rule.
+  by operators. Code owns rendering, variable validation, the plain-text
+  fallback, and UI strings, but not production subject/body copy.
+- 2026-09-03: Use `channel=email`, `provider=smtp`, and a server-generated
+  stable `EMAIL_<id>` template Code. Operators maintain one HTML-capable email
+  body; the service derives the text alternative. Only enabled templates with
+  valid variables can be bound to an enabled email rule.
 - 2026-09-02: Email frequency is counted separately from SMS by including the
   channel in per-recipient/per-type frequency keys. A single rule still emits
   one channel only, so this does not create duplicate notices.
@@ -64,12 +75,62 @@ until #2746 reaches `main`; rebase onto `main` before final merge.
   recipients, and the requested template-management workflow does not depend
   on it. Validate SMTP in devus through a disabled rule and controlled account
   instead.
+- 2026-09-03: Overseas notification configuration must use email terminology.
+  Reuse the existing channel-scoped recipient and teacher/type frequency limits,
+  keep quiet hours and balance protection, and hide SMS-only budget, unit-cost,
+  and SMS-cost dry-run controls. Do not rename the persisted legacy SMS policy
+  keys in this UI follow-up.
+- 2026-09-03: Marketing-email unsubscribe preferences are deferred. Before any
+  non-transactional campaign email is enabled, add a signed unsubscribe link,
+  email-address preference persistence, recipient resolution enforcement, and
+  operator visibility. Transactional credit notifications remain out of scope
+  for that follow-up unless product policy changes.
+- 2026-09-03: Email templates must explicitly declare their applicable credit
+  notification events in template management. Store that relationship in the
+  existing template metadata JSON, validate it against template variables on
+  save, and only offer enabled templates that include the edited rule event.
+  This improves operator clarity without a schema migration.
+- 2026-09-03: Keep paid plan and top-up grants on the existing
+  `credit_granted` event. Add `${product}` to its supported variables and
+  resolve the purchased product from the order-backed credit ledger entry.
+  Do not invent a duplicate purchase-success event just for credit delivery;
+  non-order grants continue to use templates without `${product}`.
+- 2026-09-03: Existing overseas configurations may still expose the three
+  synthesized legacy SMS rules. Provide a deliberate operator-confirmed
+  migration instead of silently changing them on render: replace the complete
+  managed `rules` list with matching disabled email rules, preserve trigger
+  conditions, and clear SMS template bindings. The existing legacy `types`
+  data remains for rollback compatibility, but is ignored once the managed
+  `rules` list is saved. This updates the existing configuration JSON only;
+  it requires no new schema migration.
+- 2026-09-03: An email rule binds an `en-US` fallback template plus optional
+  locale-specific templates. At staging, select the template for the
+  recipient account's `language`; use `en-US` when that language is absent or
+  unconfigured. Keep the template locale as required metadata for this
+  matching, rather than attempting to infer language from content. Persist
+  the selected template Code on the notification record. Render email dates
+  explicitly in UTC until recipient timezone is a supported account setting.
+  Add `SMTP_SENDER_NAME` for the display header while retaining the plain
+  `SMTP_SENDER` address for SMTP envelope delivery. This changes policy JSON
+  only and requires no schema migration.
+- 2026-09-03: `template_code` remains the backwards-compatible required
+  `en-US` fallback binding. Optional `locale_template_codes` maps an exact
+  account language to an operator-managed template code. Saving an enabled
+  rule validates every referenced template, requires the fallback to actually
+  be `en-US`, and rejects locale/code mismatches.
+- 2026-09-03: Defer operator-facing multilingual template management. The
+  current create/edit and rule-binding UI is English-only and new templates
+  are persisted as `en-US`. Retain the locale-aware delivery and policy
+  compatibility paths for existing data and a future multilingual rollout.
 
 ## Outcomes & Retrospective
 
 The implementation provides a complete overseas email notification workflow
 without a source-code dependency for production copy. SMTP delivery remains to
 be verified with a controlled devus account after the migration is deployed.
+Email rules now select the recipient account language when it has an
+operator-configured template and otherwise use the required English fallback;
+the selected template is persisted on the notification record.
 
 ## Context and Orientation
 
@@ -112,39 +173,57 @@ add a separate top-level menu. Shared translations live under `src/i18n/`.
 2. Add a local SMTP template repository/service that permits create, update,
    enable, and disable only for
    `email + smtp` rows. Keep Aliyun synchronized rows read-only.
-3. Extract a shared SMTP message builder/sender with TLS, authenticated login,
-   MIME alternative bodies, recipient normalization, and provider-safe error
-   mapping. Do not log recipient addresses or template bodies.
+3. Extract a shared SMTP message builder/sender with a bounded timeout,
+   verified TLS context, authenticated login, MIME alternative bodies,
+   recipient normalization, cleanup that cannot overwrite an accepted send,
+   and provider-safe error mapping. Do not log recipient addresses or template
+   bodies.
 4. Add channel-aware recipient staging and channel-specific frequency keys.
    Preserve current SMS keys and behavior exactly.
 5. Wire the email branch into notification dispatch and retry. Store recipient
    snapshots, provider result metadata, and bounded failure reasons on the
    existing `NotificationRecord`.
 6. Extend the template-management tab and rule editor for overseas email:
-   table create/edit, language/status filters, and active-template-only
-   selection. Keep all user-facing text in shared i18n.
+   table create/edit, one email body with generated text alternative,
+   language/status filters, and active-template-only SMTP selection. Keep all
+   user-facing text in shared i18n.
 7. Seed no production copy from source. Have an operator create the initial
    three templates in devus, run dry-run/test-send, bind disabled rules, then
    explicitly enable each rule after delivery confirmation.
+8. Make the overseas configuration surface channel-aware: show recipient-based
+   frequency wording and email templates, keep quiet hours and balance
+   protection, and omit SMS-only cost and budget controls.
+9. Add an overseas-only legacy-rule migration action with confirmation and
+   frontend coverage. It must create disabled email rules without template
+   bindings and must not mutate or save configuration until the operator
+   explicitly confirms the existing configuration save action.
+10. Support a required English fallback and optional locale-specific email
+    templates per rule, selecting the recipient account language at staging.
+    Make rendered email dates explicit UTC and configure a separate display
+    name for the SMTP From header.
 
 ## Validation and Acceptance
 
-- A devus operator can create an English email template with valid subject,
-  plain body, HTML body, locale, and stable code; invalid/missing placeholders
-  prevent binding to an enabled rule.
+- A devus operator can create an English email template with a valid subject,
+  one email body, locale, and server-generated stable Code; invalid/missing
+  placeholders prevent binding to an enabled rule.
 - An overseas account with a verified email receives each configured credit
   notification exactly once through SMTP, and the record shows `email` plus
   the email snapshot.
 - An account without a valid email never invokes SMTP and has an observable
   skipped/contact error record.
-- Email retry is idempotent: provider failure retries the same record, while a
-  sent record is not resent.
+- Transient SMTP failures retry the same record, while a sent record is not
+  resent. SMTP cannot provide strict exactly-once guarantees after an ambiguous
+  network failure, so the service must not claim stronger semantics.
 - Email and SMS frequency limits are independently enforced; existing domestic
   SMS frequency tests remain unchanged.
 - Domestic template sync, SMS rule selection, and SMS delivery continue to
   pass their current test suites.
 - The Alembic migration upgrades cleanly on MySQL and remains compatible with
   the already-applied #2746 recipient migration.
+- Overseas legacy SMS rules can be explicitly migrated to disabled email rules;
+  their SMS template bindings do not survive the migration, and no legacy rule
+  remains active after the migrated policy is saved.
 
 ## Idempotence and Recovery
 

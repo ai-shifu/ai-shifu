@@ -20,6 +20,7 @@ from flaskr.api.tts.base import (
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -1174,6 +1175,10 @@ ALIYUN_VOICES_FRONTEND = [
 
 class AliyunTTSProvider(BaseTTSProvider):
     """TTS provider using Aliyun Intelligent Speech Interaction RESTful API."""
+
+    capabilities = ProviderCapabilities(
+        auto_detectable=True,
+    )
 
     @property
     def provider_name(self) -> str:

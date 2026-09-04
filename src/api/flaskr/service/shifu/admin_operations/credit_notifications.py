@@ -15,6 +15,7 @@ from flaskr.service.billing.api import (
     save_credit_notification_email_template,
     save_credit_notification_policy,
     sync_credit_notification_template,
+    update_credit_notification_email_template_status,
 )
 from flaskr.service.billing.api import (
     get_operator_credit_notification_overview as build_credit_notification_overview,
@@ -113,6 +114,22 @@ def save_operator_credit_notification_email_template(
         app,
         payload=payload,
         notification_template_bid=notification_template_bid,
+        updated_by=operator_user_bid,
+    )
+
+
+def update_operator_credit_notification_email_template_status(
+    app: Flask,
+    *,
+    notification_template_bid: str,
+    template_status: str,
+    operator_user_bid: str = "",
+) -> dict[str, object]:
+    """Update the availability of one operator-managed email template."""
+    return update_credit_notification_email_template_status(
+        app,
+        notification_template_bid=notification_template_bid,
+        template_status=template_status,
         updated_by=operator_user_bid,
     )
 

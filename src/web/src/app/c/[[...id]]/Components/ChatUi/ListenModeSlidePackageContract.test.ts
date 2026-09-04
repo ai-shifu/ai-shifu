@@ -35,7 +35,7 @@ describe('markdown-flow-ui Slide package contract', () => {
     ) as { version?: string };
     const playerSource = readPublishedSource('Player');
 
-    expect(packageJson.version).toBe('0.2.23');
+    expect(packageJson.version).toBe('0.2.24');
     expect(playerSource).toContain('customActionList.length + 6');
     expect(playerSource).not.toContain('FilePenLine');
     expect(playerSource).not.toContain('notesLabel');

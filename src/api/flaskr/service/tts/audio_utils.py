@@ -30,6 +30,58 @@ def is_audio_processing_available() -> bool:
     return PYDUB_AVAILABLE
 
 
+def pcm_duration_ms(
+    audio_data: bytes,
+    *,
+    sample_rate: int,
+    channels: int = 1,
+    sample_width: int = 2,
+) -> int:
+    """Return the duration of raw PCM bytes in milliseconds.
+
+    The duration is derived purely from the byte length and the sample
+    geometry, so it never needs ffmpeg and is exact for uncompressed audio.
+    """
+    if not audio_data:
+        return 0
+    bytes_per_second = (
+        max(int(sample_rate or 0), 1)
+        * max(int(channels or 1), 1)
+        * max(int(sample_width or 1), 1)
+    )
+    return round(len(audio_data) * 1000 / bytes_per_second)
+
+
+def export_pcm_to_mp3(
+    audio_data: bytes,
+    *,
+    sample_rate: int,
+    channels: int = 1,
+    sample_width: int = 2,
+    bitrate: str = "128k",
+) -> bytes:
+    """Encode raw signed little-endian PCM bytes as MP3 through pydub/ffmpeg.
+
+    Providers that only return PCM use this so the shared streaming, storage,
+    and playback paths keep receiving MP3.
+    """
+    if not audio_data:
+        return b""
+    if not PYDUB_AVAILABLE:
+        message = "pydub is required to convert PCM audio to MP3"
+        raise ValueError(message)
+
+    segment = AudioSegment(
+        data=audio_data,
+        sample_width=int(sample_width),
+        frame_rate=int(sample_rate),
+        channels=int(channels),
+    )
+    output = io.BytesIO()
+    segment.export(output, format="mp3", bitrate=bitrate)
+    return output.getvalue()
+
+
 def _estimated_duration_ms(audio_data: bytes) -> int:
     # Rough estimate based on bitrate (128kbps for MP3):
     # 128kbps = 16KB/s, so duration = size_bytes / 16000 * 1000.

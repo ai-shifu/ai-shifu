@@ -10,7 +10,6 @@ import base64
 import datetime as dt
 import hashlib
 import hmac
-import io
 import json
 import logging
 import time
@@ -23,15 +22,11 @@ if TYPE_CHECKING:
 
 import requests
 
-try:
-    from pydub import AudioSegment as PydubAudioSegment
-except ImportError:  # pragma: no cover - exercised only in minimal deployments
-    PydubAudioSegment = None
-
 from flaskr.api.tts.base import (
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -41,6 +36,8 @@ from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts import resolve_tts_billable_chars
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
+    export_pcm_to_mp3,
+    pcm_duration_ms,
     try_get_audio_duration_ms,
 )
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
@@ -290,28 +287,17 @@ def _concat_tencent_audio_segments(
 
 
 def _tencent_pcm_duration_ms(audio_data: bytes, *, sample_rate: int) -> int:
-    if not audio_data:
-        return 0
-    bytes_per_second = max(int(sample_rate or TENCENT_DEFAULT_SAMPLE_RATE), 1) * 2
-    return round(len(audio_data) * 1000 / bytes_per_second)
+    return pcm_duration_ms(
+        audio_data,
+        sample_rate=int(sample_rate or TENCENT_DEFAULT_SAMPLE_RATE),
+    )
 
 
 def _export_tencent_pcm_to_mp3(audio_data: bytes, *, sample_rate: int) -> bytes:
-    if not audio_data:
-        return b""
-    if PydubAudioSegment is None:
-        message = "pydub is required to convert Tencent TTS PCM audio to MP3"
-        raise ValueError(message)
-
-    segment = PydubAudioSegment(
-        data=audio_data,
-        sample_width=2,
-        frame_rate=int(sample_rate or TENCENT_DEFAULT_SAMPLE_RATE),
-        channels=1,
+    return export_pcm_to_mp3(
+        audio_data,
+        sample_rate=int(sample_rate or TENCENT_DEFAULT_SAMPLE_RATE),
     )
-    output = io.BytesIO()
-    segment.export(output, format=TENCENT_DEFAULT_CODEC, bitrate="128k")
-    return output.getvalue()
 
 
 def _coerce_app_id(app_id: object) -> int:
@@ -1155,6 +1141,11 @@ def parse_tencent_sse_message(
 
 class TencentTTSProvider(BaseTTSProvider):
     """Stream synthesized speech through Tencent TTS."""
+
+    capabilities = ProviderCapabilities(
+        retry_on_empty_audio=True,
+        skip_non_speakable_text=True,
+    )
 
     @property
     def provider_name(self) -> str:

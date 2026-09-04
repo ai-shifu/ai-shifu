@@ -142,6 +142,42 @@
   z-index: 30;
 }
 
+.listen-playback-timeline {
+  position: absolute;
+  left: 50%;
+  bottom: calc(
+    var(--listen-slide-player-bottom-offset, 12px) +
+      var(--slide-player-height, 80px) - 2px
+  );
+  z-index: 31;
+  display: flex;
+  width: min(720px, calc(100% - 40px));
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  color: var(--slide-player-foreground, var(--foreground));
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+}
+
+.listen-playback-timeline__time {
+  min-width: 36px;
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+}
+
+.listen-playback-timeline__range {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--primary);
+}
+
+.listen-reveal-wrapper.mobile .listen-playback-timeline {
+  bottom: calc(var(--slide-player-height, 80px) - 2px);
+  width: min(560px, calc(100% - 24px));
+}
+
 .listen-reveal-wrapper.mobile .listen-slide-player {
   z-index: 30;
 }

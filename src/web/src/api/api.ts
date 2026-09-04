@@ -218,6 +218,8 @@ const api = {
     'POST /shifu/admin/operations/credit-notifications/email-templates',
   updateAdminOperationCreditNotificationEmailTemplate:
     'PUT /shifu/admin/operations/credit-notifications/email-templates/{notification_template_bid}',
+  updateAdminOperationCreditNotificationEmailTemplateStatus:
+    'PUT /shifu/admin/operations/credit-notifications/email-templates/{notification_template_bid}/status',
   dryRunAdminOperationCreditNotifications:
     'POST /shifu/admin/operations/credit-notifications/dry-run',
   requeueAdminOperationCreditNotification:
