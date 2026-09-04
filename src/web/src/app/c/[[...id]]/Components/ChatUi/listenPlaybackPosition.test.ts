@@ -14,6 +14,9 @@ const scope: ListenPlaybackPositionScope = {
   source: 'https://audio.example.com/audio-1.mp3',
 };
 
+const storageKey =
+  'course_listen_playback_position%3Av1:course-1:lesson-1:element-1';
+
 describe('listenPlaybackPosition', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -67,6 +70,16 @@ describe('listenPlaybackPosition', () => {
       durationSeconds: 60,
     });
     expect(readListenPlaybackPositionFromStorage(scope)).toBeNull();
+  });
+
+  it('removes malformed stored records instead of retrying them on every read', () => {
+    window.localStorage.setItem(storageKey, '{not-json');
+    expect(readListenPlaybackPositionFromStorage(scope)).toBeNull();
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+
+    window.localStorage.setItem(storageKey, 'null');
+    expect(readListenPlaybackPositionFromStorage(scope)).toBeNull();
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
   });
 
   it('clears the stored position explicitly and handles storage failures', () => {

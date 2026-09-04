@@ -75,24 +75,41 @@ export const readListenPlaybackPositionFromStorage = (
   }
 
   const storageKey = getListenPlaybackPositionStorageKey(scope);
+  let storedValue: string | null;
   try {
-    const storedValue = window.localStorage.getItem(storageKey);
-    if (!storedValue) {
-      return null;
-    }
+    storedValue = window.localStorage.getItem(storageKey);
+  } catch {
+    // localStorage can be unavailable in private mode or embedded contexts.
+    return null;
+  }
 
-    const parsedValue = JSON.parse(storedValue) as StoredListenPlaybackPosition;
+  if (!storedValue) {
+    return null;
+  }
+
+  try {
+    const parsedValue = JSON.parse(
+      storedValue,
+    ) as Partial<StoredListenPlaybackPosition> | null;
+    const positionSeconds = parsedValue?.positionSeconds;
     if (
+      !parsedValue ||
       parsedValue.source !== scope.source ||
-      !Number.isFinite(parsedValue.positionSeconds) ||
-      parsedValue.positionSeconds < MINIMUM_RESUMABLE_POSITION_SECONDS
+      typeof positionSeconds !== 'number' ||
+      !Number.isFinite(positionSeconds) ||
+      positionSeconds < MINIMUM_RESUMABLE_POSITION_SECONDS
     ) {
       window.localStorage.removeItem(storageKey);
       return null;
     }
 
-    return parsedValue.positionSeconds;
+    return positionSeconds;
   } catch {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // localStorage can be unavailable in private mode or embedded contexts.
+    }
     return null;
   }
 };
