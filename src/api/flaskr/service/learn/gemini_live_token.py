@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 import requests
 from flaskr.util.datetime import now_utc, to_utc_iso
@@ -69,6 +70,31 @@ def _qualified_model(model: str) -> str:
     return normalized if normalized.startswith("models/") else f"models/{normalized}"
 
 
+def _token_endpoint(api_base_url: str | None) -> str:
+    """Use the server's Gemini base URL, preserving any reverse-proxy prefix."""
+    base_url = str(api_base_url or "").strip()
+    if not base_url:
+        return GEMINI_LIVE_AUTH_TOKEN_ENDPOINT
+    base_url = base_url.rstrip("/")
+    try:
+        parsed = urlsplit(base_url)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.port == 0
+            or parsed.username is not None
+            or parsed.password is not None
+            or "?" in base_url
+            or "#" in base_url
+        ):
+            raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION)
+    except ValueError:
+        raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION) from None
+    if parsed.path.endswith("/v1beta"):
+        return f"{base_url}/auth_tokens"
+    return f"{base_url}/v1beta/auth_tokens"
+
+
 def _bidi_setup(
     *,
     model: str,
@@ -112,7 +138,6 @@ def _bidi_setup(
             "triggerTokens": "25000",
             "slidingWindow": {"targetTokens": "8000"},
         },
-        "sessionResumption": {},
         "historyConfig": {
             "initialHistoryInClientContent": include_initial_history,
         },
@@ -189,6 +214,7 @@ def build_gemini_live_history_message(
 def mint_gemini_live_ephemeral_token(
     *,
     api_key: str,
+    api_base_url: str | None = None,
     model: str = GEMINI_LIVE_MODEL_ID,
     voice_name: str,
     system_instruction: str,
@@ -203,6 +229,7 @@ def mint_gemini_live_ephemeral_token(
     normalized_instruction = str(system_instruction or "").strip()
     if not all((normalized_key, normalized_model, normalized_voice)):
         raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION)
+    endpoint = _token_endpoint(api_base_url)
 
     issued_at = current_time or now_utc()
     expires_at = issued_at + timedelta(seconds=GEMINI_LIVE_TOKEN_LIFETIME_SECONDS)
@@ -214,8 +241,9 @@ def mint_gemini_live_ephemeral_token(
         "expireTime": to_utc_iso(expires_at),
         "newSessionExpireTime": to_utc_iso(new_session_expires_at),
         # Keep every security-sensitive top-level setup field server-owned.
-        # Session resumption is intentionally excluded so the browser can add
-        # the latest server-issued handle after a GoAway.
+        # Exclude session resumption from both the constraints and their mask:
+        # Gemini rejects setup fields outside the mask, and the browser must
+        # remain free to add the latest server-issued handle after a GoAway.
         "fieldMask": ",".join(_LOCKED_BIDI_SETUP_FIELDS),
         "bidiGenerateContentSetup": _bidi_setup(
             model=normalized_model,
@@ -226,13 +254,15 @@ def mint_gemini_live_ephemeral_token(
     }
     try:
         response = request_post(
-            GEMINI_LIVE_AUTH_TOKEN_ENDPOINT,
+            endpoint,
             headers={
                 "Content-Type": "application/json",
                 "x-goog-api-key": normalized_key,
             },
             json=payload,
             timeout=GEMINI_LIVE_TOKEN_REQUEST_TIMEOUT_SECONDS,
+            # A redirect must not forward the custom API-key header elsewhere.
+            allow_redirects=False,
         )
         response.raise_for_status()
         body = response.json()

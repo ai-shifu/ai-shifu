@@ -56,6 +56,7 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
         "Content-Type": "application/json",
         "x-goog-api-key": "server-api-key",
     }
+    assert calls[0]["allow_redirects"] is False
     payload = calls[0]["json"]
     assert payload["uses"] == 1
     assert payload["expireTime"] == "2026-09-03T04:20:06Z"
@@ -75,6 +76,8 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
     assert "sessionResumption" not in locked_fields
     assert not any("_" in field for field in locked_fields)
     setup = payload["bidiGenerateContentSetup"]
+    assert set(setup).issubset(locked_fields)
+    assert "sessionResumption" not in setup
     assert setup["model"] == "models/gemini-3.1-flash-live-preview"
     generation_config = setup["generationConfig"]
     assert generation_config["responseModalities"] == ["AUDIO"]
@@ -89,6 +92,106 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
     assert setup["tools"] == []
     assert "proactivity" not in setup
     assert "safetySettings" not in setup
+
+
+@pytest.mark.parametrize(
+    ("api_base_url", "endpoint"),
+    [
+        (None, GEMINI_LIVE_AUTH_TOKEN_ENDPOINT),
+        ("", GEMINI_LIVE_AUTH_TOKEN_ENDPOINT),
+        ("  \n ", GEMINI_LIVE_AUTH_TOKEN_ENDPOINT),
+        ("https://generativelanguage.googleapis.com/", GEMINI_LIVE_AUTH_TOKEN_ENDPOINT),
+        (
+            "https://generativelanguage.googleapis.com/v1beta/",
+            GEMINI_LIVE_AUTH_TOKEN_ENDPOINT,
+        ),
+        ("https://proxy.example.com", "https://proxy.example.com/v1beta/auth_tokens"),
+        (
+            " https://proxy.example.com/google/ ",
+            "https://proxy.example.com/google/v1beta/auth_tokens",
+        ),
+        (
+            "https://proxy.example.com:8443/api/google",
+            "https://proxy.example.com:8443/api/google/v1beta/auth_tokens",
+        ),
+        (
+            "https://proxy.example.com/google/v1beta",
+            "https://proxy.example.com/google/v1beta/auth_tokens",
+        ),
+        (
+            " https://proxy.example.com:8443/google/v1beta/ ",
+            "https://proxy.example.com:8443/google/v1beta/auth_tokens",
+        ),
+        (
+            "https://proxy.example.com/v1beta/google",
+            "https://proxy.example.com/v1beta/google/v1beta/auth_tokens",
+        ),
+        (
+            "https://v1beta",
+            "https://v1beta/v1beta/auth_tokens",
+        ),
+    ],
+)
+def test_token_uses_server_configured_api_base_without_changing_browser_endpoint(
+    api_base_url: str | None, endpoint: str
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def request_post(url: str, **kwargs: object) -> _Response:
+        calls.append({"url": url, **kwargs})
+        return _Response({"name": "auth_tokens/browser-only"})
+
+    token = mint_gemini_live_ephemeral_token(
+        api_key="server-api-key",
+        api_base_url=api_base_url,
+        voice_name="Kore",
+        system_instruction="Private prompt",
+        include_initial_history=False,
+        request_post=request_post,
+    )
+
+    assert token.token == "auth_tokens/browser-only"
+    assert len(calls) == 1
+    assert calls[0]["url"] == endpoint
+    assert calls[0]["headers"]["x-goog-api-key"] == "server-api-key"
+    assert calls[0]["allow_redirects"] is False
+    assert GEMINI_LIVE_CONSTRAINED_ENDPOINT == (
+        "wss://generativelanguage.googleapis.com/ws/"
+        "google.ai.generativelanguage.v1beta.GenerativeService."
+        "BidiGenerateContentConstrained"
+    )
+
+
+@pytest.mark.parametrize(
+    "api_base_url",
+    [
+        "/",
+        "http://proxy.example.com/google",
+        "wss://proxy.example.com/google",
+        "https:///google",
+        "https://user:password@proxy.example.com/google",
+        "https://proxy.example.com/google?key=secret",
+        "https://proxy.example.com/google?",
+        "https://proxy.example.com/google#fragment",
+        "https://proxy.example.com/google#",
+        "https://[invalid",
+        "https://proxy.example.com:invalid/google",
+    ],
+)
+def test_token_rejects_unsafe_configured_url_before_sending_credentials(
+    api_base_url: str,
+) -> None:
+    with pytest.raises(GeminiLiveTokenError, match=r"^invalid_configuration$"):
+        mint_gemini_live_ephemeral_token(
+            api_key="server-api-key",
+            api_base_url=api_base_url,
+            voice_name="Kore",
+            system_instruction="Private prompt",
+            include_initial_history=False,
+            request_post=lambda *_args, **_kwargs: pytest.fail(
+                "Unsafe configuration was sent"
+            ),
+        )
 
 
 @pytest.mark.parametrize("instruction", ["", "  \n "])
@@ -113,6 +216,9 @@ def test_token_allows_blank_prompt_without_unlocking_browser_instruction(
     payload = calls[0]["json"]
     assert "systemInstruction" in payload["fieldMask"].split(",")
     assert "systemInstruction" not in payload["bidiGenerateContentSetup"]
+    assert set(payload["bidiGenerateContentSetup"]).issubset(
+        payload["fieldMask"].split(",")
+    )
 
 
 @pytest.mark.parametrize("missing", ["api_key", "model", "voice_name"])
@@ -146,6 +252,7 @@ def test_browser_setup_omits_private_prompt_and_uses_constrained_endpoint() -> N
     )
     assert setup["setup"]["model"] == "models/gemini-3.1-flash-live-preview"
     assert "systemInstruction" not in setup["setup"]
+    assert setup["setup"]["sessionResumption"] == {}
     assert setup["setup"]["historyConfig"] == {"initialHistoryInClientContent": True}
 
     resumed = build_gemini_live_client_setup(
@@ -190,12 +297,27 @@ def test_token_rejects_malformed_provider_responses(body: object) -> None:
         )
 
 
-def test_token_failure_does_not_expose_provider_details() -> None:
+@pytest.mark.parametrize("api_base_url", [None, "https://proxy.example.com/google"])
+def test_token_failure_does_not_expose_provider_details_or_try_another_host(
+    api_base_url: str | None,
+) -> None:
+    calls: list[str] = []
+
+    def request_post(url: str, **_kwargs: object) -> _Response:
+        calls.append(url)
+        return _Response({}, raises=True)
+
     with pytest.raises(GeminiLiveTokenError, match="token_provision_failed"):
         mint_gemini_live_ephemeral_token(
             api_key="server-api-key",
+            api_base_url=api_base_url,
             voice_name="Kore",
             system_instruction="Prompt",
             include_initial_history=False,
-            request_post=lambda *_args, **_kwargs: _Response({}, raises=True),
+            request_post=request_post,
         )
+    assert calls == [
+        f"{api_base_url}/v1beta/auth_tokens"
+        if api_base_url
+        else GEMINI_LIVE_AUTH_TOKEN_ENDPOINT
+    ]
