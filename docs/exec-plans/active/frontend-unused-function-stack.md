@@ -18,7 +18,9 @@ each PR's diff relative to the preceding stack branch.
 - [x] 2026-09-05 06:53 CST: Removed five unused upload/password-strength
   helpers; 11 related suites / 115 tests and type checking pass, with all
   retained declarations structurally unchanged.
-- [ ] Remove and validate unused authoring helpers.
+- [x] 2026-09-05 06:56 CST: Removed three unused authoring helpers and the
+  obsolete commented loader call; 102 related suites / 1173 tests and type
+  checking pass, with retained declarations structurally unchanged.
 - [ ] Remove and validate the unused learner URL helper.
 - [ ] Verify the entire stack, production routes, and complete rollback patch.
 
@@ -27,6 +29,8 @@ each PR's diff relative to the preceding stack branch.
 - File reachability alone missed unused declarations in maintained files.
 - Knip's 231 export candidates include functions used inside their own module;
   an unused export does not establish an unused implementation.
+- ESLint removed an unnecessary file-level no-unused-vars directive from
+  tree utilities during the required checks; this changes no runtime code.
 - The current TypeScript project has other noUnused diagnostics. They remain
   audit data, not a reason to change public arguments, Hook state, or unrelated
   behavior in this stack.
@@ -34,7 +38,8 @@ each PR's diff relative to the preceding stack branch.
 ## Decision Log
 
 - Scope is exactly the 13 verified functions, their exclusive imports/constants,
-  and the obsolete commented call to the deleted authoring loader.
+  the obsolete commented call to the deleted authoring loader, and the
+  unnecessary tree-utilities lint directive removed by the required hook.
 - Keep active implementations, API wrappers, public types, state shape, shared
   translations, dependencies, and compatibility module boundaries intact.
 - Use four PRs with one cleanup commit per layer. No merge or deployment is
@@ -49,8 +54,10 @@ Layer 1 removes four unused declarations and their exclusive imports/cache
 key, totaling 43 source lines. Its 13 related suites / 227 tests and type
 checking pass. Layer 2 removes five unused upload/password-strength helpers
 and their adjacent documentation, totaling 164 source lines; its 11 related
-suites / 115 tests and type checking pass. Further layers and cumulative
-verification are pending.
+suites / 115 tests and type checking pass. Layer 3 removes three unused
+authoring helpers and an obsolete commented call, totaling 22 source lines;
+its 102 related suites / 1173 tests and type checking pass. Layer 4 and
+cumulative verification are pending.
 
 ## Context and Orientation
 
