@@ -43,6 +43,8 @@ type TurnState = {
   userInterimTranscript: string;
   receivedInputTranscription: boolean;
   userTranscriptFinal: boolean;
+  typedInput: boolean;
+  locallyInterrupted: boolean;
   outputTranscript: string;
   outputWaitingForAudio: string;
   outputCheckpoints: OutputCheckpoint[];
@@ -81,6 +83,42 @@ export class GeminiLiveTurnAccumulator {
   private readonly turns = new Map<number, TurnState>();
   private lastResponseTurnIndex: number | null = null;
   private readonly interruptedAwaitingTurnComplete: number[] = [];
+  private pendingTextTurnIndex: number | null = null;
+
+  get textHandoffPending() {
+    return this.pendingTextTurnIndex !== null;
+  }
+
+  submitText(text: string, now = Date.now()) {
+    if (this.textHandoffPending || !text.trim()) return null;
+    const active = this.activeState(now);
+    const previous = this.turns.get(this.lastResponseTurnIndex ?? -1);
+    const inFlight = hasRoutingActivity(active) && !active.terminalReason;
+    const interruptedState = inFlight
+      ? active
+      : previous && !this.playbackSettled(previous)
+        ? previous
+        : null;
+    if (interruptedState) {
+      interruptedState.locallyInterrupted = true;
+      if (interruptedState.terminalReason) {
+        this.markTerminal(interruptedState, 'interrupted', now);
+      }
+    }
+    const next = inFlight ? this.state(active.turnIndex + 1, now) : active;
+    if (inFlight) this.pendingTextTurnIndex = next.turnIndex;
+    next.typedInput = true;
+    next.userTranscript = text.trim();
+    next.userTranscriptFinal = true;
+    return {
+      update: this.transcriptUpdate(next, 'user', true),
+      interruptedTurnIndex: interruptedState?.turnIndex ?? null,
+    };
+  }
+
+  suppressPlayback(turnIndex: number) {
+    return this.turns.get(turnIndex)?.locallyInterrupted === true;
+  }
 
   process(
     event: GeminiLiveServerEvent,
@@ -96,13 +134,23 @@ export class GeminiLiveTurnAccumulator {
     let inputState = event.interrupted
       ? this.activeState(now)
       : this.selectInputState(event.inputTranscripts, now);
-    const responseState = event.interrupted
-      ? (this.turns.get(this.lastResponseTurnIndex ?? -1) ?? inputState)
-      : trailingInterruptedTurnIndex !== null
-        ? this.state(trailingInterruptedTurnIndex, now)
-        : event.inputTranscripts.length || event.interimInputTranscripts.length
-          ? inputState
-          : this.selectResponseState(now);
+    // Until the old upstream turn is terminal, even late parts belong to it.
+    const pendingPrevious =
+      this.pendingTextTurnIndex === null
+        ? null
+        : this.turns.get(this.pendingTextTurnIndex - 1);
+    if (pendingPrevious && !pendingPrevious.typedInput)
+      inputState = pendingPrevious;
+    const responseState =
+      pendingPrevious ??
+      (event.interrupted
+        ? (this.turns.get(this.lastResponseTurnIndex ?? -1) ?? inputState)
+        : trailingInterruptedTurnIndex !== null
+          ? this.state(trailingInterruptedTurnIndex, now)
+          : event.inputTranscripts.length ||
+              event.interimInputTranscripts.length
+            ? inputState
+            : this.selectResponseState(now));
     const responseTouched = Boolean(
       event.outputTranscripts.length ||
       event.audioChunks.length ||
@@ -168,13 +216,17 @@ export class GeminiLiveTurnAccumulator {
       this.advance(responseState);
       // Speech coalesced with the interruption belongs to the learner's next
       // question, not to the response whose playback was just cancelled.
-      inputState = this.activeState(now);
+      inputState =
+        pendingPrevious && !pendingPrevious.typedInput
+          ? pendingPrevious
+          : this.activeState(now);
       if (!event.turnComplete) {
         this.interruptedAwaitingTurnComplete.push(responseState.turnIndex);
       }
     }
 
     for (const fragment of event.inputTranscripts) {
+      if (inputState.typedInput) continue;
       inputState.receivedInputTranscription = true;
       inputState.userInterimTranscript = '';
       const merged = mergeLiveTranscript(inputState.userTranscript, fragment);
@@ -195,6 +247,7 @@ export class GeminiLiveTurnAccumulator {
     }
     if (
       !event.inputTranscripts.length &&
+      !inputState.typedInput &&
       !inputState.receivedInputTranscription
     ) {
       const interim = latestSnapshot(event.interimInputTranscripts);
@@ -212,13 +265,19 @@ export class GeminiLiveTurnAccumulator {
     if (trailingInterruptedTurnIndex !== null) {
       this.interruptedAwaitingTurnComplete.shift();
     } else if (event.turnComplete && !event.interrupted) {
-      const terminalState = responseTouched ? responseState : inputState;
+      const terminalState =
+        pendingPrevious || (responseTouched ? responseState : inputState);
       if (hasActivity(terminalState)) {
         this.markTerminal(terminalState, 'turn_complete', now);
         terminalTurnIndex = terminalState.turnIndex;
         transcriptUpdates.push(...this.finalUpdates(terminalState));
         this.advance(terminalState);
       }
+    }
+
+    if (pendingPrevious && event.turnComplete) {
+      this.activeTurnIndex = this.pendingTextTurnIndex!;
+      this.pendingTextTurnIndex = null;
     }
 
     return {
@@ -241,7 +300,11 @@ export class GeminiLiveTurnAccumulator {
 
   markPlaybackComplete(turnIndex: number) {
     const state = this.turns.get(turnIndex);
-    if (!state || state.terminalReason === 'interrupted') {
+    if (
+      !state ||
+      state.terminalReason === 'interrupted' ||
+      state.locallyInterrupted
+    ) {
       return;
     }
     state.audioPlayedBytes = state.audioSentBytes;
@@ -256,6 +319,7 @@ export class GeminiLiveTurnAccumulator {
         continue;
       }
       if (
+        (!force && this.pendingTextTurnIndex === turnIndex + 1) ||
         (!force && state.readyAt !== null && state.readyAt > now) ||
         (!force && !this.playbackSettled(state))
       ) {
@@ -270,10 +334,11 @@ export class GeminiLiveTurnAccumulator {
   }
 
   finishSession(now = Date.now()): GeminiLiveTurnCommit[] {
-    const active = this.activeState(now);
-    if (hasActivity(active) && !active.terminalReason) {
-      this.markTerminal(active, 'session_end', now);
-      this.advance(active);
+    for (const state of this.turns.values()) {
+      if (hasActivity(state) && !state.terminalReason) {
+        this.markTerminal(state, 'session_end', now);
+        this.advance(state);
+      }
     }
     return this.popReady(now, true);
   }
@@ -292,6 +357,8 @@ export class GeminiLiveTurnAccumulator {
         userInterimTranscript: '',
         receivedInputTranscription: false,
         userTranscriptFinal: false,
+        typedInput: false,
+        locallyInterrupted: false,
         outputTranscript: '',
         outputWaitingForAudio: '',
         outputCheckpoints: [],
@@ -312,7 +379,8 @@ export class GeminiLiveTurnAccumulator {
     if (!fragments.length || hasRoutingActivity(active)) {
       return active;
     }
-    return this.latestMutableTerminal(now) || active;
+    const previous = this.latestMutableTerminal(now);
+    return previous && !previous.typedInput ? previous : active;
   }
 
   private selectResponseState(now: number) {
@@ -344,9 +412,9 @@ export class GeminiLiveTurnAccumulator {
     now: number,
   ) {
     if (!state.terminalReason) {
-      state.terminalReason = reason;
+      state.terminalReason = state.locallyInterrupted ? 'interrupted' : reason;
       state.userTranscriptFinal =
-        state.receivedInputTranscription &&
+        (state.typedInput || state.receivedInputTranscription) &&
         Boolean(state.userTranscript.trim());
       state.readyAt = now + GEMINI_LIVE_RECONCILIATION_MS;
     } else if (reason === 'interrupted') {

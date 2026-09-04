@@ -3,6 +3,7 @@ import {
   endLiveFollowUpSession,
   finalizeLiveFollowUpSession,
   type LiveFollowUpTurnReport,
+  type LiveFollowUpTurnAcknowledgement,
 } from '@/lib/liveVoiceFollowUp';
 
 import type { GeminiLiveTurnCommit } from './geminiLiveTurnAccumulator';
@@ -32,7 +33,10 @@ export class LiveFollowUpTurnWriter {
 
   constructor(
     readonly sessionBid: string,
-    private readonly onCommitted: (commit: GeminiLiveTurnCommit) => void,
+    private readonly onCommitted: (
+      commit: GeminiLiveTurnCommit,
+      acknowledgement?: LiveFollowUpTurnAcknowledgement,
+    ) => void,
     private readonly onError: () => void,
   ) {}
 
@@ -51,7 +55,10 @@ export class LiveFollowUpTurnWriter {
     );
   }
 
-  private publish(commit: GeminiLiveTurnCommit) {
+  private publish(
+    commit: GeminiLiveTurnCommit,
+    acknowledgement?: LiveFollowUpTurnAcknowledgement,
+  ) {
     this.pending.delete(commit.turnIndex);
     if (this.notified.has(commit.turnIndex)) {
       return;
@@ -63,7 +70,7 @@ export class LiveFollowUpTurnWriter {
       return;
     }
     try {
-      this.onCommitted(commit);
+      this.onCommitted(commit, acknowledgement);
     } catch {}
   }
 
@@ -74,8 +81,11 @@ export class LiveFollowUpTurnWriter {
         if (this.handoff) {
           return;
         }
-        await commitLiveFollowUpTurn(this.sessionBid, toReport(commit));
-        this.publish(commit);
+        const acknowledgement = await commitLiveFollowUpTurn(
+          this.sessionBid,
+          toReport(commit),
+        );
+        this.publish(commit, acknowledgement);
       };
       const pending = this.chain ? this.chain.then(persist) : persist();
       this.chain = pending.catch(() => {
@@ -143,8 +153,11 @@ export class LiveFollowUpTurnWriter {
         if (this.handoff) {
           return this.handoff;
         }
-        await commitLiveFollowUpTurn(this.sessionBid, toReport(commit));
-        this.publish(commit);
+        const acknowledgement = await commitLiveFollowUpTurn(
+          this.sessionBid,
+          toReport(commit),
+        );
+        this.publish(commit, acknowledgement);
       }
     }
     await endLiveFollowUpSession(this.sessionBid, reason);

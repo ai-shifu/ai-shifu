@@ -74,6 +74,7 @@ import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 import LearnerCourseShareButton from '../LearnerCourseShareButton';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import type { FollowUpPresentationMode } from './liveVoiceFollowUpMode';
+import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/useLiveVoiceFollowUp';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -190,11 +191,9 @@ interface ListenModeSlideRendererProps {
   onLessonFeedbackPromptStateChange?: (ready: boolean) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
   pausePlaybackWhen?: boolean;
-  pausePlaybackForLiveVoice?: boolean;
-  restorePlaybackAfterLiveVoice?: boolean;
+  liveVoice?: LiveVoiceFollowUpController;
   disableInteractionEdits?: boolean;
   followUpMode?: FollowUpPresentationMode;
-  onLiveVoiceFollowUpStart?: (elementBid: string) => void;
 }
 
 interface ListenSlidePresentationProfile {
@@ -751,11 +750,9 @@ const ListenModeSlideRenderer = ({
   onLessonFeedbackPromptStateChange,
   onMobileViewModeChange,
   pausePlaybackWhen = false,
-  pausePlaybackForLiveVoice = false,
-  restorePlaybackAfterLiveVoice = true,
+  liveVoice,
   disableInteractionEdits = false,
   followUpMode = 'text',
-  onLiveVoiceFollowUpStart,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
@@ -785,9 +782,6 @@ const ListenModeSlideRenderer = ({
   );
   const audioWaitingStateMapRef = useRef<Map<HTMLAudioElement, boolean>>(
     new Map(),
-  );
-  const liveVoicePausedAudioElementsRef = useRef<Set<HTMLAudioElement>>(
-    new Set(),
   );
   const [playbackSpeed, setPlaybackSpeed] = useState<ListenPlaybackSpeed>(() =>
     readListenPlaybackSpeedFromStorage(shifuBid),
@@ -1156,43 +1150,7 @@ const ListenModeSlideRenderer = ({
     resolvedAskElementBid,
   ]);
   const isAskActionDisabled = currentAskTargetElement?.type === 'interaction';
-  const isLiveVoiceFollowUp = followUpMode === 'live_voice';
   const isFollowUpDisabled = followUpMode === 'disabled';
-
-  const pauseCourseAudioForLiveVoice = useCallback(() => {
-    const audioContainers = [
-      initialChatContainerRef.current,
-      chatRef.current,
-      slideShellRef.current,
-    ].filter((container): container is HTMLDivElement => Boolean(container));
-    const playingAudioElements = new Set(
-      liveVoicePausedAudioElementsRef.current,
-    );
-    audioContainers.forEach(container => {
-      Array.from(container.querySelectorAll<HTMLAudioElement>('audio')).forEach(
-        audioElement => {
-          if (!audioElement.paused && !audioElement.ended) {
-            playingAudioElements.add(audioElement);
-            audioElement.pause();
-          }
-        },
-      );
-    });
-    liveVoicePausedAudioElementsRef.current = playingAudioElements;
-  }, [chatRef]);
-
-  const startLiveVoiceFollowUpForElement = useCallback(
-    (element?: ListenSlideElement) => {
-      const elementBid = resolvePlayerAskElementBid(element);
-      if (!elementBid || element?.type === 'interaction') {
-        return;
-      }
-      // The controller can reject admission (for example during cooldown).
-      // Only its active-state prop should pause and later restore course audio.
-      onLiveVoiceFollowUpStart?.(elementBid);
-    },
-    [onLiveVoiceFollowUpStart, resolvePlayerAskElementBid],
-  );
 
   const handleInteractionSend = useCallback(
     (content: OnSendContentParams, element?: SlideElement) => {
@@ -1596,32 +1554,6 @@ const ListenModeSlideRenderer = ({
     });
   }, [chatRef, pausePlaybackWhen]);
 
-  useEffect(() => {
-    if (!pausePlaybackForLiveVoice) {
-      const pausedAudioElements = liveVoicePausedAudioElementsRef.current;
-      liveVoicePausedAudioElementsRef.current = new Set();
-      if (!restorePlaybackAfterLiveVoice) {
-        return;
-      }
-      pausedAudioElements.forEach(audioElement => {
-        if (
-          audioElement.isConnected &&
-          audioElement.paused &&
-          !audioElement.ended
-        ) {
-          void audioElement.play().catch(() => {});
-        }
-      });
-      return;
-    }
-
-    pauseCourseAudioForLiveVoice();
-  }, [
-    pauseCourseAudioForLiveVoice,
-    pausePlaybackForLiveVoice,
-    restorePlaybackAfterLiveVoice,
-  ]);
-
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
       const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
@@ -1946,11 +1878,6 @@ const ListenModeSlideRenderer = ({
               onContextChange={handlePlayerCustomActionContextChange}
               disabled={isAskActionDisabled}
               renderButton={false}
-              onActivate={
-                isLiveVoiceFollowUp
-                  ? startLiveVoiceFollowUpForElement
-                  : undefined
-              }
             />
           </>
         );
@@ -1965,9 +1892,6 @@ const ListenModeSlideRenderer = ({
             label={t('module.chat.ask')}
             onContextChange={handlePlayerCustomActionContextChange}
             disabled={isAskActionDisabled}
-            onActivate={
-              isLiveVoiceFollowUp ? startLiveVoiceFollowUpForElement : undefined
-            }
           />
         </>
       );
@@ -1978,10 +1902,8 @@ const ListenModeSlideRenderer = ({
       handlePlayerCustomActionContextChange,
       isAskActionDisabled,
       isFollowUpDisabled,
-      isLiveVoiceFollowUp,
       mobileStyle,
       playbackSpeed,
-      startLiveVoiceFollowUpForElement,
       t,
     ],
   );
@@ -2119,11 +2041,7 @@ const ListenModeSlideRenderer = ({
       aria-pressed={isMobileAskOpen}
       aria-disabled={isAskActionDisabled}
       disabled={isAskActionDisabled}
-      onClick={
-        isLiveVoiceFollowUp
-          ? () => startLiveVoiceFollowUpForElement(currentAskTargetElement)
-          : handleMobileAskToggle
-      }
+      onClick={handleMobileAskToggle}
       ref={mobileAskActionRef}
     >
       <Image
@@ -2139,14 +2057,12 @@ const ListenModeSlideRenderer = ({
   const shouldRenderDesktopAskOverlay =
     showAskOverlays &&
     !isFollowUpDisabled &&
-    !isLiveVoiceFollowUp &&
     isDesktopAskPanelMounted &&
     !mobileStyle &&
     !shouldRenderEmptyPpt;
   const shouldRenderMobileAskPanel =
     showAskOverlays &&
     !isFollowUpDisabled &&
-    !isLiveVoiceFollowUp &&
     isMobileAskPanelMounted &&
     !shouldRenderEmptyPpt;
   const shouldRenderManualFullscreenButton =
@@ -2164,6 +2080,9 @@ const ListenModeSlideRenderer = ({
       <div className='slide-player__ask-card'>
         <div className='slide-player__ask-body'>
           <AskBlock
+            followUpMode={followUpMode}
+            liveVoice={liveVoice}
+            liveVoiceSurface='listen_player'
             askList={playerCustomAskList}
             className='listen-slide-ask-block'
             element_bid={renderedPlayerCustomAskElementBid}
@@ -2211,6 +2130,9 @@ const ListenModeSlideRenderer = ({
                   style={isMobileAskOpen ? undefined : { display: 'none' }}
                 >
                   <AskBlock
+                    followUpMode={followUpMode}
+                    liveVoice={liveVoice}
+                    liveVoiceSurface='listen_player'
                     askList={currentAskList}
                     className='listen-slide-ask-block'
                     element_bid={renderedMobileAskElementBid}
@@ -2232,6 +2154,9 @@ const ListenModeSlideRenderer = ({
                 style={isMobileAskOpen ? undefined : { display: 'none' }}
               >
                 <AskBlock
+                  followUpMode={followUpMode}
+                  liveVoice={liveVoice}
+                  liveVoiceSurface='listen_player'
                   askList={currentAskList}
                   className='listen-slide-ask-block'
                   element_bid={renderedMobileAskElementBid}

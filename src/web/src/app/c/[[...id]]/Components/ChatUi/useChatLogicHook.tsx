@@ -662,6 +662,7 @@ function useChatLogicHook({
         messageElementBid?: string;
         messageGeneratedBlockBid?: string;
         messageContent: string;
+        messagePayload?: StudyRecordItem['payload'];
         isHistory?: boolean;
         insertionMode?: 'anchor' | 'sequence';
       },
@@ -683,6 +684,10 @@ function useChatLogicHook({
         parent_element_bid: parentElementBid,
         type: messageType,
         content: messageContent,
+        payload: params.messagePayload,
+        ...(params.messagePayload?.interaction_mode === 'live_voice'
+          ? { interaction_mode: 'live_voice' as const }
+          : {}),
         readonly: true,
         customRenderBar: () => null,
         user_input: '',
@@ -1673,6 +1678,7 @@ function useChatLogicHook({
                     messageGeneratedBlockBid:
                       elementRecord.generated_block_bid || itemBid,
                     messageContent: elementRecord.content || '',
+                    messagePayload: elementRecord.payload,
                     insertionMode: 'anchor',
                   }),
                 );
@@ -2318,6 +2324,7 @@ function useChatLogicHook({
             messageElementBid: itemBid,
             messageGeneratedBlockBid: item.generated_block_bid || itemBid,
             messageContent: item.content || '',
+            messagePayload: item.payload,
             isHistory: true,
             insertionMode: 'anchor',
           });
