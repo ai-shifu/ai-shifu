@@ -1,3 +1,5 @@
+import { TextDecoder, TextEncoder } from 'node:util';
+
 import request from '@/lib/request';
 
 import {
@@ -23,6 +25,13 @@ jest.mock('@/lib/request', () => ({
 
 describe('live voice follow-up direct protocol helpers', () => {
   const mockedPost = jest.mocked(request.post);
+
+  beforeAll(() => {
+    Object.defineProperty(global, 'TextDecoder', {
+      configurable: true,
+      value: TextDecoder,
+    });
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -112,6 +121,52 @@ describe('live voice follow-up direct protocol helpers', () => {
         audio: { mimeType: 'audio/pcm;rate=16000', data: 'AQID' },
       },
     });
+  });
+
+  it('decodes binary UTF-8 setup, audio and transcript messages', () => {
+    const payload = {
+      setupComplete: {},
+      serverContent: {
+        inputTranscription: { text: '为什么？' },
+        outputTranscription: { text: '你好，世界 🌏' },
+        modelTurn: {
+          parts: [
+            { inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AQID' } },
+            { inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'BAUG' } },
+          ],
+        },
+        turnComplete: true,
+      },
+    };
+    const json = JSON.stringify(payload);
+    const binary = Uint8Array.from(new TextEncoder().encode(json)).buffer;
+
+    expect(parseGeminiLiveServerMessage(binary)).toEqual(
+      parseGeminiLiveServerMessage(json),
+    );
+    expect(parseGeminiLiveServerMessage(binary)).toEqual(
+      expect.objectContaining({
+        setupComplete: true,
+        inputTranscripts: ['为什么？'],
+        outputTranscripts: ['你好，世界 🌏'],
+        audioChunks: [
+          new Uint8Array([1, 2, 3]).buffer,
+          new Uint8Array([4, 5, 6]).buffer,
+        ],
+        turnComplete: true,
+      }),
+    );
+  });
+
+  it('rejects malformed binary messages without exposing their contents', () => {
+    expect(parseGeminiLiveServerMessage(new ArrayBuffer(0))).toBeNull();
+    expect(
+      parseGeminiLiveServerMessage(new Uint8Array([0xff, 0xfe]).buffer),
+    ).toBeNull();
+    const invalidJson = Uint8Array.from(
+      new TextEncoder().encode('not json'),
+    ).buffer;
+    expect(parseGeminiLiveServerMessage(invalidJson)).toBeNull();
   });
 
   it('parses all relevant Gemini parts without exposing raw errors', () => {

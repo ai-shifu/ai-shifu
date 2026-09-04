@@ -262,11 +262,15 @@ export const encodeGeminiLiveAudioMessage = (frame: ArrayBuffer): string => {
 };
 
 export const parseGeminiLiveServerMessage = (
-  payload: string,
+  payload: string | ArrayBuffer,
 ): GeminiLiveServerEvent | null => {
   let parsed: Record<string, unknown>;
   try {
-    const value = JSON.parse(payload);
+    const text =
+      typeof payload === 'string'
+        ? payload
+        : new TextDecoder('utf-8', { fatal: true }).decode(payload);
+    const value = JSON.parse(text);
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return null;
     }
