@@ -1195,6 +1195,70 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockCommitTurn).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['retry', 'pagehide'])(
+    'owns history recovery after transport teardown (%s)',
+    async recoveryPath => {
+      jest.useFakeTimers();
+      mockCommitTurn
+        .mockReturnValueOnce(new Promise(() => {}))
+        .mockImplementationOnce(() =>
+          recoveryPath === 'retry'
+            ? Promise.reject(new Error('temporary history failure'))
+            : new Promise(() => {}),
+        );
+      mockFinalizeSession
+        .mockRejectedValueOnce(new Error('temporary finalizer failure'))
+        .mockRejectedValueOnce(new Error('temporary finalizer failure'))
+        .mockRejectedValueOnce(new Error('temporary finalizer failure'));
+      const onTurnCommitted = jest.fn();
+      const { unmount } = render(<Harness onTurnCommitted={onTurnCommitted} />);
+      await startAndOpen();
+      await makeReady();
+      for (const question of ['First question', 'Second question']) {
+        act(() =>
+          mockSockets[0].message(
+            serverEvent({ inputTranscripts: [question], turnComplete: true }),
+          ),
+        );
+        await act(async () => jest.advanceTimersByTimeAsync(500));
+      }
+      expect(mockCommitTurn).toHaveBeenCalledTimes(1);
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'end' })),
+      );
+      expect(screen.getByTestId('state')).toHaveTextContent('ended');
+      expect(mockAudio.stop).toHaveBeenCalled();
+      expect(mockSockets[0].close).toHaveBeenCalledTimes(1);
+      const heartbeats = mockHeartbeatSession.mock.calls.length;
+      await act(async () => jest.advanceTimersByTimeAsync(7000));
+      expect(mockFinalizeSession).toHaveBeenCalledTimes(3);
+      expect(onTurnCommitted).not.toHaveBeenCalled();
+
+      if (recoveryPath === 'pagehide') {
+        act(() => window.dispatchEvent(new Event('pagehide')));
+        expect(mockFinalizeSession).toHaveBeenCalledTimes(4);
+        await act(async () => jest.advanceTimersByTimeAsync(10_000));
+        expect(mockEndSession).not.toHaveBeenCalled();
+      } else {
+        await act(async () => jest.advanceTimersByTimeAsync(1000));
+        expect(
+          mockCommitTurn.mock.calls.map(([, report]) => report.turn_index),
+        ).toEqual([1, 1, 1, 2]);
+        expect(mockEndSession).toHaveBeenCalledTimes(1);
+      }
+      expect(
+        onTurnCommitted.mock.calls.map(([saved]) => saved.turnIndex),
+      ).toEqual([1, 2]);
+      expect(mockHeartbeatSession).toHaveBeenCalledTimes(heartbeats);
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_session_end',
+        ),
+      ).toHaveLength(1);
+      unmount();
+    },
+  );
+
   it('publishes only the played answer checkpoint after interruption', async () => {
     const onTurnCommitted = jest.fn();
     render(<Harness onTurnCommitted={onTurnCommitted} />);
