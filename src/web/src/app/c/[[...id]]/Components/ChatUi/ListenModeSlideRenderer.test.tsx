@@ -1571,7 +1571,6 @@ describe('ListenModeSlideRenderer', () => {
         mobileStyle={true}
         chatRef={createChatRef()}
         lessonId='lesson-1'
-        lessonStatus='completed'
         shifuBid='course-1'
       />,
     );
@@ -1586,6 +1585,10 @@ describe('ListenModeSlideRenderer', () => {
     const timeline = await screen.findByRole('slider', {
       name: 'module.chat.listenPlaybackTimelineAriaLabel',
     });
+    audioElement.currentTime = 12;
+    fireEvent.timeUpdate(audioElement);
+    expect(timeline).toHaveValue('12');
+
     fireEvent.pointerDown(timeline);
     fireEvent.change(timeline, { target: { value: '30' } });
     fireEvent.pointerUp(timeline);
@@ -1623,7 +1626,6 @@ describe('ListenModeSlideRenderer', () => {
         mobileStyle={false}
         chatRef={createChatRef()}
         lessonId='lesson-1'
-        lessonStatus='completed'
         shifuBid='course-1'
       />,
     );
