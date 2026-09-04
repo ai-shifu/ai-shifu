@@ -67,6 +67,16 @@ auditing, or another correctness-sensitive decision.
       third question before the second starts. Both event combinations covered;
       controller suite: 72 passed; TypeScript and full pre-commit passed.
       Full frontend rerun: 227 suites / 2,165 tests passed.
+- [x] 2026-09-04: Addressed Codex review `discussion_r3934843129`: ending
+      waits at most five seconds for the normal turn queue before handing its
+      retained, bounded outbox to the idempotent finalizer. Stop queued normal
+      successors after takeover; late acknowledgements cannot duplicate history.
+      Over-budget ordered retries have a ten-second per-request wait and never
+      consume a binding with an incomplete outbox. Three regressions reproduced
+      the unbounded wait before the fix. All 98 writer/controller/real-transport
+      lifecycle tests and TypeScript passed, including a native fetch that never
+      settles. Full frontend rerun: 227 suites / 2,174 tests passed. No HTTP
+      schema, deployment, or analytics contract changes.
 - [ ] 2026-09-04: Follow valid review threads and recheck current-head CI.
       Complete real-Gemini and physical
       Safari/iOS/mobile Chrome acceptance before claiming those environments:
@@ -732,11 +742,16 @@ backend validates/bounds the report, filters usage to allowed numeric token and
 modality fields, writes history idempotently, and forces `billable=0`. On close,
 timeout, navigation, or error, stop capture immediately. When the document
 remains active, flush playback before creating the final report and POST end
-after pending writes. On unload, synchronously initiate one bounded keepalive
+after pending writes. Wait no longer than five seconds for that normal queue;
+if it stalls, stop its successors and hand the retained outbox to the existing
+idempotent finalizer. Late normal acknowledgements do not duplicate history.
+On unload, synchronously initiate one bounded keepalive
 finalization batch instead when the backlog fits. An over-budget backlog stays
-in the normal queue and drains only while the document remains alive; it is not
-silently discarded or sent in a request the browser will reject. Capacity is
-not released early.
+in an ordered queue and drains only while the document remains alive, with a
+ten-second wait per retry. A failed or stalled retry does not consume the
+binding or discard the remaining turns. An offline/over-budget backlog cannot
+be guaranteed to survive document unload; it is never silently truncated or
+sent in a request the browser will reject. Capacity is not released early.
 
 ### Phase 3: embedded experience, privacy, and verification
 

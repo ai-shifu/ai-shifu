@@ -147,6 +147,61 @@ describe('Live lifecycle reports through the shared request transport', () => {
     expect(mockToast).not.toHaveBeenCalled();
   });
 
+  it('starts finalization within five seconds even when the native turn fetch never settles', async () => {
+    await createSession();
+    jest.useFakeTimers();
+    try {
+      fetchMock.mockImplementation((url: string) =>
+        url.endsWith('/turn')
+          ? new Promise(() => {})
+          : Promise.resolve(response({ code: 0, data: { finalized: true } })),
+      );
+      const { LiveFollowUpTurnWriter } =
+        await import('@/components/live-follow-up/liveFollowUpTurnWriter');
+      const committed = jest.fn();
+      const writer = new LiveFollowUpTurnWriter(
+        'live/session',
+        committed,
+        jest.fn(),
+      );
+      writer.enqueue(
+        [1, 2].map(turnIndex => ({
+          turnIndex,
+          userTranscript: 'Final question',
+          playedAnswerTranscript: 'Heard answer',
+          fullAnswerTranscript: 'Heard answer',
+          interrupted: false,
+          usageMetadata: null,
+          latencyMs: 100,
+        })),
+      );
+      const finished = writer.finish('ended_by_user');
+      await jest.advanceTimersByTimeAsync(4999);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toMatch(/\/turn$/);
+      await jest.advanceTimersByTimeAsync(1);
+      await finished;
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock.mock.calls[1]).toEqual([
+        `${window.location.origin}/api/learn/live-follow-up/session/live%2Fsession/finalize`,
+        expect.objectContaining({
+          keepalive: true,
+          credentials: 'include',
+          body: JSON.stringify({
+            turns: [turn, { ...turn, turn_index: 2 }],
+            reason: 'ended_by_user',
+          }),
+        }),
+      ]);
+      expect(committed).toHaveBeenCalledTimes(2);
+      expect(jest.getTimerCount()).toBe(0);
+      expect(mockToast).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('retains shared authentication recovery for lifecycle requests', async () => {
     await createSession();
     fetchMock.mockResolvedValue(response({ code: 1001 }));
