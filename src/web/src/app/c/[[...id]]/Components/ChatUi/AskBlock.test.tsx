@@ -12,6 +12,8 @@ import { SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { useAskStateStore } from './useAskStateStore';
 
+const mockTrackEvent = jest.fn();
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -55,16 +57,31 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     value,
     onChange,
     onSend,
+    sendShortcut,
   }: {
     value: string;
     onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onSend: () => void;
+    sendShortcut?: 'enter' | 'none';
   }) => (
-    <div>
+    <div
+      data-testid='ask-input-wrapper'
+      data-send-shortcut={sendShortcut}
+    >
       <textarea
         aria-label='ask-input'
         value={value}
         onChange={onChange}
+        onKeyDown={event => {
+          if (
+            sendShortcut === 'enter' &&
+            event.key === 'Enter' &&
+            !event.shiftKey &&
+            !event.nativeEvent.isComposing
+          ) {
+            onSend();
+          }
+        }}
       />
       <button onClick={onSend}>send</button>
     </div>
@@ -74,6 +91,10 @@ jest.mock('markdown-flow-ui/renderer', () => ({
 jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
   toastOnce: jest.fn(),
+}));
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
 jest.mock('next/image', () => {
@@ -220,6 +241,112 @@ describe('AskBlock', () => {
       },
     );
   });
+
+  it('tracks an accepted desktop Enter submission with a privacy-safe payload', async () => {
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'private question' },
+    });
+    fireEvent.keyDown(screen.getByLabelText('ask-input'), { key: 'Enter' });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_follow_up_submit', {
+      surface: 'learner_desktop',
+      submission_method: 'keyboard',
+    });
+    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('content');
+    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('shifu_bid');
+  });
+
+  it('tracks an accepted mobile button submission and isolates tracking failures', async () => {
+    mockTrackEvent.mockImplementationOnce(() => {
+      throw new Error('tracking unavailable');
+    });
+
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'private question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_follow_up_submit', {
+      surface: 'learner_mobile',
+      submission_method: 'button',
+    });
+  });
+
+  it.each([
+    ['desktop', false, 'enter'],
+    ['mobile', true, 'none'],
+  ] as const)(
+    'uses the %s input shortcut policy',
+    (_surface, mobileStyle, expectedShortcut) => {
+      render(
+        <AppContext.Provider
+          value={{
+            isLoggedIn: false,
+            mobileStyle,
+            userInfo: null,
+            theme: 'light',
+            frameLayout: 0,
+          }}
+        >
+          <AskBlock
+            isExpanded={true}
+            shifu_bid='shifu-1'
+            outline_bid='lesson-1'
+            element_bid='block-1'
+            askList={[]}
+          />
+        </AppContext.Provider>,
+      );
+
+      expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute(
+        'data-send-shortcut',
+        expectedShortcut,
+      );
+    },
+  );
 
   it.each(['read', 'listen'] as const)(
     'sends follow-up requests without TTS in %s mode',
