@@ -456,12 +456,14 @@ def test_shared_element_history_prefers_sidecars_and_bounds_zero() -> None:
     ("ask_prompt", "expected_prefix"),
     [("FOLLOW-UP\n{shifu_system_message}", "FOLLOW-UP\n"), ("", ""), (" \n ", "")],
 )
+@pytest.mark.parametrize("fallback_system_prompt", [None, "UNUSED FALLBACK"])
 def test_shared_context_composes_profiles_language_prompt_and_history(
     monkeypatch: object,
     ask_prompt: str,
     expected_prefix: str,
+    fallback_system_prompt: str | None,
 ) -> None:
-    """Text and Live transports receive the same composed instruction and history."""
+    """Text retains course instructions even when an optional fallback is supplied."""
     app = Flask("shared-live-follow-up-context")
     user_info = types.SimpleNamespace(
         user_id="user-id",
@@ -541,6 +543,7 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
         runtime_profiles=None,
         anchor_element_bid="anchor",
         max_history_messages=20,
+        fallback_system_prompt=fallback_system_prompt,
     )
 
     assert captured["prompt"] == "COURSE TEMPLATE"

@@ -23,7 +23,6 @@ from flaskr.service.common.models import raise_param_error
 from flaskr.service.config import get_config
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
-    resolve_course_system_prompt,
 )
 from flaskr.service.learn.gemini_live_token import (
     GEMINI_LIVE_CONSTRAINED_ENDPOINT,
@@ -84,6 +83,7 @@ from flaskr.service.shifu.consts import ASK_MODE_DISABLE
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.api import is_allowed_oauth_origin, load_user_aggregate
 from flaskr.util.datetime import to_utc_iso
+from flaskr.util.prompt_loader import load_prompt_template
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
 
@@ -288,12 +288,9 @@ def _build_conversation(
         outline_item_bid=binding.outline_bid,
         progress_record_bid=binding.progress_record_bid,
         follow_up_info=follow_up_info,
-        course_system_prompt=resolve_course_system_prompt(
-            app,
-            shifu_bid=binding.shifu_bid,
-            outline_item_bid=binding.outline_bid,
-            preview_mode=binding.preview_mode,
-        ),
+        # Live must not inherit the course's text-output and formatting rules.
+        course_system_prompt=None,
+        fallback_system_prompt=load_prompt_template("live_follow_up"),
         use_learner_language=_load_use_learner_language(
             shifu_bid=binding.shifu_bid,
             preview_mode=binding.preview_mode,
