@@ -1281,7 +1281,8 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
   it.each([false, true])(
     'does not count a usage-only or unheard turn as an exchange (has input: %s)',
     async hasInput => {
-      render(<Harness />);
+      const onTurnCommitted = jest.fn();
+      render(<Harness onTurnCommitted={onTurnCommitted} />);
       await startAndOpen();
       await makeReady();
       act(() =>
@@ -1302,6 +1303,17 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
           expect.objectContaining({ had_exchange: false }),
         ),
       );
+      await waitFor(() => expect(mockEndSession).toHaveBeenCalled());
+      if (hasInput) {
+        expect(onTurnCommitted).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userTranscript: 'Question',
+            assistantTranscript: '',
+          }),
+        );
+      } else {
+        expect(onTurnCommitted).not.toHaveBeenCalled();
+      }
     },
   );
 

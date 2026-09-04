@@ -57,6 +57,11 @@ export class LiveFollowUpTurnWriter {
       return;
     }
     this.notified.add(commit.turnIndex);
+    // The backend records usage, but deliberately creates no ASK/ANSWER pair,
+    // when Gemini never supplies a final user transcription.
+    if (!commit.userTranscript.trim()) {
+      return;
+    }
     try {
       this.onCommitted(commit);
     } catch {}

@@ -68,6 +68,53 @@ describe('Live turn report handoff', () => {
     expect(endLiveFollowUpSession).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])(
+    'does not publish usage-only turns to local history (unload=%s)',
+    async unload => {
+      const committed = jest.fn();
+      const writer = new LiveFollowUpTurnWriter(
+        'session-1',
+        committed,
+        jest.fn(),
+      );
+      writer.enqueue([
+        {
+          ...turn(1),
+          userTranscript: '',
+          usageMetadata: { totalTokenCount: 10 },
+        },
+      ]);
+      await (unload
+        ? writer.handOffForUnload([], 'page_hidden')
+        : writer.finish('ended_by_user'));
+      expect(committed).not.toHaveBeenCalled();
+      expect(commitLiveFollowUpTurn).toHaveBeenCalledWith(
+        'session-1',
+        expect.objectContaining({
+          user_transcript: '',
+          usage_metadata: { totalTokenCount: 10 },
+        }),
+      );
+    },
+  );
+
+  it('still publishes a final question with an empty interrupted answer', async () => {
+    const committed = jest.fn();
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      committed,
+      jest.fn(),
+    );
+    const interrupted = {
+      ...turn(1),
+      playedAnswerTranscript: '',
+      interrupted: true,
+    };
+    writer.enqueue([interrupted]);
+    await writer.finish('ended_by_user');
+    expect(committed).toHaveBeenCalledWith(interrupted);
+  });
+
   it('rejects an individual report that cannot fit the API request bound', () => {
     const writer = new LiveFollowUpTurnWriter(
       'session-1',

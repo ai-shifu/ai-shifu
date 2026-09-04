@@ -149,6 +149,14 @@ auditing, or another correctness-sensitive decision.
       early-fire boundary. Reproduced a callback at deadline-minus-one with a
       deterministic clock test, then re-arm the remaining delay instead of
       leaving the terminal turn uncommitted until another event arrives.
+- [x] 2026-09-04: Attribute speech coalesced with Gemini interruption to the
+      new learner turn while preserving the cancelled answer and original
+      question. Cover an answer already marked complete and split/coalesced
+      interruption completion frames.
+- [x] 2026-09-04: Do not publish usage-only acknowledgements into local history
+      without a final user transcript, matching backend persistence. A final
+      question with an empty interrupted answer still produces its pair.
+      All 119 focused frontend tests and TypeScript checking pass.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
