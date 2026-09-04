@@ -342,11 +342,12 @@ def _resolve_notification_order(
     )
 
 
-def _resolve_notification_product_name(
+def resolve_notification_product_name(
     order: BillingOrder,
     *,
     language: str,
 ) -> str:
+    """Return the localized product name used in purchase notifications."""
     product = (
         BillingProduct.query.filter(
             BillingProduct.deleted == 0,
@@ -714,7 +715,7 @@ def deliver_billing_paid_feishu(
             )
 
         product = _load_notification_product(order)
-        product_name = _resolve_notification_product_name(order, language="zh-CN")
+        product_name = resolve_notification_product_name(order, language="zh-CN")
         title, msgs = _build_billing_paid_feishu_message(
             app,
             order,
@@ -819,7 +820,7 @@ def deliver_subscription_purchase_sms(
         aggregate = load_user_aggregate(order.creator_bid)
         mobile = _normalize_bid(getattr(aggregate, "mobile", ""))
         language = _normalize_bid(getattr(aggregate, "user_language", ""))
-        product_name = _resolve_notification_product_name(order, language=language)
+        product_name = resolve_notification_product_name(order, language=language)
         date_text = _resolve_notification_date_text(app, order)
         now = now_utc()
 

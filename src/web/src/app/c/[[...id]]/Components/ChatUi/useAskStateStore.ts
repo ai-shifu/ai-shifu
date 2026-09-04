@@ -16,7 +16,11 @@ interface AskStateStore {
   ensureLessonScope: (lessonScopeKey: string) => void;
   hydrateAskList: (anchorElementBid: string, askList: AskMessage[]) => void;
   hydrateAskListMap: (askListMap: Map<string, AskMessage[]>) => void;
-  setAskList: (anchorElementBid: string, askList: AskListUpdater) => void;
+  setAskList: (
+    anchorElementBid: string,
+    askList: AskListUpdater,
+    expectedLessonScopeKey?: string,
+  ) => void;
   clearLessonScope: () => void;
 }
 
@@ -125,8 +129,12 @@ export const useAskStateStore = create<AskStateStore>((set, get) => ({
       askListByAnchorElementBid: nextAskListByAnchorElementBid,
     });
   },
-  setAskList: (anchorElementBid, askList) => {
-    if (!anchorElementBid) {
+  setAskList: (anchorElementBid, askList, expectedLessonScopeKey) => {
+    if (
+      !anchorElementBid ||
+      (expectedLessonScopeKey !== undefined &&
+        get().lessonScopeKey !== expectedLessonScopeKey)
+    ) {
       return;
     }
 

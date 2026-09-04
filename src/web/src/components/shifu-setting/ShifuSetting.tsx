@@ -187,8 +187,6 @@ type TtsPreviewOptions = {
   demoAudioUrl?: string;
 };
 
-type FollowUpCatalogStatus = 'idle' | 'loading' | 'ready' | 'failed';
-
 type InitialAskConfiguration = {
   model: string;
   interactionMode: 'text' | 'live_voice';
@@ -251,8 +249,6 @@ export default function ShifuSettingDialog({
   const [followUpModels, setFollowUpModels] = useState<
     FollowUpModelCatalogItem[]
   >([]);
-  const [followUpCatalogStatus, setFollowUpCatalogStatus] =
-    useState<FollowUpCatalogStatus>('idle');
   const initialAskConfigurationRef = useRef<InitialAskConfiguration | null>(
     null,
   );
@@ -262,6 +258,7 @@ export default function ShifuSettingDialog({
     String(ASK_TEMPERATURE_MIN),
   );
   const [askProvider, setAskProvider] = useState(ASK_PROVIDER_LLM);
+  const [liveVoiceDraft, setLiveVoiceDraft] = useState(DEFAULT_LIVE_VOICE);
   const [askProviderConfig, setAskProviderConfig] = useState<
     Record<string, any>
   >({});
@@ -311,25 +308,17 @@ export default function ShifuSettingDialog({
       return;
     }
     let cancelled = false;
-    setFollowUpCatalogStatus('loading');
     setFollowUpModels([]);
     void getFollowUpModelCatalog()
       .then(items => {
         if (cancelled) {
           return;
         }
-        if (Array.isArray(items)) {
-          setFollowUpModels(items);
-          setFollowUpCatalogStatus('ready');
-          return;
-        }
-        setFollowUpModels([]);
-        setFollowUpCatalogStatus('failed');
+        setFollowUpModels(Array.isArray(items) ? items : []);
       })
       .catch(() => {
         if (!cancelled) {
           setFollowUpModels([]);
-          setFollowUpCatalogStatus('failed');
         }
       });
     return () => {
@@ -799,6 +788,11 @@ export default function ShifuSettingDialog({
       value: item.provider,
       label: item.title || item.provider,
     })) || [];
+  // ModelList's empty-value Default alias inherits the effective model's
+  // disabled flag, so preserve that model as a valid round-trip target too.
+  const savedAskModel =
+    initialAskConfigurationRef.current?.model ||
+    (followUpModels.find(item => item.is_default) || followUpModels[0])?.model;
   const followUpModelOptions = useMemo(
     () =>
       followUpModels.map(item => ({
@@ -807,16 +801,21 @@ export default function ShifuSettingDialog({
         creditMultiplier: item.credit_multiplier ?? null,
         creditMultiplierLabel: item.credit_multiplier_label || '',
         isDefault: item.is_default,
-        disabled: !debugAllowed && item.interaction_mode !== 'live_voice',
+        disabled:
+          !debugAllowed &&
+          item.interaction_mode !== 'live_voice' &&
+          item.model !== savedAskModel,
       })),
-    [debugAllowed, followUpModels],
+    [debugAllowed, followUpModels, savedAskModel],
   );
   const selectedFollowUpModel = followUpModels.find(
     item => item.model === askModel,
   );
   const preservedAskConfiguration = initialAskConfigurationRef.current;
   const isUncataloguedExistingAskModel = Boolean(
-    askModel &&
+    // The empty Default alias also needs its saved config while no catalog
+    // is available; absence of metadata must not erase provider settings.
+    (askModel || !followUpModels.length) &&
     preservedAskConfiguration?.model === askModel &&
     !selectedFollowUpModel,
   );
@@ -824,9 +823,7 @@ export default function ShifuSettingDialog({
     selectedFollowUpModel?.interaction_mode === 'live_voice' ||
     (isUncataloguedExistingAskModel &&
       preservedAskConfiguration?.interactionMode === 'live_voice');
-  const selectedLiveVoice = String(
-    askProviderConfig.live_voice || DEFAULT_LIVE_VOICE,
-  );
+  const selectedLiveVoice = liveVoiceDraft;
   const resolvedAskProvider = (() => {
     if (isLiveVoiceFollowUp) {
       return ASK_PROVIDER_LLM;
@@ -889,20 +886,13 @@ export default function ShifuSettingDialog({
       const selectedModel = followUpModels.find(item => item.model === value);
       const isLive = selectedModel?.interaction_mode === 'live_voice';
       if (isLive) {
-        setAskProvider(ASK_PROVIDER_LLM);
+        const allowedVoiceIds = new Set(
+          (selectedModel?.voices || []).map(voice => voice.voice_id),
+        );
+        setLiveVoiceDraft(previous =>
+          allowedVoiceIds.has(previous) ? previous : DEFAULT_LIVE_VOICE,
+        );
       }
-      setAskProviderConfig(previous => {
-        const next = { ...previous };
-        if (isLive) {
-          const allowedVoiceIds = new Set(
-            (selectedModel?.voices || []).map(voice => voice.voice_id),
-          );
-          next.live_voice = allowedVoiceIds.has(String(next.live_voice || ''))
-            ? next.live_voice
-            : DEFAULT_LIVE_VOICE;
-        }
-        return next;
-      });
       setAskPreviewResult('');
       setAskPreviewMeta(null);
     },
@@ -954,18 +944,15 @@ export default function ShifuSettingDialog({
   }, [askTemperature]);
 
   const buildAskProviderConfigForSubmit = useCallback(() => {
+    if (isLiveVoiceFollowUp) {
+      return { live_voice: selectedLiveVoice };
+    }
     try {
       const config = buildAskProviderConfigBySchema({
         schema: currentAskProviderMeta?.json_schema,
         providerConfig: askProviderConfig as Record<string, unknown>,
         objectInputs: askProviderObjectInputs,
       });
-      if (isLiveVoiceFollowUp) {
-        return {
-          ...config,
-          live_voice: selectedLiveVoice,
-        };
-      }
       const preservedLiveVoice =
         typeof askProviderConfig.live_voice === 'string'
           ? askProviderConfig.live_voice.trim()
@@ -1434,6 +1421,9 @@ export default function ShifuSettingDialog({
           (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
         );
         setAskProviderConfig(rawAskProviderInnerConfig);
+        setLiveVoiceDraft(
+          String(rawAskProviderInnerConfig.live_voice || DEFAULT_LIVE_VOICE),
+        );
         setAskProviderObjectInputs({});
         setAskPreviewLoading(false);
         setAskPreviewQuery('');
@@ -1708,15 +1698,8 @@ export default function ShifuSettingDialog({
         }
         return false;
       }
-      if (
-        followUpCatalogStatus === 'idle' ||
-        followUpCatalogStatus === 'loading'
-      ) {
-        if (needClose) {
-          updateOpen(true);
-        }
-        return false;
-      }
+      // The optional catalog must not gate saving/closing. The loaded course
+      // configuration is preserved when its model is not in the catalog yet.
       const isNameValid = await form.trigger('name');
       const isPriceValid = await form.trigger('price');
       if (!isPriceValid) {
@@ -1747,15 +1730,7 @@ export default function ShifuSettingDialog({
       await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [
-      currentShifu?.readonly,
-      followUpCatalogStatus,
-      form,
-      onSubmit,
-      settingsLoading,
-      t,
-      updateOpen,
-    ],
+    [currentShifu?.readonly, form, onSubmit, settingsLoading, t, updateOpen],
   );
 
   useEffect(() => {
@@ -2229,12 +2204,7 @@ export default function ShifuSettingDialog({
                     isLiveVoiceFollowUp={isLiveVoiceFollowUp}
                     liveVoices={selectedFollowUpModel?.voices || []}
                     liveVoice={selectedLiveVoice}
-                    onLiveVoiceChange={value =>
-                      setAskProviderConfig(previous => ({
-                        ...previous,
-                        live_voice: value,
-                      }))
-                    }
+                    onLiveVoiceChange={setLiveVoiceDraft}
                     askTemperature={askTemperature}
                     askTemperatureInput={askTemperatureInput}
                     setAskTemperature={setAskTemperature}

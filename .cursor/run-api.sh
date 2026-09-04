@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Backend API dev server (gunicorn gthread, hot reload).
+# Backend API dev server (gunicorn + gevent, hot reload).
 # Port is fixed at 5800 to stay consistent with the forwarded port in
 # .cursor/environment.json.
 set -euo pipefail
@@ -14,5 +14,5 @@ bash "$REPO_ROOT/.cursor/wait-for-services.sh"
 source "$VENV_DIR/bin/activate"
 cd "$REPO_ROOT/src/api"
 export FLASK_APP=app.py
-exec gunicorn -k gthread --threads 16 -w 4 -b 0.0.0.0:5800 "app:app" \
+exec gunicorn -k gevent -w 1 -b 0.0.0.0:5800 "app:app" \
   --timeout 300 --log-level info --reload --access-logfile -

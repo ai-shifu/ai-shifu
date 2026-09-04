@@ -172,39 +172,40 @@ describe('ModelList', () => {
     ).toBeNull();
   });
 
-  test('keeps unavailable text models visible but disabled', () => {
-    render(
-      <ModelList
-        value='text-model'
-        onChange={() => undefined}
-        options={[
-          {
-            value: 'text-model',
-            label: 'Text model',
-            isDefault: true,
-            disabled: true,
-          },
-          {
-            value: 'live-model',
-            label: 'Live model',
-            disabled: false,
-          },
-        ]}
-      />,
-    );
+  test.each([true, false])(
+    'inherits the default model disabled state (%s) without disabling Live',
+    disabled => {
+      render(
+        <ModelList
+          value='text-model'
+          onChange={() => undefined}
+          options={[
+            {
+              value: 'text-model',
+              label: 'Text model',
+              isDefault: true,
+              disabled,
+            },
+            {
+              value: 'live-model',
+              label: 'Live model',
+              disabled: false,
+            },
+          ]}
+        />,
+      );
 
-    expect(screen.getByRole('option', { name: /Text model/ })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
-    expect(screen.getByRole('option', { name: /Live model/ })).toHaveAttribute(
-      'aria-disabled',
-      'false',
-    );
-    expect(
-      screen.getByRole('listbox').querySelector('[data-value="__empty__"]'),
-    ).toHaveAttribute('aria-disabled', 'true');
-  });
+      expect(
+        screen.getByRole('option', { name: /Text model/ }),
+      ).toHaveAttribute('aria-disabled', String(disabled));
+      expect(
+        screen.getByRole('option', { name: /Live model/ }),
+      ).toHaveAttribute('aria-disabled', 'false');
+      expect(
+        screen.getByRole('listbox').querySelector('[data-value="__empty__"]'),
+      ).toHaveAttribute('aria-disabled', String(disabled));
+    },
+  );
 
   test('refreshes model options on open with a short ttl', () => {
     const initialNow = Date.now() + 1_000_000;

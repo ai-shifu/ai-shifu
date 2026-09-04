@@ -47,6 +47,7 @@
   "liveVoiceMute": "Mute microphone",
   "liveVoicePrivacyNotice": "Your voice is sent to the AI service, and final transcripts are saved in follow-up history. Audio is not saved.",
   "liveVoiceRetry": "Retry",
+  "liveVoiceRetryAvailableAt": "Retry is available after {time}; the current voice credential must expire first.",
   "liveVoiceState": {
     "connecting": "Connecting",
     "ended": "Ended",
@@ -55,7 +56,7 @@
     "speaking": "Speaking"
   },
   "liveVoiceTimeWarning": "This voice conversation will end in 30 seconds.",
-  "liveVoiceTimedOut": "This 15-minute voice conversation has ended. You can start another one.",
+  "liveVoiceTimedOut": "This 15-minute voice conversation has ended.",
   "liveVoiceTitle": "Voice follow-up",
   "liveVoiceUnmute": "Unmute microphone",
   "liveVoiceYou": "You",

@@ -67,6 +67,7 @@ def create_app() -> Flask:
         supports_credentials=True,
     )
     from flaskr.common import Config, init_log
+    from flaskr.common.http import init_sensitive_body_policy
     from flaskr.common.observability import init_observability
 
     flask_app.config = Config(flask_app.config, flask_app)
@@ -75,6 +76,8 @@ def create_app() -> Flask:
     init_observability(flask_app)
     # init log
     init_log(flask_app)
+    # Logging skips opted-in bodies; enforce their limits before auth JSON parsing.
+    init_sensitive_body_policy(flask_app)
     flask_app = enable_plugin_manager(flask_app)
     flask_app.logger.info("ai-shifu-api mode: %s", flask_app.config.get("MODE", "api"))
     # init database

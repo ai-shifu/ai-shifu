@@ -47,6 +47,7 @@
   "liveVoiceMute": "Couper le microphone",
   "liveVoicePrivacyNotice": "Votre voix est envoyée au service IA et les transcriptions finales sont enregistrées dans l’historique des questions. L’audio n’est pas conservé.",
   "liveVoiceRetry": "Réessayer",
+  "liveVoiceRetryAvailableAt": "Vous pourrez réessayer après {time}, une fois l’autorisation vocale actuelle expirée.",
   "liveVoiceState": {
     "connecting": "Connexion",
     "ended": "Terminée",
@@ -55,7 +56,7 @@
     "speaking": "Réponse"
   },
   "liveVoiceTimeWarning": "Cette conversation vocale se terminera dans 30 secondes.",
-  "liveVoiceTimedOut": "Cette conversation vocale de 15 minutes est terminée. Vous pouvez en commencer une autre.",
+  "liveVoiceTimedOut": "Cette conversation vocale de 15 minutes est terminée.",
   "liveVoiceTitle": "Question vocale",
   "liveVoiceUnmute": "Réactiver le microphone",
   "liveVoiceYou": "Vous",

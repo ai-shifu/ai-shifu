@@ -154,6 +154,17 @@ export async function getDynamicApiBaseUrl(): Promise<string> {
 }
 
 /**
+ * Reads resolved runtime configuration without suspending a lifecycle callback.
+ * An empty base is ready (same origin); undefined means it has not loaded yet.
+ */
+export function getCachedDynamicApiBaseUrl(): string | undefined {
+  if (typeof window === 'undefined') {
+    return getApiBaseUrl();
+  }
+  return configFetched ? cachedApiBaseUrl : undefined;
+}
+
+/**
  * Gets default LLM model
  */
 function getDefaultLlmModel(): string {

@@ -47,6 +47,7 @@
   "liveVoiceMute": "كتم الميكروفون",
   "liveVoicePrivacyNotice": "يُرسل صوتك إلى خدمة الذكاء الاصطناعي وتُحفظ النصوص النهائية في سجل الأسئلة. لا يُحفظ الصوت.",
   "liveVoiceRetry": "إعادة المحاولة",
+  "liveVoiceRetryAvailableAt": "يمكنك إعادة المحاولة بعد {time}؛ يجب أن تنتهي صلاحية بيانات اعتماد الصوت الحالية أولاً.",
   "liveVoiceState": {
     "connecting": "جارٍ الاتصال",
     "ended": "انتهت",
@@ -55,7 +56,7 @@
     "speaking": "جارٍ الرد"
   },
   "liveVoiceTimeWarning": "ستنتهي هذه المحادثة الصوتية خلال 30 ثانية.",
-  "liveVoiceTimedOut": "انتهت هذه المحادثة الصوتية التي استمرت 15 دقيقة. يمكنك بدء محادثة أخرى.",
+  "liveVoiceTimedOut": "انتهت هذه المحادثة الصوتية التي مدتها 15 دقيقة.",
   "liveVoiceTitle": "سؤال صوتي",
   "liveVoiceUnmute": "إلغاء كتم الميكروفون",
   "liveVoiceYou": "أنت",

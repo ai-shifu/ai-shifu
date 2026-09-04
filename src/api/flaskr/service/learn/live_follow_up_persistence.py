@@ -1,8 +1,11 @@
-"""Persist transcript-only Gemini Live follow-up turns and trusted usage."""
+"""Persist transcript-only Gemini Live turns and non-billable client usage."""
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import json
+import math
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -30,11 +33,13 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
 )
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from .live_follow_up_config import GEMINI_LIVE_MODEL_ID
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from flask import Flask
 
 _LIVE_TURN_NAMESPACE = uuid.UUID("53108c61-7df0-5264-8f6c-f1438f13fd2a")
@@ -42,6 +47,49 @@ _LIVE_TURN_NAMESPACE = uuid.UUID("53108c61-7df0-5264-8f6c-f1438f13fd2a")
 
 class LiveFollowUpPersistenceError(RuntimeError):
     """Signal that a required transcript or usage write was not durable."""
+
+
+@contextlib.contextmanager
+def live_follow_up_persistence_lock(app: Flask, session_bid: str) -> Iterator[None]:
+    """Serialize reservation, durable writes, and acknowledgement across workers.
+
+    A connection-scoped MySQL lock cannot expire mid-write and is released on
+    worker disconnect. Once acquired, a leftover Redis claim can safely be
+    replaced. This follows the onboarding publication lock's database boundary.
+    """
+    lock_name = "ai-shifu:live:" + hashlib.sha256(session_bid.encode()).hexdigest()[:48]
+    with db.engine.connect() as connection:
+        try:
+            acquired = connection.execute(
+                text("SELECT GET_LOCK(:name, 5)"), {"name": lock_name}
+            ).scalar()
+        except BaseException:
+            # A cancelled acquisition may have succeeded on MySQL. Never put
+            # that connection back into the pool with an unowned named lock.
+            connection.invalidate()
+            raise
+        if acquired != 1:
+            message = "Gemini Live persistence is busy"
+            raise LiveFollowUpPersistenceError(message)
+        try:
+            # Do not reuse a request's pre-lock repeatable-read snapshot.
+            with app.app_context():
+                yield
+        finally:
+            try:
+                released = connection.execute(
+                    text("SELECT RELEASE_LOCK(:name)"), {"name": lock_name}
+                ).scalar()
+                if released != 1:
+                    connection.invalidate()
+            except Exception:
+                # Cleanup cannot turn a durable write into a reported failure.
+                with contextlib.suppress(Exception):
+                    connection.invalidate()
+                app.logger.warning("Gemini Live persistence lock cleanup failed")
+            except BaseException:
+                connection.invalidate()
+                raise
 
 
 def deterministic_live_turn_bid(
@@ -92,6 +140,35 @@ class LiveTurnPersistenceResult:
     answer_element_bid: str = ""
     usage_bid: str = ""
     history_saved: bool = False
+
+
+def load_persisted_live_follow_up_turn(
+    session_bid: str, turn_index: int
+) -> LiveTurnPersistenceResult:
+    """Rebuild a durable acknowledgement without trusting the retry's payload."""
+    usage_bid = deterministic_live_turn_bid(session_bid, turn_index, "usage")
+    usage = BillUsageRecord.query.filter(BillUsageRecord.usage_bid == usage_bid).first()
+    if usage is None:
+        message = "Gemini Live durable turn is unavailable"
+        raise LiveFollowUpPersistenceError(message)
+    # Usage is written only after the history transaction. Usage-only turns
+    # deliberately have no generated block and must stay history-free on retry.
+    if not usage.generated_block_bid:
+        return LiveTurnPersistenceResult(usage_bid=usage_bid)
+    return LiveTurnPersistenceResult(
+        ask_block_bid=deterministic_live_turn_bid(session_bid, turn_index, "ask-block"),
+        answer_block_bid=deterministic_live_turn_bid(
+            session_bid, turn_index, "answer-block"
+        ),
+        ask_element_bid=deterministic_live_turn_bid(
+            session_bid, turn_index, "ask-element"
+        ),
+        answer_element_bid=deterministic_live_turn_bid(
+            session_bid, turn_index, "answer-element"
+        ),
+        usage_bid=usage_bid,
+        history_saved=True,
+    )
 
 
 def _base_element_payload(
@@ -325,24 +402,63 @@ def _persist_transcript_history(
     )
 
 
-def _safe_usage_metadata(value: object, *, depth: int = 0) -> object:
-    """Copy trusted Gemini counters without retaining arbitrary raw events."""
-    if depth > 6:
-        return None
-    if value is None or isinstance(value, (bool, int, float)):
-        return value
-    if isinstance(value, str):
-        return value[:128]
-    if isinstance(value, dict):
-        return {
-            str(key)[:80]: _safe_usage_metadata(item, depth=depth + 1)
-            for key, item in list(value.items())[:100]
-        }
-    if isinstance(value, (list, tuple)):
-        return [
-            _safe_usage_metadata(item, depth=depth + 1) for item in list(value)[:100]
-        ]
+_USAGE_COUNTER_KEYS = frozenset(
+    {
+        "cachedContentTokenCount",
+        "candidatesTokenCount",
+        "promptTokenCount",
+        "responseTokenCount",
+        "thoughtsTokenCount",
+        "toolUsePromptTokenCount",
+        "totalTokenCount",
+    }
+)
+_USAGE_DETAIL_KEYS = frozenset(
+    {
+        "cacheTokensDetails",
+        "candidatesTokensDetails",
+        "promptTokensDetails",
+        "responseTokensDetails",
+        "toolUsePromptTokensDetails",
+    }
+)
+_USAGE_MODALITIES = frozenset({"AUDIO", "IMAGE", "TEXT", "VIDEO"})
+_MAX_CLIENT_USAGE_COUNT = 2_147_483_647
+
+
+def _safe_usage_count(value: object) -> int | None:
+    if type(value) is int:
+        return min(_MAX_CLIENT_USAGE_COUNT, max(0, value))
+    if type(value) is float and math.isfinite(value):
+        return min(_MAX_CLIENT_USAGE_COUNT, max(0, int(value)))
     return None
+
+
+def _safe_usage_metadata(value: object) -> dict[str, object]:
+    """Allowlist untrusted browser-reported Gemini counters and modalities."""
+    if not isinstance(value, dict):
+        return {}
+    safe: dict[str, object] = {}
+    for key in _USAGE_COUNTER_KEYS:
+        count = _safe_usage_count(value.get(key))
+        if count is not None:
+            safe[key] = count
+    for key in _USAGE_DETAIL_KEYS:
+        raw_details = value.get(key)
+        if not isinstance(raw_details, list):
+            continue
+        details: list[dict[str, object]] = []
+        for item in raw_details[:16]:
+            if not isinstance(item, dict):
+                continue
+            modality = str(item.get("modality") or "").upper()
+            token_count = _safe_usage_count(item.get("tokenCount"))
+            if modality not in _USAGE_MODALITIES or token_count is None:
+                continue
+            details.append({"modality": modality, "tokenCount": token_count})
+        if details:
+            safe[key] = details
+    return safe
 
 
 def _usage_int(usage: dict[str, Any], *keys: str) -> int:
@@ -372,7 +488,7 @@ def _persist_usage(
     if existing is not None:
         return usage_bid
 
-    usage = dict(turn.usage_metadata or {})
+    usage = _safe_usage_metadata(turn.usage_metadata)
     prompt_tokens = _usage_int(usage, "promptTokenCount", "prompt_token_count")
     output_tokens = _usage_int(
         usage, "responseTokenCount", "response_token_count", "candidatesTokenCount"
@@ -382,7 +498,10 @@ def _persist_usage(
         usage, "cachedContentTokenCount", "cached_content_token_count"
     )
     if not total_tokens:
-        total_tokens = prompt_tokens + output_tokens
+        total_tokens = min(
+            _MAX_CLIENT_USAGE_COUNT,
+            prompt_tokens + output_tokens,
+        )
     recorded_usage_bid = record_llm_usage(
         app,
         UsageContext(
@@ -411,7 +530,8 @@ def _persist_usage(
         total=total_tokens,
         latency_ms=max(0, int(turn.latency_ms or 0)),
         extra={
-            "usage_source": "gemini_live_follow_up",
+            "usage_source": "gemini_live_follow_up_client_report",
+            "usage_attestation": "client_reported_untrusted",
             "interaction_mode": "live_voice",
             "live_session_bid": context.session_bid,
             "live_turn_index": int(turn.turn_index),

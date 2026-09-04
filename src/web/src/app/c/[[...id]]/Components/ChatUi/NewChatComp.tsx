@@ -322,10 +322,12 @@ export const NewChatComponents = ({
   );
   const handleLiveTurnCommitted = useCallback(
     ({
+      outlineBid,
       anchorElementBid,
       userTranscript,
       assistantTranscript,
     }: {
+      outlineBid: string;
       anchorElementBid: string;
       turnIndex: number;
       userTranscript: string;
@@ -339,10 +341,11 @@ export const NewChatComponents = ({
         type: 'answer',
         content: assistantTranscript,
       });
-      setAskList(anchorElementBid, previous => [
-        ...previous,
-        ...committedMessages,
-      ]);
+      setAskList(
+        anchorElementBid,
+        previous => [...previous, ...committedMessages],
+        outlineBid,
+      );
     },
     [setAskList],
   );

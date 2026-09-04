@@ -15,9 +15,11 @@ import uuid
 from typing import Any
 
 from flaskr.api.tts.base import (
+    REQUEST_SCOPED_STREAM_VOLCENGINE_TIMESTAMP,
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -323,6 +325,14 @@ VOLCENGINE_EMOTIONS = [
 
 class VolcengineTTSProvider(BaseTTSProvider):
     """TTS provider using Volcengine bidirectional WebSocket API."""
+
+    capabilities = ProviderCapabilities(
+        requires_model=True,
+        retry_on_empty_audio=True,
+        skip_non_speakable_text=True,
+        auto_detectable=True,
+        request_scoped_stream=REQUEST_SCOPED_STREAM_VOLCENGINE_TIMESTAMP,
+    )
 
     def __init__(self) -> None:
         """Initialize provider-owned protocol and synchronization state.

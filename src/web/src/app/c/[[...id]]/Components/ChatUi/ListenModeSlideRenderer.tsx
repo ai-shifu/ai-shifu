@@ -1187,14 +1187,11 @@ const ListenModeSlideRenderer = ({
       if (!elementBid || element?.type === 'interaction') {
         return;
       }
-      pauseCourseAudioForLiveVoice();
+      // The controller can reject admission (for example during cooldown).
+      // Only its active-state prop should pause and later restore course audio.
       onLiveVoiceFollowUpStart?.(elementBid);
     },
-    [
-      onLiveVoiceFollowUpStart,
-      pauseCourseAudioForLiveVoice,
-      resolvePlayerAskElementBid,
-    ],
+    [onLiveVoiceFollowUpStart, resolvePlayerAskElementBid],
   );
 
   const handleInteractionSend = useCallback(
