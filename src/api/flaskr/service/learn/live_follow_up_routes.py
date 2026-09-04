@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import hmac
 import json
+import time
 from datetime import UTC, datetime
 from itertools import pairwise
 from urllib.parse import urlsplit, urlunsplit
@@ -716,6 +717,7 @@ def register_live_follow_up_routes(
     )
     @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def finalize_live_follow_up_session_api(session_bid: str) -> Response:
+        admitted_at = time.time()
         session = require_direct_session(session_bid, allow_finalization=True)
         payload = _read_bounded_turn_payload()
         if not isinstance(payload, dict):
@@ -732,12 +734,23 @@ def register_live_follow_up_routes(
         touch_direct_session(session)
         try:
             with live_follow_up_persistence_lock(app, session_bid):
+                # Admission applies to this already-validated, bounded batch.
+                # Reload its cursor under the DB lock using the admission time,
+                # not a new deadline check after each potentially slow write.
+                bound_session = load_live_follow_up_session(
+                    app,
+                    session_bid=session_bid,
+                    current_time=admitted_at,
+                    allow_finalization=True,
+                )
+                if bound_session.binding != session.binding:
+                    raise LiveFollowUpSessionRejectedError
                 for turn in turns:
-                    bound_session = require_direct_session(
-                        session_bid, allow_finalization=True
-                    )
                     if turn.turn_index <= bound_session.turn_state.last_committed_index:
                         continue
+                    touch_live_follow_up_session(
+                        app, session_bid=session_bid, finalizing=True
+                    )
                     reservation = reserve_live_follow_up_turn(
                         app,
                         session_bid=session_bid,

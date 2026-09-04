@@ -98,7 +98,7 @@ class _FakeRedis:
         if "EXPIRE" in script:
             if key not in self.values:
                 return 0
-            self.expirations[key] = int(args[0])
+            self.expirations[key] = max(self.expirations[key], int(args[0]))
             return 1
         value = self.values.pop(key, None)
         self.expirations.pop(key, None)
@@ -170,6 +170,44 @@ def test_touch_requires_an_existing_binding(monkeypatch: pytest.MonkeyPatch) -> 
 
     store.store_live_follow_up_session(app, session=_session())
     store.touch_live_follow_up_session(app, session_bid="session-1")
+
+
+def test_finalization_lease_cannot_be_shortened_or_extend_request_admission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis = _FakeRedis()
+    monkeypatch.setattr(store, "_redis_client", lambda: redis)
+    app = _app()
+    session = _session(expires_at_epoch=1_000)
+    store.store_live_follow_up_session(app, session=session)
+    key = next(iter(redis.values))
+
+    store.touch_live_follow_up_session(app, session_bid="session-1", finalizing=True)
+    assert (
+        redis.expirations[key]
+        == store.LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS
+    )
+    store.touch_live_follow_up_session(app, session_bid="session-1")
+    assert (
+        redis.expirations[key]
+        == store.LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS
+    )
+    assert (
+        store.load_live_follow_up_session(
+            app, session_bid="session-1", current_time=999
+        )
+        == session
+    )
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.load_live_follow_up_session(
+            app, session_bid="session-1", current_time=1_000
+        )
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.load_live_follow_up_session(
+            app, session_bid="session-1", current_time=1_030, allow_finalization=True
+        )
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.touch_live_follow_up_session(app, session_bid="missing", finalizing=True)
 
 
 def test_turn_reservations_are_ordered_and_one_time(

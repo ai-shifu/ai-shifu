@@ -15,6 +15,7 @@ from flask import Flask, request
 from flaskr.common.http import get_sensitive_body_limit, init_sensitive_body_policy
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import live_follow_up_routes as routes
+from flaskr.service.learn import live_follow_up_session_store as session_store
 from flaskr.service.learn.gemini_live_token import (
     GEMINI_LIVE_CONSTRAINED_ENDPOINT,
     GeminiLiveEphemeralToken,
@@ -399,10 +400,11 @@ def test_capacity_limit_is_bounded_before_token_mint(
 
 
 def _stub_active_direct_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = _stored_session()
     monkeypatch.setattr(
         routes,
         "load_live_follow_up_session",
-        lambda *_args, **_kwargs: _stored_session(),
+        lambda *_args, **_kwargs: session,
     )
     monkeypatch.setattr(
         routes,
@@ -756,6 +758,7 @@ def test_finalize_skips_durable_turns_and_saves_remaining_reports_in_order(
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
+    session = _stored_session()
     state = LiveFollowUpTurnState(
         last_committed_index=0 if in_flight else 1,
         pending_index=1 if in_flight else None,
@@ -785,7 +788,7 @@ def test_finalize_skips_durable_turns_and_saves_remaining_reports_in_order(
     monkeypatch.setattr(
         routes,
         "load_live_follow_up_session",
-        lambda *_a, **_k: replace(_stored_session(), turn_state=state),
+        lambda *_a, **_k: replace(session, turn_state=state),
     )
     monkeypatch.setattr(
         routes, "commit_live_follow_up_turn_reservation", commit_reservation
@@ -812,6 +815,132 @@ def test_finalize_skips_durable_turns_and_saves_remaining_reports_in_order(
     assert persisted == [2, 3]
     assert state.last_committed_index == 3
     assert consumed == ["session-1"]
+
+
+@pytest.mark.parametrize("boundary", ["redis_ttl", "admission_deadline"])
+def test_accepted_finalization_outlives_binding_and_admission_deadlines(
+    monkeypatch: pytest.MonkeyPatch, boundary: str
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_active_direct_session(monkeypatch)
+    clock = [1_000.0]
+    session = _stored_session(
+        expires_at_epoch=971 if boundary == "admission_deadline" else 2_000
+    )
+    retained_until = [clock[0] + session_store.LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS]
+    consumed: list[str] = []
+    persisted: list[int] = []
+    renewals: list[bool] = []
+
+    def get_binding(_key: str) -> str | None:
+        if consumed or clock[0] >= retained_until[0]:
+            return None
+        return session_store._serialize_session(session)
+
+    def touch(_app: Flask, *, session_bid: str, finalizing: bool = False) -> None:
+        assert session_bid == "session-1"
+        assert get_binding("") is not None
+        renewals.append(finalizing)
+        ttl = (
+            session_store.LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS
+            if finalizing
+            else session_store.LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS
+        )
+        retained_until[0] = max(retained_until[0], clock[0] + ttl)
+
+    @contextmanager
+    def wait_for_lock(_app: Flask, _session_bid: str) -> object:
+        clock[0] += 2  # An accepted request can cross its grace deadline waiting.
+        yield
+
+    def persist(
+        _app: Flask, context: object, turn: object
+    ) -> LiveTurnPersistenceResult:
+        assert context.user_bid == "user-1"
+        assert context.shifu_bid == "course-1"
+        clock[0] += 150  # Each write exceeds 45s; the batch exceeds one 300s lease.
+        assert get_binding("") is not None
+        if boundary == "admission_deadline":
+            # Retention is not new authority, even while an accepted batch runs.
+            with pytest.raises(AppError):
+                _post_action(app, "finalize", {"turns": [], "admitted_at": 1_000})
+            with pytest.raises(AppError):
+                _post_action(app, "heartbeat")
+        persisted.append(turn.turn_index)
+        return LiveTurnPersistenceResult(history_saved=True)
+
+    def acknowledge(_app: Flask, *, reservation: LiveFollowUpTurnReservation) -> None:
+        nonlocal session
+        assert get_binding("") is not None
+        session = replace(
+            session,
+            turn_state=LiveFollowUpTurnState(
+                last_committed_index=reservation.turn_index
+            ),
+        )
+
+    monkeypatch.setattr(routes, "time", SimpleNamespace(time=lambda: clock[0]))
+    monkeypatch.setattr(session_store, "time", SimpleNamespace(time=lambda: clock[0]))
+    monkeypatch.setattr(
+        session_store, "_redis_client", lambda: SimpleNamespace(get=get_binding)
+    )
+    monkeypatch.setattr(
+        routes, "load_live_follow_up_session", session_store.load_live_follow_up_session
+    )
+    monkeypatch.setattr(routes, "touch_live_follow_up_session", touch)
+    monkeypatch.setattr(routes, "live_follow_up_persistence_lock", wait_for_lock)
+    monkeypatch.setattr(routes, "persist_live_follow_up_turn", persist)
+    monkeypatch.setattr(routes, "commit_live_follow_up_turn_reservation", acknowledge)
+    monkeypatch.setattr(routes, "LiveFollowUpTrace", _FakeTrace)
+    monkeypatch.setattr(
+        routes,
+        "consume_live_follow_up_session",
+        lambda _app, *, session_bid: consumed.append(session_bid),
+    )
+
+    result = _post_action(
+        app, "finalize", {"turns": [_turn_report(index) for index in (1, 2, 3)]}
+    )
+
+    assert result.status_code == 200
+    assert persisted == [1, 2, 3]
+    assert consumed == ["session-1"]
+    assert renewals == [False, True, True, True]
+    assert get_binding("") is None
+
+
+@pytest.mark.parametrize("field", ["user_bid", "origin", "shifu_bid"])
+def test_finalization_rejects_a_replaced_binding_under_the_write_lock(
+    monkeypatch: pytest.MonkeyPatch, field: str
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_active_direct_session(monkeypatch)
+    session = _stored_session()
+    locked = False
+
+    @contextmanager
+    def replace_binding(_app: Flask, _session_bid: str) -> object:
+        nonlocal locked
+        locked = True
+        yield
+
+    monkeypatch.setattr(
+        routes,
+        "load_live_follow_up_session",
+        lambda *_a, **_k: (
+            replace(session, binding=replace(session.binding, **{field: "changed"}))
+            if locked
+            else session
+        ),
+    )
+    monkeypatch.setattr(routes, "live_follow_up_persistence_lock", replace_binding)
+    monkeypatch.setattr(
+        routes,
+        "reserve_live_follow_up_turn",
+        lambda *_a, **_k: pytest.fail("replaced binding was reserved"),
+    )
+    with pytest.raises(AppError):
+        _post_action(app, "finalize", {"turns": [_turn_report(1)]})
 
 
 @pytest.mark.parametrize("indices", [[1, 1], [1, 3], [2, 1], list(range(1, 202))])
@@ -881,6 +1010,7 @@ def test_direct_writes_recover_abandoned_claims_only_under_database_lock(
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
+    session = _stored_session()
     locked = False
     state = LiveFollowUpTurnState(pending_index=1, pending_claim="abandoned")
     events: list[str] = []
@@ -919,7 +1049,7 @@ def test_direct_writes_recover_abandoned_claims_only_under_database_lock(
     monkeypatch.setattr(
         routes,
         "load_live_follow_up_session",
-        lambda *_a, **_k: replace(_stored_session(), turn_state=state),
+        lambda *_a, **_k: replace(session, turn_state=state),
     )
     monkeypatch.setattr(routes, "reserve_live_follow_up_turn", recover)
     monkeypatch.setattr(routes, "persist_live_follow_up_turn", persist)

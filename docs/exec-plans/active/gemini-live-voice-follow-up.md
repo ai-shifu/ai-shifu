@@ -234,6 +234,14 @@ auditing, or another correctness-sensitive decision.
       retain only acknowledged answer playback. All 76 accumulator/controller
       tests pass, covering explicit end, final playback flush, pagehide, a
       question with no answer yet, and correct exchange analytics.
+- [x] 2026-09-04: Preserve an accepted finalization batch across slow writes and
+      the request-admission deadline. Reload and compare its immutable binding
+      under the DB lock using server admission time, then renew a 300-second
+      Redis retention lease before each write. Heartbeats cannot shorten that
+      lease; new requests still fail after the existing expiry/grace cutoff.
+      Clock regressions cover both expiry boundaries and binding replacement;
+      205 focused backend tests pass with two expected environment-dependent
+      skips. Full frontend verification passes 2,131 tests and TypeScript.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -336,6 +344,17 @@ auditing, or another correctness-sensitive decision.
   attempt starts while the credential reservation is known to remain active.
   - Why: an immediate retry cannot succeed under the deliberately retained
     one-credential-per-user admission limit.
+- Decision: treat credential expiry plus 30 seconds as an admission cutoff for
+  new finalization requests, not as cancellation of an already accepted bounded
+  batch. Under the existing connection-owned DB lock, compare the binding and
+  reload the committed cursor once at the server-captured admission time. Renew
+  Redis retention to 300 seconds before each write, covering the normal API
+  worker timeout; ordinary heartbeats may extend but never shorten retention.
+  - Why: teardown has stopped browser heartbeats, and slow persistence must not
+    discard the remainder of a valid batch. This does not extend the Gemini
+    token, media lifetime, capacity reservation, or authorization for any new
+    request. Failed/abandoned writes retain only this bounded lease and still
+    obey the existing DB-lock/claim recovery rules.
 - Decision: carry the original outline ID through every asynchronous turn
   acknowledgement and compare it with the history store's current lesson
   scope at write time.

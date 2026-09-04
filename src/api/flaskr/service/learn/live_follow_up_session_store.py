@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS = 45
 LIVE_FOLLOW_UP_SESSION_HEARTBEAT_INTERVAL_SECONDS = 15
 LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS = 30
+# Renewed per turn; covers the normal 300-second API worker request timeout.
+LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS = 300
 LIVE_FOLLOW_UP_MAX_TURNS = 200
 _SESSION_RECORD_VERSION = 2
 _ERROR_INVALID_SESSION = "invalid_session"
@@ -31,7 +33,10 @@ _TOUCH_SESSION_SCRIPT = """
 if redis.call('EXISTS', KEYS[1]) == 0 then
     return 0
 end
-redis.call('EXPIRE', KEYS[1], ARGV[1])
+-- A concurrent heartbeat must not shorten an accepted finalization lease.
+if redis.call('TTL', KEYS[1]) < tonumber(ARGV[1]) then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
 return 1
 """
 
@@ -362,15 +367,22 @@ def load_live_follow_up_session(
     return session
 
 
-def touch_live_follow_up_session(app: Flask, *, session_bid: str) -> None:
-    """Extend the short-lived control-plane binding for an active browser."""
+def touch_live_follow_up_session(
+    app: Flask, *, session_bid: str, finalizing: bool = False
+) -> None:
+    """Extend binding retention, never the absolute request-admission deadline."""
+    ttl = (
+        LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS
+        if finalizing
+        else LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS
+    )
     try:
         touched = bool(
             _require_redis().eval(
                 _TOUCH_SESSION_SCRIPT,
                 1,
                 _session_key(app, session_bid),
-                str(LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS),
+                str(ttl),
             )
         )
     except LiveFollowUpSessionStoreError:
