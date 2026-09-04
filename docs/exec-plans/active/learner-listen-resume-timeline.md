@@ -33,15 +33,22 @@ whole lesson. Restoring a position never starts audio automatically.
   identity resolution to follow the native player's current source.
 - [x] 2026-09-04 14:15 CST: Persisted the lesson's most recent resumable audio
   target so refresh returns to that slide before restoring its own timestamp.
+- [x] 2026-09-04 14:35 CST: Corrected the restore and timeline target mapping
+  from renderer-element indexes to the Slide library's marker-step indexes.
+- [x] 2026-09-04 14:40 CST: Replaced active-audio URL reverse lookup with the
+  Slide callback's confirmed current element, and covered restoring a later
+  marker step after non-step content.
 
 ## Surprises & Discoveries
 
 - The existing listen sequence has in-memory continuation handling, but no
   durable same-browser position contract.
 - `Slide` keeps its native audio element inside the library, but the learner
-  renderer already observes that element for playback state. The resume and
-  timeline behavior can use the same lifecycle listeners without extending the
-  library API.
+  renderer already observes that element for playback state.
+- `Slide` navigates by marker-step index, while the learner renderer owns a
+  broader element list. Audio identity must come from `onStepChange`, which is
+  the library's confirmation of the step actually rendered, rather than by
+  searching that broader list for a matching URL.
 
 ## Decision Log
 
@@ -59,8 +66,9 @@ whole lesson. Restoring a position never starts audio automatically.
   ungenerated future segment without artificially blocking navigation within
   the material that is already available.
 - 2026-09-04: Use server-provided durations when available and otherwise read
-  finalized audio metadata in the browser. Resume storage always derives its
-  scope from the native player's actual current source, not presentation state.
+  finalized audio metadata in the browser. Resume storage pairs the native
+  player's current source with the player-confirmed current step; a mismatched
+  source is deliberately ignored rather than guessed.
 - 2026-09-04: A per-audio timestamp alone cannot resume a lesson after refresh,
   because the player initially renders its first slide. Store the latest
   resumable audio identity per course and lesson, request that slide first, and
