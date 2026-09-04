@@ -157,6 +157,10 @@ auditing, or another correctness-sensitive decision.
       without a final user transcript, matching backend persistence. A final
       question with an empty interrupted answer still produces its pair.
       All 119 focused frontend tests and TypeScript checking pass.
+- [x] 2026-09-04: Reconciled `main` commit `4a693d8fe` (learner input
+      shortcuts) with the Live branch. Retained desktop/mobile text submission
+      analytics and shortcut tests alongside mobile readonly voice history;
+      adopted the upstream release pin `markdown-flow-ui@0.2.24`.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
