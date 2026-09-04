@@ -623,11 +623,20 @@ def _load_gemini_models(
             # Provider exceptions may contain a request URL with the API key.
             _log_warning("load gemini models via custom base failed")
         else:
-            return models
+            # A transparent Gemini proxy can return a successful native
+            # ListModels envelope, which has no OpenAI `data[].id` entries.
+            # Continue through native discovery to retain Bidi capabilities.
+            if models:
+                return models
 
     # Default to Google Gemini ListModels endpoint (v1beta).
-    google_base = base_url or "https://generativelanguage.googleapis.com"
-    url = f"{google_base.rstrip('/')}/v1beta/models"
+    google_base = (
+        (base_url or "https://generativelanguage.googleapis.com").strip().rstrip("/")
+    )
+    versioned_base = (
+        google_base if google_base.endswith("/v1beta") else f"{google_base}/v1beta"
+    )
+    url = f"{versioned_base}/models"
     try:
         page_token = ""
         seen_page_tokens: set[str] = set()
