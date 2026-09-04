@@ -9,9 +9,9 @@ lesson-wide progress bar or cross-item seek control.
 
 ## Progress
 
-- [x] 2026-09-04 10:00 CST: Confirmed that the learner slide renderer owns
-  the native `audio` element used for listening; no backend or UI-library
-  change is needed.
+- [x] 2026-09-04 10:00 CST: Confirmed that the learner slide renderer observes
+  the native `audio` element used for listening; finalized sources can use that
+  path, while streamed sources later required a UI-library extension.
 - [x] 2026-09-04 10:15 CST: Added a local, versioned playback-position storage contract
   and unit tests.
 - [x] 2026-09-04 10:20 CST: Connected metadata restore and lifecycle persistence to the
@@ -48,6 +48,10 @@ lesson-wide progress bar or cross-item seek control.
 - [x] 2026-09-04 16:45 CST: Removed the lesson-wide timeline, cross-item seek,
   duration preloading, related styling, copy, analytics, and tests after
   usability review. Storage-backed same-audio resume remains intact.
+- [x] 2026-09-04 18:00 CST: Extended the UI library with a segment-aware
+  absolute-playback callback and an idempotent resume request. The learner
+  now stores streamed offsets with a stable stream identity and restores them
+  through the library without autoplay.
 
 ## Surprises & Discoveries
 
@@ -84,11 +88,16 @@ lesson-wide progress bar or cross-item seek control.
   then use the player custom-action context as the authoritative current audio
   identity. This keeps identity stable for non-marker children and for native
   segment URLs that cannot be matched to a finalized MP3 URL.
+- 2026-09-04: For a live stream, store the logical element identity and its
+  absolute elapsed time, not the transient browser segment URL or its local
+  duration. A matching finalized file may still consume that saved stream
+  target when the lesson is revisited.
 
 ## Outcomes & Retrospective
 
-Implemented same-browser playback resume for finalized audio. The feature
-deliberately excludes streaming and unknown-duration sources.
+Implemented same-browser playback resume for finalized and streamed audio.
+Stream restoration delegates segment availability and precise seeking to the
+MarkdownFlow UI player and remains paused after restoring.
 
 ## Context and Orientation
 
@@ -127,8 +136,9 @@ URL and duration while streaming tracks may not have a finite duration.
   clears the stored record.
 - A regenerated or otherwise changed audio source does not reuse an old
   position.
-- Streaming/unknown-duration audio cannot be sought and does not write an
-  invalid position.
+- A streamed audio item writes its logical absolute position without treating
+  the temporary segment boundary as an end; restoration waits for that segment
+  and does not autoplay.
 
 ## Idempotence and Recovery
 

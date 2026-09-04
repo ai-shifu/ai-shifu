@@ -82,6 +82,22 @@ describe('listenPlaybackPosition', () => {
     expect(readListenPlaybackPositionFromStorage(scope)).toBeNull();
   });
 
+  it('keeps a streamed position when the logical audio has no final duration', () => {
+    const streamingScope = {
+      ...scope,
+      source: 'stream:element-1',
+    };
+
+    writeListenPlaybackPositionToStorage({
+      scope: streamingScope,
+      positionSeconds: 24,
+      durationSeconds: 0,
+      isOpenEnded: true,
+    });
+
+    expect(readListenPlaybackPositionFromStorage(streamingScope)).toBe(24);
+  });
+
   it('removes malformed stored records instead of retrying them on every read', () => {
     window.localStorage.setItem(storageKey, '{not-json');
     expect(readListenPlaybackPositionFromStorage(scope)).toBeNull();

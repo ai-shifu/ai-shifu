@@ -1768,6 +1768,72 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
+  it('persists an absolute streamed offset and asks Slide to restore it', async () => {
+    const items = [
+      {
+        type: 'content',
+        content: 'Streaming lesson content.',
+        element_bid: 'content-1',
+        isAudioStreaming: true,
+      },
+    ] as ChatContentItem[];
+    const firstRender = render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const firstSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      onPlaybackPositionChange?: (position: {
+        audioKey: string;
+        timeMs: number;
+      }) => void;
+    };
+    act(() => {
+      firstSlideProps.onPlaybackPositionChange?.({
+        audioKey: 'content-1',
+        timeMs: 24_000,
+      });
+    });
+
+    expect(
+      readListenPlaybackPositionFromStorage({
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+        elementBid: 'content-1',
+        source: 'stream:content-1',
+      }),
+    ).toBe(24);
+
+    firstRender.unmount();
+    render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+        playbackResumeRequest?: {
+          audioKey: string;
+          timeMs: number;
+        } | null;
+      };
+      expect(slideProps.playbackResumeRequest).toMatchObject({
+        audioKey: 'content-1',
+        timeMs: 24_000,
+      });
+    });
+  });
+
   it('restores cached metadata that loaded before the audio listener registered', async () => {
     writeListenPlaybackPositionToStorage({
       scope: {
