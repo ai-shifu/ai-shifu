@@ -795,6 +795,37 @@ export const useLiveVoiceFollowUp = ({
           }
         });
 
+      const armConnectionTimeout = (provisioning = false) => {
+        if (setupTimerRef.current !== null) {
+          window.clearTimeout(setupTimerRef.current);
+        }
+        setupTimerRef.current = window.setTimeout(() => {
+          setupTimerRef.current = null;
+          if (
+            attemptRef.current?.generation !== generation ||
+            setupReadyRef.current
+          ) {
+            return;
+          }
+          if (provisioning) {
+            // A stalled response may already own server capacity. Back off
+            // retries; a late response still records its actual expiry below.
+            admissionBlockedUntilRef.current = Math.max(
+              admissionBlockedUntilRef.current,
+              Date.now() + CAPACITY_RETRY_BACKOFF_MS,
+            );
+          }
+          finishAttempt({
+            reason: 'connection_error',
+            keepOpen: true,
+            errorCode: 'network_error',
+            retryable: true,
+            pendingOutcome: 'failed',
+          });
+        }, GEMINI_LIVE_SETUP_TIMEOUT_MS);
+      };
+
+      armConnectionTimeout(true);
       let sessionPromise: ReturnType<typeof createLiveFollowUpSession>;
       try {
         sessionPromise = createLiveFollowUpSession(shifuBid, outlineBid, {
@@ -825,25 +856,7 @@ export const useLiveVoiceFollowUp = ({
           }
         }
         setupReadyRef.current = false;
-        if (setupTimerRef.current !== null) {
-          window.clearTimeout(setupTimerRef.current);
-        }
-        setupTimerRef.current = window.setTimeout(() => {
-          setupTimerRef.current = null;
-          if (
-            attemptRef.current?.generation !== generation ||
-            setupReadyRef.current
-          ) {
-            return;
-          }
-          finishAttempt({
-            reason: 'connection_error',
-            keepOpen: true,
-            errorCode: 'network_error',
-            retryable: true,
-            pendingOutcome: 'failed',
-          });
-        }, GEMINI_LIVE_SETUP_TIMEOUT_MS);
+        armConnectionTimeout();
         const websocket = new WebSocket(
           resolveGeminiLiveWebSocketUrl(
             session.websocket_url,

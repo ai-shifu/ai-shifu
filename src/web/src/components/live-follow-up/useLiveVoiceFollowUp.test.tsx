@@ -243,6 +243,7 @@ const Harness = ({
         close
       </button>
       <span data-testid='state'>{controller.state}</span>
+      <span data-testid='open'>{String(controller.open)}</span>
       <span data-testid='warning'>{String(controller.warning)}</span>
       <span data-testid='muted'>{String(controller.muted)}</span>
       <span data-testid='error'>{controller.errorCode || ''}</span>
@@ -770,6 +771,47 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(screen.getByTestId('retryable')).toHaveTextContent('false');
   });
 
+  it('stops on transcript backpressure without losing the newest completed turn', async () => {
+    jest.useFakeTimers();
+    const firstCommit = createDeferred<object>();
+    mockCommitTurn.mockReturnValueOnce(firstCommit.promise);
+    const onTurnCommitted = jest.fn();
+    render(<Harness onTurnCommitted={onTurnCommitted} />);
+    await startAndOpen();
+    await makeReady();
+    const callbacks = mockActivateAudio.mock.calls[0][0];
+    for (const turnIndex of [1, 2, 3]) {
+      await act(async () => {
+        mockSockets[0].message(
+          serverEvent({
+            inputTranscripts: [`Question ${turnIndex} ${'x'.repeat(25_000)}`],
+            outputTranscripts: [`Answer ${turnIndex}`],
+            audioChunks: [new ArrayBuffer(4)],
+            turnComplete: true,
+          }),
+        );
+        callbacks.onPlaybackComplete(turnIndex);
+        jest.advanceTimersByTime(500);
+      });
+    }
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('error')).toHaveTextContent('server_error');
+    expect(mockAudio.stop).toHaveBeenCalledTimes(1);
+    expect(mockCommitTurn).toHaveBeenCalledTimes(1);
+    await act(async () => firstCommit.resolve({}));
+    expect(
+      mockCommitTurn.mock.calls.map(([, report]) => report.turn_index),
+    ).toEqual([1, 2, 3]);
+    expect(
+      onTurnCommitted.mock.calls.map(([report]) => report.turnIndex),
+    ).toEqual([1, 2, 3]);
+    expect(mockFinalizeSession).not.toHaveBeenCalled();
+    expect(mockEndSession).toHaveBeenCalledWith(
+      'session-1',
+      'connection_error',
+    );
+  });
+
   it('ends the input stream when muted without opening a text fallback', async () => {
     render(<Harness />);
     await startAndOpen();
@@ -826,6 +868,78 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(screen.getByTestId('state')).toHaveTextContent('ended');
     expect(screen.getByTestId('error')).toHaveTextContent('network_error');
     expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+  });
+
+  it('stops the microphone when provisioning stalls and safely retires a late credential', async () => {
+    jest.useFakeTimers();
+    const deferredSession =
+      createDeferred<ReturnType<typeof sessionResponse>>();
+    mockCreateSession.mockReturnValueOnce(deferredSession.promise);
+    const expiresAt = Date.now() + 60_000;
+    render(<Harness />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    });
+    expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+    expect(mockAudio.stop).not.toHaveBeenCalled();
+
+    await act(async () => jest.advanceTimersByTime(20_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('error')).toHaveTextContent('network_error');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+    expect(mockAudio.stop).toHaveBeenCalledTimes(1);
+    expect(mockReleaseExclusive).toHaveBeenCalled();
+    expect(mockSockets).toHaveLength(0);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_result',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        outcome: 'failed',
+        error_code: 'network_error',
+      },
+    );
+    const eventCount = mockTrackEvent.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+
+    await act(async () => deferredSession.resolve(sessionResponse(expiresAt)));
+    expect(mockSockets).toHaveLength(0);
+    expect(mockEndSession).toHaveBeenCalledWith(
+      'session-1',
+      'client_disconnected',
+    );
+    expect(screen.getByTestId('retry-at')).toHaveTextContent(
+      String(expiresAt + 30_000),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(eventCount);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'auth_tokens',
+    );
+    act(() => jest.advanceTimersByTime(expiresAt + 30_000 - Date.now()));
+    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+  });
+
+  it('clears the provisioning timeout on close and stops audio that activates late', async () => {
+    jest.useFakeTimers();
+    const deferredAudio = createDeferred<typeof mockAudio>();
+    mockActivateAudio.mockReturnValueOnce(deferredAudio.promise);
+    mockCreateSession.mockReturnValueOnce(new Promise(() => {}));
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    fireEvent.click(screen.getByRole('button', { name: 'close' }));
+    const eventCount = mockTrackEvent.mock.calls.length;
+    await act(async () => {
+      deferredAudio.resolve(mockAudio);
+      jest.advanceTimersByTime(20_000);
+    });
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('open')).toHaveTextContent('false');
+    expect(mockAudio.stop).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(eventCount);
+    expect(mockSockets).toHaveLength(0);
   });
 
   it('defers retry until the credential reservation expires after setup stalls', async () => {

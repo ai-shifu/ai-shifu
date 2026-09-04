@@ -131,6 +131,20 @@ auditing, or another correctness-sensitive decision.
       and unsaved object inputs. Repeated switches retain the chosen voice.
       The expanded frontend regression suite passes 106 tests, including
       settings round trips and late playback completion, plus TypeScript.
+- [x] 2026-09-04: Allow blank generated follow-up prompts in drafts/new
+      publications: both transports fall back to the effective course prompt.
+      If no prompt exists, token provisioning omits empty content while keeping
+      `systemInstruction` locked in the field mask. Credentials/model/voice
+      remain required.
+- [x] 2026-09-04: Bound HTTP session provisioning at 20 seconds, stop audio on
+      timeout, and apply a 30-second retry backoff. Late credentials are retired
+      without opening a socket and still update the known admission deadline.
+- [x] 2026-09-04: Retain and queue completed turns before signalling transcript
+      backpressure. A backlog larger than one unload batch stops recording but
+      drains through ordinary ordered requests instead of dropping the newest
+      turn. It never sends an oversized/truncated finalization batch.
+      Verification passes with 124 focused backend tests, 112 frontend tests,
+      TypeScript, and the full pre-commit gate.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -259,7 +273,11 @@ auditing, or another correctness-sensitive decision.
     byte budget with multiple outstanding turn requests.
 - Decision: cap each report/batch at 60 KiB before buffering it on the backend,
   and fail visibly if the frontend's unacknowledged backlog exceeds the bounded
-  handoff budget. Explicit end/close waits for the bounded final playback ACK
+  handoff budget, after retaining and queueing the turns that crossed it. Drain
+  an over-budget backlog through normal ordered requests while the document is
+  alive; do not send a truncated finalization batch that closes the binding.
+  Actual document destruction cannot guarantee delivery of more than the
+  browser's keepalive budget. Explicit end/close waits for the bounded final playback ACK
   before creating final commits. Pagehide/unmount instead immediately sends
   the latest acknowledged playback checkpoint, which can conservatively omit
   the last unacknowledged audio quantum.
@@ -376,7 +394,10 @@ modality fields, writes history idempotently, and forces `billable=0`. On close,
 timeout, navigation, or error, stop capture immediately. When the document
 remains active, flush playback before creating the final report and POST end
 after pending writes. On unload, synchronously initiate one bounded keepalive
-finalization batch instead. Capacity is not released early.
+finalization batch instead when the backlog fits. An over-budget backlog stays
+in the normal queue and drains only while the document remains alive; it is not
+silently discarded or sent in a request the browser will reject. Capacity is
+not released early.
 
 ### Phase 3: voice experience, privacy, and rollout
 
@@ -406,7 +427,10 @@ request, or analytics attempt. The existing aggregate attempt/result consumer
 and payload allowlist remain unchanged; the UI explains the retry deadline.
 An API capacity rejection uses business code `4018`, emits the existing bounded
 `capacity_exceeded` result, and applies a 30-second explicit-retry backoff when
-the occupying credential's expiry is unknown. It never infers capacity from
+the occupying credential's expiry is unknown. A stalled session POST is a
+`failed` result with the existing `network_error` code after 20 seconds, followed
+by the same explicit-retry backoff; late responses never emit another result.
+This adds no event/payload version or consumer migration. It never infers capacity from
 localized or raw error text, retries automatically, or sends another attempt
 event while that backoff is active. Older servers without the new code retain
 the generic failure path until the server update is deployed.
