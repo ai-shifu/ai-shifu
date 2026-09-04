@@ -88,6 +88,15 @@ auditing, or another correctness-sensitive decision.
       Full frontend rerun: 227 suites / 2,178 tests passed.
       The existing backend route/finalization suite also passed all 62 tests
       with repository-pinned Flask/Werkzeug in an isolated temporary overlay.
+- [x] 2026-09-04: Addressed review `discussion_r3935086763`: detach recovery
+      from an original `/turn` fetch that never settles. Advance the queue
+      generation, invalidate old queued successors, and start a new ordered
+      chain for retained reports. A late active-request acknowledgement remains
+      idempotent; stale failures cannot notify or restart the recovered queue.
+      Three regressions failed before correction. All 106 focused tests and
+      TypeScript passed, including real shared-transport recovery after three
+      HTTP 503 finalizer rejections while the original native fetch stays pending.
+      Full frontend rerun: 227 suites / 2,182 tests passed.
 - [ ] 2026-09-04: Follow valid review threads and recheck current-head CI.
       Complete real-Gemini and physical
       Safari/iOS/mobile Chrome acceptance before claiming those environments:
@@ -758,7 +767,10 @@ if it stalls, stop its successors and hand the retained outbox to the existing
 idempotent finalizer. Late normal acknowledgements do not duplicate history.
 Retry a rejected finalizer up to three attempts with one-second backoff. If
 takeover still fails, clear its rejected state and resume/requeue unacknowledged
-normal writes; never treat rejection as successful ownership transfer.
+normal writes on a fresh queue generation, detached from the old unresolved
+request. Old queued successors cannot join that recovered chain; a late active
+request may acknowledge only once. Never treat rejection as successful
+ownership transfer.
 On unload, synchronously initiate one bounded keepalive
 finalization batch instead when the backlog fits. An over-budget backlog stays
 in an ordered queue and drains only while the document remains alive, with a
