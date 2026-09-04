@@ -66,6 +66,54 @@ describe('GeminiLiveTurnAccumulator', () => {
     );
   });
 
+  it.each([
+    [1, 'playback'],
+    [2, 'playback'],
+    [1, 'end'],
+    [2, 'end'],
+  ] as const)(
+    'keeps ready successors behind turn %i until %s settles it',
+    (blockedIndex, finish) => {
+      const accumulator = new GeminiLiveTurnAccumulator();
+      for (const turnIndex of [1, 2, 3]) {
+        accumulator.process(
+          event({
+            inputTranscripts: [`Question ${turnIndex}`],
+            outputTranscripts: [`Answer ${turnIndex}`],
+            audioChunks: turnIndex === blockedIndex ? [new ArrayBuffer(8)] : [],
+            turnComplete: true,
+          }),
+          turnIndex * 1_000,
+        );
+      }
+      accumulator.recordPlaybackProgress(blockedIndex, 4);
+      const preceding = accumulator.popReady(3_501);
+      expect(preceding.map(turn => turn.turnIndex)).toEqual(
+        blockedIndex === 1 ? [] : [1],
+      );
+      expect(accumulator.popReady(3_502)).toEqual([]);
+
+      if (finish === 'playback') {
+        accumulator.markPlaybackComplete(blockedIndex);
+      }
+      const remaining =
+        finish === 'end'
+          ? accumulator.finishSession(3_503)
+          : accumulator.popReady(3_503);
+      expect(remaining.map(turn => turn.turnIndex)).toEqual(
+        blockedIndex === 1 ? [1, 2, 3] : [2, 3],
+      );
+      expect(remaining[0]).toEqual(
+        expect.objectContaining({
+          userTranscript: `Question ${blockedIndex}`,
+          playedAnswerTranscript:
+            finish === 'playback' ? `Answer ${blockedIndex}` : '',
+        }),
+      );
+      expect(accumulator.finishSession(3_504)).toEqual([]);
+    },
+  );
+
   it('reconciles a late final input transcript into the just-finished turn', () => {
     const accumulator = new GeminiLiveTurnAccumulator();
     accumulator.process(

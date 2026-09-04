@@ -880,6 +880,61 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockCommitTurn).toHaveBeenCalledTimes(1);
   });
 
+  it('submits consecutive history only after earlier playback has settled', async () => {
+    jest.useFakeTimers();
+    let nextIndex = 1;
+    mockCommitTurn.mockImplementation(async (_session, report) => {
+      if (report.turn_index !== nextIndex) {
+        throw new Error('Nonconsecutive history report');
+      }
+      nextIndex += 1;
+      return {};
+    });
+    const onTurnCommitted = jest.fn();
+    render(<Harness onTurnCommitted={onTurnCommitted} />);
+    await startAndOpen();
+    await makeReady();
+    const callbacks = mockActivateAudio.mock.calls[0][0] as {
+      onPlaybackComplete: (turnIndex: number) => void;
+    };
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['First question'],
+          outputTranscripts: ['First answer'],
+          audioChunks: [new ArrayBuffer(8)],
+          turnComplete: true,
+        }),
+      ),
+    );
+    await act(async () => jest.advanceTimersByTime(600));
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['Second question'],
+          outputTranscripts: ['Second answer'],
+          turnComplete: true,
+        }),
+      ),
+    );
+    await act(async () => jest.advanceTimersByTime(500));
+    expect(mockCommitTurn).not.toHaveBeenCalled();
+    expect(mockAudio.stop).not.toHaveBeenCalled();
+
+    await act(async () => callbacks.onPlaybackComplete(1));
+    expect(
+      mockCommitTurn.mock.calls.map(([, turn]) => turn.turn_index),
+    ).toEqual([1, 2]);
+    expect(onTurnCommitted.mock.calls.map(([turn]) => turn.turnIndex)).toEqual([
+      1, 2,
+    ]);
+    expect(screen.getByTestId('state')).not.toHaveTextContent('ended');
+    expect(mockTrackEvent.mock.calls.map(([name]) => name)).toEqual([
+      'learner_voice_follow_up_attempt',
+      'learner_voice_follow_up_result',
+    ]);
+  });
+
   it('keeps a failed history commit in the retry-only voice UI', async () => {
     mockCommitTurn.mockRejectedValueOnce(new Error('storage unavailable'));
     render(<Harness />);

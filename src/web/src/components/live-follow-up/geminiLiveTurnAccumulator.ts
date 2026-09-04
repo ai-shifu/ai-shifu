@@ -252,12 +252,16 @@ export class GeminiLiveTurnAccumulator {
     const ready: GeminiLiveTurnCommit[] = [];
     for (const turnIndex of [...this.turns.keys()].sort((a, b) => a - b)) {
       const state = this.turns.get(turnIndex);
+      if (!state?.terminalReason) {
+        continue;
+      }
       if (
-        !state?.terminalReason ||
         (!force && state.readyAt !== null && state.readyAt > now) ||
         (!force && !this.playbackSettled(state))
       ) {
-        continue;
+        // The server accepts only the next turn. Retain every successor until
+        // this earlier terminal turn can join the consecutive ready prefix.
+        break;
       }
       this.turns.delete(turnIndex);
       ready.push(this.toCommit(state, now));

@@ -250,6 +250,20 @@ auditing, or another correctness-sensitive decision.
       cases remain rejected. The admission deadline itself is not extended.
       All 215 focused backend tests pass with the same two environment skips;
       76 accumulator/controller regressions and the full pre-commit gate pass.
+- [x] 2026-09-04: Ran two additional task-local checks against an isolated
+      Redis 7.4.0 Lua engine. Actual reserve/commit/touch/consume scripts retain
+      the finalization lease across heartbeat and numeric round trips; the
+      HTTP finalizer follows a predecessor and consumes the completed binding.
+      DB persistence was stubbed for these checks, and the private Unix-socket
+      Redis process was shut down afterward.
+- [x] 2026-09-04: Emit only a consecutive ready prefix of terminal turns.
+      Later ready turns remain queued while an earlier turn awaits playback or
+      reconciliation; normal playback and forced ending both drain in order
+      with acknowledged answer text. Five regressions reproduced out-of-order
+      reports before the fix, including a strict server-cursor controller test;
+      all 91 accumulator/controller/writer tests and TypeScript checking pass.
+      The complete frontend suite passes 2,136 tests across 226 suites, and the
+      full pre-commit gate passes with no new architecture-boundary violations.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
