@@ -113,7 +113,8 @@ WebSocket Upgrade route. Production still needs HTTPS for microphone access,
 and the browser must be able to reach `generativelanguage.googleapis.com`.
 The server must also reach the token-creation API. If `GEMINI_API_URL` is set,
 token creation reuses that HTTPS base URL, including any proxy path prefix,
-and appends `/v1beta/auth_tokens`; otherwise it uses Google's official API.
+and appends `/v1beta/auth_tokens`; an existing terminal `/v1beta` is reused
+instead of duplicated. If unset, token creation uses Google's official API.
 Only configure a trusted proxy because it receives the API key and private
 course context. This setting never changes the browser's Gemini WebSocket
 destination. Token requests do not follow redirects or fall back to another

@@ -279,6 +279,11 @@ auditing, or another correctness-sensitive decision.
       Candidate code using the dev container's existing proxy/key now mints
       a real token (HTTP 200). A client-side direct Google WebSocket using that
       token completes `setupComplete`; neither probe records audio or secrets.
+- [x] 2026-09-04: Address the release review's versioned-base compatibility
+      case. Reuse an existing terminal `/v1beta` without changing proxy
+      prefixes or matching the hostname. Three cases reproduced duplicate
+      version segments before the fix; the wider Live selection passes
+      160 tests with one environment-dependent MySQL skip afterward.
 - [ ] Deploy the two connection fixes through a focused dev release PR and
       recheck the running image, HTTP health, token minting, and direct setup.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
@@ -340,7 +345,8 @@ auditing, or another correctness-sensitive decision.
 ## Decision Log
 
 - Decision: reuse `GEMINI_API_URL` only for backend token provisioning, with
-  the same base-plus-`/v1beta` path contract as Gemini model discovery.
+  the base-plus-`/v1beta` path contract used by Gemini model discovery, also
+  accepting an already-versioned `/v1beta` base without duplicating it.
   - Why: existing environments already configure their trusted Gemini proxy.
     Preserve proxy prefixes, require HTTPS without URL credentials/query/
     fragment, and disable redirects to avoid forwarding the API-key header.

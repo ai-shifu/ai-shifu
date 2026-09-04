@@ -90,6 +90,8 @@ def _token_endpoint(api_base_url: str | None) -> str:
             raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION)
     except ValueError:
         raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION) from None
+    if parsed.path.endswith("/v1beta"):
+        return f"{base_url}/auth_tokens"
     return f"{base_url}/v1beta/auth_tokens"
 
 
