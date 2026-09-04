@@ -12,13 +12,20 @@ is never stored and no text fallback is offered.
 
 The long-lived Gemini API key remains on the backend. The backend mints a
 one-use, short-lived [Gemini ephemeral token](https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens)
-whose Live constraints lock the model, course system instruction, selected
+whose Live constraints lock the model, follow-up system instruction, selected
 voice, and session behavior. The browser uses that token to connect directly
 to Gemini's constrained Live WebSocket. AI-Shifu continues to own admission,
 capacity, session lifetime, transcript history, and non-billable usage through
 ordinary authenticated HTTPS endpoints. Consequently, the feature does not
 require a WebSocket Upgrade route or a different Gunicorn worker at the
 AI-Shifu ingress.
+
+Live does not load or concatenate the teacher-authored Course Prompt. A short
+voice instruction supplies the default base context, including the existing
+learner-profile formatting. Configured follow-up prompts are retained; their
+`{shifu_system_message}` placeholder resolves to that voice context. Learner
+language, current learning content, and recent follow-up history remain
+available. Ordinary text follow-ups continue to inherit the Course Prompt.
 
 The first release supports reading mode, listen mode, and teacher preview;
 classroom remains excluded. It is available to every teacher only when
@@ -135,7 +142,8 @@ auditing, or another correctness-sensitive decision.
       publications: both transports fall back to the effective course prompt.
       If no prompt exists, token provisioning omits empty content while keeping
       `systemInstruction` locked in the field mask. Credentials/model/voice
-      remain required.
+      remain required. The later Live-only Course Prompt exclusion below
+      supersedes this fallback for voice sessions, not text sessions.
 - [x] 2026-09-04: Bound HTTP session provisioning at 20 seconds, stop audio on
       timeout, and apply a 30-second retry backoff. Late credentials are retired
       without opening a socket and still update the known admission deadline.
@@ -298,6 +306,19 @@ auditing, or another correctness-sensitive decision.
       226 suites; the full pre-commit gate, five-locale checks, architecture
       boundaries, and repository harness pass. Deploy the fix to dev before
       microphone acceptance.
+- [x] 2026-09-04: Exclude Course Prompt lookup and inheritance from Live at the
+      user's request. Preserve configured follow-up prompts, learner language,
+      profile formatting, current anchor, and the latest ten turns through the
+      shared context builder. Blank prompts and the system-message placeholder
+      use a versioned voice default instead. All 22 focused context regressions
+      pass across reading/listening and learner/preview sessions; text retains
+      its original Course Prompt precedence. Saved course data is unchanged.
+- [x] 2026-09-04: The wider Live/text/profile/backend selection passes 201 tests
+      with one isolated-MySQL skip, using the repository-pinned Flask/Werkzeug
+      from an isolated dependency overlay. Ruff, architecture boundaries,
+      repository harness, all five locales, and the full pre-commit gate pass.
+      No shared virtualenv or environment configuration was changed.
+- [ ] Deploy the Live-only prompt change and validate audible responses on dev.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -309,6 +330,12 @@ auditing, or another correctness-sensitive decision.
 
 ## Surprises & Discoveries
 
+- The provider can complete with output transcription but no PCM audio even
+  when server and browser setup both request only `AUDIO`. Authorized temporary
+  probes with the affected Course Prompt reproduced this; adding one voice
+  sentence produced audio in two of three trials, not a reliable guarantee.
+  Prompt variants do not establish a single offending phrase or model-internal
+  cause. No private course prompt or audio from those probes is stored here.
 - Gemini returns JSON in binary WebSocket frames (observed opcode 2), not
   only text frames. Browser WebSockets default to Blob delivery, while the
   controller previously ignored non-string messages. A successful Python
@@ -362,6 +389,16 @@ auditing, or another correctness-sensitive decision.
 
 ## Decision Log
 
+- Decision: omit the Course Prompt from Live only, rather than heuristically
+  editing its formatting or teaching rules. Use `prompts/live_follow_up.md`
+  as the shared builder's explicit fallback while passing no course prompt.
+  - Why: the user explicitly chose not to concatenate the Course Prompt after
+    the transcript-only response diagnosis. Preserve the teacher's separate
+    follow-up prompt, including its existing standalone override behavior;
+    placeholder/blank prompts receive the voice/profile default. Ordinary text
+    prompt composition, saved course settings, audio configuration, and native
+    safety remain unchanged. This changes no analytics invocation, outcome,
+    eligibility, deduplication, payload, or downstream consumer contract.
 - Decision: set every Gemini socket's `binaryType` to `arraybuffer` and decode
   binary JSON synchronously in the existing protocol parser, retaining text
   message compatibility.
@@ -505,7 +542,7 @@ auditing, or another correctness-sensitive decision.
 
 The implementation is now aligned with the deployment the user actually has:
 the AI-Shifu ingress handles only ordinary HTTPS for Live, while the browser
-opens Gemini's own WebSocket. The long-lived provider secret and private course
+opens Gemini's own WebSocket. The long-lived provider secret and private follow-up
 instruction are not returned to the browser; the returned credential is
 short-lived, one-use, and constrained. The old Flask-Sock dependencies,
 server-side Gemini WebSocket wrapper, cookie ticket, backend turn accumulator,
@@ -525,6 +562,12 @@ sufficient: the browser also has to consume that setup response. The protocol
 and controller regressions now cover its real binary representation, including
 ordered interruption and resumption, but do not replace microphone acceptance.
 
+Live now intentionally differs from text in its base instruction: it never
+resolves the Course Prompt and uses a concise voice default instead. Shared
+profile, language, anchor, and history handling remain in place. Context
+regressions prove the exclusion and unchanged text behavior; they do not prove
+that every provider response contains audio or replace post-deployment testing.
+
 ## Context and Orientation
 
 The Flask routes are registered through
@@ -540,6 +583,10 @@ implemented by:
 - `live_follow_up_persistence.py`: saves deterministic history and
   client-reported, non-billable usage;
 - `live_follow_up_capacity.py`: owns per-worker/global/user Redis leases.
+
+`src/api/prompts/live_follow_up.md` owns the default Live voice instruction;
+`follow_up_context.py` composes it with the same profile and history handling
+used by text, without resolving the Course Prompt on the Live path.
 
 The frontend direct transport is implemented by:
 
@@ -576,8 +623,9 @@ into the lesson tree so learner UI never guesses.
 
 On authenticated session POST, validate learner or preview access, effective
 model/provider/voice, outline, anchor, learning mode, and Origin. Reserve Redis
-capacity through the credential lifetime. Build the shared follow-up system
-instruction and latest ten turns. Mint a Gemini token with `uses=1`, a
+capacity through the credential lifetime. Build the follow-up instruction and
+latest ten turns through the shared context builder, with the Live voice
+default instead of the Course Prompt. Mint a Gemini token with `uses=1`, a
 30-second new-session window, 15-minute expiry, and a locked effective Bidi
 setup. Store a separate 45-second Redis session binding and return only the
 ephemeral token, allowlisted constrained WSS endpoint, prompt-free setup,
@@ -700,6 +748,11 @@ IDs, WSS/HTTP URLs, token, resumption handle, and raw error are prohibited.
 - Token tests assert one use, 30-second connection window, 15-minute expiry,
   exact constrained model/config, private system instruction placement, prompt-
   free browser setup, and bounded provider failure handling.
+- Context tests forbid Live Course Prompt lookup in reading/listening and
+  learner/preview sessions. Cover blank, whitespace-only, placeholder, and
+  standalone follow-up prompts, preserving profile formatting, language,
+  anchor, and ten-turn history. Text regressions retain Course Prompt
+  composition and precedence over an optional fallback.
 - Session tests cover permission and Origin binding, Redis fail-closed,
   capacity acquisition/pre-disclosure rollback/token-lifetime expiry, hashed
   Redis keys, the independent heartbeat TTL, consume-once end without early

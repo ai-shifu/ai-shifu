@@ -263,6 +263,7 @@ def build_follow_up_conversation_context(
     generated_block_model: object | None = None,
     format_prompt: Callable[..., str] | None = None,
     output_language: str | None = None,
+    fallback_system_prompt: str | None = None,
 ) -> FollowUpConversationContext:
     """Compose the effective prompt and history for either follow-up transport."""
     if not str(outline_item_bid or "").strip():
@@ -281,9 +282,10 @@ def build_follow_up_conversation_context(
             }
         )
 
-    if course_system_prompt:
+    context_prompt = course_system_prompt or fallback_system_prompt
+    if context_prompt:
         variable_course_prompt = build_course_prompt(
-            course_system_prompt,
+            context_prompt,
             variables=profiles,
             nickname_identifiers=(
                 getattr(user_info, "user_bid", ""),
@@ -311,8 +313,8 @@ def build_follow_up_conversation_context(
         base_system_prompt = None
 
     ask_prompt = str(follow_up_info.ask_prompt or "")
-    # Drafts and freshly published courses may not have a generated follow-up
-    # prompt yet. Keep their inherited course context available to both paths.
+    # Blank follow-up prompts use the transport's base instruction: inherited
+    # course instructions for text, or an explicit voice fallback for Live.
     system_instruction = (
         ask_prompt if ask_prompt.strip() else "{shifu_system_message}"
     ).replace(
