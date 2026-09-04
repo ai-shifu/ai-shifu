@@ -51,14 +51,32 @@ import type { UpdatePolicy } from './useCreditNotificationConfigTabState';
 
 type RuleAction = 'created' | 'edited' | 'deleted' | 'toggled';
 
+const createMigratedEmailRules = (
+  rules: CreditNotificationRule[],
+  resolveTypeLabel: (value: string) => string,
+): CreditNotificationRule[] =>
+  rules.map(rule => ({
+    rule_bid: `email-${rule.trigger_event}`,
+    name: resolveTypeLabel(rule.trigger_event),
+    trigger_event: rule.trigger_event,
+    channel: 'email',
+    template_code: '',
+    enabled: false,
+    conditions: JSON.parse(
+      JSON.stringify(rule.conditions),
+    ) as CreditNotificationRule['conditions'],
+  }));
+
 const createRuleBid = () =>
   `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const createDraftRule = (): CreditNotificationRule => ({
+const createDraftRule = (
+  channel: CreditNotificationRule['channel'],
+): CreditNotificationRule => ({
   rule_bid: createRuleBid(),
   name: '',
   trigger_event: 'credit_granted',
-  channel: 'sms',
+  channel,
   template_code: '',
   enabled: false,
   conditions: {},
@@ -100,12 +118,15 @@ const ruleConditionsSummary = (
 };
 
 export function CreditNotificationRuleManagementSection({
+  contactMode,
   policy,
   templateOptions,
   resolveTypeLabel,
   updatePolicy,
   onRuleAction,
+  onLegacyRulesMigrated,
 }: {
+  contactMode: CreditNotificationRule['channel'];
   policy: AdminOperationCreditNotificationPolicy;
   templateOptions: AdminOperationCreditNotificationTemplateOption[];
   resolveTypeLabel: (value: string) => string;
@@ -114,6 +135,7 @@ export function CreditNotificationRuleManagementSection({
     action: RuleAction,
     triggerEvent: KnownNotificationType,
   ) => void;
+  onLegacyRulesMigrated: () => void;
 }) {
   const { t } = useTranslation();
   const [editingRule, setEditingRule] = useState<CreditNotificationRule | null>(
@@ -122,7 +144,13 @@ export function CreditNotificationRuleManagementSection({
   const [isNewRule, setIsNewRule] = useState(false);
   const [deletingRule, setDeletingRule] =
     useState<CreditNotificationRule | null>(null);
+  const [confirmingLegacyMigration, setConfirmingLegacyMigration] =
+    useState(false);
   const rows = policy.rules;
+  const canMigrateLegacySmsRules =
+    contactMode === 'email' &&
+    rows.length > 0 &&
+    rows.every(rule => rule.legacy);
   const columns = useMemo(
     () => [
       {
@@ -141,9 +169,14 @@ export function CreditNotificationRuleManagementSection({
       },
       {
         key: 'template',
-        header: t(
-          'module.operationsCreditNotifications.ruleManagement.columns.template',
-        ),
+        header:
+          contactMode === 'email'
+            ? t(
+                'module.operationsCreditNotifications.ruleManagement.columns.emailTemplate',
+              )
+            : t(
+                'module.operationsCreditNotifications.ruleManagement.columns.template',
+              ),
         className: 'min-w-[180px]',
       },
       {
@@ -168,10 +201,10 @@ export function CreditNotificationRuleManagementSection({
         className: 'w-[128px] text-right',
       },
     ],
-    [t],
+    [contactMode, t],
   );
   const openNewRule = () => {
-    setEditingRule(createDraftRule());
+    setEditingRule(createDraftRule(contactMode));
     setIsNewRule(true);
   };
   const openEditRule = (rule: CreditNotificationRule) => {
@@ -200,25 +233,59 @@ export function CreditNotificationRuleManagementSection({
     onRuleAction('deleted', deletingRule.trigger_event);
     setDeletingRule(null);
   };
+  const migrateLegacySmsRules = () => {
+    updatePolicy(draft => {
+      draft.rules = createMigratedEmailRules(draft.rules, resolveTypeLabel);
+    });
+    onLegacyRulesMigrated();
+    setConfirmingLegacyMigration(false);
+  };
 
   return (
     <>
       <CreditNotificationConfigSection
         title={t('module.operationsCreditNotifications.ruleManagement.title')}
-        description={t(
-          'module.operationsCreditNotifications.ruleManagement.description',
-        )}
+        description={
+          contactMode === 'email'
+            ? t(
+                'module.operationsCreditNotifications.ruleManagement.descriptionEmail',
+              )
+            : t(
+                'module.operationsCreditNotifications.ruleManagement.description',
+              )
+        }
         action={
-          <Button
-            type='button'
-            size='sm'
-            onClick={openNewRule}
-          >
-            <Plus className='mr-1.5 h-4 w-4' />
-            {t('module.operationsCreditNotifications.ruleManagement.newRule')}
-          </Button>
+          <div className='flex items-center gap-2'>
+            {canMigrateLegacySmsRules ? (
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                onClick={() => setConfirmingLegacyMigration(true)}
+              >
+                {t(
+                  'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRules',
+                )}
+              </Button>
+            ) : null}
+            <Button
+              type='button'
+              size='sm'
+              onClick={openNewRule}
+            >
+              <Plus className='mr-1.5 h-4 w-4' />
+              {t('module.operationsCreditNotifications.ruleManagement.newRule')}
+            </Button>
+          </div>
         }
       >
+        {canMigrateLegacySmsRules ? (
+          <p className='mb-4 text-sm text-muted-foreground'>
+            {t(
+              'module.operationsCreditNotifications.ruleManagement.legacySmsMigrationHint',
+            )}
+          </p>
+        ) : null}
         {rows.length ? (
           <CreditNotificationConfigOverviewTable
             columns={columns}
@@ -386,6 +453,35 @@ export function CreditNotificationRuleManagementSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog
+        open={confirmingLegacyMigration}
+        onOpenChange={open => !open && setConfirmingLegacyMigration(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t(
+                'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRulesTitle',
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRulesDescription',
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t('module.operationsCreditNotifications.ruleManagement.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={migrateLegacySmsRules}>
+              {t(
+                'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRules',
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -495,6 +591,7 @@ function RuleEditor({
             update({
               trigger_event: value as KnownNotificationType,
               template_code: '',
+              locale_template_codes: {},
               conditions:
                 value === 'credit_expiring'
                   ? { windows: [] }
@@ -698,15 +795,62 @@ function RuleTemplateSelector({
   onChange: (templateCode: string) => void;
 }) {
   const { t } = useTranslation();
-  const compatibleTemplates = templateOptions.filter(
-    option =>
-      option.channel === 'sms' &&
-      option.provider === 'aliyun' &&
-      option.sync_status === 'synced' &&
-      option.template_status === 'AUDIT_STATE_PASS' &&
+  const compatibleTemplates = templateOptions.filter(option => {
+    const matchesChannel =
+      rule.channel === 'email'
+        ? option.channel === 'email' &&
+          option.provider === 'smtp' &&
+          option.sync_status === 'local' &&
+          option.template_status === 'active'
+        : option.channel === 'sms' &&
+          option.provider === 'aliyun' &&
+          option.sync_status === 'synced' &&
+          option.template_status === 'AUDIT_STATE_PASS';
+    return (
+      matchesChannel &&
       (!option.compatible_notification_types ||
-        option.compatible_notification_types.includes(rule.trigger_event)),
-  );
+        option.compatible_notification_types.includes(rule.trigger_event))
+    );
+  });
+
+  if (rule.channel === 'email') {
+    const englishTemplates = compatibleTemplates.filter(
+      template => template.locale === 'en-US',
+    );
+    return (
+      <div className='sm:col-span-2'>
+        <div>
+          <Label>
+            {t(
+              'module.operationsCreditNotifications.ruleManagement.fields.englishFallbackTemplate',
+            )}
+          </Label>
+          <Select
+            value={rule.template_code}
+            onValueChange={onChange}
+          >
+            <SelectTrigger className='mt-1'>
+              <SelectValue
+                placeholder={t(
+                  'module.operationsCreditNotifications.ruleManagement.selectEnglishFallbackTemplate',
+                )}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {englishTemplates.map(template => (
+                <SelectItem
+                  key={template.template_code}
+                  value={template.template_code}
+                >
+                  {template.template_name || template.template_code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

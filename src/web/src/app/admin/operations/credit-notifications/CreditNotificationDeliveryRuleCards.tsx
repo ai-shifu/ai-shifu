@@ -49,11 +49,12 @@ function ConfigCard({
 }
 
 export function SoftlimitCard({
+  contactMode,
   policy,
   updatePolicy,
 }: Pick<
   CreditNotificationDeliveryRulesSectionProps,
-  'policy' | 'updatePolicy'
+  'contactMode' | 'policy' | 'updatePolicy'
 >) {
   const { t } = useTranslation();
   return (
@@ -131,17 +132,21 @@ export function SoftlimitCard({
               });
             },
           },
-          {
-            id: 'credit-notification-softlimit-sms',
-            label:
-              'module.operationsCreditNotifications.config.fields.softlimitSms',
-            checked: policy.softlimit.sms_enabled,
-            update: (checked: boolean) => {
-              updatePolicy(draft => {
-                draft.softlimit.sms_enabled = checked;
-              });
-            },
-          },
+          ...(contactMode === 'phone'
+            ? [
+                {
+                  id: 'credit-notification-softlimit-sms',
+                  label:
+                    'module.operationsCreditNotifications.config.fields.softlimitSms',
+                  checked: policy.softlimit.sms_enabled,
+                  update: (checked: boolean) => {
+                    updatePolicy(draft => {
+                      draft.softlimit.sms_enabled = checked;
+                    });
+                  },
+                },
+              ]
+            : []),
         ].map(field => (
           <div
             key={field.id}
@@ -166,6 +171,7 @@ export function SoftlimitCard({
 }
 
 export function FrequencyCard({
+  contactMode,
   policy,
   updatePolicy,
   getIntegerInputValue,
@@ -179,17 +185,23 @@ export function FrequencyCard({
         'module.operationsCreditNotifications.config.sections.frequency',
       )}
       description={t(
-        'module.operationsCreditNotifications.config.sectionDescriptions.frequency',
+        contactMode === 'email'
+          ? 'module.operationsCreditNotifications.config.sectionDescriptions.frequencyEmail'
+          : 'module.operationsCreditNotifications.config.sectionDescriptions.frequency',
       )}
     >
       <div className='grid gap-3 sm:grid-cols-2'>
         <FormField
           htmlFor='credit-notification-per-mobile'
           label={t(
-            'module.operationsCreditNotifications.config.fields.perMobilePerDay',
+            contactMode === 'email'
+              ? 'module.operationsCreditNotifications.config.fields.perRecipientPerDay'
+              : 'module.operationsCreditNotifications.config.fields.perMobilePerDay',
           )}
           tooltip={t(
-            'module.operationsCreditNotifications.config.fieldTips.perMobilePerDay',
+            contactMode === 'email'
+              ? 'module.operationsCreditNotifications.config.fieldTips.perRecipientPerDay'
+              : 'module.operationsCreditNotifications.config.fieldTips.perMobilePerDay',
           )}
         >
           <Input

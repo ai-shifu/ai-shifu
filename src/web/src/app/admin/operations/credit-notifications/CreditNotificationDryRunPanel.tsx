@@ -4,10 +4,12 @@ import type { AdminOperationCreditNotificationDryRunResponse } from '../operatio
 import { CreditNotificationConfigSection as ConfigSection } from './CreditNotificationFormPrimitives';
 
 export function CreditNotificationDryRunPanel({
+  contactMode,
   dryRunResult,
   dryRunError,
   dryRun,
 }: {
+  contactMode: 'email' | 'phone';
   dryRunResult: AdminOperationCreditNotificationDryRunResponse | null;
   dryRunError: string;
   dryRun: () => void;
@@ -29,18 +31,28 @@ export function CreditNotificationDryRunPanel({
           ),
           value: dryRunResult.created_count || 0,
         },
-        {
-          key: 'cost',
-          label: t('module.operationsCreditNotifications.dryRun.metrics.cost'),
-          value: dryRunResult.estimated_sms_cost || '0',
-        },
+        ...(contactMode === 'phone'
+          ? [
+              {
+                key: 'cost',
+                label: t(
+                  'module.operationsCreditNotifications.dryRun.metrics.cost',
+                ),
+                value: dryRunResult.estimated_sms_cost || '0',
+              },
+            ]
+          : []),
       ]
     : [];
 
   return (
     <ConfigSection
       title={t('module.operationsCreditNotifications.dryRun.title')}
-      description={t('module.operationsCreditNotifications.dryRun.description')}
+      description={t(
+        contactMode === 'email'
+          ? 'module.operationsCreditNotifications.dryRun.descriptionEmail'
+          : 'module.operationsCreditNotifications.dryRun.description',
+      )}
       action={
         <Button
           type='button'
@@ -54,7 +66,7 @@ export function CreditNotificationDryRunPanel({
     >
       {dryRunResult ? (
         <div className='rounded-xl border border-border bg-slate-50/70 p-3 shadow-sm'>
-          <div className='grid gap-3 sm:grid-cols-3'>
+          <div className='grid gap-3 sm:grid-cols-2'>
             {metricCards.map(metric => (
               <div
                 key={metric.key}
