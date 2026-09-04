@@ -1239,7 +1239,8 @@ export const useLiveVoiceFollowUp = ({
     lastTargetRef.current = null;
     transcriptsRef.current = [];
     mutedRef.current = false;
-    setViewState(initialState);
+    // The listen player consumes this reason to avoid resuming old lesson audio.
+    setViewState({ ...initialState, endReason: 'lesson_changed' });
   }, [finishAttempt, sessionScopeKey]);
 
   useEffect(() => {

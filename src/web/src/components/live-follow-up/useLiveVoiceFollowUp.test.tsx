@@ -249,6 +249,7 @@ const Harness = ({
       <span data-testid='warning'>{String(controller.warning)}</span>
       <span data-testid='muted'>{String(controller.muted)}</span>
       <span data-testid='error'>{controller.errorCode || ''}</span>
+      <span data-testid='end-reason'>{controller.endReason || ''}</span>
       <span data-testid='retryable'>{String(controller.retryable)}</span>
       <span data-testid='retry-at'>{String(controller.retryAvailableAt)}</span>
       <span data-testid='transcripts'>
@@ -1247,6 +1248,9 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockEndSession).toHaveBeenCalledWith('session-1', 'lesson_changed');
     expect(mockReleaseExclusive).toHaveBeenCalled();
     expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('end-reason')).toHaveTextContent(
+      'lesson_changed',
+    );
   });
 
   it.each([
@@ -1428,6 +1432,9 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       act(() => jest.advanceTimersByTime(1250));
 
       rerender(<Harness {...destination} />);
+      expect(screen.getByTestId('end-reason')).toHaveTextContent(
+        'lesson_changed',
+      );
       await waitFor(() =>
         expect(mockTrackEvent).toHaveBeenCalledWith(
           'learner_voice_follow_up_session_end',

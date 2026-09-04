@@ -204,6 +204,12 @@ auditing, or another correctness-sensitive decision.
       microphone streams and closing AudioContext even when another setup
       promise never settles. Synchronous audio API failures also release owned
       resources. All 62 controller/audio tests and TypeScript checking pass.
+- [x] 2026-09-04: Preserve the public `lesson_changed` terminal reason when
+      clearing scope-local UI, so the listen player cannot restore audio from
+      the previous lesson. Verified active course/mode/preview/classroom changes
+      together with terminal analytics; all 107 audio/controller/renderer tests
+      and the full 2,108-test frontend suite pass, along with TypeScript and the
+      full pre-commit gate.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
