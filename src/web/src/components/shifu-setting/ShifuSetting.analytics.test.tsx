@@ -16,6 +16,7 @@ const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
 const mockGetFollowUpModelCatalog = jest.fn();
 const mockAskSettingsSection = jest.fn();
+const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 
 const mockEnvState = {
   defaultLlmModel: '',
@@ -55,7 +56,7 @@ jest.mock('@/c-common/hooks/useTracking', () => ({
 }));
 
 jest.mock('@/hooks/useBillingData', () => ({
-  useBillingOverview: () => ({ data: undefined }),
+  useBillingOverview: () => ({ data: mockBillingOverview }),
 }));
 
 jest.mock('@/hooks/useToast', () => ({
@@ -171,6 +172,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     mockTrackEvent.mockImplementation(() => undefined);
     mockGetFollowUpModelCatalog.mockResolvedValue([]);
     mockEnvState.billingEnabled = 'false';
+    mockBillingOverview.debug_allowed = undefined;
     mockGetShifuDetail.mockResolvedValue({
       bid: 'course-1',
       name: 'Private course name',
@@ -308,6 +310,101 @@ describe('ShifuSettingDialog analytics producer', () => {
       ]);
     });
   });
+
+  it.each([false, undefined])(
+    'allows reverting to the saved text model without debug permission (%s)',
+    async debugAllowed => {
+      mockEnvState.billingEnabled = 'true';
+      mockBillingOverview.debug_allowed = debugAllowed;
+      mockGetFollowUpModelCatalog.mockResolvedValue([
+        {
+          model: 'saved-text',
+          display_name: 'Saved',
+          interaction_mode: 'text',
+          voices: [],
+        },
+        {
+          model: 'other-text',
+          display_name: 'Other',
+          interaction_mode: 'text',
+          voices: [],
+        },
+        {
+          model: 'live-model',
+          display_name: 'Live',
+          interaction_mode: 'live_voice',
+          voices: [{ voice_id: 'Kore', style: 'Firm' }],
+        },
+      ]);
+      mockGetShifuDetail.mockResolvedValue({
+        bid: 'course-1',
+        name: 'Private course name',
+        description: '',
+        keywords: [],
+        model: '',
+        price: 1,
+        avatar: '',
+        temperature: 0,
+        system_prompt: '',
+        ask_model: 'saved-text',
+        ask_temperature: 0,
+        ask_provider_config: {
+          provider: 'llm',
+          mode: 'provider_only',
+          config: {},
+        },
+        tts_enabled: false,
+        default_listen_mode_enabled: false,
+        use_learner_language: false,
+      });
+      renderOpenSettings();
+      const latestProps = () =>
+        mockAskSettingsSection.mock.calls.at(-1)?.[0] as {
+          askModel: string;
+          askModelOptions: Array<{ value: string; disabled?: boolean }>;
+          onAskModelChange: (model: string) => void;
+          isLiveVoiceFollowUp: boolean;
+          textDebugAllowed: boolean;
+        };
+      await waitFor(() => expect(latestProps().askModel).toBe('saved-text'));
+      const expectedOptions = [
+        expect.objectContaining({ value: 'saved-text', disabled: false }),
+        expect.objectContaining({ value: 'other-text', disabled: true }),
+        expect.objectContaining({ value: 'live-model', disabled: false }),
+      ];
+      expect(latestProps().askModelOptions).toEqual(expectedOptions);
+      act(() => latestProps().onAskModelChange('live-model'));
+      expect(latestProps().isLiveVoiceFollowUp).toBe(true);
+      expect(latestProps().askModelOptions).toEqual(expectedOptions);
+      expect(latestProps().textDebugAllowed).toBe(false);
+      act(() => latestProps().onAskModelChange('saved-text'));
+      expect(latestProps().isLiveVoiceFollowUp).toBe(false);
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          ask_model: 'saved-text',
+          ask_provider_config: {
+            provider: 'llm',
+            mode: 'provider_only',
+            config: {},
+          },
+        }),
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        {
+          shifu_bid: 'course-1',
+          save_type: 'manual',
+          tts_enabled: false,
+          default_listen_mode_enabled: false,
+          use_learner_language: false,
+          follow_up_mode: 'text',
+        },
+      );
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('does not save while the follow-up catalog is unresolved', async () => {
     const catalog = createDeferred<unknown[]>();

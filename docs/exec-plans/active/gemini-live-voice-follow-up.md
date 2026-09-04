@@ -161,6 +161,10 @@ auditing, or another correctness-sensitive decision.
       shortcuts) with the Live branch. Retained desktop/mobile text submission
       analytics and shortcut tests alongside mobile readonly voice history;
       adopted the upstream release pin `markdown-flow-ui@0.2.24`.
+- [x] 2026-09-04: Keep the saved text model selectable when billable debug is
+      unavailable, so trying Live does not trap teachers in an unintended
+      selection. Other billable models and text debug controls remain gated;
+      tests cover denied/unavailable billing permission and text save analytics.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

@@ -800,6 +800,7 @@ export default function ShifuSettingDialog({
       value: item.provider,
       label: item.title || item.provider,
     })) || [];
+  const savedAskModel = initialAskConfigurationRef.current?.model || '';
   const followUpModelOptions = useMemo(
     () =>
       followUpModels.map(item => ({
@@ -808,9 +809,12 @@ export default function ShifuSettingDialog({
         creditMultiplier: item.credit_multiplier ?? null,
         creditMultiplierLabel: item.credit_multiplier_label || '',
         isDefault: item.is_default,
-        disabled: !debugAllowed && item.interaction_mode !== 'live_voice',
+        disabled:
+          !debugAllowed &&
+          item.interaction_mode !== 'live_voice' &&
+          item.model !== savedAskModel,
       })),
-    [debugAllowed, followUpModels],
+    [debugAllowed, followUpModels, savedAskModel],
   );
   const selectedFollowUpModel = followUpModels.find(
     item => item.model === askModel,
