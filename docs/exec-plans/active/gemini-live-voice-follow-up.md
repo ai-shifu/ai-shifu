@@ -77,6 +77,17 @@ auditing, or another correctness-sensitive decision.
       lifecycle tests and TypeScript passed, including a native fetch that never
       settles. Full frontend rerun: 227 suites / 2,174 tests passed. No HTTP
       schema, deployment, or analytics contract changes.
+- [x] 2026-09-04: Addressed follow-up review `discussion_r3934973719`:
+      finalization retries the same idempotent batch up to three times with a
+      one-second delay after rejection. If all attempts fail, clear rejected
+      takeover/finish state, resume normal writes, and requeue every retained
+      successor, including those skipped during takeover. Pending-index guards
+      prevent duplicate sends after late acknowledgements. Three regressions
+      failed before the fix; all 102 focused controller/writer/real-transport
+      lifecycle tests passed, including native HTTP 503 followed by success.
+      Full frontend rerun: 227 suites / 2,178 tests passed.
+      The existing backend route/finalization suite also passed all 62 tests
+      with repository-pinned Flask/Werkzeug in an isolated temporary overlay.
 - [ ] 2026-09-04: Follow valid review threads and recheck current-head CI.
       Complete real-Gemini and physical
       Safari/iOS/mobile Chrome acceptance before claiming those environments:
@@ -745,6 +756,9 @@ remains active, flush playback before creating the final report and POST end
 after pending writes. Wait no longer than five seconds for that normal queue;
 if it stalls, stop its successors and hand the retained outbox to the existing
 idempotent finalizer. Late normal acknowledgements do not duplicate history.
+Retry a rejected finalizer up to three attempts with one-second backoff. If
+takeover still fails, clear its rejected state and resume/requeue unacknowledged
+normal writes; never treat rejection as successful ownership transfer.
 On unload, synchronously initiate one bounded keepalive
 finalization batch instead when the backlog fits. An over-budget backlog stays
 in an ordered queue and drains only while the document remains alive, with a

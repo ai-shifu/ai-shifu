@@ -105,6 +105,88 @@ describe('Live turn report handoff', () => {
     expect(finalizeLiveFollowUpSession).not.toHaveBeenCalled();
   });
 
+  it('retries a rejected takeover while the predecessor still owns the write lock', async () => {
+    let completeFirst!: () => void;
+    jest.mocked(commitLiveFollowUpTurn).mockReturnValueOnce(
+      new Promise(resolve => {
+        completeFirst = () => resolve(acknowledgement);
+      }),
+    );
+    jest
+      .mocked(finalizeLiveFollowUpSession)
+      .mockRejectedValueOnce(new Error('write lock busy'));
+    const committed = jest.fn();
+    const onError = jest.fn();
+    const writer = new LiveFollowUpTurnWriter('session-1', committed, onError);
+    writer.enqueue([turn(1), turn(2)]);
+    const finished = writer.finish('ended_by_user');
+    // Attach a rejection handler before advancing fake time; success is still
+    // asserted on the original promise below.
+    void finished.catch(() => {});
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(finalizeLiveFollowUpSession).toHaveBeenCalledTimes(1);
+    completeFirst();
+    await jest.advanceTimersByTimeAsync(1000);
+    await finished;
+
+    expect(finalizeLiveFollowUpSession).toHaveBeenCalledTimes(2);
+    for (const [, reports] of jest.mocked(finalizeLiveFollowUpSession).mock
+      .calls) {
+      expect(reports.map(report => report.turn_index)).toEqual([1, 2]);
+    }
+    expect(committed.mock.calls.map(([value]) => value.turnIndex)).toEqual([
+      1, 2,
+    ]);
+    expect(commitLiveFollowUpTurn).toHaveBeenCalledTimes(1);
+    expect(endLiveFollowUpSession).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it.each(['during_takeover', 'after_failure'])(
+    'resumes all retained successors after exhausted takeover retries (%s)',
+    async predecessorCompletes => {
+      let completeFirst!: () => void;
+      jest.mocked(commitLiveFollowUpTurn).mockReturnValueOnce(
+        new Promise(resolve => {
+          completeFirst = () => resolve(acknowledgement);
+        }),
+      );
+      jest
+        .mocked(finalizeLiveFollowUpSession)
+        .mockRejectedValue(new Error('offline'));
+      const committed = jest.fn();
+      const writer = new LiveFollowUpTurnWriter(
+        'session-1',
+        committed,
+        jest.fn(),
+      );
+      writer.enqueue([turn(1), turn(2), turn(3)]);
+      const rejected = expect(writer.finish('ended_by_user')).rejects.toThrow(
+        'offline',
+      );
+      await jest.advanceTimersByTimeAsync(5000);
+      if (predecessorCompletes === 'during_takeover') completeFirst();
+      await jest.advanceTimersByTimeAsync(2000);
+      await rejected;
+      expect(finalizeLiveFollowUpSession).toHaveBeenCalledTimes(3);
+      if (predecessorCompletes === 'after_failure') completeFirst();
+      await jest.advanceTimersByTimeAsync(0);
+      await writer.finish('ended_by_user');
+
+      expect(
+        jest
+          .mocked(commitLiveFollowUpTurn)
+          .mock.calls.map(([, report]) => report.turn_index),
+      ).toEqual([1, 2, 3]);
+      expect(committed.mock.calls.map(([value]) => value.turnIndex)).toEqual([
+        1, 2, 3,
+      ]);
+      expect(endLiveFollowUpSession).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
+
   it('does not finalize twice when pagehide overtakes the bounded drain', async () => {
     jest
       .mocked(commitLiveFollowUpTurn)
@@ -217,8 +299,10 @@ describe('Live turn report handoff', () => {
     const rejected = expect(writer.finish('ended_by_user')).rejects.toThrow(
       'offline',
     );
-    await jest.advanceTimersByTimeAsync(5000);
+    await jest.advanceTimersByTimeAsync(7000);
     await rejected;
+    await jest.advanceTimersByTimeAsync(45_000);
+    expect(finalizeLiveFollowUpSession).toHaveBeenCalledTimes(3);
     expect(committed).not.toHaveBeenCalled();
     expect(endLiveFollowUpSession).not.toHaveBeenCalled();
   });

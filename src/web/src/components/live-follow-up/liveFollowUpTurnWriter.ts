@@ -11,6 +11,8 @@ import type { GeminiLiveTurnCommit } from './geminiLiveTurnAccumulator';
 const MAX_UNLOAD_REPORT_BYTES = 60 * 1024 - 256;
 const NORMAL_DRAIN_TIMEOUT_MS = 5_000;
 const RETAINED_TURN_TIMEOUT_MS = 10_000;
+const MAX_FINALIZATION_ATTEMPTS = 3;
+const FINALIZATION_RETRY_DELAY_MS = 1_000;
 const WAIT_EXPIRED = Symbol('Live report wait expired');
 
 const waitForReport = async <T>(
@@ -99,7 +101,11 @@ export class LiveFollowUpTurnWriter {
     this.remember(commits);
     for (const commit of commits) {
       const persist = async () => {
-        if (this.handoff || this.normalQueueStopped) {
+        if (
+          this.handoff ||
+          this.normalQueueStopped ||
+          !this.pending.has(commit.turnIndex)
+        ) {
           return;
         }
         const acknowledgement = await commitLiveFollowUpTurn(
@@ -137,14 +143,39 @@ export class LiveFollowUpTurnWriter {
     // Do not await the active normal request: keepalive only protects requests
     // already initiated before pagehide discards this document. The backend
     // waits for an in-flight predecessor and skips its durable acknowledgement.
-    this.handoff = finalizeLiveFollowUpSession(
-      this.sessionBid,
-      outstanding.map(toReport),
-      reason,
-    ).then(() => {
-      outstanding.forEach(commit => this.publish(commit));
-    });
+    this.handoff = this.finalizeWithRecovery(outstanding, reason);
     return this.handoff;
+  }
+
+  private async finalizeWithRecovery(
+    outstanding: GeminiLiveTurnCommit[],
+    reason: string,
+  ) {
+    const reports = outstanding.map(toReport);
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        await finalizeLiveFollowUpSession(this.sessionBid, reports, reason);
+        outstanding.forEach(commit => this.publish(commit));
+        return;
+      } catch (error) {
+        if (attempt < MAX_FINALIZATION_ATTEMPTS) {
+          // The predecessor can still own the bounded backend write lock.
+          // Retry the same idempotent batch without re-enabling its successors.
+          await new Promise(resolve =>
+            setTimeout(resolve, FINALIZATION_RETRY_DELAY_MS),
+          );
+          continue;
+        }
+        // A rejected takeover is not ownership transfer. Restore retained
+        // writes, including successors that already skipped while it ran.
+        // Enqueue's pending guard skips duplicates when an old ACK arrives.
+        this.handoff = null;
+        this.finishing = null;
+        this.normalQueueStopped = false;
+        this.enqueue(this.outstanding());
+        throw error;
+      }
+    }
   }
 
   finish(reason: string): Promise<void> {
