@@ -767,7 +767,6 @@ const ListenModeSlideRenderer = ({
   lessonId = '',
   shifuBid = '',
   previewMode = false,
-  lessonStatus = '',
   onSend,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
@@ -1107,8 +1106,6 @@ const ListenModeSlideRenderer = ({
     positionSeconds: number;
     source: string;
   } | null>(null);
-  const [furthestLessonPositionSeconds, setFurthestLessonPositionSeconds] =
-    useState(0);
   const resolveListenPlaybackPositionScope = useCallback(
     (audioElement: HTMLAudioElement) => {
       const currentElement =
@@ -2401,20 +2398,9 @@ const ListenModeSlideRenderer = ({
         activeLessonPlaybackEntry.durationSeconds,
       )
     : 0;
-  const lessonSeekLimitSeconds =
-    lessonStatus === 'completed'
-      ? lessonPlaybackDurationSeconds
-      : Math.max(furthestLessonPositionSeconds, lessonPlaybackPositionSeconds);
-
-  useEffect(() => {
-    if (lessonStatus === 'completed') {
-      return;
-    }
-
-    setFurthestLessonPositionSeconds(previousPositionSeconds =>
-      Math.max(previousPositionSeconds, lessonPlaybackPositionSeconds),
-    );
-  }, [lessonPlaybackPositionSeconds, lessonStatus]);
+  // The timeline only contains finalized audio. During an in-progress lesson,
+  // that makes its end the furthest generated position a learner may seek to.
+  const lessonSeekLimitSeconds = lessonPlaybackDurationSeconds;
 
   useEffect(() => {
     const pendingSeek = pendingLessonSeekRef.current;

@@ -4,9 +4,9 @@
 
 Learners can leave and return to a listening lesson in the same browser without
 losing their position. The listen controls expose one lesson-wide timeline for
-finalized audio. During an in-progress lesson learners may replay only audio
-they have reached; completed lesson history can be sought freely. Restoring a
-position never starts audio automatically.
+finalized audio. During an in-progress lesson learners can seek within audio
+that has already been generated; completed lesson history can seek across the
+whole lesson. Restoring a position never starts audio automatically.
 
 ## Progress
 
@@ -25,6 +25,9 @@ position never starts audio automatically.
   timeline, including progression restrictions and cross-slide navigation.
 - [x] 2026-09-04 13:05 CST: Moved the lesson timeline below the player and sized
   it to the presentation viewport.
+- [x] 2026-09-04 13:30 CST: Corrected active-lesson seek bounds to the generated
+  audio end (rather than the previously reached position) and added regression
+  coverage that the displayed position advances with playback.
 
 ## Surprises & Discoveries
 
@@ -46,9 +49,10 @@ position never starts audio automatically.
   of restoration, preserving browser autoplay policies.
 - 2026-09-04: Track accepted manual timeline seeks, not automatic restores or
   timeline renders. This produces an adoption signal without render noise.
-- 2026-09-04: Treat `lessonStatus === 'completed'` as history: it can seek
-  anywhere in finalized lesson audio. Other states can only seek at or before
-  the greatest lesson-wide position the learner has actually reached locally.
+- 2026-09-04: A seek is bounded by the end of finalized/generated lesson audio,
+  regardless of completion state. This prevents a learner jumping into an
+  ungenerated future segment without artificially blocking navigation within
+  the material that is already available.
 - 2026-09-04: Place the lesson-wide timeline below the player and reserve
   player-footer space so it does not overlap the chat input.
 
@@ -73,9 +77,9 @@ URL and duration while streaming tracks may not have a finite duration.
 2. Extend the native-audio integration to report metadata, time updates, seek,
    pause, ended, unmount, and visibility changes.
 3. Restore exactly once for a matching audio identity after metadata is ready.
-4. Add a lesson-wide timeline from finalized audio durations. During an active
-   lesson it exposes only the reached range; completed history can seek across
-   all finalized audio.
+4. Add a lesson-wide timeline from finalized audio durations. It can seek
+   across generated material, while future/unfinalized audio remains absent
+   from the range.
 5. Cover the behavior with focused storage, hook, and component tests.
 
 ## Concrete Steps
@@ -96,9 +100,9 @@ URL and duration while streaming tracks may not have a finite duration.
 
 - A paused, finite audio item resumes at the saved offset after refresh or
   returning to listen mode, but remains paused.
-- The displayed timeline aggregates finalized audio across the lesson. A
-  completed history lesson can seek across it; an active lesson cannot seek
-  beyond its locally reached position.
+- The displayed timeline aggregates finalized audio across the lesson. Both
+  active and completed lessons can seek across generated audio, but no control
+  position exists for ungenerated material.
 - Seek changes are immediately eligible for persistence; normal playback saves
   at a bounded cadence and flushes on pause, unmount, and page hiding.
 - Positions near the beginning or completion are not restored; a natural end
@@ -121,8 +125,9 @@ the feature.
 
 - Browser `HTMLAudioElement` metadata,
   `timeupdate`, `pause`, `ended`, and visibility events.
-- Browser `localStorage`; no new runtime dependency, API endpoint, database
-  table, migration, or markdown-flow-ui prop.
+- Browser `localStorage`; no new API endpoint, database table, or migration.
+- `markdown-flow-ui` exposes a requested slide-step prop so a lesson-level
+  seek can move its embedded player to the matching audio segment.
 
 ### learner_listen_timeline_seek
 
