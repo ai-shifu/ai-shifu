@@ -41,6 +41,8 @@ const mockAskBlock = jest.fn(
   ),
 );
 let mockSlideMountId = 0;
+let mockSlideAudioInitialReadyState: number | null = null;
+let mockSlideAudioInitialDuration: number | null = null;
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -130,6 +132,20 @@ jest.mock('markdown-flow-ui/slide', () => {
           >
             <audio
               data-testid='slide-audio'
+              ref={audioElement => {
+                if (!audioElement || mockSlideAudioInitialReadyState === null) {
+                  return;
+                }
+
+                Object.defineProperty(audioElement, 'readyState', {
+                  configurable: true,
+                  value: mockSlideAudioInitialReadyState,
+                });
+                Object.defineProperty(audioElement, 'duration', {
+                  configurable: true,
+                  value: mockSlideAudioInitialDuration,
+                });
+              }}
               src={String(currentElement.audio_url ?? '')}
             />
             <button
@@ -226,6 +242,8 @@ describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockSlideMountId = 0;
+    mockSlideAudioInitialReadyState = null;
+    mockSlideAudioInitialDuration = null;
     getMockSlide().mockClear();
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
@@ -1468,6 +1486,77 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
+  it('restores cached metadata that loaded before the audio listener registered', async () => {
+    writeListenPlaybackPositionToStorage({
+      scope: {
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+        elementBid: 'content-1',
+        source: 'https://audio.example.com/content-1.mp3',
+      },
+      positionSeconds: 24,
+      durationSeconds: 60,
+    });
+    mockSlideAudioInitialReadyState = HTMLMediaElement.HAVE_METADATA;
+    mockSlideAudioInitialDuration = 60;
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId('slide-audio') as HTMLAudioElement).currentTime,
+      ).toBe(24);
+    });
+  });
+
+  it('removes the timeline when its active audio element is removed', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    fireEvent.loadedMetadata(audioElement);
+    expect(await screen.findByRole('slider')).toBeInTheDocument();
+
+    audioElement.remove();
+
+    await waitFor(() => {
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    });
+  });
+
   it('persists an accepted timeline seek and records the surface without audio details', async () => {
     render(
       <ListenModeSlideRenderer
@@ -1514,6 +1603,44 @@ describe('ListenModeSlideRenderer', () => {
           source: 'https://audio.example.com/content-1.mp3',
         }),
       ).toBe(30);
+    });
+  });
+
+  it('keeps timeline seeking functional when analytics tracking fails', async () => {
+    mockTrackEvent.mockRejectedValueOnce(new Error('tracking unavailable'));
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    const timeline = await screen.findByRole('slider');
+    fireEvent.pointerDown(timeline);
+    fireEvent.change(timeline, { target: { value: '30' } });
+    fireEvent.pointerUp(timeline);
+
+    await waitFor(() => {
+      expect(audioElement.currentTime).toBe(30);
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -800,6 +800,9 @@ const ListenModeSlideRenderer = ({
   const { trackEvent, EVENT_NAMES } = useTracking();
   const [playbackTimelineState, setPlaybackTimelineState] =
     useState<ListenPlaybackTimelineState | null>(null);
+  const playbackTimelineStateRef = useRef<ListenPlaybackTimelineState | null>(
+    null,
+  );
   const initialChatContainerRef = useRef<HTMLDivElement | null>(
     chatRef.current,
   );
@@ -843,6 +846,9 @@ const ListenModeSlideRenderer = ({
       currentElement: undefined,
       isActive: false,
     });
+  const playerCustomActionElementRef = useRef<ListenSlideElement | undefined>(
+    undefined,
+  );
   const [isDesktopAskPanelMounted, setIsDesktopAskPanelMounted] =
     useState(false);
   const [desktopAskPanelElementBid, setDesktopAskPanelElementBid] =
@@ -1023,11 +1029,13 @@ const ListenModeSlideRenderer = ({
     showLeadingTextPlaceholder,
     t,
   ]);
+  const elementListRef = useRef(elementList);
+  elementListRef.current = elementList;
   const resolveListenPlaybackPositionScope = useCallback(
     (audioElement: HTMLAudioElement) => {
       const currentElement =
-        playerCustomActionState.currentElement ??
-        elementList.find(element => {
+        playerCustomActionElementRef.current ??
+        elementListRef.current.find(element => {
           const elementSource = String(element.audio_url ?? '');
           const audioSource = audioElement.currentSrc || audioElement.src;
 
@@ -1059,7 +1067,7 @@ const ListenModeSlideRenderer = ({
         source,
       } satisfies ListenPlaybackPositionScope;
     },
-    [elementList, lessonId, playerCustomActionState.currentElement, shifuBid],
+    [lessonId, shifuBid],
   );
   const syncPlaybackTimeline = useCallback(
     (audioElement: HTMLAudioElement) => {
@@ -1068,6 +1076,7 @@ const ListenModeSlideRenderer = ({
 
       if (!scope || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
         if (activeListenAudioElementRef.current === audioElement) {
+          playbackTimelineStateRef.current = null;
           setPlaybackTimelineState(null);
         }
         return null;
@@ -1078,6 +1087,12 @@ const ListenModeSlideRenderer = ({
         Math.max(audioElement.currentTime, 0),
         durationSeconds,
       );
+      const nextTimelineState = {
+        currentTimeSeconds,
+        durationSeconds,
+        scope,
+      } satisfies ListenPlaybackTimelineState;
+      playbackTimelineStateRef.current = nextTimelineState;
       setPlaybackTimelineState(previousState => {
         if (
           previousState?.scope.courseId === scope.courseId &&
@@ -1090,7 +1105,7 @@ const ListenModeSlideRenderer = ({
           return previousState;
         }
 
-        return { currentTimeSeconds, durationSeconds, scope };
+        return nextTimelineState;
       });
 
       return { scope, currentTimeSeconds, durationSeconds };
@@ -1327,6 +1342,7 @@ const ListenModeSlideRenderer = ({
       setActive,
     }: PlayerCustomActionContextSnapshot) => {
       playerCustomActionSetActiveRef.current = setActive;
+      playerCustomActionElementRef.current = currentElement;
       if (isActive) {
         setDesktopAskPanelElementBid(
           resolvePlayerAskElementBid(currentElement),
@@ -1618,7 +1634,19 @@ const ListenModeSlideRenderer = ({
       audioElement.addEventListener('pause', handlePlaybackPaused);
       audioElement.addEventListener('ended', handlePlaybackEnded);
       audioListenerCleanupMapRef.current.set(audioElement, () => {
-        persistListenPlaybackPosition(audioElement, true);
+        if (activeListenAudioElementRef.current === audioElement) {
+          const activeTimelineState = playbackTimelineStateRef.current;
+          if (activeTimelineState) {
+            writeListenPlaybackPositionToStorage({
+              scope: activeTimelineState.scope,
+              positionSeconds: activeTimelineState.currentTimeSeconds,
+              durationSeconds: activeTimelineState.durationSeconds,
+            });
+          }
+          activeListenAudioElementRef.current = null;
+          playbackTimelineStateRef.current = null;
+          setPlaybackTimelineState(null);
+        }
         audioElement.removeEventListener('play', handlePlaybackStarted);
         audioElement.removeEventListener('playing', handlePlaybackStarted);
         audioElement.removeEventListener(
@@ -1639,6 +1667,9 @@ const ListenModeSlideRenderer = ({
         audioElement.removeEventListener('ended', handlePlaybackEnded);
         audioWaitingStateMapRef.current.delete(audioElement);
       });
+      if (audioElement.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        handlePlaybackMetadata();
+      }
       syncMediaPlaybackState();
     };
 
@@ -2310,9 +2341,11 @@ const ListenModeSlideRenderer = ({
     }
 
     persistListenPlaybackPosition(audioElement, true);
-    void trackEvent(EVENT_NAMES.LEARNER_LISTEN_TIMELINE_SEEK, {
-      surface: mobileStyle ? 'learner_mobile' : 'learner_desktop',
-    });
+    void Promise.resolve(
+      trackEvent(EVENT_NAMES.LEARNER_LISTEN_TIMELINE_SEEK, {
+        surface: mobileStyle ? 'learner_mobile' : 'learner_desktop',
+      }),
+    ).catch(() => {});
   }, [
     EVENT_NAMES.LEARNER_LISTEN_TIMELINE_SEEK,
     mobileStyle,

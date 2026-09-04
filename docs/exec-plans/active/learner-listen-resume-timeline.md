@@ -12,13 +12,13 @@ never starts audio automatically.
 - [x] 2026-09-04 10:00 CST: Confirmed that the learner slide renderer owns
   the native `audio` element used for listening; no backend or UI-library
   change is needed.
-- [x] 2026-09-04: Added a local, versioned playback-position storage contract
+- [x] 2026-09-04 10:15 CST: Added a local, versioned playback-position storage contract
   and unit tests.
-- [x] 2026-09-04: Connected metadata restore and lifecycle persistence to the
+- [x] 2026-09-04 10:20 CST: Connected metadata restore and lifecycle persistence to the
   native listen audio without autoplay.
-- [x] 2026-09-04: Rendered an accessible compact timeline in the existing
+- [x] 2026-09-04 10:25 CST: Rendered an accessible compact timeline in the existing
   learner controls and tracked accepted seeks.
-- [x] 2026-09-04: Focused tests, type check, lint, repository harness, and
+- [x] 2026-09-04 10:30 CST: Focused tests, type check, lint, repository harness, and
   generated knowledge-index validation passed; commit gate remains.
 
 ## Surprises & Discoveries
