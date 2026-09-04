@@ -273,11 +273,21 @@ def test_session_rejects_invalid_shape_mode_surface_and_origin(
         _post_session(app, payload, origin=origin)
 
 
+@pytest.mark.parametrize("api_base_url", ["", "https://proxy.example.com/google/"])
 def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
     monkeypatch: pytest.MonkeyPatch,
+    api_base_url: str,
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_session_validation(monkeypatch)
+    monkeypatch.setattr(
+        routes,
+        "get_config",
+        lambda name, default=None: {
+            "GEMINI_API_KEY": "test-gemini-key",
+            "GEMINI_API_URL": api_base_url,
+        }.get(name, default),
+    )
     minted: list[dict[str, object]] = []
     stored: list[StoredLiveFollowUpSession] = []
     lease = _stored_session().lease
@@ -297,7 +307,10 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
         lambda _app, *, session: stored.append(session),
     )
 
-    response = _post_session(app, _valid_payload())
+    response = _post_session(
+        app,
+        _valid_payload(api_base_url="https://untrusted.example.com"),
+    )
     body = json.loads(response.get_data(as_text=True))["data"]
 
     assert body["session_bid"] == "session-1"
@@ -310,12 +323,16 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
     assert response.mimetype == "application/json"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert "systemInstruction" not in body["setup"]["setup"]
+    assert "proxy.example.com" not in response.get_data(as_text=True)
+    assert "untrusted.example.com" not in response.get_data(as_text=True)
+    assert "test-gemini-key" not in response.get_data(as_text=True)
     assert body["history"]["clientContent"]["turns"][0]["parts"][0]["text"] == (
         "Earlier question"
     )
     assert minted == [
         {
             "api_key": "test-gemini-key",
+            "api_base_url": api_base_url,
             "model": routes.GEMINI_LIVE_MODEL_ID,
             "voice_name": "Kore",
             "system_instruction": "private system instruction",

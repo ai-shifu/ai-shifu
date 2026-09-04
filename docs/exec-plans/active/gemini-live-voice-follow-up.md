@@ -264,6 +264,17 @@ auditing, or another correctness-sensitive decision.
       all 91 accumulator/controller/writer tests and TypeScript checking pass.
       The complete frontend suite passes 2,136 tests across 226 suites, and the
       full pre-commit gate passes with no new architecture-boundary violations.
+- [x] 2026-09-04: Deployed the reviewed browser-direct tree through PR #2758
+      as dev commit `396b3aceb` (Drone #4726). Both API/web images, public HTTP
+      health, the public direct-transport bundle, and Redis PING were verified.
+      The existing Live flag remained enabled; no ingress/env changes were made.
+- [x] 2026-09-04: Reuse the server's existing `GEMINI_API_URL` for token
+      provisioning, preserving proxy prefixes and the fixed browser endpoint.
+      Reject unsafe URLs and disable redirects/fallback hosts. Seventeen
+      targeted cases reproduced the missing configuration before the fix;
+      all 97 focused token/route/deployment tests pass afterward.
+- [ ] 2026-09-04: Correct the provider-reported token FieldMask mismatch,
+      verify real constrained token creation, and deploy the connection fixes.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -275,6 +286,15 @@ auditing, or another correctness-sensitive decision.
 
 ## Surprises & Discoveries
 
+- The dev API container cannot reach Google's HTTPS endpoint directly. Its
+  existing Gemini reverse proxy is reachable, but the original token issuer
+  ignored `GEMINI_API_URL`. A healthy deployment and direct browser media path
+  therefore did not prove token provisioning worked.
+- A real request through the configured proxy reached Gemini but returned
+  HTTP 400: setup contains fields absent from its FieldMask. The token setup
+  still supplied empty `sessionResumption` despite intentionally leaving that
+  field unlocked. Client-settable fields must also be absent from the token's
+  constrained setup, not merely absent from the mask.
 - The dev ingress returned HTTP 200 rather than WebSocket 101 for the original
   internal Live path because its outer proxy did not forward Upgrade headers.
   This was the concrete reason the voice dialog failed after session creation.
@@ -313,6 +333,13 @@ auditing, or another correctness-sensitive decision.
 
 ## Decision Log
 
+- Decision: reuse `GEMINI_API_URL` only for backend token provisioning, with
+  the same base-plus-`/v1beta` path contract as Gemini model discovery.
+  - Why: existing environments already configure their trusted Gemini proxy.
+    Preserve proxy prefixes, require HTTPS without URL credentials/query/
+    fragment, and disable redirects to avoid forwarding the API-key header.
+    Do not add another environment variable or change the browser's fixed
+    official constrained WebSocket endpoint.
 - Decision: implement from current `origin/main` and do not inspect, repair,
   merge, or depend on pull request #2732.
   - Why: the user explicitly replaced the earlier delivery-order instruction.
