@@ -148,7 +148,7 @@
   position: absolute;
   left: 50%;
   bottom: calc(
-    var(--chat-footer-height, 0px) + var(--listen-player-footer-gap, 12px)
+    var(--chat-footer-height, 40px) + var(--listen-player-footer-gap, 12px)
   );
   z-index: 31;
   display: flex;

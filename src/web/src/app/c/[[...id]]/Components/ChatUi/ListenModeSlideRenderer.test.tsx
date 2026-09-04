@@ -81,6 +81,7 @@ jest.mock('markdown-flow-ui/slide', () => {
     blockBid: 'content-1',
     type: 'content',
     audio_url: '',
+    is_marker: true,
   };
   type SlideCustomActionContext = {
     currentElement: typeof slideCustomActionElement;
@@ -102,27 +103,41 @@ jest.mock('markdown-flow-ui/slide', () => {
           | ((context: SlideCustomActionContext) => React.ReactNode);
         elementList?: Array<typeof slideCustomActionElement>;
         requestedStepIndex?: number;
+        onStepChange?: (
+          element: typeof slideCustomActionElement | undefined,
+          index: number,
+        ) => void;
       }) => {
         const [isActive, setIsActive] = ReactRuntime.useState(false);
+        const stepElements = props.elementList?.filter(element =>
+          Boolean(element.is_marker),
+        );
         const currentElement =
           (typeof props.requestedStepIndex === 'number'
-            ? props.elementList?.[props.requestedStepIndex]
+            ? stepElements?.[props.requestedStepIndex]
             : undefined) ??
           props.elementList?.find(element => Boolean(element.audio_url)) ??
           props.elementList?.[0] ??
           slideCustomActionElement;
+        const currentIndex = Math.max(
+          0,
+          stepElements?.indexOf(currentElement) ?? 0,
+        );
+        ReactRuntime.useEffect(() => {
+          props.onStepChange?.(currentElement, currentIndex);
+        }, [currentElement, currentIndex, props.onStepChange]);
         const toggleActive = ReactRuntime.useCallback(() => {
           setIsActive(currentActive => !currentActive);
         }, []);
         const slideCustomActionContext = ReactRuntime.useMemo(
           () => ({
             currentElement,
-            currentIndex: 0,
+            currentIndex,
             isActive,
             setActive: setIsActive,
             toggleActive,
           }),
-          [currentElement, isActive, toggleActive],
+          [currentElement, currentIndex, isActive, toggleActive],
         );
         const mountId = ReactRuntime.useMemo(() => {
           mockSlideMountId += 1;
@@ -1601,6 +1616,64 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
+  it('restores a later marker step when earlier elements are not slide steps', async () => {
+    writeListenPlaybackPositionToStorage({
+      scope: {
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+        elementBid: 'content-2',
+        source: 'https://audio.example.com/content-2.mp3',
+      },
+      positionSeconds: 18,
+      durationSeconds: 60,
+    });
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: '<p>Unmarked context</p>',
+            element_type: 'html',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+            is_marker: false,
+          },
+          {
+            type: 'content',
+            content: '<p>Second</p>',
+            element_type: 'html',
+            element_bid: 'content-2',
+            audio_url: 'https://audio.example.com/content-2.mp3',
+            is_marker: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = await screen.findByTestId('slide-audio');
+    await waitFor(() => {
+      expect(audioElement).toHaveAttribute(
+        'src',
+        'https://audio.example.com/content-2.mp3',
+      );
+    });
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    await waitFor(() => {
+      expect((audioElement as HTMLAudioElement).currentTime).toBe(18);
+      expect(screen.getByRole('slider')).toBeInTheDocument();
+    });
+  });
+
   it('restores cached metadata that loaded before the audio listener registered', async () => {
     writeListenPlaybackPositionToStorage({
       scope: {
@@ -1720,6 +1793,69 @@ describe('ListenModeSlideRenderer', () => {
           lessonId: 'lesson-1',
           elementBid: 'content-1',
           source: 'https://audio.example.com/content-1.mp3',
+        }),
+      ).toBe(30);
+    });
+  });
+
+  it('persists and tracks a timeline seek that switches to another audio block', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'First',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+            audioDurationMs: 60_000,
+          },
+          {
+            type: 'content',
+            content: 'Second',
+            element_bid: 'content-2',
+            audio_url: 'https://audio.example.com/content-2.mp3',
+            audioDurationMs: 60_000,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    const timeline = await screen.findByRole('slider');
+    fireEvent.pointerDown(timeline);
+    fireEvent.change(timeline, { target: { value: '90' } });
+    fireEvent.pointerUp(timeline);
+
+    await waitFor(() => {
+      expect(audioElement).toHaveAttribute(
+        'src',
+        'https://audio.example.com/content-2.mp3',
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_listen_timeline_seek',
+        { surface: 'learner_desktop' },
+      );
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    await waitFor(() => {
+      expect(audioElement.currentTime).toBe(30);
+      expect(
+        readListenPlaybackPositionFromStorage({
+          courseId: 'course-1',
+          lessonId: 'lesson-1',
+          elementBid: 'content-2',
+          source: 'https://audio.example.com/content-2.mp3',
         }),
       ).toBe(30);
     });

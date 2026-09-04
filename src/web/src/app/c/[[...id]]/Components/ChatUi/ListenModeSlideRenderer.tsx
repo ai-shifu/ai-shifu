@@ -282,6 +282,14 @@ type LessonPlaybackTimelineEntry = {
   startSeconds: number;
 };
 
+const getListenSlideStepIndex = (
+  elements: ListenSlideElement[],
+  elementIndex: number,
+) =>
+  elements
+    .slice(0, elementIndex + 1)
+    .filter(element => Boolean(element.is_marker)).length - 1;
+
 const LISTEN_PLAYBACK_POSITION_WRITE_INTERVAL_MS = 5_000;
 
 const formatListenPlaybackTimelineTime = (timeSeconds: number) => {
@@ -856,6 +864,9 @@ const ListenModeSlideRenderer = ({
   const [fullscreenPortalContainer, setFullscreenPortalContainer] =
     useState<HTMLElement | null>(null);
   const [currentStepBlockBid, setCurrentStepBlockBid] = useState('');
+  const currentStepElementRef = useRef<ListenSlideElement | undefined>(
+    undefined,
+  );
   const [playerCustomActionState, setPlayerCustomActionState] =
     useState<PlayerCustomActionState>({
       currentElement: undefined,
@@ -1044,8 +1055,6 @@ const ListenModeSlideRenderer = ({
     showLeadingTextPlaceholder,
     t,
   ]);
-  const elementListRef = useRef(elementList);
-  elementListRef.current = elementList;
   const lessonTimelineAudioSources = useMemo(() => {
     const sources = new Map<string, string>();
 
@@ -1144,7 +1153,7 @@ const ListenModeSlideRenderer = ({
         entries.push({
           durationSeconds,
           elementBid,
-          slideIndex,
+          slideIndex: getListenSlideStepIndex(elementList, slideIndex),
           source,
           startSeconds,
         });
@@ -1193,18 +1202,20 @@ const ListenModeSlideRenderer = ({
       return;
     }
 
-    const targetSlideIndex = elementList.findIndex(
+    const targetElementIndex = elementList.findIndex(
       element =>
         element.blockBid === storedTarget.elementBid &&
         normalizeListenPlaybackSource(String(element.audio_url ?? '')) ===
           storedTarget.source,
     );
-    if (targetSlideIndex < 0) {
+    if (targetElementIndex < 0) {
       return;
     }
 
     restoredLessonPlaybackTargetRef.current = lessonScopeKey;
-    setRequestedStepIndex(targetSlideIndex);
+    setRequestedStepIndex(
+      getListenSlideStepIndex(elementList, targetElementIndex),
+    );
   }, [elementList, lessonId, shifuBid]);
 
   const resolveListenPlaybackPositionScope = useCallback(
@@ -1212,12 +1223,7 @@ const ListenModeSlideRenderer = ({
       const audioSource = normalizeListenPlaybackSource(
         audioElement.currentSrc || audioElement.src,
       );
-      const currentElement = elementListRef.current.find(
-        element =>
-          Boolean(element.audio_url) &&
-          normalizeListenPlaybackSource(String(element.audio_url)) ===
-            audioSource,
-      );
+      const currentElement = currentStepElementRef.current;
       const elementBid = currentElement?.blockBid?.trim() ?? '';
       const elementSource = String(currentElement?.audio_url ?? '');
       const source = normalizeListenPlaybackSource(
@@ -1227,6 +1233,7 @@ const ListenModeSlideRenderer = ({
       if (
         !elementBid ||
         !source ||
+        source !== audioSource ||
         currentElement?.is_audio_streaming ||
         currentElement?.isAudioStreaming
       ) {
@@ -1952,7 +1959,9 @@ const ListenModeSlideRenderer = ({
 
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
-      const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
+      const currentElement = element as ListenSlideElement | undefined;
+      currentStepElementRef.current = currentElement;
+      const blockBid = currentElement?.blockBid;
       if (blockBid && blockBid !== 'empty-ppt') {
         setCurrentStepBlockBid(blockBid);
       }
@@ -2519,7 +2528,12 @@ const ListenModeSlideRenderer = ({
     );
     pendingLessonSeekRef.current = null;
     syncPlaybackTimeline(audioElement);
-  }, [playbackTimelineState, syncPlaybackTimeline]);
+    persistListenPlaybackPosition(audioElement, true);
+  }, [
+    persistListenPlaybackPosition,
+    playbackTimelineState,
+    syncPlaybackTimeline,
+  ]);
 
   const handleTimelineSeekStart = useCallback(() => {
     timelineSeekStartSecondsRef.current = lessonPlaybackPositionSeconds;
@@ -2578,17 +2592,21 @@ const ListenModeSlideRenderer = ({
   const commitTimelineSeek = useCallback(() => {
     const audioElement = activeListenAudioElementRef.current;
     const startTimeSeconds = timelineSeekStartSecondsRef.current;
+    const pendingSeek = pendingLessonSeekRef.current;
     timelineSeekStartSecondsRef.current = null;
     if (
-      !audioElement ||
       startTimeSeconds === null ||
-      !playbackTimelineState ||
-      Math.abs(lessonPlaybackPositionSeconds - startTimeSeconds) < 0.1
+      (!pendingSeek &&
+        (!audioElement ||
+          !playbackTimelineState ||
+          Math.abs(lessonPlaybackPositionSeconds - startTimeSeconds) < 0.1))
     ) {
       return;
     }
 
-    persistListenPlaybackPosition(audioElement, true);
+    if (audioElement && !pendingSeek) {
+      persistListenPlaybackPosition(audioElement, true);
+    }
     void Promise.resolve(
       trackEvent(EVENT_NAMES.LEARNER_LISTEN_TIMELINE_SEEK, {
         surface: mobileStyle ? 'learner_mobile' : 'learner_desktop',
