@@ -21,12 +21,24 @@ each PR's diff relative to the preceding stack branch.
 - [x] 2026-09-05 06:56 CST: Removed three unused authoring helpers and the
   obsolete commented loader call; 102 related suites / 1173 tests and type
   checking pass, with retained declarations structurally unchanged.
-- [ ] Remove and validate the unused learner URL helper.
-- [ ] Verify the entire stack, production routes, and complete rollback patch.
+- [x] 2026-09-05 07:02 CST: Removed the unused learner URL helper; 102
+  related suites / 1173 tests and type checking pass. The complete frontend
+  suite passes all 214 suites / 1966 tests; lint and production build pass.
+- [x] 2026-09-05 07:07 CST: Verified the complete stack, unchanged public
+  route manifests, production bundle differences, and per-layer/cumulative
+  reverse-patch checks. Completed the execution and recovery record.
 
 ## Surprises & Discoveries
 
 - File reachability alone missed unused declarations in maintained files.
+- Production builds at identical source/dependency paths reproduce the saved
+  baseline. Of 166 application scripts, 162 are byte-identical; the other four
+  differ only in compiler export aliases (`B9` to `B`, `g0` to `g`) and matching
+  call sites. Normalizing those aliases yields identical scripts.
+- One CSS bundle loses 268 bytes: the five background-color utilities used
+  only by the removed password-strength helper. Repository searches found no
+  remaining class references or dynamic constructions for these colors. The
+  other nine CSS bundles are byte-identical.
 - Knip's 231 export candidates include functions used inside their own module;
   an unused export does not establish an unused implementation.
 - ESLint removed an unnecessary file-level no-unused-vars directive from
@@ -56,8 +68,19 @@ checking pass. Layer 2 removes five unused upload/password-strength helpers
 and their adjacent documentation, totaling 164 source lines; its 11 related
 suites / 115 tests and type checking pass. Layer 3 removes three unused
 authoring helpers and an obsolete commented call, totaling 22 source lines;
-its 102 related suites / 1173 tests and type checking pass. Layer 4 and
-cumulative verification are pending.
+its 102 related suites / 1173 tests and type checking pass. Layer 4 removes
+one unused learner URL helper, totaling 11 source lines. Its 102 related
+suites / 1173 tests and type checking pass. The cumulative frontend suite
+passes 214 suites / 1966 tests; lint and production build pass. Route manifests
+match the baseline. The bundle audit confirms only consistent export-alias
+renaming and removal of five unused CSS utilities. All retained source
+declarations are structurally unchanged. Each incremental patch and the
+combined stack pass reverse-application checks. In total, 13 functions and
+their exclusive remnants remove 240 source lines across seven files.
+
+No browser or live-provider smoke test was added for these unreachable-code
+deletions; existing regression coverage, source-reference checks, retained-AST
+comparison, and production artifact inspection provide the behavior evidence.
 
 ## Context and Orientation
 
@@ -81,7 +104,7 @@ Other files' same-named `formatValue` declarations still have consumers.
 For each layer, create its branch from the prior layer, remove only its named
 declarations, validate the retained behavior, commit, push, and open a ready PR
 against the prior branch. Record results in this plan as each layer finishes.
-After the fourth layer, validate the cumulative stack and move this plan to
+The fourth layer completes cumulative validation and moves this plan to
 `docs/exec-plans/completed/`.
 
 ## Concrete Steps
@@ -104,6 +127,8 @@ route manifests with the baseline. Check each PR's actual base/head and commits.
 - Each layer's related tests, type checking, and pre-commit gates pass.
 - The complete frontend test suite and production build pass at the tip.
 - Public route manifests match the baseline and generated knowledge is current.
+- Production script differences are limited to consistent compiler export
+  aliases; removed CSS rules have no remaining source consumers.
 - Every PR contains one incremental cleanup commit and targets its predecessor.
 - Each layer's patch and the full stack accept reverse-application checks.
 
