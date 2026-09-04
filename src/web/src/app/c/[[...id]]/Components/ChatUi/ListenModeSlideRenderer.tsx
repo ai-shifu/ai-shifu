@@ -2536,7 +2536,7 @@ const ListenModeSlideRenderer = ({
             ),
           })}
           className='listen-playback-timeline__range'
-          max={lessonSeekLimitSeconds}
+          max={lessonPlaybackDurationSeconds}
           min={0}
           onChange={event =>
             handleTimelineSeekChange(Number(event.currentTarget.value))
