@@ -37,7 +37,6 @@
   "listenModeTtsDisabled": "لم يتم تفعيل وضع الاستماع للدورة الحالية، ولا يمكن استخدامه",
   "listenPlaybackSpeedAriaLabel": "سرعة التشغيل: {speed}",
   "listenPlaybackSpeedLabel": "سرعة التشغيل",
-  "listenPlaybackTimelineAriaLabel": "تقدّم الصوت: {current} من {duration}",
   "loading": "جارٍ التحميل…",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "لقد أكملت تعلم جميع الفصول",

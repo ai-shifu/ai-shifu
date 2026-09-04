@@ -18,7 +18,6 @@ export const EVENT_NAMES = {
   USER_MENU_SET_PASSWORD: 'user_menu_set_password',
   LESSON_FEEDBACK_SUBMIT: 'lesson_feedback_submit',
   LESSON_FEEDBACK_SKIP: 'lesson_feedback_skip',
-  LEARNER_LISTEN_TIMELINE_SEEK: 'learner_listen_timeline_seek',
   // Device authorization: an asynchronous workflow, so the exposure and both
   // terminal outcomes are tracked. One signal alone could not tell an ignored
   // prompt apart from a rejected one.
