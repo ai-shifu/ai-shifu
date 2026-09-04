@@ -60,6 +60,7 @@ import {
 import {
   clearListenPlaybackPositionFromStorage,
   normalizeListenPlaybackSource,
+  readListenLessonPlaybackTargetFromStorage,
   readListenPlaybackPositionFromStorage,
   writeListenPlaybackPositionToStorage,
   type ListenPlaybackPositionScope,
@@ -1167,11 +1168,45 @@ const ListenModeSlideRenderer = ({
     [lessonPlaybackTimeline],
   );
   const [requestedStepIndex, setRequestedStepIndex] = useState<number>();
+  const restoredLessonPlaybackTargetRef = useRef('');
   const pendingLessonSeekRef = useRef<{
     elementBid: string;
     positionSeconds: number;
     source: string;
   } | null>(null);
+  useEffect(() => {
+    const lessonScopeKey = `${shifuBid}:${lessonId}`;
+    if (
+      !shifuBid ||
+      !lessonId ||
+      restoredLessonPlaybackTargetRef.current === lessonScopeKey
+    ) {
+      return;
+    }
+
+    const storedTarget = readListenLessonPlaybackTargetFromStorage({
+      courseId: shifuBid,
+      lessonId,
+    });
+    if (!storedTarget) {
+      restoredLessonPlaybackTargetRef.current = lessonScopeKey;
+      return;
+    }
+
+    const targetSlideIndex = elementList.findIndex(
+      element =>
+        element.blockBid === storedTarget.elementBid &&
+        normalizeListenPlaybackSource(String(element.audio_url ?? '')) ===
+          storedTarget.source,
+    );
+    if (targetSlideIndex < 0) {
+      return;
+    }
+
+    restoredLessonPlaybackTargetRef.current = lessonScopeKey;
+    setRequestedStepIndex(targetSlideIndex);
+  }, [elementList, lessonId, shifuBid]);
+
   const resolveListenPlaybackPositionScope = useCallback(
     (audioElement: HTMLAudioElement) => {
       const audioSource = normalizeListenPlaybackSource(

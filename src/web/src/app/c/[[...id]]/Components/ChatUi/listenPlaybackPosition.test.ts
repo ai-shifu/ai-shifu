@@ -2,6 +2,7 @@ import {
   clearListenPlaybackPositionFromStorage,
   isResumableListenPlaybackPosition,
   normalizeListenPlaybackSource,
+  readListenLessonPlaybackTargetFromStorage,
   readListenPlaybackPositionFromStorage,
   writeListenPlaybackPositionToStorage,
   type ListenPlaybackPositionScope,
@@ -42,6 +43,15 @@ describe('listenPlaybackPosition', () => {
     });
 
     expect(readListenPlaybackPositionFromStorage(scope)).toBe(24);
+    expect(
+      readListenLessonPlaybackTargetFromStorage({
+        courseId: scope.courseId,
+        lessonId: scope.lessonId,
+      }),
+    ).toEqual({
+      elementBid: scope.elementBid,
+      source: scope.source,
+    });
     expect(
       readListenPlaybackPositionFromStorage({
         ...scope,
