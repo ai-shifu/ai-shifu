@@ -57,48 +57,6 @@ export const NOTIFICATION_SKIP_REASONS = [
   'template_params',
 ] as const;
 export type KnownNotificationType = (typeof NOTIFICATION_TYPES)[number];
-export type TemplatePlaceholderKey =
-  | 'available_credits'
-  | 'avg_daily_consumption'
-  | 'credits'
-  | 'estimated_remaining_days'
-  | 'expires_at'
-  | 'lookback_days'
-  | 'source'
-  | 'threshold'
-  | 'threshold_kind'
-  | 'trigger_days'
-  | 'window';
-export type PlaceholderGuideGroup = {
-  id: string;
-  titleKey: string;
-  descriptionKey?: string;
-  placeholders: TemplatePlaceholderKey[];
-};
-
-const CREDIT_GRANTED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
-  'credits',
-  'source',
-  'expires_at',
-];
-const CREDIT_EXPIRING_PLACEHOLDERS: TemplatePlaceholderKey[] = [
-  'credits',
-  'expires_at',
-  'window',
-];
-const LOW_BALANCE_FIXED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
-  'available_credits',
-  'threshold',
-  'threshold_kind',
-];
-const LOW_BALANCE_ESTIMATED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
-  'available_credits',
-  'threshold_kind',
-  'trigger_days',
-  'lookback_days',
-  'avg_daily_consumption',
-  'estimated_remaining_days',
-];
 
 export const DEFAULT_ESTIMATED_DAYS_THRESHOLD: CreditNotificationEstimatedDaysThreshold =
   {
@@ -678,36 +636,6 @@ export const parseThresholdInput = (
 ): CreditNotificationFixedThreshold[] =>
   parseListInput(value).map(item => ({ kind: 'fixed' as const, value: item }));
 
-export const setEstimatedDaysThreshold = (
-  policy: AdminOperationCreditNotificationPolicy,
-  patch: Partial<CreditNotificationEstimatedDaysThreshold>,
-) => {
-  const thresholds = policy.types.low_balance.thresholds || [];
-  const fixedThresholds = thresholds.filter(isFixedThreshold);
-  const current =
-    thresholds.find(isEstimatedDaysThreshold) ||
-    DEFAULT_ESTIMATED_DAYS_THRESHOLD;
-  policy.types.low_balance.thresholds = [
-    ...fixedThresholds,
-    {
-      ...current,
-      ...patch,
-      kind: 'estimated_days',
-    },
-  ];
-};
-
-export const removeEstimatedDaysThreshold = (
-  policy: AdminOperationCreditNotificationPolicy,
-) => {
-  const fixedThresholds = (policy.types.low_balance.thresholds || []).filter(
-    isFixedThreshold,
-  );
-  policy.types.low_balance.thresholds = fixedThresholds.length
-    ? fixedThresholds
-    : [{ kind: 'fixed', value: '0' }];
-};
-
 export const formatValue = (value?: string | null) => {
   const normalized = String(value || '').trim();
   return normalized || EMPTY_LABEL;
@@ -723,77 +651,6 @@ export const formatTemplateParams = (
     return EMPTY_LABEL;
   }
   return JSON.stringify(Object.fromEntries(entries));
-};
-
-export const formatPlaceholderToken = (placeholder: string): string =>
-  ['${', placeholder, '}'].join('');
-
-export const formatPlaceholderList = (items?: string[]): string => {
-  const normalized = (items || [])
-    .map(item => String(item || '').trim())
-    .filter(Boolean)
-    .sort((left, right) => left.localeCompare(right));
-  return normalized.length
-    ? normalized.map(formatPlaceholderToken).join(', ')
-    : EMPTY_LABEL;
-};
-
-export const buildPlaceholderGuideGroups = ({
-  type,
-  hasFixedLowBalancePath,
-  hasEstimatedLowBalance,
-}: {
-  type: KnownNotificationType;
-  hasFixedLowBalancePath: boolean;
-  hasEstimatedLowBalance: boolean;
-}): PlaceholderGuideGroup[] => {
-  if (type === 'credit_granted') {
-    return [
-      {
-        id: 'credit_granted',
-        titleKey:
-          'module.operationsCreditNotifications.config.placeholders.groups.creditGranted',
-        descriptionKey:
-          'module.operationsCreditNotifications.config.placeholders.notes.expiresAtOptional',
-        placeholders: CREDIT_GRANTED_PLACEHOLDERS,
-      },
-    ];
-  }
-  if (type === 'credit_expiring') {
-    return [
-      {
-        id: 'credit_expiring',
-        titleKey:
-          'module.operationsCreditNotifications.config.placeholders.groups.creditExpiring',
-        descriptionKey:
-          'module.operationsCreditNotifications.config.placeholders.notes.windowSource',
-        placeholders: CREDIT_EXPIRING_PLACEHOLDERS,
-      },
-    ];
-  }
-
-  const groups: PlaceholderGuideGroup[] = [];
-  if (hasFixedLowBalancePath) {
-    groups.push({
-      id: 'low_balance_fixed',
-      titleKey:
-        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceFixed',
-      descriptionKey:
-        'module.operationsCreditNotifications.config.placeholders.notes.fixedLowBalance',
-      placeholders: LOW_BALANCE_FIXED_PLACEHOLDERS,
-    });
-  }
-  if (hasEstimatedLowBalance) {
-    groups.push({
-      id: 'low_balance_estimated',
-      titleKey:
-        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceEstimated',
-      descriptionKey:
-        'module.operationsCreditNotifications.config.placeholders.notes.estimatedLowBalance',
-      placeholders: LOW_BALANCE_ESTIMATED_PLACEHOLDERS,
-    });
-  }
-  return groups;
 };
 
 export const normalizeTab = (value?: string | null): PageTab =>
