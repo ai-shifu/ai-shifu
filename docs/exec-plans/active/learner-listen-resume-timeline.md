@@ -3,9 +3,10 @@
 ## Purpose / Big Picture
 
 Learners can leave and return to a listening lesson in the same browser without
-losing their position in the current audio item. The existing listen controls
-gain a compact timeline for finalized, seekable audio. Restoring a position
-never starts audio automatically.
+losing their position. The listen controls expose one lesson-wide timeline for
+finalized audio. During an in-progress lesson learners may replay only audio
+they have reached; completed lesson history can be sought freely. Restoring a
+position never starts audio automatically.
 
 ## Progress
 
@@ -20,6 +21,10 @@ never starts audio automatically.
   learner controls and tracked accepted seeks.
 - [x] 2026-09-04 10:30 CST: Focused tests, type check, lint, repository harness, and
   generated knowledge-index validation passed; commit gate remains.
+- [x] 2026-09-04 13:00 CST: Replaced the per-audio timeline with a lesson-wide
+  timeline, including progression restrictions and cross-slide navigation.
+- [x] 2026-09-04 13:05 CST: Moved the lesson timeline below the player and sized
+  it to the presentation viewport.
 
 ## Surprises & Discoveries
 
@@ -41,6 +46,11 @@ never starts audio automatically.
   of restoration, preserving browser autoplay policies.
 - 2026-09-04: Track accepted manual timeline seeks, not automatic restores or
   timeline renders. This produces an adoption signal without render noise.
+- 2026-09-04: Treat `lessonStatus === 'completed'` as history: it can seek
+  anywhere in finalized lesson audio. Other states can only seek at or before
+  the greatest lesson-wide position the learner has actually reached locally.
+- 2026-09-04: Place the lesson-wide timeline below the player and reserve
+  player-footer space so it does not overlap the chat input.
 
 ## Outcomes & Retrospective
 
@@ -63,8 +73,9 @@ URL and duration while streaming tracks may not have a finite duration.
 2. Extend the native-audio integration to report metadata, time updates, seek,
    pause, ended, unmount, and visibility changes.
 3. Restore exactly once for a matching audio identity after metadata is ready.
-4. Add a timeline control only where the active audio is finite and seekable;
-   show a disabled progress state otherwise.
+4. Add a lesson-wide timeline from finalized audio durations. During an active
+   lesson it exposes only the reached range; completed history can seek across
+   all finalized audio.
 5. Cover the behavior with focused storage, hook, and component tests.
 
 ## Concrete Steps
@@ -74,14 +85,20 @@ URL and duration while streaming tracks may not have a finite duration.
 2. Define the storage key and serialized value, then implement validation and
    lifecycle helpers.
 3. Wire persistence and restoration through `ListenModeSlideRenderer`.
-4. Render and style the timeline with keyboard-accessible seek behavior.
-5. Run focused tests, type checking, linting, and the relevant browser suite
+4. Extend the UI library with an imperative slide-target request, then map a
+   lesson timeline seek to its target slide and audio offset.
+5. Render and style the timeline below the player with keyboard-accessible
+   restricted seek behavior.
+6. Run focused tests, type checking, linting, and the relevant browser suite
    if the harness surface changes.
 
 ## Validation and Acceptance
 
 - A paused, finite audio item resumes at the saved offset after refresh or
   returning to listen mode, but remains paused.
+- The displayed timeline aggregates finalized audio across the lesson. A
+  completed history lesson can seek across it; an active lesson cannot seek
+  beyond its locally reached position.
 - Seek changes are immediately eligible for persistence; normal playback saves
   at a bounded cadence and flushes on pause, unmount, and page hiding.
 - Positions near the beginning or completion are not restored; a natural end

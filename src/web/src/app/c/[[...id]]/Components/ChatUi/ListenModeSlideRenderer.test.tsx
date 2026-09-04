@@ -1571,6 +1571,7 @@ describe('ListenModeSlideRenderer', () => {
         mobileStyle={true}
         chatRef={createChatRef()}
         lessonId='lesson-1'
+        lessonStatus='completed'
         shifuBid='course-1'
       />,
     );
@@ -1622,6 +1623,7 @@ describe('ListenModeSlideRenderer', () => {
         mobileStyle={false}
         chatRef={createChatRef()}
         lessonId='lesson-1'
+        lessonStatus='completed'
         shifuBid='course-1'
       />,
     );
