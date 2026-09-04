@@ -904,6 +904,8 @@ export const useLiveVoiceFollowUp = ({
             session.ephemeral_token,
           ),
         );
+        // Gemini sends binary JSON; decode it synchronously to preserve event order.
+        websocket.binaryType = 'arraybuffer';
         websocketRef.current = websocket;
 
         websocket.onopen = () => {
@@ -926,7 +928,8 @@ export const useLiveVoiceFollowUp = ({
         websocket.onmessage = event => {
           if (
             attemptRef.current?.generation !== generation ||
-            typeof event.data !== 'string'
+            (typeof event.data !== 'string' &&
+              !(event.data instanceof ArrayBuffer))
           ) {
             return;
           }

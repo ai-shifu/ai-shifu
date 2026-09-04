@@ -284,8 +284,20 @@ auditing, or another correctness-sensitive decision.
       prefixes or matching the hostname. Three cases reproduced duplicate
       version segments before the fix; the wider Live selection passes
       160 tests with one environment-dependent MySQL skip afterward.
-- [ ] Deploy the two connection fixes through a focused dev release PR and
-      recheck the running image, HTTP health, token minting, and direct setup.
+- [x] 2026-09-04: Deployed the connection fixes through PR #2759 as dev
+      commit `3bea8f2f6` (Drone #4729). Verified API/web images, HTTP health,
+      token minting, and a synthetic direct Google `setupComplete` handshake.
+- [x] 2026-09-04: Fix browser handling of Gemini binary WebSocket messages.
+      A new no-audio probe received `setupComplete` in opcode 2, while the
+      browser controller discarded every non-string message and timed out.
+      Initial and resumed sockets now deliver ArrayBuffer messages for strict,
+      synchronous UTF-8 parsing. All 132 tests across nine Live frontend suites
+      and TypeScript checking pass, covering binary setup, UTF-8 transcripts/
+      audio, malformed input, interruption order, resumption, and exactly-once
+      success analytics. The full frontend suite passes 2,139 tests across
+      226 suites; the full pre-commit gate, five-locale checks, architecture
+      boundaries, and repository harness pass. Deploy the fix to dev before
+      microphone acceptance.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
@@ -297,6 +309,12 @@ auditing, or another correctness-sensitive decision.
 
 ## Surprises & Discoveries
 
+- Gemini returns JSON in binary WebSocket frames (observed opcode 2), not
+  only text frames. Browser WebSockets default to Blob delivery, while the
+  controller previously ignored non-string messages. A successful Python
+  handshake therefore did not verify that the browser consumed setup. Later
+  retries returned AI-Shifu code 4018 because the issued credential's capacity
+  reservation outlived the failed attempt; that is separate from its cause.
 - The dev API container cannot reach Google's HTTPS endpoint directly. Its
   existing Gemini reverse proxy is reachable, but the original token issuer
   ignored `GEMINI_API_URL`. A healthy deployment and direct browser media path
@@ -344,6 +362,13 @@ auditing, or another correctness-sensitive decision.
 
 ## Decision Log
 
+- Decision: set every Gemini socket's `binaryType` to `arraybuffer` and decode
+  binary JSON synchronously in the existing protocol parser, retaining text
+  message compatibility.
+  - Why: the real provider sends binary JSON. Unlike asynchronous Blob reads,
+    synchronous decoding preserves the arrival order of setup, audio, and
+    interruption without introducing stale callbacks across resumed sockets.
+    Invalid UTF-8 or JSON remains a discarded protocol message, never logged.
 - Decision: reuse `GEMINI_API_URL` only for backend token provisioning, with
   the base-plus-`/v1beta` path contract used by Gemini model discovery, also
   accepting an already-versioned `/v1beta` base without duplicating it.
@@ -494,7 +519,11 @@ resumption, retry-only failures, analytics, and TypeScript. Candidate code has
 also passed real ephemeral-token issuance through the dev server's existing
 Gemini proxy and direct client-side Google WebSocket `setupComplete`. This
 synthetic, no-audio check does not establish browser microphone, multi-turn,
-or resumption acceptance; those checks remain outstanding.
+or resumption acceptance; those checks remain outstanding. The later binary
+frame diagnosis demonstrates why successful network setup alone was not
+sufficient: the browser also has to consume that setup response. The protocol
+and controller regressions now cover its real binary representation, including
+ordered interruption and resumption, but do not replace microphone acceptance.
 
 ## Context and Orientation
 
