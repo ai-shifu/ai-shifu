@@ -91,6 +91,49 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
     assert "safetySettings" not in setup
 
 
+@pytest.mark.parametrize("instruction", ["", "  \n "])
+def test_token_allows_blank_prompt_without_unlocking_browser_instruction(
+    instruction: str,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def request_post(_url: str, **kwargs: object) -> _Response:
+        calls.append(kwargs)
+        return _Response({"name": "auth_tokens/browser-only"})
+
+    token = mint_gemini_live_ephemeral_token(
+        api_key="server-api-key",
+        voice_name="Kore",
+        system_instruction=instruction,
+        include_initial_history=False,
+        request_post=request_post,
+    )
+
+    assert token.token == "auth_tokens/browser-only"
+    payload = calls[0]["json"]
+    assert "systemInstruction" in payload["fieldMask"].split(",")
+    assert "systemInstruction" not in payload["bidiGenerateContentSetup"]
+
+
+@pytest.mark.parametrize("missing", ["api_key", "model", "voice_name"])
+def test_token_still_requires_credentials_model_and_voice(missing: str) -> None:
+    options = {
+        "api_key": "server-api-key",
+        "model": "gemini-3.1-flash-live-preview",
+        "voice_name": "Kore",
+        "system_instruction": "",
+    }
+    options[missing] = "  "
+    with pytest.raises(GeminiLiveTokenError, match="invalid_configuration"):
+        mint_gemini_live_ephemeral_token(
+            **options,
+            include_initial_history=False,
+            request_post=lambda *_args, **_kwargs: pytest.fail(
+                "Invalid configuration was sent"
+            ),
+        )
+
+
 def test_browser_setup_omits_private_prompt_and_uses_constrained_endpoint() -> None:
     setup = build_gemini_live_client_setup(
         model="gemini-3.1-flash-live-preview",

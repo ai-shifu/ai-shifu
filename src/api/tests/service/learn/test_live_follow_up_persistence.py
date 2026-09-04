@@ -416,8 +416,14 @@ def test_shared_element_history_prefers_sidecars_and_bounds_zero() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    ("ask_prompt", "expected_prefix"),
+    [("FOLLOW-UP\n{shifu_system_message}", "FOLLOW-UP\n"), ("", ""), (" \n ", "")],
+)
 def test_shared_context_composes_profiles_language_prompt_and_history(
     monkeypatch: object,
+    ask_prompt: str,
+    expected_prefix: str,
 ) -> None:
     """Text and Live transports receive the same composed instruction and history."""
     app = Flask("shared-live-follow-up-context")
@@ -487,7 +493,7 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
         progress_record_bid="progress",
         follow_up_info=FollowUpInfo(
             ask_model="model",
-            ask_prompt="FOLLOW-UP\n{shifu_system_message}",
+            ask_prompt=ask_prompt,
             ask_history_count=0,
             ask_limit_count=0,
             model_args={},
@@ -514,7 +520,7 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
     )
     assert result.output_language == "简体中文"
     assert result.system_instruction == (
-        "FOLLOW-UP\nFORMATTED COURSE\n\nIMPORTANT: You MUST respond in 简体中文."
+        f"{expected_prefix}FORMATTED COURSE\n\nIMPORTANT: You MUST respond in 简体中文."
     )
     assert result.llm_messages == [
         {"role": "system", "content": result.system_instruction},

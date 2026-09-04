@@ -310,7 +310,12 @@ def build_follow_up_conversation_context(
     else:
         base_system_prompt = None
 
-    system_instruction = str(follow_up_info.ask_prompt or "").replace(
+    ask_prompt = str(follow_up_info.ask_prompt or "")
+    # Drafts and freshly published courses may not have a generated follow-up
+    # prompt yet. Keep their inherited course context available to both paths.
+    system_instruction = (
+        ask_prompt if ask_prompt.strip() else "{shifu_system_message}"
+    ).replace(
         "{shifu_system_message}",
         base_system_prompt or "",
     )

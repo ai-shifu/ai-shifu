@@ -87,9 +87,13 @@ def _bidi_setup(
             },
             "thinkingConfig": {"thinkingLevel": "MINIMAL"},
         },
-        "systemInstruction": {
-            "parts": [{"text": system_instruction}],
-        },
+        # Omit empty content while retaining systemInstruction in the token's
+        # field mask, so the browser still cannot supply its own instruction.
+        **(
+            {"systemInstruction": {"parts": [{"text": system_instruction}]}}
+            if system_instruction
+            else {}
+        ),
         "tools": [],
         "realtimeInputConfig": {
             "automaticActivityDetection": {
@@ -197,9 +201,7 @@ def mint_gemini_live_ephemeral_token(
     normalized_model = str(model or "").strip()
     normalized_voice = str(voice_name or "").strip()
     normalized_instruction = str(system_instruction or "").strip()
-    if not all(
-        (normalized_key, normalized_model, normalized_voice, normalized_instruction)
-    ):
+    if not all((normalized_key, normalized_model, normalized_voice)):
         raise GeminiLiveTokenError(_ERROR_INVALID_CONFIGURATION)
 
     issued_at = current_time or now_utc()
