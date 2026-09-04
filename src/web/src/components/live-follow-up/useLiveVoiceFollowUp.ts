@@ -1215,6 +1215,12 @@ export const useLiveVoiceFollowUp = ({
     if (attemptRef.current) {
       finishAttempt({ reason: 'lesson_changed', keepOpen: false });
     }
+    // Failed attempts no longer own a transport, but their retry target and
+    // dialog still belong to the old scope. Keep credential admission intact.
+    lastTargetRef.current = null;
+    transcriptsRef.current = [];
+    mutedRef.current = false;
+    setViewState(initialState);
   }, [finishAttempt, sessionScopeKey]);
 
   useEffect(() => {

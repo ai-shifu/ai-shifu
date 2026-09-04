@@ -172,6 +172,7 @@ const createDeferred = <T,>() => {
 const Harness = ({
   shifuBid = 'course-1',
   outlineBid = 'lesson-1',
+  anchorElementBid = 'element-1',
   previewMode = false,
   learningMode = 'read',
   sessionScope = learningMode,
@@ -179,6 +180,7 @@ const Harness = ({
 }: {
   shifuBid?: string;
   outlineBid?: string;
+  anchorElementBid?: string;
   previewMode?: boolean;
   learningMode?: 'read' | 'listen';
   sessionScope?: 'read' | 'listen' | 'classroom';
@@ -200,7 +202,7 @@ const Harness = ({
         type='button'
         onClick={() =>
           controller.start({
-            anchorElementBid: 'element-1',
+            anchorElementBid,
             surface: previewMode ? 'teacher_preview' : 'read_content',
           })
         }
@@ -1116,6 +1118,149 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockEndSession).toHaveBeenCalledWith('session-1', 'lesson_changed');
     expect(mockReleaseExclusive).toHaveBeenCalled();
     expect(screen.getByTestId('state')).toHaveTextContent('ended');
+  });
+
+  it.each([
+    { outlineBid: 'lesson-2' },
+    { shifuBid: 'course-2' },
+    { learningMode: 'listen' as const },
+    { previewMode: true },
+    { sessionScope: 'classroom' as const },
+  ])(
+    'clears a failed attempt and its retry target after %j',
+    async destination => {
+      mockCreateSession.mockRejectedValueOnce(
+        new Error('no credential issued'),
+      );
+      mockActivateAudio.mockRejectedValueOnce(
+        new DOMException('denied', 'NotAllowedError'),
+      );
+      const { rerender } = render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'start' }));
+      await waitFor(() =>
+        expect(screen.getByTestId('error')).toHaveTextContent(
+          'microphone_denied',
+        ),
+      );
+      expect(screen.getByTestId('open')).toHaveTextContent('true');
+      expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+      const events = [...mockTrackEvent.mock.calls];
+
+      rerender(
+        <Harness
+          {...destination}
+          anchorElementBid='element-2'
+        />,
+      );
+
+      expect(screen.getByTestId('open')).toHaveTextContent('false');
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      expect(screen.getByTestId('transcripts')).toHaveTextContent('[]');
+      expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+      expect(screen.getByTestId('retry-at')).toHaveTextContent('null');
+      fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+      expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent.mock.calls).toEqual(events);
+    },
+  );
+
+  it('clears failed conversation state on navigation without bypassing credential admission', async () => {
+    jest.useFakeTimers();
+    const expiresAt = Date.now() + 15 * 60_000;
+    mockCreateSession.mockResolvedValueOnce(sessionResponse(expiresAt));
+    const { rerender } = render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    act(() => {
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['Private question'],
+          outputTranscripts: ['Private answer'],
+          audioChunks: [new ArrayBuffer(4)],
+        }),
+      );
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'mute' }));
+    await act(async () => mockSockets[0].fail());
+    expect(screen.getByTestId('transcripts')).toHaveTextContent(
+      'Private question',
+    );
+    expect(screen.getByTestId('error')).toHaveTextContent('websocket_failed');
+
+    rerender(
+      <Harness
+        outlineBid='lesson-2'
+        anchorElementBid='element-2'
+      />,
+    );
+
+    expect(screen.getByTestId('open')).toHaveTextContent('false');
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('transcripts')).toHaveTextContent('[]');
+    expect(screen.getByTestId('muted')).toHaveTextContent('false');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+    expect(screen.getByTestId('retry-at')).toHaveTextContent('null');
+    const events = [...mockTrackEvent.mock.calls];
+    fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    expect(screen.getByTestId('error')).toHaveTextContent('capacity_exceeded');
+    expect(screen.getByTestId('transcripts')).toHaveTextContent('[]');
+    expect(screen.getByTestId('retry-at')).toHaveTextContent(
+      String(expiresAt + 30_000),
+    );
+    expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent.mock.calls).toEqual(events);
+
+    act(() => jest.advanceTimersByTime(expiresAt + 30_000 - Date.now()));
+    mockCreateSession.mockResolvedValueOnce(sessionResponse());
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    });
+    expect(mockCreateSession).toHaveBeenNthCalledWith(
+      2,
+      'course-1',
+      'lesson-2',
+      {
+        anchor_element_bid: 'element-2',
+        preview_mode: false,
+        learning_mode: 'read',
+        surface: 'read_content',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenLastCalledWith(
+      'learner_voice_follow_up_attempt',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-2',
+        learning_mode: 'read',
+        surface: 'read_content',
+      },
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_session_end',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('does not revive a failed retry timer after navigating away', async () => {
+    jest.useFakeTimers();
+    mockCreateSession.mockRejectedValueOnce(
+      Object.assign(new Error('capacity'), { code: 4018 }),
+    );
+    const { rerender } = render(<Harness />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    });
+    expect(screen.getByTestId('error')).toHaveTextContent('capacity_exceeded');
+    rerender(<Harness outlineBid='lesson-2' />);
+    act(() => jest.advanceTimersByTime(30_000));
+    expect(screen.getByTestId('open')).toHaveTextContent('false');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockActivateAudio).toHaveBeenCalledTimes(1);
   });
 
   it.each([{ previewMode: true }, { sessionScope: 'classroom' as const }])(

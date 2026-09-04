@@ -187,6 +187,12 @@ auditing, or another correctness-sensitive decision.
       ModelList's explicit-default/first-entry resolution, retain all other
       text restrictions, and cover the saved empty value and exact save event.
       All 22 focused model/settings tests pass.
+- [x] 2026-09-04: Clear failed-session UI, transcripts, mute state, retry
+      timers, and the old anchor on every course/lesson/mode/preview scope
+      change, even after transport teardown. Preserve credential admission
+      deadlines and existing analytics terminal deduplication; an explicit
+      new-scope click supplies the new retry target. All 53 controller tests,
+      2,098 frontend tests, TypeScript, and the full pre-commit gate pass.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
