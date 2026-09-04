@@ -810,6 +810,10 @@ const ListenModeSlideRenderer = ({
   const { trackEvent, EVENT_NAMES } = useTracking();
   const [playbackTimelineState, setPlaybackTimelineState] =
     useState<ListenPlaybackTimelineState | null>(null);
+  const [
+    resolvedAudioDurationSecondsBySource,
+    setResolvedAudioDurationSecondsBySource,
+  ] = useState<Record<string, number>>({});
   const playbackTimelineStateRef = useRef<ListenPlaybackTimelineState | null>(
     null,
   );
@@ -1041,6 +1045,63 @@ const ListenModeSlideRenderer = ({
   ]);
   const elementListRef = useRef(elementList);
   elementListRef.current = elementList;
+  const lessonTimelineAudioSources = useMemo(() => {
+    const sources = new Map<string, string>();
+
+    elementList.forEach(element => {
+      const audioUrl = String(element.audio_url ?? '');
+      const source = normalizeListenPlaybackSource(audioUrl);
+      if (!source || element.is_audio_streaming || element.isAudioStreaming) {
+        return;
+      }
+      sources.set(source, audioUrl);
+    });
+
+    return Array.from(sources.entries()).map(([source, audioUrl]) => ({
+      source,
+      audioUrl,
+    }));
+  }, [elementList]);
+
+  useEffect(() => {
+    const cleanupListeners: Array<() => void> = [];
+
+    lessonTimelineAudioSources.forEach(({ source, audioUrl }) => {
+      if (resolvedAudioDurationSecondsBySource[source] !== undefined) {
+        return;
+      }
+
+      const audioElement = new Audio();
+      audioElement.preload = 'metadata';
+      const handleLoadedMetadata = () => {
+        const durationSeconds = audioElement.duration;
+        if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+          return;
+        }
+
+        setResolvedAudioDurationSecondsBySource(previousDurations =>
+          previousDurations[source] === durationSeconds
+            ? previousDurations
+            : { ...previousDurations, [source]: durationSeconds },
+        );
+      };
+
+      audioElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      audioElement.src = audioUrl;
+      cleanupListeners.push(() => {
+        audioElement.removeEventListener(
+          'loadedmetadata',
+          handleLoadedMetadata,
+        );
+        audioElement.removeAttribute('src');
+      });
+    });
+
+    return () => {
+      cleanupListeners.forEach(cleanup => cleanup());
+    };
+  }, [lessonTimelineAudioSources, resolvedAudioDurationSecondsBySource]);
+
   const lessonPlaybackTimeline = useMemo(() => {
     let startSeconds = 0;
 
@@ -1064,6 +1125,7 @@ const ListenModeSlideRenderer = ({
           0,
           Number(element.audioDurationMs ?? 0) / 1000,
           segmentDurationMs / 1000,
+          resolvedAudioDurationSecondsBySource[source] ?? 0,
           activeDurationSeconds,
         );
 
@@ -1090,7 +1152,11 @@ const ListenModeSlideRenderer = ({
       },
       [],
     );
-  }, [elementList, playbackTimelineState]);
+  }, [
+    elementList,
+    playbackTimelineState,
+    resolvedAudioDurationSecondsBySource,
+  ]);
   const lessonPlaybackDurationSeconds = useMemo(
     () =>
       lessonPlaybackTimeline.reduce(
@@ -1108,22 +1174,19 @@ const ListenModeSlideRenderer = ({
   } | null>(null);
   const resolveListenPlaybackPositionScope = useCallback(
     (audioElement: HTMLAudioElement) => {
-      const currentElement =
-        playerCustomActionElementRef.current ??
-        elementListRef.current.find(element => {
-          const elementSource = String(element.audio_url ?? '');
-          const audioSource = audioElement.currentSrc || audioElement.src;
-
-          return (
-            Boolean(elementSource) &&
-            normalizeListenPlaybackSource(elementSource) ===
-              normalizeListenPlaybackSource(audioSource)
-          );
-        });
+      const audioSource = normalizeListenPlaybackSource(
+        audioElement.currentSrc || audioElement.src,
+      );
+      const currentElement = elementListRef.current.find(
+        element =>
+          Boolean(element.audio_url) &&
+          normalizeListenPlaybackSource(String(element.audio_url)) ===
+            audioSource,
+      );
       const elementBid = currentElement?.blockBid?.trim() ?? '';
       const elementSource = String(currentElement?.audio_url ?? '');
       const source = normalizeListenPlaybackSource(
-        elementSource || audioElement.currentSrc || audioElement.src,
+        elementSource || audioSource,
       );
 
       if (
