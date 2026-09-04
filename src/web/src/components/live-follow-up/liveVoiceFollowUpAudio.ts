@@ -59,7 +59,13 @@ export class LiveVoiceFollowUpAudio {
 
   static activate(
     callbacks: LiveVoiceAudioCallbacks,
+    signal?: AbortSignal,
   ): Promise<LiveVoiceFollowUpAudio> {
+    const aborted = () =>
+      new DOMException('Live audio activation was cancelled', 'AbortError');
+    if (signal?.aborted) {
+      return Promise.reject(aborted());
+    }
     const AudioContextClass = resolveAudioContextConstructor();
     if (
       !AudioContextClass ||
@@ -70,25 +76,57 @@ export class LiveVoiceFollowUpAudio {
     }
 
     const context = new AudioContextClass({ latencyHint: 'interactive' });
-    // Keep both calls in the real click invocation stack. Do not move either
-    // behind a session API response or another awaited promise.
-    const resumePromise = context.resume();
-    const microphonePromise = navigator.mediaDevices.getUserMedia({
-      audio: {
-        autoGainControl: true,
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        sampleRate: { ideal: 16000 },
-      },
-      video: false,
+    let resumePromise: Promise<void> | undefined;
+    let microphonePromise: Promise<MediaStream> | undefined;
+    let workletPromise: Promise<void> | undefined;
+    let released = false;
+    const releasePendingAudio = () => {
+      if (released) return;
+      released = true;
+      // getUserMedia cannot cancel an open permission prompt. Stop any stream
+      // already acquired, or immediately when a late permission result arrives.
+      void microphonePromise
+        ?.then(stream => stream.getTracks().forEach(track => track.stop()))
+        .catch(() => {});
+      void resumePromise?.catch(() => {});
+      void workletPromise?.catch(() => {});
+      void context.close().catch(() => {});
+    };
+    try {
+      // Keep both calls in the real click stack, even with cancellation.
+      resumePromise = context.resume();
+      microphonePromise = navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: true,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: { ideal: 16000 },
+        },
+        video: false,
+      });
+      workletPromise = context.audioWorklet.addModule(
+        LIVE_FOLLOW_UP_AUDIO_WORKLET_PATH,
+      );
+    } catch (error) {
+      releasePendingAudio();
+      return Promise.reject(error);
+    }
+    let cancelActivation!: () => void;
+    const cancelled = new Promise<never>((_, reject) => {
+      cancelActivation = () => {
+        releasePendingAudio();
+        reject(aborted());
+      };
     });
-    const workletPromise = context.audioWorklet.addModule(
-      LIVE_FOLLOW_UP_AUDIO_WORKLET_PATH,
-    );
+    signal?.addEventListener('abort', cancelActivation, { once: true });
 
-    return Promise.all([resumePromise, microphonePromise, workletPromise])
+    return Promise.race([
+      Promise.all([resumePromise, microphonePromise, workletPromise]),
+      cancelled,
+    ])
       .then(([, stream]) => {
+        if (signal?.aborted) throw aborted();
         const source = context.createMediaStreamSource(stream);
         const capture = new AudioWorkletNode(
           context,
@@ -127,12 +165,12 @@ export class LiveVoiceFollowUpAudio {
 
         return audio;
       })
-      .catch(async error => {
-        microphonePromise
-          .then(stream => stream.getTracks().forEach(track => track.stop()))
-          .catch(() => {});
-        await context.close().catch(() => {});
+      .catch(error => {
+        releasePendingAudio();
         throw error;
+      })
+      .finally(() => {
+        signal?.removeEventListener('abort', cancelActivation);
       });
   }
 

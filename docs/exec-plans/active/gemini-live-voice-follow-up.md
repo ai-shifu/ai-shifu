@@ -198,6 +198,12 @@ auditing, or another correctness-sensitive decision.
       reject. Preserve synchronous desktop/mobile activation and verify both
       rejected clicks and accepted pause/restore behavior. All 45 listen-mode
       renderer tests pass.
+- [x] 2026-09-04: Keep the connection timeout armed until both Gemini setup
+      and browser audio activation complete, including resumed connections.
+      Abort pending audio setup on teardown, releasing acquired or late-arriving
+      microphone streams and closing AudioContext even when another setup
+      promise never settles. Synchronous audio API failures also release owned
+      resources. All 62 controller/audio tests and TypeScript checking pass.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

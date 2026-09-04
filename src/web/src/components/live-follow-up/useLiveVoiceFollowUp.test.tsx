@@ -370,6 +370,94 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
+  it('times out stalled audio activation even after Gemini setup completes', async () => {
+    jest.useFakeTimers();
+    const pendingAudio = createDeferred<typeof mockAudio>();
+    mockActivateAudio.mockReturnValueOnce(pendingAudio.promise);
+    render(<Harness />);
+    await startAndOpen();
+    act(() => mockSockets[0].message(serverEvent({ setupComplete: true })));
+    expect(screen.getByTestId('state')).toHaveTextContent('connecting');
+
+    await act(async () => jest.advanceTimersByTime(20_000));
+
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect((mockActivateAudio.mock.calls[0][1] as AbortSignal).aborted).toBe(
+      true,
+    );
+    expect(screen.getByTestId('error')).toHaveTextContent('network_error');
+    expect(mockSockets[0].close).toHaveBeenCalled();
+    expect(mockEndSession).toHaveBeenCalledWith(
+      'session-1',
+      'connection_error',
+    );
+    expect(mockReleaseExclusive).toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_result',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        outcome: 'failed',
+        error_code: 'network_error',
+      },
+    );
+    const events = [...mockTrackEvent.mock.calls];
+    await act(async () => {
+      pendingAudio.resolve(mockAudio);
+      await pendingAudio.promise;
+    });
+    expect(mockAudio.stop).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(mockTrackEvent.mock.calls).toEqual(events);
+  });
+
+  it.each(['audio', 'gemini'] as const)(
+    'clears the connection timeout only after both sides are ready (%s first)',
+    async first => {
+      jest.useFakeTimers();
+      const pendingAudio = createDeferred<typeof mockAudio>();
+      mockActivateAudio.mockReturnValueOnce(pendingAudio.promise);
+      render(<Harness />);
+      await startAndOpen();
+      const activate = async () => {
+        pendingAudio.resolve(mockAudio);
+        await pendingAudio.promise;
+      };
+      await act(async () => {
+        if (first === 'audio') await activate();
+        else mockSockets[0].message(serverEvent({ setupComplete: true }));
+      });
+      expect(screen.getByTestId('state')).toHaveTextContent('connecting');
+      act(() => jest.advanceTimersByTime(19_000));
+      await act(async () => {
+        if (first === 'gemini') await activate();
+        else mockSockets[0].message(serverEvent({ setupComplete: true }));
+      });
+      act(() => jest.advanceTimersByTime(20_000));
+      expect(screen.getByTestId('state')).toHaveTextContent('listening');
+      expect(mockSockets[0].close).not.toHaveBeenCalled();
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_result',
+        ),
+      ).toEqual([
+        [
+          'learner_voice_follow_up_result',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            outcome: 'success',
+            error_code: 'none',
+          },
+        ],
+      ]);
+    },
+  );
+
   it('encodes bounded microphone frames only after setup completes', async () => {
     render(<Harness />);
     await startAndOpen();
@@ -859,6 +947,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
   });
 
   it('resumes GoAway on a second Google socket with the same constrained token', async () => {
+    jest.useFakeTimers();
     render(<Harness />);
     await startAndOpen();
     await makeReady();
@@ -882,6 +971,46 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(resumedSetup.setup).not.toHaveProperty('historyConfig');
     act(() => mockSockets[1].message(serverEvent({ setupComplete: true })));
     expect(mockSockets[1].send).toHaveBeenCalledTimes(1);
+    act(() => jest.advanceTimersByTime(20_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('listening');
+    expect(mockSockets[1].close).not.toHaveBeenCalled();
+  });
+
+  it('still times out a resumed socket that never acknowledges setup', async () => {
+    jest.useFakeTimers();
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          resumptionHandle: 'resume-handle',
+          resumable: true,
+          goAway: true,
+        }),
+      ),
+    );
+    act(() => mockSockets[1].open());
+    await act(async () => jest.advanceTimersByTime(20_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(mockSockets[1].close).toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_result',
+      ),
+    ).toHaveLength(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_session_end',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        duration_ms: 20_000,
+        had_exchange: false,
+        end_reason: 'connection_error',
+      },
+    );
   });
 
   it('fails the attempt if the replacement socket closes before setup', async () => {

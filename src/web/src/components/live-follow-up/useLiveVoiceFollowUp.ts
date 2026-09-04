@@ -233,6 +233,7 @@ export const useLiveVoiceFollowUp = ({
   const sessionRef = useRef<LiveFollowUpSession | null>(null);
   const admissionBlockedUntilRef = useRef(0);
   const audioRef = useRef<LiveVoiceFollowUpAudio | null>(null);
+  const audioActivationAbortRef = useRef<AbortController | null>(null);
   const mutedRef = useRef(false);
   const setupReadyRef = useRef(false);
   const reconnectingRef = useRef(false);
@@ -497,6 +498,8 @@ export const useLiveVoiceFollowUp = ({
     (reason: LiveVoiceFollowUpEndReason) => {
       const endedAt = Date.now();
       clearTimers();
+      audioActivationAbortRef.current?.abort();
+      audioActivationAbortRef.current = null;
       setupReadyRef.current = false;
       reconnectingRef.current = false;
       resumptionHandleRef.current = null;
@@ -689,10 +692,18 @@ export const useLiveVoiceFollowUp = ({
         const currentAttempt = attemptRef.current;
         if (
           currentAttempt?.generation !== generation ||
-          currentAttempt.connectedAt !== null ||
+          !setupReadyRef.current ||
           !currentAttempt.audioActivated ||
           currentAttempt.serverVoiceState === null
         ) {
+          return;
+        }
+        if (setupTimerRef.current !== null) {
+          window.clearTimeout(setupTimerRef.current);
+          setupTimerRef.current = null;
+        }
+        // Resumption also waits for setup, but must not emit another result.
+        if (currentAttempt.connectedAt !== null) {
           return;
         }
         currentAttempt.connectedAt = Date.now();
@@ -746,43 +757,51 @@ export const useLiveVoiceFollowUp = ({
         return true;
       };
 
+      const audioActivationAbort = new AbortController();
+      audioActivationAbortRef.current = audioActivationAbort;
       const activateAudio = () =>
-        LiveVoiceFollowUpAudio.activate({
-          onInputFrame: frame => {
-            const currentAttempt = attemptRef.current;
-            const websocket = websocketRef.current;
-            if (
-              currentAttempt?.generation !== generation ||
-              !setupReadyRef.current ||
-              websocket?.readyState !== WebSocket.OPEN ||
-              frame.byteLength > MAX_INPUT_AUDIO_FRAME_BYTES ||
-              websocket.bufferedAmount + frame.byteLength * 2 >
-                MAX_BUFFERED_INPUT_AUDIO_BYTES
-            ) {
-              return;
-            }
-            sendWebSocketPayload(
-              websocket,
-              encodeGeminiLiveAudioMessage(frame),
-            );
-          },
-          onPlaybackProgress: (turnIndex, playedBytes) => {
-            attemptAccumulator.recordPlaybackProgress(turnIndex, playedBytes);
-            flushReadyCommits(generation);
-          },
-          onPlaybackComplete: turnIndex => {
-            attemptAccumulator.markPlaybackComplete(turnIndex);
-            flushReadyCommits(generation);
-            if (outputTurnIndexRef.current === turnIndex) {
-              outputTurnIndexRef.current = null;
+        LiveVoiceFollowUpAudio.activate(
+          {
+            onInputFrame: frame => {
               const currentAttempt = attemptRef.current;
-              if (currentAttempt?.generation === generation) {
-                currentAttempt.serverVoiceState = 'listening';
-                setViewState(previous => ({ ...previous, state: 'listening' }));
+              const websocket = websocketRef.current;
+              if (
+                currentAttempt?.generation !== generation ||
+                !setupReadyRef.current ||
+                websocket?.readyState !== WebSocket.OPEN ||
+                frame.byteLength > MAX_INPUT_AUDIO_FRAME_BYTES ||
+                websocket.bufferedAmount + frame.byteLength * 2 >
+                  MAX_BUFFERED_INPUT_AUDIO_BYTES
+              ) {
+                return;
               }
-            }
+              sendWebSocketPayload(
+                websocket,
+                encodeGeminiLiveAudioMessage(frame),
+              );
+            },
+            onPlaybackProgress: (turnIndex, playedBytes) => {
+              attemptAccumulator.recordPlaybackProgress(turnIndex, playedBytes);
+              flushReadyCommits(generation);
+            },
+            onPlaybackComplete: turnIndex => {
+              attemptAccumulator.markPlaybackComplete(turnIndex);
+              flushReadyCommits(generation);
+              if (outputTurnIndexRef.current === turnIndex) {
+                outputTurnIndexRef.current = null;
+                const currentAttempt = attemptRef.current;
+                if (currentAttempt?.generation === generation) {
+                  currentAttempt.serverVoiceState = 'listening';
+                  setViewState(previous => ({
+                    ...previous,
+                    state: 'listening',
+                  }));
+                }
+              }
+            },
           },
-        });
+          audioActivationAbort.signal,
+        );
 
       let audioPromise: Promise<LiveVoiceFollowUpAudio>;
       try {
@@ -792,6 +811,9 @@ export const useLiveVoiceFollowUp = ({
       }
       void audioPromise
         .then(audio => {
+          if (audioActivationAbortRef.current === audioActivationAbort) {
+            audioActivationAbortRef.current = null;
+          }
           if (attemptRef.current?.generation !== generation) {
             void audio.stop().catch(() => {});
             return;
@@ -819,9 +841,10 @@ export const useLiveVoiceFollowUp = ({
         }
         setupTimerRef.current = window.setTimeout(() => {
           setupTimerRef.current = null;
+          const currentAttempt = attemptRef.current;
           if (
-            attemptRef.current?.generation !== generation ||
-            setupReadyRef.current
+            currentAttempt?.generation !== generation ||
+            (setupReadyRef.current && currentAttempt.audioActivated)
           ) {
             return;
           }
@@ -927,10 +950,6 @@ export const useLiveVoiceFollowUp = ({
             resumptionHandleRef.current = message.resumptionHandle;
           }
           if (message.setupComplete) {
-            if (setupTimerRef.current !== null) {
-              window.clearTimeout(setupTimerRef.current);
-              setupTimerRef.current = null;
-            }
             if (!resumptionHandle && session.history) {
               sendWebSocketPayload(websocket, JSON.stringify(session.history));
             }

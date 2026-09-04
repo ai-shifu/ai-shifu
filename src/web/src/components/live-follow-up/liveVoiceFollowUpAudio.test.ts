@@ -126,4 +126,72 @@ describe('LiveVoiceFollowUpAudio', () => {
     expect(onPlaybackProgress).toHaveBeenCalledWith(2, 480);
     expect(close).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['microphone', 'resume', 'worklet', 'worklet_throw'] as const)(
+    'releases incomplete audio activation resources (%s)',
+    async pendingStage => {
+      let finishPending!: (stream: MediaStream) => void;
+      const pending = new Promise<MediaStream>(resolve => {
+        finishPending = resolve;
+      });
+      const trackStop = jest.fn();
+      const stream = {
+        getTracks: () => [{ stop: trackStop }],
+      } as unknown as MediaStream;
+      const resume = jest.fn(() =>
+        pendingStage === 'resume' ? pending : Promise.resolve(),
+      );
+      const addModule = jest.fn(() => {
+        if (pendingStage === 'worklet_throw') throw new Error('worklet failed');
+        return pendingStage === 'worklet' ? pending : Promise.resolve();
+      });
+      const getUserMedia = jest.fn(() =>
+        pendingStage === 'microphone' ? pending : Promise.resolve(stream),
+      );
+      const close = jest.fn().mockResolvedValue(undefined);
+      const createMediaStreamSource = jest.fn();
+      class PendingAudioContext {
+        resume = resume;
+        audioWorklet = { addModule };
+        close = close;
+        createMediaStreamSource = createMediaStreamSource;
+      }
+      Object.defineProperty(window, 'AudioContext', {
+        configurable: true,
+        value: PendingAudioContext,
+      });
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: { getUserMedia },
+      });
+      const controller = new AbortController();
+      const activation = LiveVoiceFollowUpAudio.activate(
+        {
+          onInputFrame: jest.fn(),
+          onPlaybackProgress: jest.fn(),
+          onPlaybackComplete: jest.fn(),
+        },
+        controller.signal,
+      );
+      // These still run before activate returns, preserving user activation.
+      expect(resume).toHaveBeenCalledTimes(1);
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+      expect(addModule).toHaveBeenCalledTimes(1);
+      const rejected = expect(activation).rejects.toMatchObject({
+        name: pendingStage === 'worklet_throw' ? 'Error' : 'AbortError',
+      });
+
+      controller.abort();
+      await rejected;
+
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(trackStop).toHaveBeenCalledTimes(
+        pendingStage === 'microphone' ? 0 : 1,
+      );
+      finishPending(stream);
+      await pending;
+      expect(trackStop).toHaveBeenCalledTimes(1);
+      expect(createMediaStreamSource).not.toHaveBeenCalled();
+    },
+  );
 });
