@@ -116,6 +116,77 @@ describe('GeminiLiveTurnAccumulator', () => {
     ]);
   });
 
+  it.each(['final_first', 'response_first', 'coalesced_interim'] as const)(
+    'keeps new interim speech with its final turn during reconciliation (%s)',
+    order => {
+      const accumulator = new GeminiLiveTurnAccumulator();
+      accumulator.process(
+        event({
+          inputTranscripts: ['First question'],
+          outputTranscripts: ['First answer'],
+          turnComplete: true,
+        }),
+        1_000,
+      );
+      accumulator.process(
+        event({
+          interimInputTranscripts: ['Second...'],
+          ...(order === 'coalesced_interim'
+            ? { outputTranscripts: ['Second answer'] }
+            : {}),
+        }),
+        1_100,
+      );
+      if (order === 'response_first') {
+        accumulator.process(
+          event({ outputTranscripts: ['Second answer'] }),
+          1_150,
+        );
+      }
+      const final = accumulator.process(
+        event({ inputTranscripts: ['Second question'] }),
+        1_200,
+      );
+      expect(final.transcriptUpdates).toContainEqual({
+        role: 'user',
+        turnIndex: 2,
+        text: 'Second question',
+        final: false,
+      });
+      accumulator.process(
+        event({
+          ...(order === 'final_first'
+            ? { outputTranscripts: ['Second answer'] }
+            : {}),
+          turnComplete: true,
+        }),
+        1_300,
+      );
+
+      expect(accumulator.popReady(1_801)).toEqual([
+        expect.objectContaining({
+          turnIndex: 1,
+          userTranscript: 'First question',
+          fullAnswerTranscript: 'First answer',
+        }),
+        expect.objectContaining({
+          turnIndex: 2,
+          userTranscript: 'Second question',
+          fullAnswerTranscript: 'Second answer',
+        }),
+      ]);
+    },
+  );
+
+  it('does not create a durable turn from interim speech alone', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.process(
+      event({ interimInputTranscripts: ['Unconfirmed words'] }),
+      1_000,
+    );
+    expect(accumulator.finishSession(1_100)).toEqual([]);
+  });
+
   it('starts a new turn for speech received after an interruption', () => {
     const accumulator = new GeminiLiveTurnAccumulator();
     accumulator.process(

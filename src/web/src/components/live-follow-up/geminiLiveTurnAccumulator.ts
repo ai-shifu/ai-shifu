@@ -62,6 +62,10 @@ const hasActivity = (state: TurnState) =>
     state.usageMetadata,
   );
 
+// Interim speech identifies its turn for routing, but is never durable content.
+const hasRoutingActivity = (state: TurnState) =>
+  hasActivity(state) || Boolean(state.userInterimTranscript);
+
 const latestSnapshot = (fragments: string[]) => {
   for (let index = fragments.length - 1; index >= 0; index -= 1) {
     const text = fragments[index].trim();
@@ -96,7 +100,7 @@ export class GeminiLiveTurnAccumulator {
       ? (this.turns.get(this.lastResponseTurnIndex ?? -1) ?? inputState)
       : trailingInterruptedTurnIndex !== null
         ? this.state(trailingInterruptedTurnIndex, now)
-        : event.inputTranscripts.length
+        : event.inputTranscripts.length || event.interimInputTranscripts.length
           ? inputState
           : this.selectResponseState(now);
     const responseTouched = Boolean(
@@ -301,7 +305,7 @@ export class GeminiLiveTurnAccumulator {
 
   private selectInputState(fragments: string[], now: number) {
     const active = this.activeState(now);
-    if (!fragments.length || hasActivity(active)) {
+    if (!fragments.length || hasRoutingActivity(active)) {
       return active;
     }
     return this.latestMutableTerminal(now) || active;
@@ -309,7 +313,7 @@ export class GeminiLiveTurnAccumulator {
 
   private selectResponseState(now: number) {
     const active = this.activeState(now);
-    if (hasActivity(active)) {
+    if (hasRoutingActivity(active)) {
       return active;
     }
     return this.latestMutableTerminal(now) || active;

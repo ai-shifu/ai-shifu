@@ -210,6 +210,11 @@ auditing, or another correctness-sensitive decision.
       together with terminal analytics; all 107 audio/controller/renderer tests
       and the full 2,108-test frontend suite pass, along with TypeScript and the
       full pre-commit gate.
+- [x] 2026-09-04: Route a new question's final input and response to the active
+      turn when its interim speech has already arrived, even during the prior
+      turn's 500 ms reconciliation window. Interim-only speech remains excluded
+      from durable history. All 14 accumulator tests pass, covering final-first,
+      response-first, and coalesced interim/response ordering.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
