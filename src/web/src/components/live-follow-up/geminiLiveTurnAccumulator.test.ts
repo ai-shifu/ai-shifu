@@ -335,19 +335,50 @@ describe('GeminiLiveTurnAccumulator', () => {
     ]);
   });
 
-  it('force-finishes active content when the browser session ends', () => {
-    const accumulator = new GeminiLiveTurnAccumulator();
-    accumulator.process(
-      event({ inputTranscripts: ['Question'], outputTranscripts: ['Answer'] }),
-      4_000,
-    );
+  it.each([true, false])(
+    'force-finishes only confirmed input when the session ends (confirmed=%s)',
+    confirmed => {
+      const accumulator = new GeminiLiveTurnAccumulator();
+      accumulator.process(
+        event({
+          inputTranscripts: confirmed ? ['Question'] : [],
+          interimInputTranscripts: confirmed ? [] : ['Interim question'],
+          outputTranscripts: ['Heard answer'],
+          audioChunks: [new ArrayBuffer(4)],
+        }),
+        4_000,
+      );
+      accumulator.recordPlaybackProgress(1, 4);
+      accumulator.process(
+        event({
+          outputTranscripts: ['Heard answer and unheard continuation'],
+          audioChunks: [new ArrayBuffer(4)],
+          usageMetadata: { totalTokenCount: 10 },
+        }),
+        4_100,
+      );
 
-    expect(accumulator.finishSession(4_250)).toEqual([
+      expect(accumulator.finishSession(4_250)).toEqual([
+        expect.objectContaining({
+          turnIndex: 1,
+          userTranscript: confirmed ? 'Question' : '',
+          playedAnswerTranscript: 'Heard answer',
+          fullAnswerTranscript: 'Heard answer and unheard continuation',
+          usageMetadata: { totalTokenCount: 10 },
+          latencyMs: 250,
+        }),
+      ]);
+    },
+  );
+
+  it('preserves a confirmed question even when the session ends before any answer', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.process(event({ inputTranscripts: ['Question'] }), 1_000);
+    expect(accumulator.finishSession(1_100)).toEqual([
       expect.objectContaining({
-        turnIndex: 1,
-        userTranscript: '',
-        fullAnswerTranscript: 'Answer',
-        latencyMs: 250,
+        userTranscript: 'Question',
+        playedAnswerTranscript: '',
+        fullAnswerTranscript: '',
       }),
     ]);
   });

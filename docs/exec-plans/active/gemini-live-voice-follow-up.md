@@ -229,6 +229,11 @@ auditing, or another correctness-sensitive decision.
       metadata; save edited course fields and ignore late catalog responses
       after close. All 27 settings/model tests pass, including exact save-event
       timing/payload, no event on failure, and analytics fail-open behavior.
+- [x] 2026-09-04: Preserve confirmed input transcription when ending an active
+      turn before Gemini sends `turnComplete`. Keep interim speech excluded and
+      retain only acknowledged answer playback. All 76 accumulator/controller
+      tests pass, covering explicit end, final playback flush, pagehide, a
+      question with no answer yet, and correct exchange analytics.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

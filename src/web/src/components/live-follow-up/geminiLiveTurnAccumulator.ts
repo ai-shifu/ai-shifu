@@ -342,7 +342,8 @@ export class GeminiLiveTurnAccumulator {
     if (!state.terminalReason) {
       state.terminalReason = reason;
       state.userTranscriptFinal =
-        reason !== 'session_end' && Boolean(state.userTranscript.trim());
+        state.receivedInputTranscription &&
+        Boolean(state.userTranscript.trim());
       state.readyAt = now + GEMINI_LIVE_RECONCILIATION_MS;
     } else if (reason === 'interrupted') {
       state.terminalReason = reason;

@@ -618,128 +618,145 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     },
   );
 
-  it('commits a completed reconciliation-window turn before ending the session', async () => {
-    const onTurnCommitted = jest.fn();
-    render(<Harness onTurnCommitted={onTurnCommitted} />);
-    await startAndOpen();
-    await makeReady();
-    const callbacks = mockActivateAudio.mock.calls[0][0] as {
-      onPlaybackComplete: (turnIndex: number) => void;
-    };
+  it.each([true, false])(
+    'commits confirmed speech before ending the session (turnComplete=%s)',
+    async turnComplete => {
+      const onTurnCommitted = jest.fn();
+      render(<Harness onTurnCommitted={onTurnCommitted} />);
+      await startAndOpen();
+      await makeReady();
+      const callbacks = mockActivateAudio.mock.calls[0][0] as {
+        onPlaybackComplete: (turnIndex: number) => void;
+      };
 
-    act(() =>
-      mockSockets[0].message(
-        serverEvent({
-          inputTranscripts: ['Question before close'],
-          outputTranscripts: ['Answer before close'],
-          audioChunks: [new ArrayBuffer(4)],
-          turnComplete: true,
-        }),
-      ),
-    );
-    act(() => callbacks.onPlaybackComplete(1));
-    fireEvent.click(screen.getByRole('button', { name: 'end' }));
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            inputTranscripts: ['Question before close'],
+            outputTranscripts: ['Answer before close'],
+            audioChunks: [new ArrayBuffer(4)],
+            turnComplete,
+          }),
+        ),
+      );
+      act(() => callbacks.onPlaybackComplete(1));
+      fireEvent.click(screen.getByRole('button', { name: 'end' }));
 
-    await waitFor(() =>
+      await waitFor(() =>
+        expect(mockCommitTurn).toHaveBeenCalledWith(
+          'session-1',
+          expect.objectContaining({
+            user_transcript: 'Question before close',
+            played_answer_transcript: 'Answer before close',
+          }),
+        ),
+      );
+      expect(onTurnCommitted).toHaveBeenCalledWith({
+        outlineBid: 'lesson-1',
+        anchorElementBid: 'element-1',
+        turnIndex: 1,
+        userTranscript: 'Question before close',
+        assistantTranscript: 'Answer before close',
+      });
+      await waitFor(() =>
+        expect(mockEndSession).toHaveBeenCalledWith(
+          'session-1',
+          'ended_by_user',
+        ),
+      );
+      expect(mockCommitTurn.mock.invocationCallOrder[0]).toBeLessThan(
+        mockEndSession.mock.invocationCallOrder[0],
+      );
+    },
+  );
+
+  it.each([true, false])(
+    'starts the final batch in the pagehide call stack (turnComplete=%s)',
+    async turnComplete => {
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            inputTranscripts: ['Question before leaving'],
+          }),
+        ),
+      );
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            outputTranscripts: ['Partial answer before leaving'],
+            audioChunks: [new ArrayBuffer(4)],
+            turnComplete,
+          }),
+        ),
+      );
+      expect(screen.getByTestId('transcripts')).toHaveTextContent(
+        'Question before leaving',
+      );
+
+      act(() => window.dispatchEvent(new Event('pagehide')));
+
+      expect(mockFinalizeSession).toHaveBeenCalledWith(
+        'session-1',
+        [
+          expect.objectContaining({
+            user_transcript: 'Question before leaving',
+          }),
+        ],
+        'page_hidden',
+      );
+      expect(mockAudio.stop).toHaveBeenCalled();
+      expect(mockEndSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([true, false])(
+    'flushes the last playback watermark before saving (turnComplete=%s)',
+    async turnComplete => {
+      const stoppedAudio = createDeferred<void>();
+      mockAudio.stop.mockReturnValueOnce(stoppedAudio.promise);
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      const callbacks = mockActivateAudio.mock.calls[0][0] as {
+        onPlaybackProgress: (turnIndex: number, playedBytes: number) => void;
+      };
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            inputTranscripts: ['Question'],
+            outputTranscripts: ['Actually heard answer'],
+            audioChunks: [new ArrayBuffer(4)],
+            turnComplete,
+          }),
+        ),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'end' }));
+      expect(mockCommitTurn).not.toHaveBeenCalled();
+      expect(mockReleaseExclusive).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalledWith(
+        'learner_voice_follow_up_session_end',
+        expect.anything(),
+      );
+      act(() => callbacks.onPlaybackProgress(1, 4));
+      await act(async () => stoppedAudio.resolve());
+
       expect(mockCommitTurn).toHaveBeenCalledWith(
         'session-1',
         expect.objectContaining({
-          user_transcript: 'Question before close',
-          played_answer_transcript: 'Answer before close',
+          user_transcript: 'Question',
+          played_answer_transcript: 'Actually heard answer',
         }),
-      ),
-    );
-    expect(onTurnCommitted).toHaveBeenCalledWith({
-      outlineBid: 'lesson-1',
-      anchorElementBid: 'element-1',
-      turnIndex: 1,
-      userTranscript: 'Question before close',
-      assistantTranscript: 'Answer before close',
-    });
-    await waitFor(() =>
-      expect(mockEndSession).toHaveBeenCalledWith('session-1', 'ended_by_user'),
-    );
-    expect(mockCommitTurn.mock.invocationCallOrder[0]).toBeLessThan(
-      mockEndSession.mock.invocationCallOrder[0],
-    );
-  });
-
-  it('starts the final batch in the pagehide call stack without awaiting audio teardown', async () => {
-    render(<Harness />);
-    await startAndOpen();
-    await makeReady();
-    act(() =>
-      mockSockets[0].message(
-        serverEvent({
-          inputTranscripts: ['Question before leaving'],
-        }),
-      ),
-    );
-    act(() =>
-      mockSockets[0].message(
-        serverEvent({
-          outputTranscripts: ['Partial answer before leaving'],
-          audioChunks: [new ArrayBuffer(4)],
-          turnComplete: true,
-        }),
-      ),
-    );
-    expect(screen.getByTestId('transcripts')).toHaveTextContent(
-      'Question before leaving',
-    );
-
-    act(() => window.dispatchEvent(new Event('pagehide')));
-
-    expect(mockFinalizeSession).toHaveBeenCalledWith(
-      'session-1',
-      [expect.objectContaining({ user_transcript: 'Question before leaving' })],
-      'page_hidden',
-    );
-    expect(mockAudio.stop).toHaveBeenCalled();
-    expect(mockEndSession).not.toHaveBeenCalled();
-  });
-
-  it('flushes the last playback watermark before saving an explicitly ended turn', async () => {
-    const stoppedAudio = createDeferred<void>();
-    mockAudio.stop.mockReturnValueOnce(stoppedAudio.promise);
-    render(<Harness />);
-    await startAndOpen();
-    await makeReady();
-    const callbacks = mockActivateAudio.mock.calls[0][0] as {
-      onPlaybackProgress: (turnIndex: number, playedBytes: number) => void;
-    };
-    act(() =>
-      mockSockets[0].message(
-        serverEvent({
-          inputTranscripts: ['Question'],
-          outputTranscripts: ['Actually heard answer'],
-          audioChunks: [new ArrayBuffer(4)],
-          turnComplete: true,
-        }),
-      ),
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'end' }));
-    expect(mockCommitTurn).not.toHaveBeenCalled();
-    expect(mockReleaseExclusive).not.toHaveBeenCalled();
-    expect(mockTrackEvent).not.toHaveBeenCalledWith(
-      'learner_voice_follow_up_session_end',
-      expect.anything(),
-    );
-    act(() => callbacks.onPlaybackProgress(1, 4));
-    await act(async () => stoppedAudio.resolve());
-
-    expect(mockCommitTurn).toHaveBeenCalledWith(
-      'session-1',
-      expect.objectContaining({
-        played_answer_transcript: 'Actually heard answer',
-      }),
-    );
-    expect(mockReleaseExclusive).toHaveBeenCalled();
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      'learner_voice_follow_up_session_end',
-      expect.objectContaining({ had_exchange: true, end_reason: 'user_end' }),
-    );
-  });
+      );
+      expect(mockReleaseExclusive).toHaveBeenCalled();
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_voice_follow_up_session_end',
+        expect.objectContaining({ had_exchange: true, end_reason: 'user_end' }),
+      );
+    },
+  );
 
   it('initiates all unacknowledged turns before the document is discarded', async () => {
     jest.useFakeTimers();
