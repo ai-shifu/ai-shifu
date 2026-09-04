@@ -55,12 +55,17 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     value,
     onChange,
     onSend,
+    sendShortcut,
   }: {
     value: string;
     onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onSend: () => void;
+    sendShortcut?: 'enter' | 'none';
   }) => (
-    <div>
+    <div
+      data-testid='ask-input-wrapper'
+      data-send-shortcut={sendShortcut}
+    >
       <textarea
         aria-label='ask-input'
         value={value}
@@ -220,6 +225,39 @@ describe('AskBlock', () => {
       },
     );
   });
+
+  it.each([
+    ['desktop', false, 'enter'],
+    ['mobile', true, 'none'],
+  ] as const)(
+    'uses the %s input shortcut policy',
+    (_surface, mobileStyle, expectedShortcut) => {
+      render(
+        <AppContext.Provider
+          value={{
+            isLoggedIn: false,
+            mobileStyle,
+            userInfo: null,
+            theme: 'light',
+            frameLayout: 0,
+          }}
+        >
+          <AskBlock
+            isExpanded={true}
+            shifu_bid='shifu-1'
+            outline_bid='lesson-1'
+            element_bid='block-1'
+            askList={[]}
+          />
+        </AppContext.Provider>,
+      );
+
+      expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute(
+        'data-send-shortcut',
+        expectedShortcut,
+      );
+    },
+  );
 
   it.each(['read', 'listen'] as const)(
     'sends follow-up requests without TTS in %s mode',

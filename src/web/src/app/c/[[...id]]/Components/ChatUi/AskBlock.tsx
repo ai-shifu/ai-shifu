@@ -774,6 +774,7 @@ export default function AskBlock({
           value={inputValue}
           onChange={handleInputChange}
           onSend={handleSendCustomQuestion}
+          sendShortcut={mobileStyle ? 'none' : 'enter'}
           className={cn(
             styles.inputGroup,
             isStreamingRef.current ? styles.isSending : '',
