@@ -142,6 +142,35 @@ class LiveTurnPersistenceResult:
     history_saved: bool = False
 
 
+def load_persisted_live_follow_up_turn(
+    session_bid: str, turn_index: int
+) -> LiveTurnPersistenceResult:
+    """Rebuild a durable acknowledgement without trusting the retry's payload."""
+    usage_bid = deterministic_live_turn_bid(session_bid, turn_index, "usage")
+    usage = BillUsageRecord.query.filter(BillUsageRecord.usage_bid == usage_bid).first()
+    if usage is None:
+        message = "Gemini Live durable turn is unavailable"
+        raise LiveFollowUpPersistenceError(message)
+    # Usage is written only after the history transaction. Usage-only turns
+    # deliberately have no generated block and must stay history-free on retry.
+    if not usage.generated_block_bid:
+        return LiveTurnPersistenceResult(usage_bid=usage_bid)
+    return LiveTurnPersistenceResult(
+        ask_block_bid=deterministic_live_turn_bid(session_bid, turn_index, "ask-block"),
+        answer_block_bid=deterministic_live_turn_bid(
+            session_bid, turn_index, "answer-block"
+        ),
+        ask_element_bid=deterministic_live_turn_bid(
+            session_bid, turn_index, "ask-element"
+        ),
+        answer_element_bid=deterministic_live_turn_bid(
+            session_bid, turn_index, "answer-element"
+        ),
+        usage_bid=usage_bid,
+        history_saved=True,
+    )
+
+
 def _base_element_payload(
     context: LiveTurnPersistenceContext,
     turn: LiveTurnPersistenceInput,

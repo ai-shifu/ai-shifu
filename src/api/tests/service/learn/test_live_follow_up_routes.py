@@ -624,6 +624,57 @@ def test_failed_turn_persistence_releases_only_its_reservation(
     ]
 
 
+@pytest.mark.parametrize("history_saved", [False, True])
+def test_duplicate_turn_acknowledges_durable_state_without_repeating_writes(
+    monkeypatch: pytest.MonkeyPatch, history_saved: bool
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_active_direct_session(monkeypatch)
+    _FakeTrace.instances.clear()
+    monkeypatch.setattr(routes, "LiveFollowUpTrace", _FakeTrace)
+    state = LiveFollowUpTurnState(
+        last_committed_index=2, pending_index=3, pending_claim="next-turn"
+    )
+    monkeypatch.setattr(
+        routes,
+        "load_live_follow_up_session",
+        lambda *_a, **_k: replace(_stored_session(), turn_state=state),
+    )
+    monkeypatch.setattr(
+        routes,
+        "reserve_live_follow_up_turn",
+        lambda *_a, **_k: pytest.fail("duplicate reserved again"),
+    )
+    monkeypatch.setattr(
+        routes,
+        "persist_live_follow_up_turn",
+        lambda *_a, **_k: pytest.fail("duplicate persisted again"),
+    )
+    result = LiveTurnPersistenceResult(
+        ask_element_bid="original-ask" if history_saved else "",
+        answer_element_bid="original-answer" if history_saved else "",
+        history_saved=history_saved,
+    )
+    loaded: list[tuple[str, int]] = []
+    monkeypatch.setattr(
+        routes,
+        "load_persisted_live_follow_up_turn",
+        lambda session_bid, turn_index: (
+            loaded.append((session_bid, turn_index)) or result
+        ),
+    )
+    response = _post_action(app, "turn", _turn_report(1))
+    assert json.loads(response.get_data(as_text=True))["data"] == {
+        "session_bid": "session-1",
+        "turn_index": 1,
+        "history_saved": history_saved,
+        "ask_element_bid": result.ask_element_bid,
+        "answer_element_bid": result.answer_element_bid,
+    }
+    assert loaded == [("session-1", 1)]
+    assert _FakeTrace.instances == []
+
+
 @pytest.mark.parametrize(
     "payload",
     [

@@ -25,6 +25,7 @@ from flaskr.service.learn.live_follow_up_persistence import (
     LiveTurnPersistenceContext,
     LiveTurnPersistenceInput,
     deterministic_live_turn_bid,
+    load_persisted_live_follow_up_turn,
     persist_live_follow_up_turn,
 )
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
@@ -267,6 +268,9 @@ def test_live_turn_without_final_user_transcript_only_records_usage(app: Flask) 
             == 0
         )
 
+    # Metering commits on an independent connection; verify from a new read
+    # transaction, just like the next HTTP request under MySQL REPEATABLE READ.
+    with app.app_context():
         usage_row = BillUsageRecord.query.filter_by(usage_bid=result.usage_bid).one()
         assert usage_row.billable == 0
         assert usage_row.generated_block_bid == ""
@@ -274,6 +278,37 @@ def test_live_turn_without_final_user_transcript_only_records_usage(app: Flask) 
         assert usage_row.extra["gemini_usage"]["promptTokensDetails"] == [
             {"modality": "AUDIO", "tokenCount": 9}
         ]
+
+
+@pytest.mark.parametrize("question", ["", "A completed question"])
+def test_durable_acknowledgement_preserves_original_history_without_writes(
+    app: Flask, question: str
+) -> None:
+    session_bid = str(uuid.uuid4())
+    context = _persistence_context(session_bid=session_bid)
+    turn = LiveTurnPersistenceInput(
+        turn_index=1,
+        user_transcript=question,
+        played_answer_transcript="",
+        interrupted=True,
+        usage_metadata={"totalTokenCount": 9},
+    )
+    with app.app_context():
+        result = persist_live_follow_up_turn(app, context, turn)
+    with app.app_context():
+        with patch.object(
+            db.session, "add", side_effect=AssertionError("duplicate write")
+        ):
+            assert load_persisted_live_follow_up_turn(session_bid, 1) == result
+        assert BillUsageRecord.query.filter_by(usage_bid=result.usage_bid).count() == 1
+
+
+def test_missing_durable_turn_is_not_acknowledged(app: Flask) -> None:
+    with (
+        app.app_context(),
+        pytest.raises(LiveFollowUpPersistenceError, match="unavailable"),
+    ):
+        load_persisted_live_follow_up_turn(str(uuid.uuid4()), 1)
 
 
 def test_live_turn_bounds_and_allowlists_untrusted_usage(app: Flask) -> None:
@@ -301,6 +336,7 @@ def test_live_turn_bounds_and_allowlists_untrusted_usage(app: Flask) -> None:
 
     with app.app_context():
         result = persist_live_follow_up_turn(app, context, turn)
+    with app.app_context():
         usage_row = BillUsageRecord.query.filter_by(usage_bid=result.usage_bid).one()
 
         assert usage_row.input == 0

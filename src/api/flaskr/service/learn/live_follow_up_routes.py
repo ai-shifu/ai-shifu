@@ -53,6 +53,7 @@ from flaskr.service.learn.live_follow_up_persistence import (
     LiveTurnPersistenceInput,
     LiveTurnPersistenceResult,
     live_follow_up_persistence_lock,
+    load_persisted_live_follow_up_turn,
     persist_live_follow_up_turn,
 )
 from flaskr.service.learn.live_follow_up_session_store import (
@@ -685,13 +686,18 @@ def register_live_follow_up_routes(
         try:
             with live_follow_up_persistence_lock(app, session_bid):
                 session = require_direct_session(session_bid, allow_finalization=True)
-                reservation = reserve_live_follow_up_turn(
-                    app,
-                    session_bid=session_bid,
-                    turn_index=turn.turn_index,
-                    recover_pending=True,
-                )
-                result = persist_reserved_turn(session, turn, reservation)
+                if turn.turn_index <= session.turn_state.last_committed_index:
+                    result = load_persisted_live_follow_up_turn(
+                        session_bid, turn.turn_index
+                    )
+                else:
+                    reservation = reserve_live_follow_up_turn(
+                        app,
+                        session_bid=session_bid,
+                        turn_index=turn.turn_index,
+                        recover_pending=True,
+                    )
+                    result = persist_reserved_turn(session, turn, reservation)
         except (LiveFollowUpSessionStoreError, LiveFollowUpPersistenceError):
             raise_param_error("live_follow_up_turn")
         return _make_live_response(

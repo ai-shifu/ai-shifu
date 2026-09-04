@@ -174,6 +174,14 @@ auditing, or another correctness-sensitive decision.
       a five-second acquisition bound and a fresh DB read context. A terminated
       worker releases ownership; a slow live writer cannot be displaced by a
       timer. No schema or ordinary follow-up behavior changes are required.
+- [x] 2026-09-04: Acknowledge already-durable `/turn` retries from persisted
+      state without reserving or writing again. Usage-only turns remain without
+      history. Cover a lost acknowledgement followed by an over-budget backlog;
+      all retained turns drain once. The focused backend suites pass 142 tests
+      with one SQLite-only skip; an isolated MySQL run passes all 143 focused
+      backend tests, including physical writer disconnect and lock takeover.
+      The full frontend suite passes 2,086 tests, plus TypeScript and the full
+      repository pre-commit gate.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

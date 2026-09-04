@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
+from threading import Event
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from flask import Flask, g
+from flaskr.dao import db
 from flaskr.service.learn import live_follow_up_persistence as persistence
+from sqlalchemy import text
 
 
 def _connection(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
@@ -97,3 +103,47 @@ def test_failed_release_invalidates_without_masking_a_durable_write(
     with persistence.live_follow_up_persistence_lock(Flask("live-lock-test"), "s"):
         pass
     connection.invalidate.assert_called_once()
+
+
+def test_mysql_worker_disconnect_releases_persistence_ownership(app: Flask) -> None:
+    """Run with TEST_SQLALCHEMY_DATABASE_URI against an isolated MySQL database."""
+    session_bid = str(uuid.uuid4())
+    lock_name = "ai-shifu:live:" + hashlib.sha256(session_bid.encode()).hexdigest()[:48]
+    entered = Event()
+    started = Event()
+
+    def successor() -> None:
+        with app.app_context():
+            started.set()
+            with persistence.live_follow_up_persistence_lock(app, session_bid):
+                entered.set()
+
+    with app.app_context():
+        if db.engine.dialect.name != "mysql":
+            pytest.skip("requires an isolated MySQL database")
+        with (
+            db.engine.connect() as abandoned,
+            ThreadPoolExecutor(max_workers=1) as pool,
+        ):
+            assert (
+                abandoned.execute(
+                    text("SELECT GET_LOCK(:name, 0)"), {"name": lock_name}
+                ).scalar()
+                == 1
+            )
+            waiting = pool.submit(successor)
+            try:
+                assert started.wait(2)
+                assert not entered.wait(0.1)
+            finally:
+                # Close the physical socket, as a terminated worker would.
+                abandoned.invalidate()
+            waiting.result(timeout=6)
+            assert entered.is_set()
+        with db.engine.connect() as probe:
+            assert (
+                probe.execute(
+                    text("SELECT IS_FREE_LOCK(:name)"), {"name": lock_name}
+                ).scalar()
+                == 1
+            )

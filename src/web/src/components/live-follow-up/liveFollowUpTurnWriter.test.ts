@@ -222,4 +222,48 @@ describe('Live turn report handoff', () => {
     expect(committed).toHaveBeenCalledTimes(1);
     expect(endLiveFollowUpSession).not.toHaveBeenCalled();
   });
+
+  it('drains an oversized backlog after losing an already-durable acknowledgement', async () => {
+    const durable = new Set<number>();
+    const inserted: number[] = [];
+    let calls = 0;
+    jest
+      .mocked(commitLiveFollowUpTurn)
+      .mockImplementation(async (_, report) => {
+        calls += 1;
+        if (calls === 2 || calls === 3) {
+          throw new Error('offline');
+        }
+        // The server acknowledges durable indices without another write.
+        if (!durable.has(report.turn_index)) {
+          expect(report.turn_index).toBe(durable.size + 1);
+          durable.add(report.turn_index);
+          inserted.push(report.turn_index);
+        }
+        if (calls === 1) {
+          throw new Error('response lost after commit');
+        }
+        return { turn_index: report.turn_index, history_saved: true };
+      });
+    const committed = jest.fn();
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      committed,
+      jest.fn(),
+    );
+    writer.enqueue(
+      [1, 2, 3].map(index => ({
+        ...turn(index),
+        userTranscript: 'x'.repeat(25_000),
+      })),
+    );
+    await writer.finish('connection_error');
+    expect(inserted).toEqual([1, 2, 3]);
+    expect(calls).toBe(6);
+    expect(committed.mock.calls.map(([value]) => value.turnIndex)).toEqual([
+      1, 2, 3,
+    ]);
+    expect(endLiveFollowUpSession).toHaveBeenCalledTimes(1);
+    expect(finalizeLiveFollowUpSession).not.toHaveBeenCalled();
+  });
 });
