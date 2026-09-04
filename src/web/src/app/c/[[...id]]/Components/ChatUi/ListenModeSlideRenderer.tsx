@@ -2528,7 +2528,12 @@ const ListenModeSlideRenderer = ({
     );
     pendingLessonSeekRef.current = null;
     syncPlaybackTimeline(audioElement);
-  }, [playbackTimelineState, syncPlaybackTimeline]);
+    persistListenPlaybackPosition(audioElement, true);
+  }, [
+    persistListenPlaybackPosition,
+    playbackTimelineState,
+    syncPlaybackTimeline,
+  ]);
 
   const handleTimelineSeekStart = useCallback(() => {
     timelineSeekStartSecondsRef.current = lessonPlaybackPositionSeconds;
@@ -2587,17 +2592,21 @@ const ListenModeSlideRenderer = ({
   const commitTimelineSeek = useCallback(() => {
     const audioElement = activeListenAudioElementRef.current;
     const startTimeSeconds = timelineSeekStartSecondsRef.current;
+    const pendingSeek = pendingLessonSeekRef.current;
     timelineSeekStartSecondsRef.current = null;
     if (
-      !audioElement ||
       startTimeSeconds === null ||
-      !playbackTimelineState ||
-      Math.abs(lessonPlaybackPositionSeconds - startTimeSeconds) < 0.1
+      (!pendingSeek &&
+        (!audioElement ||
+          !playbackTimelineState ||
+          Math.abs(lessonPlaybackPositionSeconds - startTimeSeconds) < 0.1))
     ) {
       return;
     }
 
-    persistListenPlaybackPosition(audioElement, true);
+    if (audioElement && !pendingSeek) {
+      persistListenPlaybackPosition(audioElement, true);
+    }
     void Promise.resolve(
       trackEvent(EVENT_NAMES.LEARNER_LISTEN_TIMELINE_SEEK, {
         surface: mobileStyle ? 'learner_mobile' : 'learner_desktop',

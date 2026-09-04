@@ -1798,6 +1798,69 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
+  it('persists and tracks a timeline seek that switches to another audio block', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'First',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+            audioDurationMs: 60_000,
+          },
+          {
+            type: 'content',
+            content: 'Second',
+            element_bid: 'content-2',
+            audio_url: 'https://audio.example.com/content-2.mp3',
+            audioDurationMs: 60_000,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    const timeline = await screen.findByRole('slider');
+    fireEvent.pointerDown(timeline);
+    fireEvent.change(timeline, { target: { value: '90' } });
+    fireEvent.pointerUp(timeline);
+
+    await waitFor(() => {
+      expect(audioElement).toHaveAttribute(
+        'src',
+        'https://audio.example.com/content-2.mp3',
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_listen_timeline_seek',
+        { surface: 'learner_desktop' },
+      );
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    await waitFor(() => {
+      expect(audioElement.currentTime).toBe(30);
+      expect(
+        readListenPlaybackPositionFromStorage({
+          courseId: 'course-1',
+          lessonId: 'lesson-1',
+          elementBid: 'content-2',
+          source: 'https://audio.example.com/content-2.mp3',
+        }),
+      ).toBe(30);
+    });
+  });
+
   it('keeps timeline seeking functional when analytics tracking fails', async () => {
     mockTrackEvent.mockRejectedValueOnce(new Error('tracking unavailable'));
 
