@@ -867,6 +867,7 @@ const ListenModeSlideRenderer = ({
   const currentStepElementRef = useRef<ListenSlideElement | undefined>(
     undefined,
   );
+  const currentStepIndexRef = useRef(-1);
   const [playerCustomActionState, setPlayerCustomActionState] =
     useState<PlayerCustomActionState>({
       currentElement: undefined,
@@ -1177,6 +1178,8 @@ const ListenModeSlideRenderer = ({
     [lessonPlaybackTimeline],
   );
   const [requestedStepIndex, setRequestedStepIndex] = useState<number>();
+  const elementListRef = useRef(elementList);
+  elementListRef.current = elementList;
   const restoredLessonPlaybackTargetRef = useRef('');
   const pendingLessonSeekRef = useRef<{
     elementBid: string;
@@ -1223,19 +1226,30 @@ const ListenModeSlideRenderer = ({
       const audioSource = normalizeListenPlaybackSource(
         audioElement.currentSrc || audioElement.src,
       );
-      const currentElement = currentStepElementRef.current;
-      const elementBid = currentElement?.blockBid?.trim() ?? '';
-      const elementSource = String(currentElement?.audio_url ?? '');
-      const source = normalizeListenPlaybackSource(
-        elementSource || audioSource,
+      const currentStepIndex = currentStepIndexRef.current;
+      const currentStepElement = currentStepElementRef.current;
+      const currentElementList = elementListRef.current;
+
+      // Slide reports the marker that owns the active step. A step can contain
+      // additional non-marker audio elements, so resolve the native source
+      // within that confirmed marker boundary rather than requiring the marker
+      // itself to own the source.
+      const activeAudioElement = currentElementList.find(
+        (element, elementIndex) =>
+          getListenSlideStepIndex(currentElementList, elementIndex) ===
+            currentStepIndex &&
+          normalizeListenPlaybackSource(String(element.audio_url ?? '')) ===
+            audioSource,
       );
+      const elementBid = activeAudioElement?.blockBid?.trim() ?? '';
 
       if (
         !elementBid ||
-        !source ||
-        source !== audioSource ||
-        currentElement?.is_audio_streaming ||
-        currentElement?.isAudioStreaming
+        !audioSource ||
+        currentStepIndex < 0 ||
+        !currentStepElement ||
+        activeAudioElement?.is_audio_streaming ||
+        activeAudioElement?.isAudioStreaming
       ) {
         return null;
       }
@@ -1244,7 +1258,7 @@ const ListenModeSlideRenderer = ({
         courseId: shifuBid,
         lessonId,
         elementBid,
-        source,
+        source: audioSource,
       } satisfies ListenPlaybackPositionScope;
     },
     [lessonId, shifuBid],
@@ -1961,6 +1975,7 @@ const ListenModeSlideRenderer = ({
     (element: SlideElement | undefined, index: number) => {
       const currentElement = element as ListenSlideElement | undefined;
       currentStepElementRef.current = currentElement;
+      currentStepIndexRef.current = index;
       const blockBid = currentElement?.blockBid;
       if (blockBid && blockBid !== 'empty-ppt') {
         setCurrentStepBlockBid(blockBid);

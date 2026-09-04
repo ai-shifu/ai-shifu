@@ -38,6 +38,10 @@ whole lesson. Restoring a position never starts audio automatically.
 - [x] 2026-09-04 14:40 CST: Replaced active-audio URL reverse lookup with the
   Slide callback's confirmed current element, and covered restoring a later
   marker step after non-step content.
+- [x] 2026-09-04 15:55 CST: Corrected the callback contract: Slide confirms
+  the active marker step, while the playing audio can be a non-marker member
+  of that step. Resume and the lesson timeline now resolve the exact source
+  within the confirmed step boundary, with a mode-switch regression test.
 
 ## Surprises & Discoveries
 
@@ -46,9 +50,9 @@ whole lesson. Restoring a position never starts audio automatically.
 - `Slide` keeps its native audio element inside the library, but the learner
   renderer already observes that element for playback state.
 - `Slide` navigates by marker-step index, while the learner renderer owns a
-  broader element list. Audio identity must come from `onStepChange`, which is
-  the library's confirmation of the step actually rendered, rather than by
-  searching that broader list for a matching URL.
+  broader element list. `onStepChange` confirms the rendered marker step, not
+  necessarily the exact audio-owning element: the learner must match the
+  native source only within that marker's bounded element range.
 
 ## Decision Log
 
@@ -75,6 +79,9 @@ whole lesson. Restoring a position never starts audio automatically.
   then apply its source-scoped timestamp.
 - 2026-09-04: Place the lesson-wide timeline below the player and reserve
   player-footer space so it does not overlap the chat input.
+- 2026-09-04: Use the UI callback as the authoritative active-step boundary,
+  then require an exact native-source match inside that boundary. This keeps
+  identity strict without dropping audio emitted by a non-marker child.
 
 ## Outcomes & Retrospective
 
