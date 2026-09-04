@@ -122,6 +122,15 @@ auditing, or another correctness-sensitive decision.
       Focused verification passes with 104 backend tests, 94 frontend tests,
       and TypeScript checking, including no analytics or microphone activity
       from clicks during capacity backoff.
+- [x] 2026-09-04: Interrupted outputs no longer receive a drain-complete
+      command after clearing playback; the accumulator also ignores stale
+      completion callbacks for interrupted turns, retaining only heard text.
+- [x] 2026-09-04: Keep the Live voice draft separate from text-provider state.
+      Live derives its required built-in provider and submits only its voice;
+      switching back restores the unchanged external provider, scalar fields,
+      and unsaved object inputs. Repeated switches retain the chosen voice.
+      The expanded frontend regression suite passes 106 tests, including
+      settings round trips and late playback completion, plus TypeScript.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

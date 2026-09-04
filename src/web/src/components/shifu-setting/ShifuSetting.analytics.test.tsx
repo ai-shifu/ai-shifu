@@ -516,6 +516,104 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
+  it('preserves external provider and unsaved fields across a Live round trip', async () => {
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      {
+        model: 'text-model',
+        display_name: 'Text',
+        interaction_mode: 'text',
+        voices: [],
+      },
+      {
+        model: 'live-model',
+        display_name: 'Live',
+        interaction_mode: 'live_voice',
+        voices: [
+          { voice_id: 'Kore', style: 'Firm' },
+          { voice_id: 'Puck', style: 'Upbeat' },
+        ],
+      },
+    ]);
+    mockAskConfig.mockResolvedValue({
+      providers: [
+        { provider: 'llm', json_schema: { properties: {} } },
+        {
+          provider: 'dify',
+          json_schema: {
+            properties: {
+              api_key: { type: 'string' },
+              inputs: { type: 'object' },
+            },
+            required: ['api_key'],
+          },
+        },
+      ],
+    });
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Private course name',
+      description: 'Private course description',
+      keywords: [],
+      model: '',
+      price: 1,
+      avatar: '',
+      temperature: 0,
+      system_prompt: '',
+      ask_model: 'text-model',
+      ask_temperature: 0,
+      ask_provider_config: {
+        provider: 'dify',
+        mode: 'provider_only',
+        config: { api_key: 'saved-secret' },
+      },
+      tts_enabled: false,
+      default_listen_mode_enabled: false,
+      use_learner_language: false,
+    });
+    renderOpenSettings();
+    const latestProps = () =>
+      mockAskSettingsSection.mock.calls.at(-1)?.[0] as {
+        onAskModelChange: (model: string) => void;
+        onLiveVoiceChange: (voice: string) => void;
+        setAskProviderConfig: (config: Record<string, unknown>) => void;
+        setAskProviderObjectInputs: (inputs: Record<string, string>) => void;
+        resolvedAskProvider: string;
+        liveVoice: string;
+      };
+    await waitFor(() => expect(latestProps().resolvedAskProvider).toBe('dify'));
+    act(() => {
+      latestProps().setAskProviderConfig({ api_key: 'edited-secret' });
+      latestProps().setAskProviderObjectInputs({ inputs: '{"lesson":1}' });
+    });
+    act(() => latestProps().onAskModelChange('live-model'));
+    expect(latestProps().resolvedAskProvider).toBe('llm');
+    act(() => latestProps().onLiveVoiceChange('Puck'));
+    act(() => latestProps().onAskModelChange('text-model'));
+    expect(latestProps().resolvedAskProvider).toBe('dify');
+    act(() => latestProps().onAskModelChange('live-model'));
+    expect(latestProps().liveVoice).toBe('Puck');
+    act(() => latestProps().onAskModelChange('text-model'));
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        ask_model: 'text-model',
+        ask_provider_config: {
+          provider: 'dify',
+          mode: 'provider_only',
+          config: { api_key: 'edited-secret', inputs: { lesson: 1 } },
+        },
+      }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_shifu_setting_save',
+      expect.objectContaining({ follow_up_mode: 'text' }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'edited-secret',
+    );
+  });
+
   it('preserves the selected Live voice across a temporary text-model switch', async () => {
     mockGetFollowUpModelCatalog.mockResolvedValue([
       {
