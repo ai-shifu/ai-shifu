@@ -54,8 +54,15 @@ auditing, or another correctness-sensitive decision.
       retained keyboard use, editing ended capture tracks, and End closed the
       output context while preserving the draft/panel/history. Desktop and
       390px mobile layouts were visually checked. Temporary fixture removed.
-- [ ] 2026-09-04: Submit the embedded revision to PR #2744, follow valid review
-      threads, and recheck current-head CI. Complete real-Gemini and physical
+- [x] 2026-09-04: Submitted embedded revision `ad3038d58` to PR #2744 and
+      updated its title/body for voice plus keyboard in the original panel.
+- [x] 2026-09-04: Addressed existing review `discussion_r3932264095`: normalize
+      terminal `/v1beta` in native model discovery and continue past an empty
+      OpenAI-format parse from a successful native proxy response. Preserve
+      reverse-proxy prefixes, text-model discovery, and Bidi capability metadata.
+      Added nine regressions; LLM/token tests: 119 passed, one environment skip.
+- [ ] 2026-09-04: Follow valid review threads and recheck current-head CI.
+      Complete real-Gemini and physical
       Safari/iOS/mobile Chrome acceptance before claiming those environments:
       no Gemini credential is available in the local environment for this run.
 

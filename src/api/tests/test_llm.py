@@ -614,6 +614,98 @@ def test_gemini_model_loader_discovers_capabilities_on_later_pages(
     ]
 
 
+@pytest.mark.parametrize(
+    ("base_url", "expected_url"),
+    [
+        (
+            "https://generativelanguage.googleapis.com/v1beta/",
+            "https://generativelanguage.googleapis.com/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/v1beta",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/v1beta/",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+    ],
+)
+@pytest.mark.parametrize("openai_probe_fails", [True, False])
+def test_gemini_native_proxy_preserves_version_prefix_and_capabilities(
+    monkeypatch: pytest.MonkeyPatch,
+    base_url: str,
+    expected_url: str,
+    openai_probe_fails: bool,
+) -> None:
+    native_requests: list[str] = []
+    live_model = "gemini-3.1-flash-live-preview"
+
+    def fake_get(url: str, **kwargs: object) -> object:
+        if "headers" in kwargs and openai_probe_fails:
+            message = "OpenAI authentication unsupported"
+            raise RuntimeError(message)
+        if "params" in kwargs:
+            native_requests.append(url)
+            assert kwargs["params"] == {"key": "test-key", "pageSize": 1000}
+        return FakeModelsResponse(
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-3.7-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": f"models/{live_model}",
+                        "supportedGenerationMethods": ["bidiGenerateContent"],
+                    },
+                ]
+            }
+        )
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
+    )
+    assert llm._load_gemini_models(config, {"api_key": "test-key"}, base_url) == [
+        "gemini-3.7-flash",
+        live_model,
+    ]
+    assert native_requests == [expected_url]
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS[live_model] == {"bidiGenerateContent"}
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.7-flash"] == {
+        "generateContent"
+    }
+
+
+def test_gemini_openai_proxy_preserves_text_discovery_without_native_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests_seen: list[str] = []
+
+    def fake_get(url: str, **kwargs: object) -> object:
+        requests_seen.append(url)
+        assert kwargs["headers"] == {
+            "Authorization": "Bearer test-key",
+            "Content-Type": "application/json",
+        }
+        return FakeModelsResponse({"data": [{"id": "gemini-3.7-flash"}]})
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
+    )
+    assert llm._load_gemini_models(
+        config, {"api_key": "test-key"}, "https://gemini-proxy.example.com/v1"
+    ) == ["gemini-3.7-flash"]
+    assert requests_seen == ["https://gemini-proxy.example.com/v1/models"]
+    assert "gemini-3.7-flash" not in llm.MODEL_SUPPORTED_GENERATION_METHODS
+
+
 def test_gemini_model_loader_never_logs_api_key_from_request_errors(
     monkeypatch: object,
 ) -> None:
