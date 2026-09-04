@@ -271,6 +271,7 @@ export const useLiveVoiceFollowUp = ({
     resolve: (sent: boolean) => void;
   } | null>(null);
   const textTransitionRef = useRef(false);
+  const expectedTextResponseTurnRef = useRef<number | null>(null);
   const textTimerRef = useRef<number | null>(null);
   const flushPendingTextRef = useRef<() => void>(() => {});
   const setupReadyRef = useRef(false);
@@ -552,6 +553,7 @@ export const useLiveVoiceFollowUp = ({
         window.clearTimeout(textTimerRef.current);
       textTimerRef.current = null;
       textTransitionRef.current = false;
+      expectedTextResponseTurnRef.current = null;
       pendingTextRef.current?.resolve(false);
       pendingTextRef.current = null;
       microphoneAbortRef.current?.abort();
@@ -1115,11 +1117,17 @@ export const useLiveVoiceFollowUp = ({
             scheduleCommitFlush(generation);
           }
           if (
+            expectedTextResponseTurnRef.current !== null &&
             !attemptAccumulator.textHandoffPending &&
-            (ingest.audioTurnIndex !== null ||
-              ingest.terminalTurnIndex !== null)
+            ((ingest.audioTurnIndex ?? 0) >=
+              expectedTextResponseTurnRef.current ||
+              (ingest.terminalTurnIndex ?? 0) >=
+                expectedTextResponseTurnRef.current)
           ) {
+            // An old coalesced interruption/completion is not acknowledgement
+            // of the pending question. Wait for activity in its own turn.
             textTransitionRef.current = false;
+            expectedTextResponseTurnRef.current = null;
             if (textTimerRef.current !== null)
               window.clearTimeout(textTimerRef.current);
             textTimerRef.current = null;
@@ -1436,6 +1444,7 @@ export const useLiveVoiceFollowUp = ({
       pending.resolve(false);
       return;
     }
+    expectedTextResponseTurnRef.current = submitted.update.turnIndex;
     applyTranscriptUpdates([submitted.update]);
     if (submitted.interruptedTurnIndex !== null) {
       outputTurnIndexRef.current = null;

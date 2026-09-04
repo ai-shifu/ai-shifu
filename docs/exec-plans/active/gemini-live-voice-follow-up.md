@@ -61,6 +61,12 @@ auditing, or another correctness-sensitive decision.
       OpenAI-format parse from a successful native proxy response. Preserve
       reverse-proxy prefixes, text-model discovery, and Bidi capability metadata.
       Added nine regressions; LLM/token tests: 119 passed, one environment skip.
+- [x] 2026-09-04: Self-review tightened pending text admission: only audio or
+      completion in the submitted question's own turn releases its send guard.
+      Coalesced old interruption/completion and late old audio no longer allow a
+      third question before the second starts. Both event combinations covered;
+      controller suite: 72 passed; TypeScript and full pre-commit passed.
+      Full frontend rerun: 227 suites / 2,165 tests passed.
 - [ ] 2026-09-04: Follow valid review threads and recheck current-head CI.
       Complete real-Gemini and physical
       Safari/iOS/mobile Chrome acceptance before claiming those environments:

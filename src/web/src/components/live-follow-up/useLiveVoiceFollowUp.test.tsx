@@ -396,6 +396,46 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     );
   });
 
+  it.each([false, true])(
+    'does not unlock a pending question on old completion (interrupted=%s)',
+    async interrupted => {
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      fireEvent.click(screen.getByRole('button', { name: 'text' }));
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({ audioChunks: [new ArrayBuffer(4)] }),
+        ),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'interrupt-text' }));
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            interrupted,
+            turnComplete: true,
+            audioChunks: [new ArrayBuffer(4)],
+          }),
+        ),
+      );
+      expect(screen.getByTestId('text-pending')).toHaveTextContent('true');
+      fireEvent.click(screen.getByRole('button', { name: 'text' }));
+      const submissions = () =>
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_text_submit',
+        );
+      expect(submissions()).toHaveLength(2);
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({ audioChunks: [new ArrayBuffer(4)] }),
+        ),
+      );
+      expect(screen.getByTestId('text-pending')).toHaveTextContent('false');
+      fireEvent.click(screen.getByRole('button', { name: 'text' }));
+      expect(submissions()).toHaveLength(3);
+    },
+  );
+
   it('interrupts typed answers, drops late playback, and saves each question once', async () => {
     jest.useFakeTimers();
     const onTurnCommitted = jest.fn();
