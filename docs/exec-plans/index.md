@@ -63,6 +63,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
+- [Safe Frontend Dead Code Cleanup](./completed/safe-frontend-dead-code-cleanup.md)
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
