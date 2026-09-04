@@ -193,6 +193,11 @@ auditing, or another correctness-sensitive decision.
       deadlines and existing analytics terminal deduplication; an explicit
       new-scope click supplies the new retry target. All 53 controller tests,
       2,098 frontend tests, TypeScript, and the full pre-commit gate pass.
+- [x] 2026-09-04: Pause listen-mode course audio only from an accepted Live
+      controller state, not before dispatching a click that admission may
+      reject. Preserve synchronous desktop/mobile activation and verify both
+      rejected clicks and accepted pause/restore behavior. All 45 listen-mode
+      renderer tests pass.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full
