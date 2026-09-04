@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import secrets
 import socket
@@ -10,10 +11,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .gemini_live_token import (
-    GEMINI_LIVE_TOKEN_CONNECT_SECONDS,
-    GEMINI_LIVE_TOKEN_LIFETIME_SECONDS,
-)
+from .gemini_live_token import GEMINI_LIVE_TOKEN_LIFETIME_SECONDS
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -22,9 +20,7 @@ if TYPE_CHECKING:
 LIVE_FOLLOW_UP_GLOBAL_LIMIT = 24
 LIVE_FOLLOW_UP_WORKER_LIMIT = 6
 LIVE_FOLLOW_UP_USER_LIMIT = 1
-LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS = (
-    GEMINI_LIVE_TOKEN_LIFETIME_SECONDS + GEMINI_LIVE_TOKEN_CONNECT_SECONDS
-)
+LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS = GEMINI_LIVE_TOKEN_LIFETIME_SECONDS
 _ERROR_LEASE_NOT_ACQUIRED = "lease_not_acquired"
 _ERROR_REDIS_UNAVAILABLE = "redis_unavailable"
 _SCOPE_USER = "user"
@@ -45,7 +41,7 @@ if redis.call('ZCARD', KEYS[2]) >= tonumber(ARGV[5]) then
 end
 
 local user_acquired = redis.call(
-    'SET', KEYS[3], ARGV[3], 'NX', 'EX', ARGV[6]
+    'SET', KEYS[3], ARGV[3], 'NX', 'PXAT', ARGV[6]
 )
 if not user_acquired then
     return -3
@@ -135,11 +131,12 @@ def acquire_live_follow_up_capacity(
     worker_id: str | None = None,
     now: float | None = None,
 ) -> LiveFollowUpCapacityLease:
-    """Reserve capacity through the maximum lifetime of the minted token.
+    """Reserve capacity through the shared absolute credential deadline.
 
-    The extra connect window covers the small interval between admission and
-    token issuance. Once the credential reaches the browser this reservation
-    must expire naturally because Gemini does not expose token revocation.
+    The caller passes the same issuance timestamp to admission and token minting.
+    All three capacity scopes expire together, rounded up to the next Redis
+    millisecond, never before the credential. Disclosed credentials cannot be
+    revoked, so their reservations still expire naturally rather than on close.
     """
     if not user_bid:
         raise LiveFollowUpCapacityLimitError(_SCOPE_USER)
@@ -148,7 +145,10 @@ def acquire_live_follow_up_capacity(
         raise LiveFollowUpCapacityLimitError(_SCOPE_WORKER)
     lease_id = secrets.token_urlsafe(32)
     current_time = time.time() if now is None else now
-    expires_at = current_time + LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS
+    expires_at_ms = math.ceil(
+        (current_time + LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS) * 1000
+    )
+    expires_at = expires_at_ms / 1000
     keys = _lease_keys(
         app,
         user_bid=user_bid,
@@ -165,7 +165,7 @@ def acquire_live_follow_up_capacity(
                 lease_id,
                 str(LIVE_FOLLOW_UP_GLOBAL_LIMIT),
                 str(LIVE_FOLLOW_UP_WORKER_LIMIT),
-                str(LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS),
+                str(expires_at_ms),
             )
         )
     except LiveFollowUpCapacityError:

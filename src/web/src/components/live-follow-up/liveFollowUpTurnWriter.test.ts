@@ -105,6 +105,136 @@ describe('Live turn report handoff', () => {
     expect(finalizeLiveFollowUpSession).not.toHaveBeenCalled();
   });
 
+  it('distinguishes durable turns from a failed binding close', async () => {
+    jest
+      .mocked(endLiveFollowUpSession)
+      .mockRejectedValueOnce(new Error('Close response lost'));
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      jest.fn(),
+      jest.fn(),
+    );
+    expect(writer.hasPendingTurns).toBe(false);
+    writer.enqueue([turn(1)]);
+    expect(writer.hasPendingTurns).toBe(true);
+    await expect(writer.finish('ended_by_user')).rejects.toThrow(
+      'Close response lost',
+    );
+    expect(writer.hasPendingTurns).toBe(false);
+    await writer.retryFinish('ended_by_user');
+    expect(endLiveFollowUpSession).toHaveBeenCalledTimes(2);
+    expect(commitLiveFollowUpTurn).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('retries a failed finish with a fresh bounded budget and the same outbox', async () => {
+    let completeFirst!: () => void;
+    jest.mocked(commitLiveFollowUpTurn).mockImplementation(
+      () =>
+        new Promise(resolve => {
+          completeFirst ??= () => resolve(acknowledgement);
+        }),
+    );
+    jest
+      .mocked(finalizeLiveFollowUpSession)
+      .mockReturnValue(new Promise(() => {}));
+    const committed = jest.fn();
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      committed,
+      jest.fn(),
+    );
+    writer.enqueue([turn(1), turn(2)]);
+    const initial = writer.finish('connection_error');
+    const rejected = expect(initial).rejects.toThrow('timed out');
+    expect(writer.retryFinish('connection_error')).toBe(initial);
+    await jest.advanceTimersByTimeAsync(25_000);
+    await rejected;
+    expect(writer.hasPendingTurns).toBe(true);
+    const previousRequests = jest.mocked(finalizeLiveFollowUpSession).mock.calls
+      .length;
+    jest.mocked(finalizeLiveFollowUpSession).mockResolvedValue({});
+
+    const retried = writer.retryFinish('connection_error');
+    expect(writer.retryFinish('connection_error')).toBe(retried);
+    await retried;
+    expect(finalizeLiveFollowUpSession).toHaveBeenCalledTimes(
+      previousRequests + 1,
+    );
+    expect(finalizeLiveFollowUpSession).toHaveBeenLastCalledWith(
+      'session-1',
+      [
+        expect.objectContaining({ turn_index: 1 }),
+        expect.objectContaining({ turn_index: 2 }),
+      ],
+      'connection_error',
+    );
+    expect(writer.hasPendingTurns).toBe(false);
+    expect(committed.mock.calls.map(([report]) => report.turnIndex)).toEqual([
+      1, 2,
+    ]);
+    completeFirst();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(committed).toHaveBeenCalledTimes(2);
+    expect(commitLiveFollowUpTurn).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('keeps an explicit failed recovery bounded without dropping reports', async () => {
+    jest.mocked(commitLiveFollowUpTurn).mockReturnValue(new Promise(() => {}));
+    jest
+      .mocked(finalizeLiveFollowUpSession)
+      .mockReturnValue(new Promise(() => {}));
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      jest.fn(),
+      jest.fn(),
+    );
+    writer.enqueue([turn(1)]);
+    const rejected = expect(writer.finish('connection_error')).rejects.toThrow(
+      'timed out',
+    );
+    await jest.advanceTimersByTimeAsync(25_000);
+    await rejected;
+    const retry = writer.retryFinish('connection_error');
+    const retryRejected = expect(retry).rejects.toThrow('timed out');
+    let settled = false;
+    void retry.catch(() => {
+      settled = true;
+    });
+    await jest.advanceTimersByTimeAsync(24_999);
+    expect(settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    await retryRejected;
+    expect(writer.hasPendingTurns).toBe(true);
+    expect(endLiveFollowUpSession).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('never reopens successful or finalized writers on explicit retry', async () => {
+    const writer = new LiveFollowUpTurnWriter(
+      'session-1',
+      jest.fn(),
+      jest.fn(),
+    );
+    writer.enqueue([turn(1)]);
+    await writer.finish('ended_by_user');
+    await writer.retryFinish('ended_by_user');
+    expect(endLiveFollowUpSession).toHaveBeenCalledTimes(1);
+    expect(commitLiveFollowUpTurn).toHaveBeenCalledTimes(1);
+
+    const unloaded = new LiveFollowUpTurnWriter(
+      'session-2',
+      jest.fn(),
+      jest.fn(),
+    );
+    await unloaded.handOffForUnload([turn(1)], 'page_hidden');
+    await unloaded.retryFinish('page_hidden');
+    expect(finalizeLiveFollowUpSession).toHaveBeenCalledTimes(1);
+    expect(endLiveFollowUpSession).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   it('retries a rejected takeover while the predecessor still owns the write lock', async () => {
     let completeFirst!: () => void;
     jest.mocked(commitLiveFollowUpTurn).mockReturnValueOnce(

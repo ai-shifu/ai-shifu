@@ -86,7 +86,7 @@
 | `docs/generated/harness-gardening-summary.md` | Harness Gardening Summary | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-health.md` | Harness Health | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page (v2) Technical Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
-| `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-04` | `true` |
+| `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-05` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `implemented` | `frontend` | `2026-04-17` | `true` |
 | `docs/product-specs/operator-course-detail-page.md` | Operator Course Detail Page | `product-spec` | `implemented` | `shared` | `2026-05-13` | `true` |

@@ -30,6 +30,213 @@ const event = (
 });
 
 describe('GeminiLiveTurnAccumulator', () => {
+  it('discards a paused reply until its real terminal event while retaining played history', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.submitText('Question', 10);
+    accumulator.process(
+      event({
+        outputTranscripts: ['Heard'],
+        audioChunks: [new ArrayBuffer(4)],
+      }),
+      20,
+    );
+    accumulator.recordPlaybackProgress(1, 4);
+    expect(accumulator.pauseOutput(30)).toEqual([1]);
+    expect(accumulator.popReady(1_000)).toEqual([]);
+    accumulator.resumeOutput();
+    const late = accumulator.process(
+      event({
+        outputTranscripts: ['Heard but discarded'],
+        audioChunks: [new ArrayBuffer(8)],
+        turnComplete: true,
+        usageMetadata: { totalTokenCount: 50 },
+      }),
+      1_100,
+    );
+    expect(late.audioTurnIndex).toBe(1);
+    expect(accumulator.suppressPlayback(1)).toBe(true);
+    accumulator.markPlaybackComplete(1);
+    expect(accumulator.popReady(1_599)).toEqual([]);
+    expect(accumulator.popReady(1_600)).toEqual([
+      expect.objectContaining({
+        turnIndex: 1,
+        userTranscript: 'Question',
+        playedAnswerTranscript: 'Heard',
+        fullAnswerTranscript: 'Heard but discarded',
+        interrupted: true,
+        usageMetadata: { totalTokenCount: 50 },
+      }),
+    ]);
+    expect(
+      accumulator.submitText('Next question', 1_700)?.update.turnIndex,
+    ).toBe(2);
+    const next = accumulator.process(
+      event({
+        outputTranscripts: ['Next answer'],
+        audioChunks: [new ArrayBuffer(4)],
+      }),
+      1_710,
+    );
+    expect(next.audioTurnIndex).toBe(2);
+    expect(accumulator.suppressPlayback(2)).toBe(false);
+  });
+
+  it('suppresses speech and output first arriving during pause without inventing a question', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    expect(accumulator.pauseOutput(10)).toEqual([]);
+    expect(accumulator.finishSession(20)).toEqual([]);
+    accumulator.process(
+      event({ interimInputTranscripts: ['Unfinished speech'] }),
+      30,
+    );
+    accumulator.resumeOutput();
+    const late = accumulator.process(
+      event({
+        outputTranscripts: ['Unheard answer'],
+        audioChunks: [new ArrayBuffer(4)],
+        turnComplete: true,
+      }),
+      40,
+    );
+    expect(accumulator.suppressPlayback(late.audioTurnIndex!)).toBe(true);
+    expect(accumulator.popReady(540)).toEqual([
+      expect.objectContaining({
+        userTranscript: '',
+        playedAnswerTranscript: '',
+        interrupted: true,
+      }),
+    ]);
+  });
+
+  it('keeps terminal late parts and a final playback watermark on the paused turn', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.submitText('Question', 10);
+    accumulator.process(
+      event({
+        outputTranscripts: ['Heard'],
+        audioChunks: [new ArrayBuffer(4)],
+        turnComplete: true,
+      }),
+      20,
+    );
+    expect(accumulator.pauseOutput(30)).toEqual([1]);
+    accumulator.recordPlaybackProgress(1, 4);
+    const late = accumulator.process(
+      event({
+        outputTranscripts: ['Heard extra'],
+        audioChunks: [new ArrayBuffer(4)],
+      }),
+      40,
+    );
+    expect(late.audioTurnIndex).toBe(1);
+    expect(accumulator.suppressPlayback(1)).toBe(true);
+    expect(accumulator.popReady(520)).toEqual([
+      expect.objectContaining({
+        turnIndex: 1,
+        userTranscript: 'Question',
+        playedAnswerTranscript: 'Heard',
+        interrupted: true,
+      }),
+    ]);
+  });
+
+  it('does not attach a discarded text-only tail to a previously heard audio checkpoint', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.submitText('Question', 10);
+    accumulator.process(
+      event({
+        outputTranscripts: ['Heard'],
+        audioChunks: [new ArrayBuffer(4)],
+      }),
+      20,
+    );
+    accumulator.pauseOutput(30);
+    accumulator.recordPlaybackProgress(1, 4);
+    accumulator.process(
+      event({ outputTranscripts: ['Heard but not spoken'] }),
+      40,
+    );
+    accumulator.process(event({ turnComplete: true }), 50);
+    expect(accumulator.popReady(550)).toEqual([
+      expect.objectContaining({
+        playedAnswerTranscript: 'Heard',
+        fullAnswerTranscript: 'Heard but not spoken',
+        interrupted: true,
+      }),
+    ]);
+  });
+
+  it('does not discard a future question when paused before any input', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.pauseOutput(10);
+    accumulator.resumeOutput();
+    accumulator.submitText('First question', 20);
+    const answer = accumulator.process(
+      event({
+        outputTranscripts: ['Answer'],
+        audioChunks: [new ArrayBuffer(4)],
+        turnComplete: true,
+      }),
+      30,
+    );
+    expect(accumulator.suppressPlayback(answer.audioTurnIndex!)).toBe(false);
+    accumulator.markPlaybackComplete(1);
+    expect(accumulator.popReady(530)).toEqual([
+      expect.objectContaining({
+        turnIndex: 1,
+        userTranscript: 'First question',
+        playedAnswerTranscript: 'Answer',
+        interrupted: false,
+      }),
+    ]);
+  });
+
+  it('retains a typed interruption across pause and resume until the old turn closes', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.submitText('First question', 10);
+    accumulator.process(
+      event({
+        outputTranscripts: ['Heard'],
+        audioChunks: [new ArrayBuffer(4)],
+      }),
+      20,
+    );
+    accumulator.recordPlaybackProgress(1, 4);
+    accumulator.pauseOutput(30);
+    accumulator.resumeOutput();
+    accumulator.submitText('Next question', 40);
+    const old = accumulator.process(
+      event({ interrupted: true, turnComplete: true }),
+      50,
+    );
+    expect(old.terminalTurnIndex).toBe(1);
+    const next = accumulator.process(
+      event({
+        outputTranscripts: ['New answer'],
+        audioChunks: [new ArrayBuffer(4)],
+        turnComplete: true,
+      }),
+      60,
+    );
+    expect(next.audioTurnIndex).toBe(2);
+    expect(accumulator.suppressPlayback(2)).toBe(false);
+    accumulator.markPlaybackComplete(2);
+    expect(accumulator.popReady(560)).toEqual([
+      expect.objectContaining({
+        turnIndex: 1,
+        userTranscript: 'First question',
+        playedAnswerTranscript: 'Heard',
+        interrupted: true,
+      }),
+      expect.objectContaining({
+        turnIndex: 2,
+        userTranscript: 'Next question',
+        playedAnswerTranscript: 'New answer',
+        interrupted: false,
+      }),
+    ]);
+  });
+
   it('retains a typed handoff until the upstream boundary even after reconciliation elapses', () => {
     const accumulator = new GeminiLiveTurnAccumulator();
     accumulator.process(

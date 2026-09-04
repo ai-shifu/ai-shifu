@@ -152,8 +152,7 @@ def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _token() -> GeminiLiveEphemeralToken:
-    now = datetime.now(tz=UTC)
+def _token(now: datetime) -> GeminiLiveEphemeralToken:
     return GeminiLiveEphemeralToken(
         token="auth_tokens/ephemeral",
         expires_at=now + timedelta(minutes=15),
@@ -289,17 +288,20 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
         }.get(name, default),
     )
     minted: list[dict[str, object]] = []
+    admitted: list[dict[str, object]] = []
     stored: list[StoredLiveFollowUpSession] = []
+    issued_at = datetime(2026, 9, 5, 1, 2, 3, 123456, tzinfo=UTC)
+    monkeypatch.setattr(routes, "now_utc", lambda: issued_at.replace(tzinfo=None))
     lease = _stored_session().lease
     monkeypatch.setattr(
         routes,
         "acquire_live_follow_up_capacity",
-        lambda *_args, **_kwargs: lease,
+        lambda *_args, **kwargs: admitted.append(kwargs) or lease,
     )
     monkeypatch.setattr(
         routes,
         "mint_gemini_live_ephemeral_token",
-        lambda **kwargs: minted.append(kwargs) or _token(),
+        lambda **kwargs: minted.append(kwargs) or _token(kwargs["current_time"]),
     )
     monkeypatch.setattr(
         routes,
@@ -337,10 +339,15 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
             "voice_name": "Kore",
             "system_instruction": "private system instruction",
             "include_initial_history": True,
+            "current_time": issued_at,
         }
     ]
+    assert admitted == [{"user_bid": "user-1", "now": issued_at.timestamp()}]
     assert stored[0].binding.origin == "https://learn.example.com"
-    assert stored[0].binding.expires_at_epoch > 0
+    assert (
+        stored[0].binding.expires_at_epoch
+        == (issued_at + timedelta(minutes=15)).timestamp()
+    )
 
 
 @pytest.mark.parametrize(
@@ -366,10 +373,10 @@ def test_session_releases_capacity_when_token_or_redis_fails(
     monkeypatch.setattr(
         routes,
         "mint_gemini_live_ephemeral_token",
-        lambda **_kwargs: (
+        lambda **kwargs: (
             (_ for _ in ()).throw(failure)
             if isinstance(failure, GeminiLiveTokenError)
-            else _token()
+            else _token(kwargs["current_time"])
         ),
     )
     monkeypatch.setattr(
@@ -380,6 +387,43 @@ def test_session_releases_capacity_when_token_or_redis_fails(
             if isinstance(failure, LiveFollowUpSessionStoreUnavailableError)
             else None
         ),
+    )
+    monkeypatch.setattr(
+        routes,
+        "release_live_follow_up_capacity",
+        lambda _app, *, lease: released.append(lease),
+    )
+
+    with pytest.raises(AppError):
+        _post_session(app, _valid_payload())
+    assert released == [lease]
+
+
+@pytest.mark.parametrize("changed_field", ["expires_at", "new_session_expires_at"])
+def test_session_rejects_a_token_outside_its_reserved_deadlines(
+    monkeypatch: pytest.MonkeyPatch,
+    changed_field: str,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    lease = _stored_session().lease
+    released: list[LiveFollowUpCapacityLease] = []
+    monkeypatch.setattr(
+        routes, "acquire_live_follow_up_capacity", lambda *_args, **_kwargs: lease
+    )
+
+    def mismatched_token(**kwargs: object) -> GeminiLiveEphemeralToken:
+        token = _token(kwargs["current_time"])
+        return replace(
+            token,
+            **{changed_field: getattr(token, changed_field) + timedelta(seconds=1)},
+        )
+
+    monkeypatch.setattr(routes, "mint_gemini_live_ephemeral_token", mismatched_token)
+    monkeypatch.setattr(
+        routes,
+        "store_live_follow_up_session",
+        lambda *_args, **_kwargs: pytest.fail("mismatched credential was stored"),
     )
     monkeypatch.setattr(
         routes,
@@ -449,22 +493,24 @@ def _stub_active_direct_session(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_heartbeat_renews_only_the_control_plane_binding(
+def test_heartbeat_validates_binding_without_extending_its_deadline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
-    touched: list[str] = []
+    touched: list[tuple[str, bool]] = []
     monkeypatch.setattr(
         routes,
         "touch_live_follow_up_session",
-        lambda _app, *, session_bid: touched.append(session_bid),
+        lambda _app, *, session_bid, finalizing: touched.append(
+            (session_bid, finalizing)
+        ),
     )
 
     response = _post_action(app, "heartbeat")
     body = json.loads(response.get_data(as_text=True))["data"]
     assert body["session_bid"] == "session-1"
-    assert touched == ["session-1"]
+    assert touched == [("session-1", False)]
 
 
 @pytest.mark.parametrize("action", ["heartbeat", "turn", "end", "finalize"])
@@ -851,9 +897,12 @@ def test_accepted_finalization_outlives_binding_and_admission_deadlines(
     _stub_active_direct_session(monkeypatch)
     clock = [1_000.0]
     session = _stored_session(
-        expires_at_epoch=971 if boundary == "admission_deadline" else 2_000
+        expires_at_epoch=971 if boundary == "admission_deadline" else 1_015
     )
-    retained_until = [clock[0] + session_store.LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS]
+    retained_until = [
+        session.binding.expires_at_epoch
+        + session_store.LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS
+    ]
     consumed: list[str] = []
     persisted: list[int] = []
     renewals: list[bool] = []
@@ -870,7 +919,7 @@ def test_accepted_finalization_outlives_binding_and_admission_deadlines(
         ttl = (
             session_store.LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS
             if finalizing
-            else session_store.LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS
+            else 0
         )
         retained_until[0] = max(retained_until[0], clock[0] + ttl)
 
@@ -931,7 +980,7 @@ def test_accepted_finalization_outlives_binding_and_admission_deadlines(
     assert result.status_code == 200
     assert persisted == [1, 2, 3]
     assert consumed == ["session-1"]
-    assert renewals == [False, True, True, True]
+    assert renewals == [True, True, True, True]
     assert get_binding("") is None
 
 

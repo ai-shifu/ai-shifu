@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from flask import Flask
     from redis import Redis
 
-LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS = 45
 LIVE_FOLLOW_UP_SESSION_HEARTBEAT_INTERVAL_SECONDS = 15
 LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS = 30
 # Bounded in-flight retention, renewed before each accepted finalization write.
@@ -33,8 +32,10 @@ _TOUCH_SESSION_SCRIPT = """
 if redis.call('EXISTS', KEYS[1]) == 0 then
     return 0
 end
--- A concurrent heartbeat must not shorten an accepted finalization lease.
-if redis.call('TTL', KEYS[1]) < tonumber(ARGV[1]) then
+-- Ordinary heartbeats only validate existence. Initial retention already covers
+-- the credential lifetime, including paused/background browser throttling.
+-- Only an accepted finalization may extend retention; it cannot extend access.
+if tonumber(ARGV[1]) > 0 and redis.call('TTL', KEYS[1]) < tonumber(ARGV[1]) then
     redis.call('EXPIRE', KEYS[1], ARGV[1])
 end
 return 1
@@ -81,13 +82,13 @@ end
 if requested_index ~= last_index + 1 or requested_index > max_turns then
     return -2
 end
-local ttl = redis.call('TTL', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
 if ttl < 1 then
     return 0
 end
 state['pending_index'] = requested_index
 state['pending_claim'] = ARGV[2]
-redis.call('SET', KEYS[1], cjson.encode(record), 'EX', ttl)
+redis.call('SET', KEYS[1], cjson.encode(record), 'KEEPTTL')
 return 1
 """
 
@@ -107,14 +108,14 @@ if type(state) ~= 'table'
     or state['pending_claim'] ~= ARGV[2] then
     return -2
 end
-local ttl = redis.call('TTL', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
 if ttl < 1 then
     return 0
 end
 state['last_committed_index'] = tonumber(ARGV[1])
 state['pending_index'] = cjson.null
 state['pending_claim'] = ''
-redis.call('SET', KEYS[1], cjson.encode(record), 'EX', ttl)
+redis.call('SET', KEYS[1], cjson.encode(record), 'KEEPTTL')
 return 1
 """
 
@@ -134,13 +135,13 @@ if type(state) ~= 'table'
     or state['pending_claim'] ~= ARGV[2] then
     return -2
 end
-local ttl = redis.call('TTL', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
 if ttl < 1 then
     return 0
 end
 state['pending_index'] = cjson.null
 state['pending_claim'] = ''
-redis.call('SET', KEYS[1], cjson.encode(record), 'EX', ttl)
+redis.call('SET', KEYS[1], cjson.encode(record), 'KEEPTTL')
 return 1
 """
 
@@ -316,13 +317,25 @@ def store_live_follow_up_session(
     *,
     session: StoredLiveFollowUpSession,
 ) -> None:
-    """Store one unique direct-session binding or fail closed."""
+    """Retain a binding through its fixed credential and finalization deadline.
+
+    Browser timer throttling must not destroy an otherwise valid paused session.
+    Capacity is reserved independently for the credential lifetime, and every
+    request still validates identity, Origin, and the hard admission deadline.
+    """
     payload = _serialize_session(session)
+    retention_deadline_ms = math.ceil(
+        (
+            session.binding.expires_at_epoch
+            + LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS
+        )
+        * 1000
+    )
     try:
         stored = _require_redis().set(
             _session_key(app, session.binding.session_bid),
             payload,
-            ex=LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS,
+            pxat=retention_deadline_ms,
             nx=True,
         )
     except LiveFollowUpSessionStoreError:
@@ -371,11 +384,7 @@ def touch_live_follow_up_session(
     app: Flask, *, session_bid: str, finalizing: bool = False
 ) -> None:
     """Extend binding retention, never the absolute request-admission deadline."""
-    ttl = (
-        LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS
-        if finalizing
-        else LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS
-    )
+    ttl = LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS if finalizing else 0
     try:
         touched = bool(
             _require_redis().eval(

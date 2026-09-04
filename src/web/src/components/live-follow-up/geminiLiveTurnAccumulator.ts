@@ -45,6 +45,7 @@ type TurnState = {
   userTranscriptFinal: boolean;
   typedInput: boolean;
   locallyInterrupted: boolean;
+  discardedByPause: boolean;
   outputTranscript: string;
   outputWaitingForAudio: string;
   outputCheckpoints: OutputCheckpoint[];
@@ -84,9 +85,31 @@ export class GeminiLiveTurnAccumulator {
   private lastResponseTurnIndex: number | null = null;
   private readonly interruptedAwaitingTurnComplete: number[] = [];
   private pendingTextTurnIndex: number | null = null;
+  private outputPaused = false;
 
   get textHandoffPending() {
     return this.pendingTextTurnIndex !== null;
+  }
+
+  pauseOutput(now = Date.now()): number[] {
+    this.outputPaused = true;
+    const interrupted: number[] = [];
+    for (const state of this.turns.values()) {
+      if (
+        hasRoutingActivity(state) &&
+        (!state.terminalReason || !this.playbackSettled(state))
+      ) {
+        this.discardOutputForPause(state, now);
+        interrupted.push(state.turnIndex);
+      }
+    }
+    return interrupted;
+  }
+
+  resumeOutput() {
+    // A discarded reply stays discarded even if its final chunks arrive after
+    // the panel reopens. Only future turns become audible again.
+    this.outputPaused = false;
   }
 
   submitText(text: string, now = Date.now()) {
@@ -117,7 +140,10 @@ export class GeminiLiveTurnAccumulator {
   }
 
   suppressPlayback(turnIndex: number) {
-    return this.turns.get(turnIndex)?.locallyInterrupted === true;
+    return (
+      this.outputPaused ||
+      this.turns.get(turnIndex)?.locallyInterrupted === true
+    );
   }
 
   process(
@@ -156,6 +182,23 @@ export class GeminiLiveTurnAccumulator {
       event.audioChunks.length ||
       event.usageMetadata,
     );
+
+    if (this.outputPaused) {
+      if (
+        responseTouched &&
+        (!responseState.terminalReason ||
+          !this.playbackSettled(responseState) ||
+          event.audioChunks.length)
+      ) {
+        this.discardOutputForPause(responseState, now);
+      }
+      if (
+        event.inputTranscripts.length ||
+        event.interimInputTranscripts.length
+      ) {
+        this.discardOutputForPause(inputState, now);
+      }
+    }
 
     for (const fragment of event.outputTranscripts) {
       const merged = mergeLiveTranscript(
@@ -359,6 +402,7 @@ export class GeminiLiveTurnAccumulator {
         userTranscriptFinal: false,
         typedInput: false,
         locallyInterrupted: false,
+        discardedByPause: false,
         outputTranscript: '',
         outputWaitingForAudio: '',
         outputCheckpoints: [],
@@ -397,13 +441,20 @@ export class GeminiLiveTurnAccumulator {
     }
     const state = this.turns.get(this.lastResponseTurnIndex);
     if (
-      state?.terminalReason !== 'turn_complete' ||
+      (state?.terminalReason !== 'turn_complete' &&
+        !(state?.discardedByPause && state.terminalReason === 'interrupted')) ||
       state.readyAt === null ||
       state.readyAt < now
     ) {
       return null;
     }
     return state;
+  }
+
+  private discardOutputForPause(state: TurnState, now: number) {
+    state.locallyInterrupted = true;
+    state.discardedByPause = true;
+    if (state.terminalReason) this.markTerminal(state, 'interrupted', now);
   }
 
   private markTerminal(
@@ -430,6 +481,9 @@ export class GeminiLiveTurnAccumulator {
   }
 
   private upsertCheckpoint(state: TurnState, text = state.outputTranscript) {
+    // Transcription can lead its audio. After discarding output, a late text
+    // fragment must not relabel an earlier byte checkpoint as newly heard.
+    if (state.discardedByPause) return;
     const normalized = text.trim();
     if (!normalized) {
       return;

@@ -14,19 +14,25 @@ import { useAskStateStore } from './useAskStateStore';
 import { mockLiveVoiceController } from '@/components/live-follow-up/liveVoiceFollowUp.test-support';
 
 const mockTrackEvent = jest.fn();
+let mockLanguage = 'zh-CN';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
     i18n: {
-      language: 'zh-CN',
-      resolvedLanguage: 'zh-CN',
+      language: mockLanguage,
+      resolvedLanguage: mockLanguage,
     },
   }),
 }));
 
 jest.mock('i18next', () => ({
   t: (key: string) => key,
+}));
+
+// Production embeds locale metadata through Next config; Jest has no build env.
+jest.mock('@/lib/i18n-locales', () => ({
+  isRtlLocale: (locale: string) => locale === 'ar-SA',
 }));
 
 jest.mock('@/c-utils/markdownUtils', () => ({
@@ -59,11 +65,13 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     onChange,
     onSend,
     sendShortcut,
+    textareaClassName,
   }: {
     value: string;
     onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onSend: () => void;
     sendShortcut?: 'enter' | 'none';
+    textareaClassName?: string;
   }) => (
     <div
       data-testid='ask-input-wrapper'
@@ -71,6 +79,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     >
       <textarea
         aria-label='ask-input'
+        className={textareaClassName}
         value={value}
         onChange={onChange}
         onKeyDown={event => {
@@ -201,6 +210,45 @@ class MockRunSource {
 }
 
 describe('AskBlock', () => {
+  it('mirrors the in-input microphone with the existing Send action in RTL', () => {
+    mockLanguage = 'ar-SA';
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        liveVoice={mockLiveVoiceController()}
+      />,
+    );
+    const composer = screen.getByTestId('ask-input-wrapper').parentElement;
+    expect(composer).toHaveAttribute('dir', 'rtl');
+    expect(composer).toContainElement(
+      screen.getByRole('button', {
+        name: 'module.chat.liveVoiceStartMicrophone',
+      }),
+    );
+  });
+
+  it('leaves the ordinary text input without a voice adornment', () => {
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+      />,
+    );
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    expect(screen.getByRole('textbox')).not.toHaveClass('liveTextarea');
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.chat.liveVoiceStartMicrophone',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it.each([false, true])(
     'uses the original input for Live without opening the microphone (mobile=%s)',
     async mobileStyle => {
@@ -221,6 +269,17 @@ describe('AskBlock', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(liveVoice.start).not.toHaveBeenCalled();
       expect(liveVoice.startMicrophone).not.toHaveBeenCalled();
+      const composer = screen.getByTestId('ask-input-wrapper').parentElement;
+      expect(composer).toHaveClass('liveInput');
+      expect(composer).toContainElement(
+        screen.getByRole('button', {
+          name: 'module.chat.liveVoiceStartMicrophone',
+        }),
+      );
+      expect(composer).toContainElement(
+        screen.getByRole('button', { name: 'send' }),
+      );
+      expect(screen.getByRole('textbox')).toHaveClass('liveTextarea');
       fireEvent.change(screen.getByRole('textbox'), {
         target: { value: 'Typed question' },
       });
@@ -269,7 +328,7 @@ describe('AskBlock', () => {
     expect(mockGetRunMessage).not.toHaveBeenCalled();
   });
 
-  it('closes only its own Live session when the original panel collapses', () => {
+  it('pauses only its own Live session when the original panel collapses', () => {
     const liveVoice = mockLiveVoiceController({
       anchorElementBid: 'element-1',
       open: true,
@@ -294,7 +353,8 @@ describe('AskBlock', () => {
         isExpanded={false}
       />,
     );
-    expect(liveVoice.close).toHaveBeenCalledTimes(1);
+    expect(liveVoice.pause).toHaveBeenCalledTimes(1);
+    expect(liveVoice.close).not.toHaveBeenCalled();
   });
 
   it('renders Live history with the existing bubbles and no typewriter', () => {
@@ -343,6 +403,7 @@ describe('AskBlock', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLanguage = 'zh-CN';
     activeRun = undefined;
     mockSystemState.showLearningModeToggle = true;
     mockSystemState.learningMode = 'read';

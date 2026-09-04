@@ -8,7 +8,7 @@ import json
 import math
 import time
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from urllib.parse import urlsplit, urlunsplit
 
@@ -26,6 +26,8 @@ from flaskr.service.learn.follow_up_context import (
 )
 from flaskr.service.learn.gemini_live_token import (
     GEMINI_LIVE_CONSTRAINED_ENDPOINT,
+    GEMINI_LIVE_TOKEN_CONNECT_SECONDS,
+    GEMINI_LIVE_TOKEN_LIFETIME_SECONDS,
     GeminiLiveEphemeralToken,
     GeminiLiveHistoryTurn,
     GeminiLiveTokenError,
@@ -82,7 +84,7 @@ from flaskr.service.shifu.api import get_effective_ask_provider_config
 from flaskr.service.shifu.consts import ASK_MODE_DISABLE
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.api import is_allowed_oauth_origin, load_user_aggregate
-from flaskr.util.datetime import to_utc_iso
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.prompt_loader import load_prompt_template
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
@@ -94,6 +96,7 @@ _ALLOWED_SURFACES = frozenset({"read_content", "listen_player", "teacher_preview
 _MAX_DIRECT_TRANSCRIPT_CHARS = 32_000
 _MAX_DIRECT_USAGE_BYTES = 64 * 1024
 _MAX_DIRECT_TURN_REPORT_BYTES = 60 * 1024
+_ERROR_DEADLINE_MISMATCH = "token_deadline_mismatch"
 
 
 class LiveFollowUpModelUnavailableError(RuntimeError):
@@ -107,6 +110,17 @@ def _make_live_response(data: dict[str, object]) -> Response:
         mimetype="application/json",
         headers={"X-Content-Type-Options": "nosniff"},
     )
+
+
+def _validate_token_deadlines(
+    token: GeminiLiveEphemeralToken, issued_at: datetime
+) -> None:
+    if token.expires_at != issued_at + timedelta(
+        seconds=GEMINI_LIVE_TOKEN_LIFETIME_SECONDS
+    ) or token.new_session_expires_at != issued_at + timedelta(
+        seconds=GEMINI_LIVE_TOKEN_CONNECT_SECONDS
+    ):
+        raise GeminiLiveTokenError(_ERROR_DEADLINE_MISMATCH)
 
 
 def _request_user_bid() -> str:
@@ -523,7 +537,12 @@ def register_live_follow_up_routes(
 
         lease: LiveFollowUpCapacityLease | None = None
         try:
-            lease = acquire_live_follow_up_capacity(app, user_bid=user_bid)
+            # One server-owned epoch bounds both capacity and the unrevocable
+            # credential. Provisioning latency cannot extend either deadline.
+            issued_at = now_utc().replace(tzinfo=UTC)
+            lease = acquire_live_follow_up_capacity(
+                app, user_bid=user_bid, now=issued_at.timestamp()
+            )
             token = mint_gemini_live_ephemeral_token(
                 api_key=api_key,
                 api_base_url=str(get_config("GEMINI_API_URL", "") or "").strip(),
@@ -531,7 +550,9 @@ def register_live_follow_up_routes(
                 voice_name=voice,
                 system_instruction=system_instruction,
                 include_initial_history=bool(history),
+                current_time=issued_at,
             )
+            _validate_token_deadlines(token, issued_at)
             binding = _new_session_binding(
                 session_bid=session_bid,
                 user_bid=user_bid,
@@ -594,11 +615,14 @@ def register_live_follow_up_routes(
             raise_param_error("live_follow_up_session")
         return session
 
-    def touch_direct_session(session: StoredLiveFollowUpSession) -> None:
+    def touch_direct_session(
+        session: StoredLiveFollowUpSession, *, finalizing: bool = False
+    ) -> None:
         try:
             touch_live_follow_up_session(
                 app,
                 session_bid=session.binding.session_bid,
+                finalizing=finalizing,
             )
         except (LiveFollowUpCapacityError, LiveFollowUpSessionStoreError):
             raise_param_error("live_follow_up_session")
@@ -683,7 +707,7 @@ def register_live_follow_up_routes(
     def commit_live_follow_up_turn_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid, allow_finalization=True)
         turn = _validate_turn_payload(_read_bounded_turn_payload())
-        touch_direct_session(session)
+        touch_direct_session(session, finalizing=True)
         try:
             with live_follow_up_persistence_lock(app, session_bid):
                 session = require_direct_session(session_bid, allow_finalization=True)
@@ -731,7 +755,9 @@ def register_live_follow_up_routes(
             for previous, following in pairwise(turns)
         ):
             raise_param_error("live_follow_up_turn")
-        touch_direct_session(session)
+        # An admitted batch may wait for the DB lock across the grace deadline.
+        # Retain its binding now, without granting any later request admission.
+        touch_direct_session(session, finalizing=True)
         try:
             with live_follow_up_persistence_lock(app, session_bid):
                 # Admission applies to this already-validated, bounded batch.

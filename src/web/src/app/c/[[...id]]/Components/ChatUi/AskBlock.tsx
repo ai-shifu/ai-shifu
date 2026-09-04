@@ -32,6 +32,7 @@ import {
 import { useAskStateStore } from './useAskStateStore';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { isRtlLocale } from '@/lib/i18n-locales';
 import {
   AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
   AI_SERVICE_ERROR_TOAST_DURATION_MS,
@@ -44,7 +45,10 @@ import {
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
 import { useTracking } from '@/c-common/hooks/useTracking';
-import { LiveVoiceFollowUpControls } from '@/components/live-follow-up/LiveVoiceFollowUpControls';
+import {
+  LiveVoiceFollowUpControls,
+  LiveVoiceFollowUpMicrophoneButton,
+} from '@/components/live-follow-up/LiveVoiceFollowUpControls';
 import type {
   LiveVoiceFollowUpController,
   LiveVoiceFollowUpTarget,
@@ -161,7 +165,7 @@ export default function AskBlock({
     return () => {
       const controller = liveRef.current;
       if (controller?.anchorElementBid === element_bid && controller.open)
-        controller.close();
+        controller.pause();
     };
   }, [element_bid, expanded, isLive]);
   const shouldForceSlideMobileDialog =
@@ -719,10 +723,12 @@ export default function AskBlock({
   }, [expanded, isDesktopSlideAskBlock, messagesToShow]);
 
   const handleClose = useCallback(() => {
+    if (isLive && liveRef.current?.anchorElementBid === element_bid)
+      liveRef.current.pause();
     setIsFullscreen(false);
     // onClose?.();
     onToggleAskExpanded?.(element_bid);
-  }, [onToggleAskExpanded, element_bid]);
+  }, [onToggleAskExpanded, element_bid, isLive]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -876,18 +882,33 @@ export default function AskBlock({
         ref={inputWrapperRef}
         onKeyDownCapture={handleInputKeyDownCapture}
       >
-        <MarkdownFlowInput
-          locale={markdownFlowLocale}
-          placeholder={t('module.chat.askContent')}
-          value={inputValue}
-          onChange={handleInputChange}
-          onSend={handleSendCustomQuestion}
-          sendShortcut={mobileStyle ? 'none' : 'enter'}
-          className={cn(
-            styles.inputGroup,
-            isStreamingRef.current ? styles.isSending : '',
-          )}
-        />
+        <div
+          className={isLive && liveVoice ? styles.liveInput : undefined}
+          dir={isRtlLocale(markdownFlowLocale) ? 'rtl' : 'ltr'}
+        >
+          <MarkdownFlowInput
+            locale={markdownFlowLocale}
+            placeholder={t('module.chat.askContent')}
+            value={inputValue}
+            onChange={handleInputChange}
+            onSend={handleSendCustomQuestion}
+            sendShortcut={mobileStyle ? 'none' : 'enter'}
+            className={cn(
+              styles.inputGroup,
+              isStreamingRef.current ? styles.isSending : '',
+            )}
+            textareaClassName={
+              isLive && liveVoice ? styles.liveTextarea : undefined
+            }
+          />
+          {isLive && liveVoice ? (
+            <LiveVoiceFollowUpMicrophoneButton
+              controller={liveVoice}
+              target={liveTarget}
+              className={styles.liveMicrophone}
+            />
+          ) : null}
+        </div>
         {isLive && liveVoice ? (
           <LiveVoiceFollowUpControls
             controller={liveVoice}

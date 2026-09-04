@@ -31,14 +31,60 @@ available. Ordinary text follow-ups continue to inherit the Course Prompt.
 
 The first release supports reading mode, listen mode, and teacher preview;
 classroom remains excluded. It is available to every teacher only when
-`GEMINI_LIVE_ENABLED=true`. Sessions warn 30 seconds before the issued token's
-absolute 15-minute expiry and end at that expiry, including provisioning and
-connection time. Usage and transcripts reported after the media plane moves into the
+`GEMINI_LIVE_ENABLED=true`. The issued token's absolute 15-minute expiry is an
+internal connection boundary, including provisioning and connection time, not
+a user-facing countdown or error. Expiry retains the panel, history, and draft;
+the next deliberate input establishes a new connection after bounded final
+history persistence. Never replay an already-sent question or mint idle tokens.
+Usage and transcripts reported after the media plane moves into the
 browser are explicitly client-reported and untrusted. They are bounded,
 persisted only with `billable=0`, and must never drive settlement, permissions,
 auditing, or another correctness-sensitive decision.
 
 ## Progress
+
+- [x] 2026-09-05: User approved pause/continue for panel collapse and temporary
+      backgrounding, with no visible 15-minute limit. Explicit End, different
+      anchor/lesson/course, page unload, and expiry still retire the connection.
+      Opening a panel alone does not resume media or microphone capture.
+- [x] 2026-09-05: Integrate and verify pause/output suppression, click-safe
+      resume, exact credential/admission deadline, retained background binding,
+      silent natural expiry, finalization-gated next input, and pause/resume
+      analytics. Local Chrome with real AudioContext/worklet and mocked
+      transport verified collapse releases capture and suspends output;
+      reopening alone remains muted, next text reuses one session/socket,
+      and shortened natural expiry retains history without error or a clock.
+      The next explicit Send creates exactly one replacement connection.
+      Desktop/mobile screenshots confirm the microphone beside Send inside
+      the original input. Temporary QA route/server/browser were removed.
+- [x] 2026-09-05: Regression review fixed paused typed-handoff deadlock,
+      premature history commit before the final playback watermark, and a
+      failed binding-close request poisoning future input. Bound native audio
+      close to one second. Keep retained-history recovery explicit and bounded;
+      one click never chains two closing budgets. Backend Live suites:
+      183 passed, one environment-dependent skip; no schema or deployment edits.
+- [x] 2026-09-05: Final full frontend run passed all 227 suites / 2,264 tests;
+      controller 125 and writer 33 focused cases passed. TypeScript, lint,
+      architecture boundaries, and repository harness passed. Physical
+      Safari/iOS/mobile Chrome, real Gemini, and real Redis integration remain
+      unverified; browser fixture coverage is not presented as those gates.
+- [x] 2026-09-05: Move the manual microphone action into the original input,
+      beside Send, using the public textarea class hook and a local adornment.
+      Preserve one textarea, existing keyboard behavior, and manual capture.
+      Real Chrome with mocked Gemini verified desktop, 390px mobile, RTL,
+      typed input without capture, click activation, and capture release on
+      editing. The status and retry row remain below the input. The later
+      user-approved lifecycle removes retry clocks entirely in all five locales.
+- [x] 2026-09-05: Add one bounded recovery for unexpected resumable socket
+      closes and one transient heartbeat retry; retain the same admission,
+      token, history accumulator, expiry, and analytics session. Preserve
+      the original failure during cooldown. Controller tests: 95 passed;
+      full frontend suite: 227 suites / 2,207 tests passed.
+- [x] 2026-09-05: Complete full `lefthook run pre-commit --all-files`, including
+      five-locale parity/usage, pinned Ruff 0.16.5, architecture and repository
+      harness. The first run sorted the new locale keys; the second passed.
+- [ ] 2026-09-05: Update PR #2744 and follow current-head CI/review for the
+      input/pause/reliability revision.
 
 - [x] 2026-09-04: Integrate Live into the existing AskBlock; separate playback,
       microphone, and connection activation; add keyboard interruption and
@@ -128,9 +174,14 @@ Use realtimeInput.text for keyboard questions. Stop queued playback immediately
 on a typed interruption but reconcile the old turn at the upstream interruption
 or completion boundary. Accept only one pending handoff, retain failed drafts,
 and never replay a question automatically after an ambiguous disconnect.
-Closing/collapsing the panel or changing anchor ends Live; ending Live itself
-leaves the panel/history visible. Page hide, scope change, timeout, and unmount
-release capture and playback. The existing listen custom-action panel owns
+As amended on 2026-09-05, collapsing the panel or a visibility change pauses
+Live: release microphone and audio exclusivity, mute and clear playback, suppress
+late output from the discarded turn, and retain its played-prefix history.
+The next explicit input resumes the existing AudioContext and revalidates the
+binding; it never enables the microphone without an explicit microphone click.
+Actual pagehide/unload, scope/anchor change, End, and internal expiry retire the
+connection. Ending Live itself leaves the panel/history visible.
+The existing listen custom-action panel owns
 course pause/resume; a still-open panel never resumes course audio.
 
 Analytics extends the existing adoption/connection consumer with typed-use and
@@ -243,7 +294,7 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
       directory; the shared local virtualenv still had Flask 3.0.3.
 - [x] 2026-09-04: Addressed CodeQL's reflected-HTML findings by returning
       explicit `application/json` responses with `X-Content-Type-Options:
-      nosniff` from every Live endpoint. The shared envelope and unrelated
+    nosniff` from every Live endpoint. The shared envelope and unrelated
       routes are unchanged; tests cover markup-like values and MIME headers.
       All 102 focused backend tests and the full pre-commit gate pass.
 - [x] 2026-09-04: Added stable business code `4018` for user/worker/global
@@ -455,6 +506,19 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Surprises & Discoveries
 
+- 2026-09-05: The reported dev incident is not a 15-minute expiry. Sanitized
+  API timings show a session created at 06:17:25 UTC, followed by turn/end
+  requests around 06:17:35, before the first heartbeat. The displayed retry
+  time matches the separately reserved token lifetime plus expiry grace.
+  API logs intentionally omit sensitive request bodies and do not establish
+  the original browser teardown reason. A cooldown click previously replaced
+  that reason with `capacity_exceeded`; do not infer capacity or timeout from
+  that UI. No Live persistence exception was logged for the observed turn.
+  The learner subsequently confirmed collapsing the panel before the error,
+  which explains the current `user_close` teardown and reservation conflict.
+  The user approved changing collapse to pause and hiding the internal lifetime.
+  Preserve that decision in the amended lifecycle contract above.
+
 - The provider can complete with output transcription but no PCM audio even
   when server and browser setup both request only `AUDIO`. Authorized temporary
   probes with the affected Course Prompt reproduced this; adding one voice
@@ -582,7 +646,8 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   terminal cleanup. Bind the session to user, course, outline, anchor, preview
   state, Origin, model, voice, language, and absolute token expiry in Redis.
   - Why: access and capacity remain trusted even though the media plane is not.
-- Decision: reserve per-worker, global, and per-user Redis capacity for the
+- Decision (superseded for deadlines and binding retention on 2026-09-05):
+  reserve per-worker, global, and per-user Redis capacity for the
   full 15-minute credential lifetime plus the 30-second connection margin.
   Keep the authenticated control-plane binding on a separate 45-second TTL,
   refreshed by a 15-second heartbeat. Never release capacity after the token
@@ -596,12 +661,26 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   until their binding or credential expires.
   - Why: disabling the feature cannot revoke Google's credential, and must not
     discard the final transcripts of an already active direct session.
-- Decision: after a credential is issued, disable retry until its expiry plus
+- Decision (superseded for user-visible clocks and the extra margin on
+  2026-09-05): after a credential is issued, disable retry until its expiry plus
   the capacity safety margin and display the eligible retry time in all five
   locales. Re-entry shares that guard; no microphone, API request, or analytics
   attempt starts while the credential reservation is known to remain active.
   - Why: an immediate retry cannot succeed under the deliberately retained
     one-credential-per-user admission limit.
+- Decision (2026-09-05, user approved): collapse and temporary hiding pause the
+  existing connection, while explicit End/navigation/unload really end it.
+  Hide the internal 15-minute lifetime and all expiry clocks. A natural expiry
+  preserves the original panel, history, and draft; the next deliberate input
+  obtains a fresh credential after bounded history finalization. Use one UTC
+  issuance timestamp for capacity and token expiry, with only millisecond
+  rounding, and retain authenticated binding through its fixed finalization
+  deadline without heartbeat renewal.
+  - Why: a normal collapse must not strand the learner behind an unrevocable
+    credential reservation. Internal renewal should not become a user task,
+    and throttled background timers must not delete valid session identity.
+    Keep all existing access checks, single-credential limits, and manual mic
+    consent; never silently replay input or create idle replacement sessions.
 - Decision: treat credential expiry plus 30 seconds as an admission cutoff for
   new finalization requests, not as cancellation of an already accepted bounded
   batch. Under the existing connection-owned DB lock, compare the binding and
@@ -762,7 +841,9 @@ capacity through the credential lifetime. Build the follow-up instruction and
 latest ten turns through the shared context builder, with the Live voice
 default instead of the Course Prompt. Mint a Gemini token with `uses=1`, a
 30-second new-session window, 15-minute expiry, and a locked effective Bidi
-setup. Store a separate 45-second Redis session binding and return only the
+setup. Keep the authenticated Redis binding until the same credential deadline
+plus the existing 30-second finalization grace; do not require background
+JavaScript timers to renew it. Return only the
 ephemeral token, allowlisted constrained WSS endpoint, prompt-free setup,
 history frame, expiries, and heartbeat period.
 
@@ -775,9 +856,11 @@ spellings used by the API. Clear playback immediately on interruption. Resume
 `GoAway` with the newest handle on another constrained socket using the same
 ephemeral token.
 
-Every 15 seconds the browser renews only the trusted Redis control-plane
-binding over authenticated HTTPS; the independent capacity reservation expires
-with the disclosed credential. A completed/interrupted turn waits 500 ms for
+Every 15 seconds the browser validates control-plane health and authorization
+over authenticated HTTPS without extending the binding or credential lifetime.
+The independent capacity reservation expires with the disclosed credential,
+using the same UTC issuance instant and rounded-up millisecond deadline.
+A completed/interrupted turn waits 500 ms for
 late transcription and waits for the playback watermark before POSTing. The
 backend validates/bounds the report, filters usage to allowed numeric token and
 modality fields, writes history idempotently, and forces `billable=0`. On close,
@@ -814,13 +897,22 @@ requesting capture. An explicit microphone click also requests capture in that
 stack; permission denial leaves keyboard input available. Editing stops capture
 without disconnecting. Only explicit microphone activation can restart it.
 
-Compact controls show connection/microphone state, end, warning, and retry.
+Compact controls show connection/microphone state, end, and retry. The
+microphone sits inside the existing input beside Send, including RTL layouts.
+No countdown, lifetime warning, or credential-expiry clock is user-facing.
 All failures remain in AskBlock; no Live input enters the ordinary SSE path.
 Ending Live leaves the panel open. The original listen custom-action panel owns
 pause/resume intent, so ending a session inside the panel never resumes the
-course. Page hide, lesson/course/anchor change, unmount, panel collapse, and
-timeout stop tracks, clear playback, close the AudioContext, and release the
-socket. No deployment settings or production environment change in this phase.
+course. Panel collapse, temporary document hiding, and audio-ownership handoff
+pause capture and output immediately, retaining the same session. Resume only
+on deliberate text or microphone input, after playback and authorization are
+ready. Discard late output from paused turns and await the worklet watermark
+before committing heard history. Actual pagehide, lesson/course/anchor change,
+unmount, explicit End, and internal expiry close all media and transport
+resources. Natural expiry retains panel/history/draft without an error; the
+next explicit input starts a fresh session after bounded finalization of the
+previous history. Do not replay already-sent input or auto-enable capture.
+No deployment settings or production environment change in this phase.
 
 Maintain disclosure, five locales, privacy copy, and the existing event family:
 `learner_voice_follow_up_attempt`, `learner_voice_follow_up_result`, and
@@ -919,7 +1011,7 @@ IDs, WSS/HTTP URLs, token, resumption handle, and raw error are prohibited.
   composition and precedence over an optional fallback.
 - Session tests cover permission and Origin binding, Redis fail-closed,
   capacity acquisition/pre-disclosure rollback/token-lifetime expiry, hashed
-  Redis keys, the independent heartbeat TTL, consume-once end without early
+  Redis keys, fixed binding retention and heartbeat authorization, consume-once end without early
   capacity release, and no internal AI-Shifu WebSocket route.
 - Protocol/controller tests cover setup-before-history, exact Google endpoint
   validation, PCM encoding, over-8-KiB and buffered-frame drops, multi-part
@@ -950,8 +1042,9 @@ reservation, and ephemeral token. A token opens one new Gemini session;
 resumption inside that session reuses the token with the newest handle. If
 provisioning or Redis storage fails before the token is disclosed, release the
 reservation. Once disclosed, the reservation expires naturally after the
-maximum token lifetime. Missed heartbeats expire only the control-plane
-binding. End consumes that binding atomically; repeated end is harmless from
+maximum token lifetime. Missed background heartbeats do not invalidate an
+otherwise unexpired binding; all requests still enforce its hard access
+deadline. End consumes that binding atomically; repeated end is harmless from
 the browser's perspective and cannot revoke or release the Gemini credential.
 
 Turn BIDs derive deterministically from Live session and turn index. The
@@ -960,7 +1053,16 @@ back partial ASK/ANSWER work. A commit failure ends the current controller and
 offers voice retry; it does not silently continue with unsaved history.
 
 If the browser socket closes without a usable resumption path, stop the session
-and require an explicit retry. If Redis is unavailable, reject Live while text
+and require an explicit retry. An established session may recover one unexpected
+close with a current resumable handle, an unexpired token, and no pending typed
+handoff. Policy/normal closes, failed setup, non-resumable updates, and a second
+unexpected close remain terminal. Never replay typed input automatically.
+Heartbeat requests have a five-second bound and one transient retry after one
+second. Paused sessions tolerate transient health-check failure; deliberate
+resume validates authorization again. Business/auth failures end immediately.
+Pause/resume and transport recovery create no
+new analytics attempt or session; terminal teardown still emits end once.
+If Redis is unavailable, reject Live while text
 follow-up and normal HTTP stay operational. Rollback is
 `GEMINI_LIVE_ENABLED=false`; saved Live configuration remains intact and
 learner entries resolve disabled rather than falling back to text.
@@ -977,8 +1079,8 @@ returns `session_bid`, `ephemeral_token`, the fixed constrained
 `websocket_url`, prompt-free `setup`, optional `history`, `expires_at`,
 `new_session_expires_at`, and `heartbeat_interval_ms`.
 
-`POST /api/learn/live-follow-up/session/{session_bid}/heartbeat` renews the
-trusted control-plane binding only. `POST .../turn` accepts bounded
+`POST /api/learn/live-follow-up/session/{session_bid}/heartbeat` validates the
+trusted control-plane binding without extending its lifetime. `POST .../turn` accepts bounded
 client-reported transcript/playback/usage data and returns deterministic
 persisted element IDs. `POST .../end` consumes the binding; the independent
 capacity reservation remains until the already-disclosed token expires.

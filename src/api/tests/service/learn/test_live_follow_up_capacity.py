@@ -43,7 +43,7 @@ class FakeRedis:
             lease_id = str(argv[2])
             global_limit = int(argv[3])
             worker_limit = int(argv[4])
-            ttl = int(argv[5])
+            expires_at_ms = int(argv[5])
             self._purge_zset(global_key, now)
             self._purge_zset(worker_key, now)
             if self._get_user(user_key, now) is not None:
@@ -52,7 +52,7 @@ class FakeRedis:
                 return -1
             if len(self.sorted_sets[worker_key]) >= worker_limit:
                 return -2
-            self.users[user_key] = (lease_id, now + ttl)
+            self.users[user_key] = (lease_id, expires_at_ms / 1000)
             self.sorted_sets[global_key][lease_id] = expiry
             self.sorted_sets[worker_key][lease_id] = expiry
             return 1
@@ -160,7 +160,7 @@ def test_expired_lease_frees_all_capacity_scopes(
         app,
         user_bid="user-1",
         worker_id="worker-1",
-        now=1_031,
+        now=1_000,
     )
 
     assert replacement.user_bid == "user-1"
@@ -183,14 +183,14 @@ def test_reservation_covers_the_disclosed_token_lifetime(
             app,
             user_bid="user-1",
             worker_id="worker-2",
-            now=1_000,
+            now=999.999,
         )
 
     replacement = capacity.acquire_live_follow_up_capacity(
         app,
         user_bid="user-1",
         worker_id="worker-2",
-        now=1_031,
+        now=1_000,
     )
     assert replacement.worker_id == "worker-2"
 
@@ -210,7 +210,7 @@ def test_old_release_cannot_remove_replacement_user_lease(
         app,
         user_bid="user-1",
         worker_id="worker-2",
-        now=1_031,
+        now=1_000,
     )
 
     assert capacity.release_live_follow_up_capacity(app, lease=old) is False
@@ -219,12 +219,12 @@ def test_old_release_cannot_remove_replacement_user_lease(
             app,
             user_bid="user-1",
             worker_id="worker-3",
-            now=1_031,
+            now=1_000,
         )
     assert capacity.release_live_follow_up_capacity(app, lease=replacement) is True
 
 
-def test_capacity_reservation_outlives_the_maximum_token_lifetime(
+def test_capacity_reservation_matches_the_absolute_token_deadline(
     app: object, monkeypatch: object
 ) -> None:
     fake = FakeRedis()
@@ -238,8 +238,34 @@ def test_capacity_reservation_outlives_the_maximum_token_lifetime(
     argv = fake.acquire_args[0][3:]
     expected_expiry = 100 + capacity.LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS
     assert float(argv[1]) == expected_expiry
-    assert int(argv[5]) == capacity.LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS
-    assert capacity.LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS == 15 * 60 + 30
+    assert int(argv[5]) == expected_expiry * 1000
+    assert capacity.LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS == 15 * 60
+    assert "'PXAT'" in capacity._ACQUIRE_LEASE_SCRIPT
+
+
+def test_fractional_deadline_rounds_up_consistently_without_overlap(
+    app: object, monkeypatch: object
+) -> None:
+    fake = FakeRedis()
+    monkeypatch.setattr(dao._redis_state, "client", fake)
+    capacity.acquire_live_follow_up_capacity(
+        app, user_bid="user-1", worker_id="worker-1", now=100.000123
+    )
+    argv = fake.acquire_args[0][3:]
+    assert float(argv[1]) == 1_000.001
+    assert int(argv[5]) == 1_000_001
+    assert next(iter(fake.users.values()))[1] == 1_000.001
+    assert all(
+        set(leases.values()) == {1_000.001} for leases in fake.sorted_sets.values()
+    )
+    with pytest.raises(capacity.LiveFollowUpCapacityLimitError):
+        capacity.acquire_live_follow_up_capacity(
+            app, user_bid="user-1", worker_id="worker-2", now=1_000.000123
+        )
+    replacement = capacity.acquire_live_follow_up_capacity(
+        app, user_bid="user-1", worker_id="worker-2", now=1_000.001
+    )
+    assert replacement.worker_id == "worker-2"
 
 
 @pytest.mark.parametrize("redis_client", [None, ExplodingRedis()])
