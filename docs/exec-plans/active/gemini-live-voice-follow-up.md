@@ -145,6 +145,10 @@ auditing, or another correctness-sensitive decision.
       turn. It never sends an oversized/truncated finalization batch.
       Verification passes with 124 focused backend tests, 112 frontend tests,
       TypeScript, and the full pre-commit gate.
+- [x] 2026-09-04: Followed a frontend CI failure to the reconciliation timer's
+      early-fire boundary. Reproduced a callback at deadline-minus-one with a
+      deterministic clock test, then re-arm the remaining delay instead of
+      leaving the terminal turn uncommitted until another event arrives.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

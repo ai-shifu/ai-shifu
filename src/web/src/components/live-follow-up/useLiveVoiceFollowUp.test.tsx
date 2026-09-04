@@ -743,6 +743,35 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     });
   });
 
+  it('rechecks the reconciliation deadline when a timer fires before the wall clock reaches it', async () => {
+    jest.useFakeTimers();
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['Question'],
+          outputTranscripts: ['Answer'],
+        }),
+      ),
+    );
+    act(() => mockSockets[0].message(serverEvent({ interrupted: true })));
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 499);
+    act(() => jest.advanceTimersByTime(500));
+    clock.mockRestore();
+    expect(mockCommitTurn).not.toHaveBeenCalled();
+    await act(async () => jest.advanceTimersByTime(1));
+    expect(mockCommitTurn).toHaveBeenCalledWith(
+      'session-1',
+      expect.objectContaining({
+        user_transcript: 'Question',
+        interrupted: true,
+      }),
+    );
+    expect(mockCommitTurn).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps a failed history commit in the retry-only voice UI', async () => {
     mockCommitTurn.mockRejectedValueOnce(new Error('storage unavailable'));
     render(<Harness />);

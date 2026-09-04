@@ -467,10 +467,28 @@ export const useLiveVoiceFollowUp = ({
       if (commitTimerRef.current !== null) {
         window.clearTimeout(commitTimerRef.current);
       }
-      commitTimerRef.current = window.setTimeout(() => {
+      const readyAt = Date.now() + GEMINI_LIVE_RECONCILIATION_MS;
+      const flushAfterReconciliation = () => {
+        if (attemptRef.current?.generation !== generation) {
+          return;
+        }
+        // Timer scheduling and Date.now can differ by a clock tick. A slightly
+        // early callback must not strand a terminal turn without another flush.
+        const remainingMs = readyAt - Date.now();
+        if (remainingMs > 0) {
+          commitTimerRef.current = window.setTimeout(
+            flushAfterReconciliation,
+            remainingMs,
+          );
+          return;
+        }
         commitTimerRef.current = null;
         flushReadyCommits(generation);
-      }, GEMINI_LIVE_RECONCILIATION_MS);
+      };
+      commitTimerRef.current = window.setTimeout(
+        flushAfterReconciliation,
+        GEMINI_LIVE_RECONCILIATION_MS,
+      );
     },
     [flushReadyCommits],
   );
