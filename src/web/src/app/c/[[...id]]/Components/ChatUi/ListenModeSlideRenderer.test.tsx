@@ -1486,6 +1486,64 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
+  it('restores the position for the audio source selected after the first slide', async () => {
+    writeListenPlaybackPositionToStorage({
+      scope: {
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+        elementBid: 'content-1',
+        source: 'https://audio.example.com/content-1.mp3',
+      },
+      positionSeconds: 12,
+      durationSeconds: 60,
+    });
+    writeListenPlaybackPositionToStorage({
+      scope: {
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+        elementBid: 'content-2',
+        source: 'https://audio.example.com/content-2.mp3',
+      },
+      positionSeconds: 36,
+      durationSeconds: 60,
+    });
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'First',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+          },
+          {
+            type: 'content',
+            content: 'Second',
+            element_bid: 'content-2',
+            audio_url: 'https://audio.example.com/content-2.mp3',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    audioElement.src = 'https://audio.example.com/content-2.mp3';
+    fireEvent.loadedMetadata(audioElement);
+
+    await waitFor(() => {
+      expect(audioElement.currentTime).toBe(36);
+    });
+  });
+
   it('restores cached metadata that loaded before the audio listener registered', async () => {
     writeListenPlaybackPositionToStorage({
       scope: {

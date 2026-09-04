@@ -28,6 +28,9 @@ whole lesson. Restoring a position never starts audio automatically.
 - [x] 2026-09-04 13:30 CST: Corrected active-lesson seek bounds to the generated
   audio end (rather than the previously reached position) and added regression
   coverage that the displayed position advances with playback.
+- [x] 2026-09-04 13:50 CST: Added metadata-only duration collection for
+  finalized audio whose server record lacks a duration, and corrected resume
+  identity resolution to follow the native player's current source.
 
 ## Surprises & Discoveries
 
@@ -53,6 +56,9 @@ whole lesson. Restoring a position never starts audio automatically.
   regardless of completion state. This prevents a learner jumping into an
   ungenerated future segment without artificially blocking navigation within
   the material that is already available.
+- 2026-09-04: Use server-provided durations when available and otherwise read
+  finalized audio metadata in the browser. Resume storage always derives its
+  scope from the native player's actual current source, not presentation state.
 - 2026-09-04: Place the lesson-wide timeline below the player and reserve
   player-footer space so it does not overlap the chat input.
 
