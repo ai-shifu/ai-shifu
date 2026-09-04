@@ -43,6 +43,13 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-05: Codex review of `201e096f8` found a paused listen attempt
+      retained after the rendered slide anchor changed. End mismatched retained
+      attempts before the new panel becomes interactive; keep same-anchor
+      collapse paused and leave credential admission unchanged. Four desktop/
+      mobile, expanded/collapsed regressions pass (red before correction).
+      The final full frontend run passed 227 suites / 2,271 tests, TypeScript,
+      and full pre-commit; current-head PR review/CI follow-up remains pending.
 - [x] 2026-09-05: Codex review of `201e096f8` found resume telemetry without
       an originating connected pause when setup finished in the background.
       Track the connected-pause transition independently of event delivery;

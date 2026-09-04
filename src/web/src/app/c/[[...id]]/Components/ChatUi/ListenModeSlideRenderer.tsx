@@ -1110,6 +1110,39 @@ const ListenModeSlideRenderer = ({
     isMobileAskOpen || !mobileAskPanelElementBid
       ? resolvedAskElementBid
       : mobileAskPanelElementBid;
+  const renderedAskElementBid = mobileStyle
+    ? renderedMobileAskElementBid
+    : renderedPlayerCustomAskElementBid;
+  const isAskPanelOpen = mobileStyle
+    ? isMobileAskOpen
+    : playerCustomActionState.isActive;
+  const liveVoiceAnchor = liveVoice?.anchorElementBid;
+  const hasLiveVoiceSession =
+    Boolean(liveVoice?.paused) ||
+    (liveVoice !== undefined && liveVoice.state !== 'ended');
+  const closeLiveVoice = liveVoice?.close;
+  useLayoutEffect(() => {
+    // A collapsed panel retains its session, but a new slide must not inherit
+    // that anchor's attempt. End it before the new input can be submitted;
+    // the controller still owns credential expiry and admission guards.
+    if (
+      followUpMode === 'live_voice' &&
+      isAskPanelOpen &&
+      hasLiveVoiceSession &&
+      renderedAskElementBid &&
+      liveVoiceAnchor &&
+      liveVoiceAnchor !== renderedAskElementBid
+    ) {
+      closeLiveVoice?.();
+    }
+  }, [
+    closeLiveVoice,
+    followUpMode,
+    hasLiveVoiceSession,
+    isAskPanelOpen,
+    liveVoiceAnchor,
+    renderedAskElementBid,
+  ]);
   const resolveAskListByElementBid = useCallback(
     (elementBid: string) => {
       if (!elementBid) {
