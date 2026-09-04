@@ -12,6 +12,10 @@ import {
   writeListenPlaybackSpeedToStorage,
 } from './listenPlaybackSpeed';
 import {
+  readListenPlaybackPositionFromStorage,
+  writeListenPlaybackPositionToStorage,
+} from './listenPlaybackPosition';
+import {
   isListenLessonFeedbackPromptReady,
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
@@ -20,6 +24,7 @@ import type { ChatContentItem } from '@/c-types/chatUi';
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
 );
+const mockTrackEvent = jest.fn();
 const mockAskBlock = jest.fn(
   ({
     element_bid,
@@ -47,6 +52,15 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({
+    EVENT_NAMES: {
+      LEARNER_LISTEN_TIMELINE_SEEK: 'learner_listen_timeline_seek',
+    },
+    trackEvent: mockTrackEvent,
+  }),
+}));
+
 jest.mock('next/image', () => ({
   __esModule: true,
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
@@ -64,6 +78,7 @@ jest.mock('markdown-flow-ui/slide', () => {
   const slideCustomActionElement = {
     blockBid: 'content-1',
     type: 'content',
+    audio_url: '',
   };
   type SlideCustomActionContext = {
     currentElement: typeof slideCustomActionElement;
@@ -83,20 +98,25 @@ jest.mock('markdown-flow-ui/slide', () => {
         playerCustomActions?:
           | React.ReactNode
           | ((context: SlideCustomActionContext) => React.ReactNode);
+        elementList?: Array<typeof slideCustomActionElement>;
       }) => {
         const [isActive, setIsActive] = ReactRuntime.useState(false);
+        const currentElement =
+          props.elementList?.find(element => Boolean(element.audio_url)) ??
+          props.elementList?.[0] ??
+          slideCustomActionElement;
         const toggleActive = ReactRuntime.useCallback(() => {
           setIsActive(currentActive => !currentActive);
         }, []);
         const slideCustomActionContext = ReactRuntime.useMemo(
           () => ({
-            currentElement: slideCustomActionElement,
+            currentElement,
             currentIndex: 0,
             isActive,
             setActive: setIsActive,
             toggleActive,
           }),
-          [isActive, toggleActive],
+          [currentElement, isActive, toggleActive],
         );
         const mountId = ReactRuntime.useMemo(() => {
           mockSlideMountId += 1;
@@ -108,7 +128,10 @@ jest.mock('markdown-flow-ui/slide', () => {
             data-testid='mock-slide'
             data-mount-id={mountId}
           >
-            <audio data-testid='slide-audio' />
+            <audio
+              data-testid='slide-audio'
+              src={String(currentElement.audio_url ?? '')}
+            />
             <button
               aria-hidden='true'
               aria-label='Notes'
@@ -206,6 +229,7 @@ describe('ListenModeSlideRenderer', () => {
     getMockSlide().mockClear();
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
+    mockTrackEvent.mockClear();
     mockIsLessonFeedbackInteractionContent.mockClear();
   });
 
@@ -1393,6 +1417,134 @@ describe('ListenModeSlideRenderer', () => {
       expect(audioElement.defaultPlaybackRate).toBe(1.5);
       expect(audioElement.playbackRate).toBe(1.5);
     });
+  });
+
+  it('restores a saved finalized audio position after metadata without starting playback', async () => {
+    writeListenPlaybackPositionToStorage({
+      scope: {
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+        elementBid: 'content-1',
+        source: 'https://audio.example.com/content-1.mp3',
+      },
+      positionSeconds: 24,
+      durationSeconds: 60,
+    });
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    const playSpy = jest.spyOn(audioElement, 'play');
+
+    fireEvent.loadedMetadata(audioElement);
+
+    await waitFor(() => {
+      expect(audioElement.currentTime).toBe(24);
+      expect(playSpy).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole('slider', {
+          name: 'module.chat.listenPlaybackTimelineAriaLabel',
+        }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('persists an accepted timeline seek and records the surface without audio details', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+          },
+        ]}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    const timeline = await screen.findByRole('slider', {
+      name: 'module.chat.listenPlaybackTimelineAriaLabel',
+    });
+    fireEvent.pointerDown(timeline);
+    fireEvent.change(timeline, { target: { value: '30' } });
+    fireEvent.pointerUp(timeline);
+
+    await waitFor(() => {
+      expect(audioElement.currentTime).toBe(30);
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_listen_timeline_seek',
+        { surface: 'learner_mobile' },
+      );
+      expect(
+        readListenPlaybackPositionFromStorage({
+          courseId: 'course-1',
+          lessonId: 'lesson-1',
+          elementBid: 'content-1',
+          source: 'https://audio.example.com/content-1.mp3',
+        }),
+      ).toBe(30);
+    });
+  });
+
+  it('does not show a timeline or emit events for streaming audio', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            audio_url: 'https://audio.example.com/content-1.mp3',
+            isAudioStreaming: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+    Object.defineProperty(audioElement, 'duration', {
+      configurable: true,
+      value: 60,
+    });
+    fireEvent.loadedMetadata(audioElement);
+
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   it('renders the current playback speed as text in the trigger control', () => {

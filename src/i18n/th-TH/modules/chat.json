@@ -37,6 +37,7 @@
   "listenModeTtsDisabled": "หลักสูตรปัจจุบันยังไม่ได้เปิดโหมดฟัง จึงไม่สามารถใช้โหมดนี้ได้",
   "listenPlaybackSpeedAriaLabel": "ความเร็วการเล่น: {speed}",
   "listenPlaybackSpeedLabel": "ความเร็วการเล่น",
+  "listenPlaybackTimelineAriaLabel": "ความคืบหน้าของเสียง: {current} จาก {duration}",
   "loading": "กำลังโหลด…",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "เรียนครบทุกบทแล้ว",
