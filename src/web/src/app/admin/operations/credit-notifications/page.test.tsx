@@ -50,13 +50,17 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getAdminOperationCreditNotificationConfig: jest.fn(),
+    createAdminOperationCreditNotificationEmailTemplate: jest.fn(),
     getAdminOperationCreditNotificationDetail: jest.fn(),
+    getAdminOperationCreditNotificationEmailTemplates: jest.fn(),
     getAdminOperationCreditNotificationTemplates: jest.fn(),
     getAdminOperationCreditNotifications: jest.fn(),
     getAdminOperationCreditNotificationsOverview: jest.fn(),
     dryRunAdminOperationCreditNotifications: jest.fn(),
     requeueAdminOperationCreditNotification: jest.fn(),
     syncAdminOperationCreditNotificationTemplate: jest.fn(),
+    updateAdminOperationCreditNotificationEmailTemplate: jest.fn(),
+    updateAdminOperationCreditNotificationEmailTemplateStatus: jest.fn(),
     updateAdminOperationCreditNotificationConfig: jest.fn(),
   },
 }));
@@ -237,6 +241,14 @@ const mockGetDetail =
   api.getAdminOperationCreditNotificationDetail as jest.Mock;
 const mockGetTemplates =
   api.getAdminOperationCreditNotificationTemplates as jest.Mock;
+const mockGetEmailTemplates =
+  api.getAdminOperationCreditNotificationEmailTemplates as jest.Mock;
+const mockCreateEmailTemplate =
+  api.createAdminOperationCreditNotificationEmailTemplate as jest.Mock;
+const mockUpdateEmailTemplate =
+  api.updateAdminOperationCreditNotificationEmailTemplate as jest.Mock;
+const mockUpdateEmailTemplateStatus =
+  api.updateAdminOperationCreditNotificationEmailTemplateStatus as jest.Mock;
 const mockGetRecords = api.getAdminOperationCreditNotifications as jest.Mock;
 const mockGetOverview =
   api.getAdminOperationCreditNotificationsOverview as jest.Mock;
@@ -270,7 +282,11 @@ const openConfigTab = async ({
   await screen.findByText('module.operationsCreditNotifications.config.title');
   if (waitForTemplates) {
     await waitFor(() => {
-      expect(mockGetTemplates).toHaveBeenCalled();
+      expect(
+        mockDefaultLoginMethod === 'email'
+          ? mockGetEmailTemplates
+          : mockGetTemplates,
+      ).toHaveBeenCalled();
     });
     await screen.findByRole('button', {
       name: 'module.operationsCreditNotifications.ruleManagement.newRule',
@@ -341,6 +357,10 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockGetConfig.mockReset();
     mockGetDetail.mockReset();
     mockGetTemplates.mockReset();
+    mockGetEmailTemplates.mockReset();
+    mockCreateEmailTemplate.mockReset();
+    mockUpdateEmailTemplate.mockReset();
+    mockUpdateEmailTemplateStatus.mockReset();
     mockGetRecords.mockReset();
     mockGetOverview.mockReset();
     mockDryRun.mockReset();
@@ -407,6 +427,16 @@ describe('AdminOperationCreditNotificationsPage', () => {
       error_code: '',
       error_message: '',
     });
+    mockGetEmailTemplates.mockResolvedValue({
+      items: [],
+      source: 'local',
+      provider_available: true,
+      error_code: '',
+      error_message: '',
+    });
+    mockCreateEmailTemplate.mockResolvedValue({});
+    mockUpdateEmailTemplate.mockResolvedValue({});
+    mockUpdateEmailTemplateStatus.mockResolvedValue({});
     mockDryRun.mockResolvedValue({
       status: 'ok',
       candidate_count: 1,
@@ -617,6 +647,201 @@ describe('AdminOperationCreditNotificationsPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('TPL-GRANT')).not.toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_template_library_viewed',
+      { channel: 'email', provider: 'smtp' },
+    );
+  });
+
+  it('enables a draft email template without opening its editor', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    mockGetEmailTemplates.mockResolvedValue({
+      items: [
+        {
+          notification_template_bid: 'email-template-1',
+          channel: 'email',
+          provider: 'smtp',
+          template_code: 'EMAIL_CREDIT_GRANTED',
+          template_name: 'Credit granted',
+          template_content: 'You received ${credits} credits.',
+          email_subject: 'Credits received',
+          email_html_body: '<p>You received ${credits} credits.</p>',
+          locale: 'en-US',
+          template_status: 'draft',
+          template_type: 'email',
+          sync_status: 'local',
+          error_code: '',
+          error_message: '',
+          last_synced_at: '2026-05-22T00:00:00Z',
+          source: 'local',
+        },
+      ],
+      source: 'local',
+      provider_available: true,
+      error_code: '',
+      error_message: '',
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+    await screen.findByText('Credit granted');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByText(
+        'module.operationsCreditNotifications.actions.enable',
+      ),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateEmailTemplateStatus).toHaveBeenCalledWith({
+        notification_template_bid: 'email-template-1',
+        template_status: 'active',
+      });
+    });
+    expect(mockUpdateEmailTemplate).not.toHaveBeenCalled();
+  });
+
+  it('tracks successful email template creation with one email body', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsCreditNotifications.templateManagement.create',
+      }),
+    );
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.templateManagement.emailFields.name',
+      ),
+      { target: { value: 'Credit granted' } },
+    );
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.templateManagement.emailFields.subject',
+      ),
+      { target: { value: 'Credit granted' } },
+    );
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.templateManagement.emailFields.htmlBody',
+      ),
+      { target: { value: '<p>You received credits.</p>' } },
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'module.operationsCreditNotifications.type.credit_granted',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.save' }));
+
+    await waitFor(() => {
+      expect(mockCreateEmailTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          template_name: 'Credit granted',
+          locale: 'en-US',
+          template_status: 'draft',
+          applicable_notification_types: ['credit_granted'],
+        }),
+      );
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_template_save_attempt',
+      { action: 'created', channel: 'email', provider: 'smtp' },
+    );
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'operator_notification_template_save_result',
+        {
+          action: 'created',
+          channel: 'email',
+          outcome: 'success',
+          provider: 'smtp',
+        },
+      );
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'You received credits.',
+    );
+  });
+
+  it('tracks failed email template creation and keeps the editor open', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    mockCreateEmailTemplate.mockRejectedValue(new Error('request failed'));
+    render(<AdminOperationCreditNotificationsPage />);
+
+    const templatesTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.templates',
+    });
+    fireEvent.pointerDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(templatesTab, { button: 0, ctrlKey: false });
+    fireEvent.click(templatesTab);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsCreditNotifications.templateManagement.create',
+      }),
+    );
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.templateManagement.emailFields.name',
+      ),
+      { target: { value: 'Credit granted' } },
+    );
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.templateManagement.emailFields.subject',
+      ),
+      { target: { value: 'Credit granted' } },
+    );
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.templateManagement.emailFields.htmlBody',
+      ),
+      { target: { value: '<p>You received credits.</p>' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.save' }));
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'operator_notification_template_save_result',
+        {
+          action: 'created',
+          channel: 'email',
+          outcome: 'failed',
+          provider: 'smtp',
+        },
+      );
+    });
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title:
+          'module.operationsCreditNotifications.templateManagement.emailSaveError',
+        variant: 'destructive',
+      }),
+    );
+    expect(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.templateManagement.emailFields.name',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('disables manual template sync while tracking its terminal result', async () => {
@@ -1139,6 +1364,138 @@ describe('AdminOperationCreditNotificationsPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('creates email rules with active local SMTP templates', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    mockGetEmailTemplates.mockResolvedValueOnce({
+      items: [
+        {
+          channel: 'email',
+          provider: 'smtp',
+          template_code: 'EMAIL_CREDIT_GRANTED',
+          template_name: 'Credit granted',
+          template_content: 'Credits ${credits}',
+          email_html_body: '<p>Credits ${credits}</p>',
+          locale: 'en-US',
+          template_status: 'active',
+          sync_status: 'local',
+          compatible_notification_types: ['credit_granted'],
+          error_code: '',
+          error_message: '',
+          source: 'local',
+        },
+      ],
+      source: 'local',
+      provider_available: true,
+      error_code: '',
+      error_message: '',
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.newRule',
+      }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(
+        'module.operationsCreditNotifications.ruleManagement.fields.englishFallbackTemplate',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.change(
+      within(dialog).getByLabelText(
+        'module.operationsCreditNotifications.ruleManagement.fields.name',
+      ),
+      { target: { value: 'Email credit granted' } },
+    );
+    fireEvent.click(within(dialog).getAllByRole('combobox')[1]);
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'Credit granted' }),
+    );
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.saveRule',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rules: expect.arrayContaining([
+            expect.objectContaining({
+              channel: 'email',
+              template_code: 'EMAIL_CREDIT_GRANTED',
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it('uses email delivery controls without SMS-only budget or cost fields', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.fields.enabledEmail',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.deliveryRules.descriptionEmail',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.config.deliveryRules.edit',
+      }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(
+        'module.operationsCreditNotifications.config.fields.perRecipientPerDay',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(
+        'module.operationsCreditNotifications.config.fields.dailySmsLimit',
+      ),
+    ).not.toBeInTheDocument();
+
+    await closeDialog();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.dryRun',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsCreditNotifications.dryRun.metrics.created',
+        ),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(
+        'module.operationsCreditNotifications.dryRun.metrics.cost',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it('preserves legacy type settings as rules when the API has no rules field', async () => {
     mockGetConfig.mockResolvedValueOnce({
       enabled: true,
@@ -1196,6 +1553,99 @@ describe('AdminOperationCreditNotificationsPage', () => {
         }),
       );
     });
+  });
+
+  it('migrates overseas legacy SMS rules to disabled email rules only after confirmation', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: true,
+      types: {
+        credit_expiring: {
+          enabled: true,
+          template_code: 'SMS-EXPIRING',
+          windows: ['7d', '1d'],
+          merge_same_creator: true,
+        },
+        credit_granted: {
+          enabled: true,
+          template_code: 'SMS-GRANTED',
+        },
+        low_balance: {
+          enabled: true,
+          template_code: 'SMS-LOW-BALANCE',
+          thresholds: [{ kind: 'fixed', value: '100' }],
+        },
+      },
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRules',
+      }),
+    );
+    const confirmation = await screen.findByRole('alertdialog');
+    fireEvent.click(
+      within(confirmation).getByRole('button', {
+        name: 'module.operationsCreditNotifications.ruleManagement.migrateLegacySmsRules',
+      }),
+    );
+
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rules: [
+            {
+              rule_bid: 'email-credit_expiring',
+              name: 'credit_expiring',
+              trigger_event: 'credit_expiring',
+              channel: 'email',
+              template_code: '',
+              enabled: false,
+              conditions: {
+                windows: ['7d', '1d'],
+                merge_same_creator: true,
+              },
+            },
+            {
+              rule_bid: 'email-credit_granted',
+              name: 'credit_granted',
+              trigger_event: 'credit_granted',
+              channel: 'email',
+              template_code: '',
+              enabled: false,
+              conditions: {},
+            },
+            {
+              rule_bid: 'email-low_balance',
+              name: 'low_balance',
+              trigger_event: 'low_balance',
+              channel: 'email',
+              template_code: '',
+              enabled: false,
+              conditions: {
+                thresholds: [{ kind: 'fixed', value: '100' }],
+              },
+            },
+          ],
+        }),
+      );
+    });
+    const savedPolicy = mockUpdateConfig.mock.calls[0]?.[0];
+    expect(JSON.stringify(savedPolicy?.rules)).not.toContain('SMS-');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_notification_legacy_sms_rules_migrated',
+      { channel: 'email', rule_count: '3' },
+    );
   });
 
   it('keeps fixed thresholds when editing an estimated-days rule condition', async () => {
@@ -1521,6 +1971,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
           trigger_event: 'credit_granted',
           channel: 'email',
           template_code: '',
+          locale_template_codes: { 'fr-FR': 'EMAIL_FRENCH_GRANT' },
           enabled: false,
           conditions: {},
         },
@@ -1529,6 +1980,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     expect(policy.channel).toBe('sms');
     expect(policy.rules[0]?.channel).toBe('email');
+    expect(policy.rules[0]?.locale_template_codes).toEqual({
+      'fr-FR': 'EMAIL_FRENCH_GRANT',
+    });
   });
 
   it('requires confirmation before deleting a managed rule', async () => {

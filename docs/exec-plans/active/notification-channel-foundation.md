@@ -89,8 +89,10 @@ live in `src/api/migrations/versions/`.
 
 1. Add recipient constants and fields to `NotificationRecord`.
 2. Generate and review an Alembic revision that adds both fields, backfills
-   records, indexes the generic snapshot for future recipient filtering, and
-   removes temporary server defaults.
+   records, and indexes the generic snapshot for future recipient filtering.
+   Keep server defaults during the rolling deployment window; a later,
+   separately planned cleanup may tighten those defaults after incremental
+   backfill completes.
 3. Normalize rule channels as `sms` or `email`; reject enabled email rules
    until PR4 supplies approved email templates and a provider.
 4. Create a small dispatch boundary around the current SMS delivery path and

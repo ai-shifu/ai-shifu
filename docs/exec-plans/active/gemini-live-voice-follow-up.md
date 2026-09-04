@@ -165,6 +165,9 @@ auditing, or another correctness-sensitive decision.
       unavailable, so trying Live does not trap teachers in an unintended
       selection. Other billable models and text debug controls remain gated;
       tests cover denied/unavailable billing permission and text save analytics.
+- [x] 2026-09-04: Reconciled `main` commit `75a105e5d` (credit notification
+      email delivery). Regenerated shared documentation indexes and i18n keys
+      from both features' source files; no voice runtime behavior changed.
 - [ ] Exercise a real ephemeral token and direct Gemini WebSocket on the dev
       deployment with a valid credential and microphone.
 - [x] 2026-09-03: Repository harness and the full

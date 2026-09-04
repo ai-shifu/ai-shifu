@@ -5,7 +5,9 @@
     "applyTemplate": "Appliquer le modèle",
     "changeTemplate": "Changer le modèle",
     "detail": "Détails",
+    "disable": "Désactiver",
     "dryRun": "Estimer l’envoi",
+    "enable": "Activer",
     "more": "Plus",
     "refresh": "Actualiser",
     "requeue": "Relancer",
@@ -18,7 +20,9 @@
     "deliveryRules": {
       "active": "Activé",
       "description": "Consultez au même endroit les plafonds quotidiens, les heures silencieuses, la protection d’usage SMS et les règles de crédits bas enseignant.",
+      "descriptionEmail": "Consultez au même endroit les limites de fréquence e-mail, les heures silencieuses et les règles de crédits bas enseignant.",
       "dialogDescription": "Ces règles contrôlent le volume SMS quotidien, les pauses en heures silencieuses et la protection des enseignants quand les crédits sont bas. Elles s’appliquent après enregistrement.",
+      "dialogDescriptionEmail": "Ces règles contrôlent la fréquence des e-mails, les pauses en heures silencieuses et la protection des enseignants quand les crédits sont bas. Elles s’appliquent après enregistrement.",
       "dialogTitle": "Règles de protection d’envoi",
       "edit": "Modifier les règles d’envoi",
       "inactive": "Désactivé",
@@ -26,9 +30,11 @@
       "summaries": {
         "budget": "Plafond {limit}/jour ; coût {cost} ; simulation : {dryRun}.",
         "frequency": "Contact : {perMobile}/jour ; enseignant + type : {perCreatorType}/jour.",
+        "frequencyEmail": "Destinataire : {perRecipient}/jour ; enseignant + type : {perCreatorType}/jour.",
         "quietHoursOff": "Les heures silencieuses sont désactivées ; les notifications suivent les résultats du scan.",
         "quietHoursOn": "Suspendre l’envoi de {start} à {end} ({timezone}).",
-        "softlimit": "Sous {threshold} crédits ; alerte {teacherAlert} ; blocage debug {debugLock} ; SMS {sms}."
+        "softlimit": "Sous {threshold} crédits ; alerte {teacherAlert} ; blocage debug {debugLock} ; SMS {sms}.",
+        "softlimitEmail": "Sous {threshold} crédits ; alerte {teacherAlert} ; blocage debug {debugLock}."
       },
       "yes": "Oui"
     },
@@ -43,6 +49,7 @@
       "creatorList": "Saisissez des ID de créateur séparés par des virgules.",
       "dailySmsLimit": "Après ce plafond quotidien, aucun nouveau SMS ne sera envoyé ce jour-là.",
       "enabled": "Contrôle l’activation des SMS de crédits. S’applique uniquement aux notifications futures.",
+      "enabledEmail": "Contrôle l’activation des e-mails de crédits. S’applique uniquement aux notifications futures.",
       "estimatedDays": "Déclenche le rappel de solde bas lorsque les jours utilisables estimés atteignent cette valeur.",
       "fallbackFixedValue": "Revient à un seuil de solde fixe si les données de consommation sont insuffisantes.",
       "lookbackDays": "Nombre de jours récents utilisés pour calculer la consommation quotidienne moyenne.",
@@ -51,6 +58,7 @@
       "optedOutCreators": "Les listes de désinscription viennent du parcours de désinscription et sont en lecture seule.",
       "perCreatorPerTypePerDay": "Nombre maximal généré par jour pour le même enseignant et type.",
       "perMobilePerDay": "Nombre maximal de SMS de crédits envoyés au même mobile par jour.",
+      "perRecipientPerDay": "Nombre maximal d’e-mails de crédits envoyés au même destinataire par jour.",
       "quietEnd": "Fin des heures calmes, par exemple 08:00.",
       "quietStart": "Début des heures calmes, par exemple 22:00.",
       "smsUnitCost": "Utilisé pour estimer le coût SMS. La facturation réelle dépend du fournisseur SMS.",
@@ -70,6 +78,7 @@
       "disableDebug": "Bloquer le debug si solde bas",
       "dryRunRequired": "Exiger une estimation avant envoi",
       "enabled": "Activer les SMS de crédits",
+      "enabledEmail": "Activer les e-mails de crédits",
       "estimatedDays": "Jours restants utilisables",
       "estimatedDaysEnabled": "Rappel selon jours utilisables",
       "fallbackFixedValue": "Seuil de solde de secours",
@@ -81,6 +90,7 @@
       "optedOutCreators": "Créateurs désinscrits",
       "perCreatorPerTypePerDay": "Plafond quotidien par créateur/type",
       "perMobilePerDay": "Plafond quotidien par mobile",
+      "perRecipientPerDay": "Plafond quotidien par destinataire",
       "quietEnd": "Fin heures calmes",
       "quietHoursEnabled": "Activer les heures calmes",
       "quietStart": "Début heures calmes",
@@ -124,6 +134,7 @@
     "loadFailed": "Impossible de charger la stratégie de notification. Actualisez puis réessayez.",
     "loadRequired": "La stratégie de notification n’a pas été chargée correctement. La configuration ne peut pas être enregistrée.",
     "masterSwitchDescription": "Une fois désactivé, aucun nouveau SMS de crédits ne sera généré. Les historiques ne sont pas affectés.",
+    "masterSwitchDescriptionEmail": "Une fois désactivé, aucun nouvel e-mail de crédits ne sera généré. Les historiques ne sont pas affectés.",
     "placeholders": {
       "available": "Variables disponibles",
       "available_credits": "Crédits disponibles",
@@ -167,6 +178,7 @@
     "sectionDescriptions": {
       "budget": "Contrôle le plafond quotidien d’envoi SMS et estime le coût prévu.",
       "frequency": "Limite le nombre de SMS reçus par le même mobile ou enseignant dans une journée.",
+      "frequencyEmail": "Limite le nombre d’e-mails reçus par le même destinataire ou enseignant dans une journée.",
       "lists": "Les enseignants dans ces listes ne recevront plus de SMS de crédits. Les désinscriptions viennent du parcours de désinscription et sont en lecture seule.",
       "quietHours": "Pendant les heures calmes, les SMS seront retardés ou ignorés selon la stratégie.",
       "softlimit": "Quand le solde est sous le seuil de protection, rappeler les enseignants et limiter le debug pour éviter de continuer à consommer."
@@ -333,6 +345,7 @@
   "dryRun": {
     "candidateCount": "{count} correspondances estimées",
     "description": "Estime combien de notifications correspondent à la configuration actuelle. Aucun SMS n’est envoyé.",
+    "descriptionEmail": "Estime combien de notifications correspondent à la configuration actuelle. Aucun e-mail n’est envoyé.",
     "empty": "Aucun résultat d’estimation.",
     "metrics": {
       "candidate": "Correspondances",
@@ -404,6 +417,7 @@
     "columns": {
       "actions": "Actions",
       "conditions": "Conditions",
+      "emailTemplate": "Modèle d’e-mail",
       "enabled": "Statut",
       "name": "Nom de la règle",
       "template": "Modèle SMS",
@@ -413,21 +427,32 @@
     "deleteDescription": "La suppression prendra effet après l’enregistrement de la configuration. Continuer ?",
     "deleteTitle": "Supprimer la règle de notification",
     "description": "Configurez des règles de notification activables indépendamment selon l’événement, le modèle SMS et les conditions.",
+    "descriptionEmail": "Configurez des règles de notification activables indépendamment selon l’événement, le modèle d’e-mail et les conditions.",
     "dialogDescription": "Après enregistrement, cette règle s’applique aux futurs envois.",
     "edit": "Modifier",
     "editRule": "Modifier la règle de notification",
     "empty": "Aucune règle de notification configurée.",
     "fields": {
+      "emailTemplate": "Modèle d’e-mail",
       "enabled": "Activer la règle",
+      "englishFallbackTemplate": "Modèle anglais de secours",
+      "localizedTemplates": "Modèles localisés facultatifs",
       "name": "Nom de la règle",
       "template": "Modèle SMS",
       "thresholds": "Seuils de solde faible",
       "trigger": "Événement déclencheur",
       "windows": "Fenêtres de rappel d’expiration"
     },
+    "legacySmsMigrationHint": "Des règles SMS héritées ont été détectées. Associez des modèles d'e-mail et activez les règles migrées lorsque vous êtes prêt.",
+    "migrateLegacySmsRules": "Migrer vers des règles e-mail",
+    "migrateLegacySmsRulesDescription": "Cette action remplace les trois règles SMS héritées, conserve leurs conditions de déclenchement, efface les modèles SMS et crée trois règles e-mail désactivées. La migration prend effet après l'enregistrement de la configuration en bas de page.",
+    "migrateLegacySmsRulesTitle": "Migrer les règles SMS héritées",
     "newRule": "Nouvelle règle",
     "noConditions": "Aucune condition supplémentaire",
+    "noLocalizedTemplate": "Utiliser le modèle anglais de secours",
     "saveRule": "Enregistrer la règle",
+    "selectEmailTemplate": "Sélectionner un modèle d’e-mail",
+    "selectEnglishFallbackTemplate": "Sélectionner le modèle anglais requis",
     "selectTemplate": "Sélectionner un modèle SMS",
     "title": "Règles de notification"
   },
@@ -473,6 +498,7 @@
     "templates": "Gestion des modèles"
   },
   "templateManagement": {
+    "allEmailStatuses": "Tous les statuts de modèle",
     "allStatuses": "Tous les statuts de validation",
     "bindingsLoading": "Chargement des liaisons",
     "bindingsUnavailable": "Informations de liaison indisponibles",
@@ -484,6 +510,7 @@
       "status": "Statut de validation",
       "type": "Type de modèle"
     },
+    "create": "Créer un modèle",
     "detail": {
       "code": "Code du modèle",
       "content": "Contenu complet",
@@ -494,12 +521,49 @@
       "variables": "Variables"
     },
     "detailDescription": "Détails du fournisseur et usages métier actuels de ce modèle.",
-    "emailComingSoon": "La gestion des modèles d’e-mail sera disponible après la configuration du fournisseur d’envoi.",
+    "emailDescription": "Gérez les modèles d’e-mail SMTP disponibles pour les règles de notification internationales.",
+    "emailFields": {
+      "htmlBody": "Corps de l’e-mail",
+      "htmlBodyPlaceholder": "Saisissez le corps de l’e-mail en anglais (HTML pris en charge)",
+      "locale": "Langue",
+      "name": "Nom du modèle",
+      "notificationTypes": "Types de notification applicables",
+      "notificationTypesHint": "Associez uniquement les événements sélectionnés. Une fois activé, ce modèle est disponible dans les règles pour ces événements uniquement.",
+      "status": "Statut du modèle",
+      "subject": "Objet de l’e-mail",
+      "subjectPlaceholder": "Saisissez un objet d’e-mail en anglais"
+    },
+    "emailLoadError": "La configuration du relais SMTP est incomplète. Les modèles d’e-mail restent gérables, mais l’envoi est indisponible.",
+    "emailLocales": {
+      "arSA": "Arabe",
+      "enUS": "Anglais (États-Unis)",
+      "frFR": "Français",
+      "thTH": "Thaï",
+      "zhCN": "Chinois simplifié"
+    },
+    "emailSaveError": "Le modèle d’e-mail n’a pas pu être enregistré. Réessayez plus tard.",
+    "emailStatus": {
+      "active": "Actif",
+      "disabled": "Désactivé",
+      "draft": "Brouillon"
+    },
+    "emailStatusFilter": "Statut du modèle",
     "emailTitle": "Modèles d’e-mail",
+    "emailVariables": {
+      "availableCredits": "Crédits disponibles",
+      "collapse": "Réduire les variables",
+      "credits": "Crédits attribués",
+      "estimatedRemainingDays": "Jours restants estimés",
+      "expand": "Développer les variables",
+      "expiresAt": "Date d’expiration des crédits",
+      "product": "Nom du forfait",
+      "window": "Fenêtre de rappel d’expiration"
+    },
     "empty": "Aucun modèle ne correspond aux filtres.",
     "loadError": "La liste Alibaba Cloud n’a pas pu être chargée. Les modèles en cache restent affichés.",
     "loading": "Chargement des modèles...",
     "refresh": "Synchroniser les modèles SMS Alibaba Cloud",
+    "reload": "Recharger les modèles",
     "searchPlaceholder": "Rechercher par nom, Code ou contenu",
     "smsDescription": "Tous les modèles SMS synchronisés depuis Alibaba Cloud, y compris ceux qui ne sont pas encore associés à une notification de crédits.",
     "smsTitle": "Modèles SMS Alibaba Cloud",

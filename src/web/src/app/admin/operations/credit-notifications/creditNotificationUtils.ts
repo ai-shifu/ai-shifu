@@ -316,6 +316,15 @@ const readStringArray = (value: unknown, fallback: string[]): string[] =>
     ? value.map(item => String(item ?? '').trim()).filter(Boolean)
     : fallback;
 
+const readStringMap = (value: unknown): Record<string, string> => {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, item]) => [key.trim(), String(item ?? '').trim()])
+      .filter(([key, item]) => key && item),
+  );
+};
+
 const readBoolean = (value: unknown, fallback: boolean): boolean => {
   if (typeof value === 'boolean') {
     return value;
@@ -452,6 +461,14 @@ export const normalizePolicy = (
             trigger_event: triggerEvent as KnownNotificationType,
             channel,
             template_code: readString(value.template_code),
+            ...(channel === 'email' &&
+            Object.keys(readStringMap(value.locale_template_codes)).length
+              ? {
+                  locale_template_codes: readStringMap(
+                    value.locale_template_codes,
+                  ),
+                }
+              : {}),
             enabled: readBoolean(value.enabled, false),
             conditions: {
               ...(triggerEvent === 'credit_expiring'
