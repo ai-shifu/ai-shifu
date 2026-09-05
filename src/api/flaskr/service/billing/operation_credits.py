@@ -8,12 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
-    BILL_USAGE_TYPE_TTS,
-)
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -25,11 +20,8 @@ from .bucket_categories import (
     load_billing_order_type_by_bid,
     wallet_bucket_requires_active_subscription,
 )
-from .charges import build_metric_charge, build_usage_metric_charges
+from .charges import build_metric_charge
 from .consts import (
-    BILLING_METRIC_LLM_CACHE_TOKENS,
-    BILLING_METRIC_LLM_INPUT_TOKENS,
-    BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -81,8 +73,6 @@ class OperationCreditCaptureResult:
     usage_bid: str
     ledger_bid: str
     amount: Decimal
-    released_amount: Decimal = _ZERO
-    release_ledger_bid: str = ""
 
 
 @dataclass(slots=True, frozen=True)
@@ -122,115 +112,6 @@ def estimate_voice_clone_operation_credits(app: Flask) -> OperationCreditEstimat
         )
 
 
-def has_complete_llm_operation_rates(app: Flask, *, model: str) -> bool:
-    """Return whether production LLM rates cover input, cache, and output."""
-    normalized_model = _require_bid(model, "model")
-    with app.app_context():
-        usage = BillUsageRecord(
-            usage_type=BILL_USAGE_TYPE_LLM,
-            usage_scene=BILL_USAGE_SCENE_PROD,
-            provider="",
-            model=normalized_model,
-            input=2,
-            input_cache=1,
-            output=1,
-            total=3,
-        )
-        metrics = {
-            int(charge.billing_metric)
-            for charge in build_usage_metric_charges(usage, settlement_at=now_utc())
-        }
-    return {
-        BILLING_METRIC_LLM_INPUT_TOKENS,
-        BILLING_METRIC_LLM_CACHE_TOKENS,
-        BILLING_METRIC_LLM_OUTPUT_TOKENS,
-    }.issubset(metrics)
-
-
-def estimate_llm_operation_credits(
-    app: Flask,
-    *,
-    model: str,
-    input_tokens: int,
-    max_output_tokens: int,
-) -> OperationCreditEstimate:
-    """Estimate one LLM request conservatively from active production rates."""
-    normalized_model = _require_bid(model, "model")
-    normalized_input = max(int(input_tokens or 0), 0)
-    normalized_output = max(int(max_output_tokens or 0), 0)
-    if normalized_output <= 0:
-        raise_param_error("max_output_tokens is required")
-    if not has_complete_llm_operation_rates(app, model=normalized_model):
-        return OperationCreditEstimate(consumed_credits=_ZERO, status="no_rate")
-
-    with app.app_context():
-        usage = BillUsageRecord(
-            usage_type=BILL_USAGE_TYPE_LLM,
-            usage_scene=BILL_USAGE_SCENE_PROD,
-            provider="",
-            model=normalized_model,
-            input=normalized_input,
-            input_cache=0,
-            output=normalized_output,
-            total=normalized_input + normalized_output,
-        )
-        charges = build_usage_metric_charges(usage, settlement_at=now_utc())
-        total = sum((charge.consumed_credits for charge in charges), start=_ZERO)
-    return OperationCreditEstimate(
-        consumed_credits=billing_primitives.quantize_credit_amount(total),
-        billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        status="rated",
-    )
-
-
-def capture_metered_operation_credits(
-    app: Flask,
-    *,
-    reservation_bid: str,
-    usage_bid: str,
-    metadata: dict[str, object] | None = None,
-) -> OperationCreditCaptureResult:
-    """Capture a reservation from one persisted LLM usage record."""
-    normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
-    normalized_usage_bid = _require_bid(usage_bid, "usage_bid")
-    with app.app_context():
-        usage = BillUsageRecord.query.filter(
-            BillUsageRecord.usage_bid == normalized_usage_bid,
-            BillUsageRecord.deleted == 0,
-        ).first()
-        if usage is None:
-            raise_param_error("usage_bid is invalid")
-        charges = build_usage_metric_charges(
-            usage,
-            settlement_at=usage.created_at or now_utc(),
-        )
-        captured_amount = billing_primitives.quantize_credit_amount(
-            sum((charge.consumed_credits for charge in charges), start=_ZERO)
-        )
-        usage_extra = usage.extra if isinstance(usage.extra, dict) else {}
-        usage_source = str(usage_extra.get("usage_source") or "")
-
-    capture_metadata = {
-        **dict(metadata or {}),
-        "metering_mode": "strict",
-        "estimated_usage": usage_source != "litellm",
-    }
-    if captured_amount <= _ZERO:
-        return capture_reserved_operation_credits(
-            app,
-            reservation_bid=normalized_reservation_bid,
-            usage_bid=normalized_usage_bid,
-            metadata=capture_metadata,
-        )
-    return capture_reserved_operation_credits(
-        app,
-        reservation_bid=normalized_reservation_bid,
-        usage_bid=normalized_usage_bid,
-        amount=captured_amount,
-        metadata=capture_metadata,
-    )
-
-
 def reserve_operation_credits(
     app: Flask,
     *,
@@ -263,13 +144,6 @@ def reserve_operation_credits(
             return _reservation_result_from_hold(existing)
 
         wallet = _load_wallet(normalized_creator_bid, lock=True)
-        # A concurrent request may have committed its hold while this request
-        # waited for the wallet. Use a locking read to bypass an older snapshot.
-        existing = _load_ledger_by_idempotency(
-            normalized_creator_bid, idempotency_key, lock=True
-        )
-        if existing is not None:
-            return _reservation_result_from_hold(existing)
         buckets = _load_active_buckets(wallet, now_utc(), lock=True)
         available = sum(
             (
@@ -361,10 +235,9 @@ def capture_reserved_operation_credits(
     *,
     reservation_bid: str,
     usage_bid: str,
-    amount: Decimal | None = None,
     metadata: dict[str, object] | None = None,
 ) -> OperationCreditCaptureResult:
-    """Capture used credits and release the unused reservation remainder."""
+    """Capture reserved operation credits."""
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
     normalized_usage_bid = _require_bid(usage_bid, "usage_bid")
 
@@ -394,32 +267,14 @@ def capture_reserved_operation_credits(
             )
 
         wallet = _load_wallet(creator_bid, lock=True)
-        held_amount = billing_primitives.quantize_credit_amount(hold.amount)
-        captured_amount = (
-            held_amount
-            if amount is None
-            else billing_primitives.quantize_credit_amount(amount)
-        )
-        if captured_amount <= _ZERO or captured_amount > held_amount:
-            raise_param_error("amount is outside the reserved credit range")
-        released_amount = billing_primitives.quantize_credit_amount(
-            held_amount - captured_amount
-        )
-        captured_breakdown, released_breakdown = _apply_capture_and_release_to_buckets(
-            hold,
-            captured_amount=captured_amount,
-            lock=True,
-        )
+        amount = billing_primitives.quantize_credit_amount(hold.amount)
+        _apply_capture_to_buckets(hold, lock=True)
 
         wallet.reserved_credits = billing_primitives.quantize_credit_amount(
-            billing_primitives.to_decimal(wallet.reserved_credits) - held_amount
-        )
-        wallet.available_credits = billing_primitives.quantize_credit_amount(
-            billing_primitives.to_decimal(wallet.available_credits) + released_amount
+            billing_primitives.to_decimal(wallet.reserved_credits) - amount
         )
         wallet.lifetime_consumed_credits = billing_primitives.quantize_credit_amount(
-            billing_primitives.to_decimal(wallet.lifetime_consumed_credits)
-            + captured_amount
+            billing_primitives.to_decimal(wallet.lifetime_consumed_credits) + amount
         )
         persist_credit_wallet_snapshot(
             wallet,
@@ -439,54 +294,23 @@ def capture_reserved_operation_credits(
             source_type=CREDIT_SOURCE_TYPE_USAGE,
             source_bid=normalized_usage_bid,
             idempotency_key=idempotency_key,
-            amount=-captured_amount,
+            amount=-amount,
             balance_after=wallet.available_credits,
             metadata_json={
                 "reservation_bid": normalized_reservation_bid,
                 "usage_bid": normalized_usage_bid,
                 "metadata": dict(metadata or {}),
-                "bucket_breakdown": captured_breakdown,
+                "bucket_breakdown": _bucket_breakdown_from_hold(hold),
             },
         )
         db.session.add(ledger)
-        release_ledger_bid = ""
-        if released_amount > _ZERO:
-            release_ledger_bid = generate_id(app)
-            db.session.add(
-                CreditLedgerEntry(
-                    ledger_bid=release_ledger_bid,
-                    creator_bid=creator_bid,
-                    wallet_bid=wallet.wallet_bid,
-                    wallet_bucket_bid=(
-                        str(released_breakdown[0]["wallet_bucket_bid"])
-                        if released_breakdown
-                        else hold.wallet_bucket_bid or ""
-                    ),
-                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_RELEASE,
-                    source_type=CREDIT_SOURCE_TYPE_MANUAL,
-                    source_bid=normalized_reservation_bid,
-                    idempotency_key=_release_idempotency_key(
-                        normalized_reservation_bid
-                    ),
-                    amount=released_amount,
-                    balance_after=wallet.available_credits,
-                    metadata_json={
-                        "reservation_bid": normalized_reservation_bid,
-                        "usage_bid": normalized_usage_bid,
-                        "reason": "unused_reservation",
-                        "bucket_breakdown": released_breakdown,
-                    },
-                )
-            )
         db.session.commit()
         return OperationCreditCaptureResult(
             status="captured",
             reservation_bid=normalized_reservation_bid,
             usage_bid=normalized_usage_bid,
             ledger_bid=ledger_bid,
-            amount=captured_amount,
-            released_amount=released_amount,
-            release_ledger_bid=release_ledger_bid,
+            amount=amount,
         )
 
 
@@ -586,17 +410,16 @@ def _release_idempotency_key(reservation_bid: str) -> str:
 def _load_ledger_by_idempotency(
     creator_bid: str,
     idempotency_key: str,
-    *,
-    lock: bool = False,
 ) -> CreditLedgerEntry | None:
-    query = CreditLedgerEntry.query.filter(
-        CreditLedgerEntry.deleted == 0,
-        CreditLedgerEntry.creator_bid == creator_bid,
-        CreditLedgerEntry.idempotency_key == idempotency_key,
-    ).order_by(CreditLedgerEntry.id.desc())
-    if lock:
-        query = query.with_for_update()
-    return query.first()
+    return (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == creator_bid,
+            CreditLedgerEntry.idempotency_key == idempotency_key,
+        )
+        .order_by(CreditLedgerEntry.id.desc())
+        .first()
+    )
 
 
 def _load_wallet(creator_bid: str, *, lock: bool = False) -> CreditWallet:
@@ -731,52 +554,15 @@ def _reservation_has_release(creator_bid: str, reservation_bid: str) -> bool:
     )
 
 
-def _apply_capture_and_release_to_buckets(
-    hold: CreditLedgerEntry,
-    *,
-    captured_amount: Decimal,
-    lock: bool = False,
-) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    remaining_capture = billing_primitives.quantize_credit_amount(captured_amount)
-    captured_breakdown: list[dict[str, object]] = []
-    released_breakdown: list[dict[str, object]] = []
+def _apply_capture_to_buckets(hold: CreditLedgerEntry, *, lock: bool = False) -> None:
     for bucket, item_amount in _iter_hold_buckets(hold, lock=lock):
-        captured_from_bucket = min(item_amount, remaining_capture)
-        released_from_bucket = billing_primitives.quantize_credit_amount(
-            item_amount - captured_from_bucket
-        )
         bucket.reserved_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(bucket.reserved_credits) - item_amount
         )
         bucket.consumed_credits = billing_primitives.quantize_credit_amount(
-            billing_primitives.to_decimal(bucket.consumed_credits)
-            + captured_from_bucket
-        )
-        bucket.available_credits = billing_primitives.quantize_credit_amount(
-            billing_primitives.to_decimal(bucket.available_credits)
-            + released_from_bucket
+            billing_primitives.to_decimal(bucket.consumed_credits) + item_amount
         )
         sync_credit_bucket_status(bucket)
-        if captured_from_bucket > _ZERO:
-            captured_breakdown.append(
-                {
-                    "wallet_bucket_bid": bucket.wallet_bucket_bid,
-                    "amount": _credit_to_string(captured_from_bucket),
-                }
-            )
-        if released_from_bucket > _ZERO:
-            released_breakdown.append(
-                {
-                    "wallet_bucket_bid": bucket.wallet_bucket_bid,
-                    "amount": _credit_to_string(released_from_bucket),
-                }
-            )
-        remaining_capture = billing_primitives.quantize_credit_amount(
-            remaining_capture - captured_from_bucket
-        )
-    if remaining_capture > _ZERO:
-        raise_param_error("reservation bucket breakdown is incomplete")
-    return captured_breakdown, released_breakdown
 
 
 def _apply_release_to_buckets(hold: CreditLedgerEntry, *, lock: bool = False) -> None:

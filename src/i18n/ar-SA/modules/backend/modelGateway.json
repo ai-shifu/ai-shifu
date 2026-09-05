@@ -2,6 +2,7 @@
   "__namespace__": "server.modelGateway",
   "__flat__": {
     "client_not_allowed": "هذا العميل غير مصرح له بالوصول إلى نماذج البوابة.",
+    "gateway_unavailable": "بوابة النماذج غير متاحة مؤقتًا. يرجى المحاولة لاحقًا.",
     "idempotency_conflict": "تم استخدام Idempotency-Key بالفعل.",
     "idempotency_key_required": "يجب أن يحتوي Idempotency-Key على 1 إلى 90 حرفًا.",
     "insufficient_credits": "لا توجد محفظة متاحة للحساب أو أن الرصيد غير كافٍ.",

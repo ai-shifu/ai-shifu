@@ -1598,7 +1598,6 @@ def _record_gateway_llm_usage(
     user_id: str,
     request_id: str,
     trace_id: str,
-    usage_bid: str,
     provider: str,
     model: str,
     is_stream: bool,
@@ -1618,7 +1617,11 @@ def _record_gateway_llm_usage(
         output_capture=output_capture,
     )
     metadata = _attach_usage_output_text(
-        {**dict(usage_metadata or {}), "usage_source": usage_source},
+        {
+            **dict(usage_metadata or {}),
+            "usage_source": usage_source,
+            "billing_source": "model_gateway",
+        },
         output_capture,
     )
     record_llm_usage(
@@ -1628,7 +1631,7 @@ def _record_gateway_llm_usage(
             request_id=request_id,
             trace_id=trace_id,
             usage_scene=BILL_USAGE_SCENE_PROD,
-            billable=int(status == 0 or bool(output_capture)),
+            billable=int(status == 0),
         ),
         provider=provider,
         model=model,
@@ -1641,8 +1644,6 @@ def _record_gateway_llm_usage(
         status=status,
         error_message=error_message,
         extra=metadata,
-        usage_bid=usage_bid,
-        enqueue_settlement=False,
     )
 
 
@@ -1651,7 +1652,6 @@ def complete_openai_chat_completion(
     *,
     user_id: str,
     span: LangfuseObservationHandle,
-    usage_bid: str,
     model: str,
     messages: list[dict[str, object]],
     request_id: str,
@@ -1715,7 +1715,6 @@ def complete_openai_chat_completion(
             user_id=user_id,
             request_id=request_id,
             trace_id=trace_id,
-            usage_bid=usage_bid,
             provider=provider_key or "",
             model=requested_model,
             is_stream=False,
@@ -1743,7 +1742,6 @@ def stream_openai_chat_completion(
     *,
     user_id: str,
     span: LangfuseObservationHandle,
-    usage_bid: str,
     model: str,
     messages: list[dict[str, object]],
     request_id: str,
@@ -1815,7 +1813,6 @@ def stream_openai_chat_completion(
             user_id=user_id,
             request_id=request_id,
             trace_id=trace_id,
-            usage_bid=usage_bid,
             provider=provider_key or "",
             model=requested_model,
             is_stream=True,

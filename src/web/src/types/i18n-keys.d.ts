@@ -4037,6 +4037,7 @@ export type I18nKey =
   | 'server.metering.usageTypeLlm'
   | 'server.metering.usageTypeTts'
   | 'server.modelGateway.client_not_allowed'
+  | 'server.modelGateway.gateway_unavailable'
   | 'server.modelGateway.idempotency_conflict'
   | 'server.modelGateway.idempotency_key_required'
   | 'server.modelGateway.insufficient_credits'

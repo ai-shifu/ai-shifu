@@ -1,4 +1,4 @@
-"""Coordinate strictly metered OpenAI-compatible model gateway requests."""
+"""Coordinate gateway requests through the shared asynchronous billing flow."""
 
 from __future__ import annotations
 
@@ -7,15 +7,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid5
 
+from flaskr.common.cache_provider import redis_cache as cache
+from flaskr.common.config import get_redis_key_prefix
 from flaskr.i18n import _
-from flaskr.service.billing.operation_credits import (
-    capture_metered_operation_credits,
-    estimate_llm_operation_credits,
-    release_reserved_operation_credits,
-    reserve_operation_credits,
-)
+from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.billing.charges import has_complete_llm_rates
 from flaskr.service.common.models import AppError
-from flaskr.util.uuid import generate_id
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
+from flaskr.service.metering.models import BillUsageRecord
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -35,6 +34,9 @@ _ALLOWED_PROVIDER_OPTIONS = {
     "top_p",
 }
 _IDEMPOTENCY_KEY_MAX_LENGTH = 90
+
+
+_REQUEST_DEDUPLICATION_SECONDS = 24 * 60 * 60
 
 
 class GatewayRequestError(Exception):
@@ -67,18 +69,41 @@ class GatewayRequestError(Exception):
 
 
 @dataclass(slots=True, frozen=True)
-class GatewayChatReservation:
-    """Carry one request's credit hold into its provider lifecycle."""
+class GatewayChatRequest:
+    """Carry a validated request without reserving or mutating wallet credits."""
 
     creator_bid: str
     request_id: str
     model: str
     messages: list[dict[str, object]]
     input_tokens: int
-    max_output_tokens: int
-    reservation_bid: str
-    usage_bid: str
     provider_options: dict[str, object]
+
+
+def _claim_gateway_request(app: Flask, creator_bid: str, request_id: str) -> None:
+    """Reject duplicates independently of billing or credit ledger entries."""
+    try:
+        with app.app_context():
+            recorded = BillUsageRecord.query.filter(
+                BillUsageRecord.user_bid == creator_bid,
+                BillUsageRecord.request_id == request_id,
+                BillUsageRecord.usage_type == BILL_USAGE_TYPE_LLM,
+            ).first()
+        key = f"{get_redis_key_prefix(app=app)}:model_gateway:request:{request_id}"
+        claimed = recorded is None and cache.set(
+            key, "1", nx=True, ex=_REQUEST_DEDUPLICATION_SECONDS
+        )
+    except Exception as error:
+        app.logger.exception(
+            "gateway request guard unavailable request_id=%s", request_id
+        )
+        raise GatewayRequestError(
+            503, "gateway_unavailable", _("server.modelGateway.gateway_unavailable")
+        ) from error
+    if not claimed:
+        raise GatewayRequestError(
+            409, "idempotency_conflict", "Idempotency-Key has already been used"
+        )
 
 
 def prepare_gateway_chat_request(
@@ -87,8 +112,8 @@ def prepare_gateway_chat_request(
     creator_bid: str,
     idempotency_key: str,
     payload: dict[str, object],
-) -> GatewayChatReservation:
-    """Validate, rate, and reserve one model gateway request."""
+) -> GatewayChatRequest:
+    """Validate the request and reuse course admission without a credit hold."""
     caller_key = str(idempotency_key or "").strip()
     if not caller_key or len(caller_key) > _IDEMPOTENCY_KEY_MAX_LENGTH:
         raise GatewayRequestError(
@@ -101,7 +126,6 @@ def prepare_gateway_chat_request(
         raise GatewayRequestError(
             400, "stream_invalid", "stream must be a JSON boolean"
         )
-
     model = str(payload.get("model") or "").strip()
     if not model:
         raise GatewayRequestError(400, "model_required", "model is required")
@@ -124,209 +148,100 @@ def prepare_gateway_chat_request(
         resolve_llm_max_output_tokens,
     )
 
+    with app.app_context():
+        admit_creator_usage(
+            app, creator_bid=creator_bid, usage_scene=BILL_USAGE_SCENE_PROD
+        )
+        if not has_complete_llm_rates(model):
+            raise GatewayRequestError(
+                400,
+                "model_not_available",
+                "The model does not have complete active credit rates",
+            )
     try:
         max_output_tokens = resolve_llm_max_output_tokens(
-            model,
-            payload.get("max_tokens"),
+            model, payload.get("max_tokens")
         )
         input_tokens = count_llm_chat_input_tokens(
-            model,
-            messages,
-            tools=tools if isinstance(tools, list) else None,
+            model, messages, tools=tools if isinstance(tools, list) else None
         )
     except AppError as error:
         raise GatewayRequestError(
             400, "model_not_available", str(error.message)
         ) from error
 
-    estimate = estimate_llm_operation_credits(
-        app,
-        model=model,
-        input_tokens=input_tokens,
-        max_output_tokens=max_output_tokens,
-    )
-    if estimate.status != "rated" or estimate.consumed_credits <= 0:
-        raise GatewayRequestError(
-            400,
-            "model_not_available",
-            "The model does not have complete active credit rates",
-        )
-
-    reservation = reserve_operation_credits(
-        app,
-        creator_bid=creator_bid,
-        amount=estimate.consumed_credits,
-        operation_type="model_gateway_llm",
-        operation_bid=request_id,
-        metadata={
-            "idempotency_key": caller_key,
-            "model": model,
-            "input_tokens": input_tokens,
-            "max_output_tokens": max_output_tokens,
-        },
-    )
-    if reservation.status != "reserved":
-        raise GatewayRequestError(
-            409,
-            "idempotency_conflict",
-            "Idempotency-Key has already been used",
-        )
-
+    _claim_gateway_request(app, creator_bid, request_id)
     provider_options = {
         key: value for key, value in payload.items() if key in _ALLOWED_PROVIDER_OPTIONS
     }
     provider_options["max_tokens"] = max_output_tokens
-    return GatewayChatReservation(
+    return GatewayChatRequest(
         creator_bid=creator_bid,
         request_id=request_id,
         model=model,
         messages=messages,
         input_tokens=input_tokens,
-        max_output_tokens=max_output_tokens,
-        reservation_bid=reservation.reservation_bid,
-        usage_bid=generate_id(app),
         provider_options=provider_options,
     )
 
 
-def _trace_for_request(reservation: GatewayChatReservation) -> object:
+def _trace_for_request(gateway_request: GatewayChatRequest) -> object:
     from flaskr.api.langfuse import create_trace_with_root_span, get_langfuse_client
 
     _trace, span = create_trace_with_root_span(
         client=get_langfuse_client(),
         trace_payload={
-            "user_id": reservation.creator_bid,
+            "user_id": gateway_request.creator_bid,
             "name": "model_gateway_chat_completion",
             "metadata": {
-                "gateway_request_id": reservation.request_id,
-                "model": reservation.model,
+                "gateway_request_id": gateway_request.request_id,
+                "model": gateway_request.model,
             },
         },
         root_span_payload={
             "name": "model_gateway_chat_completion",
-            "input": reservation.messages,
+            "input": gateway_request.messages,
         },
     )
     return span
 
 
-def _capture_completed(app: Flask, reservation: GatewayChatReservation) -> None:
-    # Retry the rated amount, not the maximum hold, after a transient DB failure.
-    for _attempt in range(2):
-        try:
-            capture_metered_operation_credits(
-                app,
-                reservation_bid=reservation.reservation_bid,
-                usage_bid=reservation.usage_bid,
-                metadata={"gateway_request_id": reservation.request_id},
-            )
-        except Exception:
-            app.logger.exception(
-                "model gateway capture failed request_id=%s", reservation.request_id
-            )
-        else:
-            return
-    _release_gateway_hold(app, reservation, "settlement_failed")
-
-
-def _release_gateway_hold(
-    app: Flask, reservation: GatewayChatReservation, reason: str
-) -> None:
-    """Attempt cleanup without masking provider failures or stream finalization."""
-    try:
-        release_reserved_operation_credits(
-            app, reservation_bid=reservation.reservation_bid, reason=reason
-        )
-    except Exception:
-        app.logger.exception(
-            "model gateway release failed request_id=%s reservation_bid=%s",
-            reservation.request_id,
-            reservation.reservation_bid,
-        )
-
-
 def complete_gateway_chat_request(
-    app: Flask,
-    reservation: GatewayChatReservation,
+    app: Flask, gateway_request: GatewayChatRequest
 ) -> dict[str, object]:
-    """Run one non-streaming request and resolve its credit hold."""
+    """Return model output; the shared recorder enqueues usage settlement."""
     from flaskr.api.llm import complete_openai_chat_completion
 
-    try:
-        payload = complete_openai_chat_completion(
-            app,
-            user_id=reservation.creator_bid,
-            span=_trace_for_request(reservation),
-            usage_bid=reservation.usage_bid,
-            model=reservation.model,
-            messages=reservation.messages,
-            request_id=reservation.request_id,
-            fallback_input_tokens=reservation.input_tokens,
-            usage_metadata={
-                "reservation_bid": reservation.reservation_bid,
-                "gateway_request_id": reservation.request_id,
-                "metering_mode": "strict",
-            },
-            **reservation.provider_options,
-        )
-    except Exception:
-        _release_gateway_hold(app, reservation, "provider_failed_before_response")
-        raise
-    _capture_completed(app, reservation)
-    return payload
+    return complete_openai_chat_completion(
+        app,
+        user_id=gateway_request.creator_bid,
+        span=_trace_for_request(gateway_request),
+        model=gateway_request.model,
+        messages=gateway_request.messages,
+        request_id=gateway_request.request_id,
+        fallback_input_tokens=gateway_request.input_tokens,
+        **gateway_request.provider_options,
+    )
 
 
 def stream_gateway_chat_request(
-    app: Flask,
-    reservation: GatewayChatReservation,
+    app: Flask, gateway_request: GatewayChatRequest
 ) -> Generator[dict[str, object], None, None]:
-    """Stream one request and attempt settlement or cleanup on close."""
+    """Stream model output and finalize usage through the shared recorder."""
     from flaskr.api.llm import stream_openai_chat_completion
 
-    stream = None
-    output_started = False
-    completed = False
+    stream = stream_openai_chat_completion(
+        app,
+        user_id=gateway_request.creator_bid,
+        span=_trace_for_request(gateway_request),
+        model=gateway_request.model,
+        messages=gateway_request.messages,
+        request_id=gateway_request.request_id,
+        fallback_input_tokens=gateway_request.input_tokens,
+        **gateway_request.provider_options,
+    )
     try:
-        stream = stream_openai_chat_completion(
-            app,
-            user_id=reservation.creator_bid,
-            span=_trace_for_request(reservation),
-            usage_bid=reservation.usage_bid,
-            model=reservation.model,
-            messages=reservation.messages,
-            request_id=reservation.request_id,
-            fallback_input_tokens=reservation.input_tokens,
-            usage_metadata={
-                "reservation_bid": reservation.reservation_bid,
-                "gateway_request_id": reservation.request_id,
-                "metering_mode": "strict",
-            },
-            **reservation.provider_options,
-        )
-        for chunk in stream:
-            output_started = output_started or _chunk_has_output(chunk)
-            yield chunk
-        completed = True
+        yield from stream
     finally:
-        if stream is not None:
-            with contextlib.suppress(Exception):
-                stream.close()
-        if completed or output_started:
-            _capture_completed(app, reservation)
-        else:
-            _release_gateway_hold(app, reservation, "stream_failed_before_output")
-
-
-def _chunk_has_output(chunk: dict[str, object]) -> bool:
-    choices = chunk.get("choices")
-    if not isinstance(choices, list):
-        return False
-    for choice in choices:
-        if not isinstance(choice, dict):
-            continue
-        delta = choice.get("delta")
-        if isinstance(delta, dict) and (
-            delta.get("content") or delta.get("tool_calls")
-        ):
-            return True
-    return False
+        with contextlib.suppress(Exception):
+            stream.close()

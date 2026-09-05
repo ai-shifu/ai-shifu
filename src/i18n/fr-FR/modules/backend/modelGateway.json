@@ -2,6 +2,7 @@
   "__namespace__": "server.modelGateway",
   "__flat__": {
     "client_not_allowed": "Ce client n’est pas autorisé à accéder aux modèles de la passerelle.",
+    "gateway_unavailable": "La passerelle de modèles est temporairement indisponible. Réessayez plus tard.",
     "idempotency_conflict": "Idempotency-Key a déjà été utilisé.",
     "idempotency_key_required": "Idempotency-Key doit contenir de 1 à 90 caractères.",
     "insufficient_credits": "Le compte n’a pas de portefeuille disponible ou manque de crédits.",

@@ -10,11 +10,8 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from flaskr.common.public_urls import build_public_url
 from flaskr.i18n import _
+from flaskr.service.billing.charges import has_complete_llm_rates
 from flaskr.service.billing.models import CreditWallet
-from flaskr.service.billing.operation_credits import (
-    has_complete_llm_operation_rates,
-    release_reserved_operation_credits,
-)
 from flaskr.service.billing.primitives import credit_decimal_to_number
 from flaskr.service.billing.wallets import calculate_credit_wallet_snapshot_values
 from flaskr.service.common.models import ERROR_CODE, AppError
@@ -113,10 +110,7 @@ def _gateway_models(app: Flask) -> list[dict[str, object]]:
         model
         for model in get_current_models(app)
         if model.get("credit_multiplier") is not None
-        and has_complete_llm_operation_rates(
-            app,
-            model=str(model.get("model") or ""),
-        )
+        and has_complete_llm_rates(str(model.get("model") or ""))
     ]
     data = [
         {
@@ -183,6 +177,8 @@ def _error_response(error: GatewayRequestError) -> tuple[Response, int]:
 def _app_error(error: AppError) -> GatewayRequestError:
     if error.code == ERROR_CODE.get("server.billing.creditInsufficient"):
         return GatewayRequestError(402, "insufficient_credits", str(error.message))
+    if error.code == ERROR_CODE.get("server.billing.subscriptionInactive"):
+        return GatewayRequestError(402, "subscription_inactive", str(error.message))
     return GatewayRequestError(400, "invalid_request", str(error.message))
 
 
@@ -215,7 +211,7 @@ def register_model_gateway_handler(
     @app.route(path_prefix + "/v1/chat/completions", methods=["POST"])
     @bypass_token_validation
     def model_gateway_chat() -> tuple[Response, int] | Response:
-        """Run one strictly metered OpenAI-compatible chat completion."""
+        """Run a chat completion with shared admission and asynchronous billing."""
         try:
             user = _gateway_user(app)
             _validate_gateway_client(app)
@@ -225,7 +221,7 @@ def register_model_gateway_handler(
             raw_payload = request.get_json(silent=True)
             payload = raw_payload if isinstance(raw_payload, dict) else {}
             payload = _resolve_model_alias(app, payload)
-            reservation = prepare_gateway_chat_request(
+            gateway_request = prepare_gateway_chat_request(
                 app,
                 creator_bid=str(user.user_id or ""),
                 idempotency_key=str(request.headers.get("Idempotency-Key") or ""),
@@ -244,13 +240,13 @@ def register_model_gateway_handler(
 
         if not payload.get("stream", False):
             try:
-                response_payload = complete_gateway_chat_request(app, reservation)
+                response_payload = complete_gateway_chat_request(app, gateway_request)
             except AppError as error:
                 return _error_response(_app_error(error))
             except Exception:
                 app.logger.exception(
                     "model gateway completion failed request_id=%s",
-                    reservation.request_id,
+                    gateway_request.request_id,
                 )
                 return _error_response(
                     GatewayRequestError(
@@ -259,19 +255,15 @@ def register_model_gateway_handler(
                 )
             return jsonify(response_payload)
 
-        stream_started = False
-
         @stream_with_context
         def events() -> Generator[str, None, None]:
-            nonlocal stream_started
-            stream_started = True
             try:
-                for chunk in stream_gateway_chat_request(app, reservation):
+                for chunk in stream_gateway_chat_request(app, gateway_request):
                     yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
             except Exception:
                 app.logger.exception(
                     "model gateway stream failed request_id=%s",
-                    reservation.request_id,
+                    gateway_request.request_id,
                 )
                 yield (
                     "data: "
@@ -288,25 +280,14 @@ def register_model_gateway_handler(
                 )
             yield "data: [DONE]\n\n"
 
-        response = Response(
+        return Response(
             events(),
             mimetype="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
                 "X-Accel-Buffering": "no",
-                "X-AI-Shifu-Request-ID": reservation.request_id,
+                "X-AI-Shifu-Request-ID": gateway_request.request_id,
             },
         )
-
-        @response.call_on_close
-        def release_unstarted_stream() -> None:
-            if not stream_started:
-                release_reserved_operation_credits(
-                    app,
-                    reservation_bid=reservation.reservation_bid,
-                    reason="stream_not_started",
-                )
-
-        return response
 
     return app

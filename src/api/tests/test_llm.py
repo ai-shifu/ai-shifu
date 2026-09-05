@@ -2352,7 +2352,6 @@ def test_gateway_missing_usage_counts_only_generated_output(
     kwargs = {
         "user_id": "user-1",
         "span": DummySpan(),
-        "usage_bid": "usage-1",
         "model": "rated-model",
         "messages": [],
         "request_id": "request-1",
@@ -2375,7 +2374,7 @@ def test_gateway_missing_usage_counts_only_generated_output(
 @pytest.mark.parametrize(
     ("stream", "partial"), [(False, False), (True, False), (True, True)]
 )
-def test_gateway_failure_billable_flag_matches_delivered_output(
+def test_gateway_failures_follow_shared_non_billable_policy(
     monkeypatch: pytest.MonkeyPatch, app: object, stream: bool, partial: bool
 ) -> None:
     recorded = {}
@@ -2415,7 +2414,6 @@ def test_gateway_failure_billable_flag_matches_delivered_output(
     kwargs = {
         "user_id": "user-1",
         "span": DummySpan(),
-        "usage_bid": "usage-1",
         "model": "rated-model",
         "messages": [],
         "request_id": "request-1",
@@ -2428,10 +2426,10 @@ def test_gateway_failure_billable_flag_matches_delivered_output(
         with pytest.raises(RuntimeError, match="provider failed"):
             llm.complete_openai_chat_completion(app, **kwargs)
     assert recorded["status"] == 1
-    assert recorded["billable"] == int(partial)
+    assert recorded["billable"] == 0
 
 
-def test_non_stream_gateway_completion_records_usage_without_async_settlement(
+def test_non_stream_gateway_completion_uses_shared_recorder_defaults(
     monkeypatch: pytest.MonkeyPatch,
     app: object,
 ) -> None:
@@ -2477,7 +2475,6 @@ def test_non_stream_gateway_completion_records_usage_without_async_settlement(
         app,
         user_id="gateway-user",
         span=DummySpan(),
-        usage_bid="gateway-usage",
         model="rated-model",
         messages=[{"role": "user", "content": "hello"}],
         request_id="gateway-request",
@@ -2486,8 +2483,9 @@ def test_non_stream_gateway_completion_records_usage_without_async_settlement(
     )
 
     assert payload["id"] == "chatcmpl-1"
-    assert recorded["usage_bid"] == "gateway-usage"
-    assert recorded["enqueue_settlement"] is False
+    assert "usage_bid" not in recorded
+    assert "enqueue_settlement" not in recorded
+    assert recorded["extra"]["billing_source"] == "model_gateway"
     assert recorded["input"] == 3
     assert recorded["input_cache"] == 1
     assert recorded["output"] == 2
@@ -2558,7 +2556,6 @@ def test_stream_gateway_completion_preserves_tool_call_chunks(
             app,
             user_id="gateway-user",
             span=DummySpan(),
-            usage_bid="gateway-stream-usage",
             model="rated-model",
             messages=[{"role": "user", "content": "use a tool"}],
             request_id="gateway-stream-request",
@@ -2568,6 +2565,8 @@ def test_stream_gateway_completion_preserves_tool_call_chunks(
     )
 
     assert payloads[0]["choices"][0]["delta"]["tool_calls"][0]["id"] == "call-1"
-    assert recorded["usage_bid"] == "gateway-stream-usage"
+    assert "usage_bid" not in recorded
+    assert "enqueue_settlement" not in recorded
+    assert recorded["extra"]["billing_source"] == "model_gateway"
     assert recorded["input"] == 4
     assert recorded["output"] == 3

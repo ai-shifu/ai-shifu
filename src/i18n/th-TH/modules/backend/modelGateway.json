@@ -2,6 +2,7 @@
   "__namespace__": "server.modelGateway",
   "__flat__": {
     "client_not_allowed": "ไคลเอนต์นี้ไม่ได้รับอนุญาตให้เข้าถึงโมเดลผ่านเกตเวย์",
+    "gateway_unavailable": "เกตเวย์โมเดลไม่พร้อมใช้งานชั่วคราว โปรดลองอีกครั้งภายหลัง",
     "idempotency_conflict": "Idempotency-Key นี้ถูกใช้แล้ว",
     "idempotency_key_required": "Idempotency-Key ต้องมีความยาว 1 ถึง 90 อักขระ",
     "insufficient_credits": "บัญชีไม่มีกระเป๋าเงินที่ใช้งานได้หรือมีเครดิตไม่เพียงพอ",

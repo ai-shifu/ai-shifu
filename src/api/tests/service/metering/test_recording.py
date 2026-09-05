@@ -128,34 +128,6 @@ def test_record_llm_usage_enqueues_settlement_for_billable_root_usage(
     assert captured == [usage_bid]
 
 
-def test_record_llm_usage_accepts_caller_bid_without_enqueuing(
-    metering_app: object,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: list[str] = []
-    monkeypatch.setattr(
-        "flaskr.service.metering.recorder._enqueue_usage_settlement",
-        lambda _app, *, usage_bid: captured.append(usage_bid),
-    )
-
-    with metering_app.app_context():
-        usage_bid = record_llm_usage(
-            metering_app,
-            UsageContext(user_bid="gateway-user"),
-            provider="openai",
-            model="gpt-test",
-            is_stream=True,
-            input=3,
-            output=5,
-            total=8,
-            usage_bid="gateway-usage-bid",
-            enqueue_settlement=False,
-        )
-
-    assert usage_bid == "gateway-usage-bid"
-    assert captured == []
-
-
 def test_record_tts_usage_preview_defaults_to_billable_on(metering_app: object) -> None:
     with metering_app.app_context():
         context = UsageContext(

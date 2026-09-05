@@ -8,208 +8,162 @@ canonical: true
 
 ## Context
 
-AI-Shifu already owns browser sign-in, device authorization for the Course
-CLI, model provider routing through LiteLLM, user credit wallets, usage
-metering, and the credit ledger. Official native clients need a small public
-surface that combines those existing capabilities without introducing a
-second account system, wallet, or provider credential store.
+AI-Shifu already owns browser sign-in, device authorization, LLM provider
+routing, usage metering, and credit billing. Official clients reuse these
+capabilities through one account-backed model gateway.
 
-The first version deliberately reuses the current device authorization token.
-It does not implement OAuth/OIDC client registration or scoped access tokens.
-That keeps the Course CLI compatible and avoids database migrations, but the
-token retains the broad authority of an AI-Shifu sign-in session. This version
-is therefore an official-client integration surface, not a third-party
-developer platform.
+Gateway calls follow the same billing lifecycle as course learning:
+admission, provider invocation, usage recording, and asynchronous settlement.
+Credit preauthorization is deliberately deferred to a future unified design
+covering course learning and client calls together.
 
-## Goals
+## Goals and boundaries
 
-- Let an official client sign in through the existing browser device flow.
-- Let signed-in users of allowlisted clients with an existing credit wallet
-  call rated AI-Shifu models, whether or not the user is marked as a teacher.
-- Expose OpenAI-compatible model listing and Chat Completions contracts.
-- Reserve credits before provider work, capture actual rated usage, and release
-  the unused reservation in the same transaction.
-- Preserve the existing database schema and asynchronous settlement behavior
-  used by learning flows.
-- Keep provider credentials and internal provider errors on the server.
-
-## Non-goals
-
-- Third-party clients, dynamic client registration, scopes, OIDC discovery, or
-  dedicated access and refresh tokens.
-- A full application CLI inside this repository.
-- Responses API, embeddings, multimodal input, audio, files, or ledger browsing.
-- Renaming `creator_bid` or introducing a wallet-owner abstraction.
-- Creating a wallet automatically when the signed-in user has none.
+- Reuse existing device authorization and Bearer session tokens.
+- Expose account credits, rated models, and OpenAI-compatible JSON/SSE chat.
+- Charge the signed-in account through the existing settlement worker.
+- Preserve existing course ownership, admission, recorder, and wallet rules.
+- Add no tables, columns, indexes, migrations, wallet-owner abstraction, or
+  application CLI to this repository.
+- Keep third-party OAuth/OIDC registration and stronger client authentication
+  outside this first version.
 
 ## Public surface
 
-| Method | Path | Response contract |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/user/device/authorize` | Existing common response envelope with device and verification codes. |
-| `POST` | `/api/user/device/token` | Existing common response envelope with pending, denied, or approved status and the session token. |
-| `GET` | `/api/gateway/account` | Common response envelope with identity, available and reserved credits, and the billing URL. |
-| `GET` | `/api/gateway/v1/models` | OpenAI-compatible model list. |
-| `POST` | `/api/gateway/v1/chat/completions` | OpenAI-compatible JSON or SSE response. |
+| `POST` | `/api/user/device/authorize` | Existing device authorization. |
+| `POST` | `/api/user/device/token` | Existing authorization polling and session token. |
+| `GET` | `/api/gateway/account` | User, available/reserved wallet credits, and billing URL. |
+| `GET` | `/api/gateway/v1/models` | Rated model list and eligible default alias. |
+| `POST` | `/api/gateway/v1/chat/completions` | OpenAI-compatible JSON or SSE output. |
 
-Gateway user authentication accepts only `Authorization: Bearer <token>`. Existing Cook Web
-and Course CLI routes keep their current cookie and `Token` header behavior.
+Gateway user authentication accepts only `Authorization: Bearer <token>`.
+Model-list and chat requests additionally require `X-AI-Shifu-Client-ID`,
+matched exactly against `MODEL_GATEWAY_CLIENT_ALLOWLIST`; the empty default
+denies all clients. Client IDs are caller-declared admission labels, not
+secrets or proof of application identity, and are not bound to session tokens.
+Device authorization and account reads do not require a client ID.
 
-Model listing and Chat Completions additionally require
-`X-AI-Shifu-Client-ID`, checked against the comma-separated environment setting
-`MODEL_GATEWAY_CLIENT_ALLOWLIST`. The default empty list denies every client.
-IDs match exactly and case-sensitively, with no wildcard matching. Device
-authorization and the account endpoint keep their existing behavior.
-
-Chat requests require `Idempotency-Key` (up to 90 characters). The gateway
-derives a deterministic 36-character internal ID from the account and key,
-retaining the caller key in hold metadata. This fits existing persistence
-columns, and the ledger's current `(creator_bid, idempotency_key)` uniqueness
-prevents a repeated request from reserving or charging twice. Reservation
-creation rechecks the ledger with a locking read after acquiring the wallet
-lock, so concurrent retries receive the same HTTP 409 conflict response.
+TLS must terminate at the trusted public edge. Direct backend access must be
+restricted appropriately, and clients must use HTTPS except for loopback
+development. A Flask HTTP request can be the internal hop of an HTTPS request.
 
 ## Runtime flow
 
 ```mermaid
 sequenceDiagram
     participant Client as Official client
-    participant Browser as System browser
-    participant API as AI-Shifu API
+    participant API as AI-Shifu gateway
+    participant LLM as Existing LLM provider wrapper
+    participant Usage as Existing usage recorder
+    participant Worker as Existing settlement worker
     participant Wallet as Existing credit wallet
-    participant LLM as LiteLLM and provider
 
-    Client->>API: Start device authorization
-    API-->>Client: Verification URL and device code
-    Client->>Browser: Open verification URL
-    Browser->>API: Approve with existing web session
-    Client->>API: Poll device token
-    API-->>Client: AI-Shifu session token
-    Client->>API: Chat Completions with Bearer token and client ID
-    API->>API: Check client allowlist
-    API->>Wallet: Reserve maximum rated credits
-    API->>LLM: Invoke allowlisted model
-    LLM-->>API: Completion and usage
-    API->>Wallet: Capture actual usage and release remainder
-    API-->>Client: OpenAI-compatible response
+    Client->>API: Chat with Bearer token, client ID and idempotency key
+    API->>API: Validate request and reuse course admission
+    API->>API: Claim duplicate-request guard
+    API->>LLM: Invoke model without reserving credits
+    LLM-->>Client: JSON or SSE through gateway
+    LLM->>Usage: Record actual usage
+    Usage->>Worker: Enqueue billing.settle_usage
+    Worker->>Wallet: Apply existing rates and ledger settlement
 ```
 
-## Authentication boundary
+## Admission and model eligibility
 
-The gateway parses the Bearer header itself and calls the existing
-`validate_user` helper. Gateway routes bypass the legacy global request-token
-extractor only because that extractor does not read the standard Authorization
-header. Token validation, sliding expiry, user lookup, and session revocation
-remain owned by the existing user service.
+The gateway calls `admit_creator_usage` with the authenticated user ID, reusing
+the same billing-enabled switch, consumable-bucket rules, and subscription
+eligibility as course learning. It does not estimate or reserve the request's
+maximum credit cost. With billing enabled, positive eligible credits admit a
+request even when the maximum output allowance would cost more than that balance.
 
-After user authentication, model endpoints check the client ID before model
-lookup, credit reservation, or provider invocation. The ID is supplied only in
-the request header and is not forwarded to model providers. This admission
-filter does not authenticate the application: allowed IDs can be copied by
-other holders of valid user tokens, and tokens are not bound to client IDs.
-No shared client secret or client-registration table is introduced.
+Models must be configured and have complete active input/cache/output rates,
+using the existing charge resolver. Only eligible models are advertised.
+`ai-shifu-default` resolves to the eligible configured default model.
 
-The account and inference paths do not check `is_creator`. They query the
-existing wallet with `CreditWallet.creator_bid == user.user_id`. A missing
-wallet and an insufficient balance both stop before provider invocation.
+Chat bodies are limited to 1 MiB, messages to 256, and tools to 128 before
+tokenization. `stream` must be a JSON boolean when supplied. `max_tokens`
+still respects the model's limit; it is not a credit reservation.
 
-The chat endpoint limits the body to 1 MiB, messages to 256, and tools to 128
-before tokenization. `stream` must be a JSON boolean when supplied. Public
-gateway error messages use the shared translation catalog; error codes and
-HTTP statuses remain language-independent. TLS must terminate at the trusted
-public edge, and clients must use HTTPS except for local loopback testing.
+## Usage ownership and settlement
 
-## Model admission
+The gateway uses the unchanged shared `record_llm_usage` defaults. Successful
+billable records enqueue the existing `billing.settle_usage` task; no synchronous
+capture/release path or asynchronous-settlement suppression remains.
 
-`/v1/models` starts from `get_current_models` and retains only models that:
+Course usage continues to resolve its billing account from `shifu_bid`.
+Gateway usage has no course ID, so the server stamps
+`extra.billing_source = "model_gateway"` on production LLM usage. Only that
+marked, course-less record resolves to its authenticated `user_bid`. The
+client cannot supply the marker or override the billed user. Existing course
+ownership takes precedence, and debug ownership remains unchanged.
 
-- are available through a configured LiteLLM provider;
-- pass the existing recommended-model allowlist;
-- have displayable credit multiplier metadata; and
-- have active production rates for input, cache, and output tokens.
+The existing worker owns rates, wallet/bucket mutation, ledger idempotency,
+and replay/backfill. Responses can finish before the worker updates the wallet,
+so clients must refresh balances and tolerate settlement delay. Gateway calls
+create no hold or release entries; `reserved_credits` can still reflect other
+existing operations such as voice cloning.
 
-When the configured default model meets those requirements, the list also
-contains `ai-shifu-default`. The alias is resolved to the rated default before
-reservation and provider invocation.
+Missing provider usage is estimated from generated assistant/reasoning text and
+tool function names/arguments, not protocol JSON. Failed or interrupted calls,
+including partial failed streams, are marked non-billable and use the shared
+failed-usage skip rules rather than a gateway-only partial-charge policy.
 
-## Credit consistency
+## Duplicate-request protection
 
-Before provider work, the gateway counts the prompt with the configured model
-tokenizer and resolves `max_tokens`. An omitted value defaults to the smaller
-of 4096 and the model limit. The reservation assumes all input is uncached and
-the entire output allowance is consumed.
+Every logical chat request still requires an `Idempotency-Key` of 1 to 90
+characters. A deterministic 36-character request ID is derived from the account
+and key. Before invocation, the gateway checks the existing indexed usage
+request ID and atomically claims a shared cache key with a 24-hour TTL.
 
-After completion, the gateway records one existing `BillUsageRecord` with a
-caller-selected `usage_bid` and disables the normal asynchronous settlement
-enqueue. It then builds charges from actual input, cache, and output usage and
-captures that amount from the reservation. Any unused amount returns to the
-same wallet buckets in the capture transaction.
+Concurrent/repeated keys return HTTP 409 without another model call. Recorded
+usage continues to reject replay after the cache entry expires, for as long as
+that usage record is retained. A request that fails before usage is persisted
+is protected by the cache window only. Clients must never reuse logical keys,
+and this version does not replay response bodies.
 
-If the provider omits usage, the wrapper estimates output tokens locally and
-marks the usage metadata as estimated. If no positive charge can be derived,
-the conservative reservation is captured. A provider failure before a
-non-streaming response or before any stream output releases the full hold.
-Closing a streaming HTTP response before its iterator starts also releases the
-hold through the response close callback.
-
-Missing-usage output estimates count generated assistant text, reasoning text,
-and tool function names/arguments, not serialized JSON envelopes. Failed calls
-without generated output are recorded as non-billable; partial output remains
-billable. A metered-settlement exception is retried once at the actual amount;
-if both attempts fail, the gateway attempts to release the hold and logs any
-cleanup failure without replacing the provider error or breaking finalization.
-It does not fall back to charging the maximum reservation on database errors.
-
-Hard process termination or persistent database failures can still leave a
-hold unresolved. Operators must reconcile these holds from logs, usage, and
-ledger records. Automatic age-based release is deferred until active requests
-have a reliable lease/lifecycle bound, to avoid releasing in-flight paid calls.
-
-No new tables, columns, indexes, or migrations are required. Gateway details
-are stored only in the existing usage and ledger metadata JSON columns.
+Production replicas must share the same reliable Redis backend. If the guard
+cannot be checked or claimed, the gateway returns HTTP 503 rather than invoking
+the provider. The guard is independent of credits and creates no billing ledger
+entries. Cache loss during an unrecorded in-flight call remains a limitation.
 
 ## Error contract
 
-Gateway endpoints use real HTTP status codes and an OpenAI-shaped error body,
-independent from the legacy HTTP-200 business error envelope.
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid payload, client ID missing, or model/rates unavailable. |
+| `401` | Missing, invalid, expired, or revoked session token. |
+| `402` | No eligible credits or wallet at admission; includes billing URL. |
+| `403` | Client ID is not allowlisted. |
+| `409` | Duplicate logical request. |
+| `413` | Request body exceeds 1 MiB. |
+| `503` | Request guard unavailable. |
+| `502` | Provider invocation failed. |
 
-| Status | Code | Meaning |
-| --- | --- | --- |
-| `400` | `invalid_request` or a field-specific code | Invalid payload or unavailable model. |
-| `400` | `missing_client_id` | Missing or blank client ID header on a model endpoint. |
-| `401` | `invalid_token` | Missing, invalid, expired, or revoked token. |
-| `402` | `insufficient_credits` | Wallet missing or insufficient; includes `billing_url`. |
-| `403` | `client_not_allowed` | Client ID is not explicitly allowlisted; no model or credit work is performed. |
-| `409` | `idempotency_conflict` | The key has already been used. |
-| `502` | `provider_error` | Provider invocation failed; internal details are suppressed. |
+Public messages use the shared language catalog; statuses and machine codes
+remain stable. Admission errors follow the existing course policy.
 
-## Operational boundary
+## Consistency limits
 
-The gateway lives in the existing Flask deployment so reservation, wallet
-bucket mutation, usage persistence, and ledger capture share the current
-transaction and operational environment. A separate gateway service would
-require remote token validation and distributed credit consistency, which is
-not justified for the official-client rollout.
+A balance check is not a reservation. Concurrent requests can pass admission
+before earlier usage is settled. If the existing worker later reports
+insufficient credits, it does not partially debit the wallet; the usage remains
+available for existing replay/backfill workflows. This is the same tradeoff as
+course learning, not a guaranteed prevention of overspending.
 
-The architecture should be revisited before partner or third-party access.
-That milestone requires client registration, exact redirect validation,
-scopes, dedicated access and refresh tokens, and standard OAuth/OIDC metadata.
+Usage persistence and settlement enqueue retain the existing best-effort
+behavior. Worker availability, monitoring, and replay are operational
+requirements. A future preauthorization/recovery design should cover all
+billing paths together rather than introduce a separate gateway mechanism.
 
 ## Verification
 
-- Route tests cover Bearer authentication, account/model shapes, JSON and SSE
-  chat responses, and HTTP 402 mapping.
-- Client admission tests cover missing and blank IDs, unknown and partially
-  matching IDs, case sensitivity, empty configuration, and rejection before
-  model lookup or credit work for JSON and SSE requests.
-- Runtime tests cover validation, conservative reservation, idempotency
-  conflict, provider-failure release, and tool-call output detection.
-- Billing tests cover complete LLM rates, metered capture, and atomic partial
-  capture/release across wallet buckets.
-- LLM tests cover token limits, non-stream usage, streamed tool calls, and
-  suppression of the normal asynchronous settlement enqueue.
-- Existing device authorization tests remain the compatibility gate for the
-  Course CLI login flow.
+Tests cover no credit mutation during admission/provider execution, one queued
+usage record, delayed charging of the signed-in account by the existing worker,
+repeated settlement, independent request deduplication, failed-call behavior,
+course ownership precedence, input limits, localization, and JSON/SSE contracts.
+The legacy reservation service and shared usage recorder match the PR base.
 
 See [Model Gateway CLI Integration](../references/model-gateway-cli-integration.md)
-for the client implementation contract.
+for the external client contract.

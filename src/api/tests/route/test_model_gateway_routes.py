@@ -316,15 +316,24 @@ def test_gateway_stream_chat_emits_sse_and_done(
     assert response.headers["X-AI-Shifu-Request-ID"] == "request-stream"
 
 
+@pytest.mark.parametrize(
+    ("business_error", "gateway_code"),
+    [
+        ("server.billing.creditInsufficient", "insufficient_credits"),
+        ("server.billing.subscriptionInactive", "subscription_inactive"),
+    ],
+)
 def test_gateway_maps_credit_error_to_http_402(
     gateway_route_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
+    business_error: str,
+    gateway_code: str,
 ) -> None:
     import flaskr.route.model_gateway as gateway
     from flaskr.service.common.models import raise_error
 
     def reject(*_args: object, **_kwargs: object) -> object:
-        raise_error("server.billing.creditInsufficient")
+        raise_error(business_error)
 
     monkeypatch.setattr(gateway, "prepare_gateway_chat_request", reject)
     monkeypatch.setattr(
@@ -343,7 +352,7 @@ def test_gateway_maps_credit_error_to_http_402(
     )
 
     assert response.status_code == 402
-    assert response.get_json()["error"]["code"] == "insufficient_credits"
+    assert response.get_json()["error"]["code"] == gateway_code
     assert response.get_json()["error"]["billing_url"].endswith("/admin/billing")
 
 

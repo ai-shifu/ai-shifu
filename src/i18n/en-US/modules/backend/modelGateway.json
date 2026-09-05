@@ -2,6 +2,7 @@
   "__namespace__": "server.modelGateway",
   "__flat__": {
     "client_not_allowed": "This client is not allowed to access gateway models.",
+    "gateway_unavailable": "The model gateway is temporarily unavailable. Try again later.",
     "idempotency_conflict": "Idempotency-Key has already been used.",
     "idempotency_key_required": "Idempotency-Key must contain 1 to 90 characters.",
     "insufficient_credits": "The account has no available wallet or insufficient credits.",

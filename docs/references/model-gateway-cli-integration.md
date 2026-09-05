@@ -137,7 +137,7 @@ Device authorization and `/api/gateway/account` do not require it.
 
 Missing or blank IDs return HTTP 400 `missing_client_id`; IDs outside the
 allowlist return HTTP 403 `client_not_allowed`. Rejection happens before model
-lookup, credit reservation, or provider invocation. Do not retry these failures
+lookup or provider invocation. Do not retry these failures
 automatically or restart user authorization on HTTP 403.
 
 This is a caller-declared admission filter, not proof of application identity:
@@ -177,8 +177,11 @@ Successful response:
 }
 ```
 
-The CLI should show available and reserved values separately. Reserved credits
-belong to model operations that have started but are not fully settled.
+The CLI should show available and reserved values separately. Gateway calls do
+not reserve credits; reserved credits can belong to other operations such as
+voice cloning. Successful model usage is settled by the same asynchronous worker
+as course learning, so balances may update after the model response completes.
+Keep refreshing the account snapshot rather than assuming immediate deduction.
 
 ## List callable models
 
@@ -249,7 +252,7 @@ limit. A value above the model limit is rejected rather than silently changed.
 The request body is limited to 1 MiB, with at most 256 messages and 128 tools.
 `stream` must be a JSON boolean; strings such as `"false"`, numbers, and `null`
 are rejected with HTTP 400. An oversized body returns HTTP 413 before model
-tokenization or credit reservation. Error messages follow the shared backend
+tokenization or usage recording. Error messages follow the shared backend
 language selection; clients should branch on the stable error code/status.
 
 ## Streaming Chat Completions
@@ -350,11 +353,35 @@ error event followed by `[DONE]`.
 - Keep the key at 90 characters or fewer; UUID and UUIDv7 values fit.
 - The server derives a fixed-length internal ID for persistence. The returned
   `X-AI-Shifu-Request-ID` is not the caller's original idempotency key.
+- In-flight/unrecorded requests are protected by an atomic shared-cache claim
+  for 24 hours. Persisted usage request IDs continue blocking duplicate calls
+  after that window while those records are retained. Never recycle keys;
+  cache loss during an unrecorded in-flight call is not a durable guarantee.
 - Reuse that key only when determining the outcome of the same uncertain
   request.
 - Never reuse a key for different messages, tools, or model settings.
 - HTTP 409 means the server has already seen the key; this version does not
   replay a stored completion body.
+
+## Shared asynchronous billing
+
+Gateway calls reuse the same admission and settlement policy as course learning.
+Admission checks eligible credits and subscription rules when billing is enabled;
+it does not freeze the maximum possible cost. The backend records successful
+production LLM usage and queues the existing billing worker to charge the signed-in
+account. Clients cannot select a different payer through request fields.
+
+Failed/interrupted requests, including partially delivered failed streams, follow
+the existing failed-usage policy and are not queued for settlement. Balances may
+lag responses. Concurrent requests can pass admission before earlier usage is
+settled; a later insufficient-credit result is handled by the existing settlement
+and replay/backfill workflow, not by a gateway-specific hold or partial debit.
+This is not a guarantee that admission covers the eventual total cost.
+
+Production must run the existing billing worker and share a reliable Redis backend.
+Request-guard failures return HTTP 503 before provider invocation. Usage persistence
+and queue submission remain best-effort, as in the course-learning path. Credit
+preauthorization and recovery should be designed for both paths together later.
 
 ## Recommended credential behavior
 
@@ -378,7 +405,8 @@ error event followed by `[DONE]`.
   missing or unapproved IDs are rejected without credit or provider work.
 - Non-streaming text, streaming text, and streamed tool calls are parsed.
 - HTTP 402 exposes the billing action and causes no automatic retry.
-- Repeated `Idempotency-Key` values never create a second paid call.
+- Repeated `Idempotency-Key` values are rejected within the documented
+  cache/usage retention boundaries without invoking the provider again.
 - Tokens, prompts, responses, and provider details stay out of logs and crash
   reports.
 
