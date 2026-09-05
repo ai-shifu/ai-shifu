@@ -1,4 +1,4 @@
-import { buildCoursePageUrl } from '@/c-utils/urlUtils';
+import { buildCoursePageUrl } from '@/lib/urlUtils';
 
 export type CourseShareMethod = 'native' | 'clipboard';
 export type CourseShareOutcome = 'success' | 'cancelled' | 'failed';

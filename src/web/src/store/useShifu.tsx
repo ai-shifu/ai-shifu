@@ -37,7 +37,7 @@ import {
   useCallback,
   useRef,
 } from 'react';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import { LEARNING_PERMISSION } from '@/api/studyV2';
 import {
   getStoredPreviewVariables,
   mapKeysToStoredVariables,
@@ -45,7 +45,7 @@ import {
   savePreviewVariables,
   StoredVariablesByScope,
 } from '@/components/lesson-preview/variableStorage';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   buildOutlineCreateAnalytics,
   OUTLINE_CREATE_EVENT,

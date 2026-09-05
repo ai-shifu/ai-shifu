@@ -1,4 +1,4 @@
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import { syncCustomButtonAfterContent } from './chatUiUtils';
 import { normalizeReadModeDisplayItem } from './readModeItems';
 

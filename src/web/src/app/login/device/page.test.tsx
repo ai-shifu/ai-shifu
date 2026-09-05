@@ -39,7 +39,7 @@ jest.mock('react-i18next', () => ({
 
 const mockTrackEvent = jest.fn();
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
   EVENT_NAMES: {
     DEVICE_AUTH_PROMPT_SHOWN: 'device_auth_prompt_shown',

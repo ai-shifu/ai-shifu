@@ -1,13 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+import { LEARNING_PERMISSION } from '@/api/studyV2';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
 import { CourseSection } from './CourseSection';
 
 const mockUserState = { isLoggedIn: true };
 const mockSystemState = { previewMode: false };
 const mockOpenPayModal = jest.fn();
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   LEARNING_PERMISSION: {
     NORMAL: 'normal',
     TRIAL: 'trial',
@@ -24,12 +24,12 @@ jest.mock('@/store', () => ({
     selector(mockUserState),
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: typeof mockSystemState) => unknown) =>
     selector(mockSystemState),
 }));
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (
     selector: (state: { openPayModal: typeof mockOpenPayModal }) => unknown,
   ) => selector({ openPayModal: mockOpenPayModal }),

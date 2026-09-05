@@ -3,8 +3,8 @@ import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import type { UserInfo } from '@/c-types';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import type { UserInfo } from '@/types';
+import { useTracking } from '@/hooks/useTracking';
 import {
   buildReferralLoginPayload,
   clearReferralContext,

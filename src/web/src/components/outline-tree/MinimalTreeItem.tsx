@@ -5,7 +5,7 @@ import {
 } from '../dnd-kit-sortable-tree';
 import React, { useEffect, useState } from 'react';
 import { LessonCreationSettings, Outline } from '@/types/shifu';
-import { LearningPermission } from '@/c-api/studyV2';
+import { LearningPermission } from '@/api/studyV2';
 import guestIcon from '../chapter-setting/icons/svg-guest.svg';
 import trialIcon from '../chapter-setting/icons/svg-trial.svg';
 import normalIcon from '../chapter-setting/icons/svg-normal.svg';
@@ -26,7 +26,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import ChapterSettingsDialog from '../chapter-setting';
 import './OutlineTree.css';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import { LEARNING_PERMISSION } from '@/api/studyV2';
 import {
   Tooltip,
   TooltipContent,

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/button';
 import { Eye } from 'lucide-react';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import { useShifu, useUserStore } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
-import { buildAbsoluteUrlWithLessonId } from '@/c-utils/urlUtils';
+import { buildAbsoluteUrlWithLessonId } from '@/lib/urlUtils';
 import {
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
   resolveCourseCreditInsufficientAudience,

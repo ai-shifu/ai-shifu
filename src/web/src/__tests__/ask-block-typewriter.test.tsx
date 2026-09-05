@@ -7,7 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import AskBlock from '@/app/c/[[...id]]/Components/ChatUi/AskBlock';
-import { AppContext } from '@/c-components/AppContext';
+import { AppContext } from '@/components/AppContext';
 import { useAskStateStore } from '@/app/c/[[...id]]/Components/ChatUi/useAskStateStore';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
@@ -35,15 +35,15 @@ jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: jest.fn() }),
 }));
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: jest.fn(() => ''),
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: jest.fn(() => false),
 }));
 
@@ -84,7 +84,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
   ),
 }));
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   BLOCK_TYPE: {
     ASK: 'ask',
     ANSWER: 'answer',

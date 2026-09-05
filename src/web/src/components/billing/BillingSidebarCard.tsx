@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight, Crown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import type { CreatorBillingOverview } from '@/types/billing';
 import {
   formatBillingCreditBalance,

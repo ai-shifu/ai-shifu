@@ -26,14 +26,14 @@ frontend ownership.
 - Start from the local entry files and preserve how `hooks` currently
   separates route code, shared logic, state, and utilities.
 
+- Keep business events on useTracking and delegate Umami transport to
+  lib/tracking.ts.
+
 - Keep hook inputs and returned fields stable, and update all consumers in the
   same task when the contract changes.
 
 - Preserve browser and server assumptions explicitly so hooks do not
   accidentally run client-only code on the server.
-
-- Treat hooks as reusable orchestration layers that should call shared stores
-  and libs instead of duplicating low-level logic.
 
 ## Avoid
 

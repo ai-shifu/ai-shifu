@@ -43,8 +43,8 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';

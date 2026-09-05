@@ -3,9 +3,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
-import LogoWithText from '@/c-components/logo/LogoWithText';
-import MainMenuModal from '@/c-components/NavDrawer/MainMenuModal';
-import NavFooter from '@/c-components/NavDrawer/NavFooter';
+import LogoWithText from '@/components/logo/LogoWithText';
+import MainMenuModal from '@/components/NavDrawer/MainMenuModal';
+import NavFooter from '@/components/NavDrawer/NavFooter';
 import { BillingSidebarCard } from '@/components/billing/BillingSidebarCard';
 import { cn } from '@/lib/utils';
 import { CreatorBillingOverview } from '@/types/billing';

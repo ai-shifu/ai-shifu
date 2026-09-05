@@ -17,7 +17,7 @@ import {
   createSelectFilterItem,
   createTextFilterItem,
 } from '@/app/admin/components/adminFilterFieldBuilders';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';

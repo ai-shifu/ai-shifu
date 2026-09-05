@@ -17,8 +17,8 @@ import {
 import { downloadExcelCompatibleCodesFile } from '@/app/admin/operations/promotions/promotionPageShared';
 import PromotionStatusConfirmDialog from '@/app/admin/operations/promotions/PromotionStatusConfirmDialog';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
 import CreatorRedemptionCodeDialog from './CreatorRedemptionCodeDialog';
 import CreatorRedemptionCodesFilterPanel from './CreatorRedemptionCodesFilterPanel';

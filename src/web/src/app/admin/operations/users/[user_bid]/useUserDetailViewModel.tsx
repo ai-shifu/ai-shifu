@@ -2,8 +2,8 @@ import { useCallback, useMemo } from 'react';
 import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import {
   Tooltip,
   TooltipContent,
