@@ -85,7 +85,7 @@ jest.mock('@/lib/browser-timezone', () => ({
   getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (
     selector: (state: {
@@ -229,7 +229,7 @@ jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),

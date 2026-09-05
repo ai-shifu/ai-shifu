@@ -1,5 +1,5 @@
-import { BLOCK_TYPE } from '@/c-api/studyV2';
-import type { AudioTrack } from '@/c-utils/audio-utils';
+import { BLOCK_TYPE } from '@/api/studyV2';
+import type { AudioTrack } from '@/lib/audio-utils';
 
 export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;

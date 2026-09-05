@@ -12,7 +12,8 @@ ownership.
   calls on top of the shared request and generated-client helpers.
 
 - Representative files in this subtree: `src/web/src/api/api.ts`,
-  `src/web/src/api/index.ts`
+  `src/web/src/api/index.ts`, `src/web/src/api/user.ts`,
+  `src/web/src/api/course.ts`, `src/web/src/api/studyV2.ts`
 
 - Keep durable frontend rules here only when they are more specific than the
   Cook Web-wide guidance in the parent directory.
@@ -25,14 +26,14 @@ ownership.
 - Start from the local entry files and preserve how `api` currently separates
   route code, shared logic, state, and utilities.
 
+- Preserve learner request payloads and stream contracts alongside generated
+  endpoint wrappers.
+
 - Keep this layer declarative and thin so endpoint wiring stays easy to audit
   against backend contracts.
 
 - Prefer the shared `lib/request.ts` and `lib/api.ts` stack instead of
   creating per-endpoint fetch wrappers here.
-
-- Treat exported API functions as compatibility surfaces consumed by pages,
-  hooks, and stores across the app.
 
 ## Avoid
 
@@ -42,8 +43,8 @@ ownership.
 - Do not duplicate route constants or auth-header behavior that belongs in
   shared request utilities.
 
-- Do not mix legacy `c-api` compatibility helpers into this modern API layer
-  without an explicit adapter.
+- Do not duplicate endpoint wrappers or change learner request shapes while
+  reorganizing API modules.
 
 - Avoid pushing domain-local rules up to shared docs unless another frontend
   subtree truly depends on the same constraint.
@@ -76,6 +77,8 @@ ownership.
   summary when local automation cannot cover it.
 
 ## Related Skills
+
+- src/web/skills/deep-link-lessonid-routing/SKILL.md
 
 - `src/web/SKILL.md`
 

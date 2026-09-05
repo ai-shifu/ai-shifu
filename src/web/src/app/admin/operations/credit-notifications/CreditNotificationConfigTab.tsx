@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';

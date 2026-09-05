@@ -43,6 +43,16 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
+  Live controls, RTL regression coverage, cached keepalive transport, and
+  analytics fields while adopting the unified frontend source directories.
+  Updated Live-only imports and test mocks that Git could not migrate
+  automatically; regenerated repository knowledge indexes.
+  Validation: all 228 frontend suites / 2,336 tests passed; focused Live,
+  shared LLM, configuration and deployment-contract tests passed (365 passed,
+  one skipped), including real Redis coverage. TypeScript, lint and the full
+  all-files pre-commit gate passed. No deployment was performed.
+
 - [x] 2026-09-05: Current-head review of `f1f259390` found two further edge
       cases. Reproduce three Redis failures where an undisclosed failed mint's
       retired head blocked retry despite released risk; rely on actual risk

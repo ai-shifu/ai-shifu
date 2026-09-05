@@ -4,12 +4,12 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
 import { useShallow } from 'zustand/react/shallow';
-import { useCourseStore } from '@/c-store/useCourseStore';
-import { useEnvStore } from '@/c-store/envStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useCourseStore } from '@/store/useCourseStore';
+import { useEnvStore } from '@/store/envStore';
+import { useSystemStore } from '@/store/useSystemStore';
 
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { shifu } from '@/c-service/Shifu';
+import { useTracking } from '@/hooks/useTracking';
+import { shifu } from '@/lib/shifu/Shifu';
 import styles from './ResetChapterButton.module.scss';
 
 import { Button } from '@/components/ui/Button';

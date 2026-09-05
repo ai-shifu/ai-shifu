@@ -27,14 +27,14 @@ ownership.
 - Start from the local entry files and preserve how `lib` currently separates
   route code, shared logic, state, and utilities.
 
-- Keep request transport, business-code handling, and shared API generation
-  logic centralized in this domain.
+- Keep raw Umami calls in tracking.ts; preserve identify, queue, drain, SPA
+  pageview deduplication, and tracked-referrer ordering.
 
-- Preserve shared normalization and utility behavior used by multiple pages,
-  hooks, or stores before changing payload assumptions.
+- Keep analytics fail-open and accept only approved flat scalar fields;
+  truncation or hashing does not make sensitive data safe.
 
-- Treat this directory as the right home for cross-cutting frontend logic that
-  should not live inside route components.
+- Preserve shared URL, interaction, lesson-feedback, audio, and storage
+  semantics when changing helpers.
 
 ## Avoid
 
@@ -80,6 +80,12 @@ ownership.
 ## Related Skills
 
 - src/web/skills/module-augmentation-guardrails/SKILL.md
+
+- src/web/skills/deep-link-lessonid-routing/SKILL.md
+
+- src/web/skills/interaction-user-input-defaults/SKILL.md
+
+- src/web/skills/listen-mode-audio-streaming/SKILL.md
 
 - `src/web/SKILL.md`
 

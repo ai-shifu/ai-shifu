@@ -25,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Gemini TTS Provider](./active/gemini-tts.md)
 - [Notification Channel Foundation](./active/notification-channel-foundation.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
+- [Official Client Model Gateway](./active/official-client-model-gateway.md)
 - [Existing Creator Onboarding Rollout](./active/onboarding-existing-creator-rollout.md)
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
@@ -70,6 +71,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
+- [Unify Frontend Source Directories](./completed/unify-frontend-directories.md)
 
 ## Supporting Tracker
 

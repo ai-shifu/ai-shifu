@@ -27,14 +27,15 @@ frontend ownership.
 - Start from the local entry files and preserve how `store` currently
   separates route code, shared logic, state, and utilities.
 
+- Preserve course, environment, system, and layout state semantics across
+  learner and teacher consumers; use direct module imports inside store
+  implementations to avoid barrel cycles.
+
 - Keep store state shape and exported actions stable because many components
   depend on these slices implicitly.
 
 - Preserve the boundary between store state and side-effect helpers so
   persistent logic stays testable.
-
-- Treat auth token handling and global providers as integration points shared
-  across the whole frontend.
 
 ## Avoid
 
@@ -81,6 +82,8 @@ frontend ownership.
 ## Related Skills
 
 - src/web/skills/hook-contract-refactor-safety/SKILL.md
+
+- src/web/skills/chat-layout-width-detection/SKILL.md
 
 - `src/web/SKILL.md`
 

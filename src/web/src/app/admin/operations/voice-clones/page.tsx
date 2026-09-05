@@ -48,8 +48,8 @@ import {
 import { toast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import useOperatorGuard from '../useOperatorGuard';
 import {
   VOICE_CLONE_PROVIDERS,

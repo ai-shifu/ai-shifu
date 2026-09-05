@@ -10,8 +10,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
 import { Trans, useTranslation } from 'react-i18next';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState, SupportedLocale } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import { EnvStoreState, SupportedLocale } from '@/types/store';
 import { normalizeLanguage } from '@/i18n';
 
 interface TermsConfirmDialogProps {

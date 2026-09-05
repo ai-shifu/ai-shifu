@@ -25,7 +25,7 @@ import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
 import s from './header.module.scss';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +39,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/useToast';
-import type { LearningMode } from '@/c-types/store';
+import type { LearningMode } from '@/types/store';
 import { cn } from '@/lib/utils';
 import {
   buildCourseLearningUrl,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import {
   encodeGeminiLiveAudioMessage,

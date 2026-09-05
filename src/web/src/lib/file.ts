@@ -3,7 +3,7 @@
  */
 import { useUserStore } from '@/store';
 import { getDynamicApiBaseUrl } from '@/config/environment';
-import { getStringEnv } from '@/c-utils/envUtils';
+import { getStringEnv } from '@/lib/envUtils';
 import { buildTraceHeaders } from './request-trace';
 
 /**

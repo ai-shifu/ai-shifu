@@ -1,0 +1,20 @@
+{
+  "__namespace__": "server.modelGateway",
+  "__flat__": {
+    "client_not_allowed": "此客户端未获准访问模型网关。",
+    "gateway_unavailable": "模型网关暂时不可用，请稍后再试。",
+    "idempotency_conflict": "Idempotency-Key 已被使用。",
+    "idempotency_key_required": "Idempotency-Key 长度必须为 1 至 90 个字符。",
+    "insufficient_credits": "账号没有可用钱包或积分不足。",
+    "invalid_request": "请求无效。",
+    "invalid_token": "需要有效的 Authorization Bearer 登录凭据。",
+    "messages_invalid": "messages 必须包含 1 至 256 个消息对象。",
+    "missing_client_id": "需要提供 X-AI-Shifu-Client-ID 请求头。",
+    "model_not_available": "模型不可用，或模型限制、积分费率尚未配置。",
+    "model_required": "需要指定模型。",
+    "provider_error": "模型请求失败。",
+    "request_too_large": "请求体超过模型网关 1 MiB 的限制。",
+    "stream_invalid": "stream 必须为 JSON 布尔值。",
+    "tools_invalid": "tools 必须是最多包含 128 项的列表。"
+  }
+}

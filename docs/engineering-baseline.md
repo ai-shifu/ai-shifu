@@ -138,7 +138,8 @@ The project follows a microservices architecture with two main components:
 - The frontend provides both learner-facing routes and authoring/admin tools
 - Shared request handling lives in `src/web/src/lib/request.ts` and
   `src/web/src/lib/api.ts`
-- Legacy `c-*` directories are still active compatibility surfaces
+- Learner and teacher flows share `api`, `assets`, `components`, `constants`,
+  `hooks`, `lib`, `store`, and `types`; course orchestration lives in `lib/shifu`
 
 #### Unified Request System
 
@@ -694,7 +695,8 @@ When adding a new namespace:
 - Use kebab-case for directories
 - Preserve Next.js special folder conventions such as `(group)`, `[dynamic]`,
   and `[[...catchAll]]`
-- Treat `c-*` directories as legacy-but-active compatibility surfaces
+- Preserve learner and teacher compatibility in shared modules organized by
+  responsibility; do not recreate parallel source trees for the same behavior
 
 ### File Naming
 

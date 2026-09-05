@@ -11,14 +11,14 @@ import {
   type AudioCompleteData,
   type ElementType,
   type StudyRecordItem,
-} from '@/c-api/studyV2';
-import { getStringEnv } from '@/c-utils/envUtils';
-import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
+} from '@/api/studyV2';
+import { getStringEnv } from '@/lib/envUtils';
+import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
-} from '@/c-utils/markdownUtils';
-import { debugError, debugWarn } from '@/c-utils/debugConsole';
+} from '@/lib/markdownUtils';
+import { debugError, debugWarn } from '@/lib/debugConsole';
 import {
   getAudioTrackByPosition,
   normalizeAudioCompletePayload,
@@ -26,10 +26,10 @@ import {
   toAudioSegmentData,
   upsertAudioComplete,
   upsertAudioSegment,
-} from '@/c-utils/audio-utils';
-import LoadingBar from '@/c-components/ChatUi/LoadingBar';
-import { ChatContentItem, ChatContentItemType } from '@/c-types/chatUi';
-import { normalizeLegacyBlockCompatList } from '@/c-utils/chatUiCompat';
+} from '@/lib/audio-utils';
+import LoadingBar from '@/components/ChatUi/LoadingBar';
+import { ChatContentItem, ChatContentItemType } from '@/types/chatUi';
+import { normalizeLegacyBlockCompatList } from '@/lib/chatUiCompat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';

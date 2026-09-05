@@ -9,9 +9,9 @@ import {
 
 import ChatLayout from '@/app/c/[[...id]]/layout';
 import LearningModeSwitch from '@/app/c/[[...id]]/Components/LearningModeSwitch';
-import { CourseInfoFetchError, getCourseInfo } from '@/c-api/course';
-import { useCourseStore, useEnvStore } from '@/c-store';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { CourseInfoFetchError, getCourseInfo } from '@/api/course';
+import { useCourseStore, useEnvStore } from '@/store';
+import { useSystemStore } from '@/store/useSystemStore';
 
 let mockSearchParamsValue = '';
 const mockTrackEvent = jest.fn();
@@ -25,12 +25,12 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
 }));
 
-jest.mock('@/c-api/course', () => ({
-  ...jest.requireActual('@/c-api/course'),
+jest.mock('@/api/course', () => ({
+  ...jest.requireActual('@/api/course'),
   getCourseInfo: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -45,6 +45,10 @@ jest.mock('@/store', () => {
   });
   return {
     __esModule: true,
+    ...jest.requireActual('@/store/envStore'),
+    ...jest.requireActual('@/store/useCourseStore'),
+    ...jest.requireActual('@/store/useSystemStore'),
+    ...jest.requireActual('@/store/useUiLayoutStore'),
     UserProvider: ({ children }: { children: React.ReactNode }) => (
       <>{children}</>
     ),

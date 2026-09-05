@@ -9,9 +9,9 @@ import {
   resolveFollowUpPresentationMode,
   resolveLiveVoiceFollowUpAvailability,
 } from './liveVoiceFollowUpMode';
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 
-jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
+jest.mock('@/lib/lesson-feedback-interaction', () => ({
   isLessonFeedbackInteractionContent: (content?: string) =>
     content?.includes('sys_lesson_feedback_score') ?? false,
 }));

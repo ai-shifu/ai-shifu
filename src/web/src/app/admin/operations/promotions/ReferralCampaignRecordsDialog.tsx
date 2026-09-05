@@ -17,8 +17,8 @@ import ReferralRelationsPanel, {
   REFERRAL_PAGE_SIZE,
   ReferralUserSummary,
 } from '@/app/admin/operations/referrals/ReferralRelationsPanel';
-import { useEnvStore } from '@/c-store/envStore';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store/envStore';
+import type { EnvStoreState } from '@/types/store';
 import {
   Dialog,
   DialogContent,

@@ -19,8 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { useEnvStore } from '@/c-store/envStore';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store/envStore';
+import type { EnvStoreState } from '@/types/store';
 import {
   Table,
   TableBody,

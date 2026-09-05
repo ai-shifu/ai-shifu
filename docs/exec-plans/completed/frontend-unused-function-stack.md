@@ -92,7 +92,7 @@ All source paths below are relative to `src/web/`.
 | 1 | `sunner/cleanup-unused-billing-helpers` | `src/hooks/useBillingData.ts`: `useBillingBootstrap`, `useBillingCustomization`; `src/app/admin/operations/credit-notifications/creditNotificationUtils.ts`: `formatValue`, `formatTemplateParams`. |
 | 2 | `sunner/cleanup-unused-browser-helpers` | `src/lib/file.ts`: `uploadMultipleFiles`, `uploadFileWithCustomName`; `src/lib/validators.ts`: `checkPasswordStrength`, `getPasswordStrengthText`, `getPasswordStrengthColor`. |
 | 3 | `sunner/cleanup-unused-authoring-helpers` | `src/store/useShifu.tsx`: `loadProfileItemDefinations`; `src/components/dnd-kit-sortable-tree/utilities.ts`: `getDragDepth`, `findParentWithDepth`. |
-| 4 | `sunner/cleanup-unused-learner-helper` | `src/c-api/studyV2.ts`: `getListenFlagFromPageUrl`. |
+| 4 | `sunner/cleanup-unused-learner-helper` | `src/api/studyV2.ts`: `getListenFlagFromPageUrl`. |
 
 Each PR targets the preceding branch. The 13 declaration bodies account for
 202 lines before adjacent comments, whitespace, and exclusive imports are

@@ -18,7 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCaptchaTicket } from '@/hooks/useCaptchaTicket';
 import { cn } from '@/lib/utils';
 
-import type { UserInfo } from '@/c-types';
+import type { UserInfo } from '@/types';
 import type { ReferralLoginMetadata } from '@/types/referral';
 interface PhoneLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;

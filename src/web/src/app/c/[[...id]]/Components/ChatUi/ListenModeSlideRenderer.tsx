@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { Maximize2 } from 'lucide-react';
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { LoadingDots } from '@/components/loading';
@@ -20,13 +20,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/Popover';
-import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
-import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
-import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
+import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
+import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
   localizeSystemInteractionContent,
-} from '@/c-utils/system-interaction';
+} from '@/lib/system-interaction';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
@@ -59,7 +59,7 @@ import {
 } from './listenPlaybackSpeed';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
-import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import AskIcon from '@/assets/newchat/light/icon_ask.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';

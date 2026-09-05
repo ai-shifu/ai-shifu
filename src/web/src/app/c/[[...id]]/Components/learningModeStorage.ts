@@ -2,7 +2,7 @@ import type { LearningMode } from './learningModeOptions';
 import {
   readLocalStorageItem,
   writeLocalStorageItem,
-} from '@/c-utils/runtimeStorage';
+} from '@/lib/runtimeStorage';
 
 const LEARNING_MODE_STORAGE_PREFIX = 'course_learning_mode';
 

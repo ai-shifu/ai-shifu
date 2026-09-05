@@ -45,7 +45,7 @@ const mockAudio = {
   stop: jest.fn().mockResolvedValue(undefined),
 };
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

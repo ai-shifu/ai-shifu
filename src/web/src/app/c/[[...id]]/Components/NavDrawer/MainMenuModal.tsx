@@ -1,1 +1,1 @@
-export { default } from '@/c-components/NavDrawer/MainMenuModal';
+export { default } from '@/components/NavDrawer/MainMenuModal';
