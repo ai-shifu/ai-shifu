@@ -43,6 +43,16 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-05: Current-head review of `f1f259390` found two further edge
+      cases. Reproduce three Redis failures where an undisclosed failed mint's
+      retired head blocked retry despite released risk; rely on actual risk
+      and rolling quotas instead of its obsolete expiry. All 260 focused
+      backend tests pass, including 61 real Redis cases. Four final-input-first
+      variants also reproduced (unrelated, repeated, shared-prefix, overlapping
+      questions). Freeze already-final input at the terminal boundary; retain
+      missing-final and pre-terminal fragment reconciliation. All 199 focused
+      accumulator/controller tests and TypeScript pass. Keep both review
+      threads open until these fixes are pushed and verified in the PR.
 - [x] 2026-09-05: User authorized adjusting the one-valid-credential rule and
       designing controlled replacement. Record the proposed bounded contract
       in Phase 4 below; this is a design, not an implemented capacity change.
@@ -647,6 +657,18 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Decision Log
 
+- Decision (2026-09-05): once a terminal spoken turn already has final input,
+  subsequent final-only input starts its successor, including identical or
+  text-overlapping questions. Only a missing final input can reconcile into
+  that terminal turn; do not infer ownership from text similarity.
+  - Why: Gemini input transcription is unordered and carries no turn ID or
+    completion marker. The bounded reconciliation window cannot resolve every
+    ambiguity when the old input is entirely missing. Preserve explicit known
+    boundaries without pretending arbitrary ASR order is fully attributable.
+- Decision (2026-09-05): a retired ownership head is not a credential quota.
+  Even with rotation disabled, positively undisclosed failures can retry when
+  the actual risk ledger is empty; retained uncertain/disclosed credentials and
+  rolling mint limits continue to block admission normally.
 - Decision (2026-09-05, implemented behind a default-off policy): separate
   one application owner per user from a non-releasable ledger of issued or
   disclosure-uncertain credentials. Initial bounds are three such

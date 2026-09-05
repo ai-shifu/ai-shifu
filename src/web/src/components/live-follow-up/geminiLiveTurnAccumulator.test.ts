@@ -528,6 +528,105 @@ describe('GeminiLiveTurnAccumulator', () => {
   });
 
   it.each([
+    'Second question',
+    'First question',
+    'First question with more detail',
+    'question about another topic',
+  ])(
+    'starts a successor from final-only speech without rewriting finalized input (%s)',
+    question => {
+      const accumulator = new GeminiLiveTurnAccumulator();
+      accumulator.process(
+        event({
+          inputTranscripts: ['First question'],
+          outputTranscripts: ['First answer'],
+          audioChunks: [new ArrayBuffer(4)],
+          turnComplete: true,
+        }),
+        1_000,
+      );
+      accumulator.markPlaybackComplete(1);
+      accumulator.process(
+        event({ usageMetadata: { totalTokenCount: 10 } }),
+        1_050,
+      );
+
+      const input = accumulator.process(
+        event({ inputTranscripts: [question] }),
+        1_100,
+      );
+      expect(input.transcriptUpdates).toEqual([
+        { role: 'user', turnIndex: 2, text: question, final: false },
+      ]);
+      const response = accumulator.process(
+        event({
+          outputTranscripts: ['Second answer'],
+          audioChunks: [new ArrayBuffer(4)],
+          turnComplete: true,
+        }),
+        1_200,
+      );
+      expect(response.audioTurnIndex).toBe(2);
+      accumulator.markPlaybackComplete(2);
+      expect(accumulator.popReady(1_701)).toEqual([
+        expect.objectContaining({
+          turnIndex: 1,
+          userTranscript: 'First question',
+          playedAnswerTranscript: 'First answer',
+          usageMetadata: { totalTokenCount: 10 },
+        }),
+        expect.objectContaining({
+          turnIndex: 2,
+          userTranscript: question,
+          playedAnswerTranscript: 'Second answer',
+        }),
+      ]);
+    },
+  );
+
+  it('continues merging speech fragments and cumulative snapshots before the terminal boundary', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.process(event({ inputTranscripts: ['Question'] }), 1_000);
+    accumulator.process(event({ inputTranscripts: [' with detail'] }), 1_050);
+    accumulator.process(
+      event({ inputTranscripts: ['Question with detail?'] }),
+      1_100,
+    );
+    accumulator.process(
+      event({ outputTranscripts: ['Answer'], turnComplete: true }),
+      1_200,
+    );
+    expect(accumulator.popReady(1_701)).toEqual([
+      expect.objectContaining({
+        turnIndex: 1,
+        userTranscript: 'Question with detail?',
+        fullAnswerTranscript: 'Answer',
+      }),
+    ]);
+  });
+
+  it('reconciles all fragments of a late input event when the terminal turn has no final input', () => {
+    const accumulator = new GeminiLiveTurnAccumulator();
+    accumulator.process(
+      event({ outputTranscripts: ['Answer'], turnComplete: true }),
+      1_000,
+    );
+    accumulator.process(
+      event({
+        inputTranscripts: ['Question', ' with detail', 'Question with detail?'],
+      }),
+      1_100,
+    );
+    expect(accumulator.popReady(1_501)).toEqual([
+      expect.objectContaining({
+        turnIndex: 1,
+        userTranscript: 'Question with detail?',
+        fullAnswerTranscript: 'Answer',
+      }),
+    ]);
+  });
+
+  it.each([
     'audio_first',
     'transcript_first',
     'coalesced_input',

@@ -427,7 +427,12 @@ export class GeminiLiveTurnAccumulator {
       return active;
     }
     const previous = this.latestMutableTerminal(now);
-    return previous && !previous.typedInput ? previous : active;
+    // Reconcile a missing final input, never rewrite one already finalized at
+    // the terminal boundary. Even identical or overlapping speech may be a new
+    // question; unordered transcription has no turn ID to justify text matching.
+    return previous && !previous.typedInput && !previous.userTranscriptFinal
+      ? previous
+      : active;
   }
 
   private selectResponseState(now: number, hasModelOutput: boolean) {
