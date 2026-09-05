@@ -4,10 +4,98 @@ from __future__ import annotations
 
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from flask import Flask
 from flaskr.route import model_gateway_runtime as runtime
+
+
+@pytest.mark.parametrize("value", ["false", "true", 0, 1, None, [], {}])
+def test_gateway_rejects_non_boolean_stream_before_tokenization(value: object) -> None:
+    with pytest.raises(runtime.GatewayRequestError) as raised:
+        runtime.prepare_gateway_chat_request(
+            Flask(__name__),
+            creator_bid="user-1",
+            idempotency_key="request-1",
+            payload={
+                "model": "rated-model",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": value,
+            },
+        )
+    assert raised.value.status_code == 400
+    assert raised.value.code == "stream_invalid"
+
+
+@pytest.mark.parametrize(("field", "limit"), [("messages", 256), ("tools", 128)])
+def test_gateway_rejects_oversized_collections_before_tokenization(
+    field: str, limit: int
+) -> None:
+    payload = {"model": "rated-model", "messages": [{"role": "user", "content": "hi"}]}
+    payload[field] = [{}] * (limit + 1)
+    with pytest.raises(runtime.GatewayRequestError) as raised:
+        runtime.prepare_gateway_chat_request(
+            Flask(__name__),
+            creator_bid="user-1",
+            idempotency_key="request-1",
+            payload=payload,
+        )
+    assert raised.value.status_code == 400
+    assert raised.value.code == f"{field}_invalid"
+
+
+@pytest.mark.parametrize("release_fails", [False, True])
+def test_settlement_failure_does_not_escape_stream_finalization(
+    monkeypatch: pytest.MonkeyPatch, release_fails: bool
+) -> None:
+    reservation = runtime.GatewayChatReservation(
+        creator_bid="user-1",
+        request_id="request-1",
+        model="rated-model",
+        messages=[],
+        input_tokens=1,
+        max_output_tokens=32,
+        reservation_bid="hold-1",
+        usage_bid="usage-1",
+        provider_options={},
+    )
+    monkeypatch.setattr(runtime, "_trace_for_request", lambda _reservation: None)
+    monkeypatch.setattr(
+        "flaskr.api.llm.stream_openai_chat_completion",
+        lambda *_args, **_kwargs: iter(
+            [{"choices": [{"delta": {"content": "hello"}}]}]
+        ),
+    )
+    capture = Mock(side_effect=RuntimeError("credit_wallet_version_conflict"))
+    release = Mock(
+        side_effect=RuntimeError("database unavailable") if release_fails else None
+    )
+    monkeypatch.setattr(runtime, "capture_metered_operation_credits", capture)
+    monkeypatch.setattr(runtime, "release_reserved_operation_credits", release)
+    assert (
+        len(list(runtime.stream_gateway_chat_request(Flask(__name__), reservation)))
+        == 1
+    )
+    assert capture.call_count == 2
+    assert release.call_count == 1
+    assert release.call_args.kwargs["reason"] == "settlement_failed"
+
+
+def test_settlement_retries_actual_usage_without_releasing_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reservation = SimpleNamespace(
+        request_id="request-1", reservation_bid="hold-1", usage_bid="usage-1"
+    )
+    capture = Mock(side_effect=[RuntimeError("credit_wallet_version_conflict"), None])
+    release = Mock()
+    monkeypatch.setattr(runtime, "capture_metered_operation_credits", capture)
+    monkeypatch.setattr(runtime, "release_reserved_operation_credits", release)
+    runtime._capture_completed(Flask(__name__), reservation)
+    assert capture.call_count == 2
+    assert capture.call_args_list[0] == capture.call_args_list[1]
+    release.assert_not_called()
 
 
 def test_prepare_gateway_request_reserves_conservative_amount(

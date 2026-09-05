@@ -246,6 +246,12 @@ request fields are `temperature`, `top_p`, `stop`, `seed`, `presence_penalty`,
 If `max_tokens` is omitted, the gateway uses the smaller of 4096 and the model
 limit. A value above the model limit is rejected rather than silently changed.
 
+The request body is limited to 1 MiB, with at most 256 messages and 128 tools.
+`stream` must be a JSON boolean; strings such as `"false"`, numbers, and `null`
+are rejected with HTTP 400. An oversized body returns HTTP 413 before model
+tokenization or credit reservation. Error messages follow the shared backend
+language selection; clients should branch on the stable error code/status.
+
 ## Streaming Chat Completions
 
 Set `stream` to `true` and parse Server-Sent Events:
@@ -331,6 +337,7 @@ Gateway errors use real HTTP statuses:
 | `402` | Show available credits and open `billing_url` when requested. Do not retry automatically. |
 | `403` | The application client ID is not allowed. Check its header and ask the deployment operator to configure access; do not clear the user token. |
 | `409` | The idempotency key was already used. Do not generate a new key and silently repeat an uncertain request. |
+| `413` | Reduce the request body below the 1 MiB gateway limit. |
 | `429` | Back off according to deployment policy. |
 | `502` or `503` | Report a transient model-service failure. Retry only with an explicit user action and a new logical request. |
 
@@ -341,6 +348,8 @@ error event followed by `[DONE]`.
 
 - Generate one unpredictable key per logical model request.
 - Keep the key at 90 characters or fewer; UUID and UUIDv7 values fit.
+- The server derives a fixed-length internal ID for persistence. The returned
+  `X-AI-Shifu-Request-ID` is not the caller's original idempotency key.
 - Reuse that key only when determining the outcome of the same uncertain
   request.
 - Never reuse a key for different messages, tools, or model settings.

@@ -1,3 +1,7 @@
+---
+title: Official Client Model Gateway
+---
+
 ## Purpose / Big Picture
 
 Expose AI-Shifu's existing account, model routing, and credit wallet to official
@@ -7,6 +11,13 @@ repository owns server implementation and tests; a production application CLI
 belongs in a separate project and follows the checked-in integration guide.
 
 ## Progress
+
+- [x] 2026-09-05: Fix PR review findings on persistence-safe idempotency,
+      concurrent reservations, output-token estimation, failed-call billing,
+      settlement cleanup, request bounds, localization, and the plan index.
+- [x] 2026-09-05: Verify 1025 billing, metering, LLM, gateway, configuration,
+      and device-authorization regression tests (10 skipped); full backend
+      validation is also run after aligning the local markdown-flow dependency.
 
 - [x] 2026-09-01 15:00 CST: Revalidated current device authorization, user
       sessions, LiteLLM routing, operation reservations, usage records, and the
@@ -39,6 +50,21 @@ belongs in a separate project and follows the checked-in integration guide.
 
 ## Decision Log
 
+- PR review: derive a deterministic 36-character internal request ID from the
+  account and caller key; retain the original key in hold metadata. Do not
+  change persistence schemas or shorten the documented 90-character limit.
+- PR review: retry metered settlement once on failure, then attempt release
+  with explicit failure logging. Database failures must not trigger maximum
+  reservation capture or escape stream finalization.
+- PR review: limit gateway chat bodies to 1 MiB, message arrays to 256, and tool
+  arrays to 128 before tokenization; require a JSON boolean for stream.
+- PR review: TLS enforcement belongs to the trusted deployment edge, where TLS
+  terminates; do not trust arbitrary forwarded headers in Flask as proof of TLS.
+- PR review: a stale-hold sweeper needs an active-request lease and a bounded
+  provider lifecycle first. Do not release possibly active paid calls solely
+  based on hold age. Hard process termination and persistent DB failures still
+  require operational reconciliation.
+
 - Decision: reuse `/api/user/device/*` and the current AI-Shifu session token.
   - Why: the first audience is official clients, and Course CLI compatibility
     is more valuable than premature standard-client infrastructure.
@@ -58,6 +84,13 @@ belongs in a separate project and follows the checked-in integration guide.
     second end-user application lifecycle.
 
 ## Outcomes & Retrospective
+
+PR review fixes cover nine actionable inline findings. Provider-rate identity
+consistency is verified by regression tests without changing the shared resolver:
+both admission and persisted usage use the application provider mapping, and
+unmapped models cannot invoke a provider. TLS enforcement remains at the trusted
+public edge. Model-list caching and age-based hold sweeping are deferred rather
+than introducing stale-rate or active-request-release risks in this PR.
 
 The implementation is intentionally additive: three gateway endpoints, shared
 LLM wrapper extensions, partial credit capture, tests, and documentation. No

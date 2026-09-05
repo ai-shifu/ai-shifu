@@ -42,7 +42,7 @@
 | `docs/exec-plans/active/gemini-tts.md` | Gemini TTS Provider | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/observability-artifacts-consistency-frontend-trace.md` | Observability Artifacts, Consistency Probes, and Frontend Trace IDs | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/official-client-model-gateway.md` | Purpose / Big Picture | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/official-client-model-gateway.md` | Official Client Model Gateway | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/onboarding-existing-creator-rollout.md` | Existing Creator Onboarding Rollout | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-credit-grant-package.md` | ExecPlan: Operator Credit Grant Package | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-promotion-ops-state-rules.md` | ExecPlan: Operator Promotion Ops State Rules | `exec-plan-active` | `active` | `repo` | `-` | `true` |

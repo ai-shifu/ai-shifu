@@ -6,8 +6,10 @@ import json
 from typing import TYPE_CHECKING
 
 from flask import Flask, Response, jsonify, request, stream_with_context
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from flaskr.common.public_urls import build_public_url
+from flaskr.i18n import _
 from flaskr.service.billing.models import CreditWallet
 from flaskr.service.billing.operation_credits import (
     has_complete_llm_operation_rates,
@@ -217,6 +219,9 @@ def register_model_gateway_handler(
         try:
             user = _gateway_user(app)
             _validate_gateway_client(app)
+            request.max_content_length = min(
+                request.max_content_length or 1024 * 1024, 1024 * 1024
+            )
             raw_payload = request.get_json(silent=True)
             payload = raw_payload if isinstance(raw_payload, dict) else {}
             payload = _resolve_model_alias(app, payload)
@@ -226,12 +231,18 @@ def register_model_gateway_handler(
                 idempotency_key=str(request.headers.get("Idempotency-Key") or ""),
                 payload=payload,
             )
+        except RequestEntityTooLarge:
+            return _error_response(
+                GatewayRequestError(
+                    413, "request_too_large", "Request body exceeds the gateway limit"
+                )
+            )
         except GatewayRequestError as error:
             return _error_response(error)
         except AppError as error:
             return _error_response(_app_error(error))
 
-        if not bool(payload.get("stream", False)):
+        if not payload.get("stream", False):
             try:
                 response_payload = complete_gateway_chat_request(app, reservation)
             except AppError as error:
@@ -269,7 +280,7 @@ def register_model_gateway_handler(
                             "error": {
                                 "type": "server_error",
                                 "code": "provider_error",
-                                "message": "The model stream failed",
+                                "message": _("server.modelGateway.provider_error"),
                             }
                         }
                     )

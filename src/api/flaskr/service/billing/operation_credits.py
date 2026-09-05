@@ -263,6 +263,13 @@ def reserve_operation_credits(
             return _reservation_result_from_hold(existing)
 
         wallet = _load_wallet(normalized_creator_bid, lock=True)
+        # A concurrent request may have committed its hold while this request
+        # waited for the wallet. Use a locking read to bypass an older snapshot.
+        existing = _load_ledger_by_idempotency(
+            normalized_creator_bid, idempotency_key, lock=True
+        )
+        if existing is not None:
+            return _reservation_result_from_hold(existing)
         buckets = _load_active_buckets(wallet, now_utc(), lock=True)
         available = sum(
             (
@@ -579,16 +586,17 @@ def _release_idempotency_key(reservation_bid: str) -> str:
 def _load_ledger_by_idempotency(
     creator_bid: str,
     idempotency_key: str,
+    *,
+    lock: bool = False,
 ) -> CreditLedgerEntry | None:
-    return (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.creator_bid == creator_bid,
-            CreditLedgerEntry.idempotency_key == idempotency_key,
-        )
-        .order_by(CreditLedgerEntry.id.desc())
-        .first()
-    )
+    query = CreditLedgerEntry.query.filter(
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.creator_bid == creator_bid,
+        CreditLedgerEntry.idempotency_key == idempotency_key,
+    ).order_by(CreditLedgerEntry.id.desc())
+    if lock:
+        query = query.with_for_update()
+    return query.first()
 
 
 def _load_wallet(creator_bid: str, *, lock: bool = False) -> CreditWallet:

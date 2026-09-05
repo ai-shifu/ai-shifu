@@ -2,7 +2,6 @@
 
 import asyncio
 import contextlib
-import json
 import logging
 import os
 import time
@@ -1542,6 +1541,30 @@ def _gateway_output_token_count(invoke_model: str, output: str) -> int:
         return 0
 
 
+def _gateway_output_text(payload: dict[str, object]) -> str:
+    """Extract generated text and tool arguments without counting protocol JSON."""
+    parts: list[str] = []
+    for choice in payload.get("choices") or []:
+        message = choice.get("message") or choice.get("delta") or {}
+        for output_field in ("content", "reasoning_content"):
+            content = message.get(output_field)
+            if isinstance(content, str):
+                parts.append(content)
+            elif isinstance(content, list):
+                parts.extend(
+                    part["text"]
+                    for part in content
+                    if isinstance(part, dict) and isinstance(part.get("text"), str)
+                )
+        for call in message.get("tool_calls") or []:
+            function = call.get("function") or {}
+            for output_field in ("name", "arguments"):
+                value = function.get(output_field)
+                if isinstance(value, str):
+                    parts.append(value)
+    return "".join(parts)
+
+
 def _gateway_usage_values(
     usage: object,
     *,
@@ -1605,7 +1628,7 @@ def _record_gateway_llm_usage(
             request_id=request_id,
             trace_id=trace_id,
             usage_scene=BILL_USAGE_SCENE_PROD,
-            billable=1,
+            billable=int(status == 0 or bool(output_capture)),
         ),
         provider=provider,
         model=model,
@@ -1675,15 +1698,17 @@ def complete_openai_chat_completion(
             payload = response.model_dump(exclude_none=True)
         else:
             payload = dict(response)
-        output_capture = json.dumps(
-            payload.get("choices") or [], ensure_ascii=False, separators=(",", ":")
-        )
+        output_capture = _gateway_output_text(payload)
     except Exception as exc:
         status = 1
         error_message = str(exc)
         raise
     finally:
-        usage = getattr(response, "usage", None) if response is not None else None
+        usage = (
+            (getattr(response, "usage", None) or payload.get("usage"))
+            if response is not None
+            else None
+        )
         latency_ms = int((time.monotonic() - started_at) * 1000)
         _record_gateway_llm_usage(
             app,
@@ -1751,6 +1776,7 @@ def stream_openai_chat_completion(
     started_at = time.monotonic()
     usage = None
     output_parts: list[str] = []
+    completed = False
     status = 0
     error_message = ""
     try:
@@ -1770,18 +1796,19 @@ def stream_openai_chat_completion(
                 payload = chunk.model_dump(exclude_none=True)
             else:
                 payload = dict(chunk)
-            choices = payload.get("choices")
-            if choices:
-                output_parts.append(
-                    json.dumps(choices, ensure_ascii=False, separators=(",", ":"))
-                )
+            if payload.get("usage") is not None:
+                usage = payload["usage"]
+            output_parts.append(_gateway_output_text(payload))
             yield payload
+        completed = True
     except Exception as exc:
         status = 1
         error_message = str(exc)
         raise
     finally:
         output_capture = "".join(output_parts)
+        if not completed:
+            status = 1
         latency_ms = int((time.monotonic() - started_at) * 1000)
         _record_gateway_llm_usage(
             app,

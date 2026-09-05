@@ -166,6 +166,136 @@ def test_llm_estimate_requires_complete_rates(operation_credit_app: Flask) -> No
     )
 
 
+@pytest.mark.parametrize("key_length", [36, 37, 64, 90])
+def test_gateway_keys_fit_persistence_fields(
+    operation_credit_app: Flask, monkeypatch: pytest.MonkeyPatch, key_length: int
+) -> None:
+    from flaskr.route.model_gateway_runtime import (
+        GatewayRequestError,
+        prepare_gateway_chat_request,
+    )
+
+    with operation_credit_app.app_context():
+        _seed_wallet("gateway-key")
+        _seed_llm_rates()
+        dao.db.session.commit()
+    monkeypatch.setattr(
+        "flaskr.api.llm.count_llm_chat_input_tokens", lambda *_args, **_kwargs: 2
+    )
+    monkeypatch.setattr(
+        "flaskr.api.llm.resolve_llm_max_output_tokens", lambda *_args, **_kwargs: 3
+    )
+    kwargs = {
+        "creator_bid": "gateway-key",
+        "idempotency_key": "k" * key_length,
+        "payload": {
+            "model": "rated-model",
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    }
+    reservation = prepare_gateway_chat_request(operation_credit_app, **kwargs)
+    with operation_credit_app.app_context():
+        hold = CreditLedgerEntry.query.filter_by(
+            ledger_bid=reservation.reservation_bid
+        ).one()
+        assert hold.source_bid == reservation.request_id
+        assert len(hold.source_bid) <= CreditLedgerEntry.source_bid.type.length
+        assert len(reservation.request_id) <= BillUsageRecord.request_id.type.length
+        assert (
+            len(hold.idempotency_key) <= CreditLedgerEntry.idempotency_key.type.length
+        )
+        assert (
+            hold.metadata_json["metadata"]["idempotency_key"]
+            == kwargs["idempotency_key"]
+        )
+    with pytest.raises(GatewayRequestError) as raised:
+        prepare_gateway_chat_request(operation_credit_app, **kwargs)
+    assert raised.value.status_code == 409
+
+
+def test_reservation_rechecks_concurrent_hold_after_wallet_lock(
+    operation_credit_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.billing import operation_credits as operations
+
+    with operation_credit_app.app_context():
+        _seed_wallet("race-user")
+        dao.db.session.commit()
+    kwargs = {
+        "creator_bid": "race-user",
+        "amount": Decimal(3),
+        "operation_type": "model_gateway_llm",
+        "operation_bid": "same-request",
+    }
+    first = operations.reserve_operation_credits(operation_credit_app, **kwargs)
+    lookup = operations._load_ledger_by_idempotency
+    lock_reads = []
+
+    def simulate_initial_snapshot(
+        creator_bid: str, key: str, *, lock: bool = False
+    ) -> object:
+        lock_reads.append(lock)
+        if len(lock_reads) == 1:
+            return None
+        return lookup(creator_bid, key, lock=lock)
+
+    monkeypatch.setattr(
+        operations, "_load_ledger_by_idempotency", simulate_initial_snapshot
+    )
+    repeated = operations.reserve_operation_credits(operation_credit_app, **kwargs)
+    assert repeated.status == "already_reserved"
+    assert repeated.reservation_bid == first.reservation_bid
+    assert lock_reads == [False, True]
+    with operation_credit_app.app_context():
+        assert CreditLedgerEntry.query.count() == 1
+        assert CreditWallet.query.one().reserved_credits == Decimal(3)
+
+
+def test_gateway_probe_and_persisted_provider_use_same_rates(
+    operation_credit_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.api import llm
+    from flaskr.service.billing.charges import build_usage_metric_charges
+    from flaskr.service.billing.operation_credits import estimate_llm_operation_credits
+
+    monkeypatch.setattr(
+        llm, "MODEL_ALIAS_MAP", {"public-model": ("example-provider", "real-model")}
+    )
+    monkeypatch.setattr(llm, "PROVIDER_STATES", {})
+    with operation_credit_app.app_context():
+        _seed_llm_rates("real-model")
+        for rate in CreditUsageRate.query.all():
+            rate.provider = "example-provider"
+        dao.db.session.commit()
+        estimate = estimate_llm_operation_credits(
+            operation_credit_app,
+            model="public-model",
+            input_tokens=2,
+            max_output_tokens=3,
+        )
+        usage = BillUsageRecord(
+            usage_type=BILL_USAGE_TYPE_LLM,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            provider="example-provider",
+            model="public-model",
+            input=2,
+            input_cache=0,
+            output=3,
+            total=5,
+        )
+        charges = build_usage_metric_charges(usage, settlement_at=datetime(2026, 9, 5))
+        assert (
+            estimate.consumed_credits
+            == sum((charge.consumed_credits for charge in charges), Decimal(0))
+            == Decimal("0.8")
+        )
+        assert llm.get_litellm_params_and_model("unmapped-model") == (
+            None,
+            "unmapped-model",
+            None,
+        )
+
+
 def test_partial_capture_releases_unused_reservation(
     operation_credit_app: Flask,
 ) -> None:

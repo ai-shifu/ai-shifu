@@ -61,9 +61,13 @@ Model listing and Chat Completions additionally require
 IDs match exactly and case-sensitively, with no wildcard matching. Device
 authorization and the account endpoint keep their existing behavior.
 
-Chat requests require `Idempotency-Key`. The key is used as the existing
-operation identifier, so the ledger's current `(creator_bid, idempotency_key)`
-uniqueness prevents a repeated request from reserving or charging twice.
+Chat requests require `Idempotency-Key` (up to 90 characters). The gateway
+derives a deterministic 36-character internal ID from the account and key,
+retaining the caller key in hold metadata. This fits existing persistence
+columns, and the ledger's current `(creator_bid, idempotency_key)` uniqueness
+prevents a repeated request from reserving or charging twice. Reservation
+creation rechecks the ledger with a locking read after acquiring the wallet
+lock, so concurrent retries receive the same HTTP 409 conflict response.
 
 ## Runtime flow
 
@@ -109,6 +113,12 @@ The account and inference paths do not check `is_creator`. They query the
 existing wallet with `CreditWallet.creator_bid == user.user_id`. A missing
 wallet and an insufficient balance both stop before provider invocation.
 
+The chat endpoint limits the body to 1 MiB, messages to 256, and tools to 128
+before tokenization. `stream` must be a JSON boolean when supplied. Public
+gateway error messages use the shared translation catalog; error codes and
+HTTP statuses remain language-independent. TLS must terminate at the trusted
+public edge, and clients must use HTTPS except for local loopback testing.
+
 ## Model admission
 
 `/v1/models` starts from `get_current_models` and retains only models that:
@@ -141,6 +151,19 @@ the conservative reservation is captured. A provider failure before a
 non-streaming response or before any stream output releases the full hold.
 Closing a streaming HTTP response before its iterator starts also releases the
 hold through the response close callback.
+
+Missing-usage output estimates count generated assistant text, reasoning text,
+and tool function names/arguments, not serialized JSON envelopes. Failed calls
+without generated output are recorded as non-billable; partial output remains
+billable. A metered-settlement exception is retried once at the actual amount;
+if both attempts fail, the gateway attempts to release the hold and logs any
+cleanup failure without replacing the provider error or breaking finalization.
+It does not fall back to charging the maximum reservation on database errors.
+
+Hard process termination or persistent database failures can still leave a
+hold unresolved. Operators must reconcile these holds from logs, usage, and
+ledger records. Automatic age-based release is deferred until active requests
+have a reliable lease/lifecycle bound, to avoid releasing in-flight paid calls.
 
 No new tables, columns, indexes, or migrations are required. Gateway details
 are stored only in the existing usage and ledger metadata JSON columns.

@@ -5,10 +5,11 @@ from __future__ import annotations
 import contextlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from uuid import NAMESPACE_URL, uuid5
 
+from flaskr.i18n import _
 from flaskr.service.billing.operation_credits import (
     capture_metered_operation_credits,
-    capture_reserved_operation_credits,
     estimate_llm_operation_credits,
     release_reserved_operation_credits,
     reserve_operation_credits,
@@ -41,6 +42,24 @@ class GatewayRequestError(Exception):
 
     def __init__(self, status_code: int, code: str, message: str) -> None:
         """Store the HTTP status, stable code, and safe client message."""
+        message = {
+            "invalid_token": _("server.modelGateway.invalid_token"),
+            "missing_client_id": _("server.modelGateway.missing_client_id"),
+            "client_not_allowed": _("server.modelGateway.client_not_allowed"),
+            "insufficient_credits": _("server.modelGateway.insufficient_credits"),
+            "model_not_available": _("server.modelGateway.model_not_available"),
+            "invalid_request": _("server.modelGateway.invalid_request"),
+            "provider_error": _("server.modelGateway.provider_error"),
+            "request_too_large": _("server.modelGateway.request_too_large"),
+            "idempotency_key_required": _(
+                "server.modelGateway.idempotency_key_required"
+            ),
+            "model_required": _("server.modelGateway.model_required"),
+            "messages_invalid": _("server.modelGateway.messages_invalid"),
+            "tools_invalid": _("server.modelGateway.tools_invalid"),
+            "stream_invalid": _("server.modelGateway.stream_invalid"),
+            "idempotency_conflict": _("server.modelGateway.idempotency_conflict"),
+        }.get(code, message)
         super().__init__(message)
         self.status_code = status_code
         self.code = code
@@ -70,10 +89,17 @@ def prepare_gateway_chat_request(
     payload: dict[str, object],
 ) -> GatewayChatReservation:
     """Validate, rate, and reserve one model gateway request."""
-    request_id = str(idempotency_key or "").strip()
-    if not request_id or len(request_id) > _IDEMPOTENCY_KEY_MAX_LENGTH:
+    caller_key = str(idempotency_key or "").strip()
+    if not caller_key or len(caller_key) > _IDEMPOTENCY_KEY_MAX_LENGTH:
         raise GatewayRequestError(
             400, "idempotency_key_required", "Idempotency-Key is required"
+        )
+    request_id = str(
+        uuid5(NAMESPACE_URL, f"ai-shifu:model-gateway:{creator_bid}:{caller_key}")
+    )
+    if not isinstance(payload.get("stream", False), bool):
+        raise GatewayRequestError(
+            400, "stream_invalid", "stream must be a JSON boolean"
         )
 
     model = str(payload.get("model") or "").strip()
@@ -83,13 +109,14 @@ def prepare_gateway_chat_request(
     if (
         not isinstance(messages, list)
         or not messages
+        or len(messages) > 256
         or not all(isinstance(message, dict) for message in messages)
     ):
         raise GatewayRequestError(
             400, "messages_invalid", "messages must be a non-empty list"
         )
     tools = payload.get("tools")
-    if tools is not None and not isinstance(tools, list):
+    if tools is not None and (not isinstance(tools, list) or len(tools) > 128):
         raise GatewayRequestError(400, "tools_invalid", "tools must be a list")
 
     from flaskr.api.llm import (
@@ -132,6 +159,7 @@ def prepare_gateway_chat_request(
         operation_type="model_gateway_llm",
         operation_bid=request_id,
         metadata={
+            "idempotency_key": caller_key,
             "model": model,
             "input_tokens": input_tokens,
             "max_output_tokens": max_output_tokens,
@@ -183,23 +211,37 @@ def _trace_for_request(reservation: GatewayChatReservation) -> object:
 
 
 def _capture_completed(app: Flask, reservation: GatewayChatReservation) -> None:
+    # Retry the rated amount, not the maximum hold, after a transient DB failure.
+    for _attempt in range(2):
+        try:
+            capture_metered_operation_credits(
+                app,
+                reservation_bid=reservation.reservation_bid,
+                usage_bid=reservation.usage_bid,
+                metadata={"gateway_request_id": reservation.request_id},
+            )
+        except Exception:
+            app.logger.exception(
+                "model gateway capture failed request_id=%s", reservation.request_id
+            )
+        else:
+            return
+    _release_gateway_hold(app, reservation, "settlement_failed")
+
+
+def _release_gateway_hold(
+    app: Flask, reservation: GatewayChatReservation, reason: str
+) -> None:
+    """Attempt cleanup without masking provider failures or stream finalization."""
     try:
-        capture_metered_operation_credits(
-            app,
-            reservation_bid=reservation.reservation_bid,
-            usage_bid=reservation.usage_bid,
-            metadata={"gateway_request_id": reservation.request_id},
+        release_reserved_operation_credits(
+            app, reservation_bid=reservation.reservation_bid, reason=reason
         )
-    except AppError:
-        capture_reserved_operation_credits(
-            app,
-            reservation_bid=reservation.reservation_bid,
-            usage_bid=reservation.usage_bid,
-            metadata={
-                "gateway_request_id": reservation.request_id,
-                "estimated_usage": True,
-                "reason": "exact_capture_failed",
-            },
+    except Exception:
+        app.logger.exception(
+            "model gateway release failed request_id=%s reservation_bid=%s",
+            reservation.request_id,
+            reservation.reservation_bid,
         )
 
 
@@ -228,11 +270,7 @@ def complete_gateway_chat_request(
             **reservation.provider_options,
         )
     except Exception:
-        release_reserved_operation_credits(
-            app,
-            reservation_bid=reservation.reservation_bid,
-            reason="provider_failed_before_response",
-        )
+        _release_gateway_hold(app, reservation, "provider_failed_before_response")
         raise
     _capture_completed(app, reservation)
     return payload
@@ -242,7 +280,7 @@ def stream_gateway_chat_request(
     app: Flask,
     reservation: GatewayChatReservation,
 ) -> Generator[dict[str, object], None, None]:
-    """Stream one request and always resolve its credit hold exactly once."""
+    """Stream one request and attempt settlement or cleanup on close."""
     from flaskr.api.llm import stream_openai_chat_completion
 
     stream = None
@@ -276,11 +314,7 @@ def stream_gateway_chat_request(
         if completed or output_started:
             _capture_completed(app, reservation)
         else:
-            release_reserved_operation_credits(
-                app,
-                reservation_bid=reservation.reservation_bid,
-                reason="stream_failed_before_output",
-            )
+            _release_gateway_hold(app, reservation, "stream_failed_before_output")
 
 
 def _chunk_has_output(chunk: dict[str, object]) -> bool:

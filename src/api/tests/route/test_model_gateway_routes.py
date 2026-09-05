@@ -175,6 +175,43 @@ def test_gateway_rejects_missing_bearer_token(gateway_route_app: Flask) -> None:
     assert response.get_json()["error"]["code"] == "invalid_token"
 
 
+def test_gateway_rejects_large_body_before_preparation(
+    gateway_route_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import flaskr.route.model_gateway as gateway
+
+    monkeypatch.setattr(
+        gateway,
+        "prepare_gateway_chat_request",
+        lambda *_args, **_kwargs: pytest.fail(
+            "Must reject before tokenization or reservation"
+        ),
+    )
+    response = gateway_route_app.test_client().post(
+        "/api/gateway/v1/chat/completions",
+        headers=_headers(),
+        json={"messages": [{"content": "x" * (1024 * 1024)}]},
+    )
+    assert response.status_code == 413
+    assert response.get_json()["error"]["code"] == "request_too_large"
+
+
+def test_gateway_error_uses_shared_language(gateway_route_app: Flask) -> None:
+    from flaskr.i18n import clear_language, load_translations, set_language
+
+    load_translations(gateway_route_app)
+    set_language("zh-CN")
+    try:
+        response = gateway_route_app.test_client().get("/api/gateway/v1/models")
+    finally:
+        clear_language()
+    assert response.status_code == 401
+    assert (
+        response.get_json()["error"]["message"]
+        == "需要有效的 Authorization Bearer 登录凭据。"
+    )
+
+
 def test_gateway_non_stream_chat_dispatches_openai_payload(
     gateway_route_app: Flask,
     monkeypatch: pytest.MonkeyPatch,

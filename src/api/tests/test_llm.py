@@ -2303,6 +2303,134 @@ def test_gateway_token_count_and_default_output_limit(
     assert llm.resolve_llm_max_output_tokens("small-model") == 2048
 
 
+@pytest.mark.parametrize("stream", [False, True])
+def test_gateway_missing_usage_counts_only_generated_output(
+    monkeypatch: pytest.MonkeyPatch, app: object, stream: bool
+) -> None:
+    recorded = {}
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "token_counter",
+        lambda *, text, **_kwargs: len(text),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: recorded.update(kwargs)
+    )
+    message = {
+        "content": "hello",
+        "tool_calls": [{"function": {"name": "lookup", "arguments": "{}"}}],
+    }
+    response = FakeOpenAIResponse({"choices": [{"message": message}]})
+    chunks = [
+        FakeOpenAIResponse({"choices": [{"delta": delta, "index": 0}]})
+        for delta in [
+            {"role": "assistant"},
+            {"content": "hel"},
+            {"content": "lo"},
+            {"tool_calls": [{"function": {"name": "lookup", "arguments": "{"}}]},
+            {"tool_calls": [{"function": {"arguments": "}"}}]},
+            {},
+        ]
+    ]
+    monkeypatch.setattr(llm.litellm, "completion", lambda **_kwargs: response)
+    monkeypatch.setattr(
+        llm,
+        "_iter_stream_with_precontent_retry",
+        lambda *_args, **_kwargs: iter(chunks),
+    )
+    kwargs = {
+        "user_id": "user-1",
+        "span": DummySpan(),
+        "usage_bid": "usage-1",
+        "model": "rated-model",
+        "messages": [],
+        "request_id": "request-1",
+        "fallback_input_tokens": 3,
+    }
+    if stream:
+        assert len(list(llm.stream_openai_chat_completion(app, **kwargs))) == len(
+            chunks
+        )
+    else:
+        assert (
+            llm.complete_openai_chat_completion(app, **kwargs)["choices"][0]["message"]
+            == message
+        )
+    assert recorded["output"] == len("hellolookup{}")
+    assert recorded["extra"]["output_text"] == "hellolookup{}"
+    assert recorded["extra"]["usage_source"] == "estimated"
+
+
+@pytest.mark.parametrize(
+    ("stream", "partial"), [(False, False), (True, False), (True, True)]
+)
+def test_gateway_failure_billable_flag_matches_delivered_output(
+    monkeypatch: pytest.MonkeyPatch, app: object, stream: bool, partial: bool
+) -> None:
+    recorded = {}
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm.litellm, "token_counter", lambda **_kwargs: 1, raising=False
+    )
+
+    def record(_app: object, context: object, **kwargs: object) -> None:
+        recorded.update(kwargs, billable=context.billable)
+
+    monkeypatch.setattr(llm, "record_llm_usage", record)
+
+    def fail(**_kwargs: object) -> None:
+        message = "provider failed"
+        raise RuntimeError(message)
+
+    def chunks(*_args: object, **_kwargs: object) -> object:
+        if partial:
+            yield FakeOpenAIResponse({"choices": [{"delta": {"content": "hello"}}]})
+        else:
+            yield FakeOpenAIResponse({"choices": [{"delta": {"role": "assistant"}}]})
+        message = "provider failed"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(llm.litellm, "completion", fail)
+    monkeypatch.setattr(llm, "_iter_stream_with_precontent_retry", chunks)
+    kwargs = {
+        "user_id": "user-1",
+        "span": DummySpan(),
+        "usage_bid": "usage-1",
+        "model": "rated-model",
+        "messages": [],
+        "request_id": "request-1",
+        "fallback_input_tokens": 3,
+    }
+    if stream:
+        with pytest.raises(RuntimeError, match="provider failed"):
+            list(llm.stream_openai_chat_completion(app, **kwargs))
+    else:
+        with pytest.raises(RuntimeError, match="provider failed"):
+            llm.complete_openai_chat_completion(app, **kwargs)
+    assert recorded["status"] == 1
+    assert recorded["billable"] == int(partial)
+
+
 def test_non_stream_gateway_completion_records_usage_without_async_settlement(
     monkeypatch: pytest.MonkeyPatch,
     app: object,

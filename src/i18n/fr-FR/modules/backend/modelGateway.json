@@ -1,0 +1,19 @@
+{
+  "__namespace__": "server.modelGateway",
+  "__flat__": {
+    "client_not_allowed": "Ce client n’est pas autorisé à accéder aux modèles de la passerelle.",
+    "idempotency_conflict": "Idempotency-Key a déjà été utilisé.",
+    "idempotency_key_required": "Idempotency-Key doit contenir de 1 à 90 caractères.",
+    "insufficient_credits": "Le compte n’a pas de portefeuille disponible ou manque de crédits.",
+    "invalid_request": "La requête est invalide.",
+    "invalid_token": "Un jeton Authorization Bearer valide est requis.",
+    "messages_invalid": "messages doit contenir de 1 à 256 objets message.",
+    "missing_client_id": "L’en-tête X-AI-Shifu-Client-ID est requis.",
+    "model_not_available": "Le modèle est indisponible ou ses limites ou tarifs de crédits ne sont pas configurés.",
+    "model_required": "Un modèle est requis.",
+    "provider_error": "La requête au modèle a échoué.",
+    "request_too_large": "Le corps de la requête dépasse la limite de 1 Mio de la passerelle.",
+    "stream_invalid": "stream doit être un booléen JSON.",
+    "tools_invalid": "tools doit être une liste de 128 éléments au maximum."
+  }
+}
