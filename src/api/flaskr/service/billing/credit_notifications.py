@@ -8,6 +8,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
+from html import escape as escape_html
+from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -20,6 +22,11 @@ from flaskr.common.observability import record_credit_notification_event
 from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.smtp import (
+    SmtpConfigurationError,
+    is_smtp_configured,
+    send_smtp_email,
+)
 from flaskr.service.config import get_config
 from flaskr.service.config.funcs import add_config
 from flaskr.service.user.consts import (
@@ -28,7 +35,7 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.uuid import generate_id
 from sqlalchemy import func, or_
@@ -38,8 +45,11 @@ from .consts import (
     BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_NOTIFICATION_CHANNEL_EMAIL,
     CREDIT_NOTIFICATION_CHANNEL_SMS,
     CREDIT_NOTIFICATION_PROCESSABLE_STATUSES,
+    CREDIT_NOTIFICATION_RECIPIENT_TYPE_EMAIL,
+    CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
     CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
     CREDIT_NOTIFICATION_STATUS_PENDING,
     CREDIT_NOTIFICATION_STATUS_SENT,
@@ -53,13 +63,17 @@ from .consts import (
 )
 from .models import (
     BillingDailyLedgerSummary,
+    BillingOrder,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
     NotificationRecord,
     NotificationTemplate,
 )
-from .notifications import load_creator_mobile_snapshot
+from .notifications import (
+    load_creator_mobile_snapshot,
+    resolve_notification_product_name,
+)
 from .primitives import is_billing_enabled
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import quantize_credit_amount as _quantize_credit_amount
@@ -83,22 +97,99 @@ LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS = "estimated_days"
 LOW_BALANCE_ESTIMATED_DAYS_MAX_DAYS = 365
 LOW_BALANCE_ESTIMATED_DAYS_MAX_LOOKBACK_DAYS = 365
 NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN = "aliyun"
+NOTIFICATION_TEMPLATE_PROVIDER_SMTP = "smtp"
+NOTIFICATION_TEMPLATE_STATUS_ACTIVE = "active"
+NOTIFICATION_TEMPLATE_STATUS_DRAFT = "draft"
+NOTIFICATION_TEMPLATE_STATUS_DISABLED = "disabled"
+NOTIFICATION_TEMPLATE_SYNC_STATUS_LOCAL = "local"
 ALIYUN_TEMPLATE_LIST_PAGE_SIZE = 50
 ALIYUN_TEMPLATE_LIST_MAX_PAGES = 100
+EMAIL_TEMPLATE_SUBJECT_MAX_LENGTH = 255
+EMAIL_TEMPLATE_BODY_MAX_LENGTH = 100_000
+NOTIFICATION_TEMPLATE_APPROVAL_MAX_AGE = timedelta(hours=24)
 NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED = "synced"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER = "failed_provider"
 CREDIT_NOTIFICATION_STATUS_SKIPPED = "skipped"
 CREDIT_NOTIFICATION_DELIVERY_STATUS_FAILED = "failed"
 CREDIT_NOTIFICATION_DELIVERY_STATUS_NOT_SENT = "not_sent"
 CREDIT_NOTIFICATION_SKIP_REASON_CONTACT = "contact"
+CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL = "channel"
 CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE = "duplicate"
 CREDIT_NOTIFICATION_SKIP_REASON_POLICY = "policy"
 CREDIT_NOTIFICATION_SKIP_REASON_STALE = "stale"
 CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS = "template_params"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_MISSING_CREDENTIALS = "missing_credentials"
+_SUPPORTED_NOTIFICATION_CHANNELS = {
+    CREDIT_NOTIFICATION_CHANNEL_SMS,
+    CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+}
 _TEMPLATE_PLACEHOLDER_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_EMAIL_RECIPIENT_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class _EmailPlainTextParser(HTMLParser):
+    """Convert an operator-authored email body to a text email alternative."""
+
+    _IGNORED_TAGS = frozenset({"head", "script", "style", "title"})
+    _BLOCK_TAGS = frozenset(
+        {
+            "address",
+            "article",
+            "br",
+            "div",
+            "footer",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "header",
+            "li",
+            "p",
+            "section",
+            "tr",
+        }
+    )
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.ignored_tag_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        del attrs
+        normalized_tag = tag.lower()
+        if normalized_tag in self._IGNORED_TAGS:
+            self.ignored_tag_depth += 1
+            return
+        if normalized_tag in self._BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        normalized_tag = tag.lower()
+        if normalized_tag in self._IGNORED_TAGS:
+            self.ignored_tag_depth = max(0, self.ignored_tag_depth - 1)
+            return
+        if normalized_tag in self._BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self.ignored_tag_depth:
+            self.parts.append(data)
+
+
+def _email_html_to_plain_text(value: str) -> str:
+    """Build the SMTP text alternative from the single managed email body."""
+    parser = _EmailPlainTextParser()
+    parser.feed(value)
+    parser.close()
+    lines = (" ".join(line.split()) for line in "".join(parser.parts).splitlines())
+    return "\n".join(line for line in lines if line)
+
+
 CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
-    CREDIT_NOTIFICATION_TYPE_GRANTED: ("credits", "source", "expires_at"),
+    CREDIT_NOTIFICATION_TYPE_GRANTED: ("credits", "source", "expires_at", "product"),
     CREDIT_NOTIFICATION_TYPE_EXPIRING: ("credits", "expires_at", "window"),
     CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: (
         "available_credits",
@@ -363,13 +454,105 @@ def _normalize_policy_list_group(
     }
 
 
-def _validate_policy_for_save(payload: dict[str, object]) -> dict[str, object]:
+def _normalize_notification_rules(app: Flask, value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise_param_error("rules")
+    rules: list[dict[str, object]] = []
+    for index, raw_rule in enumerate(value):
+        rule = _require_mapping(raw_rule, f"rules.{index}")
+        trigger_event = str(rule.get("trigger_event") or "").strip()
+        if trigger_event not in CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS:
+            raise_param_error(f"rules.{index}.trigger_event")
+        name = str(rule.get("name") or "").strip()
+        if not name or len(name) > 128:
+            raise_param_error(f"rules.{index}.name")
+        rule_bid = str(rule.get("rule_bid") or "").strip() or generate_id(app)
+        if len(rule_bid) > 64:
+            raise_param_error(f"rules.{index}.rule_bid")
+        legacy = bool(rule.get("legacy") and rule_bid == f"legacy-{trigger_event}")
+        channel = str(rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
+        if channel not in _SUPPORTED_NOTIFICATION_CHANNELS:
+            raise_param_error(f"rules.{index}.channel")
+        enabled = _coerce_bool(rule.get("enabled"))
+        template_code = str(rule.get("template_code") or "").strip()
+        if enabled and not template_code:
+            raise_param_error(f"rules.{index}.template_code")
+        locale_template_codes: dict[str, str] = {}
+        if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+            raw_locale_template_codes = rule.get("locale_template_codes") or {}
+            if not isinstance(raw_locale_template_codes, dict):
+                raise_param_error(f"rules.{index}.locale_template_codes")
+            for locale, localized_template_code in raw_locale_template_codes.items():
+                normalized_locale = str(locale or "").strip()
+                normalized_template_code = str(localized_template_code or "").strip()
+                if (
+                    not normalized_locale
+                    or len(normalized_locale) > 30
+                    or not normalized_template_code
+                ):
+                    raise_param_error(f"rules.{index}.locale_template_codes")
+                if normalized_locale == "en-US":
+                    raise_param_error(f"rules.{index}.locale_template_codes.en-US")
+                locale_template_codes[normalized_locale] = normalized_template_code
+        conditions = _require_mapping(
+            rule.get("conditions") or {}, f"rules.{index}.conditions"
+        )
+        normalized_conditions: dict[str, object] = {}
+        if trigger_event == CREDIT_NOTIFICATION_TYPE_EXPIRING:
+            windows = _normalize_string_list(
+                conditions.get("windows", []), f"rules.{index}.conditions.windows"
+            )
+            if (not windows and not legacy and enabled) or any(
+                _parse_window_days(window) is None for window in windows
+            ):
+                raise_param_error(f"rules.{index}.conditions.windows")
+            normalized_conditions = {
+                "windows": windows,
+                "merge_same_creator": _coerce_bool(
+                    conditions.get("merge_same_creator", True)
+                ),
+            }
+        elif trigger_event == CREDIT_NOTIFICATION_TYPE_LOW_BALANCE:
+            thresholds = _normalize_low_balance_thresholds(
+                conditions.get("thresholds", []),
+                f"rules.{index}.conditions.thresholds",
+            )
+            if enabled and not thresholds:
+                raise_param_error(f"rules.{index}.conditions.thresholds")
+            normalized_conditions = {"thresholds": thresholds}
+        rules.append(
+            {
+                "rule_bid": rule_bid,
+                "name": name,
+                "trigger_event": trigger_event,
+                "channel": channel,
+                "template_code": template_code,
+                "enabled": enabled,
+                "conditions": normalized_conditions,
+                **(
+                    {"locale_template_codes": locale_template_codes}
+                    if locale_template_codes
+                    else {}
+                ),
+                **({"legacy": True} if legacy else {}),
+            }
+        )
+    if len({str(rule["rule_bid"]) for rule in rules}) != len(rules):
+        raise_param_error("rules.rule_bid")
+    return rules
+
+
+def _validate_policy_for_save(
+    app: Flask, payload: dict[str, object]
+) -> dict[str, object]:
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, payload)
     channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
     if channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
         raise_param_error("channel")
     policy["channel"] = CREDIT_NOTIFICATION_CHANNEL_SMS
     policy["enabled"] = _coerce_bool(policy.get("enabled"))
+    if "rules" in payload:
+        policy["rules"] = _normalize_notification_rules(app, payload["rules"])
 
     type_policies = _require_mapping(policy.get("types"), "types")
     for notification_type in (
@@ -467,7 +650,12 @@ def load_credit_notification_policy() -> dict[str, object]:
             parsed = candidate
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, parsed)
     policy["enabled"] = _coerce_bool(policy.get("enabled"))
-    policy["channel"] = CREDIT_NOTIFICATION_CHANNEL_SMS
+    channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
+    policy["channel"] = (
+        channel
+        if channel in _SUPPORTED_NOTIFICATION_CHANNELS
+        else CREDIT_NOTIFICATION_CHANNEL_SMS
+    )
     type_policies = policy.get("types")
     if not isinstance(type_policies, dict):
         type_policies = {}
@@ -483,6 +671,7 @@ def load_credit_notification_policy() -> dict[str, object]:
             type_policies[notification_type] = current
         current["enabled"] = _coerce_bool(current.get("enabled"))
         current["template_code"] = str(current.get("template_code") or "").strip()
+    policy["rules"] = _notification_rules(policy)
     return policy
 
 
@@ -603,7 +792,17 @@ def save_credit_notification_policy(
     """Persist credit notification policy."""
     if not isinstance(payload, dict):
         raise_param_error("policy")
-    policy = _validate_policy_for_save(payload)
+    if "rules" not in payload:
+        try:
+            existing_raw = get_config(
+                BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG, ""
+            )
+            existing = json.loads(str(existing_raw)) if existing_raw else {}
+        except (KeyError, TypeError, ValueError):
+            existing = {}
+        if isinstance(existing, dict) and "rules" in existing:
+            payload = {**payload, "rules": existing["rules"]}
+    policy = _validate_policy_for_save(app, payload)
     if preserve_opt_out:
         existing_policy = load_credit_notification_policy()
         policy["opt_out"] = _normalize_policy_list_group(
@@ -643,11 +842,89 @@ def _type_policy(
     return item if isinstance(item, dict) else {}
 
 
+def _legacy_notification_rules(policy: dict[str, object]) -> list[dict[str, object]]:
+    """Expose the fixed legacy policy as managed rules without persisting it."""
+    rules: list[dict[str, object]] = []
+    for notification_type in (
+        CREDIT_NOTIFICATION_TYPE_EXPIRING,
+        CREDIT_NOTIFICATION_TYPE_GRANTED,
+        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+    ):
+        type_policy = _type_policy(policy, notification_type)
+        conditions: dict[str, object] = {}
+        if notification_type == CREDIT_NOTIFICATION_TYPE_EXPIRING:
+            conditions = {
+                "windows": list(type_policy.get("windows") or []),
+                "merge_same_creator": _coerce_bool(
+                    type_policy.get("merge_same_creator", True)
+                ),
+            }
+        elif notification_type == CREDIT_NOTIFICATION_TYPE_LOW_BALANCE:
+            conditions = {"thresholds": list(type_policy.get("thresholds") or [])}
+        rules.append(
+            {
+                "rule_bid": f"legacy-{notification_type}",
+                "name": notification_type,
+                "trigger_event": notification_type,
+                "channel": CREDIT_NOTIFICATION_CHANNEL_SMS,
+                "template_code": str(type_policy.get("template_code") or "").strip(),
+                "enabled": _coerce_bool(type_policy.get("enabled")),
+                "conditions": conditions,
+                "legacy": True,
+            }
+        )
+    return rules
+
+
+def _notification_rules(policy: dict[str, object]) -> list[dict[str, object]]:
+    """Return configured rules, falling back to the legacy fixed policy."""
+    configured_rules = policy.get("rules")
+    if isinstance(configured_rules, list):
+        return [item for item in configured_rules if isinstance(item, dict)]
+    return _legacy_notification_rules(policy)
+
+
+def _matching_notification_rules(
+    policy: dict[str, object], trigger_event: str
+) -> list[dict[str, object]]:
+    if not _coerce_bool(policy.get("enabled")):
+        return []
+    return [
+        rule
+        for rule in _notification_rules(policy)
+        if str(rule.get("trigger_event") or "").strip() == trigger_event
+        and _coerce_bool(rule.get("enabled"))
+    ]
+
+
+def _rule_dedupe_key(base_key: str, rule: dict[str, object]) -> str:
+    if _coerce_bool(rule.get("legacy")):
+        return base_key
+    return f"{base_key}:rule:{str(rule.get('rule_bid') or '').strip()}"
+
+
 def _notification_type_enabled(
     policy: dict[str, object], notification_type: str
 ) -> bool:
     return _coerce_bool(policy.get("enabled")) and _coerce_bool(
         _type_policy(policy, notification_type).get("enabled")
+    )
+
+
+def _notification_record_rule_enabled(
+    policy: dict[str, object], notification: NotificationRecord
+) -> bool:
+    if not _coerce_bool(policy.get("enabled")):
+        return False
+    snapshot = notification.policy_snapshot_json
+    matched_rule = snapshot.get("matched_rule") if isinstance(snapshot, dict) else None
+    if not isinstance(matched_rule, dict):
+        return _notification_type_enabled(policy, notification.notification_type)
+    rule_bid = str(matched_rule.get("rule_bid") or "").strip()
+    return any(
+        str(rule.get("rule_bid") or "").strip() == rule_bid
+        and _coerce_bool(rule.get("enabled"))
+        for rule in _notification_rules(policy)
     )
 
 
@@ -667,6 +944,201 @@ def _supported_template_placeholders(notification_type: str) -> set[str]:
 def _extract_template_placeholders(template_content: object) -> list[str]:
     content = str(template_content or "")
     return sorted(set(_TEMPLATE_PLACEHOLDER_PATTERN.findall(content)))
+
+
+def _has_invalid_template_placeholder(template_content: object) -> bool:
+    content = str(template_content or "")
+    offset = 0
+    while True:
+        offset = content.find("${", offset)
+        if offset < 0:
+            return False
+        match = _TEMPLATE_PLACEHOLDER_PATTERN.match(content, offset)
+        if match is None:
+            return True
+        offset = match.end()
+
+
+def _rule_guaranteed_template_placeholders(
+    notification_type: str, rule: dict[str, object]
+) -> set[str]:
+    if notification_type == CREDIT_NOTIFICATION_TYPE_EXPIRING:
+        return {"credits", "expires_at", "window"}
+    if notification_type == CREDIT_NOTIFICATION_TYPE_GRANTED:
+        # Manual and non-order grants do not have a product or expiry date.
+        return {"credits", "source"}
+    if notification_type != CREDIT_NOTIFICATION_TYPE_LOW_BALANCE:
+        return set()
+
+    fixed = {"available_credits", "threshold", "threshold_kind"}
+    estimated = {
+        "available_credits",
+        "threshold_kind",
+        "trigger_days",
+        "lookback_days",
+        "avg_daily_consumption",
+        "estimated_remaining_days",
+    }
+    conditions = rule.get("conditions")
+    thresholds = conditions.get("thresholds") if isinstance(conditions, dict) else []
+    possible: list[set[str]] = []
+    for threshold in thresholds:
+        if not isinstance(threshold, dict):
+            continue
+        kind = str(threshold.get("kind") or "").strip()
+        if kind == LOW_BALANCE_THRESHOLD_KIND_FIXED:
+            possible.append(fixed)
+        elif kind == LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS:
+            possible.append(estimated)
+            if str(threshold.get("fallback_fixed_value") or "").strip():
+                # Sparse consumption history takes the fixed-credit fallback,
+                # which does not populate estimated-day-only parameters.
+                possible.append(fixed)
+    if not possible:
+        return set()
+    return set.intersection(*possible)
+
+
+def _email_template_placeholders(template: NotificationTemplate) -> list[str]:
+    return sorted(
+        set(
+            _extract_template_placeholders(template.template_content)
+            + _extract_template_placeholders(template.email_subject)
+            + _extract_template_placeholders(template.email_html_body)
+        )
+    )
+
+
+def _compatible_notification_types_for_placeholders(
+    placeholders: list[str],
+) -> list[str]:
+    return [
+        notification_type
+        for notification_type in (
+            CREDIT_NOTIFICATION_TYPE_EXPIRING,
+            CREDIT_NOTIFICATION_TYPE_GRANTED,
+            CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+        )
+        if set(placeholders).issubset(
+            _supported_template_placeholders(notification_type)
+        )
+    ]
+
+
+def _template_applicable_notification_types(
+    template: NotificationTemplate,
+    placeholders: list[str],
+) -> list[str]:
+    metadata = template.metadata_json
+    configured = (
+        metadata.get("applicable_notification_types")
+        if isinstance(metadata, dict)
+        else None
+    )
+    compatible = _compatible_notification_types_for_placeholders(placeholders)
+    if not isinstance(configured, list):
+        return compatible
+    configured_types = {str(item or "").strip() for item in configured}
+    return [
+        notification_type
+        for notification_type in compatible
+        if notification_type in configured_types
+    ]
+
+
+def _is_valid_email_recipient(value: object) -> bool:
+    return bool(_EMAIL_RECIPIENT_PATTERN.fullmatch(str(value or "").strip()))
+
+
+def load_creator_email_snapshot(creator_bid: str) -> str:
+    """Return the most recent verified email credential for a creator."""
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return ""
+    credentials = (
+        AuthCredential.query.filter(
+            AuthCredential.deleted == 0,
+            AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
+            AuthCredential.user_bid == normalized_creator_bid,
+            AuthCredential.provider_name.in_(["email", "google"]),
+        )
+        .order_by(AuthCredential.updated_at.desc(), AuthCredential.id.desc())
+        .all()
+    )
+    for credential in credentials:
+        email = str(credential.identifier or "").strip().lower()
+        if _is_valid_email_recipient(email):
+            return email
+    return ""
+
+
+def _creator_language(creator_bid: str) -> str:
+    creator = (
+        UserEntity.query.filter(
+            UserEntity.user_bid == _normalize_bid(creator_bid),
+            UserEntity.deleted == 0,
+        )
+        .order_by(UserEntity.id.desc())
+        .first()
+    )
+    return str(creator.language or "").strip() if creator is not None else ""
+
+
+def _email_template_code_for_creator(rule: dict[str, object], creator_bid: str) -> str:
+    """Select an operator-managed localized template, falling back to English."""
+    localized = rule.get("locale_template_codes")
+    language = _creator_language(creator_bid)
+    if isinstance(localized, dict) and language:
+        template_code = str(localized.get(language) or "").strip()
+        if template_code:
+            return template_code
+    return str(rule.get("template_code") or "").strip()
+
+
+def _notification_datetime_param(
+    app: Flask, value: datetime | None, rule: dict[str, object]
+) -> str:
+    if str(rule.get("channel") or "").strip() == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+        return to_utc_iso(value) or ""
+    return _serialize_dt(app, value)
+
+
+def _credit_grant_product_name(
+    ledger: CreditLedgerEntry,
+    rule: dict[str, object],
+) -> str:
+    metadata = ledger.metadata_json if isinstance(ledger.metadata_json, dict) else {}
+    order_bid = str(metadata.get("bill_order_bid") or "").strip()
+    if not order_bid and str(ledger.idempotency_key or "").startswith("grant:"):
+        order_bid = str(ledger.source_bid or "").strip()
+    if not order_bid:
+        return ""
+    order = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid == order_bid,
+        )
+        .order_by(BillingOrder.id.desc())
+        .first()
+    )
+    if order is None:
+        return ""
+    channel = str(rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
+    template_code = str(rule.get("template_code") or "").strip()
+    template = (
+        NotificationTemplate.query.filter(
+            NotificationTemplate.deleted == 0,
+            NotificationTemplate.channel == channel,
+            NotificationTemplate.template_code == template_code,
+        )
+        .order_by(NotificationTemplate.id.desc())
+        .first()
+    )
+    locale = str(template.locale or "").strip() if template is not None else ""
+    return resolve_notification_product_name(
+        order,
+        language=locale or "zh-CN",
+    )
 
 
 def _json_safe(value: object) -> object:
@@ -716,22 +1188,18 @@ def _serialize_template_option(
     *,
     source: str,
 ) -> dict[str, object]:
-    placeholders = [
-        str(item or "").strip()
-        for item in (template.placeholders_json or [])
-        if str(item or "").strip()
-    ]
-    compatible_notification_types = [
-        notification_type
-        for notification_type in (
-            CREDIT_NOTIFICATION_TYPE_EXPIRING,
-            CREDIT_NOTIFICATION_TYPE_GRANTED,
-            CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
-        )
-        if set(placeholders).issubset(
-            _supported_template_placeholders(notification_type)
-        )
-    ]
+    placeholders = (
+        _email_template_placeholders(template)
+        if template.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+        else [
+            str(item or "").strip()
+            for item in (template.placeholders_json or [])
+            if str(item or "").strip()
+        ]
+    )
+    compatible_notification_types = _template_applicable_notification_types(
+        template, placeholders
+    )
     return {
         "notification_template_bid": template.notification_template_bid,
         "channel": template.channel,
@@ -739,6 +1207,9 @@ def _serialize_template_option(
         "template_code": template.template_code,
         "template_name": template.template_name,
         "template_content": template.template_content or "",
+        "locale": template.locale or "",
+        "email_subject": template.email_subject or "",
+        "email_html_body": template.email_html_body or "",
         "template_status": template.template_status,
         "template_type": template.template_type,
         "sync_status": template.sync_status,
@@ -763,16 +1234,30 @@ def _format_operator_datetime(app: Flask, value: datetime | None) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _load_notification_template(template_code: str) -> NotificationTemplate | None:
-    return (
-        NotificationTemplate.query.filter(
-            NotificationTemplate.deleted == 0,
-            NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
-            NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
-            NotificationTemplate.template_code == template_code,
-        )
-        .order_by(NotificationTemplate.id.desc())
-        .first()
+def _load_notification_template(
+    template_code: str,
+    *,
+    channel: str = CREDIT_NOTIFICATION_CHANNEL_SMS,
+    provider: str = NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+    for_update: bool = False,
+) -> NotificationTemplate | None:
+    query = NotificationTemplate.query.filter(
+        NotificationTemplate.deleted == 0,
+        NotificationTemplate.channel == channel,
+        NotificationTemplate.provider == provider,
+        NotificationTemplate.template_code == template_code,
+    )
+    if for_update:
+        query = query.with_for_update()
+    return query.order_by(NotificationTemplate.id.desc()).first()
+
+
+def _is_notification_template_unique_constraint_error(exc: IntegrityError) -> bool:
+    error_message = str(getattr(exc, "orig", exc)).lower()
+    return "uq_notification_templates_channel_provider_code" in error_message or (
+        "notification_templates.channel" in error_message
+        and "notification_templates.provider" in error_message
+        and "notification_templates.template_code" in error_message
     )
 
 
@@ -785,7 +1270,22 @@ def _get_or_create_notification_template(
     template = _load_notification_template(template_code)
     if template is not None:
         return template
-    return _create_notification_template(app, template_code=template_code, now=now)
+    try:
+        with db.session.begin_nested():
+            template = _create_notification_template(
+                app,
+                template_code=template_code,
+                now=now,
+            )
+            db.session.flush()
+            return template
+    except IntegrityError as exc:
+        if not _is_notification_template_unique_constraint_error(exc):
+            raise
+        template = _load_notification_template(template_code, for_update=True)
+        if template is not None:
+            return template
+        raise
 
 
 def _create_notification_template(
@@ -839,6 +1339,248 @@ def _local_notification_template_options(app: Flask) -> list[dict[str, object]]:
     ]
 
 
+def list_credit_notification_email_templates(app: Flask) -> dict[str, object]:
+    """Return locally managed SMTP email templates."""
+    with _maybe_app_context(app):
+        provider_available = is_smtp_configured(app)
+        templates = (
+            NotificationTemplate.query.filter(
+                NotificationTemplate.deleted == 0,
+                NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
+            )
+            .order_by(
+                NotificationTemplate.updated_at.desc(), NotificationTemplate.id.desc()
+            )
+            .all()
+        )
+        return {
+            "items": [
+                _serialize_template_option(app, template, source="local")
+                for template in templates
+            ],
+            "source": "local",
+            "provider_available": provider_available,
+            "error_code": "" if provider_available else "smtp_configuration_missing",
+            "error_message": (
+                "" if provider_available else "SMTP relay configuration is incomplete."
+            ),
+        }
+
+
+def _normalize_email_template_payload(payload: dict[str, object]) -> dict[str, object]:
+    template_code = str(payload.get("template_code") or "").strip()
+    template_name = str(payload.get("template_name") or "").strip()
+    locale = str(payload.get("locale") or "en-US").strip()
+    subject = str(payload.get("email_subject") or "").strip()
+    html_body = str(payload.get("email_html_body") or "").strip()
+    status = str(
+        payload.get("template_status") or NOTIFICATION_TEMPLATE_STATUS_DRAFT
+    ).strip()
+    if len(template_code) > 128:
+        raise_param_error("template_code")
+    if not template_name or len(template_name) > 255:
+        raise_param_error("template_name")
+    if not locale or len(locale) > 16:
+        raise_param_error("locale")
+    if (
+        not subject
+        or not html_body
+        or len(subject) > EMAIL_TEMPLATE_SUBJECT_MAX_LENGTH
+        or len(html_body) > EMAIL_TEMPLATE_BODY_MAX_LENGTH
+    ):
+        raise_param_error("email_template_content")
+    if _has_invalid_template_placeholder(subject) or _has_invalid_template_placeholder(
+        html_body
+    ):
+        raise_param_error("email_template_placeholders")
+    if status not in {
+        NOTIFICATION_TEMPLATE_STATUS_DRAFT,
+        NOTIFICATION_TEMPLATE_STATUS_ACTIVE,
+        NOTIFICATION_TEMPLATE_STATUS_DISABLED,
+    }:
+        raise_param_error("template_status")
+    plain_body = _email_html_to_plain_text(html_body)
+    if not plain_body:
+        raise_param_error("email_template_content")
+    placeholders = sorted(
+        set(
+            _extract_template_placeholders(subject)
+            + _extract_template_placeholders(html_body)
+        )
+    )
+    raw_notification_types = payload.get("applicable_notification_types")
+    if raw_notification_types is None:
+        notification_types = _compatible_notification_types_for_placeholders(
+            placeholders
+        )
+    elif isinstance(raw_notification_types, list):
+        notification_types = [
+            str(item or "").strip() for item in raw_notification_types
+        ]
+    else:
+        notification_types = [
+            item.strip()
+            for item in str(raw_notification_types).split(",")
+            if item.strip()
+        ]
+    notification_types = list(dict.fromkeys(notification_types))
+    valid_notification_types = {
+        CREDIT_NOTIFICATION_TYPE_EXPIRING,
+        CREDIT_NOTIFICATION_TYPE_GRANTED,
+        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+    }
+    if any(item not in valid_notification_types for item in notification_types):
+        raise_param_error("applicable_notification_types")
+    compatible_notification_types = set(
+        _compatible_notification_types_for_placeholders(placeholders)
+    )
+    if any(item not in compatible_notification_types for item in notification_types):
+        raise_param_error("applicable_notification_types")
+    if status == NOTIFICATION_TEMPLATE_STATUS_ACTIVE and not notification_types:
+        raise_param_error("applicable_notification_types")
+    return {
+        "template_code": template_code,
+        "template_name": template_name,
+        "locale": locale,
+        "email_subject": subject,
+        "template_content": plain_body,
+        "email_html_body": html_body,
+        "template_status": status,
+        "placeholders": placeholders,
+        "applicable_notification_types": notification_types,
+    }
+
+
+def save_credit_notification_email_template(
+    app: Flask,
+    *,
+    payload: dict[str, object],
+    notification_template_bid: str = "",
+    updated_by: str = "",
+) -> dict[str, object]:
+    """Create or update one operator-managed SMTP email template."""
+    normalized_bid = _normalize_bid(notification_template_bid)
+    normalized = _normalize_email_template_payload(payload)
+    with _maybe_app_context(app), unit_of_work():
+        if normalized_bid:
+            template = (
+                NotificationTemplate.query.filter(
+                    NotificationTemplate.deleted == 0,
+                    NotificationTemplate.notification_template_bid == normalized_bid,
+                    NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                    NotificationTemplate.provider
+                    == NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
+                )
+                .with_for_update()
+                .first()
+            )
+            if template is None:
+                raise_param_error("notification_template_bid")
+            normalized["template_code"] = template.template_code
+            # Retain historic localized rows for a future rollout, while the
+            # current operator flow creates and edits English templates only.
+            normalized["locale"] = template.locale or "en-US"
+        else:
+            generated_template_code = f"EMAIL_{generate_id(app).upper()}"
+            normalized["template_code"] = generated_template_code
+            normalized["locale"] = "en-US"
+            template = _load_notification_template(
+                generated_template_code,
+                channel=CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                provider=NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
+                for_update=True,
+            )
+            if template is not None:
+                raise_param_error("template_code")
+            template = NotificationTemplate(
+                notification_template_bid=generate_id(app),
+                channel=CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                provider=NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
+                template_code=str(normalized["template_code"]),
+                deleted=0,
+            )
+        if template.template_code != normalized["template_code"]:
+            raise_param_error("template_code")
+        now = now_utc()
+        template.template_name = str(normalized["template_name"])
+        template.locale = str(normalized["locale"])
+        template.email_subject = str(normalized["email_subject"])
+        template.template_content = str(normalized["template_content"])
+        template.email_html_body = str(normalized["email_html_body"])
+        template.template_status = str(normalized["template_status"])
+        template.template_type = "email"
+        template.placeholders_json = list(normalized["placeholders"])
+        template.sync_status = NOTIFICATION_TEMPLATE_SYNC_STATUS_LOCAL
+        template.error_code = ""
+        template.error_message = ""
+        template.last_synced_at = now
+        template.updated_at = now
+        metadata = dict(template.metadata_json or {})
+        metadata["updated_by"] = _normalize_bid(updated_by)
+        metadata["applicable_notification_types"] = list(
+            normalized["applicable_notification_types"]
+        )
+        template.metadata_json = metadata
+        db.session.add(template)
+        db.session.flush()
+        _validate_credit_notification_policy_templates(
+            app, load_credit_notification_policy()
+        )
+        return _serialize_template_option(app, template, source="local")
+
+
+def update_credit_notification_email_template_status(
+    app: Flask,
+    *,
+    notification_template_bid: str,
+    template_status: str,
+    updated_by: str = "",
+) -> dict[str, object]:
+    """Update an operator-managed SMTP email template's availability only."""
+    normalized_bid = _normalize_bid(notification_template_bid)
+    normalized_status = str(template_status or "").strip()
+    if not normalized_bid:
+        raise_param_error("notification_template_bid")
+    if normalized_status not in {
+        NOTIFICATION_TEMPLATE_STATUS_DRAFT,
+        NOTIFICATION_TEMPLATE_STATUS_ACTIVE,
+        NOTIFICATION_TEMPLATE_STATUS_DISABLED,
+    }:
+        raise_param_error("template_status")
+    with _maybe_app_context(app), unit_of_work():
+        template = (
+            NotificationTemplate.query.filter(
+                NotificationTemplate.deleted == 0,
+                NotificationTemplate.notification_template_bid == normalized_bid,
+                NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
+            )
+            .with_for_update()
+            .first()
+        )
+        if template is None:
+            raise_param_error("notification_template_bid")
+        if (
+            normalized_status == NOTIFICATION_TEMPLATE_STATUS_ACTIVE
+            and not _template_applicable_notification_types(
+                template, _email_template_placeholders(template)
+            )
+        ):
+            raise_param_error("applicable_notification_types")
+        template.template_status = normalized_status
+        template.updated_at = now_utc()
+        metadata = dict(template.metadata_json or {})
+        metadata["updated_by"] = _normalize_bid(updated_by)
+        template.metadata_json = metadata
+        db.session.add(template)
+        db.session.flush()
+        _validate_credit_notification_policy_templates(
+            app, load_credit_notification_policy()
+        )
+        return _serialize_template_option(app, template, source="local")
+
+
 def _serialize_notification_template(
     app: Flask,
     template: NotificationTemplate,
@@ -846,10 +1588,14 @@ def _serialize_notification_template(
     notification_type: str,
 ) -> dict[str, object]:
     supported = sorted(_supported_template_placeholders(notification_type))
-    actual = sorted(
-        str(item or "").strip()
-        for item in (template.placeholders_json or [])
-        if str(item or "").strip()
+    actual = (
+        _email_template_placeholders(template)
+        if template.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+        else sorted(
+            str(item or "").strip()
+            for item in (template.placeholders_json or [])
+            if str(item or "").strip()
+        )
     )
     actual_set = set(actual)
     supported_set = set(supported)
@@ -864,11 +1610,17 @@ def _serialize_notification_template(
         "template_code": template.template_code,
         "template_name": template.template_name,
         "template_content": template.template_content or "",
+        "locale": template.locale or "",
+        "email_subject": template.email_subject or "",
+        "email_html_body": template.email_html_body or "",
         "template_status": template.template_status,
         "template_type": template.template_type,
         "variable_attribute": template.variable_attribute_json or {},
         "provider_response": template.provider_response_json or {},
         "placeholders": actual,
+        "applicable_notification_types": _template_applicable_notification_types(
+            template, actual
+        ),
         "supported_placeholders": supported,
         "unused_supported_placeholders": unused_supported,
         "unsupported_placeholders": unsupported,
@@ -876,9 +1628,29 @@ def _serialize_notification_template(
         "error_code": template.error_code,
         "error_message": template.error_message or "",
         "last_synced_at": _format_operator_datetime(app, template.last_synced_at),
-        "compatible": sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
+        "compatible": sync_status
+        in {
+            NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED,
+            NOTIFICATION_TEMPLATE_SYNC_STATUS_LOCAL,
+        }
         and not unsupported,
     }
+
+
+def _has_current_template_approval(
+    template: NotificationTemplate,
+    *,
+    now: datetime,
+) -> bool:
+    last_synced_at = template.last_synced_at
+    if last_synced_at is None:
+        return False
+    if now.tzinfo is not None:
+        now = now.astimezone(UTC).replace(tzinfo=None)
+    if last_synced_at.tzinfo is not None:
+        last_synced_at = last_synced_at.astimezone(UTC).replace(tzinfo=None)
+    approval_age = now - last_synced_at
+    return timedelta(0) <= approval_age <= NOTIFICATION_TEMPLATE_APPROVAL_MAX_AGE
 
 
 def _mark_template_sync_failed(
@@ -1108,7 +1880,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, object]:
                 continue
             template = existing_templates.get(template_code)
             if template is None:
-                template = _create_notification_template(
+                template = _get_or_create_notification_template(
                     app,
                     template_code=template_code,
                     now=now,
@@ -1162,13 +1934,29 @@ def _ensure_credit_notification_template_compatible(
     *,
     notification_type: str,
     template_code: str,
+    channel: str = CREDIT_NOTIFICATION_CHANNEL_SMS,
 ) -> dict[str, object]:
+    if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+        with _maybe_app_context(app):
+            template = _load_notification_template(
+                template_code,
+                channel=CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                provider=NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
+            )
+            if template is None:
+                return {"sync_status": "missing", "error_code": "template_missing"}
+            return _serialize_notification_template(
+                app,
+                template,
+                notification_type=notification_type,
+            )
     with _maybe_app_context(app):
         template = _load_notification_template(template_code)
         if (
             template is not None
             and template.sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
             and not _aliyun_sms_credentials_configured(app)
+            and _has_current_template_approval(template, now=now_utc())
         ):
             return _serialize_notification_template(
                 app,
@@ -1187,35 +1975,101 @@ def _validate_credit_notification_policy_templates(
 ) -> None:
     if not _coerce_bool(policy.get("enabled")):
         return
-    for notification_type in (
-        CREDIT_NOTIFICATION_TYPE_EXPIRING,
-        CREDIT_NOTIFICATION_TYPE_GRANTED,
-        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
-    ):
-        if not _notification_type_enabled(policy, notification_type):
+    for rule in _notification_rules(policy):
+        notification_type = str(rule.get("trigger_event") or "").strip()
+        channel = str(rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
+        if not _coerce_bool(rule.get("enabled")):
             continue
-        template_code = _template_code(policy, notification_type)
-        if not template_code:
-            continue
-        result = _ensure_credit_notification_template_compatible(
-            app,
-            notification_type=notification_type,
-            template_code=template_code,
-        )
-        if result.get("sync_status") != NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED:
-            error_code = str(result.get("error_code") or "sync_failed")
-            raise_param_error(f"types.{notification_type}.template_code:{error_code}")
-        unsupported = [
-            str(item or "").strip()
-            for item in result.get("unsupported_placeholders", [])
-            if str(item or "").strip()
-        ]
-        if unsupported:
-            raise_param_error(
-                "types."
-                f"{notification_type}.template_code unsupported placeholders: "
-                f"{','.join(sorted(unsupported))}"
+        template_codes = [str(rule.get("template_code") or "").strip()]
+        localized = rule.get("locale_template_codes")
+        if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL and isinstance(localized, dict):
+            template_codes.extend(
+                str(value or "").strip() for value in localized.values()
             )
+        template_codes = [
+            template_code for template_code in template_codes if template_code
+        ]
+        if not template_codes:
+            continue
+        for template_code in template_codes:
+            result = _ensure_credit_notification_template_compatible(
+                app,
+                notification_type=notification_type,
+                template_code=template_code,
+                channel=channel,
+            )
+            expected_sync_status = (
+                NOTIFICATION_TEMPLATE_SYNC_STATUS_LOCAL
+                if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+                else NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
+            )
+            if result.get("sync_status") != expected_sync_status:
+                error_code = str(result.get("error_code") or "sync_failed")
+                raise_param_error(
+                    f"rules.{rule.get('rule_bid')}.template_code:{error_code}"
+                )
+            expected_template_status = (
+                NOTIFICATION_TEMPLATE_STATUS_ACTIVE
+                if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+                else "AUDIT_STATE_PASS"
+            )
+            if (
+                str(result.get("template_status") or "").strip()
+                != expected_template_status
+            ):
+                raise_param_error(
+                    f"rules.{rule.get('rule_bid')}.template_code:template_not_approved"
+                )
+            if (
+                channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+                and notification_type
+                not in result.get("applicable_notification_types", [])
+            ):
+                raise_param_error(
+                    f"rules.{rule.get('rule_bid')}.template_code:template_event_not_supported"
+                )
+            unsupported = [
+                str(item or "").strip()
+                for item in result.get("unsupported_placeholders", [])
+                if str(item or "").strip()
+            ]
+            if unsupported:
+                raise_param_error(
+                    "rules."
+                    f"{rule.get('rule_bid')}.template_code unsupported placeholders: "
+                    f"{','.join(sorted(unsupported))}"
+                )
+            if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+                unsatisfied = sorted(
+                    set(result.get("placeholders") or [])
+                    - _rule_guaranteed_template_placeholders(notification_type, rule)
+                )
+                if unsatisfied:
+                    raise_param_error(
+                        "rules."
+                        f"{rule.get('rule_bid')}.template_code:"
+                        f"template_params_unsatisfied:{','.join(unsatisfied)}"
+                    )
+            if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+                template_locale = str(result.get("locale") or "").strip()
+                if template_code == str(rule.get("template_code") or "").strip():
+                    if template_locale != "en-US":
+                        raise_param_error(
+                            f"rules.{rule.get('rule_bid')}.template_code:english_fallback_required"
+                        )
+                elif isinstance(localized, dict):
+                    configured_locale = next(
+                        (
+                            str(locale).strip()
+                            for locale, configured_code in localized.items()
+                            if str(configured_code or "").strip() == template_code
+                        ),
+                        "",
+                    )
+                    if template_locale != configured_locale:
+                        raise_param_error(
+                            f"rules.{rule.get('rule_bid')}.locale_template_codes:locale_mismatch"
+                        )
 
 
 def _estimated_sms_cost(policy: dict[str, object], count: int) -> str:
@@ -1308,6 +2162,35 @@ def _normalize_sms_template_params(
     if "expires_at" in normalized:
         normalized["expires_at"] = _format_sms_datetime(app, normalized["expires_at"])
     return normalized
+
+
+def _render_email_template(
+    template: NotificationTemplate,
+    params: dict[str, object],
+) -> tuple[str, str, str, list[str]]:
+    """Render a managed email template without exposing raw template content."""
+    normalized = {key: str(value or "").strip() for key, value in params.items()}
+    placeholders = _email_template_placeholders(template)
+    missing = [key for key in placeholders if not normalized.get(key)]
+    if missing:
+        return "", "", "", missing
+
+    def render(value: object, *, html: bool) -> str:
+        return _TEMPLATE_PLACEHOLDER_PATTERN.sub(
+            lambda match: (
+                escape_html(normalized[match.group(1)])
+                if html
+                else normalized[match.group(1)]
+            ),
+            str(value or ""),
+        )
+
+    return (
+        render(template.email_subject, html=False),
+        render(template.template_content, html=False),
+        render(template.email_html_body, html=True),
+        [],
+    )
 
 
 def _amount_text(value: object) -> str:
@@ -1405,6 +2288,7 @@ def _stage_notification_record(
     template_params: dict[str, object],
     metadata: dict[str, object] | None = None,
     policy: dict[str, object] | None = None,
+    rule: dict[str, object] | None = None,
 ) -> CreditNotificationStageResult:
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_source_bid = _normalize_bid(source_bid)
@@ -1424,7 +2308,13 @@ def _stage_notification_record(
         )
 
     resolved_policy = policy or load_credit_notification_policy()
-    if not _notification_type_enabled(resolved_policy, notification_type):
+    resolved_rule = rule
+    if resolved_rule is None:
+        matching_rules = _matching_notification_rules(
+            resolved_policy, notification_type
+        )
+        resolved_rule = matching_rules[0] if matching_rules else None
+    if resolved_rule is None:
         return CreditNotificationStageResult(
             status="noop_disabled",
             notification_type=notification_type,
@@ -1475,37 +2365,62 @@ def _stage_notification_record(
         )
 
     now = now_utc()
-    mobile = load_creator_mobile_snapshot(normalized_creator_bid)
+    channel = str(
+        resolved_rule.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS
+    ).strip()
+    mobile = ""
+    recipient_type = CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE
+    recipient_snapshot = ""
     notification_status = CREDIT_NOTIFICATION_STATUS_PENDING
     error_code = ""
     error_message = ""
     attempted_at = None
-    if not mobile:
-        notification_status = CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
-        error_code = "missing_mobile"
-        error_message = "Creator mobile is empty."
-        attempted_at = now
-    elif not _is_valid_sms_mobile(mobile):
-        notification_status = CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
-        error_code = "invalid_mobile"
-        error_message = "Creator mobile is invalid."
-        attempted_at = now
+    if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+        recipient_type = CREDIT_NOTIFICATION_RECIPIENT_TYPE_EMAIL
+        recipient_snapshot = load_creator_email_snapshot(normalized_creator_bid)
+        selected_template_code = _email_template_code_for_creator(
+            resolved_rule, normalized_creator_bid
+        )
+        if not recipient_snapshot:
+            notification_status = CREDIT_NOTIFICATION_STATUS_SKIPPED
+            error_code = "missing_email"
+            error_message = "Creator has no verified email."
+            attempted_at = now
+    else:
+        mobile = load_creator_mobile_snapshot(normalized_creator_bid)
+        recipient_snapshot = mobile
+        if not mobile:
+            notification_status = CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+            error_code = "missing_mobile"
+            error_message = "Creator mobile is empty."
+            attempted_at = now
+        elif not _is_valid_sms_mobile(mobile):
+            notification_status = CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+            error_code = "invalid_mobile"
+            error_message = "Creator mobile is invalid."
+            attempted_at = now
     notification = NotificationRecord(
         notification_bid=generate_id(app),
         notification_type=notification_type,
-        channel=CREDIT_NOTIFICATION_CHANNEL_SMS,
+        channel=channel,
         creator_bid=normalized_creator_bid,
         target_user_bid=normalized_creator_bid,
+        recipient_type=recipient_type,
+        recipient_snapshot=recipient_snapshot,
         mobile_snapshot=mobile,
         source_type=source_type,
         source_bid=normalized_source_bid,
         dedupe_key=normalized_dedupe_key,
         status=notification_status,
-        template_code=_template_code(resolved_policy, notification_type),
+        template_code=(
+            selected_template_code
+            if channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+            else str(resolved_rule.get("template_code") or "").strip()
+        ),
         template_params_json={
             key: str(value or "").strip() for key, value in template_params.items()
         },
-        policy_snapshot_json=resolved_policy,
+        policy_snapshot_json={**resolved_policy, "matched_rule": resolved_rule},
         provider_response_json={},
         error_code=error_code,
         error_message=error_message,
@@ -1571,6 +2486,7 @@ def _stage_scan_notification_isolated(
     template_params: dict[str, object],
     metadata: dict[str, object] | None,
     policy: dict[str, object],
+    rule: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Stage one scan candidate in its own transaction.
 
@@ -1591,6 +2507,7 @@ def _stage_scan_notification_isolated(
                 template_params=template_params,
                 metadata=metadata,
                 policy=policy,
+                rule=rule,
             )
     except Exception:
         # exc_info carries the exception; keep provider error strings (which
@@ -1666,50 +2583,76 @@ def stage_credit_granted_notification(
         if ledger is None:
             return CreditNotificationStageResult(status="not_found").to_payload()
 
-        def _stage() -> CreditNotificationStageResult:
+        policy = load_credit_notification_policy()
+        rules = _matching_notification_rules(policy, CREDIT_NOTIFICATION_TYPE_GRANTED)
+
+        def _stage(rule: dict[str, object]) -> CreditNotificationStageResult:
+            template_params: dict[str, object] = {
+                "credits": _amount_text(ledger.amount),
+                "source": str(
+                    (ledger.metadata_json or {}).get("grant_source")
+                    or ledger.source_type
+                ),
+                "expires_at": _notification_datetime_param(
+                    app, ledger.expires_at, rule
+                ),
+            }
+            if product_name := _credit_grant_product_name(ledger, rule):
+                template_params["product"] = product_name
             return _stage_notification_record(
                 app,
                 notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
                 creator_bid=ledger.creator_bid,
                 source_type=SOURCE_TYPE_LEDGER,
                 source_bid=ledger.ledger_bid,
-                dedupe_key=build_credit_granted_dedupe_key(ledger.ledger_bid),
-                template_params={
-                    "credits": _amount_text(ledger.amount),
-                    "source": str(
-                        (ledger.metadata_json or {}).get("grant_source")
-                        or ledger.source_type
-                    ),
-                    "expires_at": _serialize_dt(app, ledger.expires_at),
-                },
+                dedupe_key=_rule_dedupe_key(
+                    build_credit_granted_dedupe_key(ledger.ledger_bid), rule
+                ),
+                template_params=template_params,
                 metadata={
                     "wallet_bucket_bid": ledger.wallet_bucket_bid,
                     "ledger_bid": ledger.ledger_bid,
                 },
+                policy=policy,
+                rule=rule,
             )
 
         if commit:
             # This call owns the transaction for the staged row.
             with unit_of_work():
-                result = _stage()
+                results = [_stage(rule) for rule in rules]
         else:
             # Legacy contract: with commit=False the CALLER owns the
             # transaction boundary. The staged row is only flushed here and
             # commits or rolls back with the caller's flow (renewal, trials,
             # paid_side_effects, and manual_plan_grants all pass commit=False
             # and persist it themselves).
-            result = _stage()
-        payload = result.to_payload()
+            results = [_stage(rule) for rule in rules]
+        if not results:
+            return CreditNotificationStageResult(
+                status="noop_disabled",
+                notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+                creator_bid=ledger.creator_bid,
+                source_type=SOURCE_TYPE_LEDGER,
+                source_bid=ledger.ledger_bid,
+            ).to_payload()
+        payload = results[0].to_payload()
+        payload["notifications"] = [result.to_payload() for result in results]
     if enqueue:
-        if payload.get("status") == CREDIT_NOTIFICATION_STATUS_PENDING:
-            notification_bid = str(payload.get("notification_bid") or "")
+        for result in payload.get("notifications", [payload]):
+            if result.get("status") != CREDIT_NOTIFICATION_STATUS_PENDING:
+                continue
+            notification_bid = str(result.get("notification_bid") or "")
 
-            def _dispatch() -> None:
+            def _dispatch(
+                notification_bid: str = notification_bid,
+                notification_payload: dict[str, object] = result,
+            ) -> None:
                 enqueue_result = enqueue_credit_notification(
                     app,
                     notification_bid=notification_bid,
                 )
-                payload["enqueued"] = bool(enqueue_result.get("enqueued"))
+                notification_payload["enqueued"] = bool(enqueue_result.get("enqueued"))
 
             # External celery dispatch. Outside any unit of work this runs
             # immediately, so the payload reports the real enqueue outcome
@@ -1717,8 +2660,9 @@ def stage_credit_granted_notification(
             # work it is deferred until the staged row is durable and dropped
             # on rollback (the payload then still reports enqueued=False).
             uow.on_commit(_dispatch)
-        else:
-            payload["enqueued"] = False
+        payload["enqueued"] = bool(
+            payload.get("notifications", [payload])[0].get("enqueued")
+        )
     return payload
 
 
@@ -1754,6 +2698,20 @@ def stage_credit_granted_notification_for_order(
         ledger_bid=ledger_bid,
         commit=commit,
         enqueue=enqueue,
+    )
+
+
+def pending_credit_notification_bids(payload: dict[str, object]) -> tuple[str, ...]:
+    """Return every pending notification bid from a staging result."""
+    candidates = payload.get("notifications")
+    if not isinstance(candidates, list):
+        candidates = [payload]
+    return tuple(
+        notification_bid
+        for item in candidates
+        if isinstance(item, dict)
+        and item.get("status") == CREDIT_NOTIFICATION_STATUS_PENDING
+        and (notification_bid := str(item.get("notification_bid") or "").strip())
     )
 
 
@@ -1871,13 +2829,19 @@ def scan_credit_expiring_notifications(
     now: datetime | None = None,
     creator_bid: str = "",
     dry_run: bool = False,
+    _rule: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Scan expiring credits and create or preview eligible notifications."""
     scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with _maybe_app_context(app):
         policy = load_credit_notification_policy()
-        if not _notification_type_enabled(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING):
+        rules = (
+            [_rule]
+            if _rule is not None
+            else _matching_notification_rules(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING)
+        )
+        if not rules:
             return {
                 "status": "noop_disabled",
                 "candidate_count": 0,
@@ -1886,7 +2850,52 @@ def scan_credit_expiring_notifications(
                 "dry_run": dry_run,
                 "notifications": [],
             }
-        type_policy = _type_policy(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING)
+        if _rule is None and len(rules) > 1:
+            results = [
+                scan_credit_expiring_notifications(
+                    app,
+                    now=scan_now,
+                    creator_bid=normalized_creator_bid,
+                    dry_run=dry_run,
+                    _rule=rule,
+                )
+                for rule in rules
+            ]
+            notifications = [
+                item for result in results for item in result.get("notifications", [])
+            ]
+            candidate_count = sum(
+                int(result.get("candidate_count") or 0) for result in results
+            )
+            return {
+                "status": "created" if candidate_count else "noop",
+                "candidate_count": candidate_count,
+                "created_count": sum(
+                    int(result.get("created_count") or 0) for result in results
+                ),
+                "enqueued_count": sum(
+                    int(result.get("enqueued_count") or 0) for result in results
+                ),
+                "estimated_sms_cost": str(
+                    _quantize_credit_amount(
+                        sum(
+                            (
+                                _to_decimal(result.get("estimated_sms_cost"))
+                                for result in results
+                            ),
+                            start=_ZERO,
+                        )
+                    )
+                )
+                if dry_run
+                else "0",
+                "dry_run": dry_run,
+                "notifications": notifications,
+            }
+        rule = rules[0]
+        type_policy = rule.get("conditions")
+        if not isinstance(type_policy, dict):
+            type_policy = {}
         windows = type_policy.get("windows")
         if not isinstance(windows, list):
             windows = ["7d", "3d", "1d", "0d"]
@@ -1955,17 +2964,20 @@ def scan_credit_expiring_notifications(
                         group["wallet_bid"] = bucket.wallet_bid
 
                 for group in grouped.values():
-                    dedupe_key = build_credit_expiring_creator_dedupe_key(
-                        str(group.get("creator_bid") or ""),
-                        window,
-                        scan_now.date(),
+                    dedupe_key = _rule_dedupe_key(
+                        build_credit_expiring_creator_dedupe_key(
+                            str(group.get("creator_bid") or ""),
+                            window,
+                            scan_now.date(),
+                        ),
+                        rule,
                     )
                     existing = _find_credit_expiring_creator_window_record(
                         creator_bid=str(group.get("creator_bid") or ""),
                         window=window,
                         now=scan_now,
                     )
-                    if existing is not None:
+                    if existing is not None and _coerce_bool(rule.get("legacy")):
                         notifications.append(
                             _suppressed_duplicate_result(existing).to_payload()
                         )
@@ -1993,9 +3005,8 @@ def scan_credit_expiring_notifications(
                             dedupe_key=dedupe_key,
                             template_params={
                                 "credits": _amount_text(group["available_credits"]),
-                                "expires_at": _serialize_dt(
-                                    app,
-                                    group.get("effective_to"),
+                                "expires_at": _notification_datetime_param(
+                                    app, group.get("effective_to"), rule
                                 ),
                                 "window": window,
                             },
@@ -2008,6 +3019,7 @@ def scan_credit_expiring_notifications(
                                 "window": window,
                             },
                             policy=policy,
+                            rule=rule,
                         )
                     )
                 continue
@@ -2018,9 +3030,12 @@ def scan_credit_expiring_notifications(
                     creator_eligibility_cache,
                 ):
                     continue
-                dedupe_key = build_credit_expiring_dedupe_key(
-                    bucket.wallet_bucket_bid,
-                    window,
+                dedupe_key = _rule_dedupe_key(
+                    build_credit_expiring_dedupe_key(
+                        bucket.wallet_bucket_bid,
+                        window,
+                    ),
+                    rule,
                 )
                 if dry_run:
                     notifications.append(
@@ -2043,7 +3058,9 @@ def scan_credit_expiring_notifications(
                         dedupe_key=dedupe_key,
                         template_params={
                             "credits": _amount_text(bucket.available_credits),
-                            "expires_at": _serialize_dt(app, bucket.effective_to),
+                            "expires_at": _notification_datetime_param(
+                                app, bucket.effective_to, rule
+                            ),
                             "window": window,
                         },
                         metadata={
@@ -2052,6 +3069,7 @@ def scan_credit_expiring_notifications(
                             "window": window,
                         },
                         policy=policy,
+                        rule=rule,
                     )
                 )
     _dispatch_scan_notification_enqueues(app, notifications, dry_run=dry_run)
@@ -2238,13 +3256,21 @@ def scan_low_balance_notifications(
     now: datetime | None = None,
     creator_bid: str = "",
     dry_run: bool = False,
+    _rule: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Scan low balances and create or preview eligible notifications."""
     scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with _maybe_app_context(app):
         policy = load_credit_notification_policy()
-        if not _notification_type_enabled(policy, CREDIT_NOTIFICATION_TYPE_LOW_BALANCE):
+        rules = (
+            [_rule]
+            if _rule is not None
+            else _matching_notification_rules(
+                policy, CREDIT_NOTIFICATION_TYPE_LOW_BALANCE
+            )
+        )
+        if not rules:
             return {
                 "status": "noop_disabled",
                 "candidate_count": 0,
@@ -2253,7 +3279,55 @@ def scan_low_balance_notifications(
                 "dry_run": dry_run,
                 "notifications": [],
             }
-        thresholds = _load_low_balance_thresholds(policy)
+        if _rule is None and len(rules) > 1:
+            results = [
+                scan_low_balance_notifications(
+                    app,
+                    now=scan_now,
+                    creator_bid=normalized_creator_bid,
+                    dry_run=dry_run,
+                    _rule=rule,
+                )
+                for rule in rules
+            ]
+            notifications = [
+                item for result in results for item in result.get("notifications", [])
+            ]
+            candidate_count = sum(
+                int(result.get("candidate_count") or 0) for result in results
+            )
+            return {
+                "status": "created" if candidate_count else "noop",
+                "candidate_count": candidate_count,
+                "created_count": sum(
+                    int(result.get("created_count") or 0) for result in results
+                ),
+                "enqueued_count": sum(
+                    int(result.get("enqueued_count") or 0) for result in results
+                ),
+                "estimated_sms_cost": str(
+                    _quantize_credit_amount(
+                        sum(
+                            (
+                                _to_decimal(result.get("estimated_sms_cost"))
+                                for result in results
+                            ),
+                            start=_ZERO,
+                        )
+                    )
+                )
+                if dry_run
+                else "0",
+                "dry_run": dry_run,
+                "notifications": notifications,
+            }
+        rule = rules[0]
+        conditions = rule.get("conditions")
+        thresholds = (
+            conditions.get("thresholds") if isinstance(conditions, dict) else None
+        )
+        if not isinstance(thresholds, list):
+            thresholds = _load_low_balance_thresholds(policy)
         query = CreditWallet.query.filter(
             CreditWallet.deleted == 0,
             CreditWallet.creator_bid != "",
@@ -2487,11 +3561,9 @@ def scan_low_balance_notifications(
                 else:
                     continue
 
+                dedupe_key = _rule_dedupe_key(dedupe_key, rule)
                 missing_template_params = _missing_template_params(
-                    template_code=_template_code(
-                        policy,
-                        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
-                    ),
+                    template_code=str(rule.get("template_code") or "").strip(),
                     template_params=template_params,
                 )
                 if missing_template_params:
@@ -2551,6 +3623,7 @@ def scan_low_balance_notifications(
                         template_params=template_params,
                         metadata=metadata,
                         policy=policy,
+                        rule=rule,
                     )
                 )
     _dispatch_scan_notification_enqueues(app, notifications, dry_run=dry_run)
@@ -2643,7 +3716,7 @@ def _is_blocked_by_policy(
     policy: dict[str, object],
     *,
     notification: NotificationRecord,
-    mobile: str,
+    recipient: str,
     now: datetime,
 ) -> tuple[bool, str]:
     opt_out = policy.get("opt_out")
@@ -2654,7 +3727,10 @@ def _is_blocked_by_policy(
             for item in opt_out.get("mobiles", [])
             if _normalize_bid(item)
         }
-        if notification.creator_bid in creator_bids or mobile in mobiles:
+        if notification.creator_bid in creator_bids or (
+            notification.channel == CREDIT_NOTIFICATION_CHANNEL_SMS
+            and recipient in mobiles
+        ):
             return True, "opt_out"
 
     blacklist = policy.get("blacklist")
@@ -2665,35 +3741,47 @@ def _is_blocked_by_policy(
             for item in blacklist.get("mobiles", [])
             if _normalize_bid(item)
         }
-        if notification.creator_bid in creator_bids or mobile in mobiles:
+        if notification.creator_bid in creator_bids or (
+            notification.channel == CREDIT_NOTIFICATION_CHANNEL_SMS
+            and recipient in mobiles
+        ):
             return True, "blacklisted"
     if _is_quiet_hours(policy, now=now):
         return True, "quiet_hours"
 
     frequency = policy.get("frequency")
     if isinstance(frequency, dict):
-        per_mobile = _coerce_positive_int(frequency.get("per_mobile_per_day"), 0)
+        per_recipient = _coerce_positive_int(
+            frequency.get("per_mobile_per_day"),
+            0,
+        )
         per_creator_type = _coerce_positive_int(
             frequency.get("per_creator_per_type_per_day"),
             0,
         )
         day_start, day_end = _today_bounds(now)
-        if per_mobile > 0:
-            mobile_count = NotificationRecord.query.filter(
+        if per_recipient > 0:
+            recipient_column = (
+                NotificationRecord.mobile_snapshot
+                if notification.channel == CREDIT_NOTIFICATION_CHANNEL_SMS
+                else NotificationRecord.recipient_snapshot
+            )
+            recipient_count = NotificationRecord.query.filter(
                 NotificationRecord.deleted == 0,
-                NotificationRecord.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
-                NotificationRecord.mobile_snapshot == mobile,
+                NotificationRecord.channel == notification.channel,
+                recipient_column == recipient,
                 NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SENT,
                 NotificationRecord.sent_at >= day_start,
                 NotificationRecord.sent_at < day_end,
             ).count()
-            if mobile_count >= per_mobile:
+            if recipient_count >= per_recipient:
                 return True, "frequency_mobile_daily"
         if per_creator_type > 0:
             creator_type_count = NotificationRecord.query.filter(
                 NotificationRecord.deleted == 0,
                 NotificationRecord.creator_bid == notification.creator_bid,
                 NotificationRecord.notification_type == notification.notification_type,
+                NotificationRecord.channel == notification.channel,
                 NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SENT,
                 NotificationRecord.sent_at >= day_start,
                 NotificationRecord.sent_at < day_end,
@@ -2730,6 +3818,11 @@ def _finalize_notification(
 ) -> None:
     notification.status = status
     notification.mobile_snapshot = mobile or notification.mobile_snapshot or ""
+    if notification.channel == CREDIT_NOTIFICATION_CHANNEL_SMS:
+        notification.recipient_type = CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE
+        notification.recipient_snapshot = (
+            mobile or notification.recipient_snapshot or notification.mobile_snapshot
+        )
     notification.attempted_at = now
     if status == CREDIT_NOTIFICATION_STATUS_SENT:
         notification.sent_at = now
@@ -2793,7 +3886,7 @@ def deliver_credit_notification(
 
         now = now_utc()
         policy = load_credit_notification_policy()
-        if not _notification_type_enabled(policy, notification.notification_type):
+        if not _notification_record_rule_enabled(policy, notification):
             _finalize_notification(
                 notification,
                 status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
@@ -2803,6 +3896,166 @@ def deliver_credit_notification(
             )
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                "notification_bid": notification.notification_bid,
+                "notification_status": notification.status,
+            }
+
+        if (
+            notification.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL
+            and _should_skip_low_balance_zero_without_remaining_days(
+                notification.notification_type,
+                notification.template_params_json,
+            )
+        ):
+            reason = "zero_balance_missing_estimated_remaining_days"
+            _finalize_notification(
+                notification,
+                status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                now=now,
+                error_code=reason,
+                error_message=(
+                    "Low balance notification has zero available credits and "
+                    "empty estimated remaining days."
+                ),
+            )
+            return {
+                "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                "notification_bid": notification.notification_bid,
+                "notification_status": notification.status,
+                "reason": reason,
+            }
+
+        if notification.channel == CREDIT_NOTIFICATION_CHANNEL_EMAIL:
+            recipient = str(notification.recipient_snapshot or "").strip().lower()
+            if not _is_valid_email_recipient(recipient):
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_SKIPPED,
+                    now=now,
+                    error_code="missing_email",
+                    error_message="Creator has no verified email.",
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_SKIPPED,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                }
+            blocked, reason = _is_blocked_by_policy(
+                policy,
+                notification=notification,
+                recipient=recipient,
+                now=now,
+            )
+            if blocked:
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                    now=now,
+                    error_code=reason,
+                    error_message="Notification is blocked by policy.",
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                }
+            template = _load_notification_template(
+                str(notification.template_code or "").strip(),
+                channel=CREDIT_NOTIFICATION_CHANNEL_EMAIL,
+                provider=NOTIFICATION_TEMPLATE_PROVIDER_SMTP,
+            )
+            if (
+                template is None
+                or template.template_status != NOTIFICATION_TEMPLATE_STATUS_ACTIVE
+            ):
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                    now=now,
+                    error_code="email_template_unavailable",
+                    error_message="Email template is unavailable.",
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                }
+            subject, plain_body, html_body, missing = _render_email_template(
+                template, dict(notification.template_params_json or {})
+            )
+            if missing:
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_SKIPPED,
+                    now=now,
+                    error_code="missing_template_params",
+                    error_message="Email template requires missing parameters.",
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_SKIPPED,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                }
+            try:
+                response = send_smtp_email(
+                    app,
+                    recipient=recipient,
+                    subject=subject,
+                    plain_body=plain_body,
+                    html_body=html_body,
+                )
+            except SmtpConfigurationError as exc:
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                    now=now,
+                    error_code="smtp_configuration_error",
+                    error_message=str(exc),
+                    provider_response={"provider": "smtp", "error": str(exc)},
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                    "error_code": "smtp_configuration_error",
+                }
+            except (OSError, RuntimeError, ValueError) as exc:
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                    now=now,
+                    error_code="smtp_exception",
+                    error_message=str(exc),
+                    provider_response={"provider": "smtp", "error": str(exc)},
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                    "error_code": "smtp_exception",
+                }
+            _finalize_notification(
+                notification,
+                status=CREDIT_NOTIFICATION_STATUS_SENT,
+                now=now,
+                provider_response=response,
+            )
+            return {
+                "status": CREDIT_NOTIFICATION_STATUS_SENT,
+                "notification_bid": notification.notification_bid,
+                "notification_status": notification.status,
+            }
+
+        if notification.channel != CREDIT_NOTIFICATION_CHANNEL_SMS:
+            _finalize_notification(
+                notification,
+                status=CREDIT_NOTIFICATION_STATUS_SKIPPED,
+                now=now,
+                error_code="unsupported_channel",
+                error_message="Notification channel is not available.",
+            )
+            return {
+                "status": CREDIT_NOTIFICATION_STATUS_SKIPPED,
                 "notification_bid": notification.notification_bid,
                 "notification_status": notification.status,
             }
@@ -2839,7 +4092,7 @@ def deliver_credit_notification(
         blocked, reason = _is_blocked_by_policy(
             policy,
             notification=notification,
-            mobile=mobile,
+            recipient=mobile,
             now=now,
         )
         if blocked:
@@ -2850,29 +4103,6 @@ def deliver_credit_notification(
                 mobile=mobile,
                 error_code=reason,
                 error_message=f"Notification blocked by policy: {reason}.",
-            )
-            return {
-                "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
-                "notification_bid": notification.notification_bid,
-                "notification_status": notification.status,
-                "reason": reason,
-            }
-
-        if _should_skip_low_balance_zero_without_remaining_days(
-            notification.notification_type,
-            notification.template_params_json,
-        ):
-            reason = "zero_balance_missing_estimated_remaining_days"
-            _finalize_notification(
-                notification,
-                status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
-                now=now,
-                mobile=mobile,
-                error_code=reason,
-                error_message=(
-                    "Low balance notification has zero available credits and "
-                    "empty estimated remaining days."
-                ),
             )
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
@@ -2932,6 +4162,28 @@ def deliver_credit_notification(
                     "notification_status": notification.status,
                     "reason": reason,
                     "missing_template_params": missing_template_params,
+                }
+            if _should_skip_low_balance_zero_without_remaining_days(
+                notification.notification_type,
+                template_params,
+            ):
+                reason = "zero_balance_missing_estimated_remaining_days"
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                    now=now,
+                    mobile=mobile,
+                    error_code=reason,
+                    error_message=(
+                        "Low balance notification has zero available credits and "
+                        "empty estimated remaining days."
+                    ),
+                )
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                    "reason": reason,
                 }
 
         try:
@@ -3163,10 +4415,17 @@ def _resolve_notification_delivery_status(status: str) -> str:
 def _resolve_notification_skip_reason(status: str, error_code: str = "") -> str:
     normalized_status = str(status or "").strip()
     normalized_error_code = str(error_code or "").strip()
-    if normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE:
+    if normalized_error_code == "unsupported_channel":
+        return CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL
+    if normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE or (
+        normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED
+        and normalized_error_code in {"missing_email", "invalid_email"}
+    ):
         return CREDIT_NOTIFICATION_SKIP_REASON_CONTACT
     if normalized_status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE:
         return CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE
+    if normalized_error_code == "missing_template_params":
+        return CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS
     if (
         normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED
         or normalized_error_code == "expiry_extended"
@@ -3201,17 +4460,35 @@ def _notification_skip_reason_condition(
     contact_condition = (
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
     )
+    contact_condition = or_(
+        contact_condition,
+        (NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED)
+        & NotificationRecord.error_code.in_(("missing_email", "invalid_email")),
+    )
     duplicate_condition = (
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE
     )
+    channel_condition = NotificationRecord.error_code == "unsupported_channel"
     stale_condition = or_(
-        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED,
+        (NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED)
+        & ~or_(
+            contact_condition,
+            channel_condition,
+            NotificationRecord.error_code == "missing_template_params",
+        ),
         NotificationRecord.error_code == "expiry_extended",
     )
     template_params_condition = (
         NotificationRecord.error_code == "missing_template_params"
-    ) & ~or_(contact_condition, duplicate_condition, stale_condition)
+    ) & ~or_(
+        contact_condition,
+        duplicate_condition,
+        channel_condition,
+        stale_condition,
+    )
 
+    if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_CHANNEL:
+        return channel_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_CONTACT:
         return contact_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE:
@@ -3224,6 +4501,7 @@ def _notification_skip_reason_condition(
         return _notification_not_sent_condition() & ~or_(
             contact_condition,
             duplicate_condition,
+            channel_condition,
             stale_condition,
             template_params_condition,
         )
@@ -3443,6 +4721,9 @@ def _serialize_notification_record_summary(
         "creator_bid": row.creator_bid,
         "creator_nickname": creator_nickname,
         "target_user_bid": row.target_user_bid,
+        "recipient_type": row.recipient_type
+        or CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
+        "recipient_snapshot": row.recipient_snapshot or row.mobile_snapshot,
         "mobile_snapshot": row.mobile_snapshot,
         "source_type": row.source_type,
         "source_bid": row.source_bid,
@@ -3478,6 +4759,9 @@ def _serialize_notification_record(
         "creator_bid": row.creator_bid,
         "creator_nickname": creator_nickname,
         "target_user_bid": row.target_user_bid,
+        "recipient_type": row.recipient_type
+        or CREDIT_NOTIFICATION_RECIPIENT_TYPE_MOBILE,
+        "recipient_snapshot": row.recipient_snapshot or row.mobile_snapshot,
         "mobile_snapshot": row.mobile_snapshot,
         "source_type": row.source_type,
         "source_bid": row.source_bid,

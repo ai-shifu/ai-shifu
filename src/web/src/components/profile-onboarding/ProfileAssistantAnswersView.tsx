@@ -16,6 +16,8 @@ export function ProfileAssistantAnswersView({
   onChange,
   onSubmit,
   onBack,
+  analyticsScope = '',
+  onPromptCopied,
 }: {
   headingRef?: React.Ref<HTMLHeadingElement>;
   prompt: string;
@@ -26,6 +28,8 @@ export function ProfileAssistantAnswersView({
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
   onBack: () => void;
+  analyticsScope?: string;
+  onPromptCopied?: (originScope: string) => void;
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = React.useState(false);
@@ -48,8 +52,12 @@ export function ProfileAssistantAnswersView({
   );
 
   const copyPrompt = async () => {
+    const originScope = analyticsScope;
     try {
       await navigator.clipboard.writeText(prompt);
+      try {
+        onPromptCopied?.(originScope);
+      } catch {}
       setCopyError(false);
       setCopied(true);
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);

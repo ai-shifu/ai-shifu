@@ -2,6 +2,7 @@ import {
   buildProfileAssistantAttemptAnalytics,
   buildProfileAssistantResultAnalytics,
   buildProfileCollectionRouteAnalytics,
+  isCurrentProfileAnalyticsScope,
 } from './profileOnboardingAnalytics';
 
 describe('profileOnboardingAnalytics', () => {
@@ -43,5 +44,10 @@ describe('profileOnboardingAnalytics', () => {
     expect(payload).not.toHaveProperty('raw_text');
     expect(payload).not.toHaveProperty('profile');
     expect(payload).not.toHaveProperty('error');
+  });
+
+  test('rejects an async analytics result after the active account scope changes', () => {
+    expect(isCurrentProfileAnalyticsScope('user-a', 'user-a')).toBe(true);
+    expect(isCurrentProfileAnalyticsScope('user-a', 'user-b')).toBe(false);
   });
 });

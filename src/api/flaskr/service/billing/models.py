@@ -1739,6 +1739,21 @@ class NotificationRecord(BillingTableMixin, db.Model):
         index=True,
         comment="Target user business identifier",
     )
+    recipient_type = Column(
+        String(32),
+        nullable=False,
+        default="mobile",
+        server_default="mobile",
+        comment="Recipient contact type",
+    )
+    recipient_snapshot = Column(
+        String(255),
+        nullable=False,
+        default="",
+        server_default="",
+        index=True,
+        comment="Recipient contact snapshot",
+    )
     mobile_snapshot = Column(
         String(32),
         nullable=False,
@@ -1896,6 +1911,21 @@ class NotificationTemplate(BillingTableMixin, db.Model):
         Text,
         nullable=True,
         comment="Provider template content",
+    )
+    locale = Column(
+        String(16),
+        nullable=True,
+        comment="Email template locale",
+    )
+    email_subject = Column(
+        Text,
+        nullable=True,
+        comment="Email template subject",
+    )
+    email_html_body = Column(
+        Text,
+        nullable=True,
+        comment="Email template HTML body",
     )
     template_status = Column(
         String(64),

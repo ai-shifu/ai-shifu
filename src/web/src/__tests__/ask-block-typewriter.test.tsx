@@ -35,6 +35,10 @@ jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
 }));
 
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: jest.fn() }),
+}));
+
 jest.mock('@/c-store/useCourseStore', () => ({
   useCourseStore: jest.fn(() => ''),
 }));

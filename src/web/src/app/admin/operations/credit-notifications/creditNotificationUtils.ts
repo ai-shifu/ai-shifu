@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 import type {
   AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationPolicy,
+  CreditNotificationRule,
   CreditNotificationEstimatedDaysThreshold,
   CreditNotificationFixedThreshold,
   CreditNotificationThreshold,
@@ -49,54 +50,13 @@ export const NOTIFICATION_DELIVERY_STATUSES = [
 ] as const;
 export const NOTIFICATION_SKIP_REASONS = [
   'contact',
+  'channel',
   'policy',
   'duplicate',
   'stale',
   'template_params',
 ] as const;
 export type KnownNotificationType = (typeof NOTIFICATION_TYPES)[number];
-export type TemplatePlaceholderKey =
-  | 'available_credits'
-  | 'avg_daily_consumption'
-  | 'credits'
-  | 'estimated_remaining_days'
-  | 'expires_at'
-  | 'lookback_days'
-  | 'source'
-  | 'threshold'
-  | 'threshold_kind'
-  | 'trigger_days'
-  | 'window';
-export type PlaceholderGuideGroup = {
-  id: string;
-  titleKey: string;
-  descriptionKey?: string;
-  placeholders: TemplatePlaceholderKey[];
-};
-
-const CREDIT_GRANTED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
-  'credits',
-  'source',
-  'expires_at',
-];
-const CREDIT_EXPIRING_PLACEHOLDERS: TemplatePlaceholderKey[] = [
-  'credits',
-  'expires_at',
-  'window',
-];
-const LOW_BALANCE_FIXED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
-  'available_credits',
-  'threshold',
-  'threshold_kind',
-];
-const LOW_BALANCE_ESTIMATED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
-  'available_credits',
-  'threshold_kind',
-  'trigger_days',
-  'lookback_days',
-  'avg_daily_consumption',
-  'estimated_remaining_days',
-];
 
 export const DEFAULT_ESTIMATED_DAYS_THRESHOLD: CreditNotificationEstimatedDaysThreshold =
   {
@@ -127,6 +87,7 @@ export const createDefaultPolicy =
   (): AdminOperationCreditNotificationPolicy => ({
     enabled: false,
     channel: 'sms',
+    rules: [],
     types: {
       credit_expiring: {
         enabled: false,
@@ -217,6 +178,14 @@ export const resolveCreditNotificationErrorText = (
   const reasonCode = resolveErrorReasonCode(errorCode, errorMessage);
   if (reasonCode) {
     const fallback = String(errorMessage || errorCode || '').trim();
+    if (reasonCode === 'unsupported_channel') {
+      return String(
+        t(
+          'module.operationsCreditNotifications.errorReason.unsupported_channel',
+          { defaultValue: fallback },
+        ),
+      );
+    }
     return String(
       t(`module.operationsCreditNotifications.errorReason.${reasonCode}`, {
         defaultValue: fallback,
@@ -262,6 +231,9 @@ export const resolveNotificationSkipReason = (
   }
   const normalizedStatus = String(item.status || '').trim();
   const normalizedErrorCode = String(item.error_code || '').trim();
+  if (normalizedErrorCode === 'unsupported_channel') {
+    return 'channel';
+  }
   if (normalizedStatus === 'skipped_no_mobile') {
     return 'contact';
   }
@@ -301,6 +273,15 @@ const readStringArray = (value: unknown, fallback: string[]): string[] =>
   Array.isArray(value)
     ? value.map(item => String(item ?? '').trim()).filter(Boolean)
     : fallback;
+
+const readStringMap = (value: unknown): Record<string, string> => {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, item]) => [key.trim(), String(item ?? '').trim()])
+      .filter(([key, item]) => key && item),
+  );
+};
 
 const readBoolean = (value: unknown, fallback: boolean): boolean => {
   if (typeof value === 'boolean') {
@@ -406,12 +387,126 @@ export const normalizePolicy = (
   const defaults = createDefaultPolicy();
   const source = isRecord(payload) ? payload : {};
   const types = readRecord(source, 'types');
+  const rules = Array.isArray(source.rules)
+    ? source.rules
+        .map((value): CreditNotificationRule | null => {
+          if (!isRecord(value)) {
+            return null;
+          }
+          const triggerEvent = readString(value.trigger_event);
+          if (
+            !NOTIFICATION_TYPES.includes(triggerEvent as KnownNotificationType)
+          ) {
+            return null;
+          }
+          const ruleBid = readString(value.rule_bid);
+          if (!ruleBid) {
+            return null;
+          }
+          const conditions = readRecord(value, 'conditions');
+          const channel =
+            readString(value.channel) === 'email' ? 'email' : 'sms';
+          const thresholds = Array.isArray(conditions.thresholds)
+            ? conditions.thresholds
+                .map(readLowBalanceThreshold)
+                .filter(
+                  (item): item is CreditNotificationThreshold => item !== null,
+                )
+            : undefined;
+          return {
+            rule_bid: ruleBid,
+            name: readString(value.name),
+            trigger_event: triggerEvent as KnownNotificationType,
+            channel,
+            template_code: readString(value.template_code),
+            ...(channel === 'email' &&
+            Object.keys(readStringMap(value.locale_template_codes)).length
+              ? {
+                  locale_template_codes: readStringMap(
+                    value.locale_template_codes,
+                  ),
+                }
+              : {}),
+            enabled: readBoolean(value.enabled, false),
+            conditions: {
+              ...(triggerEvent === 'credit_expiring'
+                ? {
+                    windows: readStringArray(conditions.windows, []),
+                    merge_same_creator: readBoolean(
+                      conditions.merge_same_creator,
+                      false,
+                    ),
+                  }
+                : {}),
+              ...(triggerEvent === 'low_balance' && thresholds
+                ? { thresholds }
+                : {}),
+            },
+            ...(readBoolean(value.legacy, false) ? { legacy: true } : {}),
+          };
+        })
+        .filter((rule): rule is CreditNotificationRule => rule !== null)
+    : [];
   const expiring = readRecord(types, 'credit_expiring');
   const granted = readRecord(types, 'credit_granted');
   const lowBalance = readRecord(types, 'low_balance');
   const lowBalanceThresholds = Array.isArray(lowBalance.thresholds)
     ? lowBalance.thresholds
     : defaults.types.low_balance.thresholds || [];
+  const legacyRules: CreditNotificationRule[] = [
+    {
+      rule_bid: 'legacy-credit_expiring',
+      name: 'credit_expiring',
+      trigger_event: 'credit_expiring',
+      channel: 'sms',
+      template_code: readString(expiring.template_code),
+      enabled: readBoolean(
+        expiring.enabled,
+        defaults.types.credit_expiring.enabled,
+      ),
+      conditions: {
+        windows: readStringArray(
+          expiring.windows,
+          defaults.types.credit_expiring.windows || [],
+        ),
+        merge_same_creator: readBoolean(
+          expiring.merge_same_creator,
+          defaults.types.credit_expiring.merge_same_creator || false,
+        ),
+      },
+      legacy: true,
+    },
+    {
+      rule_bid: 'legacy-credit_granted',
+      name: 'credit_granted',
+      trigger_event: 'credit_granted',
+      channel: 'sms',
+      template_code: readString(granted.template_code),
+      enabled: readBoolean(
+        granted.enabled,
+        defaults.types.credit_granted.enabled,
+      ),
+      conditions: {},
+      legacy: true,
+    },
+    {
+      rule_bid: 'legacy-low_balance',
+      name: 'low_balance',
+      trigger_event: 'low_balance',
+      channel: 'sms',
+      template_code: readString(lowBalance.template_code),
+      enabled: readBoolean(
+        lowBalance.enabled,
+        defaults.types.low_balance.enabled,
+      ),
+      conditions: {
+        thresholds: lowBalanceThresholds
+          .map(readLowBalanceThreshold)
+          .filter((item): item is CreditNotificationThreshold => item !== null),
+      },
+      legacy: true,
+    },
+  ];
   const softlimit = readRecord(source, 'softlimit');
   const frequency = readRecord(source, 'frequency');
   const quietHours = readRecord(source, 'quiet_hours');
@@ -423,6 +518,7 @@ export const normalizePolicy = (
     ...defaults,
     enabled: readBoolean(source.enabled, defaults.enabled),
     channel: 'sms',
+    rules: Array.isArray(source.rules) ? rules : legacyRules,
     types: {
       credit_expiring: {
         enabled: readBoolean(
@@ -539,124 +635,6 @@ export const parseThresholdInput = (
   value: string,
 ): CreditNotificationFixedThreshold[] =>
   parseListInput(value).map(item => ({ kind: 'fixed' as const, value: item }));
-
-export const setEstimatedDaysThreshold = (
-  policy: AdminOperationCreditNotificationPolicy,
-  patch: Partial<CreditNotificationEstimatedDaysThreshold>,
-) => {
-  const thresholds = policy.types.low_balance.thresholds || [];
-  const fixedThresholds = thresholds.filter(isFixedThreshold);
-  const current =
-    thresholds.find(isEstimatedDaysThreshold) ||
-    DEFAULT_ESTIMATED_DAYS_THRESHOLD;
-  policy.types.low_balance.thresholds = [
-    ...fixedThresholds,
-    {
-      ...current,
-      ...patch,
-      kind: 'estimated_days',
-    },
-  ];
-};
-
-export const removeEstimatedDaysThreshold = (
-  policy: AdminOperationCreditNotificationPolicy,
-) => {
-  const fixedThresholds = (policy.types.low_balance.thresholds || []).filter(
-    isFixedThreshold,
-  );
-  policy.types.low_balance.thresholds = fixedThresholds.length
-    ? fixedThresholds
-    : [{ kind: 'fixed', value: '0' }];
-};
-
-export const formatValue = (value?: string | null) => {
-  const normalized = String(value || '').trim();
-  return normalized || EMPTY_LABEL;
-};
-
-export const formatTemplateParams = (
-  value: Record<string, unknown>,
-): string => {
-  const entries = Object.entries(value || {})
-    .filter(([key]) => key.trim())
-    .sort(([left], [right]) => left.localeCompare(right));
-  if (!entries.length) {
-    return EMPTY_LABEL;
-  }
-  return JSON.stringify(Object.fromEntries(entries));
-};
-
-export const formatPlaceholderToken = (placeholder: string): string =>
-  ['${', placeholder, '}'].join('');
-
-export const formatPlaceholderList = (items?: string[]): string => {
-  const normalized = (items || [])
-    .map(item => String(item || '').trim())
-    .filter(Boolean)
-    .sort((left, right) => left.localeCompare(right));
-  return normalized.length
-    ? normalized.map(formatPlaceholderToken).join(', ')
-    : EMPTY_LABEL;
-};
-
-export const buildPlaceholderGuideGroups = ({
-  type,
-  hasFixedLowBalancePath,
-  hasEstimatedLowBalance,
-}: {
-  type: KnownNotificationType;
-  hasFixedLowBalancePath: boolean;
-  hasEstimatedLowBalance: boolean;
-}): PlaceholderGuideGroup[] => {
-  if (type === 'credit_granted') {
-    return [
-      {
-        id: 'credit_granted',
-        titleKey:
-          'module.operationsCreditNotifications.config.placeholders.groups.creditGranted',
-        descriptionKey:
-          'module.operationsCreditNotifications.config.placeholders.notes.expiresAtOptional',
-        placeholders: CREDIT_GRANTED_PLACEHOLDERS,
-      },
-    ];
-  }
-  if (type === 'credit_expiring') {
-    return [
-      {
-        id: 'credit_expiring',
-        titleKey:
-          'module.operationsCreditNotifications.config.placeholders.groups.creditExpiring',
-        descriptionKey:
-          'module.operationsCreditNotifications.config.placeholders.notes.windowSource',
-        placeholders: CREDIT_EXPIRING_PLACEHOLDERS,
-      },
-    ];
-  }
-
-  const groups: PlaceholderGuideGroup[] = [];
-  if (hasFixedLowBalancePath) {
-    groups.push({
-      id: 'low_balance_fixed',
-      titleKey:
-        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceFixed',
-      descriptionKey:
-        'module.operationsCreditNotifications.config.placeholders.notes.fixedLowBalance',
-      placeholders: LOW_BALANCE_FIXED_PLACEHOLDERS,
-    });
-  }
-  if (hasEstimatedLowBalance) {
-    groups.push({
-      id: 'low_balance_estimated',
-      titleKey:
-        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceEstimated',
-      descriptionKey:
-        'module.operationsCreditNotifications.config.placeholders.notes.estimatedLowBalance',
-      placeholders: LOW_BALANCE_ESTIMATED_PLACEHOLDERS,
-    });
-  }
-  return groups;
-};
 
 export const normalizeTab = (value?: string | null): PageTab =>
   value === 'config' || value === 'templates' ? value : DEFAULT_TAB;

@@ -17,6 +17,7 @@ from flaskr.api.tts.base import (
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -725,6 +726,12 @@ BAIDU_VOICES_FRONTEND = [
 
 class BaiduTTSProvider(BaseTTSProvider):
     """TTS provider using Baidu Short Text Online Synthesis API."""
+
+    capabilities = ProviderCapabilities(
+        segment_max_bytes=1024,
+        segment_encoding="gbk",
+        auto_detectable=True,
+    )
 
     @property
     def provider_name(self) -> str:

@@ -1,15 +1,14 @@
 {
   "name": "cook-web",
-  "version": "2.2.13",
+  "version": "2.3.0",
   "private": true,
   "engines": {
     "node": "22.16.0"
   },
   "scripts": {
-    "migrate:legacy-env": "node scripts/migrate-legacy-frontend-env.js",
-    "dev": "node scripts/migrate-legacy-frontend-env.js && next dev --turbopack",
+    "dev": "next dev --turbopack",
     "dev-web300": "NEXT_PUBLIC_API_BASE_URL=https://web.dev.pillowai.cn npm run dev",
-    "build": "node scripts/migrate-legacy-frontend-env.js && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint --cache-location .eslintcache",
     "lint-file": "next lint --fix --file",
@@ -68,7 +67,7 @@
     "immer": "^10.1.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-    "markdown-flow-ui": "0.2.23",
+    "markdown-flow-ui": "0.2.24",
     "next": "15.5.19",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",

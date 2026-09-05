@@ -263,7 +263,7 @@ export function CreditNotificationDetailSheet({
                     'module.operationsCreditNotifications.detail.summary.creator',
                   )}
                 >
-                  {formatValue(item.mobile_snapshot)}
+                  {formatValue(item.recipient_snapshot || item.mobile_snapshot)}
                   {item.creator_nickname ? ` / ${item.creator_nickname}` : ''}
                 </SummaryCard>
                 <SummaryCard

@@ -13,9 +13,11 @@ from urllib.parse import urlencode
 import requests
 
 from flaskr.api.tts.base import (
+    REQUEST_SCOPED_STREAM_MINIMAX_HTTP,
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -313,6 +315,13 @@ def _extract_minimax_subtitles(message: dict[str, object]) -> list[dict[str, obj
 
 class MinimaxTTSProvider(BaseTTSProvider):
     """TTS provider using Minimax API."""
+
+    capabilities = ProviderCapabilities(
+        requires_model=True,
+        skip_non_speakable_text=True,
+        auto_detectable=True,
+        request_scoped_stream=REQUEST_SCOPED_STREAM_MINIMAX_HTTP,
+    )
 
     @property
     def provider_name(self) -> str:

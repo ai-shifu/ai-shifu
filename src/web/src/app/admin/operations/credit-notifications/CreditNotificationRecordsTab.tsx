@@ -47,7 +47,7 @@ const DEFAULT_COLUMN_WIDTHS = {
   creator: 220,
   source: 220,
   error: 220,
-  action: 120,
+  action: 96,
 } as const;
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const TABLE_CELL_CLASS =
@@ -313,7 +313,7 @@ export function CreditNotificationRecordsTab({
                   >
                     <div className='flex min-w-0 flex-col items-center gap-0.5 text-center leading-tight'>
                       {renderTooltipText(
-                        item.mobile_snapshot,
+                        item.recipient_snapshot || item.mobile_snapshot,
                         'block max-w-full text-foreground',
                       )}
                       {item.creator_nickname ? (

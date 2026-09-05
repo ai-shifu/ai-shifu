@@ -8,7 +8,7 @@ used interchangeably.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, ClassVar
 
 
 class TTSProvider(StrEnum):
@@ -22,6 +22,43 @@ class TTSProvider(StrEnum):
     TENCENT = "tencent"
     TENCENT_TEXTTOVOICE = "tencent_texttovoice"
     ELEVENLABS = "elevenlabs"
+    GEMINI = "gemini"
+
+
+REQUEST_SCOPED_STREAM_MINIMAX_HTTP = "minimax_http"
+REQUEST_SCOPED_STREAM_VOLCENGINE_TIMESTAMP = "volcengine_timestamp"
+
+
+@dataclass(frozen=True)
+class ProviderCapabilities:
+    """Behavior a provider declares so shared code never keys on its name.
+
+    Every flag defaults to the most conservative value; a provider opts into
+    each behavior explicitly. The orchestration layers (validation, streaming,
+    segmentation, config exposure) read these instead of maintaining
+    provider-name sets.
+    """
+
+    requires_model: bool = False
+    """Strict validation demands an explicit model/resource id."""
+    requires_listed_voice: bool = False
+    """Strict validation only accepts voices the provider lists."""
+    retry_on_empty_audio: bool = False
+    """An empty-audio response is transient and worth one quick retry."""
+    skip_non_speakable_text: bool = False
+    """Segments without letters or digits are skipped before synthesis."""
+    segment_max_bytes: int | None = None
+    """Extra per-request byte cap applied after character segmentation."""
+    segment_encoding: str = "utf-8"
+    """Encoding used to measure ``segment_max_bytes``."""
+    expose_only_when_configured: bool = False
+    """Hide the provider from the config payload unless it is configured."""
+    restrict_models_to_allowlist: bool = False
+    """Narrow exposed models to TTS_ALLOWED_MODELS and hide when none match."""
+    auto_detectable: bool = False
+    """Eligible for credential-based auto-detection when no provider is set."""
+    request_scoped_stream: str = ""
+    """Named request-scoped synthesis path used instead of sentence segments."""
 
 
 @dataclass
@@ -131,6 +168,8 @@ class AudioSettings:
 
 class BaseTTSProvider(ABC):
     """Abstract base class for TTS providers."""
+
+    capabilities: ClassVar[ProviderCapabilities] = ProviderCapabilities()
 
     @property
     @abstractmethod

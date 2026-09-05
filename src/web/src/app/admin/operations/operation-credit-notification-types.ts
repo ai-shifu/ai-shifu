@@ -38,6 +38,8 @@ export type AdminOperationCreditNotificationItem = {
   creator_bid: string;
   creator_nickname: string;
   target_user_bid: string;
+  recipient_type: 'mobile' | 'email' | LooseString;
+  recipient_snapshot: string;
   mobile_snapshot: string;
   source_type: string;
   source_bid: string;
@@ -108,6 +110,9 @@ export type AdminOperationCreditNotificationTemplateSyncResponse = {
   template_code: string;
   template_name: string;
   template_content: string;
+  locale?: string;
+  email_subject?: string;
+  email_html_body?: string;
   template_status: string;
   template_type: string;
   variable_attribute: string | Record<string, unknown>;
@@ -130,6 +135,9 @@ export type AdminOperationCreditNotificationTemplateOption = {
   template_code: string;
   template_name: string;
   template_content: string;
+  locale?: string;
+  email_subject?: string;
+  email_html_body?: string;
   template_status: string;
   template_type: string;
   sync_status: string;
@@ -174,9 +182,27 @@ export type CreditNotificationTypePolicy = {
   thresholds?: CreditNotificationThreshold[];
 };
 
+export type CreditNotificationRule = {
+  rule_bid: string;
+  name: string;
+  trigger_event: 'credit_expiring' | 'credit_granted' | 'low_balance';
+  channel: 'sms' | 'email';
+  template_code: string;
+  /** Operator-managed non-English templates, keyed by their exact account locale. */
+  locale_template_codes?: Record<string, string>;
+  enabled: boolean;
+  conditions: {
+    windows?: string[];
+    merge_same_creator?: boolean;
+    thresholds?: CreditNotificationThreshold[];
+  };
+  legacy?: boolean;
+};
+
 export type AdminOperationCreditNotificationPolicy = {
   enabled: boolean;
   channel: 'sms';
+  rules: CreditNotificationRule[];
   types: {
     credit_expiring: CreditNotificationTypePolicy;
     credit_granted: CreditNotificationTypePolicy;
