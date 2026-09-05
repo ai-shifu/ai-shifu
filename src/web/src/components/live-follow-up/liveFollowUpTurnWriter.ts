@@ -11,8 +11,7 @@ import type { GeminiLiveTurnCommit } from './geminiLiveTurnAccumulator';
 const MAX_UNLOAD_REPORT_BYTES = 60 * 1024 - 256;
 const NORMAL_DRAIN_TIMEOUT_MS = 5_000;
 const RETAINED_TURN_TIMEOUT_MS = 10_000;
-// A 45-second binding renewed every 15 seconds leaves at least 30 seconds at
-// normal teardown. Keep closing requests inside that budget and expiry grace.
+// Keep closing requests within the credential's 30-second finalization grace.
 const CLOSING_TIMEOUT_MS = 25_000;
 const MAX_FINALIZATION_ATTEMPTS = 3;
 const FINALIZATION_RETRY_DELAY_MS = 1_000;
@@ -56,6 +55,8 @@ export class LiveFollowUpTurnWriter {
   private handoff: Promise<void> | null = null;
   private finishing: Promise<void> | null = null;
   private recovery: Promise<void> | null = null;
+  private finishResult: Promise<void> | null = null;
+  private finishResultFailed = false;
   private closingDeadline: number | null = null;
   private finalized = false;
   private normalQueueStopped = false;
@@ -69,6 +70,10 @@ export class LiveFollowUpTurnWriter {
     ) => void,
     private readonly onError: () => void,
   ) {}
+
+  get hasPendingTurns() {
+    return this.pending.size > 0;
+  }
 
   private remember(commits: GeminiLiveTurnCommit[]) {
     for (const commit of commits) {
@@ -195,21 +200,44 @@ export class LiveFollowUpTurnWriter {
   }
 
   finish(reason: string): Promise<void> {
-    if (this.finishing) return this.finishing;
-    if (this.handoff) {
-      return this.handoff;
-    }
-    if (this.recovery) return this.recovery;
-    this.finishing ??= this.finishNormally(reason);
-    return this.finishing;
+    if (this.finishResult) return this.finishResult;
+    const result =
+      this.finishing ??
+      this.handoff ??
+      this.recovery ??
+      (this.finalized
+        ? Promise.resolve()
+        : (this.finishing = this.finishNormally(reason)));
+    this.finishResult = result;
+    void result.catch(() => {
+      if (this.finishResult === result) this.finishResultFailed = true;
+    });
+    return result;
+  }
+
+  /** Explicitly retry a settled failure without discarding its retained outbox. */
+  retryFinish(reason: string): Promise<void> {
+    if (this.finalized || !this.finishResultFailed) return this.finish(reason);
+    this.finishResult = null;
+    this.finishResultFailed = false;
+    this.finishing = null;
+    this.handoff = null;
+    this.recovery = null;
+    this.closingDeadline = null;
+    // A timed-out request may still acknowledge later. It must not restart its
+    // old successors while the new idempotent finalizer owns the same reports.
+    this.queueGeneration += 1;
+    this.normalQueueStopped = true;
+    this.chain = null;
+    return this.finish(reason);
   }
 
   private async finishNormally(reason: string) {
     if (this.handoff) {
       return this.handoff;
     }
-    // Teardown has stopped heartbeats. Do not let an unbounded fetch consume
-    // the 45-second binding TTL before the retained outbox reaches /finalize.
+    // Do not let an unbounded fetch consume the finalization grace before the
+    // retained outbox reaches /finalize.
     const drained = await waitForReport(
       this.chain ?? Promise.resolve(),
       Math.min(NORMAL_DRAIN_TIMEOUT_MS, this.remainingClosingTime()),

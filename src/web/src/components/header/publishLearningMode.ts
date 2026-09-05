@@ -1,4 +1,4 @@
-import type { LearningMode } from '@/c-types/store';
+import type { LearningMode } from '@/types/store';
 
 export const PUBLISH_LEARNING_MODES = [
   'read',

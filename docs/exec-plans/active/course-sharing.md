@@ -98,12 +98,12 @@ in `Components/ChatUi/ChatUi.tsx`, learner mobile actions are in
 header is constructed in `Components/ChatUi/ListenModeSlideRenderer.tsx`.
 
 `src/web/src/app/c/[[...id]]/layout.tsx` loads course information. The
-Zustand course store is `src/web/src/c-store/useCourseStore.ts`, with its
-public state contract in `src/web/src/c-types/store.ts`.
+Zustand course store is `src/web/src/store/useCourseStore.ts`, with its
+public state contract in `src/web/src/types/store.ts`.
 
 Shared share behavior belongs in a small frontend library module and a shared
 button under `src/web/src/components/course-share`. Existing URL cleanup
-in `src/web/src/c-utils/urlUtils.ts` remains the canonical low-level
+in `src/web/src/lib/urlUtils.ts` remains the canonical low-level
 course-page sanitizer. User-facing strings live in each locale's
 `common/core.json` and generated key types live in
 `src/web/src/types/i18n-keys.d.ts`.

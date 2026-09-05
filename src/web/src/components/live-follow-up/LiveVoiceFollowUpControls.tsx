@@ -3,66 +3,85 @@
 import { Loader2, Mic, MicOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 import type {
   LiveVoiceFollowUpController,
   LiveVoiceFollowUpTarget,
 } from './useLiveVoiceFollowUp';
 
-/** Input adornments only: AskBlock owns the layout, messages, and keyboard. */
+type LiveVoiceControlsProps = {
+  controller: LiveVoiceFollowUpController;
+  target: LiveVoiceFollowUpTarget;
+};
+
+/** Manual capture action, positioned beside Send by the original input. */
+export const LiveVoiceFollowUpMicrophoneButton = ({
+  controller,
+  target,
+  className,
+}: LiveVoiceControlsProps & { className?: string }) => {
+  const { t } = useTranslation();
+  const ownsTarget = controller.anchorElementBid === target.anchorElementBid;
+  const muted = !ownsTarget || controller.muted;
+  const pending = ownsTarget && controller.microphonePending;
+  return (
+    <Button
+      type='button'
+      variant='ghost'
+      size='icon'
+      className={cn('h-8 w-8 shrink-0 rounded-full', className)}
+      aria-label={
+        muted
+          ? t('module.chat.liveVoiceStartMicrophone')
+          : t('module.chat.liveVoiceStopMicrophone')
+      }
+      aria-pressed={!muted}
+      disabled={
+        pending ||
+        (ownsTarget &&
+          (controller.textPending ||
+            controller.retryAvailableAt !== null ||
+            controller.state === 'reconnecting'))
+      }
+      onClick={() =>
+        muted
+          ? controller.startMicrophone(target)
+          : controller.stopMicrophone(true)
+      }
+    >
+      {pending ? (
+        <Loader2 className='h-4 w-4 animate-spin' />
+      ) : muted ? (
+        <MicOff className='h-4 w-4' />
+      ) : (
+        <Mic className='h-4 w-4 text-primary' />
+      )}
+    </Button>
+  );
+};
+
+/** Status only: AskBlock owns the layout, messages, and keyboard. */
 export const LiveVoiceFollowUpControls = ({
   controller,
   target,
-}: {
-  controller: LiveVoiceFollowUpController;
-  target: LiveVoiceFollowUpTarget;
-}) => {
-  const { t, i18n } = useTranslation();
+}: LiveVoiceControlsProps) => {
+  const { t } = useTranslation();
   const ownsTarget = controller.anchorElementBid === target.anchorElementBid;
   const state = ownsTarget ? controller.state : 'ended';
   const muted = !ownsTarget || controller.muted;
-  const pending = ownsTarget && controller.microphonePending;
   const error = ownsTarget && controller.errorCode;
   const retryAt = ownsTarget ? controller.retryAvailableAt : null;
   const status =
-    state === 'listening' && muted
-      ? t('module.chat.liveVoiceReady')
-      : state === 'ended'
-        ? t('module.chat.liveVoiceInputHint')
-        : t(`module.chat.liveVoiceState.${state}`);
+    ownsTarget && controller.paused
+      ? t('module.chat.liveVoicePaused')
+      : state === 'listening' && muted
+        ? t('module.chat.liveVoiceReady')
+        : state === 'ended'
+          ? t('module.chat.liveVoiceInputHint')
+          : t(`module.chat.liveVoiceState.${state}`);
   return (
     <div className='mt-2 space-y-1 text-xs text-muted-foreground'>
       <div className='flex min-w-0 items-center gap-2'>
-        <Button
-          type='button'
-          variant='ghost'
-          size='icon'
-          className='h-8 w-8 shrink-0'
-          aria-label={
-            muted
-              ? t('module.chat.liveVoiceStartMicrophone')
-              : t('module.chat.liveVoiceStopMicrophone')
-          }
-          aria-pressed={!muted}
-          disabled={
-            pending ||
-            (ownsTarget && controller.textPending) ||
-            retryAt !== null ||
-            state === 'reconnecting'
-          }
-          onClick={() =>
-            muted
-              ? controller.startMicrophone(target)
-              : controller.stopMicrophone(true)
-          }
-        >
-          {pending ? (
-            <Loader2 className='h-4 w-4 animate-spin' />
-          ) : muted ? (
-            <MicOff className='h-4 w-4' />
-          ) : (
-            <Mic className='h-4 w-4 text-primary' />
-          )}
-        </Button>
         <span
           className='min-w-0 flex-1'
           role='status'
@@ -103,19 +122,6 @@ export const LiveVoiceFollowUpControls = ({
       ) : null}
       {ownsTarget && controller.microphoneError ? (
         <p role='alert'>{t('module.chat.liveVoiceMicrophoneOptional')}</p>
-      ) : null}
-      {ownsTarget && controller.warning ? (
-        <p role='status'>{t('module.chat.liveVoiceTimeWarning')}</p>
-      ) : null}
-      {ownsTarget && controller.endReason === 'timeout' ? (
-        <p>{t('module.chat.liveVoiceTimedOut')}</p>
-      ) : null}
-      {retryAt !== null ? (
-        <p>
-          {t('module.chat.liveVoiceRetryAvailableAt', {
-            time: new Date(retryAt).toLocaleTimeString(i18n.language),
-          })}
-        </p>
       ) : null}
       <p>{t('module.chat.liveVoicePrivacyNotice')}</p>
     </div>

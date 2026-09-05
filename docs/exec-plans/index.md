@@ -25,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Gemini TTS Provider](./active/gemini-tts.md)
 - [Notification Channel Foundation](./active/notification-channel-foundation.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
+- [Official Client Model Gateway](./active/official-client-model-gateway.md)
 - [Existing Creator Onboarding Rollout](./active/onboarding-existing-creator-rollout.md)
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
@@ -43,6 +44,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
+- [Frontend Unused Function Cleanup Stack](./completed/frontend-unused-function-stack.md)
 - [Global Billing Pricing Page](./completed/global-billing-pricing-page.md)
 - [Hide `sys_user_style` From Course Authoring UI](./completed/hide-sys-user-style-from-authoring-ui.md)
 - [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
@@ -64,10 +66,12 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
+- [Safe Frontend Dead Code Cleanup](./completed/safe-frontend-dead-code-cleanup.md)
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
+- [Unify Frontend Source Directories](./completed/unify-frontend-directories.md)
 
 ## Supporting Tracker
 

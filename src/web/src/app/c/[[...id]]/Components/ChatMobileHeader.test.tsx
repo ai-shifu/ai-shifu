@@ -16,7 +16,7 @@ jest.mock('zustand/react/shallow', () => ({
   useShallow: (selector: unknown) => selector,
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       previewMode: mockPreviewMode,
@@ -24,7 +24,7 @@ jest.mock('@/c-store/useSystemStore', () => ({
     }),
 }));
 
-jest.mock('@/c-service/Shifu', () => ({
+jest.mock('@/lib/shifu/Shifu', () => ({
   shifu: {
     ControlTypes: {
       MOBILE_HEADER_ICON_POPOVER: 'mobile-header-icon-popover',
@@ -33,7 +33,7 @@ jest.mock('@/c-service/Shifu', () => ({
   },
 }));
 
-jest.mock('@/c-common/hooks/useDisclosure', () => ({
+jest.mock('@/hooks/useDisclosure', () => ({
   useDisclosure: () => ({
     onOpen: jest.fn(),
     onClose: jest.fn(),

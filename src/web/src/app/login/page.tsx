@@ -15,7 +15,7 @@ import { PhoneLogin } from '@/components/auth/PhoneLogin';
 import { EmailLogin } from '@/components/auth/EmailLogin';
 import { FeedbackForm } from '@/components/auth/FeedbackForm';
 import Image, { type StaticImageData } from 'next/image';
-import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import logoHorizontal from '@/assets/logos/ai-shifu-logo-horizontal.png';
 import LanguageSelect from '@/components/language-select';
 import { useTranslation } from 'react-i18next';
 import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
@@ -26,8 +26,8 @@ import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import { EnvStoreState } from '@/types/store';
 import {
   readReferralContext,
   saveReferralContext,

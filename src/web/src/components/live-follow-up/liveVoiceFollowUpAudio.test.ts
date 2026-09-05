@@ -46,6 +46,7 @@ describe('LiveVoiceFollowUpAudio', () => {
   );
 
   afterEach(() => {
+    jest.useRealTimers();
     const restore = (
       target: object,
       name: string,
@@ -60,6 +61,236 @@ describe('LiveVoiceFollowUpAudio', () => {
     restore(window, 'AudioContext', originalAudioContext);
     restore(globalThis, 'AudioWorkletNode', originalAudioWorkletNode);
     restore(navigator, 'mediaDevices', originalMediaDevices);
+  });
+
+  const createPausableAudio = async () => {
+    const trackStop = jest.fn();
+    const source = { connect: jest.fn(), disconnect: jest.fn() };
+    const gains: Array<{
+      gain: { value: number };
+      connect: jest.Mock;
+      disconnect: jest.Mock;
+    }> = [];
+    const context = {
+      state: 'running' as AudioContextState,
+      destination: {},
+      audioWorklet: { addModule: jest.fn().mockResolvedValue(undefined) },
+      createGain: jest.fn(() => {
+        const gain = {
+          gain: { value: 1 },
+          connect: jest.fn(),
+          disconnect: jest.fn(),
+        };
+        gains.push(gain);
+        return gain;
+      }),
+      createMediaStreamSource: jest.fn(() => source),
+      resume: jest.fn<Promise<void>, []>(),
+      suspend: jest.fn<Promise<void>, []>(),
+      close: jest.fn<Promise<void>, []>(),
+    };
+    context.resume.mockImplementation(async () => {
+      context.state = 'running';
+    });
+    context.suspend.mockImplementation(async () => {
+      context.state = 'suspended';
+    });
+    context.close.mockImplementation(async () => {
+      context.state = 'closed';
+    });
+    const construct = jest.fn(() => context);
+    Object.defineProperty(window, 'AudioContext', {
+      configurable: true,
+      value: construct,
+    });
+    const ports = new Map<string, MockPort>();
+    class MockAudioWorkletNode {
+      port: MockPort;
+      connect = jest.fn();
+      disconnect = jest.fn();
+      constructor(_context: AudioContext, processorName: string) {
+        this.port = { onmessage: null, postMessage: jest.fn() };
+        ports.set(processorName, this.port);
+      }
+    }
+    Object.defineProperty(globalThis, 'AudioWorkletNode', {
+      configurable: true,
+      value: MockAudioWorkletNode,
+    });
+    const getUserMedia = jest.fn();
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    const onPlaybackProgress = jest.fn();
+    const audio = await LiveVoiceFollowUpAudio.activate({
+      onInputFrame: jest.fn(),
+      onPlaybackProgress,
+      onPlaybackComplete: jest.fn(),
+    });
+    const port = ports.get('live-follow-up-playback')!;
+    const acknowledgeFlush = () => {
+      const flush = port.postMessage.mock.calls
+        .map(([message]) => message)
+        .filter(message => message.type === 'flush_and_clear')
+        .at(-1);
+      port.onmessage?.(
+        new MessageEvent('message', {
+          data: { type: 'flush_complete', requestId: flush.requestId },
+        }),
+      );
+    };
+    return {
+      audio,
+      context,
+      gains,
+      construct,
+      port,
+      acknowledgeFlush,
+      getUserMedia,
+      trackStop,
+      onPlaybackProgress,
+    };
+  };
+
+  it('bounds native close after releasing capture and disconnecting output', async () => {
+    jest.useFakeTimers();
+    const { audio, context, gains, acknowledgeFlush, trackStop } =
+      await createPausableAudio();
+    audio.attachMicrophone({
+      getTracks: () => [{ stop: trackStop }],
+    } as unknown as MediaStream);
+    context.close.mockReturnValue(new Promise(() => {}));
+    const stopped = audio.stop();
+    expect(trackStop).toHaveBeenCalledTimes(1);
+    expect(gains[0].gain.value).toBe(0);
+    acknowledgeFlush();
+    await jest.advanceTimersByTimeAsync(1_000);
+    await expect(stopped).resolves.toBeUndefined();
+    expect(context.close).toHaveBeenCalledTimes(1);
+    expect(gains[0].disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('pauses immediately and resumes playback in the click stack without opening the microphone', async () => {
+    const {
+      audio,
+      context,
+      gains,
+      construct,
+      port,
+      acknowledgeFlush,
+      getUserMedia,
+      trackStop,
+      onPlaybackProgress,
+    } = await createPausableAudio();
+    audio.attachMicrophone({
+      getTracks: () => [{ stop: trackStop }],
+    } as unknown as MediaStream);
+    const pause = audio.pauseOutput();
+    expect(trackStop).toHaveBeenCalledTimes(1);
+    expect(gains[0].gain.value).toBe(0);
+    audio.enqueueOutput(new ArrayBuffer(4), 1);
+    expect(port.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'audio' }),
+      expect.anything(),
+    );
+    port.onmessage?.(
+      new MessageEvent('message', {
+        data: { type: 'playback_progress', turnIndex: 1, playedBytes: 4 },
+      }),
+    );
+    acknowledgeFlush();
+    await pause;
+    expect(onPlaybackProgress).toHaveBeenCalledWith(1, 4);
+    expect(context.suspend).toHaveBeenCalledTimes(1);
+    const resume = audio.resumeOutput();
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    await resume;
+    expect(gains[0].gain.value).toBe(1);
+    audio.enqueueOutput(new ArrayBuffer(4), 2);
+    expect(port.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'audio', turnIndex: 2 }),
+      expect.any(Array),
+    );
+    expect(construct).toHaveBeenCalledTimes(1);
+    expect(context.audioWorklet.addModule).toHaveBeenCalledTimes(1);
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(context.close).not.toHaveBeenCalled();
+  });
+
+  it('does not let a pending pause suspend an immediately resumed context', async () => {
+    const { audio, context, gains, acknowledgeFlush } =
+      await createPausableAudio();
+    const paused = audio.pauseOutput();
+    const resumed = audio.resumeOutput();
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    acknowledgeFlush();
+    await Promise.all([paused, resumed]);
+    expect(context.suspend).not.toHaveBeenCalled();
+    expect(gains[0].gain.value).toBe(1);
+  });
+
+  it('keeps output paused if the panel closes again while resume is pending', async () => {
+    const { audio, context, gains, acknowledgeFlush } =
+      await createPausableAudio();
+    const firstPause = audio.pauseOutput();
+    acknowledgeFlush();
+    await firstPause;
+    let completeResume!: () => void;
+    context.resume.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          completeResume = resolve;
+        }),
+    );
+    const resumed = audio.resumeOutput();
+    const rejected = expect(resumed).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    const secondPause = audio.pauseOutput();
+    acknowledgeFlush();
+    await secondPause;
+    completeResume();
+    await rejected;
+    expect(gains[0].gain.value).toBe(0);
+  });
+
+  it('bounds pause even when the worklet and suspended browser stop acknowledging', async () => {
+    jest.useFakeTimers();
+    const { audio, context, gains } = await createPausableAudio();
+    context.suspend.mockImplementationOnce(() => new Promise(() => {}));
+    const paused = audio.pauseOutput();
+    await jest.advanceTimersByTimeAsync(100);
+    expect(context.suspend).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1_000);
+    await expect(paused).resolves.toBeUndefined();
+    expect(gains[0].gain.value).toBe(0);
+    expect(context.close).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stalled resume without unmuting on a late native resolution', async () => {
+    jest.useFakeTimers();
+    const { audio, context, gains, acknowledgeFlush } =
+      await createPausableAudio();
+    const paused = audio.pauseOutput();
+    acknowledgeFlush();
+    await paused;
+    let completeResume!: () => void;
+    context.resume.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          completeResume = resolve;
+        }),
+    );
+    const resumed = audio.resumeOutput();
+    const rejected = expect(resumed).rejects.toMatchObject({
+      name: 'LiveVoiceAudioUnavailableError',
+    });
+    await jest.advanceTimersByTimeAsync(5_000);
+    await rejected;
+    completeResume();
+    await Promise.resolve();
+    expect(gains[0].gain.value).toBe(0);
   });
 
   it('waits for the final playback progress ACK before closing audio', async () => {

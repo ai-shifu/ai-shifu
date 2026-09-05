@@ -5,7 +5,7 @@ import { ChevronDown, ImagePlus } from 'lucide-react';
 import { useSWRConfig } from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import {
   isValidContactIdentifier,

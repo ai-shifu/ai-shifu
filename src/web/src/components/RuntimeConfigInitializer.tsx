@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { initializeEnvData } from '@/lib/initializeEnvData';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 
 const RuntimeConfigInitializer = () => {
   const faviconUrl = useEnvStore(state => state.faviconUrl);

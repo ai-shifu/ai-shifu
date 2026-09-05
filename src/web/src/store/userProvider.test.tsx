@@ -25,10 +25,14 @@ const mockUserState = {
   isInitialized: false,
 };
 
-jest.mock('@/c-store', () => ({
+jest.mock('./envStore', () => ({
   __esModule: true,
   useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
     selector(mockEnvState),
+}));
+
+jest.mock('./useSystemStore', () => ({
+  __esModule: true,
   useSystemStore: (selector: (state: typeof mockSystemState) => unknown) =>
     selector(mockSystemState),
 }));
@@ -39,11 +43,11 @@ jest.mock('@/store/useUserStore', () => ({
     selector(mockUserState),
 }));
 
-jest.mock('@/c-utils/urlUtils', () => ({
+jest.mock('@/lib/urlUtils', () => ({
   parseUrlParams: () => mockParseUrlParams(),
 }));
 
-jest.mock('@/c-constants/uiConstants', () => ({
+jest.mock('@/constants/uiConstants', () => ({
   inWechat: () => mockInWechat(),
   inMiniProgram: () => mockInMiniProgram(),
   wechatLogin: (...args: unknown[]) => mockWechatLogin(...args),

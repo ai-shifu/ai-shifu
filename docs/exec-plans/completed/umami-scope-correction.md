@@ -76,7 +76,7 @@ course-visit metric, or compatibility dual-write in the PR.
 
 The canonical contract is
 `docs/references/frontend-product-analytics.md`. Shared transport lives in
-`src/web/src/c-common/tools/tracking.ts`; feature producers live in Cook
+`src/web/src/lib/tracking.ts`; feature producers live in Cook
 Web components and hooks. The highest-risk overreach was in learner payment,
 creator billing, course creation, and learning-mode selection.
 

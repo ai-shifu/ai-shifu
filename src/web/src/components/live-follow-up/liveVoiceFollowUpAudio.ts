@@ -18,6 +18,29 @@ type PlaybackProgressMessage = {
 };
 
 const PLAYBACK_FLUSH_TIMEOUT_MS = 100;
+const OUTPUT_PAUSE_TIMEOUT_MS = 1_000;
+const OUTPUT_RESUME_TIMEOUT_MS = 5_000;
+const OUTPUT_CLOSE_TIMEOUT_MS = 1_000;
+
+const waitForAudioState = async (
+  operation: Promise<unknown>,
+  timeoutMs: number,
+) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new LiveVoiceAudioUnavailableError()),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 export class LiveVoiceAudioUnavailableError extends Error {
   constructor(message = 'Live voice audio is unavailable') {
@@ -49,10 +72,15 @@ export class LiveVoiceFollowUpAudio {
   private source: MediaStreamAudioSourceNode | null = null;
   private capture: AudioWorkletNode | null = null;
   private silentGain: GainNode | null = null;
+  private outputPaused = false;
+  private outputGeneration = 0;
+  private pausePromise: Promise<void> | null = null;
+  private resumePromise: Promise<void> | null = null;
 
   private constructor(
     private readonly context: AudioContext,
     private readonly playback: AudioWorkletNode,
+    private readonly outputGain: GainNode,
     private readonly callbacks: LiveVoiceAudioCallbacks,
   ) {}
 
@@ -150,12 +178,19 @@ export class LiveVoiceFollowUpAudio {
           'live-follow-up-playback',
           { channelCount: 1, numberOfInputs: 0, numberOfOutputs: 1 },
         );
-        const audio = new LiveVoiceFollowUpAudio(context, playback, callbacks);
+        const outputGain = context.createGain();
+        const audio = new LiveVoiceFollowUpAudio(
+          context,
+          playback,
+          outputGain,
+          callbacks,
+        );
         playback.port.onmessage = event => {
           audio.handlePlaybackMessage(event.data, callbacks);
         };
 
-        playback.connect(context.destination);
+        playback.connect(outputGain);
+        outputGain.connect(context.destination);
 
         return audio;
       })
@@ -173,7 +208,11 @@ export class LiveVoiceFollowUpAudio {
   }
 
   attachMicrophone(stream: MediaStream) {
-    if (this.stopPromise || this.context.state === 'closed') {
+    if (
+      this.stopPromise ||
+      this.outputPaused ||
+      this.context.state === 'closed'
+    ) {
       stream.getTracks().forEach(track => track.stop());
       throw new LiveVoiceAudioUnavailableError();
     }
@@ -223,8 +262,77 @@ export class LiveVoiceFollowUpAudio {
     return this.flushAndClearPlayback();
   }
 
+  pauseOutput(): Promise<void> {
+    this.stopMicrophone();
+    if (this.stopPromise) return this.stopPromise;
+    if (this.outputPaused && this.pausePromise && !this.resumePromise)
+      return this.pausePromise;
+    this.outputPaused = true;
+    const generation = ++this.outputGeneration;
+    // Silence immediately, before waiting for the worklet's played watermark.
+    this.outputGain.gain.value = 0;
+    this.resumePromise = null;
+    this.pausePromise = this.flushAndClearPlayback().then(async () => {
+      if (
+        generation !== this.outputGeneration ||
+        !this.outputPaused ||
+        this.stopPromise ||
+        this.context.state === 'closed'
+      )
+        return;
+      try {
+        await waitForAudioState(
+          this.context.suspend(),
+          OUTPUT_PAUSE_TIMEOUT_MS,
+        );
+      } catch {
+        // Output remains muted and capture released even if the browser cannot
+        // finish suspending an AudioContext while the document is hidden.
+      }
+    });
+    return this.pausePromise;
+  }
+
+  resumeOutput(): Promise<void> {
+    if (this.stopPromise || this.context.state === 'closed') {
+      return Promise.reject(new LiveVoiceAudioUnavailableError());
+    }
+    if (this.resumePromise) return this.resumePromise;
+    const generation = ++this.outputGeneration;
+    const paused = this.pausePromise;
+    let resumed: Promise<void>;
+    try {
+      // This native call must occur before returning to the click handler.
+      resumed = this.context.resume();
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    const pending = waitForAudioState(
+      Promise.all([resumed, paused]),
+      OUTPUT_RESUME_TIMEOUT_MS,
+    ).then(() => {
+      if (generation !== this.outputGeneration || this.stopPromise) {
+        throw new DOMException('Live audio resume was cancelled', 'AbortError');
+      }
+      this.outputPaused = false;
+      this.pausePromise = null;
+      this.outputGain.gain.value = 1;
+    });
+    this.resumePromise = pending;
+    void pending
+      .finally(() => {
+        if (this.resumePromise === pending) this.resumePromise = null;
+      })
+      .catch(() => {});
+    return pending;
+  }
+
   enqueueOutput(buffer: ArrayBuffer, turnIndex: number) {
-    if (this.context.state === 'closed' || buffer.byteLength === 0) {
+    if (
+      this.outputPaused ||
+      this.context.state === 'closed' ||
+      buffer.byteLength === 0
+    ) {
       return;
     }
     this.playback.port.postMessage({ type: 'audio', buffer, turnIndex }, [
@@ -317,11 +425,19 @@ export class LiveVoiceFollowUpAudio {
     // Stop capture immediately, while keeping the playback port alive long
     // enough to flush its final consumed-byte checkpoint.
     this.stopMicrophone();
+    this.outputGeneration += 1;
+    this.outputPaused = true;
+    this.outputGain.gain.value = 0;
     await this.flushAndClearPlayback();
     this.playback.port.onmessage = null;
     this.playback.disconnect();
+    this.outputGain.disconnect();
     this.flushResolvers.forEach(resolve => resolve());
     this.flushResolvers.clear();
-    await this.context.close().catch(() => {});
+    // Tracks and graph are already detached. A browser-stalled native close
+    // must not prevent final history persistence or the next explicit input.
+    try {
+      await waitForAudioState(this.context.close(), OUTPUT_CLOSE_TIMEOUT_MS);
+    } catch {}
   }
 }

@@ -13,6 +13,32 @@ export const LIVE_VOICE_FOLLOW_UP_TEXT_SUBMIT_EVENT =
   'learner_voice_follow_up_text_submit' as const;
 export const LIVE_VOICE_FOLLOW_UP_MICROPHONE_RESULT_EVENT =
   'learner_voice_follow_up_microphone_result' as const;
+export const LIVE_VOICE_FOLLOW_UP_PAUSE_EVENT =
+  'learner_voice_follow_up_pause' as const;
+export const LIVE_VOICE_FOLLOW_UP_RESUME_EVENT =
+  'learner_voice_follow_up_resume' as const;
+
+export const LIVE_VOICE_FOLLOW_UP_PAUSE_REASONS = [
+  'panel_closed',
+  'page_hidden',
+  'audio_replaced',
+] as const;
+
+export type LiveVoiceFollowUpPauseReason =
+  (typeof LIVE_VOICE_FOLLOW_UP_PAUSE_REASONS)[number];
+
+export const buildLiveVoiceFollowUpPauseAnalytics = (
+  input: LiveVoiceFollowUpBaseAnalyticsInput & {
+    reason: LiveVoiceFollowUpPauseReason;
+  },
+) => ({
+  ...buildLiveVoiceFollowUpAttemptAnalytics(input),
+  reason: input.reason,
+});
+
+export const buildLiveVoiceFollowUpResumeAnalytics = (
+  input: LiveVoiceFollowUpBaseAnalyticsInput,
+) => buildLiveVoiceFollowUpAttemptAnalytics(input);
 
 export const buildLiveVoiceFollowUpTextAnalytics = (
   input: LiveVoiceFollowUpBaseAnalyticsInput & {

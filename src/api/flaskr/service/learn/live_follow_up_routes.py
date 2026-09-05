@@ -8,7 +8,7 @@ import json
 import math
 import time
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from urllib.parse import urlsplit, urlunsplit
 
@@ -19,33 +19,47 @@ from flaskr.common.http import make_common_response, sensitive_body
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.i18n import get_current_language
 from flaskr.service.common import raise_error
-from flaskr.service.common.models import raise_param_error
+from flaskr.service.common.models import AppError, raise_param_error
 from flaskr.service.config import get_config
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
 )
 from flaskr.service.learn.gemini_live_token import (
     GEMINI_LIVE_CONSTRAINED_ENDPOINT,
+    GEMINI_LIVE_TOKEN_CONNECT_SECONDS,
+    GEMINI_LIVE_TOKEN_LIFETIME_SECONDS,
     GeminiLiveEphemeralToken,
     GeminiLiveHistoryTurn,
     GeminiLiveTokenError,
+    GeminiLiveTokenTimeoutError,
     build_gemini_live_client_setup,
     build_gemini_live_history_message,
     mint_gemini_live_ephemeral_token,
 )
 from flaskr.service.learn.learn_dtos import LearnOutlineItemInfoDTO, OutlineType
 from flaskr.service.learn.learn_funcs import get_outline_item_tree
+from flaskr.service.learn.live_follow_up_admission import (
+    AdmissionRequest,
+    AdmissionResult,
+    admission_status,
+    admission_time,
+    begin_admission,
+    complete_admission,
+    current_admission,
+    fail_admission,
+    legacy_request_bid,
+    request_timestamp_ms,
+    retire_admission,
+    retirement_receipt,
+)
 from flaskr.service.learn.live_follow_up_capacity import (
     LiveFollowUpCapacityError,
-    LiveFollowUpCapacityLease,
-    LiveFollowUpCapacityLimitError,
-    acquire_live_follow_up_capacity,
-    release_live_follow_up_capacity,
 )
 from flaskr.service.learn.live_follow_up_config import (
     DEFAULT_GEMINI_LIVE_VOICE,
     GEMINI_LIVE_MODEL_ID,
     is_gemini_live_enabled,
+    is_gemini_live_rotation_enabled,
     is_live_follow_up_model,
     normalize_live_follow_up_provider_config,
 )
@@ -71,7 +85,7 @@ from flaskr.service.learn.live_follow_up_session_store import (
     load_live_follow_up_session,
     release_live_follow_up_turn_reservation,
     reserve_live_follow_up_turn,
-    store_live_follow_up_session,
+    serialize_live_follow_up_session,
     touch_live_follow_up_session,
 )
 from flaskr.service.learn.live_follow_up_trace import LiveFollowUpTrace
@@ -94,6 +108,7 @@ _ALLOWED_SURFACES = frozenset({"read_content", "listen_player", "teacher_preview
 _MAX_DIRECT_TRANSCRIPT_CHARS = 32_000
 _MAX_DIRECT_USAGE_BYTES = 64 * 1024
 _MAX_DIRECT_TURN_REPORT_BYTES = 60 * 1024
+_ERROR_DEADLINE_MISMATCH = "token_deadline_mismatch"
 
 
 class LiveFollowUpModelUnavailableError(RuntimeError):
@@ -107,6 +122,17 @@ def _make_live_response(data: dict[str, object]) -> Response:
         mimetype="application/json",
         headers={"X-Content-Type-Options": "nosniff"},
     )
+
+
+def _validate_token_deadlines(
+    token: GeminiLiveEphemeralToken, issued_at: datetime
+) -> None:
+    if token.expires_at != issued_at + timedelta(
+        seconds=GEMINI_LIVE_TOKEN_LIFETIME_SECONDS
+    ) or token.new_session_expires_at != issued_at + timedelta(
+        seconds=GEMINI_LIVE_TOKEN_CONNECT_SECONDS
+    ):
+        raise GeminiLiveTokenError(_ERROR_DEADLINE_MISMATCH)
 
 
 def _request_user_bid() -> str:
@@ -411,10 +437,16 @@ def _session_response(
     binding: LiveFollowUpSessionBinding,
     token: GeminiLiveEphemeralToken,
     history: tuple[GeminiLiveHistoryTurn, ...],
+    admission: AdmissionResult,
+    rotation_enabled: bool,
 ) -> Response:
     return _make_live_response(
         {
             "session_bid": binding.session_bid,
+            "request_bid": admission.data["request_bid"],
+            "admission_revision": admission.data["admission_revision"],
+            "operation_status": "issued",
+            "rotation_enabled": rotation_enabled,
             "ephemeral_token": token.token,
             "websocket_url": GEMINI_LIVE_CONSTRAINED_ENDPOINT,
             "setup": build_gemini_live_client_setup(
@@ -432,6 +464,143 @@ def _session_response(
     )
 
 
+def _admission_request(
+    payload: dict[str, object],
+    *,
+    request_bid: str,
+    user_bid: str,
+    origin: str,
+    shifu_bid: str,
+    outline_bid: str,
+) -> AdmissionRequest:
+    """Validate the exact content-free operation target before Redis access."""
+    anchor = str(payload.get("anchor_element_bid") or "").strip()
+    preview = payload.get("preview_mode", False)
+    mode = str(payload.get("learning_mode") or "").strip().lower()
+    surface = str(payload.get("surface") or "").strip().lower()
+    predecessor = str(payload.get("replace_session_bid") or "").strip()
+    revision = str(payload.get("expected_admission_revision") or "").strip()
+    if (
+        not anchor
+        or len(anchor) > 64
+        or type(preview) is not bool
+        or mode not in _ALLOWED_LEARNING_MODES
+        or surface not in _ALLOWED_SURFACES
+        or (preview and surface != "teacher_preview")
+        or (not preview and surface == "teacher_preview")
+        or len(predecessor) > 64
+        or len(revision) > 128
+        or bool(predecessor) != bool(revision)
+    ):
+        raise_param_error("live_follow_up")
+    try:
+        request_timestamp_ms(request_bid)
+    except ValueError:
+        raise_param_error("live_follow_up")
+    return AdmissionRequest(
+        request_bid=request_bid,
+        user_bid=user_bid,
+        origin=origin,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        anchor_element_bid=anchor,
+        preview_mode=preview,
+        learning_mode=mode,
+        surface=surface,
+        replace_session_bid=predecessor,
+        expected_admission_revision=revision,
+    )
+
+
+def _admission_failure(request_bid: str, *, rotation_enabled: bool) -> Response:
+    return _make_live_response(
+        {
+            "request_bid": request_bid,
+            "operation_status": "rejected",
+            "error_code": "admission_unavailable",
+            "rotation_enabled": rotation_enabled,
+        }
+    )
+
+
+def _status_response(
+    app: Flask, *, payload: dict[str, object], shifu_bid: str, outline_bid: str
+) -> Response:
+    """Recover only this user's original metadata, never old course content."""
+    user_bid = _request_user_bid()
+    if not user_bid:
+        raise_error("server.user.userNotLogin")
+    origin = _require_allowed_origin(app)
+    target = payload.get("target")
+    if not isinstance(target, dict) or "anchor_element_bid" in payload:
+        raise_param_error("live_follow_up")
+    operation = _admission_request(
+        target,
+        request_bid=str(payload.get("request_bid") or ""),
+        user_bid=user_bid,
+        origin=origin,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+    )
+    rotation = is_gemini_live_rotation_enabled()
+    try:
+        return _make_live_response(
+            admission_status(app, operation, rotation_enabled=rotation)
+        )
+    except LiveFollowUpCapacityError:
+        return _admission_failure(operation.request_bid, rotation_enabled=rotation)
+
+
+def _retire_session_admission(app: Flask, session: StoredLiveFollowUpSession) -> None:
+    if session.admission and session.admission_revision:
+        retire_admission(
+            app,
+            session.admission,
+            session_bid=session.binding.session_bid,
+            admission_revision=session.admission_revision,
+            expires_at_ms=math.ceil(session.binding.expires_at_epoch * 1000),
+            last_committed_index=session.turn_state.last_committed_index,
+        )
+
+
+def _complete_session_admission(
+    app: Flask,
+    operation: AdmissionRequest,
+    result: AdmissionResult,
+    session: StoredLiveFollowUpSession,
+) -> None:
+    if not complete_admission(
+        app,
+        operation,
+        result,
+        session_payload=serialize_live_follow_up_session(session),
+    ):
+        raise GeminiLiveTokenError(_ERROR_DEADLINE_MISMATCH)
+
+
+def _failed_operation_response(
+    app: Flask, operation: AdmissionRequest | None, *, rotation_enabled: bool
+) -> Response:
+    """Never mislabel an advanced or uncertain ownership head as pre-admission.
+
+    A generic transport/business failure keeps the original request ID for a
+    later non-minting lookup when Redis cannot establish the operation status.
+    """
+    if operation is not None:
+        try:
+            status = admission_status(app, operation, rotation_enabled=rotation_enabled)
+        except LiveFollowUpCapacityError:
+            raise_param_error("live_follow_up")
+        if status.get("operation_status") in {
+            "pending",
+            "issued",
+            "failed",
+            "cancelled",
+        }:
+            return _make_live_response(status)
+    return raise_param_error("live_follow_up")
+
+
 def register_live_follow_up_routes(
     app: Flask,
     path_prefix: str = "/api/learn",
@@ -443,11 +612,28 @@ def register_live_follow_up_routes(
         methods=["POST"],
     )
     @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
-    @with_shifu_context()
     def create_live_follow_up_session_api(
         shifu_bid: str,
         outline_bid: str,
     ) -> Response:
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("live_follow_up")
+        operation_kind = payload.get("operation", "create")
+        if operation_kind == "status":
+            return _status_response(
+                app, payload=payload, shifu_bid=shifu_bid, outline_bid=outline_bid
+            )
+        if operation_kind != "create":
+            raise_param_error("live_follow_up")
+        return create_session_with_course_context(shifu_bid, outline_bid, payload)
+
+    @with_shifu_context()
+    def create_session_with_course_context(
+        shifu_bid: str, outline_bid: str, payload: dict[str, object]
+    ) -> Response:
+        # Non-minting status recovery deliberately bypasses this course-context
+        # resolver: an old course's later removal cannot strand owned metadata.
         if not is_gemini_live_enabled():
             raise_param_error("live_follow_up")
         if not is_live_follow_up_model_available(GEMINI_LIVE_MODEL_ID):
@@ -455,9 +641,6 @@ def register_live_follow_up_routes(
         user_bid = _request_user_bid()
         if not user_bid:
             raise_error("server.user.userNotLogin")
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            raise_param_error("live_follow_up")
         anchor_element_bid = str(payload.get("anchor_element_bid") or "").strip()
         preview_mode = payload.get("preview_mode", False)
         learning_mode = str(payload.get("learning_mode") or "").strip().lower()
@@ -521,9 +704,42 @@ def register_live_follow_up_routes(
             follow_up_info=follow_up_info,
         )
 
-        lease: LiveFollowUpCapacityLease | None = None
+        legacy = "request_bid" not in payload
+        rotation = is_gemini_live_rotation_enabled()
+        admission: AdmissionResult | None = None
+        admission_request: AdmissionRequest | None = None
         try:
-            lease = acquire_live_follow_up_capacity(app, user_bid=user_bid)
+            operation_bid = (
+                legacy_request_bid()
+                if legacy
+                else str(payload.get("request_bid") or "")
+            )
+            admission_request = _admission_request(
+                payload,
+                request_bid=operation_bid,
+                user_bid=user_bid,
+                origin=origin,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+            )
+            admission = begin_admission(
+                app,
+                admission_request,
+                session_bid=session_bid,
+                rotation_enabled=rotation,
+                legacy=legacy,
+            )
+            if admission.lease is None:
+                if legacy:
+                    if admission.data.get("error_code") in {
+                        "capacity_exceeded",
+                        "ownership_conflict",
+                    }:
+                        raise_error("server.learn.liveFollowUpCapacityExceeded")
+                    raise_param_error("live_follow_up")
+                return _make_live_response(admission.data)
+            # The atomic Redis TIME epoch bounds token and every capacity scope.
+            issued_at = datetime.fromtimestamp(admission.issued_at_ms / 1000, tz=UTC)
             token = mint_gemini_live_ephemeral_token(
                 api_key=api_key,
                 api_base_url=str(get_config("GEMINI_API_URL", "") or "").strip(),
@@ -531,7 +747,9 @@ def register_live_follow_up_routes(
                 voice_name=voice,
                 system_instruction=system_instruction,
                 include_initial_history=bool(history),
+                current_time=issued_at,
             )
+            _validate_token_deadlines(token, issued_at)
             binding = _new_session_binding(
                 session_bid=session_bid,
                 user_bid=user_bid,
@@ -547,27 +765,47 @@ def register_live_follow_up_routes(
                 learning_mode=learning_mode,
                 expires_at_epoch=token.expires_at.timestamp(),
             )
-            store_live_follow_up_session(
-                app,
-                session=StoredLiveFollowUpSession(binding=binding, lease=lease),
+            session = StoredLiveFollowUpSession(
+                binding=binding,
+                lease=admission.lease,
+                admission=admission_request,
+                admission_revision=str(admission.data["admission_revision"]),
             )
-        except LiveFollowUpCapacityLimitError:
-            raise_error("server.learn.liveFollowUpCapacityExceeded")
+            _complete_session_admission(app, admission_request, admission, session)
         except (LiveFollowUpCapacityError, LiveFollowUpSessionStoreError):
-            if lease is not None:
+            if admission is not None and admission_request is not None:
                 with contextlib.suppress(Exception):
-                    release_live_follow_up_capacity(app, lease=lease)
+                    fail_admission(app, admission_request, admission)
+            if not legacy:
+                return _failed_operation_response(
+                    app, admission_request, rotation_enabled=rotation
+                )
             raise_param_error("live_follow_up")
-        except GeminiLiveTokenError:
-            if lease is not None:
+        except GeminiLiveTokenError as exc:
+            if admission is not None and admission_request is not None:
                 with contextlib.suppress(Exception):
-                    release_live_follow_up_capacity(app, lease=lease)
+                    fail_admission(
+                        app,
+                        admission_request,
+                        admission,
+                        undisclosed=not isinstance(exc, GeminiLiveTokenTimeoutError),
+                    )
             app.logger.error(  # noqa: TRY400 - never log provider response details
                 "Gemini Live token provisioning failed session=%s",
                 session_bid,
             )
+            if not legacy:
+                return _failed_operation_response(
+                    app, admission_request, rotation_enabled=rotation
+                )
             raise_param_error("live_follow_up")
-        return _session_response(binding=binding, token=token, history=history)
+        return _session_response(
+            binding=binding,
+            token=token,
+            history=history,
+            admission=admission,
+            rotation_enabled=rotation,
+        )
 
     def require_direct_session(
         session_bid: str,
@@ -594,13 +832,28 @@ def register_live_follow_up_routes(
             raise_param_error("live_follow_up_session")
         return session
 
-    def touch_direct_session(session: StoredLiveFollowUpSession) -> None:
+    def touch_direct_session(
+        session: StoredLiveFollowUpSession, *, finalizing: bool = False
+    ) -> None:
         try:
             touch_live_follow_up_session(
                 app,
                 session_bid=session.binding.session_bid,
+                finalizing=finalizing,
             )
         except (LiveFollowUpCapacityError, LiveFollowUpSessionStoreError):
+            raise_param_error("live_follow_up_session")
+
+    def require_retirement_receipt(session_bid: str) -> dict[str, object] | None:
+        user_bid = _request_user_bid()
+        if not user_bid:
+            raise_error("server.user.userNotLogin")
+        origin = _require_allowed_origin(app)
+        try:
+            return retirement_receipt(
+                app, user_bid=user_bid, origin=origin, session_bid=session_bid
+            )
+        except LiveFollowUpCapacityError:
             raise_param_error("live_follow_up_session")
 
     @app.route(
@@ -610,6 +863,30 @@ def register_live_follow_up_routes(
     @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def heartbeat_live_follow_up_session_api(session_bid: str) -> Response:
         session = require_direct_session(session_bid)
+        if session.admission:
+            try:
+                current = current_admission(
+                    app,
+                    session.admission,
+                    session_bid=session_bid,
+                    admission_revision=session.admission_revision,
+                )
+            except LiveFollowUpCapacityError:
+                return _make_live_response(
+                    {
+                        "session_bid": session_bid,
+                        "operation_status": "rejected",
+                        "error_code": "admission_unavailable",
+                    }
+                )
+            if not current:
+                return _make_live_response(
+                    {
+                        "session_bid": session_bid,
+                        "operation_status": "rejected",
+                        "error_code": "ownership_conflict",
+                    }
+                )
         touch_direct_session(session)
         expires_at = datetime.fromtimestamp(
             session.binding.expires_at_epoch,
@@ -681,9 +958,26 @@ def register_live_follow_up_routes(
     )
     @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def commit_live_follow_up_turn_api(session_bid: str) -> Response:
-        session = require_direct_session(session_bid, allow_finalization=True)
         turn = _validate_turn_payload(_read_bounded_turn_payload())
-        touch_direct_session(session)
+        try:
+            session = require_direct_session(session_bid, allow_finalization=True)
+        except AppError:
+            receipt = require_retirement_receipt(session_bid)
+            if receipt is None or turn.turn_index > int(
+                receipt["last_committed_index"]
+            ):
+                raise
+            result = load_persisted_live_follow_up_turn(session_bid, turn.turn_index)
+            return _make_live_response(
+                {
+                    "session_bid": session_bid,
+                    "turn_index": turn.turn_index,
+                    "history_saved": result.history_saved,
+                    "ask_element_bid": result.ask_element_bid,
+                    "answer_element_bid": result.answer_element_bid,
+                }
+            )
+        touch_direct_session(session, finalizing=True)
         try:
             with live_follow_up_persistence_lock(app, session_bid):
                 session = require_direct_session(session_bid, allow_finalization=True)
@@ -718,7 +1012,6 @@ def register_live_follow_up_routes(
     @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def finalize_live_follow_up_session_api(session_bid: str) -> Response:
         admitted_at = time.time()
-        session = require_direct_session(session_bid, allow_finalization=True)
         payload = _read_bounded_turn_payload()
         if not isinstance(payload, dict):
             raise_param_error("live_follow_up_turn")
@@ -731,7 +1024,26 @@ def register_live_follow_up_routes(
             for previous, following in pairwise(turns)
         ):
             raise_param_error("live_follow_up_turn")
-        touch_direct_session(session)
+        try:
+            session = require_direct_session(session_bid, allow_finalization=True)
+        except AppError:
+            receipt = require_retirement_receipt(session_bid)
+            if receipt is None or any(
+                turn.turn_index > int(receipt["last_committed_index"]) for turn in turns
+            ):
+                raise
+            return _make_live_response(
+                {
+                    "session_bid": session_bid,
+                    "turn_indices": [turn.turn_index for turn in turns],
+                    "admission_revision": receipt["admission_revision"],
+                }
+            )
+        if session.admission:
+            admitted_at = admission_time()
+        # An admitted batch may wait for the DB lock across the grace deadline.
+        # Retain its binding now, without granting any later request admission.
+        touch_direct_session(session, finalizing=True)
         try:
             with live_follow_up_persistence_lock(app, session_bid):
                 # Admission applies to this already-validated, bounded batch.
@@ -769,8 +1081,19 @@ def register_live_follow_up_routes(
                         recover_pending=True,
                     )
                     persist_reserved_turn(bound_session, turn, reservation)
+                latest_session = load_live_follow_up_session(
+                    app,
+                    session_bid=session_bid,
+                    current_time=admitted_at,
+                    allow_finalization=True,
+                )
+                _retire_session_admission(app, latest_session)
                 consume_live_follow_up_session(app, session_bid=session_bid)
-        except (LiveFollowUpSessionStoreError, LiveFollowUpPersistenceError):
+        except (
+            LiveFollowUpSessionStoreError,
+            LiveFollowUpPersistenceError,
+            LiveFollowUpCapacityError,
+        ):
             raise_param_error("live_follow_up_turn")
         return _make_live_response(
             {
@@ -785,7 +1108,20 @@ def register_live_follow_up_routes(
     )
     @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
     def end_live_follow_up_session_api(session_bid: str) -> Response:
-        require_direct_session(session_bid, allow_finalization=True)
+        admitted_at = time.time()
+        try:
+            session = require_direct_session(session_bid, allow_finalization=True)
+        except AppError:
+            receipt = require_retirement_receipt(session_bid)
+            if receipt is None:
+                raise
+            return _make_live_response(
+                {
+                    "session_bid": session_bid,
+                    "reason": "ended_by_user",
+                    "admission_revision": receipt["admission_revision"],
+                }
+            )
         payload = request.get_json(silent=True) or {}
         end_reason = str(payload.get("reason") or "ended_by_user").strip()
         if end_reason not in {
@@ -798,16 +1134,33 @@ def register_live_follow_up_routes(
             "timeout",
         }:
             end_reason = "connection_error"
+        if session.admission:
+            admitted_at = admission_time()
+            touch_direct_session(session, finalizing=True)
         try:
             with live_follow_up_persistence_lock(app, session_bid):
+                if session.admission:
+                    session = load_live_follow_up_session(
+                        app,
+                        session_bid=session_bid,
+                        current_time=admitted_at,
+                        allow_finalization=True,
+                    )
+                _retire_session_admission(app, session)
                 consume_live_follow_up_session(app, session_bid=session_bid)
         except LiveFollowUpSessionRejectedError:
             pass
-        except (LiveFollowUpSessionStoreError, LiveFollowUpPersistenceError):
+        except (
+            LiveFollowUpSessionStoreError,
+            LiveFollowUpPersistenceError,
+            LiveFollowUpCapacityError,
+        ):
             raise_param_error("live_follow_up_session")
         # The browser has already received a credential that Gemini accepts
         # until its fixed expireTime. Gemini exposes no revoke operation, so
-        # releasing admission here would let one user keep the old socket and
-        # mint another token outside the 24/6/1 capacity bounds. The Redis
-        # reservation therefore expires naturally with the token.
-        return _make_live_response({"session_bid": session_bid, "reason": end_reason})
+        # only logical ownership is retired here. Its independent credential
+        # reservation expires naturally and continues counting toward 24/6/3.
+        data: dict[str, object] = {"session_bid": session_bid, "reason": end_reason}
+        if session.admission_revision:
+            data["admission_revision"] = session.admission_revision
+        return _make_live_response(data)

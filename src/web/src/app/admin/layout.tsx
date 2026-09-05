@@ -10,10 +10,10 @@ import React, {
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
+import { useDisclosure } from '@/hooks/useDisclosure';
+import { useTracking } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store';
+import { EnvStoreState } from '@/types/store';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import {
   useCreatorOnboardingStatus,
@@ -29,7 +29,7 @@ import { applyCreatorBranding } from '@/lib/initializeEnvData';
 import type { ReferralInviteProfile } from '@/types/referral';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
-import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
+import { getCourseCreatorUrl } from '@/lib/urlUtils';
 import AdminDocumentTitleSync from './AdminDocumentTitleSync';
 
 const MainInterface = ({

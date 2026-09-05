@@ -3,8 +3,8 @@ import type { MouseEvent, TouchEvent } from 'react';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
 import { Trans, useTranslation } from 'react-i18next';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState, SupportedLocale } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import { EnvStoreState, SupportedLocale } from '@/types/store';
 import { normalizeLanguage } from '@/i18n';
 
 interface TermsCheckboxProps {
