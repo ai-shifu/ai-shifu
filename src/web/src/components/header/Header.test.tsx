@@ -369,6 +369,11 @@ describe('Header publish success link', () => {
     ).toBeDisabled();
 
     fireEvent.click(shareButton);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.shareIntroductionAndLink',
+      }),
+    );
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
@@ -391,6 +396,11 @@ describe('Header publish success link', () => {
     renderHeader();
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.shareCourse' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.shareIntroductionAndLink',
+      }),
     );
 
     await waitFor(() => {
@@ -422,6 +432,11 @@ describe('Header publish success link', () => {
       renderHeader();
       fireEvent.click(
         screen.getByRole('button', { name: 'common.core.shareCourse' }),
+      );
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'common.core.shareIntroductionAndLink',
+        }),
       );
 
       await waitFor(() => {

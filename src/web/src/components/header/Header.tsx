@@ -53,7 +53,7 @@ import {
   formatLessonRelativeTime,
   parseLessonHistoryDate,
 } from '@/lib/lesson-history-time';
-import { CourseShareButton } from '@/components/course-share';
+import { TeacherCourseShareButton } from '@/components/course-share/TeacherCourseShareButton';
 import { normalizeCourseShareUrl } from '@/lib/courseShare';
 
 const publishModeIcons: Record<LearningMode, LucideIcon> = {
@@ -493,7 +493,8 @@ const Header = ({
       <div className='flex flex-row items-center'>
         <Preivew targetId={previewTargetId} />
         {currentShifu?.bid ? (
-          <CourseShareButton
+          <TeacherCourseShareButton
+            key={currentShifu.bid}
             courseTitle={currentShifu.name || ''}
             courseDescription={currentShifu.description}
             shifuBid={currentShifu.bid}
