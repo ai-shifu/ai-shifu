@@ -12,6 +12,10 @@ import {
   writeListenPlaybackSpeedToStorage,
 } from './listenPlaybackSpeed';
 import {
+  readListenPlaybackCheckpoint,
+  writeListenPlaybackCheckpoint,
+} from './listenPlaybackCheckpoint';
+import {
   isListenLessonFeedbackPromptReady,
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
@@ -237,6 +241,64 @@ describe('ListenModeSlideRenderer', () => {
         name: 'module.chat.audioLoading',
       }),
     ).toBeInTheDocument();
+  });
+
+  it('defers player startup until it has supplied the saved audio checkpoint', async () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'later-stream', timeMs: 12_000 },
+    );
+    expect(
+      readListenPlaybackCheckpoint({
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+      }),
+    ).toEqual({ audioKey: 'later-stream', timeMs: 12_000 });
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Later stream',
+            element_bid: 'later-stream',
+            is_speakable: true,
+            audioTracks: [
+              {
+                position: 0,
+                audioUrl: '/audio/later-stream.mp3',
+                isAudioStreaming: false,
+              },
+            ],
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | {
+            playbackRestoreRequest?: {
+              audioKey: string;
+              id: number;
+              timeMs: number;
+            } | null;
+            playerEnabled?: boolean;
+          }
+        | undefined;
+
+      expect(slideProps?.playerEnabled).toBe(true);
+      expect(slideProps?.playbackRestoreRequest).toEqual({
+        audioKey: 'later-stream',
+        id: 1,
+        timeMs: 12_000,
+      });
+    });
   });
 
   it('relies on slide locale defaults for matching built-in copy', () => {
