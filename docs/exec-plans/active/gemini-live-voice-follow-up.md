@@ -1037,7 +1037,8 @@ previous credential exposure and requires a separate measured decision.
 #### Atomic admission, retirement, and request idempotence
 
 Extend the existing authenticated session POST instead of adding another media
-path. Add `request_bid`, optional `replace_session_bid`, and optional
+path. Add `operation=create|status` (default `create`), `request_bid`, optional
+`replace_session_bid`, and optional
 `expected_admission_revision`. Return `admission_revision` with the current
 successful response. Use a server-generated opaque ownership revision and
 compare the pair of predecessor session BID and revision; a recreated Redis
@@ -1063,6 +1064,11 @@ owner or retirement receipt, enforce risk/rate bounds, reserve risk, and claim
 one pending successor. All rejections occur before contacting Gemini. A
 duplicate ID with a different binding is rejected; an exact duplicate returns
 the same bounded operation status without another provider call or rate charge.
+The explicit `status` operation only reads an existing operation record; it
+never runs mint admission, creates a missing record, consumes capacity/rate
+budget, or returns a credential. Authenticate user/Origin and exact target
+before lookup. Unlike `create`, status remains valid throughout the 20-minute
+tombstone retention even after the request ID's mint window has elapsed.
 Existing risk keys stay non-releasable; new versioned user-risk/owner/operation
 keys do not replace the existing per-user STRING in place.
 
@@ -1088,6 +1094,20 @@ budget. An `issued` response without the original token ends that attempt as a
 bounded failure, preserving unsent input. A later deliberate retry creates a
 new ID and may replace that orphan through the same reservation/CAS rules.
 Aborting fetch is never treated as proof the provider did not issue a token.
+If the original response and all status responses are lost, preserve the old
+request ID even though no session BID/revision was received. The next explicit
+retry first performs a bounded, non-minting status lookup with that ID; the
+expired startup budget does not prohibit a new user-requested lookup. It may
+recover only that operation's session/revision and whether it still matches the
+current ownership head. Do not return an unrelated successor as an implicit
+takeover target. Only a matching current/retired head allows a fresh-ID CAS
+replacement; a stale operation preserves the draft and reports an ownership
+conflict. Pending operations must settle or hit their original server deadline
+before a successor is admitted. A new retry shares one 20-second startup budget
+across status recovery and any subsequent issuance/setup; it never chains new
+budgets automatically. If the tombstone no longer exists, do not recreate it or
+remint its ID: all credentials it could have issued have expired, and a fresh
+initial operation still has to pass current ownership and quota checks.
 
 Authenticated End/finalize may retire only their own owner revision. Keep a
 separate retirement receipt until at least the original expiry plus 300 seconds,
@@ -1193,6 +1213,13 @@ recovery epoch established before reopening. Bootstrap the accounting marker
 while admission is disabled; a missing marker after restart/reset triggers this
 conservative recovery rather than an empty-ledger bypass. Normal text/HTTP and
 already-issued Google credentials do not depend on this new admission gate.
+A surviving marker is not sufficient after restoring an older snapshot. Verify
+the shared Redis instance/recovery generation on admission; restart, failover,
+or restore invalidates it and triggers the same conservative window even when
+the marker survives. Risk/owner/operation keys must not be individually evicted:
+verify non-evicting storage as an enablement precondition. If these properties
+cannot be established, keep rotation disabled and report the operational gate;
+do not silently change Redis deployment settings in this implementation.
 
 Implementation belongs in `live_follow_up_capacity.py`,
 `live_follow_up_session_store.py`, `live_follow_up_routes.py`, existing direct
@@ -1203,9 +1230,11 @@ provider key exposure, token response cache, or media proxy is proposed.
 Acceptance must include real Redis Lua concurrent workers/tabs, exact expiry,
 three-per-user/global/worker exhaustion, rolling-rate edges, identical/mutated/
 expired request IDs, worker clock skew, provider timeout/crash/late success,
-response loss, stale End/finalize, retirement after consumed binding, replay of
+response loss (including loss of every status response followed by recovery
+after the UUID mint window), stale End/finalize, retirement after consumed binding, replay of
 an old predecessor after its successor ends, V1/V2 rollout and rollback, and
-Redis fail-closed/accounting loss. Frontend tests must reproduce End/new-anchor immediate
+Redis fail-closed/accounting loss, including restored markers with missing
+newer reservations. Frontend tests must reproduce End/new-anchor immediate
 replacement under available budget, paused same-anchor reuse, one pending send,
 clock skew, dropped/stale responses, draft/history preservation, no sent-input
 replay, manual capture and click activation, output isolation, and exact
