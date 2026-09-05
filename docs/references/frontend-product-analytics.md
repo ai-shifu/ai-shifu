@@ -250,6 +250,13 @@ They are an example, not the start of an event registry.
   presented as exact row-level joins.
 - Consumer: aggregate course-sharing adoption and outcome analysis.
 
+Teacher entry now opens a dialog: `course_share_click/result` still measure
+the actual ordinary share action inside that dialog, not opening the dialog.
+The additive `teacher_course_share_open` and `teacher_poster_prompt_copy/result`
+contracts live in `docs/exec-plans/active/course-sharing.md`. Consumers comparing
+historical teacher activity must distinguish share attempts from dialog opens;
+prompt-copy success is not proof of poster generation in an external assistant.
+
 ### Events and feature-owned payloads
 
 | Event                 | Trigger                                                                                        | Feature-owned fields                        |

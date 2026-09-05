@@ -178,6 +178,56 @@ accepting the generated file rather than hand-editing it.
 
 ## Interfaces and Dependencies
 
+### Teacher poster prompt handoff (2026-09-05)
+
+The teacher header opens a share dialog with the existing ordinary share
+action and a poster prompt containing the exact full recommendation,
+description, and canonical URL. The prompt is assembled locally and copied
+only on an explicit click. Learner entry points retain direct sharing.
+Copy failure leaves selectable text. Opening or copying never publishes a course.
+
+Analytics contract (consumer: product team's weekly course-sharing analysis):
+
+- `teacher_course_share_open`: once per accepted closed-to-open transition.
+- `teacher_poster_guide_open`: once per deliberate collapsed-to-expanded
+  transition of the prompt preview (same `shifu_bid`/`surface` payload).
+  The preview resets to collapsed on each dialog open; title, purpose and copy
+  action remain visible. Weekly preview opens per dialog open measure interest
+  in inspecting the prompt; repeated expansions count. Copying does not require
+  expansion. This event has not been deployed; no historical consumer exists.
+- `teacher_poster_prompt_copy`: once per accepted copy action, before copying.
+- `teacher_poster_prompt_result`: once per attempt after copy completion;
+  `outcome` is `success` or `failed`. This does not mean a poster was generated.
+- Population: teachers with an authoring share control, including drafts and
+  read-only courses. Learner/guest/learner-preview surfaces are excluded.
+  Local preview traffic is excluded by the analytics environment configuration.
+- Complete application payload: `shifu_bid` (stable pseudonymous course ID for
+  course grouping), `surface` (only `teacher_header`); result also has `outcome`.
+  No text, prompts, titles, URLs, or raw errors are collected.
+- Count unit: deliberate open or copy attempt. Re-renders do not count;
+  concurrent copies are blocked by a ref; later deliberate retries count again.
+- Metric: weekly copy attempts per dialog open and success/failure counts per
+  course. Ratios are aggregate activity ratios, not unique-user conversion or
+  exact attempt joins (there is no correlation ID).
+- Compatibility: additive event family. Existing `course_share_click/result`
+  continue to mean actual ordinary share attempts, now from inside the teacher
+  dialog. Historical teacher click totals should not be compared as entry-open
+  totals. No existing dashboard/query is modified.
+- Tracking is best-effort and never awaited before clipboard or native share.
+  Tests cover exact payloads, privacy, retry/re-entry, failure isolation, full
+  content copying, and ordinary share regression.
+
+Local verification: 51 focused tests passed across the teacher dialog, shared
+button, header, and formatting suites. TypeScript, lint (existing warnings),
+translation validation, and repository harness passed. A temporary local
+fixture rendered the actual teacher component with a user-supplied course
+description and was removed from the PR. Desktop and 390px browser layouts were
+visually checked; the copy action showed success. Exact clipboard content is
+covered by unit tests; the browser automation clipboard reader returned an
+empty value despite the successful browser write, so end-to-end clipboard
+readback is not claimed. No external assistant generation or production
+deployment was performed.
+
 The shared component accepts the course title, teacher-authored description,
 course bid, a synchronous URL resolver, display form, and one of these stable
 surfaces: teacher header, learner desktop header, learner mobile header, or

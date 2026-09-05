@@ -35,6 +35,7 @@ export type CourseShareButtonProps = {
   resolveShareUrl: () => string | null;
   surface: CourseShareSurface;
   showLabel?: boolean;
+  label?: string;
   variant?: ButtonProps['variant'];
   size?: ButtonProps['size'];
   className?: string;
@@ -48,6 +49,7 @@ export function CourseShareButton({
   resolveShareUrl,
   surface,
   showLabel = false,
+  label,
   variant = 'ghost',
   size = 'icon',
   className,
@@ -58,8 +60,8 @@ export function CourseShareButton({
   const { trackEvent } = useTracking();
   const sharingRef = useRef(false);
   const [sharing, setSharing] = useState(false);
-  const shareLabel = t('common.core.share');
-  const accessibleLabel = t('common.core.shareCourse');
+  const shareLabel = label ?? t('common.core.share');
+  const accessibleLabel = label ?? t('common.core.shareCourse');
 
   const track = (eventName: string, eventData: Record<string, unknown>) => {
     try {
