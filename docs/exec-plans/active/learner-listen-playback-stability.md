@@ -63,6 +63,29 @@ and resumes its normal audio lifecycle.
    a full reload, in which case the restored position remains ready to play.
 5. No player, subtitle, or interaction layout code is changed by this work.
 
+### `learner_listen_resume_requested`
+
+- Business question: What share of eligible listen sessions has a saved audio
+  checkpoint to resume?
+- Metric definition: Count resume-request events by course over a reporting
+  window; compare with existing learner listen-session reporting as the
+  denominator. This measures a resumable checkpoint, not autoplay success.
+- Actor and surface: Learners on `learner_listen`; guests and members are
+  included, preview mode is excluded.
+- Trigger: After a valid checkpoint is read for the current course and lesson
+  and before it is supplied to `Slide`.
+- Count unit and deduplication: One event per course/lesson renderer scope;
+  repeated renders and effects for that scope do not emit another event.
+- Consumers: Learner playback adoption reporting owned by the learning team.
+- Compatibility: New additive event; no backfill.
+- Verification: Renderer tests cover the trigger and allowlisted payload;
+  tracking uses `useTracking` and failures are ignored.
+
+| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
+| --- | --- | --- | --- | --- | --- |
+| `shifu_bid` | string | course machine ID | high | pseudonymous | course-level grouping |
+| `surface` | string | `learner_listen` | 1 | non-personal | fixed product surface |
+
 ## Validation and Acceptance
 
 - A checkpoint in a second generated stream resumes that stream, including

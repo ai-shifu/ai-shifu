@@ -58,9 +58,11 @@ import {
   writeListenPlaybackSpeedToStorage,
 } from './listenPlaybackSpeed';
 import {
+  clearListenPlaybackCheckpoint,
   readListenPlaybackCheckpoint,
   writeListenPlaybackCheckpoint,
 } from './listenPlaybackCheckpoint';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
@@ -746,6 +748,7 @@ const ListenModeSlideRenderer = ({
   disableInteractionEdits = false,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
@@ -794,6 +797,7 @@ const ListenModeSlideRenderer = ({
     isAudioWaiting: false,
   });
   const restoredPlaybackScopeRef = useRef('');
+  const trackedPlaybackRestoreScopeRef = useRef('');
   const nextPlaybackRestoreRequestIdRef = useRef(0);
   const [resolvedPlaybackRestoreScope, setResolvedPlaybackRestoreScope] =
     useState('');
@@ -1007,7 +1011,7 @@ const ListenModeSlideRenderer = ({
     if (variant !== 'listen') {
       restoredPlaybackScopeRef.current = '';
       setPlaybackRestoreRequest(null);
-      setResolvedPlaybackRestoreScope(scopeKey);
+      setResolvedPlaybackRestoreScope('');
       return;
     }
 
@@ -1035,9 +1039,18 @@ const ListenModeSlideRenderer = ({
         ...checkpoint,
         id: nextPlaybackRestoreRequestIdRef.current,
       });
+      if (!previewMode && trackedPlaybackRestoreScopeRef.current !== scopeKey) {
+        trackedPlaybackRestoreScopeRef.current = scopeKey;
+        void Promise.resolve(
+          trackEvent('learner_listen_resume_requested', {
+            shifu_bid: shifuBid,
+            surface: 'learner_listen',
+          }),
+        ).catch(() => {});
+      }
     }
     setResolvedPlaybackRestoreScope(scopeKey);
-  }, [lessonId, shifuBid, variant]);
+  }, [lessonId, previewMode, shifuBid, trackEvent, variant]);
 
   const playbackRestoreScopeKey = `${shifuBid}:${lessonId}`;
   const isPlaybackRestoreReady =
@@ -1046,8 +1059,21 @@ const ListenModeSlideRenderer = ({
       resolvedPlaybackRestoreScope === playbackRestoreScopeKey);
 
   const handlePlaybackCheckpoint = useCallback(
-    ({ audioKey, timeMs }: { audioKey: string; timeMs: number }) => {
+    ({
+      audioKey,
+      isComplete,
+      timeMs,
+    }: {
+      audioKey: string;
+      isComplete: boolean;
+      timeMs: number;
+    }) => {
       if (variant !== 'listen' || !shifuBid || !lessonId) {
+        return;
+      }
+
+      if (isComplete) {
+        clearListenPlaybackCheckpoint({ courseId: shifuBid, lessonId });
         return;
       }
 

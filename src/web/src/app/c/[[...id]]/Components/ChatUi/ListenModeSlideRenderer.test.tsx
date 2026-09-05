@@ -21,6 +21,12 @@ import {
 } from './lessonFeedbackPromptState';
 import type { ChatContentItem } from '@/c-types/chatUi';
 
+const mockTrackEvent = jest.fn();
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
+
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
 );
@@ -211,6 +217,7 @@ describe('ListenModeSlideRenderer', () => {
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
     mockIsLessonFeedbackInteractionContent.mockClear();
+    mockTrackEvent.mockClear();
   });
 
   afterEach(() => {
@@ -280,6 +287,11 @@ describe('ListenModeSlideRenderer', () => {
       />,
     );
 
+    const initialSlideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { playerEnabled?: boolean }
+      | undefined;
+    expect(initialSlideProps?.playerEnabled).toBe(false);
+
     await waitFor(() => {
       const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
         | {
@@ -299,6 +311,82 @@ describe('ListenModeSlideRenderer', () => {
         timeMs: 12_000,
       });
     });
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_listen_resume_requested',
+      {
+        shifu_bid: 'course-1',
+        surface: 'learner_listen',
+      },
+    );
+  });
+
+  it('clears the saved checkpoint when its logical audio item completes', () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'later-stream', timeMs: 12_000 },
+    );
+
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+      | {
+          onPlaybackCheckpoint?: (checkpoint: {
+            audioKey: string;
+            isComplete: boolean;
+            timeMs: number;
+          }) => void;
+        }
+      | undefined;
+    slideProps?.onPlaybackCheckpoint?.({
+      audioKey: 'later-stream',
+      isComplete: true,
+      timeMs: 20_000,
+    });
+
+    expect(
+      readListenPlaybackCheckpoint({
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+      }),
+    ).toBeNull();
+  });
+
+  it('does not track checkpoint restoration in preview mode', async () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'later-stream', timeMs: 12_000 },
+    );
+
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+        previewMode
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | { playbackRestoreRequest?: { audioKey: string } | null }
+        | undefined;
+      expect(slideProps?.playbackRestoreRequest?.audioKey).toBe('later-stream');
+    });
+
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   it('relies on slide locale defaults for matching built-in copy', () => {
