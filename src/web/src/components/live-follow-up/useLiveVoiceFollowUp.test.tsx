@@ -7,7 +7,10 @@ import {
   waitFor,
 } from '@testing-library/react';
 
-import type { GeminiLiveServerEvent } from '@/lib/liveVoiceFollowUp';
+import {
+  LiveFollowUpControlError,
+  type GeminiLiveServerEvent,
+} from '@/lib/liveVoiceFollowUp';
 
 import {
   useLiveVoiceFollowUp,
@@ -16,6 +19,7 @@ import {
 
 const mockTrackEvent = jest.fn();
 const mockCreateSession = jest.fn();
+const mockOperationStatus = jest.fn();
 const mockHeartbeatSession = jest.fn();
 const mockCommitTurn = jest.fn();
 const mockFinalizeSession = jest.fn();
@@ -61,9 +65,15 @@ jest.mock('./liveVoiceFollowUpAudio', () => ({
   },
 }));
 
+jest.mock('@/lib/request', () => ({ __esModule: true, default: jest.fn() }));
+
 jest.mock('@/lib/liveVoiceFollowUp', () => ({
   LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE: 4018,
+  LiveFollowUpControlError: jest.requireActual('@/lib/liveVoiceFollowUp')
+    .LiveFollowUpControlError,
   createLiveFollowUpSession: (...args: unknown[]) => mockCreateSession(...args),
+  getLiveFollowUpOperationStatus: (...args: unknown[]) =>
+    mockOperationStatus(...args),
   heartbeatLiveFollowUpSession: (...args: unknown[]) =>
     mockHeartbeatSession(...args),
   commitLiveFollowUpTurn: (...args: unknown[]) => mockCommitTurn(...args),
@@ -176,6 +186,34 @@ const sessionResponse = (expiresAtMs = Date.now() + 15 * 60 * 1000) => ({
   new_session_expires_at: new Date(Date.now() + 30_000).toISOString(),
   heartbeat_interval_ms: 15_000,
 });
+
+const mockControlledAdmission = () => {
+  mockCreateSession.mockImplementation((_shifu, _outline, request) => {
+    const index = mockCreateSession.mock.calls.length;
+    return Promise.resolve({
+      ...sessionResponse(),
+      session_bid: `session-${index}`,
+      request_bid: request.request_bid,
+      admission_revision: `revision-${index}`,
+      rotation_enabled: true,
+      operation_status: 'issued',
+    });
+  });
+  mockOperationStatus.mockImplementation((_shifu, _outline, requestBid) => {
+    const index =
+      mockCreateSession.mock.calls.findIndex(
+        ([, , request]) => request.request_bid === requestBid,
+      ) + 1;
+    return Promise.resolve({
+      request_bid: requestBid,
+      operation_status: 'issued',
+      rotation_enabled: true,
+      session_bid: `session-${index}`,
+      admission_revision: `revision-${index}`,
+      ownership_current: true,
+    });
+  });
+};
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -374,6 +412,633 @@ const makeReady = async (socket = mockSockets.at(-1)!) => {
 };
 
 describe('useLiveVoiceFollowUp browser-direct transport', () => {
+  it('shares one provisioning and first socket setup deadline', async () => {
+    jest.useFakeTimers();
+    const provisioned = createDeferred<ReturnType<typeof sessionResponse>>();
+    const onTextResult = jest.fn();
+    mockCreateSession.mockReturnValueOnce(provisioned.promise);
+    render(<Harness onTextResult={onTextResult} />);
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+    await act(async () => jest.advanceTimersByTime(19_000));
+    await act(async () => provisioned.resolve(sessionResponse()));
+    expect(mockSockets).toHaveLength(1);
+    act(() => mockSockets[0].open());
+    await act(async () => jest.advanceTimersByTime(1_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('error')).toHaveTextContent('network_error');
+    expect(onTextResult).toHaveBeenCalledWith(false);
+    expect(mockSockets[0].send).not.toHaveBeenCalledWith(
+      JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_result',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        outcome: 'failed',
+        error_code: 'network_error',
+      },
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_voice_follow_up_session_end',
+      expect.anything(),
+    );
+  });
+
+  it('uses monotonic time for the combined setup budget across wall-clock changes', async () => {
+    jest.useFakeTimers();
+    const provisioned = createDeferred<ReturnType<typeof sessionResponse>>();
+    mockCreateSession.mockReturnValueOnce(provisioned.promise);
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    await act(async () => jest.advanceTimersByTime(19_000));
+    act(() => jest.setSystemTime(Date.now() - 60_000));
+    await act(async () => provisioned.resolve(sessionResponse()));
+    act(() => mockSockets[0].open());
+    await act(async () => jest.advanceTimersByTime(1_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(mockSockets[0].close).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['capacity_exceeded', 'capacity_exceeded'],
+    ['ownership_conflict', 'session_create_failed'],
+    ['stale_request', 'session_create_failed'],
+    ['operation_conflict', 'session_create_failed'],
+    ['admission_unavailable', 'server_error'],
+    ['pending', 'network_error'],
+    ['response_lost', 'network_error'],
+  ] as const)(
+    'maps controlled admission %s without exposing provider data',
+    async (reason, errorCode) => {
+      jest.useFakeTimers();
+      const requestedAt = Date.now();
+      const onTextResult = jest.fn();
+      mockCreateSession.mockRejectedValueOnce(
+        new LiveFollowUpControlError(reason, 2_000),
+      );
+      render(<Harness onTextResult={onTextResult} />);
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'text' })),
+      );
+      expect(screen.getByTestId('error')).toHaveTextContent(errorCode);
+      expect(screen.getByTestId('retry-at')).toHaveTextContent(
+        String(requestedAt + 2_000),
+      );
+      expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+      expect(onTextResult).toHaveBeenCalledWith(false);
+      fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(2_000));
+      expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent.mock.calls).toEqual([
+        [
+          'learner_voice_follow_up_attempt',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+          },
+        ],
+        [
+          'learner_voice_follow_up_text_submit',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            submission_method: 'keyboard',
+            interrupted: false,
+          },
+        ],
+        [
+          'learner_voice_follow_up_result',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            outcome: 'failed',
+            error_code: errorCode,
+          },
+        ],
+      ]);
+    },
+  );
+
+  it.each([Infinity, NaN, -1, 0, 600_000])(
+    'bounds an admission retry hint (%s)',
+    async retryAfterMs => {
+      jest.useFakeTimers();
+      const requestedAt = Date.now();
+      mockCreateSession.mockRejectedValueOnce(
+        new LiveFollowUpControlError('capacity_exceeded', retryAfterMs),
+      );
+      render(<Harness />);
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'text' })),
+      );
+      expect(screen.getByTestId('retry-at')).toHaveTextContent(
+        retryAfterMs === 600_000 ? String(requestedAt + 60_000) : 'null',
+      );
+      expect(screen.getByTestId('error')).toHaveTextContent(
+        'capacity_exceeded',
+      );
+    },
+  );
+
+  it('replaces an explicitly ended controlled session without waiting for token expiry', async () => {
+    mockControlledAdmission();
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'end' })),
+    );
+    expect(screen.getByTestId('retry-at')).toHaveTextContent('null');
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    expect(mockActivateAudio).toHaveBeenCalledTimes(2);
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockSockets).toHaveLength(2));
+    expect(mockOperationStatus).toHaveBeenCalledTimes(1);
+    expect(mockCreateSession).toHaveBeenLastCalledWith('course-1', 'lesson-1', {
+      anchor_element_bid: 'element-1',
+      preview_mode: false,
+      learning_mode: 'read',
+      surface: 'read_content',
+      operation: 'create',
+      request_bid: expect.any(String),
+      replace_session_bid: 'session-1',
+      expected_admission_revision: 'revision-1',
+    });
+    expect(mockEndSession.mock.invocationCallOrder[0]).toBeLessThan(
+      mockOperationStatus.mock.invocationCallOrder[0],
+    );
+    act(() => mockSockets[1].open());
+    await makeReady(mockSockets[1]);
+    expect(
+      mockSockets[1].send.mock.calls.filter(
+        ([payload]) =>
+          payload ===
+          JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_attempt',
+      ),
+    ).toHaveLength(2);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_session_end',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it.each(['anchor', 'lesson'] as const)(
+    'waits for old heard history before a controlled %s rotation in the same click',
+    async scope => {
+      mockControlledAdmission();
+      const stopAudio = createDeferred<void>();
+      const { rerender } = render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'text' }));
+      await waitFor(() => expect(mockSockets).toHaveLength(1));
+      act(() => mockSockets[0].open());
+      await makeReady();
+      act(() => {
+        mockSockets[0].message(
+          serverEvent({
+            outputTranscripts: ['Heard answer'],
+            audioChunks: [new ArrayBuffer(4)],
+          }),
+        );
+        mockActivateAudio.mock.calls[0][0].onPlaybackProgress(1, 4);
+      });
+      mockAudio.stop.mockReturnValueOnce(stopAudio.promise);
+      rerender(
+        <Harness
+          outlineBid={scope === 'lesson' ? 'lesson-2' : 'lesson-1'}
+          anchorElementBid='element-2'
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'interrupt-text' }));
+      expect(mockSockets[0].close).toHaveBeenCalledTimes(1);
+      expect(mockActivateAudio).toHaveBeenCalledTimes(2);
+      expect(mockOperationStatus).not.toHaveBeenCalled();
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      await act(async () => stopAudio.resolve());
+      expect(mockCommitTurn).toHaveBeenCalledWith(
+        'session-1',
+        expect.objectContaining({
+          user_transcript: 'Typed question',
+          played_answer_transcript: 'Heard answer',
+        }),
+      );
+      expect(mockCommitTurn.mock.invocationCallOrder[0]).toBeLessThan(
+        mockOperationStatus.mock.invocationCallOrder[0],
+      );
+      expect(mockCreateSession).toHaveBeenCalledTimes(2);
+      expect(mockCreateSession.mock.calls[1][2]).toMatchObject({
+        anchor_element_bid: 'element-2',
+        replace_session_bid: 'session-1',
+        expected_admission_revision: 'revision-1',
+      });
+      act(() => mockSockets[1].open());
+      await makeReady(mockSockets[1]);
+      expect(mockSockets[1].send).toHaveBeenCalledWith(
+        JSON.stringify({ realtimeInput: { text: 'Next question' } }),
+      );
+      expect(mockSockets[1].send).not.toHaveBeenCalledWith(
+        JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+      );
+      expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows a new anchor microphone click to retire an already open microphone', async () => {
+    mockControlledAdmission();
+    const { rerender } = render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    rerender(<Harness anchorElementBid='element-2' />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(mockSockets).toHaveLength(2));
+    expect(mockSockets[0].close).toHaveBeenCalledTimes(1);
+    act(() => mockSockets[1].open());
+    await makeReady(mockSockets[1]);
+    expect(screen.getByTestId('muted')).toHaveTextContent('false');
+    expect(mockEndSession).toHaveBeenCalledWith('session-1', 'replaced');
+  });
+
+  it('recovers an uncertain operation only on explicit retries without replaying its input', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    mockCreateSession.mockImplementationOnce((_shifu, _outline, request) =>
+      Promise.resolve({
+        request_bid: request.request_bid,
+        operation_status: 'pending',
+        rotation_enabled: true,
+      }),
+    );
+    mockOperationStatus.mockImplementationOnce((_shifu, _outline, requestBid) =>
+      Promise.resolve({
+        request_bid: requestBid,
+        operation_status: 'pending',
+        rotation_enabled: true,
+        retry_after_ms: 1_000,
+      }),
+    );
+    const onTextResult = jest.fn();
+    render(<Harness onTextResult={onTextResult} />);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'text' })),
+    );
+    expect(screen.getByTestId('error')).toHaveTextContent('network_error');
+    expect(onTextResult).toHaveBeenCalledWith(false);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'retry' })),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+    await act(async () => jest.advanceTimersByTime(1_000));
+    expect(mockOperationStatus).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'interrupt-text' })),
+    );
+    expect(mockOperationStatus).toHaveBeenCalledTimes(2);
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockSockets).toHaveLength(1);
+    act(() => mockSockets[0].open());
+    await makeReady();
+    expect(mockSockets[0].send).toHaveBeenCalledWith(
+      JSON.stringify({ realtimeInput: { text: 'Next question' } }),
+    );
+    expect(mockSockets[0].send).not.toHaveBeenCalledWith(
+      JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+    );
+    const common = {
+      shifu_bid: 'course-1',
+      outline_bid: 'lesson-1',
+      learning_mode: 'read',
+      surface: 'read_content',
+    };
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_attempt',
+      ),
+    ).toEqual(
+      Array.from({ length: 3 }, () => [
+        'learner_voice_follow_up_attempt',
+        common,
+      ]),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_result',
+      ),
+    ).toEqual([
+      [
+        'learner_voice_follow_up_result',
+        { ...common, outcome: 'failed', error_code: 'network_error' },
+      ],
+      [
+        'learner_voice_follow_up_result',
+        { ...common, outcome: 'failed', error_code: 'network_error' },
+      ],
+      [
+        'learner_voice_follow_up_result',
+        { ...common, outcome: 'success', error_code: 'none' },
+      ],
+    ]);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+      /request_bid|revision|auth_tokens|Typed question|Next question/,
+    );
+  });
+
+  it('uses server capacity retry timing after controlled end without reusing the old expiry', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'end' })),
+    );
+    mockOperationStatus.mockImplementationOnce((_shifu, _outline, requestBid) =>
+      Promise.resolve({
+        request_bid: requestBid,
+        operation_status: 'rejected',
+        rotation_enabled: true,
+        error_code: 'capacity_exceeded',
+        retry_after_ms: 2_000,
+      }),
+    );
+    const requestedAt = Date.now();
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'text' })),
+    );
+    expect(screen.getByTestId('error')).toHaveTextContent('capacity_exceeded');
+    expect(screen.getByTestId('retry-at')).toHaveTextContent(
+      String(requestedAt + 2_000),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    expect(mockOperationStatus).toHaveBeenCalledTimes(1);
+    await act(async () => jest.advanceTimersByTime(2_000));
+    expect(mockOperationStatus).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('error')).toHaveTextContent('capacity_exceeded');
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'retry' })),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not let a stale legacy response impose an expiry guard on a newer controlled session', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    const oldResponse = createDeferred<ReturnType<typeof sessionResponse>>();
+    mockCreateSession.mockReturnValueOnce(oldResponse.promise);
+    render(<Harness />);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'start' })),
+    );
+    await act(async () => jest.advanceTimersByTime(20_000));
+    mockOperationStatus.mockImplementationOnce((_shifu, _outline, requestBid) =>
+      Promise.resolve({
+        request_bid: requestBid,
+        operation_status: 'missing',
+        rotation_enabled: true,
+      }),
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'retry' })),
+    );
+    act(() => mockSockets[0].open());
+    await makeReady();
+    const count = mockTrackEvent.mock.calls.length;
+    await act(async () =>
+      oldResponse.resolve({ ...sessionResponse(), session_bid: 'old-session' }),
+    );
+    expect(mockEndSession).toHaveBeenCalledWith(
+      'old-session',
+      'client_disconnected',
+    );
+    expect(mockSockets[0].close).not.toHaveBeenCalled();
+    expect(screen.getByTestId('state')).toHaveTextContent('listening');
+    expect(screen.getByTestId('retry-at')).toHaveTextContent('null');
+    expect(mockTrackEvent).toHaveBeenCalledTimes(count);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'end' })),
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'text' })),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(3);
+  });
+
+  it('includes status lookup in the same 20 second provisioning budget', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'end' })),
+    );
+    const status = createDeferred<object>();
+    mockOperationStatus.mockReturnValueOnce(status.promise);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'text' })),
+    );
+    await act(async () => jest.advanceTimersByTime(19_000));
+    await act(async () =>
+      status.resolve({
+        request_bid: mockCreateSession.mock.calls[0][2].request_bid,
+        operation_status: 'issued',
+        rotation_enabled: true,
+        ownership_current: true,
+        session_bid: 'session-1',
+        admission_revision: 'revision-1',
+      }),
+    );
+    expect(mockSockets).toHaveLength(2);
+    act(() => mockSockets[1].open());
+    await act(async () => jest.advanceTimersByTime(1_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('error')).toHaveTextContent('network_error');
+    expect(mockSockets[1].close).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
+  });
+
+  it('cannot revive expired setup when the timer callback was frozen', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    const onTextResult = jest.fn();
+    render(<Harness onTextResult={onTextResult} />);
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    const now = jest.spyOn(performance, 'now').mockReturnValue(20_001);
+    try {
+      await act(async () =>
+        mockSockets[0].message(serverEvent({ setupComplete: true })),
+      );
+      expect(screen.getByTestId('state')).toHaveTextContent('ended');
+      expect(screen.getByTestId('error')).toHaveTextContent('network_error');
+      expect(onTextResult).toHaveBeenCalledWith(false);
+      expect(mockSockets[0].send).not.toHaveBeenCalledWith(
+        JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+      );
+      expect(mockTrackEvent).not.toHaveBeenCalledWith(
+        'learner_voice_follow_up_result',
+        expect.objectContaining({ outcome: 'success' }),
+      );
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('never mints after an operation status lookup outlives the startup deadline', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'end' })),
+    );
+    const status = createDeferred<object>();
+    mockOperationStatus.mockReturnValueOnce(status.promise);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'text' })),
+    );
+    await act(async () => jest.advanceTimersByTime(20_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    const eventCount = mockTrackEvent.mock.calls.length;
+    await act(async () =>
+      status.resolve({
+        request_bid: mockCreateSession.mock.calls[0][2].request_bid,
+        operation_status: 'issued',
+        rotation_enabled: true,
+        ownership_current: true,
+        session_bid: 'session-1',
+        admission_revision: 'revision-1',
+      }),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockSockets).toHaveLength(1);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(eventCount);
+  });
+
+  it('preserves the new draft and refuses cross-lesson rotation if old history cannot finalize', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    mockCommitTurn.mockReturnValue(new Promise(() => {}));
+    mockFinalizeSession.mockReturnValue(new Promise(() => {}));
+    const onTextResult = jest.fn();
+    const { rerender } = render(<Harness onTextResult={onTextResult} />);
+    await startAndOpen();
+    await makeReady();
+    act(() => {
+      mockSockets[0].message(
+        serverEvent({
+          inputTranscripts: ['Previous question'],
+          outputTranscripts: ['Heard answer'],
+          audioChunks: [new ArrayBuffer(4)],
+        }),
+      );
+      mockActivateAudio.mock.calls[0][0].onPlaybackProgress(1, 4);
+    });
+    rerender(
+      <Harness
+        outlineBid='lesson-2'
+        anchorElementBid='element-2'
+        onTextResult={onTextResult}
+      />,
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'text' })),
+    );
+    for (let elapsed = 0; elapsed < 25_000; elapsed += 1_000)
+      await act(async () => jest.advanceTimersByTime(1_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(onTextResult).toHaveBeenCalledWith(false);
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockOperationStatus).not.toHaveBeenCalled();
+    expect(mockSockets).toHaveLength(1);
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'does not retry a controlled heartbeat ownership failure while paused=%s',
+    async paused => {
+      jest.useFakeTimers();
+      mockControlledAdmission();
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      if (paused)
+        await act(async () =>
+          fireEvent.click(screen.getByRole('button', { name: 'pause' })),
+        );
+      mockHeartbeatSession.mockRejectedValueOnce(
+        new LiveFollowUpControlError('ownership_conflict', 2_000),
+      );
+      await act(async () => jest.advanceTimersByTime(15_000));
+      expect(screen.getByTestId('state')).toHaveTextContent('ended');
+      expect(screen.getByTestId('error')).toHaveTextContent(
+        'session_create_failed',
+      );
+      expect(mockHeartbeatSession).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(1_000));
+      expect(mockHeartbeatSession).toHaveBeenCalledTimes(1);
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_session_end',
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
+  it('silently expires a controlled session and rotates only on the next explicit input', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    mockCreateSession.mockImplementationOnce((_shifu, _outline, request) =>
+      Promise.resolve({
+        ...sessionResponse(Date.now() + 1_000),
+        request_bid: request.request_bid,
+        admission_revision: 'revision-1',
+        rotation_enabled: true,
+        operation_status: 'issued',
+      }),
+    );
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    await act(async () => jest.advanceTimersByTime(1_001));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('warning')).toHaveTextContent('false');
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockOperationStatus).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(2));
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockOperationStatus).toHaveBeenCalledTimes(1);
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+  });
+
   it('pauses microphone and output immediately while retaining the socket and heartbeat', async () => {
     jest.useFakeTimers();
     render(<Harness />);
@@ -1676,6 +2341,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       .mockReset()
       .mockResolvedValue({ getTracks: () => [{ stop: jest.fn() }] });
     mockCreateSession.mockReset().mockResolvedValue(sessionResponse());
+    mockOperationStatus.mockReset().mockRejectedValue({ status: 404 });
     mockHeartbeatSession.mockReset().mockResolvedValue({});
     mockCommitTurn.mockReset().mockResolvedValue({});
     mockFinalizeSession.mockReset().mockResolvedValue({});
@@ -1704,6 +2370,8 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       preview_mode: false,
       learning_mode: 'read',
       surface: 'read_content',
+      operation: 'create',
+      request_bid: expect.any(String),
     });
     expect(mockRequestExclusive).toHaveBeenCalledTimes(1);
     expect(mockTrackEvent).toHaveBeenCalledWith(
@@ -3016,7 +3684,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     await act(async () => jest.advanceTimersByTime(20_000));
     expect(screen.getByTestId('state')).toHaveTextContent('ended');
     expect(screen.getByTestId('error')).toHaveTextContent('network_error');
-    expect(screen.getByTestId('retryable')).toHaveTextContent('false');
+    expect(screen.getByTestId('retryable')).toHaveTextContent('true');
     expect(mockAudio.stop).toHaveBeenCalledTimes(1);
     expect(mockReleaseExclusive).toHaveBeenCalled();
     expect(mockSockets).toHaveLength(0);
@@ -3032,7 +3700,6 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       },
     );
     const eventCount = mockTrackEvent.mock.calls.length;
-    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
     expect(mockCreateSession).toHaveBeenCalledTimes(1);
 
     await act(async () => deferredSession.resolve(sessionResponse(expiresAt)));
@@ -3330,6 +3997,8 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
         preview_mode: false,
         learning_mode: 'read',
         surface: 'read_content',
+        operation: 'create',
+        request_bid: expect.any(String),
       },
     );
     expect(mockTrackEvent).toHaveBeenLastCalledWith(

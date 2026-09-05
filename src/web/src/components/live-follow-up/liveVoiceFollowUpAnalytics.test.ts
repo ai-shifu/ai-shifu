@@ -96,6 +96,9 @@ const prohibitedFields = [
   'error',
   'error_message',
   'provider_response',
+  'request_bid',
+  'admission_revision',
+  'credential_count',
 ] as const;
 
 const expectNoProhibitedFields = (payload: Record<string, unknown>) => {
@@ -212,6 +215,40 @@ describe('live voice follow-up analytics contract', () => {
     expect(attempts).toHaveLength(3);
     expect(results).toHaveLength(3);
     expect(ends).toHaveLength(2);
+
+    // The rotation release cohort includes locally accepted replacements,
+    // including server quota rejection. Internal status work adds no events.
+    attempts.push(
+      buildLiveVoiceFollowUpAttemptAnalytics(baseInput),
+      buildLiveVoiceFollowUpAttemptAnalytics(baseInput),
+    );
+    results.push(
+      buildLiveVoiceFollowUpResultAnalytics({
+        ...baseInput,
+        outcome: 'success',
+        errorCode: 'none',
+      }),
+      buildLiveVoiceFollowUpResultAnalytics({
+        ...baseInput,
+        outcome: 'failed',
+        errorCode: 'capacity_exceeded',
+      }),
+    );
+    ends.push(
+      buildLiveVoiceFollowUpSessionEndAnalytics({
+        ...baseInput,
+        hadExchange: false,
+        durationMs: 1000,
+        endReason: 'user_end',
+      }),
+    );
+    expect(attempts).toHaveLength(5);
+    expect(results.filter(row => row.outcome === 'failed')).toHaveLength(2);
+    expect(
+      results.filter(row => row.outcome === 'success').length / attempts.length,
+    ).toBe(3 / 5);
+    expect(ends).toHaveLength(3);
+    [...attempts, ...results, ...ends].forEach(expectNoProhibitedFields);
   });
 
   it('uses stable version-one event names', () => {

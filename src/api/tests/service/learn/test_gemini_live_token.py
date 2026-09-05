@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from threading import BoundedSemaphore, Event
+from time import monotonic
 
 import pytest
+from flaskr.service.learn import gemini_live_token as token_provider
 from flaskr.service.learn.gemini_live_token import (
     GEMINI_LIVE_AUTH_TOKEN_ENDPOINT,
     GEMINI_LIVE_CONSTRAINED_ENDPOINT,
@@ -28,6 +31,70 @@ class _Response:
 
     def json(self) -> object:
         return self.body
+
+
+def test_private_mint_has_wall_clock_deadline_and_discards_late_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    release = Event()
+    returned = Event()
+    monkeypatch.setattr(
+        token_provider, "GEMINI_LIVE_TOKEN_REQUEST_TIMEOUT_SECONDS", 0.02
+    )
+    monkeypatch.setattr(token_provider, "_TOKEN_REQUEST_SLOTS", BoundedSemaphore(1))
+
+    def slow_post(*_args: object, **_kwargs: object) -> _Response:
+        release.wait(1)
+        returned.set()
+        return _Response({"name": "auth_tokens/must-never-return"})
+
+    started = monotonic()
+    try:
+        with pytest.raises(token_provider.GeminiLiveTokenTimeoutError):
+            mint_gemini_live_ephemeral_token(
+                api_key="private-key",
+                voice_name="Kore",
+                system_instruction="private-prompt",
+                include_initial_history=False,
+                request_post=slow_post,
+            )
+        assert monotonic() - started < 0.5
+        assert not returned.is_set()
+        # A hung private request continues occupying its worker slot; a timeout
+        # cannot create an unbounded tail of background mint threads.
+        with pytest.raises(GeminiLiveTokenError):
+            mint_gemini_live_ephemeral_token(
+                api_key="private-key",
+                voice_name="Kore",
+                system_instruction="private-prompt",
+                include_initial_history=False,
+                request_post=lambda *_a, **_k: pytest.fail("worker slot bypassed"),
+            )
+    finally:
+        release.set()
+        assert returned.wait(1)
+
+
+def test_thread_start_failure_releases_private_worker_slot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    slots = BoundedSemaphore(1)
+    monkeypatch.setattr(token_provider, "_TOKEN_REQUEST_SLOTS", slots)
+    monkeypatch.setattr(
+        token_provider.Thread,
+        "start",
+        lambda _thread: (_ for _ in ()).throw(RuntimeError("no thread")),
+    )
+    with pytest.raises(GeminiLiveTokenError):
+        mint_gemini_live_ephemeral_token(
+            api_key="private-key",
+            voice_name="Kore",
+            system_instruction="private-prompt",
+            include_initial_history=False,
+            request_post=lambda *_a, **_k: pytest.fail("failed start reached provider"),
+        )
+    assert slots.acquire(blocking=False)
+    slots.release()
 
 
 def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:

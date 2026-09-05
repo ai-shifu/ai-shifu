@@ -10,6 +10,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from .live_follow_up_admission import AdmissionRequest, admission_time
 from .live_follow_up_capacity import LiveFollowUpCapacityLease
 
 if TYPE_CHECKING:
@@ -193,6 +194,8 @@ class StoredLiveFollowUpSession:
     binding: LiveFollowUpSessionBinding
     lease: LiveFollowUpCapacityLease
     turn_state: LiveFollowUpTurnState = field(default_factory=LiveFollowUpTurnState)
+    admission: AdmissionRequest | None = None
+    admission_revision: str = ""
 
 
 @dataclass(frozen=True)
@@ -280,6 +283,8 @@ def _serialize_session(session: StoredLiveFollowUpSession) -> str:
             "binding": asdict(session.binding),
             "lease": asdict(session.lease),
             "turn_state": asdict(session.turn_state),
+            "admission": asdict(session.admission) if session.admission else None,
+            "admission_revision": session.admission_revision,
         },
         ensure_ascii=True,
         separators=(",", ":"),
@@ -299,6 +304,9 @@ def _decode_session(raw: bytes | str) -> StoredLiveFollowUpSession:
         binding = LiveFollowUpSessionBinding(**record["binding"])
         lease = LiveFollowUpCapacityLease(**record["lease"])
         turn_state = LiveFollowUpTurnState(**record["turn_state"])
+        admission_payload = record.get("admission")
+        admission = AdmissionRequest(**admission_payload) if admission_payload else None
+        admission_revision = str(record.get("admission_revision") or "")
     except (KeyError, TypeError) as exc:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION) from exc
     _validate_binding(binding)
@@ -309,7 +317,14 @@ def _decode_session(raw: bytes | str) -> StoredLiveFollowUpSession:
         binding=binding,
         lease=lease,
         turn_state=turn_state,
+        admission=admission,
+        admission_revision=admission_revision,
     )
+
+
+def serialize_live_follow_up_session(session: StoredLiveFollowUpSession) -> str:
+    """Reuse the binding format for atomic admission-and-binding publication."""
+    return _serialize_session(session)
 
 
 def store_live_follow_up_session(
@@ -371,7 +386,15 @@ def load_live_follow_up_session(
     session = _decode_session(raw)
     if session.binding.session_bid != session_bid:
         raise LiveFollowUpSessionRejectedError(_ERROR_INVALID_SESSION)
-    now = time.time() if current_time is None else current_time
+    if current_time is None:
+        try:
+            now = admission_time() if session.admission else time.time()
+        except Exception as exc:
+            raise LiveFollowUpSessionStoreUnavailableError(
+                _ERROR_REDIS_UNAVAILABLE
+            ) from exc
+    else:
+        now = current_time
     deadline = session.binding.expires_at_epoch
     if allow_finalization:
         deadline += LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS

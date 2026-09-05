@@ -59,13 +59,29 @@ auditing, or another correctness-sensitive decision.
       it paused; closing resumes only prior playing intent, not manually paused
       narration. Resolve the disproven review without another playback owner.
       Gemini transport was mocked; temporary fixtures and services were removed.
-- [ ] 2026-09-05: Implement and verify Phase 4, update the analytics consumer
-      contract together with producers/tests, and resolve the admission review
-      only after normal End/new-anchor replacement works within the new bounds.
-- [ ] 2026-09-05: Before the next implementation update, integrate current
-      main and regenerate the conflicting `docs/generated/harness-health.md`.
-      A non-mutating merge preflight against `55f7bb617` found only this
-      generated-file conflict. No branch merge or deployment was performed.
+- [x] 2026-09-05: Implement Phase 4 behind default-off
+      `GEMINI_LIVE_ROTATION_ENABLED`. Verify End/new-anchor replacement,
+      metadata-only lost-response recovery, one shared startup budget, history
+      gating, generation guards, and exact analytics/consumer contracts.
+      Frontend: 228 suites / 2,330 tests passed, including 156 controller cases.
+      Backend: 255 focused tests passed, including 56 real Redis Lua cases.
+      Independent review caught and corrected post-admission failure responses
+      losing the successor identity; regressions cover recovery via that ID.
+- [x] 2026-09-05: Full dev-tool check and repository-wide pre-commit passed,
+      including pinned Ruff, five-locale parity/usage, architecture, and harness.
+      TypeScript and full lint passed with existing warnings. Current-head CI
+      and review synchronization are recorded in PR #2744 after each push.
+- [ ] Deployment/enablement and physical Gemini/Safari/mobile acceptance remain
+      separate, unperformed operations; do not infer them from local tests.
+- [x] 2026-09-05: Merge current main in `db6b859fe` and regenerate the sole
+      conflicting `docs/generated/harness-health.md`; dev-tool verification
+      and full pre-commit passed. No deployment was performed.
+- [x] 2026-09-05: Reproduce review `discussion_r3938739497`: the first output
+      of a spoken next turn inside reconciliation could merge into a terminal
+      predecessor before its input transcription arrived. Route new output to
+      the active turn while retaining input/usage-only late reconciliation.
+      Four ordering regressions and the existing accumulator/controller suite
+      pass (165 tests); the three initial reproductions failed before the fix.
 - [x] 2026-09-05: Codex review of `201e096f8` found a paused listen attempt
       retained after the rendered slide anchor changed. End mismatched retained
       attempts before the new panel becomes interactive; keep same-anchor
@@ -631,9 +647,9 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Decision Log
 
-- Decision (2026-09-05, design authorized; implementation pending): separate
+- Decision (2026-09-05, implemented behind a default-off policy): separate
   one application owner per user from a non-releasable ledger of issued or
-  disclosure-uncertain credentials. Proposed first-cut bounds are three such
+  disclosure-uncertain credentials. Initial bounds are three such
   credentials per user, 24 globally, and six per issuing worker; validated mint
   attempts are limited to four per user and 24 globally per rolling minute.
   - Why: normal End/context replacement can use a second credential without
@@ -641,15 +657,15 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
     rather than silently doubling provider exposure. This permits an initial
     credential plus two early replacements, not unlimited instant reconnects.
     At saturation, keep the draft and return bounded busy without expiry copy.
-    These values are design defaults, not deployed configuration.
-- Decision (2026-09-05, design): keep replacement explicit, with a versioned
+    These are code defaults, not a claim of deployed enablement.
+- Decision (2026-09-05): keep replacement explicit, with a versioned
   owner comparison, bounded request idempotence, retained retirement receipts,
   and no credential response cache. Pause/resume keeps the same token. Natural
   expiry remains silent and lazy; no continuous-microphone rollover is added.
   - Why: a late End or mint response must never change a newer owner. Avoid
     introducing stored bearer credentials or replaying ambiguously sent input.
-    The existing single-credential runtime remains authoritative until Phase 4
-    passes its compatibility and behavior gates.
+    The existing single-credential limit remains authoritative while the
+    rotation policy is off; the risk ledger and recovery gate apply either way.
 - Decision: a single close operation owns persistence through recovery, with
   a 25-second elapsed-time budget rather than fire-and-forget successor writes.
   - Why: teardown intentionally stops media and heartbeats immediately. A
@@ -829,10 +845,11 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 The 2026-09-05 pause/input implementation and its verified review corrections
 are pushed through `6f28f2916`; its executed CI checks passed. Actual pinned
 player acceptance confirms original-panel ownership of narration pause/resume.
-Controlled early credential replacement is now authorized for design but is
-not implemented or deployed. The valid admission review remains open, and main
-has subsequently introduced a generated-report conflict. The proposed Phase 4
-must not be reported as a fix already available to learners.
+Controlled early credential replacement is implemented and locally verified
+behind a default-off policy. Main's generated-report conflict is resolved in
+`db6b859fe`. Current-head PR checks and review synchronization remain pending;
+no deployment or policy enablement occurred. Local regression evidence must not
+be reported as physical Gemini/Safari/mobile acceptance or a deployed fix.
 
 The implementation is now aligned with the deployment the user actually has:
 the AI-Shifu ingress handles only ordinary HTTPS for Live, while the browser
@@ -1000,14 +1017,14 @@ Maintain disclosure, five locales, privacy copy, and the existing event family:
 in read/listen; exclude teacher preview and classroom. Keep analytics best
 effort and independent from the user-visible operation.
 
-### Phase 4: bounded credential rotation (design; not implemented)
+### Phase 4: bounded credential rotation (implemented; disabled by default)
 
 This amendment is authorized by the user's 2026-09-05 response permitting a
 capacity-contract adjustment. It supersedes the single-valid-credential rule
 only when implemented and enabled. Keep the direct Gemini media plane, locked
 token setup, fixed internal expiry, original AskBlock, explicit microphone
 consent, Course Prompt exclusion, and non-billable persistence. Do not change
-deployment configuration or enable the policy as part of this design revision.
+deployment configuration or enable the policy as part of this revision.
 
 #### Ownership and risk bounds
 
@@ -1017,7 +1034,7 @@ may still be usable, even after that owner is retired. They are not the same
 resource. The backend cannot prove that a modified direct browser closed its
 old Gemini socket. Guarantee one logical owner, not one physical Google socket.
 
-| Resource | Proposed default | Release rule |
+| Resource | Initial default | Release rule |
 | --- | --- | --- |
 | Application owner | One per user | Authenticated End or compare-and-swap replacement of that exact owner; hard expiry also retires it |
 | Outstanding credential reservations | Three per user, 24 globally, six per issuing worker | Fixed credential expiry; only positively undisclosed failures may roll back early |
@@ -1044,7 +1061,10 @@ successful response. Use a server-generated opaque ownership revision and
 compare the pair of predecessor session BID and revision; a recreated Redis
 key cannot make a stale request current again. Bind every operation to user,
 normalized Origin, exact course/outline/anchor, preview, learning mode, and its
-predecessor. Revalidate permissions and effective Live configuration normally.
+predecessor. Revalidate permissions and effective Live configuration for every
+create. Status authenticates the original user, Origin, and stored target, but
+does not require still-valid access to a retired course or a surviving anchor:
+it returns only the caller's own operation metadata, never course content.
 
 Use time-bearing UUIDv7 request IDs with a server-validated acceptance window:
 at most 120 seconds old and at most 30 seconds ahead of server UTC. Keep terminal
@@ -1064,9 +1084,19 @@ owner or retirement receipt, enforce risk/rate bounds, reserve risk, and claim
 one pending successor. All rejections occur before contacting Gemini. A
 duplicate ID with a different binding is rejected; an exact duplicate returns
 the same bounded operation status without another provider call or rate charge.
+`operation_status=rejected` is reserved for a definite pre-admission refusal.
+After reservation, provider/binding failures return that operation's current
+`failed`, `cancelled`, `pending`, or `issued` metadata. If Redis cannot establish
+the status, return a generic failure, preserving the caller's new request ID.
+Never label an advanced/uncertain owner as rejected and restore its predecessor:
+that would strand the next retry on an obsolete head.
 The explicit `status` operation only reads an existing operation record; it
 never runs mint admission, creates a missing record, consumes capacity/rate
-budget, or returns a credential. Authenticate user/Origin and exact target
+budget, or returns a credential. Put the original immutable fields inside a
+nested `target` object on status requests; omit root `anchor_element_bid`.
+This is deliberately invalid as a legacy create so an older worker cannot
+ignore `operation=status` and accidentally mint after a lost response.
+Authenticate user/Origin and exact target
 before lookup. Unlike `create`, status remains valid throughout the 20-minute
 tombstone retention even after the request ID's mint window has elapsed.
 Existing risk keys stay non-releasable; new versioned user-risk/owner/operation
@@ -1126,6 +1156,9 @@ cannot regain current heartbeat/media ownership. Late End, finalization, or
 stale browser callbacks must not clear a successor. Two tabs attempting the
 same predecessor have one CAS winner; the other keeps its draft. A new tab
 without a matching predecessor must not silently seize another tab's owner.
+An initial create without a predecessor may proceed after the current head is
+retired (there is no active owner), subject to all risk/rate limits. Advancing
+that head invalidates previous receipts; a stale explicit CAS still fails.
 
 Return a bounded machine reason and server-calculated `retry_after_ms` for
 actual risk/rate saturation. Compute when every blocking quota could admit the
@@ -1193,7 +1226,7 @@ environment: formerly locally blocked attempts can now reach admission, so
 historical attempt denominators are not interchangeable. No backfill or dual
 write; server-owned capacity telemetry, not Umami, controls quotas.
 
-Design a rotation policy switch defaulting off. Deploying/enabling it is a
+`GEMINI_LIVE_ROTATION_ENABLED` defaults off. Deploying/enabling it is a
 separate authorized operation. The smallest safe rollout is all compatible
 backend workers first, temporarily pause new admission with the existing Live
 flag, drain legacy issued credentials through their expiry/finalization grace,
@@ -1217,11 +1250,24 @@ A surviving marker is not sufficient after restoring an older snapshot. Verify
 the shared Redis instance/recovery generation on admission; restart, failover,
 or restore invalidates it and triggers the same conservative window even when
 the marker survives. Risk/owner/operation keys must not be individually evicted:
-verify non-evicting storage as an enablement precondition. If these properties
-cannot be established, keep rotation disabled and report the operational gate;
-do not silently change Redis deployment settings in this implementation.
+verify non-evicting storage on admission. The new binary always applies this
+generation/noeviction gate, even while rotation is off; otherwise accounting
+loss could hide still-valid V2 credentials during rollback. First bootstrap or
+a missing/changed Redis run ID starts a shared 15-minute quarantine. Redis
+generation and eviction policy are checked inside the admission Lua operation.
+A same-process privileged DEBUG RELOAD/RESTORE or selective administrative key
+deletion cannot be detected reliably from run ID; prohibit those operations
+while admission is enabled. Operators must disable admission and establish a
+fresh recovery epoch/quarantine before such restoration. This implementation
+does not claim arbitrary privileged partial-restore detection. If these
+properties cannot be established, keep Live admission disabled and report the
+operational gate; do not silently change Redis deployment settings here.
+Non-eviction must hold continuously while credentials are valid, not just at
+the instant of a check; a temporary privileged policy change also requires
+disabled admission and a complete drain/recovery window before reopening.
 
-Implementation belongs in `live_follow_up_capacity.py`,
+Implementation uses `live_follow_up_admission.py` alongside the existing
+`live_follow_up_capacity.py`,
 `live_follow_up_session_store.py`, `live_follow_up_routes.py`, existing direct
 request DTOs/controller/writer integration, their neighboring tests, and the
 canonical analytics specification. Redis metadata suffices; no SQL migration,
@@ -1263,15 +1309,17 @@ The business question is the share of accepted production learner voice
 attempts that connect, their bounded failure outcomes, and whether connected
 sessions produce an exchange. An attempt fires after local ID validation and
 before playback/session startup. Each accepted connection start or retry is one
-attempt. The local credential-cooldown guard runs before that point: a disabled
-retry or re-entry while admission is still reserved starts no microphone,
-request, or analytics attempt. The existing aggregate attempt/result consumer
-and payload allowlist remain unchanged; the UI explains the retry deadline.
+attempt. The local retry guard runs before that point: a disabled
+retry or re-entry starts no microphone, request, or analytics attempt. For
+legacy sessions it retains the old credential-expiry guard; rotation-enabled
+sessions rely on server admission. The aggregate attempt/result consumer
+and payload allowlist remain unchanged; no retry deadline is shown in the UI.
 An API capacity rejection uses business code `4018`, emits the existing bounded
 `capacity_exceeded` result, and applies a 30-second explicit-retry backoff when
 the occupying credential's expiry is unknown. A stalled session POST is a
-`failed` result with the existing `network_error` code after 20 seconds, followed
-by the same explicit-retry backoff; late responses never emit another result.
+`failed` result with the existing `network_error` code after one 20-second
+status/issuance/setup budget; the next deliberate retry can recover its stored
+operation identity without minting blindly. Late responses never emit another result.
 This does not change the capacity error payload. It never infers capacity from
 localized or raw error text, retries automatically, or sends another attempt
 event while that backoff is active. Older servers without the new code retain

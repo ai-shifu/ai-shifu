@@ -44,6 +44,55 @@ export type LiveFollowUpSessionRequest = {
   preview_mode: boolean;
   learning_mode: LiveFollowUpLearningMode;
   surface: LiveFollowUpSurface;
+  operation?: 'create';
+  request_bid?: string;
+  replace_session_bid?: string;
+  expected_admission_revision?: string;
+};
+
+export type LiveFollowUpControlReason =
+  | 'capacity_exceeded'
+  | 'ownership_conflict'
+  | 'stale_request'
+  | 'operation_conflict'
+  | 'admission_unavailable'
+  | 'pending'
+  | 'response_lost';
+
+export class LiveFollowUpControlError extends Error {
+  readonly retryAfterMs?: number;
+
+  constructor(
+    readonly reason: LiveFollowUpControlReason,
+    retryAfterMs?: number,
+  ) {
+    super('Live follow-up admission could not complete');
+    this.name = 'LiveFollowUpControlError';
+    this.retryAfterMs =
+      typeof retryAfterMs === 'number' &&
+      Number.isFinite(retryAfterMs) &&
+      retryAfterMs > 0
+        ? Math.min(Math.ceil(retryAfterMs), 60_000)
+        : undefined;
+  }
+}
+
+export type LiveFollowUpOperationResult = {
+  request_bid: string;
+  operation_status:
+    | 'pending'
+    | 'issued'
+    | 'failed'
+    | 'cancelled'
+    | 'missing'
+    | 'rejected';
+  rotation_enabled: boolean;
+  session_bid?: string;
+  admission_revision?: string;
+  ownership_current?: boolean;
+  error_code?: Exclude<LiveFollowUpControlReason, 'pending' | 'response_lost'>;
+  retry_after_ms?: number;
+  server_time?: string;
 };
 
 export type GeminiLiveSetupMessage = {
@@ -69,6 +118,10 @@ export type LiveFollowUpSession = {
   expires_at: string;
   new_session_expires_at: string;
   heartbeat_interval_ms: number;
+  request_bid?: string;
+  admission_revision?: string;
+  operation_status?: 'issued';
+  rotation_enabled?: boolean;
 };
 
 export type LiveFollowUpTurnReport = {
@@ -112,22 +165,59 @@ export const createLiveFollowUpSession = (
   shifuBid: string,
   outlineBid: string,
   payload: LiveFollowUpSessionRequest,
-): Promise<LiveFollowUpSession> => {
+): Promise<LiveFollowUpSession | LiveFollowUpOperationResult> => {
   const sessionPath = `/api/learn/shifu/${encodeURIComponent(shifuBid)}/live-follow-up/${encodeURIComponent(outlineBid)}/session`;
   return request.post(sessionPath, payload, {
     skipErrorToast: true,
     credentials: 'include',
-  }) as Promise<LiveFollowUpSession>;
+  }) as Promise<LiveFollowUpSession | LiveFollowUpOperationResult>;
 };
 
-export const heartbeatLiveFollowUpSession = (
-  sessionBid: string,
-): Promise<unknown> =>
+export const getLiveFollowUpOperationStatus = (
+  shifuBid: string,
+  outlineBid: string,
+  requestBid: string,
+  target: LiveFollowUpSessionRequest,
+): Promise<LiveFollowUpOperationResult> =>
   request.post(
+    `/api/learn/shifu/${encodeURIComponent(shifuBid)}/live-follow-up/${encodeURIComponent(outlineBid)}/session`,
+    {
+      operation: 'status',
+      request_bid: requestBid,
+      // Deliberately invalid as a legacy create: an old server must never mint
+      // another credential when recovering a lost response via status lookup.
+      target: {
+        anchor_element_bid: target.anchor_element_bid,
+        preview_mode: target.preview_mode,
+        learning_mode: target.learning_mode,
+        surface: target.surface,
+        ...(target.replace_session_bid && {
+          replace_session_bid: target.replace_session_bid,
+        }),
+        ...(target.expected_admission_revision && {
+          expected_admission_revision: target.expected_admission_revision,
+        }),
+      },
+    },
+    { skipErrorToast: true, credentials: 'include' },
+  ) as Promise<LiveFollowUpOperationResult>;
+
+export const heartbeatLiveFollowUpSession = async (
+  sessionBid: string,
+): Promise<unknown> => {
+  const result = (await request.post(
     liveFollowUpSessionPath(sessionBid, 'heartbeat'),
     {},
     { skipErrorToast: true, credentials: 'include' },
-  );
+  )) as LiveFollowUpOperationResult | undefined;
+  if (result?.operation_status === 'rejected') {
+    throw new LiveFollowUpControlError(
+      result.error_code ?? 'admission_unavailable',
+      result.retry_after_ms,
+    );
+  }
+  return result;
+};
 
 export type LiveFollowUpTurnAcknowledgement = {
   session_bid: string;

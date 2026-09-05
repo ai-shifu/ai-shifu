@@ -600,6 +600,17 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
+    "GEMINI_LIVE_ROTATION_ENABLED": EnvVar(
+        name="GEMINI_LIVE_ROTATION_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Allow bounded Gemini Live credential rotation. Requires compatible "
+            "workers, non-evicting Redis and the credential-drain recovery gate."
+        ),
+        group="llm",
+        required=False,
+    ),
     "QWEN_API_KEY": EnvVar(
         name="QWEN_API_KEY",
         default="",

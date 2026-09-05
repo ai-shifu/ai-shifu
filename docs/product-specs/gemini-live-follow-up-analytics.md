@@ -92,6 +92,20 @@ the originating dimensions. The microphone action moved beside Send without
 changing its explicit-operation event. A cooldown click preserves the original
 failure instead of inventing a capacity result.
 
+The controlled-rotation revision retains the same event names and count units.
+After an explicit End, anchor/course change, or internal expiry, the next
+accepted input can request a new connection under server-owned capacity and
+ownership limits. This is one new attempt/result, not a resume; an already
+connected predecessor ends once. A server quota rejection is a failed result
+with `capacity_exceeded`; an ownership rejection is `session_create_failed`.
+Pending issuance or a lost credential response is `network_error`. A disabled
+backoff action remains excluded. A metadata-only status lookup and one safe
+pre-mint clock correction share the accepted attempt's startup budget and emit
+no extra attempt, text-submit, or microphone result. History finalization must
+finish before minting. Failure keeps unsent input without automatic replay.
+Same-token pause/resume and the eligible population remain unchanged. Neither
+request IDs, ownership revisions, nor credential counts enter analytics.
+
 ## Complete feature-owned payload
 
 Common fields are exactly `shifu_bid` and `outline_bid` (stable, high-cardinality
@@ -160,3 +174,15 @@ and resume counts only within a consistent release cohort. New pause/resume
 events start at deployment, without backfill or legacy aliases; missing older
 events are not zero pause adoption. Timer and credential-deadline copy is hidden
 without removing natural-expiry end telemetry or changing the bounded payloads.
+
+Controlled rotation requires its own **actual enablement timestamp per
+environment** in reliability consumers. Previously locally blocked actions can
+now reach server admission; do not pool their attempt denominators with the old
+one-valid-credential cohort. There is no backfill, dual write, or new payload.
+Extend the fixture above with two accepted replacements: one success and one
+quota rejection, with the successful replacement later ending. There are now
+five attempts, three successes, two failures (connection ratio 3/5), and three
+session ends. Status recovery or clock correction within either replacement
+adds zero events. A same-session resume still leaves these totals unchanged.
+This aggregate fixture is not a join between particular questions and sessions,
+and best-effort Umami results must never determine admission or billing.

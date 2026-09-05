@@ -1,11 +1,27 @@
 """Verify server-owned Gemini Live course configuration contracts."""
 
 import pytest
+from flaskr.common.config import ENV_VARS
+from flaskr.service.learn import live_follow_up_config
 from flaskr.service.learn.live_follow_up_config import (
     GEMINI_LIVE_MODEL_ID,
     normalize_live_follow_up_course_config,
     resolve_course_follow_up_model,
 )
+
+
+@pytest.mark.parametrize(
+    ("configured", "enabled"),
+    [(None, False), (False, False), ("false", False), ("true", True), (True, True)],
+)
+def test_credential_rotation_defaults_off_and_requires_explicit_enablement(
+    monkeypatch: pytest.MonkeyPatch, configured: object, enabled: bool
+) -> None:
+    assert ENV_VARS["GEMINI_LIVE_ROTATION_ENABLED"].default is False
+    monkeypatch.setattr(
+        live_follow_up_config, "get_config", lambda *_a, **_k: configured
+    )
+    assert live_follow_up_config.is_gemini_live_rotation_enabled() is enabled
 
 
 @pytest.mark.parametrize(

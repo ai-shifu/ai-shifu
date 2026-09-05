@@ -5,11 +5,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import {
-  createLiveFollowUpSession,
   encodeGeminiLiveAudioMessage,
   endLiveFollowUpSession,
   heartbeatLiveFollowUpSession,
   LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE,
+  LiveFollowUpControlError,
   parseGeminiLiveServerMessage,
   resolveGeminiLiveWebSocketUrl,
   type LiveFollowUpLearningMode,
@@ -49,11 +49,13 @@ import {
   LiveVoiceFollowUpAudio,
 } from './liveVoiceFollowUpAudio';
 import { LiveFollowUpTurnWriter } from './liveFollowUpTurnWriter';
+import { LiveFollowUpSessionAdmission } from './liveFollowUpSessionAdmission';
 
 const GEMINI_LIVE_SETUP_TIMEOUT_MS = 20_000;
 // Redis rounds its matching absolute credential expiry up to a millisecond.
 const CREDENTIAL_RESERVATION_MARGIN_MS = 1;
 const CAPACITY_RETRY_BACKOFF_MS = 30_000;
+const MAX_CONTROL_RETRY_DELAY_MS = 60_000;
 const MAX_INPUT_AUDIO_FRAME_BYTES = 8 * 1024;
 const MAX_BUFFERED_INPUT_AUDIO_BYTES = 8 * 1024;
 const MIN_HEARTBEAT_MS = 5_000;
@@ -65,6 +67,7 @@ const RECOVERABLE_WEBSOCKET_CLOSE_CODES = new Set([
 ]);
 
 const isTransientHeartbeatFailure = (error: unknown) => {
+  if (error instanceof LiveFollowUpControlError) return false;
   if (typeof error !== 'object' || error === null) return true;
   const status = 'status' in error ? error.status : undefined;
   if (typeof status === 'number') {
@@ -73,6 +76,17 @@ const isTransientHeartbeatFailure = (error: unknown) => {
   // Business rejections (including expired bindings and auth failures) must
   // still stop the session. Raw network failures have no business code.
   return !('code' in error && typeof error.code === 'number');
+};
+
+const controlErrorCode = (
+  error: LiveFollowUpControlError,
+): LiveVoiceFollowUpErrorCode => {
+  if (error.reason === 'capacity_exceeded') return 'capacity_exceeded';
+  if (error.reason === 'pending' || error.reason === 'response_lost')
+    return 'network_error';
+  return error.reason === 'admission_unavailable'
+    ? 'server_error'
+    : 'session_create_failed';
 };
 
 export type LiveVoiceTranscript = {
@@ -283,6 +297,9 @@ export const useLiveVoiceFollowUp = ({
   const generationRef = useRef(0);
   const websocketRef = useRef<WebSocket | null>(null);
   const sessionRef = useRef<LiveFollowUpSession | null>(null);
+  const admissionRef = useRef<LiveFollowUpSessionAdmission | null>(null);
+  if (!admissionRef.current)
+    admissionRef.current = new LiveFollowUpSessionAdmission();
   const admissionBlockedUntilRef = useRef(0);
   const audioRef = useRef<LiveVoiceFollowUpAudio | null>(null);
   const audioActivationAbortRef = useRef<AbortController | null>(null);
@@ -296,7 +313,6 @@ export const useLiveVoiceFollowUp = ({
   const lastFinalizationRef = useRef<Promise<boolean> | null>(null);
   const lastFinalizationFailedRef = useRef(false);
   const retryFinalizationRef = useRef<(() => Promise<boolean>) | null>(null);
-  const lastFinalizationScopeRef = useRef<string | null>(null);
   const pendingTextRef = useRef<{
     text: string;
     resolve: (sent: boolean) => void;
@@ -337,6 +353,20 @@ export const useLiveVoiceFollowUp = ({
     previewMode,
     learningMode: sessionScope,
   });
+
+  const applyControlRetry = useCallback((error: unknown) => {
+    if (
+      error instanceof LiveFollowUpControlError &&
+      typeof error.retryAfterMs === 'number' &&
+      Number.isFinite(error.retryAfterMs) &&
+      error.retryAfterMs > 0
+    ) {
+      admissionBlockedUntilRef.current = Math.max(
+        admissionBlockedUntilRef.current,
+        Date.now() + Math.min(MAX_CONTROL_RETRY_DELAY_MS, error.retryAfterMs),
+      );
+    }
+  }, []);
 
   const reportAttemptResult = useCallback(
     (
@@ -707,7 +737,6 @@ export const useLiveVoiceFollowUp = ({
       // The next credential's server-built history must include this final
       // played turn. The writer already bounds finalization to 25 seconds.
       if (attempt && session) {
-        lastFinalizationScopeRef.current = `${attempt.shifuBid}:${attempt.outlineBid}:${attempt.anchorElementBid}`;
         const finalization = finalize();
         lastFinalizationRef.current = finalization;
         lastFinalizationFailedRef.current = false;
@@ -793,9 +822,14 @@ export const useLiveVoiceFollowUp = ({
         // A foreground click may beat the expiry timer after browser freezing.
         finishAttempt({ reason: 'timeout', keepOpen: true });
       }
+      if (
+        attemptRef.current &&
+        attemptRef.current.anchorElementBid !== normalizedAnchor
+      ) {
+        finishAttempt({ reason: 'replaced', keepOpen: true });
+      }
       if (attemptRef.current) {
         const currentAttempt = attemptRef.current;
-        if (currentAttempt.anchorElementBid !== normalizedAnchor) return false;
         if (pausedRef.current) {
           pausedRef.current = false;
           const resumeGeneration = ++resumeGenerationRef.current;
@@ -848,18 +882,23 @@ export const useLiveVoiceFollowUp = ({
               return audio;
             });
             audioReadyRef.current = ready;
-            void ready.catch(() => {
+            void ready.catch(error => {
               if (
                 attemptRef.current === currentAttempt &&
                 !pausedRef.current &&
                 resumeGeneration === resumeGenerationRef.current
-              )
+              ) {
+                applyControlRetry(error);
                 finishAttempt({
                   reason: 'connection_error',
                   keepOpen: true,
-                  errorCode: 'audio_unavailable',
+                  errorCode:
+                    error instanceof LiveFollowUpControlError
+                      ? controlErrorCode(error)
+                      : 'audio_unavailable',
                   retryable: true,
                 });
+              }
             });
           } else {
             accumulatorRef.current?.resumeOutput();
@@ -905,6 +944,7 @@ export const useLiveVoiceFollowUp = ({
       setupReadyRef.current = false;
       const attemptAccumulator = new GeminiLiveTurnAccumulator();
       accumulatorRef.current = attemptAccumulator;
+      let connectionDeadline: number | null = null;
 
       if (analyticsEnabled) {
         trackSafely(
@@ -935,6 +975,19 @@ export const useLiveVoiceFollowUp = ({
           !currentAttempt.audioActivated ||
           currentAttempt.serverVoiceState === null
         ) {
+          return;
+        }
+        if (
+          connectionDeadline !== null &&
+          performance.now() >= connectionDeadline
+        ) {
+          finishAttempt({
+            reason: 'connection_error',
+            keepOpen: true,
+            errorCode: 'network_error',
+            retryable: true,
+            pendingOutcome: 'failed',
+          });
           return;
         }
         if (setupTimerRef.current !== null) {
@@ -1074,78 +1127,80 @@ export const useLiveVoiceFollowUp = ({
           }
         });
 
-      const armConnectionTimeout = (provisioning = false) => {
+      const armConnectionTimeout = (resuming = false) => {
+        if (connectionDeadline === null || resuming)
+          connectionDeadline = performance.now() + GEMINI_LIVE_SETUP_TIMEOUT_MS;
         if (setupTimerRef.current !== null) {
           window.clearTimeout(setupTimerRef.current);
         }
-        setupTimerRef.current = window.setTimeout(() => {
-          setupTimerRef.current = null;
-          const currentAttempt = attemptRef.current;
-          if (
-            currentAttempt?.generation !== generation ||
-            (setupReadyRef.current && currentAttempt.audioActivated)
-          ) {
-            return;
-          }
-          if (provisioning) {
-            // A stalled response may already own server capacity. Back off
-            // retries; a late response still records its actual expiry below.
-            admissionBlockedUntilRef.current = Math.max(
-              admissionBlockedUntilRef.current,
-              Date.now() + CAPACITY_RETRY_BACKOFF_MS,
-            );
-          }
-          finishAttempt({
-            reason: 'connection_error',
-            keepOpen: true,
-            errorCode: 'network_error',
-            retryable: true,
-            pendingOutcome: 'failed',
-          });
-        }, GEMINI_LIVE_SETUP_TIMEOUT_MS);
+        setupTimerRef.current = window.setTimeout(
+          () => {
+            setupTimerRef.current = null;
+            const currentAttempt = attemptRef.current;
+            if (
+              currentAttempt?.generation !== generation ||
+              (setupReadyRef.current && currentAttempt.audioActivated)
+            ) {
+              return;
+            }
+            finishAttempt({
+              reason: 'connection_error',
+              keepOpen: true,
+              errorCode: 'network_error',
+              retryable: true,
+              pendingOutcome: 'failed',
+            });
+          },
+          Math.max(0, connectionDeadline - performance.now()),
+        );
       };
 
-      let sessionPromise: ReturnType<typeof createLiveFollowUpSession>;
+      let sessionPromise: Promise<LiveFollowUpSession>;
       try {
         const retryPreviousFinalization = lastFinalizationFailedRef.current;
         const createSession = () => {
           if (attemptRef.current?.generation !== generation)
             throw new Error('Live session startup cancelled');
-          armConnectionTimeout(true);
-          return createLiveFollowUpSession(shifuBid, outlineBid, {
-            anchor_element_bid: normalizedAnchor,
-            preview_mode: previewMode,
-            learning_mode: learningMode,
-            surface,
-          });
+          armConnectionTimeout();
+          return admissionRef.current!.create(
+            shifuBid,
+            outlineBid,
+            {
+              anchor_element_bid: normalizedAnchor,
+              preview_mode: previewMode,
+              learning_mode: learningMode,
+              surface,
+            },
+            () =>
+              attemptRef.current?.generation === generation &&
+              (connectionDeadline === null ||
+                performance.now() < connectionDeadline),
+          );
         };
-        sessionPromise =
-          lastFinalizationRef.current &&
-          lastFinalizationScopeRef.current ===
-            `${shifuBid}:${outlineBid}:${normalizedAnchor}`
-            ? lastFinalizationRef.current.then(async saved => {
-                if (!saved) {
-                  if (attemptRef.current?.generation !== generation)
-                    throw new Error('Live session startup cancelled');
-                  // One click may wait for the existing closing budget OR
-                  // retry an already failed one, never chain both budgets.
-                  if (!retryPreviousFinalization)
-                    throw new Error('Previous Live history was not saved');
-                  const recovery = retryFinalizationRef.current?.();
-                  if (recovery) {
-                    lastFinalizationRef.current = recovery;
-                    lastFinalizationFailedRef.current = false;
-                    void recovery.then(recovered => {
-                      if (lastFinalizationRef.current === recovery)
-                        lastFinalizationFailedRef.current = !recovered;
-                    });
-                  }
-                  if (!(await recovery))
-                    throw new Error('Previous Live history was not saved');
+        sessionPromise = lastFinalizationRef.current
+          ? lastFinalizationRef.current.then(async saved => {
+              if (!saved) {
+                if (attemptRef.current?.generation !== generation)
+                  throw new Error('Live session startup cancelled');
+                // One click may wait for the existing closing budget OR
+                // retry an already failed one, never chain both budgets.
+                if (!retryPreviousFinalization)
+                  throw new Error('Previous Live history was not saved');
+                const recovery = retryFinalizationRef.current?.();
+                if (recovery) {
+                  lastFinalizationRef.current = recovery;
+                  lastFinalizationFailedRef.current = false;
+                  void recovery.then(recovered => {
+                    if (lastFinalizationRef.current === recovery)
+                      lastFinalizationFailedRef.current = !recovered;
+                  });
                 }
-                return createSession();
-              })
-            : createSession();
+                if (!(await recovery))
+                  throw new Error('Previous Live history was not saved');
+              }
+              return createSession();
+            })
+          : createSession();
       } catch (error) {
         sessionPromise = Promise.reject(error);
       }
@@ -1169,7 +1224,7 @@ export const useLiveVoiceFollowUp = ({
           }
         }
         setupReadyRef.current = false;
-        armConnectionTimeout();
+        armConnectionTimeout(resumptionHandle !== null);
         const websocket = new WebSocket(
           resolveGeminiLiveWebSocketUrl(
             session.websocket_url,
@@ -1241,6 +1296,7 @@ export const useLiveVoiceFollowUp = ({
                 return;
               }
               markConnectedIfReady();
+              if (attemptRef.current?.generation !== generation) return;
             }
             setViewState(previousState => ({
               ...previousState,
@@ -1388,14 +1444,22 @@ export const useLiveVoiceFollowUp = ({
       void sessionPromise
         .then(session => {
           const expiresAt = Date.parse(session.expires_at);
-          if (Number.isFinite(expiresAt)) {
+          if (
+            session.rotation_enabled !== true &&
+            generationRef.current === generation &&
+            Number.isFinite(expiresAt)
+          ) {
             admissionBlockedUntilRef.current = Math.max(
               admissionBlockedUntilRef.current,
               expiresAt + CREDENTIAL_RESERVATION_MARGIN_MS,
             );
           }
           if (attemptRef.current?.generation !== generation) {
-            if (!unmountedRef.current) {
+            if (
+              !unmountedRef.current &&
+              generationRef.current === generation &&
+              session.rotation_enabled !== true
+            ) {
               setViewState(previous =>
                 previous.open && previous.state === 'ended'
                   ? {
@@ -1413,6 +1477,19 @@ export const useLiveVoiceFollowUp = ({
             return;
           }
           sessionRef.current = session;
+          if (
+            connectionDeadline !== null &&
+            performance.now() >= connectionDeadline
+          ) {
+            finishAttempt({
+              reason: 'connection_error',
+              keepOpen: true,
+              errorCode: 'network_error',
+              retryable: true,
+              pendingOutcome: 'failed',
+            });
+            return;
+          }
           openGeminiSocket(session, null);
           const heartbeatMs = Math.min(
             MAX_HEARTBEAT_MS,
@@ -1459,10 +1536,14 @@ export const useLiveVoiceFollowUp = ({
                   HEARTBEAT_RETRY_DELAY_MS,
                 );
               } else {
+                applyControlRetry(error);
                 finishAttempt({
                   reason: 'connection_error',
                   keepOpen: true,
-                  errorCode: 'server_error',
+                  errorCode:
+                    error instanceof LiveFollowUpControlError
+                      ? controlErrorCode(error)
+                      : 'server_error',
                   retryable: true,
                   pendingOutcome: 'failed',
                 });
@@ -1481,6 +1562,7 @@ export const useLiveVoiceFollowUp = ({
         })
         .catch(error => {
           if (attemptRef.current?.generation === generation) {
+            applyControlRetry(error);
             const capacityExceeded =
               typeof error === 'object' &&
               error !== null &&
@@ -1497,9 +1579,15 @@ export const useLiveVoiceFollowUp = ({
             finishAttempt({
               reason: 'connection_error',
               keepOpen: true,
-              errorCode: capacityExceeded
-                ? 'capacity_exceeded'
-                : 'session_create_failed',
+              errorCode:
+                connectionDeadline !== null &&
+                performance.now() >= connectionDeadline
+                  ? 'network_error'
+                  : error instanceof LiveFollowUpControlError
+                    ? controlErrorCode(error)
+                    : capacityExceeded
+                      ? 'capacity_exceeded'
+                      : 'session_create_failed',
               retryable: true,
               pendingOutcome: 'failed',
             });
@@ -1509,6 +1597,7 @@ export const useLiveVoiceFollowUp = ({
     },
     [
       analyticsEnabled,
+      applyControlRetry,
       applyTranscriptUpdates,
       finishAttempt,
       flushReadyCommits,
@@ -1560,10 +1649,14 @@ export const useLiveVoiceFollowUp = ({
 
   const startMicrophone = useCallback(
     (target: StartTarget) => {
+      const ownsTarget =
+        !attemptRef.current ||
+        attemptRef.current.anchorElementBid === target.anchorElementBid.trim();
       if (
-        microphoneAbortRef.current ||
-        !mutedRef.current ||
-        textTransitionRef.current ||
+        (ownsTarget &&
+          (microphoneAbortRef.current ||
+            !mutedRef.current ||
+            textTransitionRef.current)) ||
         !start(target)
       )
         return;
@@ -1788,7 +1881,9 @@ export const useLiveVoiceFollowUp = ({
       if (
         !question ||
         question.length > 8000 ||
-        textTransitionRef.current ||
+        (textTransitionRef.current &&
+          attemptRef.current?.anchorElementBid ===
+            target.anchorElementBid.trim()) ||
         !start(target)
       ) {
         return Promise.resolve(false);
