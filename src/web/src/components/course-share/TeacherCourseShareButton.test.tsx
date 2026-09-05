@@ -83,7 +83,7 @@ test('prioritizes ordinary sharing and only shows the poster prompt after expans
   expect(
     screen.getByRole('button', { name: zh.shareIntroductionAndLink }),
   ).toBeVisible();
-  expect(screen.getByText('https://example.com/c/course-1')).toBeVisible();
+  expect(screen.getByText(props.courseTitle)).toBeVisible();
   expect(screen.queryByRole('region')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: zh.posterCopy })).toBeVisible();
   expect(screen.getByRole('heading', { name: zh.posterHeading })).toBeVisible();
