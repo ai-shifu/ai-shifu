@@ -472,6 +472,86 @@ def test_undisclosed_failure_frees_only_its_risk_not_rolling_mint_rate(
     assert [client.zcard(keys[index]) for index in (5, 6)] == [2, 2]
 
 
+@pytest.mark.parametrize("after_expired_owner", [False, True])
+def test_rotation_disabled_retries_positively_undisclosed_failure(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+    *,
+    after_expired_owner: bool,
+) -> None:
+    client = real_redis.client
+    request = _request(client)
+    if after_expired_owner:
+        previous = _begin(ready_app, request, rotation=False)
+        _complete(ready_app, request, previous)
+        keys = _keys(ready_app, request, previous)
+        expired_at = _now_ms(client) - 1
+        for key in keys[:3]:
+            client.zadd(key, {previous.lease.lease_id: expired_at / 1000})
+        head = _read_json(client, keys[3])
+        head["expires_at_ms"] = expired_at
+        client.set(keys[3], json.dumps(head), keepttl=True)
+        client.pexpireat(keys[8], expired_at)
+        request = _successor(client, request, previous)
+
+    failed = _begin(ready_app, request, rotation=False)
+    assert failed.lease is not None
+    admission.fail_admission(ready_app, request, failed, undisclosed=True)
+    status = admission.admission_status(ready_app, request, rotation_enabled=False)
+    assert status["operation_status"] == "failed"
+    assert status["ownership_current"] is True
+    keys = _keys(ready_app, request, failed)
+    assert [client.zcard(key) for key in keys[:3]] == [0, 0, 0]
+    assert _read_json(client, keys[3])["expires_at_ms"] > _now_ms(client)
+
+    retried = _begin(ready_app, _successor(client, request, failed), rotation=False)
+    assert retried.lease is not None
+    assert [client.zcard(key) for key in keys[:3]] == [1, 1, 1]
+    expected_attempts = 3 if after_expired_owner else 2
+    assert client.zcard(keys[5]) == expected_attempts
+
+
+def test_rotation_disabled_still_blocks_uncertain_failed_credential(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+) -> None:
+    client = real_redis.client
+    request = _request(client)
+    failed = _begin(ready_app, request, rotation=False)
+    admission.fail_admission(ready_app, request, failed, undisclosed=False)
+    retried = _begin(ready_app, _successor(client, request, failed), rotation=False)
+    assert retried.lease is None
+    assert retried.data["error_code"] == "capacity_exceeded"
+    assert 899_000 <= retried.data["retry_after_ms"] <= 900_000
+    keys = _keys(ready_app, request, failed)
+    assert [client.zcard(keys[index]) for index in (0, 1, 2, 5)] == [1, 1, 1, 1]
+
+
+def test_rotation_disabled_counts_other_live_risk_after_undisclosed_failure(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+) -> None:
+    client = real_redis.client
+    original = _request(client)
+    live = _begin(ready_app, original)
+    _complete(ready_app, original, live)
+    successor = _successor(client, original, live)
+    failed = _begin(ready_app, successor)
+    admission.fail_admission(ready_app, successor, failed, undisclosed=True)
+    keys = _keys(ready_app, original, live)
+    actual_risk_expiry = _now_ms(client) + 5_000
+    for key in keys[:3]:
+        client.zadd(key, {live.lease.lease_id: actual_risk_expiry / 1000})
+
+    retried = _begin(ready_app, _successor(client, successor, failed), rotation=False)
+    assert retried.lease is None
+    assert retried.data["error_code"] == "capacity_exceeded"
+    # Retry follows the remaining disclosed credential, not the retired failed
+    # operation's original 15-minute deadline (whose risk was rolled back).
+    assert 4_000 <= retried.data["retry_after_ms"] <= 5_000
+    assert [client.zcard(keys[index]) for index in (0, 1, 2, 5)] == [1, 1, 1, 2]
+
+
 def test_uncertain_issuance_keeps_risk_for_full_credential_lifetime(
     ready_app: Flask,
     real_redis: RedisHarness,
@@ -485,18 +565,21 @@ def test_uncertain_issuance_keeps_risk_for_full_credential_lifetime(
     ] * 5
 
 
+@pytest.mark.parametrize("rotation", [False, True])
 def test_user_rolling_rate_is_four_even_when_all_tokens_were_undisclosed(
     ready_app: Flask,
     real_redis: RedisHarness,
+    *,
+    rotation: bool,
 ) -> None:
     client = real_redis.client
     request = _request(client)
     for _ in range(4):
-        result = _begin(ready_app, request)
+        result = _begin(ready_app, request, rotation=rotation)
         assert result.lease is not None
         admission.fail_admission(ready_app, request, result, undisclosed=True)
         request = _successor(client, request, result)
-    rejected = _begin(ready_app, request)
+    rejected = _begin(ready_app, request, rotation=rotation)
     assert rejected.lease is None
     assert rejected.data["error_code"] == "capacity_exceeded"
     assert 59_000 <= rejected.data["retry_after_ms"] <= 60_000

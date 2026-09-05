@@ -181,9 +181,9 @@ if predecessor then
         or head.admission_revision ~= args.expected_admission_revision
         or head.identity ~= args.identity then return rejected('ownership_conflict') end
     if head.state == 'pending' and head.deadline_ms > now then return rejected('ownership_conflict') end
-    if not args.rotation_enabled and head.expires_at_ms > now then
-        return rejected('capacity_exceeded', head.expires_at_ms-now)
-    end
+    -- A retired head survives a positively undisclosed failure even though its
+    -- risk was rolled back. The credential ledger below, not the head's former
+    -- deadline, enforces the one-credential limit when rotation is disabled.
 elseif head and head.expires_at_ms > now and head.state ~= 'retired'
     and not (head.state == 'pending' and head.deadline_ms <= now) then
     return rejected('ownership_conflict')
