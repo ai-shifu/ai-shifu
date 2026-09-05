@@ -132,6 +132,7 @@ def record_llm_usage(
     app: Flask,
     context: UsageContext,
     *,
+    usage_bid: str | None = None,
     provider: str,
     model: str,
     is_stream: bool,
@@ -145,7 +146,7 @@ def record_llm_usage(
     extra: dict[str, object] | None = None,
 ) -> str:
     """Record LLM usage."""
-    usage_bid = generate_id(app)
+    resolved_usage_bid = str(usage_bid or "").strip() or generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
     resolved_billable = _resolve_billable(
         app,
@@ -153,7 +154,7 @@ def record_llm_usage(
         usage_scene=normalized_usage_scene,
     )
     record = BillUsageRecord(
-        usage_bid=usage_bid,
+        usage_bid=resolved_usage_bid,
         parent_usage_bid="",
         user_bid=context.user_bid or "",
         shifu_bid=context.shifu_bid or "",
@@ -189,7 +190,7 @@ def record_llm_usage(
             status=status,
             record_level=0,
         ):
-            _enqueue_usage_settlement(app, usage_bid=usage_bid)
+            _enqueue_usage_settlement(app, usage_bid=resolved_usage_bid)
         # Best-effort logging; ignore failures so they do not mask the result.
         with contextlib.suppress(Exception):
             usage_source = (
@@ -199,7 +200,7 @@ def record_llm_usage(
                 "record_llm_usage saved usage_bid=%s provider=%s model=%s stream=%s "
                 "input=%s input_cache=%s output=%s total=%s latency_ms=%s status=%s "
                 "scene=%s billable=%s usage_source=%s user_bid=%s request_id=%s trace_id=%s",
-                usage_bid,
+                resolved_usage_bid,
                 provider or "",
                 model or "",
                 1 if is_stream else 0,
@@ -216,7 +217,7 @@ def record_llm_usage(
                 context.request_id or "",
                 context.trace_id or "",
             )
-        return usage_bid
+        return resolved_usage_bid
     return ""
 
 

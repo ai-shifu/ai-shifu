@@ -73,6 +73,8 @@ import {
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 import LearnerCourseShareButton from '../LearnerCourseShareButton';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import type { FollowUpPresentationMode } from './liveVoiceFollowUpMode';
+import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/useLiveVoiceFollowUp';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -189,7 +191,9 @@ interface ListenModeSlideRendererProps {
   onLessonFeedbackPromptStateChange?: (ready: boolean) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
   pausePlaybackWhen?: boolean;
+  liveVoice?: LiveVoiceFollowUpController;
   disableInteractionEdits?: boolean;
+  followUpMode?: FollowUpPresentationMode;
 }
 
 interface ListenSlidePresentationProfile {
@@ -265,6 +269,7 @@ interface ListenSlideAskPlayerActionProps {
   onContextChange: (snapshot: PlayerCustomActionContextSnapshot) => void;
   disabled?: boolean;
   renderButton?: boolean;
+  onActivate?: (element?: ListenSlideElement) => void;
 }
 
 const ListenSlideAskPlayerAction = memo(
@@ -275,6 +280,7 @@ const ListenSlideAskPlayerAction = memo(
     onContextChange,
     disabled = false,
     renderButton = true,
+    onActivate,
   }: ListenSlideAskPlayerActionProps) => {
     const { currentElement, isActive, setActive, toggleActive } = context;
 
@@ -291,8 +297,13 @@ const ListenSlideAskPlayerAction = memo(
         return;
       }
 
+      if (onActivate) {
+        onActivate(currentElement as ListenSlideElement | undefined);
+        return;
+      }
+
       toggleActive();
-    }, [disabled, toggleActive]);
+    }, [currentElement, disabled, onActivate, toggleActive]);
 
     if (!renderButton) {
       return null;
@@ -739,7 +750,9 @@ const ListenModeSlideRenderer = ({
   onLessonFeedbackPromptStateChange,
   onMobileViewModeChange,
   pausePlaybackWhen = false,
+  liveVoice,
   disableInteractionEdits = false,
+  followUpMode = 'text',
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
@@ -1097,6 +1110,39 @@ const ListenModeSlideRenderer = ({
     isMobileAskOpen || !mobileAskPanelElementBid
       ? resolvedAskElementBid
       : mobileAskPanelElementBid;
+  const renderedAskElementBid = mobileStyle
+    ? renderedMobileAskElementBid
+    : renderedPlayerCustomAskElementBid;
+  const isAskPanelOpen = mobileStyle
+    ? isMobileAskOpen
+    : playerCustomActionState.isActive;
+  const liveVoiceAnchor = liveVoice?.anchorElementBid;
+  const hasLiveVoiceSession =
+    Boolean(liveVoice?.paused) ||
+    (liveVoice !== undefined && liveVoice.state !== 'ended');
+  const closeLiveVoice = liveVoice?.close;
+  useLayoutEffect(() => {
+    // A collapsed panel retains its session, but a new slide must not inherit
+    // that anchor's attempt. End it before the new input can be submitted;
+    // the controller still owns credential expiry and admission guards.
+    if (
+      followUpMode === 'live_voice' &&
+      isAskPanelOpen &&
+      hasLiveVoiceSession &&
+      renderedAskElementBid &&
+      liveVoiceAnchor &&
+      liveVoiceAnchor !== renderedAskElementBid
+    ) {
+      closeLiveVoice?.();
+    }
+  }, [
+    closeLiveVoice,
+    followUpMode,
+    hasLiveVoiceSession,
+    isAskPanelOpen,
+    liveVoiceAnchor,
+    renderedAskElementBid,
+  ]);
   const resolveAskListByElementBid = useCallback(
     (elementBid: string) => {
       if (!elementBid) {
@@ -1137,6 +1183,7 @@ const ListenModeSlideRenderer = ({
     resolvedAskElementBid,
   ]);
   const isAskActionDisabled = currentAskTargetElement?.type === 'interaction';
+  const isFollowUpDisabled = followUpMode === 'disabled';
 
   const handleInteractionSend = useCallback(
     (content: OnSendContentParams, element?: SlideElement) => {
@@ -1850,6 +1897,10 @@ const ListenModeSlideRenderer = ({
         />
       );
 
+      if (isFollowUpDisabled) {
+        return playbackSpeedAction;
+      }
+
       if (mobileStyle) {
         return (
           <>
@@ -1883,6 +1934,7 @@ const ListenModeSlideRenderer = ({
       handleListenPlaybackSpeedChange,
       handlePlayerCustomActionContextChange,
       isAskActionDisabled,
+      isFollowUpDisabled,
       mobileStyle,
       playbackSpeed,
       t,
@@ -1890,7 +1942,10 @@ const ListenModeSlideRenderer = ({
   );
 
   const shouldRenderMobileAskEntry =
-    showMobileAskEntry && mobileStyle && !shouldRenderEmptyPpt;
+    showMobileAskEntry &&
+    !isFollowUpDisabled &&
+    mobileStyle &&
+    !shouldRenderEmptyPpt;
   const isMobileFullscreen = mobileViewMode === 'fullscreen';
   const fullscreenHeaderContent = useMemo(() => {
     if (!courseName && !sectionTitle) {
@@ -2034,11 +2089,15 @@ const ListenModeSlideRenderer = ({
 
   const shouldRenderDesktopAskOverlay =
     showAskOverlays &&
+    !isFollowUpDisabled &&
     isDesktopAskPanelMounted &&
     !mobileStyle &&
     !shouldRenderEmptyPpt;
   const shouldRenderMobileAskPanel =
-    showAskOverlays && isMobileAskPanelMounted && !shouldRenderEmptyPpt;
+    showAskOverlays &&
+    !isFollowUpDisabled &&
+    isMobileAskPanelMounted &&
+    !shouldRenderEmptyPpt;
   const shouldRenderManualFullscreenButton =
     showManualFullscreenButton && !isClassroomFullscreenActive;
   const listenPlayerClassName =
@@ -2054,6 +2113,9 @@ const ListenModeSlideRenderer = ({
       <div className='slide-player__ask-card'>
         <div className='slide-player__ask-body'>
           <AskBlock
+            followUpMode={followUpMode}
+            liveVoice={liveVoice}
+            liveVoiceSurface='listen_player'
             askList={playerCustomAskList}
             className='listen-slide-ask-block'
             element_bid={renderedPlayerCustomAskElementBid}
@@ -2101,6 +2163,9 @@ const ListenModeSlideRenderer = ({
                   style={isMobileAskOpen ? undefined : { display: 'none' }}
                 >
                   <AskBlock
+                    followUpMode={followUpMode}
+                    liveVoice={liveVoice}
+                    liveVoiceSurface='listen_player'
                     askList={currentAskList}
                     className='listen-slide-ask-block'
                     element_bid={renderedMobileAskElementBid}
@@ -2122,6 +2187,9 @@ const ListenModeSlideRenderer = ({
                 style={isMobileAskOpen ? undefined : { display: 'none' }}
               >
                 <AskBlock
+                  followUpMode={followUpMode}
+                  liveVoice={liveVoice}
+                  liveVoiceSurface='listen_player'
                   askList={currentAskList}
                   className='listen-slide-ask-block'
                   element_bid={renderedMobileAskElementBid}

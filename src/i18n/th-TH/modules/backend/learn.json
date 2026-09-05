@@ -10,6 +10,7 @@
     "generatedBlockNotFound": "ไม่พบบล็อกที่สร้างขึ้น",
     "invalidAction": "การดำเนินการไม่ถูกต้อง",
     "lessonFeedbackCommentPlaceholder": "ไม่บังคับ: บอกข้อเสนอแนะของคุณให้เราทราบ",
+    "liveFollowUpCapacityExceeded": "จำนวนการสนทนาด้วยเสียงถึงขีดจำกัดแล้ว โปรดลองอีกครั้งภายหลัง",
     "llmStreamInterrupted": "การเชื่อมต่อขัดจังหวะระหว่างการสร้าง โปรดรีเฟรชแล้วลองอีกครั้ง",
     "nextChapterButton": "บทถัดไป",
     "outputInProgress": "กำลังส่งออกเนื้อหา โปรดรอจนเสร็จแล้วลองอีกครั้ง",

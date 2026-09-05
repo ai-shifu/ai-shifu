@@ -16,6 +16,7 @@ export interface ModelOption {
   creditMultiplier?: number | null;
   creditMultiplierLabel?: string;
   isDefault?: boolean;
+  disabled?: boolean;
 }
 
 export interface Shifu {
@@ -38,6 +39,7 @@ export interface Shifu {
   ask_model?: string;
   ask_temperature?: number;
   ask_system_prompt?: string;
+  follow_up_mode?: 'text' | 'live_voice';
   ask_provider_config?: {
     provider?: string;
     mode?: string;

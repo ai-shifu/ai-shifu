@@ -94,6 +94,34 @@ These variables are essential for the application to run:
 - For production deployments, use environment-specific configurations
 - Refer to the example files for detailed explanations of each variable
 
+#### Optional Gemini Live Voice Follow-Up
+
+Gemini Live is disabled by default. Leave `GEMINI_LIVE_ENABLED=false` until
+the browser-direct flow has been verified in the target environment. To expose
+the allowlisted Live follow-up model, configure a valid `GEMINI_API_KEY`, keep
+Redis available for authenticated session bindings and capacity leases, and
+then set:
+
+```bash
+GEMINI_LIVE_ENABLED=true
+```
+
+The API mints a one-use, short-lived Gemini credential constrained to the
+selected model, voice, and server-built prompt. The browser then opens the
+Gemini Live WebSocket directly, so the AI-Shifu ingress does not need a
+WebSocket Upgrade route. Production still needs HTTPS for microphone access,
+and the browser must be able to reach `generativelanguage.googleapis.com`.
+The server must also reach the token-creation API. If `GEMINI_API_URL` is set,
+token creation reuses that HTTPS base URL, including any proxy path prefix,
+and appends `/v1beta/auth_tokens`; an existing terminal `/v1beta` is reused
+instead of duplicated. If unset, token creation uses Google's official API.
+Only configure a trusted proxy because it receives the API key and private
+course context. This setting never changes the browser's Gemini WebSocket
+destination. Token requests do not follow redirects or fall back to another
+host when the configured endpoint fails.
+Disable the flag to roll back Live without changing courses that use text
+follow-up models.
+
 ### Step 4: Build Latest Docker Images & Start the Stack
 
 1. Ensure `docker/.env` contains at least one LLM API key.

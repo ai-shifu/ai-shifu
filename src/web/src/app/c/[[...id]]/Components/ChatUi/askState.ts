@@ -4,6 +4,11 @@ import type { AudioTrack } from '@/lib/audio-utils';
 export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
   content: string;
+  interaction_mode?: 'text' | 'live_voice';
+  live_session_bid?: string;
+  live_turn_index?: number;
+  interrupted?: boolean;
+  payload?: Record<string, unknown>;
   isStreaming?: boolean;
   element_bid?: string;
   generated_block_bid?: string;
@@ -28,6 +33,20 @@ export const normalizeAskMessageList = (askList: AskMessage[] = []) =>
   askList.map(item => ({
     ...item,
     content: item.content || '',
+    ...(item.payload?.interaction_mode === 'live_voice'
+      ? {
+          interaction_mode: 'live_voice' as const,
+          live_session_bid:
+            typeof item.payload.live_session_bid === 'string'
+              ? item.payload.live_session_bid
+              : undefined,
+          live_turn_index:
+            typeof item.payload.live_turn_index === 'number'
+              ? item.payload.live_turn_index
+              : undefined,
+          interrupted: item.payload.interrupted === true,
+        }
+      : {}),
     shouldUseTypewriter: item.shouldUseTypewriter ?? false,
   }));
 
@@ -49,6 +68,10 @@ export const areAskMessageListsEqual = (
     return (
       item.type === nextItem?.type &&
       item.content === nextItem?.content &&
+      item.interaction_mode === nextItem?.interaction_mode &&
+      item.live_session_bid === nextItem?.live_session_bid &&
+      item.live_turn_index === nextItem?.live_turn_index &&
+      item.interrupted === nextItem?.interrupted &&
       item.element_bid === nextItem?.element_bid &&
       item.generated_block_bid === nextItem?.generated_block_bid &&
       item.isStreaming === nextItem?.isStreaming &&

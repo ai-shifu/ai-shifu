@@ -31,6 +31,7 @@ export interface ChatContentItem {
   element_index?: number;
   generated_block_bid?: string;
   ask_element_bid?: string;
+  interaction_mode?: 'text' | 'live_voice';
   parent_element_bid?: string;
   parent_block_bid?: string;
   like_status?: LikeStatus;

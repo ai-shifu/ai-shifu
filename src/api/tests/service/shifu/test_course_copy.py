@@ -14,6 +14,7 @@ from flaskr.common import config as config_module
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
+from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
@@ -783,3 +784,42 @@ def test_copy_course_risk_rejection_does_not_create_target_user(
             ).count()
             == 0
         )
+
+
+def test_copy_course_rejects_invalid_live_provider_contract(
+    app: object,
+) -> None:
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    owner_email = _unique_email("live-copy-owner")
+
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
+        _seed_course_with_outlines(
+            app,
+            shifu_bid=shifu_bid,
+            creator_user_bid=creator_bid,
+        )
+        source = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        source.ask_llm = GEMINI_LIVE_MODEL_ID
+        source.ask_provider_config = json.dumps(
+            {
+                "provider": "dify",
+                "mode": "provider_only",
+                "config": {"live_voice": "Kore"},
+            }
+        )
+        db.session.commit()
+        draft_count_before = DraftShifu.query.count()
+
+    with pytest.raises(AppError):
+        copy_operator_course(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=owner_email,
+            operator_user_bid=SOURCE_OPERATOR_BID,
+        )
+
+    with app.app_context():
+        assert DraftShifu.query.count() == draft_count_before

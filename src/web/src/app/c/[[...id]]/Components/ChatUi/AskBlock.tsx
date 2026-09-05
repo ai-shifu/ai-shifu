@@ -28,6 +28,7 @@ import {
 import { useAskStateStore } from './useAskStateStore';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { isRtlLocale } from '@/lib/i18n-locales';
 import {
   AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
   AI_SERVICE_ERROR_TOAST_DURATION_MS,
@@ -40,6 +41,14 @@ import {
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
 import { useTracking } from '@/hooks/useTracking';
+import {
+  LiveVoiceFollowUpControls,
+  LiveVoiceFollowUpMicrophoneButton,
+} from '@/components/live-follow-up/LiveVoiceFollowUpControls';
+import type {
+  LiveVoiceFollowUpController,
+  LiveVoiceFollowUpTarget,
+} from '@/components/live-follow-up/useLiveVoiceFollowUp';
 export type { AskMessage } from './askState';
 
 type FollowUpSubmissionMethod = 'button' | 'keyboard';
@@ -47,9 +56,13 @@ type FollowUpSubmissionMethod = 'button' | 'keyboard';
 const FOLLOW_UP_SUBMIT_EVENT = 'learner_follow_up_submit';
 
 export interface AskBlockProps {
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
+  liveVoice?: LiveVoiceFollowUpController;
+  liveVoiceSurface?: LiveVoiceFollowUpTarget['surface'];
   askList?: AskMessage[];
   className?: string;
   isExpanded?: boolean;
+  readonlyHistory?: boolean;
   printMode?: boolean;
   forceDesktopSlidePanel?: boolean;
   shifu_bid: string;
@@ -64,9 +77,13 @@ export interface AskBlockProps {
  * Follow-up area component that contains the Q&A list and custom input box with streaming support
  */
 export default function AskBlock({
+  followUpMode = 'text',
+  liveVoice,
+  liveVoiceSurface = 'read_content',
   askList = [],
   className,
   isExpanded = undefined,
+  readonlyHistory = false,
   printMode = false,
   forceDesktopSlidePanel = false,
   shifu_bid,
@@ -76,6 +93,14 @@ export default function AskBlock({
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t, i18n } = useTranslation();
+  const isLive = followUpMode === 'live_voice';
+  const liveTarget: LiveVoiceFollowUpTarget = {
+    anchorElementBid: element_bid,
+    surface: preview_mode ? 'teacher_preview' : liveVoiceSurface,
+  };
+  const liveRef = useRef(liveVoice);
+  liveRef.current = liveVoice;
+  const liveSubmissionRef = useRef(false);
   const markdownFlowLocale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
@@ -126,9 +151,19 @@ export default function AskBlock({
   const isDesktopSlideAskBlock = Boolean(isSlideAskBlock) && !mobileStyle;
   const isLandscapeSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && forceDesktopSlidePanel;
-  const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
+  const expanded = readonlyHistory
+    ? hasDisplayMessages
+    : (isExpanded ?? (!mobileStyle && hasDisplayMessages));
   const expandedRef = useRef(expanded);
   const previousExpandedRef = useRef(expanded);
+  useEffect(() => {
+    if (!isLive || !expanded) return;
+    return () => {
+      const controller = liveRef.current;
+      if (controller?.anchorElementBid === element_bid && controller.open)
+        controller.pause();
+    };
+  }, [element_bid, expanded, isLive]);
   const shouldForceSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
   const shouldShowMobileDialog =
@@ -234,6 +269,35 @@ export default function AskBlock({
     const submissionMethod = pendingSubmissionMethodRef.current;
     pendingSubmissionMethodRef.current = 'button';
     const question = inputValue.trim();
+    if (followUpMode === 'disabled') return;
+    if (isLive) {
+      if (!question || !liveVoice || liveSubmissionRef.current) return;
+      if (question.length > 8000) {
+        toast({ title: t('module.chat.liveVoiceTextTooLong') });
+        return;
+      }
+      liveSubmissionRef.current = true;
+      setShowMobileDialog(true);
+      try {
+        const sent = await liveVoice.sendText(
+          {
+            anchorElementBid: element_bid,
+            surface: preview_mode ? 'teacher_preview' : liveVoiceSurface,
+          },
+          question,
+          submissionMethod,
+        );
+        if (sent) {
+          setInputValue(current =>
+            current.trim() === question ? '' : current,
+          );
+          dismissAskInputFocus();
+        }
+      } finally {
+        liveSubmissionRef.current = false;
+      }
+      return;
+    }
     if (creditInsufficientAudience === null) {
       return;
     }
@@ -471,13 +535,18 @@ export default function AskBlock({
     t,
     mobileStyle,
     trackEvent,
+    followUpMode,
+    isLive,
+    liveVoice,
+    liveVoiceSurface,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       pendingSubmissionMethodRef.current = 'button';
+      if (isLive) liveVoice?.stopMicrophone();
       setInputValue(e.target.value);
     },
-    [],
+    [isLive, liveVoice],
   );
   const handleInputKeyDownCapture = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -504,6 +573,7 @@ export default function AskBlock({
       : displayList.slice(0, 1);
   const hasAskAnswerMessages = messagesToShow.length > 0;
   const shouldRenderMobileDialog =
+    !readonlyHistory &&
     mobileStyle &&
     shouldShowMobileDialog &&
     (hasAskAnswerMessages || shouldForceSlideMobileDialog);
@@ -649,10 +719,12 @@ export default function AskBlock({
   }, [expanded, isDesktopSlideAskBlock, messagesToShow]);
 
   const handleClose = useCallback(() => {
+    if (isLive && liveRef.current?.anchorElementBid === element_bid)
+      liveRef.current.pause();
     setIsFullscreen(false);
     // onClose?.();
     onToggleAskExpanded?.(element_bid);
-  }, [onToggleAskExpanded, element_bid]);
+  }, [onToggleAskExpanded, element_bid, isLive]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -723,6 +795,7 @@ export default function AskBlock({
           const messageRenderKey = `${message.type}-${message.element_bid || index}`;
           const shouldEnableMessageTypewriter =
             !printMode &&
+            !readonlyHistory &&
             message.type === BLOCK_TYPE.ANSWER &&
             message.shouldUseTypewriter === true;
           // if (message.type === BLOCK_TYPE.ANSWER) {
@@ -790,7 +863,12 @@ export default function AskBlock({
   };
 
   const renderInput = (extraClass?: string) => {
-    if (printMode || !expanded) {
+    if (
+      readonlyHistory ||
+      printMode ||
+      !expanded ||
+      followUpMode === 'disabled'
+    ) {
       return null;
     }
 
@@ -800,18 +878,39 @@ export default function AskBlock({
         ref={inputWrapperRef}
         onKeyDownCapture={handleInputKeyDownCapture}
       >
-        <MarkdownFlowInput
-          locale={markdownFlowLocale}
-          placeholder={t('module.chat.askContent')}
-          value={inputValue}
-          onChange={handleInputChange}
-          onSend={handleSendCustomQuestion}
-          sendShortcut={mobileStyle ? 'none' : 'enter'}
-          className={cn(
-            styles.inputGroup,
-            isStreamingRef.current ? styles.isSending : '',
-          )}
-        />
+        <div
+          className={isLive && liveVoice ? styles.liveInput : undefined}
+          dir={isRtlLocale(markdownFlowLocale) ? 'rtl' : 'ltr'}
+        >
+          <MarkdownFlowInput
+            locale={markdownFlowLocale}
+            placeholder={t('module.chat.askContent')}
+            value={inputValue}
+            onChange={handleInputChange}
+            onSend={handleSendCustomQuestion}
+            sendShortcut={mobileStyle ? 'none' : 'enter'}
+            className={cn(
+              styles.inputGroup,
+              isStreamingRef.current ? styles.isSending : '',
+            )}
+            textareaClassName={
+              isLive && liveVoice ? styles.liveTextarea : undefined
+            }
+          />
+          {isLive && liveVoice ? (
+            <LiveVoiceFollowUpMicrophoneButton
+              controller={liveVoice}
+              target={liveTarget}
+              className={styles.liveMicrophone}
+            />
+          ) : null}
+        </div>
+        {isLive && liveVoice ? (
+          <LiveVoiceFollowUpControls
+            controller={liveVoice}
+            target={liveTarget}
+          />
+        ) : null}
       </div>
     );
   };

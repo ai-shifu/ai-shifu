@@ -2310,6 +2310,12 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             ask_model = str(get_config("DEFAULT_LLM_MODEL") or "").strip()
         if not ask_model and require_llm_model:
             raise_param_error("ask_model")
+        from flaskr.service.learn.api import is_live_follow_up_model
+
+        if is_live_follow_up_model(ask_model):
+            # Live models are previewed through the voice session controller;
+            # this text-only endpoint must never become an implicit fallback.
+            raise_param_error("ask_model")
 
         ask_temperature = json_data.get("ask_temperature", 0.3)
         try:

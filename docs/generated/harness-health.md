@@ -7,9 +7,9 @@ This generated report summarizes the repository harness control plane.
 ## Knowledge System
 
 - Design docs: `14`
-- Product specs: `10`
+- Product specs: `11`
 - References: `5`
-- Active ExecPlans: `26`
+- Active ExecPlans: `27`
 - Completed ExecPlans: `36`
 
 ## Boundary Baseline

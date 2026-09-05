@@ -14,6 +14,9 @@ const mockGetShifuDetail = jest.fn();
 const mockSaveShifuDetail = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
+const mockGetFollowUpModelCatalog = jest.fn();
+const mockAskSettingsSection = jest.fn();
+const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 
 const mockEnvState = {
   defaultLlmModel: '',
@@ -50,7 +53,7 @@ jest.mock('@/hooks/useTracking', () => ({
 }));
 
 jest.mock('@/hooks/useBillingData', () => ({
-  useBillingOverview: () => ({ data: undefined }),
+  useBillingOverview: () => ({ data: mockBillingOverview }),
 }));
 
 jest.mock('@/hooks/useToast', () => ({
@@ -63,6 +66,11 @@ jest.mock('@/hooks/useExclusiveAudio', () => ({
     requestExclusive: jest.fn(),
     releaseExclusive: jest.fn(),
   }),
+}));
+
+jest.mock('@/lib/liveVoiceFollowUp', () => ({
+  getFollowUpModelCatalog: (...args: unknown[]) =>
+    mockGetFollowUpModelCatalog(...args),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -84,7 +92,13 @@ jest.mock('next/link', () => ({
 }));
 
 jest.mock('@/components/model-list', () => () => null);
-jest.mock('@/components/shifu-setting/AskSettingsSection', () => () => null);
+jest.mock('@/components/shifu-setting/AskSettingsSection', () => ({
+  __esModule: true,
+  default: (props: Record<string, unknown>) => {
+    mockAskSettingsSection(props);
+    return null;
+  },
+}));
 jest.mock(
   '@/components/shifu-setting/MiniMaxVoiceCloneDialog',
   () => () => null,
@@ -151,6 +165,11 @@ describe('ShifuSettingDialog analytics producer', () => {
     jest.clearAllMocks();
     mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
     mockAskConfig.mockResolvedValue({ providers: [] });
+    mockSaveShifuDetail.mockResolvedValue(undefined);
+    mockTrackEvent.mockImplementation(() => undefined);
+    mockGetFollowUpModelCatalog.mockResolvedValue([]);
+    mockEnvState.billingEnabled = 'false';
+    mockBillingOverview.debug_allowed = undefined;
     mockGetShifuDetail.mockResolvedValue({
       bid: 'course-1',
       name: 'Private course name',
@@ -174,24 +193,283 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
-  it('emits the exact allowlist only after the settings API succeeds', async () => {
-    const save = createDeferred<void>();
-    mockSaveShifuDetail.mockReturnValue(save.promise);
-    const { onSave } = renderOpenSettings();
+  it.each([false, true])(
+    'emits the exact allowlist only after the settings API succeeds (catalog pending=%s)',
+    async pendingCatalog => {
+      if (pendingCatalog) {
+        mockGetFollowUpModelCatalog.mockReturnValue(new Promise(() => {}));
+      }
+      const save = createDeferred<void>();
+      mockSaveShifuDetail.mockReturnValue(save.promise);
+      const { onSave } = renderOpenSettings();
 
-    await screen.findByDisplayValue('Private course name');
-    fireEvent.click(screen.getByLabelText('close-settings'));
+      await screen.findByDisplayValue('Private course name');
+      fireEvent.click(screen.getByLabelText('close-settings'));
 
-    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
-    expect(mockTrackEvent).not.toHaveBeenCalled();
-    expect(onSave).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
 
-    await act(async () => {
-      save.resolve();
-      await save.promise;
-    });
+      await act(async () => {
+        save.resolve();
+        await save.promise;
+      });
+
+      await waitFor(() => {
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'creator_shifu_setting_save',
+          {
+            shifu_bid: 'course-1',
+            save_type: 'manual',
+            tts_enabled: false,
+            default_listen_mode_enabled: false,
+            use_learner_language: true,
+            follow_up_mode: 'text',
+          },
+        );
+      });
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('name');
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('description');
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
+        'system_prompt',
+      );
+      expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
+        'ask_provider_config',
+      );
+      expect(onSave).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([false, true])(
+    'emits nothing when the settings API fails (catalog pending=%s)',
+    async pendingCatalog => {
+      if (pendingCatalog) {
+        mockGetFollowUpModelCatalog.mockReturnValue(new Promise(() => {}));
+      }
+      mockSaveShifuDetail.mockRejectedValue(new Error('Private API failure'));
+      const { onSave } = renderOpenSettings();
+
+      await screen.findByDisplayValue('Private course name');
+      fireEvent.click(screen.getByLabelText('close-settings'));
+
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('close-settings')).toBeInTheDocument();
+    },
+  );
+
+  it.each([false, true])(
+    'completes the successful save flow when analytics throws (catalog pending=%s)',
+    async pendingCatalog => {
+      if (pendingCatalog) {
+        mockGetFollowUpModelCatalog.mockReturnValue(new Promise(() => {}));
+      }
+      mockTrackEvent.mockImplementation(() => {
+        throw new Error('analytics unavailable');
+      });
+      const { onSave } = renderOpenSettings();
+
+      await screen.findByDisplayValue('Private course name');
+      fireEvent.click(screen.getByLabelText('close-settings'));
+
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
+    },
+  );
+
+  it('keeps text debug gated while exposing Live and the saved default model', async () => {
+    mockEnvState.billingEnabled = 'true';
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      {
+        model: 'text-model',
+        display_name: 'Text model',
+        interaction_mode: 'text',
+        allowed_roles: ['main', 'follow_up'],
+        billing_mode: 'billable',
+        voices: [],
+        is_default: true,
+      },
+      {
+        model: 'gemini-3.1-flash-live-preview',
+        display_name: 'Gemini Live',
+        interaction_mode: 'live_voice',
+        allowed_roles: ['follow_up'],
+        billing_mode: 'free_preview',
+        voices: [{ voice_id: 'Kore', style: 'Firm' }],
+      },
+    ]);
+    renderOpenSettings();
 
     await waitFor(() => {
+      const latestProps = mockAskSettingsSection.mock.calls.at(-1)?.[0] as {
+        readonly: boolean;
+        textDebugAllowed: boolean;
+        askModelOptions: Array<{ value: string; disabled?: boolean }>;
+      };
+      expect(latestProps).toEqual(
+        expect.objectContaining({
+          readonly: false,
+          textDebugAllowed: false,
+        }),
+      );
+      expect(latestProps.askModelOptions).toEqual([
+        expect.objectContaining({ value: 'text-model', disabled: false }),
+        expect.objectContaining({
+          value: 'gemini-3.1-flash-live-preview',
+          disabled: false,
+        }),
+      ]);
+    });
+  });
+
+  it.each(
+    [false, undefined].flatMap(debugAllowed => [
+      { debugAllowed, savedModel: 'saved-text', markedDefault: false },
+      { debugAllowed, savedModel: '', markedDefault: true },
+      { debugAllowed, savedModel: '', markedDefault: false },
+    ]),
+  )(
+    'allows reverting to saved "$savedModel" (default=$markedDefault, debug=$debugAllowed)',
+    async ({ debugAllowed, savedModel, markedDefault }) => {
+      mockEnvState.billingEnabled = 'true';
+      mockBillingOverview.debug_allowed = debugAllowed;
+      const textModels = [
+        {
+          model: 'saved-text',
+          display_name: 'Saved',
+          interaction_mode: 'text',
+          voices: [],
+          is_default: markedDefault,
+        },
+        {
+          model: 'other-text',
+          display_name: 'Other',
+          interaction_mode: 'text',
+          voices: [],
+        },
+      ];
+      // A marked default takes precedence over the first catalog entry;
+      // without a marker, ModelList uses that first entry for its Default alias.
+      if (markedDefault) {
+        textModels.reverse();
+      }
+      mockGetFollowUpModelCatalog.mockResolvedValue([
+        ...textModels,
+        {
+          model: 'live-model',
+          display_name: 'Live',
+          interaction_mode: 'live_voice',
+          voices: [{ voice_id: 'Kore', style: 'Firm' }],
+        },
+      ]);
+      mockGetShifuDetail.mockResolvedValue({
+        bid: 'course-1',
+        name: 'Private course name',
+        description: '',
+        keywords: [],
+        model: '',
+        price: 1,
+        avatar: '',
+        temperature: 0,
+        system_prompt: '',
+        ask_model: savedModel,
+        ask_temperature: 0,
+        ask_provider_config: {
+          provider: 'llm',
+          mode: 'provider_only',
+          config: {},
+        },
+        tts_enabled: false,
+        default_listen_mode_enabled: false,
+        use_learner_language: false,
+      });
+      renderOpenSettings();
+      const latestProps = () =>
+        mockAskSettingsSection.mock.calls.at(-1)?.[0] as {
+          askModel: string;
+          askModelOptions: Array<{ value: string; disabled?: boolean }>;
+          onAskModelChange: (model: string) => void;
+          isLiveVoiceFollowUp: boolean;
+          textDebugAllowed: boolean;
+        };
+      await waitFor(() => expect(latestProps().askModel).toBe(savedModel));
+      const expectedOptions = [
+        ...textModels.map(item =>
+          expect.objectContaining({
+            value: item.model,
+            disabled: item.model !== 'saved-text',
+          }),
+        ),
+        expect.objectContaining({ value: 'live-model', disabled: false }),
+      ];
+      expect(latestProps().askModelOptions).toEqual(expectedOptions);
+      act(() => latestProps().onAskModelChange('live-model'));
+      expect(latestProps().isLiveVoiceFollowUp).toBe(true);
+      expect(latestProps().askModelOptions).toEqual(expectedOptions);
+      expect(latestProps().textDebugAllowed).toBe(false);
+      act(() => latestProps().onAskModelChange(savedModel));
+      expect(latestProps().isLiveVoiceFollowUp).toBe(false);
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          ask_model: savedModel,
+          ask_provider_config: {
+            provider: 'llm',
+            mode: 'provider_only',
+            config: {},
+          },
+        }),
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        {
+          shifu_bid: 'course-1',
+          save_type: 'manual',
+          tts_enabled: false,
+          default_listen_mode_enabled: false,
+          use_learner_language: false,
+          follow_up_mode: 'text',
+        },
+      );
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([false, true])(
+    'saves and closes before the catalog resolves (edited=%s)',
+    async edited => {
+      const catalog = createDeferred<unknown[]>();
+      mockGetFollowUpModelCatalog.mockReturnValue(catalog.promise);
+      const { onSave } = renderOpenSettings();
+      const name = await screen.findByDisplayValue('Private course name');
+      if (edited) {
+        fireEvent.change(name, { target: { value: 'Updated course name' } });
+      }
+
+      fireEvent.click(screen.getByLabelText('close-settings'));
+
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
+      expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1);
+      expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          name: edited ? 'Updated course name' : 'Private course name',
+          ask_model: '',
+          ask_provider_config: {
+            provider: 'llm',
+            mode: 'provider_only',
+            config: { api_key: 'private-provider-secret' },
+          },
+        }),
+      );
       expect(mockTrackEvent).toHaveBeenCalledWith(
         'creator_shifu_setting_save',
         {
@@ -200,32 +478,409 @@ describe('ShifuSettingDialog analytics producer', () => {
           tts_enabled: false,
           default_listen_mode_enabled: false,
           use_learner_language: true,
+          follow_up_mode: 'text',
         },
       );
+
+      await act(async () => {
+        catalog.resolve([
+          { model: 'late-live-model', interaction_mode: 'live_voice' },
+        ]);
+        await catalog.promise;
+      });
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
+      expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['unavailable', 'failed', 'loading'] as const)(
+    'preserves an existing Live config when the catalog is %s',
+    async catalogState => {
+      if (catalogState === 'failed') {
+        mockGetFollowUpModelCatalog.mockRejectedValue(
+          new Error('catalog unavailable'),
+        );
+      } else if (catalogState === 'loading') {
+        mockGetFollowUpModelCatalog.mockReturnValue(new Promise(() => {}));
+      } else {
+        mockGetFollowUpModelCatalog.mockResolvedValue([]);
+      }
+      mockGetShifuDetail.mockResolvedValue({
+        bid: 'course-1',
+        name: 'Private course name',
+        description: 'Private course description',
+        keywords: [],
+        model: '',
+        price: 1,
+        avatar: '',
+        temperature: 0,
+        system_prompt: '',
+        ask_model: 'opaque-existing-model-id',
+        ask_temperature: 0,
+        ask_provider_config: {
+          provider: 'llm',
+          mode: 'provider_only',
+          config: { live_voice: 'Puck' },
+        },
+        tts_enabled: false,
+        default_listen_mode_enabled: false,
+        use_learner_language: false,
+      });
+      renderOpenSettings();
+      await screen.findByDisplayValue('Private course name');
+      await waitFor(() => {
+        expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+          expect.objectContaining({
+            isLiveVoiceFollowUp: true,
+            liveVoice: 'Puck',
+          }),
+        );
+      });
+
+      fireEvent.click(screen.getByLabelText('close-settings'));
+
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          ask_model: 'opaque-existing-model-id',
+          ask_provider_config: {
+            provider: 'llm',
+            mode: 'provider_only',
+            config: { live_voice: 'Puck' },
+          },
+        }),
+      );
+      await waitFor(() => {
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'creator_shifu_setting_save',
+          expect.objectContaining({ follow_up_mode: 'live_voice' }),
+        );
+      });
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('lets explicit text mode override a stale persisted Live voice field', async () => {
+    mockGetFollowUpModelCatalog.mockResolvedValue([]);
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Private course name',
+      description: 'Private course description',
+      keywords: [],
+      model: '',
+      price: 1,
+      avatar: '',
+      temperature: 0,
+      system_prompt: '',
+      ask_model: 'opaque-existing-model-id',
+      ask_temperature: 0,
+      follow_up_mode: 'text',
+      ask_provider_config: {
+        provider: 'llm',
+        mode: 'provider_only',
+        config: { live_voice: 'Puck' },
+      },
+      tts_enabled: false,
+      default_listen_mode_enabled: false,
+      use_learner_language: false,
     });
-    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('name');
-    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('description');
-    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('system_prompt');
-    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(
-      'ask_provider_config',
-    );
-    expect(onSave).toHaveBeenCalledTimes(1);
+    renderOpenSettings();
+
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ isLiveVoiceFollowUp: false }),
+      );
+    });
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        expect.objectContaining({ follow_up_mode: 'text' }),
+      );
+    });
   });
 
-  it('emits nothing when the settings API fails', async () => {
-    mockSaveShifuDetail.mockRejectedValue(new Error('Private API failure'));
-    const { onSave } = renderOpenSettings();
+  it('forces Live to built-in provider-only configuration with the default voice', async () => {
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      {
+        model: 'text-model',
+        display_name: 'Text model',
+        interaction_mode: 'text',
+        allowed_roles: ['main', 'follow_up'],
+        billing_mode: 'billable',
+        voices: [],
+        is_default: true,
+      },
+      {
+        model: 'gemini-3.1-flash-live-preview',
+        display_name: 'Gemini Live',
+        interaction_mode: 'live_voice',
+        allowed_roles: ['follow_up'],
+        billing_mode: 'free_preview',
+        voices: [{ voice_id: 'Kore', style: 'Firm' }],
+      },
+    ]);
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Private course name',
+      description: 'Private course description',
+      keywords: [],
+      model: '',
+      price: 1,
+      avatar: '',
+      temperature: 0,
+      system_prompt: '',
+      ask_model: 'text-model',
+      ask_temperature: 0,
+      ask_provider_config: {
+        provider: 'dify',
+        mode: 'provider_only',
+        config: { api_key: 'must-not-survive' },
+      },
+      tts_enabled: false,
+      default_listen_mode_enabled: false,
+      use_learner_language: false,
+    });
+    renderOpenSettings();
 
-    await screen.findByDisplayValue('Private course name');
+    await waitFor(() => {
+      const latestProps = mockAskSettingsSection.mock.calls.at(-1)?.[0] as {
+        askModelOptions: unknown[];
+      };
+      expect(latestProps.askModelOptions).toHaveLength(2);
+    });
+    const selectLive = mockAskSettingsSection.mock.calls.at(-1)?.[0]
+      .onAskModelChange as (model: string) => void;
+    act(() => selectLive('gemini-3.1-flash-live-preview'));
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({
+          isLiveVoiceFollowUp: true,
+          liveVoice: 'Kore',
+          resolvedAskProvider: 'llm',
+        }),
+      );
+    });
+
     fireEvent.click(screen.getByLabelText('close-settings'));
 
     await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
-    await act(async () => {
-      await Promise.resolve();
+    expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        ask_model: 'gemini-3.1-flash-live-preview',
+        ask_provider_config: {
+          provider: 'llm',
+          mode: 'provider_only',
+          config: { live_voice: 'Kore' },
+        },
+      }),
+    );
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        expect.objectContaining({ follow_up_mode: 'live_voice' }),
+      );
+    });
+  });
+
+  it('preserves external provider and unsaved fields across a Live round trip', async () => {
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      {
+        model: 'text-model',
+        display_name: 'Text',
+        interaction_mode: 'text',
+        voices: [],
+      },
+      {
+        model: 'live-model',
+        display_name: 'Live',
+        interaction_mode: 'live_voice',
+        voices: [
+          { voice_id: 'Kore', style: 'Firm' },
+          { voice_id: 'Puck', style: 'Upbeat' },
+        ],
+      },
+    ]);
+    mockAskConfig.mockResolvedValue({
+      providers: [
+        { provider: 'llm', json_schema: { properties: {} } },
+        {
+          provider: 'dify',
+          json_schema: {
+            properties: {
+              api_key: { type: 'string' },
+              inputs: { type: 'object' },
+            },
+            required: ['api_key'],
+          },
+        },
+      ],
+    });
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Private course name',
+      description: 'Private course description',
+      keywords: [],
+      model: '',
+      price: 1,
+      avatar: '',
+      temperature: 0,
+      system_prompt: '',
+      ask_model: 'text-model',
+      ask_temperature: 0,
+      ask_provider_config: {
+        provider: 'dify',
+        mode: 'provider_only',
+        config: { api_key: 'saved-secret' },
+      },
+      tts_enabled: false,
+      default_listen_mode_enabled: false,
+      use_learner_language: false,
+    });
+    renderOpenSettings();
+    const latestProps = () =>
+      mockAskSettingsSection.mock.calls.at(-1)?.[0] as {
+        onAskModelChange: (model: string) => void;
+        onLiveVoiceChange: (voice: string) => void;
+        setAskProviderConfig: (config: Record<string, unknown>) => void;
+        setAskProviderObjectInputs: (inputs: Record<string, string>) => void;
+        resolvedAskProvider: string;
+        liveVoice: string;
+      };
+    await waitFor(() => expect(latestProps().resolvedAskProvider).toBe('dify'));
+    act(() => {
+      latestProps().setAskProviderConfig({ api_key: 'edited-secret' });
+      latestProps().setAskProviderObjectInputs({ inputs: '{"lesson":1}' });
+    });
+    act(() => latestProps().onAskModelChange('live-model'));
+    expect(latestProps().resolvedAskProvider).toBe('llm');
+    act(() => latestProps().onLiveVoiceChange('Puck'));
+    act(() => latestProps().onAskModelChange('text-model'));
+    expect(latestProps().resolvedAskProvider).toBe('dify');
+    act(() => latestProps().onAskModelChange('live-model'));
+    expect(latestProps().liveVoice).toBe('Puck');
+    act(() => latestProps().onAskModelChange('text-model'));
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        ask_model: 'text-model',
+        ask_provider_config: {
+          provider: 'dify',
+          mode: 'provider_only',
+          config: { api_key: 'edited-secret', inputs: { lesson: 1 } },
+        },
+      }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_shifu_setting_save',
+      expect.objectContaining({ follow_up_mode: 'text' }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'edited-secret',
+    );
+  });
+
+  it('preserves the selected Live voice across a temporary text-model switch', async () => {
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      {
+        model: 'text-model',
+        display_name: 'Text model',
+        interaction_mode: 'text',
+        allowed_roles: ['main', 'follow_up'],
+        billing_mode: 'billable',
+        voices: [],
+        is_default: true,
+      },
+      {
+        model: 'gemini-3.1-flash-live-preview',
+        display_name: 'Gemini Live',
+        interaction_mode: 'live_voice',
+        allowed_roles: ['follow_up'],
+        billing_mode: 'free_preview',
+        voices: [
+          { voice_id: 'Kore', style: 'Firm' },
+          { voice_id: 'Puck', style: 'Upbeat' },
+        ],
+      },
+    ]);
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Private course name',
+      description: 'Private course description',
+      keywords: [],
+      model: '',
+      price: 1,
+      avatar: '',
+      temperature: 0,
+      system_prompt: '',
+      ask_model: 'gemini-3.1-flash-live-preview',
+      ask_temperature: 0,
+      ask_provider_config: {
+        provider: 'llm',
+        mode: 'provider_only',
+        config: { live_voice: 'Puck' },
+      },
+      tts_enabled: false,
+      default_listen_mode_enabled: false,
+      use_learner_language: false,
+    });
+    renderOpenSettings();
+
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({
+          isLiveVoiceFollowUp: true,
+          liveVoice: 'Puck',
+        }),
+      );
     });
 
-    expect(mockTrackEvent).not.toHaveBeenCalled();
-    expect(onSave).not.toHaveBeenCalled();
+    const selectText = mockAskSettingsSection.mock.calls.at(-1)?.[0]
+      .onAskModelChange as (model: string) => void;
+    act(() => selectText('text-model'));
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ isLiveVoiceFollowUp: false }),
+      );
+    });
+
+    const selectLive = mockAskSettingsSection.mock.calls.at(-1)?.[0]
+      .onAskModelChange as (model: string) => void;
+    act(() => selectLive('gemini-3.1-flash-live-preview'));
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({
+          isLiveVoiceFollowUp: true,
+          liveVoice: 'Puck',
+        }),
+      );
+    });
+
+    const selectTextAgain = mockAskSettingsSection.mock.calls.at(-1)?.[0]
+      .onAskModelChange as (model: string) => void;
+    act(() => selectTextAgain('text-model'));
+    await waitFor(() => {
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ isLiveVoiceFollowUp: false }),
+      );
+    });
+
+    fireEvent.click(screen.getByLabelText('close-settings'));
+
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        ask_model: 'text-model',
+        ask_provider_config: {
+          provider: 'llm',
+          mode: 'provider_only',
+          config: { live_voice: 'Puck' },
+        },
+      }),
+    );
   });
 });

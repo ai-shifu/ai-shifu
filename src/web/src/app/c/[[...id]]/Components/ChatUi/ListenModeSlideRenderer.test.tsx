@@ -7,6 +7,7 @@ import {
 } from '@testing-library/react';
 import type React from 'react';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
+import { mockLiveVoiceController } from '@/components/live-follow-up/liveVoiceFollowUp.test-support';
 import {
   readListenPlaybackSpeedFromStorage,
   writeListenPlaybackSpeedToStorage,
@@ -36,6 +37,7 @@ const mockAskBlock = jest.fn(
   ),
 );
 let mockSlideMountId = 0;
+let mockSlideCurrentElement = { blockBid: 'content-1', type: 'content' };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -61,12 +63,8 @@ jest.mock('next/image', () => ({
 jest.mock('markdown-flow-ui/slide', () => {
   const ReactRuntime = jest.requireActual('react') as typeof React;
   const slideBuiltInActionClick = jest.fn();
-  const slideCustomActionElement = {
-    blockBid: 'content-1',
-    type: 'content',
-  };
   type SlideCustomActionContext = {
-    currentElement: typeof slideCustomActionElement;
+    currentElement: typeof mockSlideCurrentElement;
     currentIndex: number;
     isActive: boolean;
     setActive: (active: boolean) => void;
@@ -85,18 +83,19 @@ jest.mock('markdown-flow-ui/slide', () => {
           | ((context: SlideCustomActionContext) => React.ReactNode);
       }) => {
         const [isActive, setIsActive] = ReactRuntime.useState(false);
+        const currentElement = mockSlideCurrentElement;
         const toggleActive = ReactRuntime.useCallback(() => {
           setIsActive(currentActive => !currentActive);
         }, []);
         const slideCustomActionContext = ReactRuntime.useMemo(
           () => ({
-            currentElement: slideCustomActionElement,
+            currentElement,
             currentIndex: 0,
             isActive,
             setActive: setIsActive,
             toggleActive,
           }),
-          [isActive, toggleActive],
+          [currentElement, isActive, toggleActive],
         );
         const mountId = ReactRuntime.useMemo(() => {
           mockSlideMountId += 1;
@@ -203,6 +202,7 @@ describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockSlideMountId = 0;
+    mockSlideCurrentElement = { blockBid: 'content-1', type: 'content' };
     getMockSlide().mockClear();
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
@@ -1046,10 +1046,13 @@ describe('ListenModeSlideRenderer', () => {
       configurable: true,
       value: requestFullscreen,
     });
+    const liveVoice = mockLiveVoiceController();
 
     render(
       <ListenModeSlideRenderer
         variant='classroom'
+        followUpMode='disabled'
+        liveVoice={liveVoice}
         items={[
           {
             type: 'content',
@@ -1140,6 +1143,11 @@ describe('ListenModeSlideRenderer', () => {
         name: 'module.chat.listenPlaybackSpeedAriaLabel',
       }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.ask' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+    expect(liveVoice.start).not.toHaveBeenCalled();
 
     const fullscreenButton = await screen.findByRole('button', {
       name: 'module.chat.classroomEnterFullscreen',
@@ -1367,6 +1375,189 @@ describe('ListenModeSlideRenderer', () => {
       'content-1',
     );
   });
+
+  it('hides listen-mode follow-up entries when configured Live is unavailable', () => {
+    const liveVoice = mockLiveVoiceController();
+    const items = [
+      {
+        type: 'content' as const,
+        content: 'Hello',
+        element_bid: 'content-1',
+        is_speakable: true,
+      },
+    ];
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        followUpMode='disabled'
+        liveVoice={liveVoice}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.ask' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+        followUpMode='disabled'
+        liveVoice={liveVoice}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.ask' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-block')).not.toBeInTheDocument();
+    expect(liveVoice.start).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'opens the original AskBlock for Live without connecting (mobile=%s)',
+    async mobileStyle => {
+      const liveVoice = mockLiveVoiceController();
+      render(
+        <ListenModeSlideRenderer
+          items={[
+            {
+              type: 'content',
+              content: 'Hello',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={mobileStyle}
+          chatRef={createChatRef()}
+          followUpMode='live_voice'
+          liveVoice={liveVoice}
+        />,
+      );
+      const askButton = mobileStyle
+        ? (await screen.findByText('module.chat.ask')).closest('button')!
+        : await screen.findByRole('button', { name: 'module.chat.ask' });
+      fireEvent.click(askButton);
+      await waitFor(() =>
+        expect(screen.getByTestId('ask-block')).toHaveAttribute(
+          'data-expanded',
+          'true',
+        ),
+      );
+      expect(screen.getAllByTestId('ask-block')).toHaveLength(1);
+      expect(mockAskBlock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          followUpMode: 'live_voice',
+          liveVoice,
+          liveVoiceSurface: 'listen_player',
+          element_bid: 'content-1',
+        }),
+      );
+      expect(liveVoice.start).not.toHaveBeenCalled();
+      expect(liveVoice.startMicrophone).not.toHaveBeenCalled();
+      // The original slide custom-action contract owns audio intent, not the
+      // Live transport state. Ending Live must not disable this pause policy.
+      expect(getMockSlide().mock.calls.at(-1)?.[0]).toMatchObject({
+        playerCustomActionPauseOnActive: true,
+      });
+      fireEvent.click(askButton);
+      await waitFor(() =>
+        expect(screen.getByTestId('ask-block')).toHaveAttribute(
+          'data-expanded',
+          'false',
+        ),
+      );
+    },
+  );
+
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])(
+    'ends the previous Live anchor when a different slide is shown (mobile=%s, collapsed=%s)',
+    async (mobileStyle, collapseBeforeChange) => {
+      const liveVoice = mockLiveVoiceController({
+        anchorElementBid: 'content-1',
+        open: !collapseBeforeChange,
+        paused: collapseBeforeChange,
+        state: 'listening',
+      });
+      const items: ChatContentItem[] = [
+        {
+          type: 'content',
+          content: 'First slide',
+          element_bid: 'content-1',
+          is_speakable: true,
+        },
+        {
+          type: 'content',
+          content: 'Second slide',
+          element_bid: 'content-2',
+          is_speakable: true,
+        },
+      ];
+      const chatRef = createChatRef();
+      const renderSlide = () => (
+        <ListenModeSlideRenderer
+          items={[...items]}
+          mobileStyle={mobileStyle}
+          chatRef={chatRef}
+          followUpMode='live_voice'
+          liveVoice={liveVoice}
+        />
+      );
+      const { rerender } = render(renderSlide());
+      const askButton = mobileStyle
+        ? (await screen.findByText('module.chat.ask')).closest('button')!
+        : await screen.findByRole('button', { name: 'module.chat.ask' });
+      fireEvent.click(askButton);
+      await waitFor(() =>
+        expect(screen.getByTestId('ask-block')).toHaveAttribute(
+          'data-element-bid',
+          'content-1',
+        ),
+      );
+      expect(liveVoice.close).not.toHaveBeenCalled();
+      if (collapseBeforeChange) {
+        fireEvent.click(askButton);
+        await waitFor(() =>
+          expect(screen.getByTestId('ask-block')).toHaveAttribute(
+            'data-expanded',
+            'false',
+          ),
+        );
+        expect(liveVoice.close).not.toHaveBeenCalled();
+      }
+
+      mockSlideCurrentElement = { blockBid: 'content-2', type: 'content' };
+      rerender(renderSlide());
+      if (collapseBeforeChange) {
+        // Advancing while collapsed keeps the hidden panel on its old anchor.
+        expect(screen.getByTestId('ask-block')).toHaveAttribute(
+          'data-element-bid',
+          'content-1',
+        );
+        expect(liveVoice.close).not.toHaveBeenCalled();
+        fireEvent.click(askButton);
+      }
+      await waitFor(() =>
+        expect(screen.getByTestId('ask-block')).toHaveAttribute(
+          'data-element-bid',
+          'content-2',
+        ),
+      );
+      expect(liveVoice.close).toHaveBeenCalledTimes(1);
+      expect(liveVoice.start).not.toHaveBeenCalled();
+      expect(liveVoice.startMicrophone).not.toHaveBeenCalled();
+      expect(liveVoice.sendText).not.toHaveBeenCalled();
+    },
+  );
 
   it('applies the stored course playback speed to slide audio', async () => {
     writeListenPlaybackSpeedToStorage('course-1', 1.5);

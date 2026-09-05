@@ -11,6 +11,7 @@
         "status": "not_started",
         "is_paid": false,
         "has_content_update_for_current_user": false,
+        "follow_up_mode": "text",
         "children": [
           {
             "bid": "golden-lesson-0001",
@@ -19,6 +20,7 @@
             "status": "not_started",
             "is_paid": false,
             "has_content_update_for_current_user": false,
+            "follow_up_mode": "text",
             "children": [],
             "type": "normal"
           }

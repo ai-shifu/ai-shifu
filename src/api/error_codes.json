@@ -74,6 +74,7 @@
   "server.profile.profileOnboardingConfigConflict": 4015,
   "server.profile.profileOnboardingConfigNotPersistable": 4016,
   "server.profile.profileOnboardingConfigBusy": 4017,
+  "server.learn.liveFollowUpCapacityExceeded": 4018,
   "server.pay.payChannelNotSupport": 5001,
   "server.pay.wechatOpenIdRequired": 5002,
   "server.billing.creditInsufficient": 7101,

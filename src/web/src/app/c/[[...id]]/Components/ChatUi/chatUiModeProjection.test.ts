@@ -5,6 +5,38 @@ const askButtonMarkup =
   '<custom-button-after-content><span>Ask</span></custom-button-after-content>';
 
 describe('chatUiModeProjection', () => {
+  it.each(['live', 'history'])(
+    'does not synthesize a second narration for %s Live follow-up answers',
+    source => {
+      const answer: ChatContentItem = {
+        type: 'answer',
+        element_bid: 'live-answer',
+        content: 'Already spoken by Gemini',
+        ...(source === 'live'
+          ? { interaction_mode: 'live_voice' as const }
+          : { payload: { interaction_mode: 'live_voice' } }),
+      };
+      const items: ChatContentItem[] = [
+        {
+          type: ChatContentItemType.INTERACTION,
+          element_bid: 'anchor',
+          content: 'Question',
+        },
+        {
+          type: ChatContentItemType.ASK,
+          element_bid: '',
+          parent_element_bid: 'anchor',
+          ask_list: [answer],
+        },
+      ];
+      const projected = projectListenModeItems({ items, askButtonMarkup });
+      expect(projected).toHaveLength(2);
+      expect(projected.some(item => item.element_bid === 'live-answer')).toBe(
+        false,
+      );
+    },
+  );
+
   it('keeps listen mode content while removing inline ask buttons', () => {
     const items: ChatContentItem[] = [
       {

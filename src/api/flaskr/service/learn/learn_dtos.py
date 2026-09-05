@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
@@ -305,6 +305,11 @@ class LearnOutlineItemInfoDTO(BaseModel):
         description="Whether the published lesson content is newer than this user's latest learning progress",
         required=False,
     )
+    follow_up_mode: Literal["text", "live_voice", "disabled"] = Field(
+        default="text",
+        description="Backend-resolved learner follow-up presentation mode",
+        required=False,
+    )
     children: list[LearnOutlineItemInfoDTO] = Field(
         ..., description="outline children", required=False
     )
@@ -319,6 +324,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         is_paid: bool,
         children: list[LearnOutlineItemInfoDTO],
         has_content_update_for_current_user: bool = False,
+        follow_up_mode: Literal["text", "live_voice", "disabled"] = "text",
     ) -> None:
         """Build a learner-facing outline item payload."""
         super().__init__(
@@ -330,6 +336,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             type=type,
             is_paid=is_paid,
             has_content_update_for_current_user=has_content_update_for_current_user,
+            follow_up_mode=follow_up_mode,
         )
 
     def __json__(self) -> dict:
@@ -341,6 +348,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             "status": self.status.value,
             "is_paid": self.is_paid,
             "has_content_update_for_current_user": self.has_content_update_for_current_user,
+            "follow_up_mode": self.follow_up_mode,
             "children": self.children,
             "type": self.type.value,
         }
@@ -653,6 +661,22 @@ class ElementPayloadDTO(BaseModel):
         default=None,
         description="Ask Q&A pairs embedded in anchor element",
     )
+    interaction_mode: Literal["text", "live_voice"] | None = Field(
+        default=None,
+        description="Transport used for this follow-up turn",
+    )
+    live_session_bid: str | None = Field(
+        default=None,
+        description="Stable Live voice session identifier",
+    )
+    live_turn_index: int | None = Field(
+        default=None,
+        description="Stable turn index within a Live voice session",
+    )
+    interrupted: bool | None = Field(
+        default=None,
+        description="Whether the model response was interrupted by the learner",
+    )
 
     def __init__(
         self,
@@ -663,6 +687,10 @@ class ElementPayloadDTO(BaseModel):
         user_input: str | None = None,
         diff_payload: list[dict[str, object]] | None = None,
         asks: list[dict[str, object]] | None = None,
+        interaction_mode: Literal["text", "live_voice"] | None = None,
+        live_session_bid: str | None = None,
+        live_turn_index: int | None = None,
+        interrupted: bool | None = None,
     ) -> None:
         """Build the composite element payload."""
         super().__init__(
@@ -673,6 +701,10 @@ class ElementPayloadDTO(BaseModel):
             user_input=user_input,
             diff_payload=diff_payload,
             asks=asks,
+            interaction_mode=interaction_mode,
+            live_session_bid=live_session_bid,
+            live_turn_index=live_turn_index,
+            interrupted=interrupted,
         )
 
     def __json__(self) -> dict:
@@ -694,6 +726,14 @@ class ElementPayloadDTO(BaseModel):
             ret["user_input"] = self.user_input
         if self.asks is not None:
             ret["asks"] = self.asks
+        if self.interaction_mode is not None:
+            ret["interaction_mode"] = self.interaction_mode
+        if self.live_session_bid is not None:
+            ret["live_session_bid"] = self.live_session_bid
+        if self.live_turn_index is not None:
+            ret["live_turn_index"] = self.live_turn_index
+        if self.interrupted is not None:
+            ret["interrupted"] = self.interrupted
         return ret
 
 
