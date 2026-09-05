@@ -26,26 +26,26 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (selector: (state: typeof mockCourseState) => unknown) =>
     selector(mockCourseState),
 }));
 
-jest.mock('@/c-store/envStore', () => ({
+jest.mock('@/store/envStore', () => ({
   useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
     selector(mockEnvState),
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: typeof mockSystemState) => unknown) =>
     selector(mockSystemState),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
-jest.mock('@/c-service/Shifu', () => ({
+jest.mock('@/lib/shifu/Shifu', () => ({
   shifu: {
     resetTools: {
       resetChapter: (...args: unknown[]) => mockLegacyResetChapter(...args),

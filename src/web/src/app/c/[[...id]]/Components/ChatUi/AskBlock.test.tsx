@@ -8,7 +8,7 @@ import {
 } from '@testing-library/react';
 import AskBlock from './AskBlock';
 import { AppContext } from '../AppContext';
-import { BLOCK_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
+import { BLOCK_TYPE, SSE_OUTPUT_TYPE } from '@/api/studyV2';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { useAskStateStore } from './useAskStateStore';
 import { mockLiveVoiceController } from '@/components/live-follow-up/liveVoiceFollowUp.test-support';
@@ -35,7 +35,7 @@ jest.mock('@/lib/i18n-locales', () => ({
   isRtlLocale: (locale: string) => locale === 'ar-SA',
 }));
 
-jest.mock('@/c-utils/markdownUtils', () => ({
+jest.mock('@/lib/markdownUtils', () => ({
   fixMarkdownStream: (_previous: string, delta: string) => delta,
 }));
 
@@ -103,7 +103,7 @@ jest.mock('@/hooks/useToast', () => ({
   toastOnce: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -118,14 +118,14 @@ jest.mock('next/image', () => {
   };
 });
 
-jest.mock('@/c-assets/newchat/light/icon_shifu.svg', () => ({
+jest.mock('@/assets/newchat/light/icon_shifu.svg', () => ({
   __esModule: true,
   default: '/icon_shifu.svg',
 }));
 
 let mockIsCurrentUserCourseOwner: boolean | null = false;
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (
     selector?: (state: {
       courseAvatar: string;
@@ -150,7 +150,7 @@ const mockSystemState: {
   learningMode: 'read',
 };
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector?: (state: typeof mockSystemState) => unknown) => {
     return selector ? selector(mockSystemState) : mockSystemState;
   },
@@ -159,7 +159,7 @@ jest.mock('@/c-store/useSystemStore', () => ({
 const mockCheckIsRunning = jest.fn();
 const mockGetRunMessage = jest.fn();
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   BLOCK_TYPE: {
     CONTENT: 'content',
     INTERACTION: 'interaction',

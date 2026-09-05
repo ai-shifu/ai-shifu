@@ -40,7 +40,7 @@ data-drift checks easy to collect under one stable run id.
   Evidence: `src/web/e2e/smoke.spec.ts`.
 - Observation: most frontend API calls go through `src/lib/request.ts`, but
   several SSE and upload paths construct `X-Request-ID` by hand.
-  Evidence: `src/web/src/c-api/studyV2.ts`,
+  Evidence: `src/web/src/api/studyV2.ts`,
   `src/web/src/components/lesson-preview/usePreviewChat.tsx`,
   `src/web/src/components/shifu-setting/ShifuSetting.tsx`, and
   `src/web/src/lib/file.ts`.

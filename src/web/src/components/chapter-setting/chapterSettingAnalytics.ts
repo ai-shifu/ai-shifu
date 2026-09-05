@@ -1,4 +1,4 @@
-import type { LearningPermission } from '@/c-api/studyV2';
+import type { LearningPermission } from '@/api/studyV2';
 
 type BaseOutlineSaveAnalyticsInput = {
   outlineBid: string;

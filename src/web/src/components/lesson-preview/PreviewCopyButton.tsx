@@ -3,7 +3,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Copy } from 'lucide-react';
-import { copyText } from '@/c-utils/textutils';
+import { copyText } from '@/lib/textutils';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,

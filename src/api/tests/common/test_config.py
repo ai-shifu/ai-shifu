@@ -7,7 +7,9 @@ import pytest
 from flask import Flask
 from flaskr.common.config import (
     __ENHANCED_CONFIG__,
+    ENV_VARS,
     Config,
+    EnhancedConfig,
     EnvironmentConfigError,
     get_config,
     get_redis_derived_prefix,
@@ -16,6 +18,25 @@ from flaskr.common.config import (
 )
 
 from tests.common.fixtures.config_data import DOCKER_ENV_CONFIG
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, []),
+        ("", []),
+        (" , , ", []),
+        (" ai-shifu-desktop, example-cli, ", ["ai-shifu-desktop", "example-cli"]),
+    ],
+)
+def test_model_gateway_client_allowlist_environment(
+    monkeypatch: pytest.MonkeyPatch, raw: str | None, expected: list[str]
+) -> None:
+    key = "MODEL_GATEWAY_CLIENT_ALLOWLIST"
+    monkeypatch.delenv(key, raising=False)
+    if raw is not None:
+        monkeypatch.setenv(key, raw)
+    assert EnhancedConfig(ENV_VARS).get(key) == expected
 
 
 class TestConfigInitialization:

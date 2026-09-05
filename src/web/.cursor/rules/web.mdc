@@ -1,5 +1,5 @@
 ---
-description: Frontend-specific rules for Next.js, shared request code, and legacy c-* code
+description: Frontend-specific rules for Next.js and shared learner and teacher modules
 globs:
 alwaysApply: false
 ---
@@ -57,5 +57,5 @@ alwaysApply: false
   the default cursor so the whole page does not read as a button.
 
 - Keep route-entry behavior in `page.tsx`, `layout.tsx`, and `route.ts`, and
-  treat legacy `c-*` directories as active compatibility surfaces until a
-  planned migration removes them.
+  organize shared learner and teacher code by responsibility under api,
+  components, hooks, lib, store, and types.

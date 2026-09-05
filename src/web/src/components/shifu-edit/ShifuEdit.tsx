@@ -22,14 +22,14 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import api from '@/api';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { EnvStoreState } from '@/c-types/store';
+import { useTracking } from '@/hooks/useTracking';
+import { EnvStoreState } from '@/types/store';
 import {
   buildUrlWithLessonId,
   replaceCurrentUrlWithLessonId,
-} from '@/c-utils/urlUtils';
+} from '@/lib/urlUtils';
 import { toast } from '@/hooks/useToast';
 import { normalizeLanguage } from '@/i18n';
 import { formatAdminUtcDateTime } from '@/lib/admin-date-time';

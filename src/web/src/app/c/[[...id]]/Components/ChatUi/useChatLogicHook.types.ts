@@ -1,5 +1,5 @@
-import { type AudioCompleteData, type SSE_INPUT_TYPE } from '@/c-api/studyV2';
-import { type ChatContentItem } from '@/c-types/chatUi';
+import { type AudioCompleteData, type SSE_INPUT_TYPE } from '@/api/studyV2';
+import { type ChatContentItem } from '@/types/chatUi';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 
 export interface LessonFeedbackPopupState {

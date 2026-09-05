@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG, normalize_usage_scene
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    normalize_usage_scene,
+)
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 
 if TYPE_CHECKING:
@@ -26,6 +31,18 @@ def resolve_usage_creator_bid(app: Flask, usage: object) -> str | None:
         return resolve_shifu_creator_bid(app, shifu_bid)
 
     raw_usage_scene = _extract_usage_field(usage, "usage_scene")
+    extra = (
+        usage.get("extra") if isinstance(usage, dict) else getattr(usage, "extra", None)
+    )
+    if (
+        raw_usage_scene
+        and normalize_usage_scene(raw_usage_scene) == BILL_USAGE_SCENE_PROD
+        and _extract_usage_field(usage, "usage_type") == str(BILL_USAGE_TYPE_LLM)
+        and isinstance(extra, dict)
+        and extra.get("billing_source") == "model_gateway"
+    ):
+        return _extract_usage_field(usage, "user_bid") or None
+
     if (
         raw_usage_scene
         and normalize_usage_scene(raw_usage_scene) == BILL_USAGE_SCENE_DEBUG

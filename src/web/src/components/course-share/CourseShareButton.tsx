@@ -5,7 +5,7 @@ import type { ComponentPropsWithoutRef } from 'react';
 import { Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import { Button, type ButtonProps } from '@/components/ui/Button';
 import {
   Tooltip,

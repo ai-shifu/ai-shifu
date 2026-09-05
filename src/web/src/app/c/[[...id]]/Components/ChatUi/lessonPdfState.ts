@@ -1,7 +1,7 @@
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
-import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
-import { isSystemInteractionContent } from '@/c-utils/system-interaction';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
+import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
+import { isSystemInteractionContent } from '@/lib/system-interaction';
 import {
   isReadModeTextContentItemReady,
   type ReadModeTypewriterCache,

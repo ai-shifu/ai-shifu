@@ -28,7 +28,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (selector: (state: { currencySymbol: string }) => unknown) =>
     selector({ currencySymbol: '¥' }),

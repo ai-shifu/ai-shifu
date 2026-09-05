@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppContext } from '../AppContext';
-import type { SSE_INPUT_TYPE } from '@/c-api/studyV2';
+import type { SSE_INPUT_TYPE } from '@/api/studyV2';
 import type { UseChatSessionParams } from './useChatLogicHook.types';
 
 type Listener = (event?: Event) => void;

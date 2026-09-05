@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { SSE } from 'sse.js';
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import { getCreditInsufficientMessage } from '@/lib/creditInsufficientToast';
@@ -23,7 +23,7 @@ jest.mock('remark-flow', () => ({
   }),
 }));
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   ELEMENT_TYPE: {
     TEXT: 'text',
     HTML: 'html',
@@ -73,7 +73,7 @@ jest.mock('@/config/environment', () => ({
   getDynamicApiBaseUrl: jest.fn(async () => ''),
 }));
 
-jest.mock('@/c-utils/envUtils', () => ({
+jest.mock('@/lib/envUtils', () => ({
   getStringEnv: jest.fn(() => ''),
 }));
 
@@ -98,7 +98,7 @@ const buildMockSseSource = (): MockSseSource => {
   };
 };
 
-jest.mock('@/c-utils/markdownUtils', () => ({
+jest.mock('@/lib/markdownUtils', () => ({
   mergeStreamingMarkdownText: jest.fn((_prev: string, next: string) => next),
   maskIncompleteMermaidBlock: jest.fn((content: string) => content),
 }));

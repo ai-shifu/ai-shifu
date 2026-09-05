@@ -41,7 +41,7 @@ jest.mock('@/components/MobileUnsupportedDialog', () => ({
   default: () => null,
 }));
 
-jest.mock('@/c-utils/urlUtils', () => ({
+jest.mock('@/lib/urlUtils', () => ({
   __esModule: true,
   getLessonIdFromQuery: jest.fn(() => 'lesson-42'),
 }));

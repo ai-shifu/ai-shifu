@@ -9,20 +9,17 @@ jest.mock('next/navigation', () => ({
   usePathname: () => currentPathname,
 }));
 
-jest.mock('@/c-common/tools/tracking', () => ({
+jest.mock('@/lib/tracking', () => ({
   flushUmamiIdentify: (...args: unknown[]) => mockFlushUmamiIdentify(...args),
   trackPageview: (...args: unknown[]) => mockTrackPageview(...args),
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   useEnvStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       umamiScriptSrc: 'https://analytics.example.test/script.js',
       umamiWebsiteId: 'website-id',
     }),
-}));
-
-jest.mock('@/store', () => ({
   useUserStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({ isInitialized: true }),
 }));

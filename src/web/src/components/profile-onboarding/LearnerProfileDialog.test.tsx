@@ -259,7 +259,7 @@ jest.mock('@/api/learnerProfile', () => ({
   updateLearnerProfile: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEventIdentity }),
 }));
 

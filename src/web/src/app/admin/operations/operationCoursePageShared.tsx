@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
-import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 import type { AdminOperationCourseOverview } from './operation-course-types';
 import {
   CONTACT_PHONE_PATTERN,

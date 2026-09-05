@@ -1,4 +1,4 @@
-import type { ChatContentItem } from '@/c-types/chatUi';
+import type { ChatContentItem } from '@/types/chatUi';
 
 export const resolvePreviewRequestBlockIndex = (
   generatedBlockBid: string,

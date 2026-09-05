@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import LessonPreview from './LessonPreview';
 import { resolveLessonPreviewItemKey } from './LessonPreview';
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 
 const mockPush = jest.fn();
 const mockCopyText = jest.fn();
@@ -58,8 +58,8 @@ jest.mock('@/components/ui/tooltip', () => {
   };
 });
 
-jest.mock('@/c-utils/textutils', () => {
-  const actual = jest.requireActual('@/c-utils/textutils');
+jest.mock('@/lib/textutils', () => {
+  const actual = jest.requireActual('@/lib/textutils');
   return {
     ...actual,
     copyText: (...args: unknown[]) => mockCopyText(...args),
@@ -87,7 +87,7 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
 }));
 
-jest.mock('@/c-components/ChatUi/ContentBlock', () => ({
+jest.mock('@/components/ChatUi/ContentBlock', () => ({
   __esModule: true,
   default: ({
     item,
@@ -120,7 +120,7 @@ jest.mock('@/c-components/ChatUi/ContentBlock', () => ({
   ),
 }));
 
-jest.mock('@/c-components/ChatUi/InteractionBlock', () => ({
+jest.mock('@/components/ChatUi/InteractionBlock', () => ({
   __esModule: true,
   default: ({
     element_bid,

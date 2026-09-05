@@ -49,10 +49,6 @@ jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserState) => unknown) =>
     selector(mockUserState),
-}));
-
-jest.mock('@/c-store', () => ({
-  __esModule: true,
   useEnvStore: (
     selector: (state: {
       loginMethodsEnabled: string[];

@@ -70,7 +70,7 @@ jest.mock('@/hooks/useToast', () => ({
   }),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),
@@ -82,7 +82,7 @@ jest.mock('@/hooks/useOnboarding', () => ({
   }),
 }));
 
-jest.mock('@/c-utils/urlUtils', () => ({
+jest.mock('@/lib/urlUtils', () => ({
   getCourseCreatorUrl: () => mockCourseCreatorUrl,
 }));
 

@@ -75,7 +75,7 @@ rejected unless the terminal states are recorded separately.
 - Consumers: none yet.
 - Compatibility: additive; three new names.
 - Verification:
-  `src/web/src/c-components/Settings/SessionManagerModal.test.tsx`
+  `src/web/src/components/Settings/SessionManagerModal.test.tsx`
   asserts that outcomes fire only on confirmed revocations, that a failed
   revocation emits nothing, and that no session identifier reaches a payload.
 

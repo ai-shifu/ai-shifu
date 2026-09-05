@@ -166,7 +166,7 @@ jest.mock('@/lib/initializeEnvData', () => ({
     mockApplyCreatorBranding(creatorBid),
 }));
 
-jest.mock('@/c-common/hooks/useDisclosure', () => {
+jest.mock('@/hooks/useDisclosure', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
     useDisclosure: () => {
@@ -190,14 +190,25 @@ const mockEnvState = {
   billingEnabled: 'true',
 };
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (
     selector: ((state: typeof mockEnvState) => unknown) | undefined,
   ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
+  useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
+    selector(mockUserStoreState),
+  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      replayScenes: {
+        admin_home_onboarding: false,
+        course_editor_onboarding: false,
+      },
+      requestReplayAll: jest.fn(),
+      clearReplay: jest.fn(),
+    }),
 }));
 
-jest.mock('@/c-store/envStore', () => ({
+jest.mock('@/store/envStore', () => ({
   __esModule: true,
   useEnvStore: (
     selector: ((state: typeof mockEnvState) => unknown) | undefined,
@@ -215,22 +226,7 @@ const mockUserStoreState = {
   refreshUserInfo: mockRefreshUserInfo,
 };
 
-jest.mock('@/store', () => ({
-  __esModule: true,
-  useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
-    selector(mockUserStoreState),
-  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
-    selector({
-      replayScenes: {
-        admin_home_onboarding: false,
-        course_editor_onboarding: false,
-      },
-      requestReplayAll: jest.fn(),
-      clearReplay: jest.fn(),
-    }),
-}));
-
-jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
+jest.mock('@/components/NavDrawer/NavFooter', () => ({
   __esModule: true,
   default: React.forwardRef(function MockNavFooter(
     {
@@ -245,7 +241,7 @@ jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
   }),
 }));
 
-jest.mock('@/c-components/NavDrawer/MainMenuModal', () => ({
+jest.mock('@/components/NavDrawer/MainMenuModal', () => ({
   __esModule: true,
   default: (props: MockMainMenuModalProps) => mockMainMenuModal(props),
 }));
@@ -261,7 +257,7 @@ jest.mock('@/hooks/useBillingData', () => ({
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   __esModule: true,
   useTracking: () => ({
     trackEvent: jest.fn(),

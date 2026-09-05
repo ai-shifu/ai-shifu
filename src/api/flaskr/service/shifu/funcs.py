@@ -16,6 +16,7 @@ import requests
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, get_image_content_type
 from flaskr.service.common.storage import upload_to_storage
@@ -38,19 +39,17 @@ def mark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> bool:
         bool: True if successful
 
     """
-    with app.app_context():
+    with app.app_context(), unit_of_work():
         existing_favorite_shifu = FavoriteScenario.query.filter_by(
             scenario_id=shifu_id, user_id=user_id
         ).first()
         if existing_favorite_shifu:
             existing_favorite_shifu.status = 1
-            db.session.commit()
             return True
         favorite_shifu = FavoriteScenario(
             scenario_id=shifu_id, user_id=user_id, status=1
         )
         db.session.add(favorite_shifu)
-        db.session.commit()
         return True
 
 
@@ -67,13 +66,12 @@ def unmark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> bool:
         bool: True if successful
 
     """
-    with app.app_context():
+    with app.app_context(), unit_of_work():
         favorite_shifu = FavoriteScenario.query.filter_by(
             scenario_id=shifu_id, user_id=user_id
         ).first()
         if favorite_shifu:
             favorite_shifu.status = 0
-            db.session.commit()
             return True
         return False
 
@@ -136,28 +134,27 @@ def upload_file(app: object, user_id: str, resource_id: str, file: object) -> st
             profile=OSS_PROFILE_COURSES,
         )
 
-        if is_update:
-            resource.name = file.filename
-            resource.oss_bucket = result.bucket
-            resource.oss_name = result.object_key
-            resource.url = result.url
-            resource.updated_by = user_id
-            db.session.commit()
-        else:
-            resource = Resource(
-                resource_id=file_id,
-                name=file.filename,
-                type=0,
-                oss_bucket=result.bucket,
-                oss_name=result.object_key,
-                url=result.url,
-                status=0,
-                is_deleted=0,
-                created_by=user_id,
-                updated_by=user_id,
-            )
-            db.session.add(resource)
-            db.session.commit()
+        with unit_of_work():
+            if is_update:
+                resource.name = file.filename
+                resource.oss_bucket = result.bucket
+                resource.oss_name = result.object_key
+                resource.url = result.url
+                resource.updated_by = user_id
+            else:
+                resource = Resource(
+                    resource_id=file_id,
+                    name=file.filename,
+                    type=0,
+                    oss_bucket=result.bucket,
+                    oss_name=result.object_key,
+                    url=result.url,
+                    status=0,
+                    is_deleted=0,
+                    created_by=user_id,
+                    updated_by=user_id,
+                )
+                db.session.add(resource)
 
         return result.url
 
@@ -225,20 +222,20 @@ def upload_url(app: object, user_id: str, url: str) -> str:
                 profile=OSS_PROFILE_COURSES,
             )
 
-            resource = Resource(
-                resource_id=file_id,
-                name=filename,
-                type=0,
-                oss_bucket=result.bucket,
-                oss_name=result.object_key,
-                url=result.url,
-                status=0,
-                is_deleted=0,
-                created_by=user_id,
-                updated_by=user_id,
-            )
-            db.session.add(resource)
-            db.session.commit()
+            with unit_of_work():
+                resource = Resource(
+                    resource_id=file_id,
+                    name=filename,
+                    type=0,
+                    oss_bucket=result.bucket,
+                    oss_name=result.object_key,
+                    url=result.url,
+                    status=0,
+                    is_deleted=0,
+                    created_by=user_id,
+                    updated_by=user_id,
+                )
+                db.session.add(resource)
 
         except requests.RequestException:
             app.logger.exception("Failed to download image from URL: %s", url)

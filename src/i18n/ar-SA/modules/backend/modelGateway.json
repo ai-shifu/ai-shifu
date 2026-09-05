@@ -1,0 +1,20 @@
+{
+  "__namespace__": "server.modelGateway",
+  "__flat__": {
+    "client_not_allowed": "هذا العميل غير مصرح له بالوصول إلى نماذج البوابة.",
+    "gateway_unavailable": "بوابة النماذج غير متاحة مؤقتًا. يرجى المحاولة لاحقًا.",
+    "idempotency_conflict": "تم استخدام Idempotency-Key بالفعل.",
+    "idempotency_key_required": "يجب أن يحتوي Idempotency-Key على 1 إلى 90 حرفًا.",
+    "insufficient_credits": "لا توجد محفظة متاحة للحساب أو أن الرصيد غير كافٍ.",
+    "invalid_request": "الطلب غير صالح.",
+    "invalid_token": "يلزم رمز Authorization Bearer صالح.",
+    "messages_invalid": "يجب أن تحتوي messages على 1 إلى 256 كائن رسالة.",
+    "missing_client_id": "يلزم إرسال ترويسة X-AI-Shifu-Client-ID.",
+    "model_not_available": "النموذج غير متاح أو لم يتم إعداد حدوده أو أسعار النقاط.",
+    "model_required": "يجب تحديد نموذج.",
+    "provider_error": "فشل طلب النموذج.",
+    "request_too_large": "يتجاوز محتوى الطلب حد البوابة البالغ 1 ميبيبايت.",
+    "stream_invalid": "يجب أن تكون stream قيمة منطقية بصيغة JSON.",
+    "tools_invalid": "يجب أن تكون tools قائمة لا تتجاوز 128 عنصرًا."
+  }
+}

@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useUserStore } from '@/store';
-import { EVENT_NAMES, useTracking } from '@/c-common/hooks/useTracking';
+import { EVENT_NAMES, useTracking } from '@/hooks/useTracking';
 import { normalizeDeviceOsForAnalytics } from './deviceAuthorizationAnalytics';
 
 type PendingDevice = {

@@ -33,9 +33,10 @@ class EmailAuthProvider(AuthProvider):
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
         """Send an authentication challenge to the user."""
+        identifier = request.identifier.strip().lower()
         response = send_email_code(
             app,
-            request.identifier,
+            identifier,
             ip=request.metadata.get("ip"),
             language=request.metadata.get("language"),
         )
@@ -44,7 +45,7 @@ class EmailAuthProvider(AuthProvider):
             "language": request.metadata.get("language"),
         }
         return ChallengeResponse(
-            identifier=request.identifier,
+            identifier=identifier,
             expire_in=response.get("expire_in", 0),
             metadata=metadata,
         )
@@ -58,6 +59,7 @@ class EmailAuthProvider(AuthProvider):
             request.code,
             course_id=request.metadata.get("course_id"),
             language=request.metadata.get("language"),
+            login_context=request.metadata.get("login_context"),
         )
 
         aggregate = load_user_aggregate(user_token.userInfo.user_id)

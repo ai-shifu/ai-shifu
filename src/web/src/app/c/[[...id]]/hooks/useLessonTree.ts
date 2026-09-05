@@ -1,15 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { produce } from 'immer';
-import { getLessonTree } from '@/c-api/lesson';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store/envStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import { getLessonTree } from '@/api/lesson';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
+import { useTracking } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store/envStore';
+import { useSystemStore } from '@/store/useSystemStore';
+import { LEARNING_PERMISSION } from '@/api/studyV2';
 import { useUserStore } from '@/store';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
-import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
 import {
   buildLessonNavigationAnalytics,
   LESSON_NAVIGATION_EVENT,

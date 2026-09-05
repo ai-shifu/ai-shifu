@@ -10,12 +10,12 @@ let mockTokenState = {
   faked: false,
 };
 
-jest.mock('@/c-api/user', () => ({
+jest.mock('@/api/user', () => ({
   getUserInfo: (...args: unknown[]) => mockGetUserInfo(...args),
   registerTmp: (...args: unknown[]) => mockRegisterTmp(...args),
 }));
 
-jest.mock('@/c-service/storeUtil', () => ({
+jest.mock('@/lib/shifu/storeUtil', () => ({
   tokenTool: {
     get: jest.fn(() => ({ ...mockTokenState })),
     set: jest.fn(({ token, faked }: { token: string; faked: boolean }) => {
@@ -27,17 +27,17 @@ jest.mock('@/c-service/storeUtil', () => ({
   },
 }));
 
-jest.mock('@/c-utils/common', () => ({
+jest.mock('@/lib/common', () => ({
   genUuid: jest.fn(() => 'guest-temp-id'),
 }));
 
-jest.mock('@/c-utils/debugConsole', () => ({
+jest.mock('@/lib/debugConsole', () => ({
   debugError: jest.fn(),
   debugInfo: jest.fn(),
   debugWarn: jest.fn(),
 }));
 
-jest.mock('@/c-utils/urlUtils', () => ({
+jest.mock('@/lib/urlUtils', () => ({
   removeParamFromUrl: jest.fn((url: string) => url),
 }));
 
@@ -52,7 +52,7 @@ jest.mock('@/lib/google-oauth-session', () => ({
   clearGoogleOAuthSession: jest.fn(),
 }));
 
-jest.mock('@/c-common/tools/tracking', () => ({
+jest.mock('@/lib/tracking', () => ({
   identifyUmamiUser: (...args: unknown[]) => mockIdentifyUmamiUser(...args),
 }));
 

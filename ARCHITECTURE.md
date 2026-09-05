@@ -49,8 +49,10 @@ validation.
   `layout.tsx`, and `route.ts`.
 - Shared request transport and business-code handling live in
   `src/web/src/lib/request.ts` and `src/web/src/lib/api.ts`.
-- Legacy `c-*` paths remain active compatibility surfaces and must still be
-  treated as maintained code.
+- Learner and teacher code shares responsibility-based source directories:
+  `api`, `assets`, `components`, `constants`, `hooks`, `lib`, `store`, and `types`.
+- Shared analytics uses `hooks/useTracking.ts` and `lib/tracking.ts`; course
+  orchestration helpers live in `lib/shifu`.
 
 ## Harness Model
 

@@ -5,7 +5,7 @@ import {
   resolvePreviewRegenerateStartIndex,
   resolvePreviewRequestBlockIndex,
 } from '@/components/lesson-preview/preview-submission';
-import { ChatContentItemType } from '@/c-types/chatUi';
+import { ChatContentItemType } from '@/types/chatUi';
 
 describe('preview submission helpers', () => {
   it('falls back to current block_index when generated_block_bid is not numeric', () => {

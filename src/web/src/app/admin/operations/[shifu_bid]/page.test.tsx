@@ -87,10 +87,6 @@ jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserState) => unknown) =>
     selector(mockUserState),
-}));
-
-jest.mock('@/c-store', () => ({
-  __esModule: true,
   useEnvStore: (
     selector: (state: {
       currencySymbol: string;
@@ -100,7 +96,7 @@ jest.mock('@/c-store', () => ({
   ) => selector(mockEnvState),
 }));
 
-jest.mock('@/c-utils/textutils', () => ({
+jest.mock('@/lib/textutils', () => ({
   __esModule: true,
   copyText: (...args: unknown[]) => mockCopyText(...args),
 }));

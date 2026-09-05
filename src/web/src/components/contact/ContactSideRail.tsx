@@ -1,6 +1,6 @@
-import { useEnvStore } from '@/c-store';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import { useTracking } from '@/hooks/useTracking';
+import { EnvStoreState } from '@/types/store';
 import { cn } from '@/lib/utils';
 import { Headset } from 'lucide-react';
 import { usePathname } from 'next/navigation';

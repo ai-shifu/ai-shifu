@@ -11,8 +11,8 @@ import { useLatest } from 'react-use';
 import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
-} from '@/c-utils/markdownUtils';
-import { useCourseStore } from '@/c-store/useCourseStore';
+} from '@/lib/markdownUtils';
+import { useCourseStore } from '@/store/useCourseStore';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
@@ -36,7 +36,7 @@ import {
   streamGeneratedBlockAudio,
   submitLessonFeedback,
   ELEMENT_TYPE,
-} from '@/c-api/studyV2';
+} from '@/api/studyV2';
 import {
   getAudioTrackByPosition,
   normalizeAudioCompletePayload,
@@ -44,20 +44,20 @@ import {
   toAudioSegmentData,
   upsertAudioComplete,
   upsertAudioSegment,
-} from '@/c-utils/audio-utils';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+} from '@/lib/audio-utils';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import {
   events,
   EVENT_NAMES as BZ_EVENT_NAMES,
   type StopActiveLessonStreamDetail,
 } from '@/app/c/[[...id]]/events';
-import { EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import { EVENT_NAMES } from '@/hooks/useTracking';
 import {
   buildLessonFeedbackUserInput,
   parseLessonFeedbackUserInput,
   resolveInteractionSubmission,
-} from '@/c-utils/interaction-user-input';
+} from '@/lib/interaction-user-input';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
@@ -69,7 +69,7 @@ import {
   EMPTY_LESSON_RUN_CONTENT_ENTRY,
   EMPTY_LESSON_RUN_ITEMS,
   useLessonRunContentStore,
-} from '@/c-store/useLessonRunContentStore';
+} from '@/store/useLessonRunContentStore';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 import { resolveLearnerErrorToast } from '@/lib/learnerError';
 import {
@@ -78,7 +78,7 @@ import {
   AI_SERVICE_ERROR_TOAST_KEY,
   resolveAiServiceErrorToast,
 } from '@/lib/aiServiceError';
-import { debugWarn } from '@/c-utils/debugConsole';
+import { debugWarn } from '@/lib/debugConsole';
 import {
   getCreditInsufficientMessage,
   isCreditInsufficientBusinessCode,

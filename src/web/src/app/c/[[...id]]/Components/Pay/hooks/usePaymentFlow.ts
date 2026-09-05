@@ -9,7 +9,7 @@ import {
   syncPaymentOrder,
   type PayUrlRequest,
   type PaymentChannel,
-} from '@/c-api/order';
+} from '@/api/order';
 import { ORDER_STATUS } from '../constans';
 
 interface PriceItem {

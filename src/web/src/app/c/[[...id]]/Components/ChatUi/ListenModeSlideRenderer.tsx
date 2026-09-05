@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { Maximize2 } from 'lucide-react';
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { LoadingDots } from '@/components/loading';
@@ -20,13 +20,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/Popover';
-import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
-import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
-import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
+import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
+import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
   localizeSystemInteractionContent,
-} from '@/c-utils/system-interaction';
+} from '@/lib/system-interaction';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
@@ -37,6 +37,7 @@ import {
 } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import {
+  hasPlayableListenAudioForItem,
   resolveListenSlideAudioSource,
   resolveListenSlideElementType,
   resolveListenSlideSubtitleCues,
@@ -57,9 +58,15 @@ import {
   type ListenPlaybackSpeed,
   writeListenPlaybackSpeedToStorage,
 } from './listenPlaybackSpeed';
+import {
+  clearListenPlaybackCheckpoint,
+  readListenPlaybackCheckpoint,
+  writeListenPlaybackCheckpoint,
+} from './listenPlaybackCheckpoint';
+import { useTracking } from '@/hooks/useTracking';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
-import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import AskIcon from '@/assets/newchat/light/icon_ask.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
@@ -168,6 +175,8 @@ const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
 };
 
 type ListenSlidePresentationVariant = 'listen' | 'classroom';
+const EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS: ReadonlySet<string> =
+  new Set();
 
 interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
@@ -194,6 +203,7 @@ interface ListenModeSlideRendererProps {
   liveVoice?: LiveVoiceFollowUpController;
   disableInteractionEdits?: boolean;
   followUpMode?: FollowUpPresentationMode;
+  pendingAudioBackfillElementBids?: ReadonlySet<string>;
 }
 
 interface ListenSlidePresentationProfile {
@@ -753,8 +763,10 @@ const ListenModeSlideRenderer = ({
   liveVoice,
   disableInteractionEdits = false,
   followUpMode = 'text',
+  pendingAudioBackfillElementBids = EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
@@ -802,6 +814,16 @@ const ListenModeSlideRenderer = ({
     isAudioPlaying: false,
     isAudioWaiting: false,
   });
+  const restoredPlaybackScopeRef = useRef('');
+  const trackedPlaybackRestoreScopeRef = useRef('');
+  const nextPlaybackRestoreRequestIdRef = useRef(0);
+  const [resolvedPlaybackRestoreScope, setResolvedPlaybackRestoreScope] =
+    useState('');
+  const [playbackRestoreRequest, setPlaybackRestoreRequest] = useState<{
+    audioKey: string;
+    id: number;
+    timeMs: number;
+  } | null>(null);
   const [hasSettledTailInteraction, setHasSettledTailInteraction] =
     useState(false);
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
@@ -1001,6 +1023,143 @@ const ListenModeSlideRenderer = ({
     showLeadingTextPlaceholder,
     t,
   ]);
+
+  useEffect(() => {
+    const scopeKey = `${shifuBid}:${lessonId}`;
+    if (variant !== 'listen') {
+      restoredPlaybackScopeRef.current = '';
+      setPlaybackRestoreRequest(null);
+      setResolvedPlaybackRestoreScope('');
+      return;
+    }
+
+    if (!shifuBid || !lessonId) {
+      restoredPlaybackScopeRef.current = '';
+      setPlaybackRestoreRequest(null);
+      setResolvedPlaybackRestoreScope('');
+      return;
+    }
+
+    if (restoredPlaybackScopeRef.current === scopeKey) {
+      return;
+    }
+
+    restoredPlaybackScopeRef.current = scopeKey;
+    setResolvedPlaybackRestoreScope('');
+    setPlaybackRestoreRequest(null);
+    const checkpoint = readListenPlaybackCheckpoint({
+      courseId: shifuBid,
+      lessonId,
+    });
+    if (checkpoint) {
+      nextPlaybackRestoreRequestIdRef.current += 1;
+      setPlaybackRestoreRequest({
+        ...checkpoint,
+        id: nextPlaybackRestoreRequestIdRef.current,
+      });
+      if (!previewMode && trackedPlaybackRestoreScopeRef.current !== scopeKey) {
+        trackedPlaybackRestoreScopeRef.current = scopeKey;
+        void Promise.resolve(
+          trackEvent('learner_listen_resume_requested', {
+            shifu_bid: shifuBid,
+            surface: 'learner_listen',
+          }),
+        ).catch(() => {});
+      }
+    }
+    setResolvedPlaybackRestoreScope(scopeKey);
+  }, [lessonId, previewMode, shifuBid, trackEvent, variant]);
+
+  const playbackRestoreScopeKey = `${shifuBid}:${lessonId}`;
+  const playbackRestoreTargetState = useMemo(() => {
+    if (!playbackRestoreRequest) {
+      return { exists: false, isPlayable: false, isPendingBackfill: false };
+    }
+
+    const matchingItems = items.filter(
+      item => item.element_bid === playbackRestoreRequest.audioKey,
+    );
+
+    return {
+      exists: matchingItems.length > 0,
+      isPlayable: matchingItems.some(hasPlayableListenAudioForItem),
+      isPendingBackfill: pendingAudioBackfillElementBids.has(
+        playbackRestoreRequest.audioKey,
+      ),
+    };
+  }, [items, pendingAudioBackfillElementBids, playbackRestoreRequest]);
+  const isPlaybackRestoreReady =
+    variant !== 'listen' ||
+    (Boolean(shifuBid && lessonId) &&
+      resolvedPlaybackRestoreScope === playbackRestoreScopeKey &&
+      (!playbackRestoreRequest || playbackRestoreTargetState.isPlayable));
+
+  useEffect(() => {
+    if (
+      variant !== 'listen' ||
+      isLoading ||
+      !shifuBid ||
+      !lessonId ||
+      !playbackRestoreRequest
+    ) {
+      return;
+    }
+
+    // Returning from reading mode can restore the historical element before
+    // its audio backfill completes. The checkpoint is still valid in that
+    // state, so keep both the request and the startup gate until audio arrives.
+    if (playbackRestoreTargetState.isPlayable) {
+      return;
+    }
+
+    if (
+      playbackRestoreTargetState.exists &&
+      playbackRestoreTargetState.isPendingBackfill
+    ) {
+      return;
+    }
+
+    clearListenPlaybackCheckpoint({ courseId: shifuBid, lessonId });
+    setPlaybackRestoreRequest(currentRequest =>
+      currentRequest?.id === playbackRestoreRequest.id ? null : currentRequest,
+    );
+  }, [
+    isLoading,
+    lessonId,
+    playbackRestoreRequest,
+    playbackRestoreTargetState.exists,
+    playbackRestoreTargetState.isPlayable,
+    playbackRestoreTargetState.isPendingBackfill,
+    shifuBid,
+    variant,
+  ]);
+
+  const handlePlaybackCheckpoint = useCallback(
+    ({
+      audioKey,
+      isComplete,
+      timeMs,
+    }: {
+      audioKey: string;
+      isComplete: boolean;
+      timeMs: number;
+    }) => {
+      if (variant !== 'listen' || !shifuBid || !lessonId) {
+        return;
+      }
+
+      if (isComplete) {
+        clearListenPlaybackCheckpoint({ courseId: shifuBid, lessonId });
+        return;
+      }
+
+      writeListenPlaybackCheckpoint(
+        { courseId: shifuBid, lessonId },
+        { audioKey, timeMs },
+      );
+    },
+    [lessonId, shifuBid, variant],
+  );
   const markerStepCount = useMemo(
     () => elementList.filter(element => Boolean(element.is_marker)).length,
     [elementList],
@@ -2222,6 +2381,7 @@ const ListenModeSlideRenderer = ({
             waitingForAudio: t('module.chat.thinking'),
           }}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
+          onPlaybackCheckpoint={handlePlaybackCheckpoint}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
@@ -2230,6 +2390,7 @@ const ListenModeSlideRenderer = ({
           fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
+          playbackRestoreRequest={playbackRestoreRequest}
           playerClassName={cn(
             listenPlayerClassName,
             mobileStyle ? 'listen-slide-player-mobile' : '',
@@ -2237,7 +2398,7 @@ const ListenModeSlideRenderer = ({
           )}
           playerCustomActionPauseOnActive={pausePlayerCustomActionOnActive}
           playerCustomActions={enableCustomActions ? playerCustomActions : null}
-          playerEnabled={!shouldRenderEmptyPpt}
+          playerEnabled={!shouldRenderEmptyPpt && isPlaybackRestoreReady}
         />
         {shouldRenderManualFullscreenButton ? (
           <button

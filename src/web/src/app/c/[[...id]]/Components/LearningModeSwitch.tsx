@@ -10,9 +10,9 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
-import { useSystemStore } from '@/c-store/useSystemStore';
-import { useCourseStore } from '@/c-store/useCourseStore';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useSystemStore } from '@/store/useSystemStore';
+import { useCourseStore } from '@/store/useCourseStore';
+import { useTracking } from '@/hooks/useTracking';
 import {
   Tooltip,
   TooltipContent,

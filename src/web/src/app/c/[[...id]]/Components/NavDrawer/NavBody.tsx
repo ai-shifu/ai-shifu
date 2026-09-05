@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/Button';
 
-import LogoWithText from '@/c-components/logo/LogoWithText';
+import LogoWithText from '@/components/logo/LogoWithText';
 
 export const NavBody = ({ onLoginClick = () => {} }) => {
   const { t } = useTranslation();

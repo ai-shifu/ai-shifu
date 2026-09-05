@@ -10,7 +10,7 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useUserStore } from '@/store';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';

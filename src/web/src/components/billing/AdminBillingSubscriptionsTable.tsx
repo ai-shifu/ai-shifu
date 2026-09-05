@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import { Badge } from '@/components/ui/Badge';

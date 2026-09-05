@@ -1,6 +1,6 @@
 import useSWR from 'swr';
 import api from '@/api';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import { buildBillingSwrKey } from '@/lib/billing';
 import type {
   BillingWalletBucketList,

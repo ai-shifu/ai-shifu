@@ -55,8 +55,8 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
 import { buildBillingSwrKey } from '@/lib/billing';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';

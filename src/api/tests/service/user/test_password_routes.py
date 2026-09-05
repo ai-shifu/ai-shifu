@@ -437,6 +437,95 @@ def test_sms_login_route_does_not_rebind_authenticated_account_phone(
         ]
 
 
+def test_email_login_route_logs_in_with_email_code(
+    test_client: object, monkeypatch: object
+) -> None:
+    from flaskr.service.user import email_flow
+
+    email = "learner@example.com"
+    admin_grants: list[tuple[str, str | None]] = []
+
+    def _record_admin_grant(
+        _app: object,
+        user_id: str,
+        _language: str,
+        login_context: str | None,
+    ) -> bool:
+        admin_grants.append((user_id, login_context))
+        return True
+
+    monkeypatch.setattr(
+        email_flow,
+        "ensure_admin_creator_and_demo_permissions",
+        _record_admin_grant,
+    )
+
+    resp, body = _post_json(
+        test_client,
+        "/api/user/login_email",
+        {
+            "email": f"  {email.upper()}  ",
+            "code": "9999",
+            "language": "en-US",
+            "login_context": "admin",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert body["code"] == 0
+    assert body["data"]["token"]
+    assert body["data"]["userInfo"]["email"] == email
+    assert admin_grants == [(body["data"]["userInfo"]["user_id"], "admin")]
+
+
+def test_email_login_route_does_not_rebind_authenticated_account_email(
+    test_client: object, app: object
+) -> None:
+    from flaskr.service.user import email_flow
+    from flaskr.service.user.models import AuthCredential
+    from flaskr.service.user.models import UserInfo as UserEntity
+
+    original_email = "original@example.com"
+    next_email = "next@example.com"
+
+    with app.app_context():
+        original_token, _created, _ctx = email_flow.verify_email_code(
+            app, user_id=None, email=original_email, code="9999"
+        )
+        original_user_bid = original_token.userInfo.user_id
+
+    resp, body = _post_json(
+        test_client,
+        "/api/user/login_email",
+        {
+            "email": next_email,
+            "code": "9999",
+            "language": "en-US",
+            "login_context": "admin",
+        },
+        headers={"Token": original_token.token},
+    )
+
+    assert resp.status_code == 200
+    assert body["code"] == 0
+    assert body["data"]["userInfo"]["email"] == next_email
+    assert body["data"]["userInfo"]["user_id"] != original_user_bid
+
+    with app.app_context():
+        original_entity = UserEntity.query.filter_by(user_bid=original_user_bid).first()
+        assert original_entity is not None
+        assert original_entity.user_identify == original_email
+
+        original_credentials = AuthCredential.query.filter_by(
+            user_bid=original_user_bid,
+            provider_name="email",
+            deleted=0,
+        ).all()
+        assert [credential.identifier for credential in original_credentials] == [
+            original_email
+        ]
+
+
 def test_sms_login_route_normalizes_cn_prefix(test_client: object, app: object) -> None:
     from flaskr.service.user.models import AuthCredential
     from flaskr.service.user.models import UserInfo as UserEntity

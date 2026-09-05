@@ -3,8 +3,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
-import { shifu } from '@/c-service/Shifu';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { shifu } from '@/lib/shifu/Shifu';
+import { useCourseStore } from '@/store/useCourseStore';
 import { fail } from '@/hooks/useToast';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import {

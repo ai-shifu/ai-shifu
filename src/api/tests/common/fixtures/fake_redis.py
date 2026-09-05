@@ -28,6 +28,10 @@ class FakeRedisLock:
             self._locks.pop(self._key, None)
             self._held = False
 
+    def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
+        _ = (additional_time, replace_ttl)
+        return self._held
+
 
 class FakeRedis:
     """Simulate Redis behavior for tests."""
@@ -140,8 +144,9 @@ class FakeRedis:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
+        thread_local: bool = True,
     ) -> object:
-        _ = (timeout, blocking_timeout)
+        _ = (timeout, blocking_timeout, thread_local)
         return FakeRedisLock(self._locks, key)
 
     def ping(self) -> object:

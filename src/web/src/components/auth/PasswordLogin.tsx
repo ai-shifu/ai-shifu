@@ -15,7 +15,7 @@ import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { cn } from '@/lib/utils';
 import i18n from '@/i18n';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   buildLoginAttemptAnalytics,
   buildLoginResultAnalytics,

@@ -18,17 +18,17 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { runWithConcurrency } from '@/lib/runWithConcurrency';
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store/envStore';
+import { useTracking } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store/envStore';
 import { useUserStore } from '@/store';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
-import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
-import { resolveWideLogoSource } from '@/c-components/logo/logoSource';
+import AskIcon from '@/assets/newchat/light/icon_ask.svg';
+import { resolveWideLogoSource } from '@/components/logo/logoSource';
 import { resolveOfficialSiteUrl } from '@/config/environment';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
@@ -45,7 +45,7 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
   upsertAudioComplete,
-} from '@/c-utils/audio-utils';
+} from '@/lib/audio-utils';
 import {
   Dialog,
   DialogContent,
@@ -54,7 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useSystemStore } from '@/store/useSystemStore';
 import {
   buildAskListByAnchorElementBid,
   hasStreamingAskMessage,
@@ -64,6 +64,7 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import {
   getMissingListenModeAudioBlockBids,
+  getPendingListenModeAudioBackfillElementBids,
   hasPlayableListenAudioForItem,
   isListenModeAudioBackfillReady,
   isListenModeAudioBackfillCandidate,
@@ -97,7 +98,7 @@ import {
 } from './lessonPdfState';
 import { useLessonPdfPrint } from './useLessonPdfPrint';
 import LessonPdfPreparingOverlay from './LessonPdfPreparingOverlay';
-import { buildCoursePageUrl } from '@/c-utils/urlUtils';
+import { buildCoursePageUrl } from '@/lib/urlUtils';
 import type {
   ChapterNavigationHandler,
   ChapterUpdateHandler,
@@ -252,6 +253,10 @@ export const NewChatComponents = ({
     {},
   );
   const listenAudioBackfillFailedBlockBidsRef = useRef<Set<string>>(new Set());
+  const [
+    listenAudioBackfillFailedBlockBids,
+    setListenAudioBackfillFailedBlockBids,
+  ] = useState<ReadonlySet<string>>(new Set());
   const listenAudioBackfillLessonIdRef = useRef('');
 
   const isScrollableElementForFeedback = useCallback(
@@ -404,11 +409,13 @@ export const NewChatComponents = ({
     listenAudioBackfillLessonIdRef.current = resolvedLessonId;
     listenAudioBackfillInFlightRef.current = {};
     listenAudioBackfillFailedBlockBidsRef.current = new Set();
+    setListenAudioBackfillFailedBlockBids(new Set());
   }, [resolvedLessonId]);
 
   useEffect(() => {
     if (!previousListenModeActiveRef.current && isListenModeActive) {
       listenAudioBackfillFailedBlockBidsRef.current = new Set();
+      setListenAudioBackfillFailedBlockBids(new Set());
     }
     previousListenModeActiveRef.current = isListenModeActive;
     isListenModeActiveRef.current = isListenModeActive;
@@ -559,7 +566,11 @@ export const NewChatComponents = ({
         onStreamSettled: clearTrackedRequest,
       }).then(result => {
         if (result) {
-          listenAudioBackfillFailedBlockBidsRef.current.delete(blockBid);
+          if (listenAudioBackfillFailedBlockBidsRef.current.delete(blockBid)) {
+            setListenAudioBackfillFailedBlockBids(
+              new Set(listenAudioBackfillFailedBlockBidsRef.current),
+            );
+          }
           const askEntry = Object.entries(
             useAskStateStore.getState().askListByAnchorElementBid,
           ).find(([, askList]) =>
@@ -988,6 +999,11 @@ export const NewChatComponents = ({
       failedBlockBids.forEach(blockBid => {
         listenAudioBackfillFailedBlockBidsRef.current.add(blockBid);
       });
+      if (failedBlockBids.length > 0) {
+        setListenAudioBackfillFailedBlockBids(
+          new Set(listenAudioBackfillFailedBlockBidsRef.current),
+        );
+      }
       const hasBackfillFailure = failedBlockBids.length > 0;
       const hasBackfillInFlight =
         Object.keys(listenAudioBackfillInFlightRef.current).length > 0;
@@ -1035,6 +1051,17 @@ export const NewChatComponents = ({
     t,
     updateLearningMode,
   ]);
+
+  const isEnteringListenMode =
+    isListenModeActive && !previousListenModeActiveRef.current;
+  const pendingListenAudioBackfillElementBids = useMemo(
+    () =>
+      getPendingListenModeAudioBackfillElementBids(
+        slideModeItems,
+        isEnteringListenMode ? new Set() : listenAudioBackfillFailedBlockBids,
+      ),
+    [isEnteringListenMode, listenAudioBackfillFailedBlockBids, slideModeItems],
+  );
 
   useEffect(() => {
     setIsListenFeedbackReady(false);
@@ -1448,6 +1475,9 @@ export const NewChatComponents = ({
               })}
               liveVoice={
                 isLiveVoiceFollowUpSupported ? liveVoiceFollowUp : undefined
+              }
+              pendingAudioBackfillElementBids={
+                pendingListenAudioBackfillElementBids
               }
             />
           </>

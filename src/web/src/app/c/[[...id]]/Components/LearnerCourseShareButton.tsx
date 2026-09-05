@@ -4,10 +4,10 @@ import { useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 
-import { useEnvStore } from '@/c-store/envStore';
-import { useCourseStore } from '@/c-store/useCourseStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
-import { buildCoursePageUrl } from '@/c-utils/urlUtils';
+import { useEnvStore } from '@/store/envStore';
+import { useCourseStore } from '@/store/useCourseStore';
+import { useSystemStore } from '@/store/useSystemStore';
+import { buildCoursePageUrl } from '@/lib/urlUtils';
 import {
   CourseShareButton,
   type CourseShareButtonProps,

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { mutate as mutateSWRCache } from 'swr';
 import api from '@/api';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import { Button } from '@/components/ui/Button';
 import { buildBillingSwrKey } from '@/lib/billing';
 import {

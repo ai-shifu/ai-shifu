@@ -1,5 +1,5 @@
 import { SSE } from 'sse.js';
-import { getResolvedBaseURL } from '@/c-utils/envUtils';
+import { getResolvedBaseURL } from '@/lib/envUtils';
 import { useUserStore } from '@/store/useUserStore';
 import {
   attachSseBusinessResponseFallback,

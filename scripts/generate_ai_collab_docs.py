@@ -284,8 +284,8 @@ WEB_SPEC = DocSpec(
     title="Cook Web AI Collaboration Rules",
     intro=(
         "This file owns frontend-wide rules for the Next.js Cook Web app, shared "
-        "request utilities, state containers, and the legacy `c-*` compatibility "
-        "surface."
+        "request utilities, state containers, and shared learner and teacher "
+        "modules."
     ),
     scope=(
         "Apply this file to `src/web/`, including app routes, components, "
@@ -296,9 +296,9 @@ WEB_SPEC = DocSpec(
         "Cook Web serves both the learner-facing routes and the authoring/admin "
         "experience, so shared request, auth, and i18n behavior must stay "
         "consistent across route groups.",
-        "Legacy `c-*` directories remain active compatibility surfaces. Treat "
-        "them as maintained code, not dead code, until a deliberate migration "
-        "removes them.",
+        "Organize source by responsibility under api, assets, components, "
+        "constants, hooks, lib, store, and types; learner and teacher routes "
+        "share these modules.",
     ),
     do=(
         "Inspect the current route, component, hook, store, and shared-lib path "
@@ -317,8 +317,8 @@ WEB_SPEC = DocSpec(
         "`src/i18n/`, and keep frontend user-facing locales aligned with "
         "`src/i18n/locales.json`.",
         "Prefer shared utilities when logic appears in two or more places. Move "
-        "stable parsing, routing, and serialization code into `lib/`, `hooks/`, "
-        "or `c-utils/` instead of duplicating it in pages.",
+        "stable parsing, routing, and serialization code into `lib/` or `hooks/` "
+        "instead of duplicating it in pages.",
     ),
     avoid=(
         "Do not create duplicate frontend helpers, request wrappers, stores, or "
@@ -327,8 +327,8 @@ WEB_SPEC = DocSpec(
         "header construction inside UI components.",
         "Do not bypass the unified business-code handling path or create a second "
         "request abstraction that diverges from `lib/request.ts`.",
-        "Do not treat legacy `c-*` directories as safe to break. New modern code "
-        "should prefer modern folders, but compatibility behavior still matters.",
+        "Do not reintroduce parallel source directories for learner and teacher "
+        "implementations; preserve compatibility in shared modules.",
         "Do not add frontend-only translations under `public/locales` when the "
         "shared JSON source under `src/i18n/` should own the text.",
     ),
@@ -815,8 +815,9 @@ FRONTEND_META = {
             "thin endpoint definition wrappers that expose Cook Web API calls on "
             "top of the shared request and generated-client helpers"
         ),
-        key_files=("api.ts", "index.ts"),
+        key_files=("api.ts", "index.ts", "user.ts", "course.ts", "studyV2.ts"),
         invariants=(
+            "preserve learner request payloads and stream contracts alongside generated endpoint wrappers",
             "keep this layer declarative and thin so endpoint wiring stays easy to "
             "audit against backend contracts",
             "prefer the shared `lib/request.ts` and `lib/api.ts` stack instead of "
@@ -829,10 +830,11 @@ FRONTEND_META = {
             "business-code handling already exists lower in the stack",
             "do not duplicate route constants or auth-header behavior that belongs "
             "in shared request utilities",
-            "do not mix legacy `c-api` compatibility helpers into this modern API "
-            "layer without an explicit adapter",
+            "do not duplicate endpoint wrappers or change learner request shapes "
+            "while reorganizing API modules",
         ),
         test_focus="src/web/src/api/",
+        skill_refs=("src/web/skills/deep-link-lessonid-routing/SKILL.md",),
     ),
     "components": FrontendDomainMeta(
         summary=(
@@ -841,6 +843,7 @@ FRONTEND_META = {
         ),
         key_files=("auth/EmailLogin.tsx", "shifu-edit/ShifuEdit.tsx", "ui/Button.tsx"),
         invariants=(
+            "preserve learner mobile, modal, branding, and chat styling and props when moving shared components",
             "keep user-facing strings routed through shared i18n and component "
             "props instead of hardcoded labels",
             "preserve stable component contracts for callers before making broad "
@@ -899,6 +902,7 @@ FRONTEND_META = {
             "useToast.tsx",
         ),
         invariants=(
+            "keep business events on useTracking and delegate Umami transport to lib/tracking.ts",
             "keep hook inputs and returned fields stable, and update all consumers "
             "in the same task when the contract changes",
             "preserve browser and server assumptions explicitly so hooks do not "
@@ -929,6 +933,9 @@ FRONTEND_META = {
             "unified-i18n-backend.ts",
         ),
         invariants=(
+            "keep raw Umami calls in tracking.ts; preserve identify, queue, drain, SPA pageview deduplication, and tracked-referrer ordering",
+            "keep analytics fail-open and accept only approved flat scalar fields; truncation or hashing does not make sensitive data safe",
+            "preserve shared URL, interaction, lesson-feedback, audio, and storage semantics when changing helpers",
             "keep request transport, business-code handling, and shared API "
             "generation logic centralized in this domain",
             "preserve shared normalization and utility behavior used by multiple "
@@ -945,7 +952,12 @@ FRONTEND_META = {
             "tests and type checks across consumers",
         ),
         test_focus="src/web/src/lib/",
-        skill_refs=("src/web/skills/module-augmentation-guardrails/SKILL.md",),
+        skill_refs=(
+            "src/web/skills/module-augmentation-guardrails/SKILL.md",
+            "src/web/skills/deep-link-lessonid-routing/SKILL.md",
+            "src/web/skills/interaction-user-input-defaults/SKILL.md",
+            "src/web/skills/listen-mode-audio-streaming/SKILL.md",
+        ),
     ),
     "store": FrontendDomainMeta(
         summary=(
@@ -959,6 +971,7 @@ FRONTEND_META = {
             "userProvider.tsx",
         ),
         invariants=(
+            "preserve course, environment, system, and layout state semantics across learner and teacher consumers; use direct module imports inside store implementations to avoid barrel cycles",
             "keep store state shape and exported actions stable because many "
             "components depend on these slices implicitly",
             "preserve the boundary between store state and side-effect helpers so "
@@ -975,14 +988,23 @@ FRONTEND_META = {
             "existing user-store path",
         ),
         test_focus="src/web/src/store/",
-        skill_refs=("src/web/skills/hook-contract-refactor-safety/SKILL.md",),
+        skill_refs=(
+            "src/web/skills/hook-contract-refactor-safety/SKILL.md",
+            "src/web/skills/chat-layout-width-detection/SKILL.md",
+        ),
     ),
     "types": FrontendDomainMeta(
         summary=(
             "shared TypeScript declarations, ambient module definitions, and "
             "cross-domain frontend interfaces"
         ),
-        key_files=("shifu.ts", "markdown-flow-ui.d.ts", "i18n-keys.d.ts"),
+        key_files=(
+            "shifu.ts",
+            "store.ts",
+            "sse.d.ts",
+            "markdown-flow-ui.d.ts",
+            "i18n-keys.d.ts",
+        ),
         invariants=(
             "treat shared type exports as compatibility surfaces consumed across "
             "routes, stores, hooks, and components",
@@ -1002,99 +1024,14 @@ FRONTEND_META = {
         test_focus="src/web/src/types/",
         skill_refs=("src/web/skills/module-augmentation-guardrails/SKILL.md",),
     ),
-    "c-api": FrontendDomainMeta(
+    "constants": FrontendDomainMeta(
         summary=(
-            "legacy compatibility API wrappers used by the `c` experience and "
-            "older frontend business flows"
+            "shared course and UI constants used across learner and teacher flows"
         ),
-        key_files=("course.ts", "lesson.ts", "studyV2.ts"),
-        invariants=(
-            "preserve legacy request shapes and naming as long as the `c` routes "
-            "still depend on them",
-            "treat this directory as a compatibility layer and move genuinely new "
-            "shared APIs to the modern request stack first",
-            "keep contracts aligned with the legacy stores and service helpers "
-            "that still consume these wrappers",
-        ),
-        avoid_points=(
-            "do not silently break `c` route payload expectations while adding a "
-            "modern-only feature elsewhere",
-            "do not duplicate identical endpoint wrappers in both `c-api` and the "
-            "modern `api` domain without an intentional adapter boundary",
-            "do not bypass shared auth or request primitives when updating this "
-            "legacy compatibility layer",
-        ),
-        test_focus="src/web/src/c-api/",
-        skill_refs=("src/web/skills/deep-link-lessonid-routing/SKILL.md",),
-    ),
-    "c-common": FrontendDomainMeta(
-        summary=(
-            "small shared hooks and the Umami tracking transport used across the "
-            "Cook Web frontend, including the legacy `c` experience"
-        ),
-        key_files=(
-            "hooks/useDisclosure.ts",
-            "hooks/useTracking.ts",
-            "tools/tracking.ts",
-        ),
-        invariants=(
-            "keep business events on the shared `useTracking` hook and keep raw "
-            "Umami transport ownership in `tools/tracking.ts` instead of adding "
-            "page-local analytics entry points",
-            "preserve identify -> queue -> drain ordering and SPA pageview "
-            "deduplication, including the previous tracked URL as the referrer",
-            "keep the transport fail-open and preserve its size and type "
-            "sanitization bounds; sanitization protects delivery limits but does "
-            "not make an unapproved payload privacy-safe",
-        ),
-        avoid_points=(
-            "do not call `window.umami`, invoke identify, or implement pageview "
-            "tracking from business components when the shared hook, transport, "
-            "and `UmamiLoader` own those responsibilities",
-            "do not treat truncation, stringification, or hashing as privacy "
-            "review; event and identity callers must pass only explicitly "
-            "approved flat scalar fields, and changed pageview handling must "
-            "strip queries and sensitive URL data",
-            "do not let analytics loading, identification, queue draining, or "
-            "delivery errors block the user action or change its business result",
-        ),
-        test_focus="src/web/src/c-common/",
-    ),
-    "c-components": FrontendDomainMeta(
-        summary=(
-            "legacy React components used by the `c` experience, including "
-            "branding, modal, mobile, and compatibility UI pieces"
-        ),
-        key_files=(
-            "PopupModal.tsx",
-            "AppContext.ts",
-            "logo/LogoWithText.tsx",
-            "m/MainButtonM.tsx",
-        ),
-        invariants=(
-            "preserve styling and prop behavior relied on by the legacy `c` pages "
-            "before reshaping component interfaces",
-            "keep compatibility UI concerns local to this subtree instead of "
-            "mixing them invisibly into modern shared components",
-            "treat mobile-oriented legacy components as active product surfaces "
-            "while the `c` experience remains supported",
-        ),
-        avoid_points=(
-            "do not swap in modern component primitives without verifying the `c` "
-            "pages still render and behave correctly",
-            "do not copy business logic into these components when the legacy "
-            "store or service layers already own it",
-            "do not bury asset or layout assumptions in callers when the component "
-            "boundary should keep them explicit",
-        ),
-        test_focus="src/web/src/c-components/",
-    ),
-    "c-constants": FrontendDomainMeta(
-        summary=("legacy course and UI constants used throughout the `c` experience"),
         key_files=("uiConstants.ts", "courseConstants.ts"),
         invariants=(
             "keep shared breakpoint, course, and UI constants as the "
-            "single source of truth for legacy consumers",
+            "single source of truth for all consumers",
             "preserve constant names and semantics when skills or stores already "
             "depend on them indirectly",
             "treat this directory as configuration data rather than a place to "
@@ -1105,130 +1042,37 @@ FRONTEND_META = {
             "pages when they already exist here",
             "do not mix runtime branching logic into constant files unless the "
             "logic is truly configuration-oriented",
-            "do not rename exported constants casually because many legacy files "
+            "do not rename exported constants casually because many files "
             "import them directly",
         ),
-        test_focus="src/web/src/c-constants/",
+        test_focus="src/web/src/constants/",
         skill_refs=("src/web/skills/chat-layout-width-detection/SKILL.md",),
     ),
-    "c-service": FrontendDomainMeta(
+    "lib/shifu": FrontendDomainMeta(
         summary=(
-            "legacy business orchestration for shifu and state transform helpers "
-            "consumed by the `c` experience"
+            "course business orchestration for shifu and state transform helpers "
+            "consumed by learner flows and shared stores"
         ),
         key_files=("Shifu.ts", "shifuUtils.ts", "storeUtil.ts"),
         invariants=(
-            "keep legacy business transformations centralized so `c` pages and "
+            "keep course business transformations centralized so `c` pages and "
             "stores do not all reshape the same payloads differently",
-            "preserve compatibility with `c-api` response shapes and `c-store` "
+            "preserve compatibility with `api` response shapes and `store` "
             "state expectations when business behavior changes",
-            "treat this subtree as the right place for legacy orchestration, not "
+            "treat this subtree as the right place for course orchestration, not "
             "for low-level request or UI-only helpers",
         ),
         avoid_points=(
             "do not duplicate shifu or state transformations in pages when "
             "this service layer already owns them",
-            "do not move compatibility behavior into modern domains without a "
-            "clear migration plan and adapter",
+            "do not change compatibility behavior while reorganizing shared code",
             "do not change service outputs without updating dependent stores and "
             "pages together",
         ),
-        test_focus="src/web/src/c-service/",
+        test_focus="src/web/src/lib/shifu/",
         skill_refs=(
             "src/web/skills/chat-element-streaming/SKILL.md",
             "src/web/skills/interaction-user-input-defaults/SKILL.md",
-        ),
-    ),
-    "c-store": FrontendDomainMeta(
-        summary=(
-            "legacy stores for course, system, environment, and UI layout state "
-            "used by the `c` experience"
-        ),
-        key_files=(
-            "useCourseStore.ts",
-            "useSystemStore.ts",
-            "useUiLayoutStore.ts",
-            "envStore.ts",
-        ),
-        invariants=(
-            "keep legacy store shape stable because `c` pages and services often "
-            "depend on selector names implicitly",
-            "preserve the relationship between layout constants, system flags, "
-            "and route behavior in the `c` experience",
-            "treat store updates as integration changes that may need coordinated "
-            "service, constant, and page updates",
-        ),
-        avoid_points=(
-            "do not rename store fields or actions without updating all selectors, "
-            "derived helpers, and consumers together",
-            "do not move long-lived legacy state into page-local state just "
-            "because a single page currently owns the change",
-            "do not duplicate layout-state calculations when shared constants and "
-            "store helpers already exist",
-        ),
-        test_focus="src/web/src/c-store/",
-        skill_refs=(
-            "src/web/skills/chat-layout-width-detection/SKILL.md",
-            "src/web/skills/hook-contract-refactor-safety/SKILL.md",
-        ),
-    ),
-    "c-types": FrontendDomainMeta(
-        summary=(
-            "legacy ambient declarations and compatibility types used across the "
-            "`c` experience"
-        ),
-        key_files=("index.ts", "store.ts", "sse.d.ts"),
-        invariants=(
-            "keep compatibility types aligned with the actual `c` stores, "
-            "services, and runtime payloads they describe",
-            "preserve narrow declaration files and augmentations so legacy type "
-            "support does not shadow modern package exports",
-            "treat this directory as a compatibility contract, not as a place to "
-            "mask runtime drift with broad casts",
-        ),
-        avoid_points=(
-            "do not add overly broad ambient declarations that hide real type "
-            "errors elsewhere in the `c` stack",
-            "do not rename exported legacy types without updating all stores and "
-            "service helpers in the same task",
-            "do not keep dead declarations after a migration; remove or relocate "
-            "them once the owning runtime code moves",
-        ),
-        test_focus="src/web/src/c-types/",
-        skill_refs=("src/web/skills/module-augmentation-guardrails/SKILL.md",),
-    ),
-    "c-utils": FrontendDomainMeta(
-        summary=(
-            "legacy utility helpers for URLs, interaction payloads, markdown, "
-            "audio, dates, and other shared `c`-experience transformations"
-        ),
-        key_files=(
-            "urlUtils.ts",
-            "interaction-user-input.ts",
-            "audio-utils.ts",
-            "lesson-feedback-interaction.ts",
-        ),
-        invariants=(
-            "keep shared parsing and serialization helpers centralized here so "
-            "legacy pages do not drift on the same payload rules",
-            "preserve interaction, lesson-feedback, and URL semantics because "
-            "multiple skills and UI paths rely on them indirectly",
-            "move repeated legacy transformation logic into this subtree instead "
-            "of copying it into services or pages",
-        ),
-        avoid_points=(
-            "do not reimplement user-input serialization or lesson feedback "
-            "parsing in multiple places when these helpers already exist",
-            "do not change URL or routing helper semantics without checking the "
-            "learner flow and deep-link behaviors together",
-            "do not add one-off utility files when an existing helper can absorb "
-            "the behavior more cleanly",
-        ),
-        test_focus="src/web/src/c-utils/",
-        skill_refs=(
-            "src/web/skills/deep-link-lessonid-routing/SKILL.md",
-            "src/web/skills/interaction-user-input-defaults/SKILL.md",
-            "src/web/skills/listen-mode-audio-streaming/SKILL.md",
         ),
     ),
 }
@@ -1759,7 +1603,7 @@ def build_documents() -> dict[Path, str]:
         ),
         ROOT / "src" / "web" / ".cursor" / "rules" / "web.mdc": render_cursor_rule(
             "Cursor Rule: Cook Web",
-            "Frontend-specific rules for Next.js, shared request code, and legacy c-* code",
+            "Frontend-specific rules for Next.js and shared learner and teacher modules",
             (
                 "Inspect the existing route, component, hook, store, and shared "
                 "lib path before changing frontend behavior.",
@@ -1808,8 +1652,8 @@ def build_documents() -> dict[Path, str]:
                 "their large background or card hit areas on the default "
                 "cursor so the whole page does not read as a button.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
-                "`route.ts`, and treat legacy `c-*` directories as active "
-                "compatibility surfaces until a planned migration removes them.",
+                "`route.ts`, and organize shared learner and teacher code by "
+                "responsibility under api, components, hooks, lib, store, and types.",
             ),
             always_apply=False,
         ),
@@ -1963,8 +1807,8 @@ def build_documents() -> dict[Path, str]:
                 "Use `docs/engineering-baseline.md` for frontend-wide engineering "
                 "conventions such as request flow, naming, i18n, and testing.",
                 "Extend `src/web/src/lib/request.ts`, "
-                "`src/web/src/lib/api.ts`, existing stores, hooks, and `c-*` "
-                "compatibility layers instead of creating parallel "
+                "`src/web/src/lib/api.ts`, existing stores, hooks, and shared "
+                "modules instead of creating parallel "
                 "implementations or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified business-code handling path.",
@@ -2005,8 +1849,8 @@ def build_documents() -> dict[Path, str]:
                 "their large background or card hit areas on the default "
                 "cursor so the whole page does not read as a button.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
-                "`route.ts`, and treat legacy `c-*` directories as active "
-                "compatibility surfaces until a deliberate migration removes them.",
+                "`route.ts`, and organize shared learner and teacher code by "
+                "responsibility under api, components, hooks, lib, store, and types.",
             ),
         ),
         ROOT

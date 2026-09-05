@@ -34,13 +34,13 @@ import {
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
-import { getResolvedBaseURL } from '@/c-utils/envUtils';
+import { getResolvedBaseURL } from '@/lib/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import {
   type AudioSegment,
   mergeAudioSegmentByUniqueKey,
   normalizeAudioSegmentPayload,
-} from '@/c-utils/audio-utils';
+} from '@/lib/audio-utils';
 import {
   Sheet,
   SheetContent,
@@ -83,10 +83,10 @@ import {
 import { useToast } from '@/hooks/useToast';
 
 import ModelList from '@/components/model-list';
-import { useEnvStore } from '@/c-store';
-import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import { useEnvStore } from '@/store';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import {
   AskProviderSchemaValidationError,
