@@ -1,6 +1,6 @@
 ---
 title: Model Gateway CLI Integration
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-05
 canonical: true
 ---
 
@@ -26,9 +26,10 @@ The CLI should implement these steps:
    expired.
 4. Save the approved token in the operating system credential store or an
    owner-only file outside the application package.
-5. Call `/api/gateway/account` and `/api/gateway/v1/models` with a Bearer token.
+5. Call `/api/gateway/account` with a Bearer token; include the approved client
+   ID when calling `/api/gateway/v1/models`.
 6. Send Chat Completions with a new `Idempotency-Key` for every logical model
-   request.
+   request and the same approved client ID.
 7. On HTTP 401, clear the token and restart authorization. On HTTP 402, show
    the returned billing URL instead of retrying the model call.
 
@@ -106,6 +107,47 @@ Authorization: Bearer <AI-Shifu-session-token>
 Do not send the token in the URL, JSON body, query string, logs, analytics, or
 error reports.
 
+## Client admission
+
+The deployment operator must explicitly allow each application client ID in
+the server environment, for example:
+
+```dotenv
+MODEL_GATEWAY_CLIENT_ALLOWLIST=ai-shifu-desktop,example-cli
+```
+
+The default is empty and denies all model-list and model-inference requests.
+Values are comma-separated, with surrounding whitespace removed. Matching is
+exact and case-sensitive; wildcards do not grant access. Restart the API
+processes after changing the environment (recreate containers if their
+environment changed).
+
+Both `GET /api/gateway/v1/models` and
+`POST /api/gateway/v1/chat/completions` require:
+
+```http
+X-AI-Shifu-Client-ID: example-cli
+```
+
+This header is required for JSON, SSE, and subsequent tool-result requests.
+Use it alongside the Bearer token, not instead of it. The ID identifies the
+application, not the signed-in user. A JSON `client_id` or query parameter is
+not a substitute. The gateway does not forward this header to LLM providers.
+Device authorization and `/api/gateway/account` do not require it.
+
+Missing or blank IDs return HTTP 400 `missing_client_id`; IDs outside the
+allowlist return HTTP 403 `client_not_allowed`. Rejection happens before model
+lookup, credit reservation, or provider invocation. Do not retry these failures
+automatically or restart user authorization on HTTP 403.
+
+This is a caller-declared admission filter, not proof of application identity:
+someone with a valid user token can copy an allowed ID. IDs are not secrets,
+and existing session tokens are not bound to a client ID. Stronger client
+authentication is outside this contract.
+
+Existing Desktop/CLI releases must add this header before using the updated
+model endpoints; configuring the server allowlist alone is insufficient.
+
 ## Read account and credits
 
 ```http
@@ -144,6 +186,7 @@ belong to model operations that have started but are not fully settled.
 GET /api/gateway/v1/models HTTP/1.1
 Host: app.ai-shifu.cn
 Authorization: Bearer <token>
+X-AI-Shifu-Client-ID: example-cli
 ```
 
 ```json
@@ -182,6 +225,7 @@ POST /api/gateway/v1/chat/completions HTTP/1.1
 Host: app.ai-shifu.cn
 Authorization: Bearer <token>
 Idempotency-Key: 019d2b28-73ca-7f91-bc62-1850d63ca101
+X-AI-Shifu-Client-ID: example-cli
 Content-Type: application/json
 
 {
@@ -211,6 +255,7 @@ POST /api/gateway/v1/chat/completions HTTP/1.1
 Host: app.ai-shifu.cn
 Authorization: Bearer <token>
 Idempotency-Key: 019d2b28-c3d3-7c65-a905-b32f8935cb18
+X-AI-Shifu-Client-ID: example-cli
 Content-Type: application/json
 
 {
@@ -284,6 +329,7 @@ Gateway errors use real HTTP statuses:
 | `400` | Show the safe message and let the user correct the model or payload. |
 | `401` | Delete the stored token and start device authorization again. |
 | `402` | Show available credits and open `billing_url` when requested. Do not retry automatically. |
+| `403` | The application client ID is not allowed. Check its header and ask the deployment operator to configure access; do not clear the user token. |
 | `409` | The idempotency key was already used. Do not generate a new key and silently repeat an uncertain request. |
 | `429` | Back off according to deployment policy. |
 | `502` or `503` | Report a transient model-service failure. Retry only with an explicit user action and a new logical request. |
@@ -319,6 +365,8 @@ error event followed by `[DONE]`.
 - Denied, expired, and already-consumed device codes stop safely.
 - Account balance is shown before the first paid model call.
 - The model selector is populated only from `/v1/models`.
+- Model-list and chat requests carry the approved `X-AI-Shifu-Client-ID`;
+  missing or unapproved IDs are rejected without credit or provider work.
 - Non-streaming text, streaming text, and streamed tool calls are parsed.
 - HTTP 402 exposes the billing action and causes no automatic retry.
 - Repeated `Idempotency-Key` values never create a second paid call.

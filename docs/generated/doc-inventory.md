@@ -19,7 +19,7 @@
 | `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-07-12` | `true` |
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-08-17` | `true` |
 | `docs/design-docs/minimax-voice-cloning.md` | MiniMax Voice Cloning | `design-doc` | `proposed` | `shared` | `2026-06-18` | `true` |
-| `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-01` | `true` |
+| `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-05` | `true` |
 | `docs/design-docs/primary-surface-rules.md` | Primary Surface Rules Completion | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |

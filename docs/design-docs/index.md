@@ -25,7 +25,7 @@ Implementation and architecture decisions that shape repository behavior live he
 - [MiniMax Voice Cloning](../design-docs/minimax-voice-cloning.md)
   - Status: `proposed` | Owner: `shared` | Last reviewed: `2026-06-18` | Canonical: `true`
 - [Official Client Model Gateway](../design-docs/official-client-model-gateway.md)
-  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-09-01` | Canonical: `true`
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-09-05` | Canonical: `true`
 - [Primary Surface Rules Completion](../design-docs/primary-surface-rules.md)
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [老带新邀请奖励](../design-docs/referral-invitation-rewards.md)

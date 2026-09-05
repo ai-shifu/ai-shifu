@@ -24,6 +24,7 @@ def gateway_route_app(monkeypatch: pytest.MonkeyPatch) -> Flask:
 
     app = Flask(__name__)
     app.testing = True
+    app.config["MODEL_GATEWAY_CLIENT_ALLOWLIST"] = ["ai-shifu-desktop", "example-cli"]
     monkeypatch.setattr(
         gateway,
         "validate_user",
@@ -60,7 +61,96 @@ def gateway_route_app(monkeypatch: pytest.MonkeyPatch) -> Flask:
 
 
 def _headers(**extra: str) -> dict[str, str]:
-    return {"Authorization": "Bearer valid-token", **extra}
+    return {
+        "Authorization": "Bearer valid-token",
+        "X-AI-Shifu-Client-ID": "ai-shifu-desktop",
+        **extra,
+    }
+
+
+@pytest.mark.parametrize("endpoint", ["models", "chat", "stream"])
+@pytest.mark.parametrize(
+    ("client_id", "allowlist", "status", "code"),
+    [
+        (None, ["ai-shifu-desktop"], 400, "missing_client_id"),
+        ("  ", ["ai-shifu-desktop"], 400, "missing_client_id"),
+        ("unknown", ["ai-shifu-desktop"], 403, "client_not_allowed"),
+        ("AI-Shifu-Desktop", ["ai-shifu-desktop"], 403, "client_not_allowed"),
+        ("ai-shifu", ["ai-shifu-desktop"], 403, "client_not_allowed"),
+        ("ai-shifu-desktop,unknown", ["ai-shifu-desktop"], 403, "client_not_allowed"),
+        ("ai-shifu-desktop", ["*"], 403, "client_not_allowed"),
+        ("ai-shifu-desktop", [], 403, "client_not_allowed"),
+        ("ai-shifu-desktop", None, 403, "client_not_allowed"),
+    ],
+)
+def test_gateway_rejects_client_before_model_or_credit_work(
+    gateway_route_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    client_id: str | None,
+    allowlist: list[str] | None,
+    status: int,
+    code: str,
+) -> None:
+    import flaskr.route.model_gateway as gateway
+
+    if allowlist is None:
+        gateway_route_app.config.pop("MODEL_GATEWAY_CLIENT_ALLOWLIST")
+    else:
+        gateway_route_app.config["MODEL_GATEWAY_CLIENT_ALLOWLIST"] = allowlist
+
+    def unexpected_work(*_args: object, **_kwargs: object) -> None:
+        pytest.fail(
+            "Rejected clients must not read models, reserve credits, or call LLMs"
+        )
+
+    for name in (
+        "_gateway_models",
+        "prepare_gateway_chat_request",
+        "complete_gateway_chat_request",
+        "stream_gateway_chat_request",
+    ):
+        monkeypatch.setattr(gateway, name, unexpected_work)
+
+    headers = {"Authorization": "Bearer valid-token"}
+    if client_id is not None:
+        headers["X-AI-Shifu-Client-ID"] = client_id
+    client = gateway_route_app.test_client()
+    if endpoint == "models":
+        response = client.get("/api/gateway/v1/models", headers=headers)
+    else:
+        response = client.post(
+            "/api/gateway/v1/chat/completions",
+            headers=headers,
+            json={
+                "model": "ai-shifu-default",
+                "client_id": "ai-shifu-desktop",
+                "messages": [{"role": "user", "content": "hello"}],
+                "stream": endpoint == "stream",
+            },
+        )
+
+    assert response.status_code == status
+    assert response.get_json()["error"]["code"] == code
+
+
+def test_gateway_account_does_not_require_client_id(gateway_route_app: Flask) -> None:
+    gateway_route_app.config["MODEL_GATEWAY_CLIENT_ALLOWLIST"] = []
+    response = gateway_route_app.test_client().get(
+        "/api/gateway/account", headers={"Authorization": "Bearer valid-token"}
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("client_id", ["ai-shifu-desktop", "example-cli"])
+def test_gateway_accepts_each_allowlisted_client(
+    gateway_route_app: Flask, client_id: str
+) -> None:
+    response = gateway_route_app.test_client().get(
+        "/api/gateway/v1/models",
+        headers=_headers(**{"X-AI-Shifu-Client-ID": client_id}),
+    )
+    assert response.status_code == 200
 
 
 def test_gateway_account_and_models_contracts(gateway_route_app: Flask) -> None:

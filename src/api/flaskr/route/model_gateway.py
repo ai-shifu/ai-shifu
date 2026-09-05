@@ -57,6 +57,22 @@ def _gateway_user(app: Flask) -> UserInfo:
         ) from error
 
 
+def _validate_gateway_client(app: Flask) -> None:
+    """Require an explicitly admitted client ID before model or credit work."""
+    client_id = request.headers.get("X-AI-Shifu-Client-ID", "").strip()
+    if not client_id:
+        raise GatewayRequestError(
+            400, "missing_client_id", "X-AI-Shifu-Client-ID header is required"
+        )
+    allowed_clients = app.config.get("MODEL_GATEWAY_CLIENT_ALLOWLIST", [])
+    if not isinstance(allowed_clients, list) or client_id not in allowed_clients:
+        raise GatewayRequestError(
+            403,
+            "client_not_allowed",
+            "The client is not allowed to access gateway models",
+        )
+
+
 def _account_payload(app: Flask, user: UserInfo) -> dict[str, object]:
     with app.app_context():
         wallet = (
@@ -189,6 +205,7 @@ def register_model_gateway_handler(
         """Return models with complete active AI-Shifu credit rates."""
         try:
             _gateway_user(app)
+            _validate_gateway_client(app)
             return jsonify({"object": "list", "data": _gateway_models(app)})
         except GatewayRequestError as error:
             return _error_response(error)
@@ -199,6 +216,7 @@ def register_model_gateway_handler(
         """Run one strictly metered OpenAI-compatible chat completion."""
         try:
             user = _gateway_user(app)
+            _validate_gateway_client(app)
             raw_payload = request.get_json(silent=True)
             payload = raw_payload if isinstance(raw_payload, dict) else {}
             payload = _resolve_model_alias(app, payload)

@@ -2,7 +2,7 @@
 title: Official Client Model Gateway
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-05
 canonical: true
 ---
 
@@ -24,8 +24,8 @@ developer platform.
 ## Goals
 
 - Let an official client sign in through the existing browser device flow.
-- Let any signed-in user with an existing credit wallet call rated AI-Shifu
-  models, whether or not the user is marked as a teacher.
+- Let signed-in users of allowlisted clients with an existing credit wallet
+  call rated AI-Shifu models, whether or not the user is marked as a teacher.
 - Expose OpenAI-compatible model listing and Chat Completions contracts.
 - Reserve credits before provider work, capture actual rated usage, and release
   the unused reservation in the same transaction.
@@ -52,8 +52,14 @@ developer platform.
 | `GET` | `/api/gateway/v1/models` | OpenAI-compatible model list. |
 | `POST` | `/api/gateway/v1/chat/completions` | OpenAI-compatible JSON or SSE response. |
 
-Gateway routes accept only `Authorization: Bearer <token>`. Existing Cook Web
+Gateway user authentication accepts only `Authorization: Bearer <token>`. Existing Cook Web
 and Course CLI routes keep their current cookie and `Token` header behavior.
+
+Model listing and Chat Completions additionally require
+`X-AI-Shifu-Client-ID`, checked against the comma-separated environment setting
+`MODEL_GATEWAY_CLIENT_ALLOWLIST`. The default empty list denies every client.
+IDs match exactly and case-sensitively, with no wildcard matching. Device
+authorization and the account endpoint keep their existing behavior.
 
 Chat requests require `Idempotency-Key`. The key is used as the existing
 operation identifier, so the ledger's current `(creator_bid, idempotency_key)`
@@ -75,7 +81,8 @@ sequenceDiagram
     Browser->>API: Approve with existing web session
     Client->>API: Poll device token
     API-->>Client: AI-Shifu session token
-    Client->>API: Chat Completions with Bearer token
+    Client->>API: Chat Completions with Bearer token and client ID
+    API->>API: Check client allowlist
     API->>Wallet: Reserve maximum rated credits
     API->>LLM: Invoke allowlisted model
     LLM-->>API: Completion and usage
@@ -90,6 +97,13 @@ The gateway parses the Bearer header itself and calls the existing
 extractor only because that extractor does not read the standard Authorization
 header. Token validation, sliding expiry, user lookup, and session revocation
 remain owned by the existing user service.
+
+After user authentication, model endpoints check the client ID before model
+lookup, credit reservation, or provider invocation. The ID is supplied only in
+the request header and is not forwarded to model providers. This admission
+filter does not authenticate the application: allowed IDs can be copied by
+other holders of valid user tokens, and tokens are not bound to client IDs.
+No shared client secret or client-registration table is introduced.
 
 The account and inference paths do not check `is_creator`. They query the
 existing wallet with `CreditWallet.creator_bid == user.user_id`. A missing
@@ -139,8 +153,10 @@ independent from the legacy HTTP-200 business error envelope.
 | Status | Code | Meaning |
 | --- | --- | --- |
 | `400` | `invalid_request` or a field-specific code | Invalid payload or unavailable model. |
+| `400` | `missing_client_id` | Missing or blank client ID header on a model endpoint. |
 | `401` | `invalid_token` | Missing, invalid, expired, or revoked token. |
 | `402` | `insufficient_credits` | Wallet missing or insufficient; includes `billing_url`. |
+| `403` | `client_not_allowed` | Client ID is not explicitly allowlisted; no model or credit work is performed. |
 | `409` | `idempotency_conflict` | The key has already been used. |
 | `502` | `provider_error` | Provider invocation failed; internal details are suppressed. |
 
@@ -160,6 +176,9 @@ scopes, dedicated access and refresh tokens, and standard OAuth/OIDC metadata.
 
 - Route tests cover Bearer authentication, account/model shapes, JSON and SSE
   chat responses, and HTTP 402 mapping.
+- Client admission tests cover missing and blank IDs, unknown and partially
+  matching IDs, case sensitivity, empty configuration, and rejection before
+  model lookup or credit work for JSON and SSE requests.
 - Runtime tests cover validation, conservative reservation, idempotency
   conflict, provider-failure release, and tool-call output detection.
 - Billing tests cover complete LLM rates, metered capture, and atomic partial
