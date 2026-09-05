@@ -18,8 +18,9 @@ by `python scripts/check_architecture_boundaries.py`.
 - New imports from one top-level route scope into another top-level route scope
   are disallowed.
 - Shared code should live under `src/components/`, `src/hooks/`, `src/store/`,
-  `src/lib/`, `src/config/`, `src/types/`, `src/api/`, or maintained `c-*`
-  compatibility layers instead of inside route directories.
+  `src/lib/`, `src/config/`, `src/types/`, `src/api/`, or `src/constants/`
+  instead of inside route directories. Learner and teacher routes share these
+  modules.
 
 ### Components must not depend on route internals
 

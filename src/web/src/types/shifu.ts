@@ -1,5 +1,5 @@
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
-import type { LearningPermission } from '@/c-api/studyV2';
+import type { LearningPermission } from '@/api/studyV2';
 
 export type BlockType =
   | 'content'

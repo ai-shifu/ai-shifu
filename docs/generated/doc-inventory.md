@@ -85,6 +85,7 @@
 | `docs/exec-plans/completed/umami-contract-remediation.md` | Remediate Cook Web Umami contracts | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/umami-scope-correction.md` | Correct the Umami remediation scope | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/unified-learner-profile-dialog.md` | Unified Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/unify-frontend-directories.md` | Unify Frontend Source Directories | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/tech-debt-tracker.md` | Tech Debt Tracker | `exec-plan-support` | `active` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-gardening-summary.md` | Harness Gardening Summary | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-health.md` | Harness Health | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/Label';
 import { useTranslation } from 'react-i18next';
 import { Mail, ExternalLink } from 'lucide-react';
 
-import type { UserInfo } from '@/c-types';
+import type { UserInfo } from '@/types';
 
 interface EmailLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;

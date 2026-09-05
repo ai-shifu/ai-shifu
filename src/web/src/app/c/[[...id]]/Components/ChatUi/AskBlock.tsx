@@ -6,31 +6,27 @@ import React, {
   useEffect,
 } from 'react';
 import { cn } from '@/lib/utils';
-import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
-import {
-  getRunMessage,
-  SSE_INPUT_TYPE,
-  SSE_OUTPUT_TYPE,
-} from '@/c-api/studyV2';
-import { fixMarkdownStream } from '@/c-utils/markdownUtils';
+import { getRunMessage, SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/api/studyV2';
+import { fixMarkdownStream } from '@/lib/markdownUtils';
 import LoadingBar from './LoadingBar';
 import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
 import styles from './AskBlock.module.scss';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
-import { BLOCK_TYPE } from '@/c-api/studyV2';
+import { BLOCK_TYPE } from '@/api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import {
   EMPTY_ASK_MESSAGE_LIST,
   normalizeAskMessageList,
   type AskMessage,
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
-import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import {
   AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
@@ -43,7 +39,7 @@ import {
   resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 export type { AskMessage } from './askState';
 
 type FollowUpSubmissionMethod = 'button' | 'keyboard';

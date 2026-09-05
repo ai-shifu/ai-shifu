@@ -1,5 +1,5 @@
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
-import { stripCustomButtonAfterContent } from '@/c-utils/customButtonAfterContent';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
+import { stripCustomButtonAfterContent } from '@/lib/customButtonAfterContent';
 
 export interface PreviewTypewriterCacheEntry {
   content: string;

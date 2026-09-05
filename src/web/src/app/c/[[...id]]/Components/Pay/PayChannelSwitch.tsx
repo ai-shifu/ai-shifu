@@ -8,10 +8,10 @@ import Image, { type StaticImageData } from 'next/image';
 
 import { PAY_CHANNEL_WECHAT, PAY_CHANNEL_ZHIFUBAO } from './constans';
 
-import payZhifubo0 from '@/c-assets/newchat/pay-zhifubao-0-2x.png';
-import payZhifubo1 from '@/c-assets/newchat/pay-zhifubao-1-2x.png';
-import payWechat0 from '@/c-assets/newchat/pay-wechat-0-2x.png';
-import payWechat1 from '@/c-assets/newchat/pay-wechat-1-2x.png';
+import payZhifubo0 from '@/assets/newchat/pay-zhifubao-0-2x.png';
+import payZhifubo1 from '@/assets/newchat/pay-zhifubao-1-2x.png';
+import payWechat0 from '@/assets/newchat/pay-wechat-0-2x.png';
+import payWechat1 from '@/assets/newchat/pay-wechat-1-2x.png';
 
 interface PayChannelSwitchItemProps {
   channel: string;

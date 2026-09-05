@@ -1,7 +1,7 @@
 import { useUserStore } from '@/store';
-import { getStringEnv } from '@/c-utils/envUtils';
+import { getStringEnv } from '@/lib/envUtils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
-import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
 import { toast } from '@/hooks/useToast';
 import i18n from 'i18next';
 import {

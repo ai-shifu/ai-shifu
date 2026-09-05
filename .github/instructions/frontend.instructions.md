@@ -13,7 +13,7 @@ applyTo: "src/web/**/*.ts,src/web/**/*.tsx,src/web/**/*.js,src/web/**/*.jsx,src/
   such as request flow, naming, i18n, and testing.
 
 - Extend `src/web/src/lib/request.ts`, `src/web/src/lib/api.ts`, existing
-  stores, hooks, and `c-*` compatibility layers instead of creating parallel
+  stores, hooks, and shared modules instead of creating parallel
   implementations or ad-hoc component fetch logic.
 
 - Keep user-facing strings in shared i18n JSON under `src/i18n/` and preserve
@@ -55,5 +55,5 @@ applyTo: "src/web/**/*.ts,src/web/**/*.tsx,src/web/**/*.js,src/web/**/*.jsx,src/
   the default cursor so the whole page does not read as a button.
 
 - Keep route-entry behavior in `page.tsx`, `layout.tsx`, and `route.ts`, and
-  treat legacy `c-*` directories as active compatibility surfaces until a
-  deliberate migration removes them.
+  organize shared learner and teacher code by responsibility under api,
+  components, hooks, lib, store, and types.

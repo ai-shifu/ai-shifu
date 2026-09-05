@@ -52,6 +52,8 @@ jest.mock('next/image', () => ({
 jest.mock('@/store', () => ({
   useUserStore: (selector: (state: typeof mockUserState) => unknown) =>
     selector(mockUserState),
+  useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
+    selector(mockEnvState),
 }));
 
 const mockEnvState = {
@@ -60,11 +62,6 @@ const mockEnvState = {
   defaultLoginMethod: 'phone',
   runtimeConfigLoaded: true,
 };
-
-jest.mock('@/c-store', () => ({
-  useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
-    selector(mockEnvState),
-}));
 
 jest.mock('@/config/environment', () => ({
   environment: {

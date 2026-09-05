@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useTranslation } from 'react-i18next';
-import googleLogo from '@/c-assets/icons/google-logo.png';
+import googleLogo from '@/assets/icons/google-logo.png';
 
 interface GoogleLoginButtonProps {
   onClick: () => void | Promise<void>;

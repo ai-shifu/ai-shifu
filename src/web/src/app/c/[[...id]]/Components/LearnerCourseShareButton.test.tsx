@@ -1,10 +1,10 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react';
 
-import { useCourseStore } from '@/c-store/useCourseStore';
-import { useEnvStore } from '@/c-store/envStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
-import { buildCoursePageUrl } from '@/c-utils/urlUtils';
+import { useCourseStore } from '@/store/useCourseStore';
+import { useEnvStore } from '@/store/envStore';
+import { useSystemStore } from '@/store/useSystemStore';
+import { buildCoursePageUrl } from '@/lib/urlUtils';
 import LearnerCourseShareButton from './LearnerCourseShareButton';
 
 let mockRouteParams: { id?: string[] } = { id: ['course-1'] };
@@ -31,7 +31,7 @@ jest.mock('sse.js', () => ({
   SSE: jest.fn(),
 }));
 
-jest.mock('@/c-api/lesson', () => ({
+jest.mock('@/api/lesson', () => ({
   resetChapter: jest.fn(),
 }));
 
@@ -53,7 +53,7 @@ jest.mock('next/navigation', () => ({
   useParams: () => mockRouteParams,
 }));
 
-jest.mock('@/c-utils/urlUtils', () => ({
+jest.mock('@/lib/urlUtils', () => ({
   buildCoursePageUrl: jest.fn(),
 }));
 

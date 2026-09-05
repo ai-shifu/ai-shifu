@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { LoaderIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
-import { getPaymentAgreementUrl } from '@/c-utils/urlUtils';
+import { getPaymentAgreementUrl } from '@/lib/urlUtils';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
 import {
