@@ -157,6 +157,10 @@ export default function AskBlock({
   const expandedRef = useRef(expanded);
   const previousExpandedRef = useRef(expanded);
   useEffect(() => {
+    if (isLive && expanded && !printMode && !readonlyHistory)
+      liveRef.current?.prepare();
+  }, [isLive, expanded, printMode, readonlyHistory, outline_bid, element_bid]);
+  useEffect(() => {
     if (!isLive || !expanded) return;
     return () => {
       const controller = liveRef.current;
@@ -883,6 +887,14 @@ export default function AskBlock({
           dir={isRtlLocale(markdownFlowLocale) ? 'rtl' : 'ltr'}
         >
           <MarkdownFlowInput
+            disabled={
+              isLive &&
+              liveVoice?.readiness !== 'ready' &&
+              !(
+                liveVoice?.anchorElementBid === element_bid &&
+                liveVoice.state !== 'ended'
+              )
+            }
             locale={markdownFlowLocale}
             placeholder={t('module.chat.askContent')}
             value={inputValue}

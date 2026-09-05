@@ -48,6 +48,7 @@ from flaskr.service.learn.live_follow_up_admission import (
     current_admission,
     fail_admission,
     legacy_request_bid,
+    live_follow_up_readiness,
     request_timestamp_ms,
     retire_admission,
     retirement_receipt,
@@ -606,6 +607,15 @@ def register_live_follow_up_routes(
     path_prefix: str = "/api/learn",
 ) -> None:
     """Register the direct Live session, heartbeat, turn, and end endpoints."""
+    # Start recovery during process initialization, never on the first learner
+    # click. This is bounded/best-effort; ordinary HTTP must remain available.
+    live_follow_up_readiness(app)
+
+    @app.route(path_prefix + "/live-follow-up/readiness", methods=["GET"])
+    def live_follow_up_readiness_api() -> Response:
+        return _make_live_response(
+            live_follow_up_readiness(app, enabled=is_gemini_live_enabled())
+        )
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/live-follow-up/<outline_bid>/session",

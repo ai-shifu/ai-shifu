@@ -61,12 +61,14 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     </div>
   ),
   MarkdownFlowInput: ({
+    disabled,
     value,
     onChange,
     onSend,
     sendShortcut,
     textareaClassName,
   }: {
+    disabled?: boolean;
     value: string;
     onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onSend: () => void;
@@ -78,6 +80,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
       data-send-shortcut={sendShortcut}
     >
       <textarea
+        disabled={disabled}
         aria-label='ask-input'
         className={textareaClassName}
         value={value}
@@ -210,6 +213,64 @@ class MockRunSource {
 }
 
 describe('AskBlock', () => {
+  it('disables unready Live input while retaining its draft and history', () => {
+    const controller = mockLiveVoiceController();
+    const props = {
+      shifu_bid: 'course-1',
+      outline_bid: 'lesson-1',
+      element_bid: 'element-1',
+      isExpanded: true,
+      followUpMode: 'live_voice' as const,
+    };
+    const { rerender } = render(
+      <AskBlock
+        {...props}
+        liveVoice={controller}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Keep my draft' },
+    });
+    rerender(
+      <AskBlock
+        {...props}
+        liveVoice={{ ...controller, readiness: 'warming' }}
+      />,
+    );
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('textbox')).toHaveValue('Keep my draft');
+    expect(controller.sendText).not.toHaveBeenCalled();
+    rerender(
+      <AskBlock
+        {...props}
+        liveVoice={controller}
+      />,
+    );
+    expect(screen.getByRole('textbox')).toBeEnabled();
+    expect(screen.getByRole('textbox')).toHaveValue('Keep my draft');
+  });
+
+  it.each([
+    { followUpMode: 'text' as const },
+    { followUpMode: 'live_voice' as const, readonlyHistory: true },
+    { followUpMode: 'live_voice' as const, printMode: true },
+  ])(
+    'does not probe ordinary or readonly follow-up surfaces (%j)',
+    overrides => {
+      const controller = mockLiveVoiceController();
+      render(
+        <AskBlock
+          shifu_bid='course-1'
+          outline_bid='lesson-1'
+          element_bid='element-1'
+          isExpanded
+          liveVoice={controller}
+          {...overrides}
+        />,
+      );
+      expect(controller.prepare).not.toHaveBeenCalled();
+    },
+  );
   it('mirrors the in-input microphone with the existing Send action in RTL', () => {
     mockLanguage = 'ar-SA';
     render(
@@ -269,6 +330,7 @@ describe('AskBlock', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(liveVoice.start).not.toHaveBeenCalled();
       expect(liveVoice.startMicrophone).not.toHaveBeenCalled();
+      expect(liveVoice.prepare).toHaveBeenCalledTimes(1);
       const composer = screen.getByTestId('ask-input-wrapper').parentElement;
       expect(composer).toHaveClass('liveInput');
       expect(composer).toContainElement(

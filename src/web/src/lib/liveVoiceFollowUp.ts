@@ -7,6 +7,18 @@ export const LIVE_FOLLOW_UP_AUDIO_WORKLET_PATH =
 export const GEMINI_LIVE_INPUT_MIME_TYPE = 'audio/pcm;rate=16000' as const;
 export const LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE = 4018;
 
+export type LiveFollowUpReadiness = {
+  status: 'ready' | 'warming' | 'unavailable' | 'disabled';
+  retry_after_ms?: number;
+};
+
+export const getLiveFollowUpReadiness = (signal: AbortSignal) =>
+  request.get('/api/learn/live-follow-up/readiness', {
+    signal,
+    skipErrorToast: true,
+    credentials: 'include',
+  }) as Promise<LiveFollowUpReadiness>;
+
 const GEMINI_LIVE_WEBSOCKET_ORIGIN =
   'wss://generativelanguage.googleapis.com' as const;
 const GEMINI_LIVE_CONSTRAINED_PATH =

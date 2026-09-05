@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import secrets
 import uuid
 from dataclasses import asdict, dataclass
@@ -17,6 +18,9 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from flaskr.util.datetime import to_utc_iso
+from redis import ConnectionPool, Redis
+from redis.backoff import NoBackoff
+from redis.retry import Retry
 
 from .live_follow_up_capacity import (
     LiveFollowUpCapacityLease,
@@ -34,7 +38,21 @@ _ERROR_UNAVAILABLE = "admission_unavailable"
 
 # INFO and TIME are evaluated inside the same transaction as reservations. A
 # preflight outside Lua would leave a restart/restore race before admission.
-_ADMISSION_SCRIPT = r"""
+_RECOVERY_GUARD = r"""
+local server = redis.call('INFO', 'server')
+local memory = redis.call('INFO', 'memory')
+local generation = string.match(server, 'run_id:([^\r\n]+)')
+local policy = string.match(memory, 'maxmemory_policy:([^\r\n]+)')
+if not generation or policy ~= 'noeviction' then return rejected('admission_unavailable') end
+local marker = read(accounting_key)
+if not marker or marker.generation ~= generation then
+    marker = {generation=generation, safe_after_ms=now + 900000}
+    redis.call('SET', accounting_key, cjson.encode(marker))
+end
+if marker.safe_after_ms > now then return rejected('admission_unavailable', marker.safe_after_ms-now) end
+"""
+
+_SCRIPT_HELPERS = r"""
 local args = cjson.decode(ARGV[1])
 local clock = redis.call('TIME')
 local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
@@ -55,6 +73,18 @@ local function rejected(code, delay)
     if delay and delay > 0 then value.retry_after_ms = math.ceil(delay) end
     return cjson.encode(value)
 end
+"""
+
+_READINESS_SCRIPT = (
+    _SCRIPT_HELPERS
+    + "local accounting_key = KEYS[1]\n"
+    + _RECOVERY_GUARD
+    + "return cjson.encode({ready=true})"
+)
+
+_ADMISSION_SCRIPT = (
+    _SCRIPT_HELPERS
+    + r"""
 local function owner_matches(head, op)
     return head and head.session_bid == op.session_bid
         and head.admission_revision == op.admission_revision
@@ -157,17 +187,10 @@ if args.request_time_ms < now - 120000 or args.request_time_ms > now + 30000 the
     return rejected('stale_request')
 end
 
-local server = redis.call('INFO', 'server')
-local memory = redis.call('INFO', 'memory')
-local generation = string.match(server, 'run_id:([^\r\n]+)')
-local policy = string.match(memory, 'maxmemory_policy:([^\r\n]+)')
-if not generation or policy ~= 'noeviction' then return rejected('admission_unavailable') end
-local marker = read(KEYS[8])
-if not marker or marker.generation ~= generation then
-    marker = {generation=generation, safe_after_ms=now + 900000}
-    redis.call('SET', KEYS[8], cjson.encode(marker))
-end
-if marker.safe_after_ms > now then return rejected('admission_unavailable', marker.safe_after_ms-now) end
+local accounting_key = KEYS[8]
+"""
+    + _RECOVERY_GUARD
+    + r"""
 
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now/1000)
 redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now/1000)
@@ -236,6 +259,7 @@ result.issued_at_ms = now
 result.deadline_ms = op.deadline_ms
 return cjson.encode(result)
 """
+)
 
 
 @dataclass(frozen=True)
@@ -347,6 +371,55 @@ def admission_time() -> float:
         return int(seconds) + int(micros) / 1_000_000
     except Exception as exc:
         raise LiveFollowUpCapacityUnavailableError(_ERROR_UNAVAILABLE) from exc
+
+
+def live_follow_up_readiness(
+    app: Flask, *, enabled: bool | None = None
+) -> dict[str, object]:
+    """Initialize/check shared recovery without allocating any credential risk.
+
+    Every worker and readiness probe sees the same Redis-clock deadline. Never
+    shorten it or make ordinary HTTP health depend on this optional feature.
+    """
+    if enabled is None:
+        enabled = str(app.config.get("GEMINI_LIVE_ENABLED", False)).lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    if not enabled:
+        return {"status": "disabled"}
+    try:
+        source = _require_redis().connection_pool
+        # Do not inherit the ordinary client's unlimited socket wait at startup.
+        pool = ConnectionPool(
+            connection_class=source.connection_class,
+            **{
+                **source.connection_kwargs,
+                "socket_connect_timeout": 1,
+                "socket_timeout": 1,
+                "retry": Retry(NoBackoff(), 0),
+                "retry_on_error": [],
+            },
+        )
+        try:
+            result = json.loads(
+                Redis(connection_pool=pool).eval(
+                    _READINESS_SCRIPT, 1, f"{_key_prefix(app)}:v2:accounting", "{}"
+                )
+            )
+        finally:
+            pool.disconnect()
+        if result.get("ready") is True:
+            return {"status": "ready"}
+        delay = result.get("retry_after_ms")
+        if isinstance(delay, (int, float)) and delay > 0:
+            return {"status": "warming", "retry_after_ms": min(math.ceil(delay), 30000)}
+    except Exception:
+        # Do not expose Redis details or prevent normal HTTP startup.
+        return {"status": "unavailable", "retry_after_ms": 30000}
+    return {"status": "unavailable", "retry_after_ms": 30000}
 
 
 def request_timestamp_ms(request_bid: str) -> int:

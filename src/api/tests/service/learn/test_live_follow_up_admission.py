@@ -145,6 +145,94 @@ def test_real_redis_restart_changes_instance_generation(
     assert real_redis.client.info("server")["run_id"] != original
 
 
+def test_startup_readiness_initializes_once_without_reserving_credentials(
+    admission_app: Flask,
+    real_redis: RedisHarness,
+) -> None:
+    admission_app.config["GEMINI_LIVE_ENABLED"] = True
+    client = real_redis.client
+    first = admission.live_follow_up_readiness(admission_app)
+    assert first == {"status": "warming", "retry_after_ms": 30000}
+    keys = client.keys("*")
+    assert len(keys) == 1
+    marker = client.get(keys[0])
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(
+            executor.map(
+                lambda _: admission.live_follow_up_readiness(admission_app), range(12)
+            )
+        )
+    assert all(value == first for value in results)
+    assert client.get(keys[0]) == marker
+    assert client.keys("*") == keys
+    # Simulate elapsed Redis time without sleeping through the recovery window.
+    value = json.loads(marker)
+    value["safe_after_ms"] = _now_ms(client) - 1
+    client.set(keys[0], json.dumps(value))
+    assert admission.live_follow_up_readiness(admission_app) == {"status": "ready"}
+    assert _begin(admission_app, _request(client)).lease is not None
+
+
+def test_readiness_fails_closed_on_unsafe_policy_or_restart(
+    admission_app: Flask,
+    real_redis: RedisHarness,
+) -> None:
+    admission_app.config["GEMINI_LIVE_ENABLED"] = True
+    client = real_redis.client
+    client.config_set("maxmemory-policy", "allkeys-lru")
+    assert admission.live_follow_up_readiness(admission_app)["status"] == "unavailable"
+    assert client.dbsize() == 0
+    client.config_set("maxmemory-policy", "noeviction")
+    assert admission.live_follow_up_readiness(admission_app)["status"] == "warming"
+    key = client.keys("*")[0]
+    marker = json.loads(client.get(key))
+    marker["safe_after_ms"] = 0
+    client.set(key, json.dumps(marker))
+    real_redis.stop()
+    real_redis.start()
+    client.set(key, json.dumps(marker))
+    assert admission.live_follow_up_readiness(admission_app)["status"] == "warming"
+    assert json.loads(client.get(key))["generation"] != marker["generation"]
+
+
+def test_disabled_or_missing_redis_does_not_block_startup(
+    admission_app: Flask,
+    real_redis: RedisHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert admission.live_follow_up_readiness(admission_app) == {"status": "disabled"}
+    assert real_redis.client.dbsize() == 0
+    admission_app.config["GEMINI_LIVE_ENABLED"] = True
+    monkeypatch.setattr(dao._redis_state, "client", None)
+    assert admission.live_follow_up_readiness(admission_app) == {
+        "status": "unavailable",
+        "retry_after_ms": 30000,
+    }
+
+
+def test_readiness_uses_bounded_isolated_socket_timeouts(
+    admission_app: Flask,
+    real_redis: RedisHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pool_class = admission.ConnectionPool
+    created = []
+
+    def pool(**kwargs: object) -> object:
+        created.append(kwargs)
+        return pool_class(**kwargs)
+
+    monkeypatch.setattr(admission, "ConnectionPool", pool)
+    assert (
+        admission.live_follow_up_readiness(admission_app, enabled=True)["status"]
+        == "warming"
+    )
+    assert created[0]["socket_connect_timeout"] == 1
+    assert created[0]["socket_timeout"] == 1
+    assert created[0]["retry_on_error"] == []
+    assert real_redis.client.connection_pool.connection_kwargs["socket_timeout"] == 2
+
+
 def _now_ms(client: Redis) -> int:
     seconds, micros = client.time()
     return seconds * 1000 + micros // 1000

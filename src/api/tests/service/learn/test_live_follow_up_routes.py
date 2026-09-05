@@ -121,6 +121,24 @@ def _route_app(monkeypatch: pytest.MonkeyPatch, *, enabled: bool = True) -> Flas
     return app
 
 
+def test_register_warms_guard_and_probe_returns_only_readiness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def readiness(app: Flask, *, enabled: bool | None = None) -> dict[str, object]:
+        calls.append((app, enabled))
+        return {"status": "warming", "retry_after_ms": 30000}
+
+    monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)
+    app = _route_app(monkeypatch)
+    assert calls == [(app, None)]
+    response = app.test_client().get("/api/learn/live-follow-up/readiness")
+    assert response.status_code == 200
+    assert response.get_json()["data"] == {"status": "warming", "retry_after_ms": 30000}
+    assert calls == [(app, None), (app, True)]
+
+
 def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(routes, "is_gemini_live_rotation_enabled", lambda: False)
     monkeypatch.setattr(

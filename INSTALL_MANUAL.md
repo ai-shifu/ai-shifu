@@ -106,6 +106,25 @@ then set:
 GEMINI_LIVE_ENABLED=true
 ```
 
+Live readiness is separate from ordinary HTTP health. On startup, every
+enabled API worker initializes the shared Redis recovery guard without minting
+a credential. Redis must use `noeviction`. A missing accounting marker or a
+changed Redis run ID starts the full shared 15-minute safety window; repeated
+worker starts and probes do not reset or shorten it. Do not delete accounting
+records to bypass this window.
+
+Before announcing Live availability, query
+`GET /api/learn/live-follow-up/readiness` through the normal authenticated API
+transport and require `data.status == "ready"`. Other bounded statuses are
+`warming`, `unavailable`, and `disabled`; `retry_after_ms` is a suggested probe
+interval, not a credential expiry. The probe allocates no user/session capacity
+and returns no credentials or Redis identifiers. Startup probing uses bounded
+Redis socket waits; a Live outage must not fail ordinary `/health` or text
+follow-ups. The original follow-up panel also probes before enabling new Live
+input and refreshes while unavailable, without automatically connecting,
+requesting microphone permission, or exposing an internal countdown. Mint-time
+admission still enforces the same guard atomically after readiness succeeds.
+
 The API mints a one-use, short-lived Gemini credential constrained to the
 selected model, voice, and server-built prompt. The browser then opens the
 Gemini Live WebSocket directly, so the AI-Shifu ingress does not need a
