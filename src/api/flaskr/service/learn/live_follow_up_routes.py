@@ -609,7 +609,11 @@ def register_live_follow_up_routes(
     """Register the direct Live session, heartbeat, turn, and end endpoints."""
     # Start recovery during process initialization, never on the first learner
     # click. This is bounded/best-effort; ordinary HTTP must remain available.
-    live_follow_up_readiness(app)
+    try:
+        with app.app_context():
+            live_follow_up_readiness(app, enabled=is_gemini_live_enabled())
+    except Exception:
+        app.logger.warning("Live follow-up startup readiness unavailable")
 
     @app.route(path_prefix + "/live-follow-up/readiness", methods=["GET"])
     def live_follow_up_readiness_api() -> Response:

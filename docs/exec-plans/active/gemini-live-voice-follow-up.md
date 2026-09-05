@@ -53,6 +53,10 @@ auditing, or another correctness-sensitive decision.
   deployment-contract tests passed (265, including real Redis); types/lint
   and full pre-commit passed. No environment changes, deployment, microphone
   capture or live-provider traffic were performed for this revision.
+- [x] 2026-09-06: Review follow-up aligns startup with the effective
+  DB-aware Live flag inside a Flask application context, not just the raw
+  environment/default value. Regression tests cover both override directions
+  and configuration failure without blocking HTTP route registration.
 
 - [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
   Live controls, RTL regression coverage, cached keepalive transport, and

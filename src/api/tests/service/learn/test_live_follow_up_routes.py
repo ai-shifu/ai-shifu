@@ -132,11 +132,57 @@ def test_register_warms_guard_and_probe_returns_only_readiness(
 
     monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)
     app = _route_app(monkeypatch)
-    assert calls == [(app, None)]
+    assert calls == [(app, True)]
     response = app.test_client().get("/api/learn/live-follow-up/readiness")
     assert response.status_code == 200
     assert response.get_json()["data"] == {"status": "warming", "retry_after_ms": 30000}
-    assert calls == [(app, None), (app, True)]
+    assert calls == [(app, True), (app, True)]
+
+
+@pytest.mark.parametrize("effective_enabled", [True, False])
+def test_startup_uses_effective_config_in_app_context(
+    monkeypatch: pytest.MonkeyPatch,
+    effective_enabled: bool,
+) -> None:
+    from flask import has_app_context
+    from flaskr.service.learn import live_follow_up_config
+
+    app = Flask("effective-live-readiness")
+    app.config["GEMINI_LIVE_ENABLED"] = not effective_enabled
+    calls = []
+
+    def effective_config(key: str, default: object = None) -> str:
+        assert has_app_context()
+        assert key == "GEMINI_LIVE_ENABLED"
+        assert default is False
+        return str(effective_enabled).lower()
+
+    monkeypatch.setattr(live_follow_up_config, "get_config", effective_config)
+    monkeypatch.setattr(
+        routes, "is_gemini_live_enabled", live_follow_up_config.is_gemini_live_enabled
+    )
+    monkeypatch.setattr(
+        routes,
+        "live_follow_up_readiness",
+        lambda app, *, enabled: calls.append((app, enabled)),
+    )
+    routes.register_live_follow_up_routes(app)
+    assert calls == [(app, effective_enabled)]
+
+
+def test_startup_config_failure_does_not_block_http_routes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Flask("unavailable-live-config")
+
+    def unavailable() -> bool:
+        raise RuntimeError
+
+    monkeypatch.setattr(routes, "is_gemini_live_enabled", unavailable)
+    routes.register_live_follow_up_routes(app)
+    assert "/api/learn/live-follow-up/readiness" in {
+        rule.rule for rule in app.url_map.iter_rules()
+    }
 
 
 def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:

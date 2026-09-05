@@ -107,7 +107,8 @@ GEMINI_LIVE_ENABLED=true
 ```
 
 Live readiness is separate from ordinary HTTP health. On startup, every
-enabled API worker initializes the shared Redis recovery guard without minting
+enabled API worker resolves the effective (environment or DB-backed) flag and
+initializes the shared Redis recovery guard without minting
 a credential. Redis must use `noeviction`. A missing accounting marker or a
 changed Redis run ID starts the full shared 15-minute safety window; repeated
 worker starts and probes do not reset or shorten it. Do not delete accounting
