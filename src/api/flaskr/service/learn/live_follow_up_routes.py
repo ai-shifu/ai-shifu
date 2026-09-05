@@ -6,6 +6,7 @@ import contextlib
 import hmac
 import json
 import math
+import os
 import time
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -628,13 +629,14 @@ def _retry_live_follow_up_preparation(app: Flask) -> None:
     app.logger.warning("Live follow-up startup preparation still unavailable")
 
 
-def register_live_follow_up_routes(
-    app: Flask,
-    path_prefix: str = "/api/learn",
-) -> None:
-    """Register the direct Live session, heartbeat, turn, and end endpoints."""
-    # Start recovery during process initialization, never on the first learner
-    # click. This is bounded/best-effort; ordinary HTTP must remain available.
+def init_live_follow_up_readiness(app: Flask) -> None:
+    """Prepare Live once per process, never in the Gunicorn preload master."""
+    if os.environ.get("AI_SHIFU_PRELOAD_MASTER"):
+        return
+    process_id = os.getpid()
+    if app.extensions.get("live_follow_up_startup_pid") == process_id:
+        return
+    app.extensions["live_follow_up_startup_pid"] = process_id
     if not _prepare_live_follow_up(app):
         try:
             Thread(
@@ -645,6 +647,16 @@ def register_live_follow_up_routes(
             ).start()
         except Exception:
             app.logger.warning("Live follow-up startup retry unavailable")
+
+
+def register_live_follow_up_routes(
+    app: Flask,
+    path_prefix: str = "/api/learn",
+) -> None:
+    """Register the direct Live session, heartbeat, turn, and end endpoints."""
+    # Preloaded deployments defer process-local work to post_fork; ordinary
+    # app factories prepare here without waiting for a learner request.
+    init_live_follow_up_readiness(app)
 
     @app.route(path_prefix + "/live-follow-up/readiness", methods=["GET"])
     def live_follow_up_readiness_api() -> Response:

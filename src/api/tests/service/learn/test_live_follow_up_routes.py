@@ -48,6 +48,7 @@ from flaskr.service.learn.live_follow_up_session_store import (
 @pytest.fixture(autouse=True)
 def prevent_background_startup_threads(monkeypatch: pytest.MonkeyPatch) -> Mock:
     worker = Mock()
+    monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER", raising=False)
     monkeypatch.setattr(routes, "Thread", worker)
     monkeypatch.setattr(routes, "has_explicit_env_override", lambda _key: False)
     return worker
@@ -216,6 +217,32 @@ def test_background_preparation_recovers_from_error_and_disabled_fallback(
     assert sleep.call_count == 2
     assert all(call.args == (30,) for call in sleep.call_args_list)
     assert readiness.call_args_list[-1].kwargs == {"enabled": True}
+
+
+def test_preload_defers_preparation_and_worker_initialization_is_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+    prevent_background_startup_threads: Mock,
+) -> None:
+    app = Flask("preloaded-live-startup")
+    prepare = Mock(return_value=False)
+    monkeypatch.setattr(routes, "_prepare_live_follow_up", prepare)
+    monkeypatch.setenv("AI_SHIFU_PRELOAD_MASTER", "1")
+    routes.register_live_follow_up_routes(app)
+    prepare.assert_not_called()
+    prevent_background_startup_threads.assert_not_called()
+
+    monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER")
+    monkeypatch.setattr(routes.os, "getpid", lambda: 100)
+    routes.init_live_follow_up_readiness(app)
+    routes.init_live_follow_up_readiness(app)
+    prepare.assert_called_once_with(app)
+    prevent_background_startup_threads.return_value.start.assert_called_once()
+
+    # An inherited application must initialize independently in another worker.
+    monkeypatch.setattr(routes.os, "getpid", lambda: 101)
+    routes.init_live_follow_up_readiness(app)
+    assert prepare.call_count == 2
+    assert prevent_background_startup_threads.call_count == 2
 
 
 def test_background_preparation_has_a_fixed_retry_budget(

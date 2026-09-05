@@ -62,6 +62,11 @@ auditing, or another correctness-sensitive decision.
   One daemon task retries at 30-second intervals, at most 20 times; it stops on
   initialized/warming state or explicit environment-off. Deployment probes
   remain required after longer outages. No token minting or reservation reset.
+- [x] 2026-09-06: Follow-up review defers Live preparation out of the Gunicorn
+  preload master into the existing `post_fork` lifecycle hook, after pool and
+  tracing resets. Process-idempotent initialization also supports ordinary
+  app factories without launching duplicate retry tasks. Regression coverage
+  executes the real hook with isolated resources and verifies preload deferral.
 
 - [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
   Live controls, RTL regression coverage, cached keepalive transport, and

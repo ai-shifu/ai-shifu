@@ -114,10 +114,13 @@ changed Redis run ID starts the full shared 15-minute safety window; repeated
 worker starts and probes do not reset or shorten it. Do not delete accounting
 records to bypass this window.
 If startup config/Redis lookup fails (including a DB lookup falling back to
-disabled), one daemon task per registering worker retries every 30 seconds,
+disabled), one daemon task per API worker retries every 30 seconds,
 at most 20 times. It stops once the marker is initialized, even while warming;
 an explicit environment-off switch starts no retry task. Longer outages still
 require the deployment readiness gate below; retries do not bypass it.
+Gunicorn preload skips preparation in the master; the existing `post_fork`
+hook initializes it after per-worker connection pools and tracing are reset.
+Initialization is idempotent per process, including non-preloaded app factories.
 
 Before announcing Live availability, query
 `GET /api/learn/live-follow-up/readiness` through the normal authenticated API

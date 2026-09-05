@@ -118,3 +118,14 @@ def post_fork(server: object, worker: object) -> None:
         init_langfuse(flask_app)
     except Exception:  # pragma: no cover - defensive: never kill a booting worker
         worker.log.exception("post_fork langfuse reinit failed")
+
+    # Live readiness may launch bounded retries. Like the exporter above,
+    # those threads belong to a worker, never to the preload master.
+    try:
+        from flaskr.service.learn.live_follow_up_routes import (
+            init_live_follow_up_readiness,
+        )
+
+        init_live_follow_up_readiness(flask_app)
+    except Exception:  # pragma: no cover - defensive: never kill a booting worker
+        worker.log.warning("post_fork Live readiness initialization unavailable")
