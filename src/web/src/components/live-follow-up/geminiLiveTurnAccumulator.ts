@@ -157,9 +157,12 @@ export class GeminiLiveTurnAccumulator {
       this.interruptedAwaitingTurnComplete.length
         ? this.interruptedAwaitingTurnComplete[0]
         : null;
+    const hasModelOutput = Boolean(
+      event.outputTranscripts.length || event.audioChunks.length,
+    );
     let inputState = event.interrupted
       ? this.activeState(now)
-      : this.selectInputState(event.inputTranscripts, now);
+      : this.selectInputState(event.inputTranscripts, now, hasModelOutput);
     // Until the old upstream turn is terminal, even late parts belong to it.
     const pendingPrevious =
       this.pendingTextTurnIndex === null
@@ -176,12 +179,8 @@ export class GeminiLiveTurnAccumulator {
           : event.inputTranscripts.length ||
               event.interimInputTranscripts.length
             ? inputState
-            : this.selectResponseState(now));
-    const responseTouched = Boolean(
-      event.outputTranscripts.length ||
-      event.audioChunks.length ||
-      event.usageMetadata,
-    );
+            : this.selectResponseState(now, hasModelOutput));
+    const responseTouched = hasModelOutput || Boolean(event.usageMetadata);
 
     if (this.outputPaused) {
       if (
@@ -418,18 +417,25 @@ export class GeminiLiveTurnAccumulator {
     return state;
   }
 
-  private selectInputState(fragments: string[], now: number) {
+  private selectInputState(
+    fragments: string[],
+    now: number,
+    hasModelOutput: boolean,
+  ) {
     const active = this.activeState(now);
-    if (!fragments.length || hasRoutingActivity(active)) {
+    if (!fragments.length || hasRoutingActivity(active) || hasModelOutput) {
       return active;
     }
     const previous = this.latestMutableTerminal(now);
     return previous && !previous.typedInput ? previous : active;
   }
 
-  private selectResponseState(now: number) {
+  private selectResponseState(now: number, hasModelOutput: boolean) {
     const active = this.activeState(now);
-    if (hasRoutingActivity(active)) {
+    // turnComplete closes model output, including output transcription. New
+    // output is a successor even when its unordered input transcript is late;
+    // only input/usage-only events may reconcile into the completed turn.
+    if (hasRoutingActivity(active) || hasModelOutput) {
       return active;
     }
     return this.latestMutableTerminal(now) || active;
