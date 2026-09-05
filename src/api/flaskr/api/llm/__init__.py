@@ -1545,17 +1545,19 @@ def _gateway_output_text(payload: dict[str, object]) -> str:
     """Extract generated text and tool arguments without counting protocol JSON."""
     parts: list[str] = []
     for choice in payload.get("choices") or []:
-        message = choice.get("message") or choice.get("delta") or {}
-        for output_field in ("content", "reasoning_content"):
+        message = dict(choice.get("message") or choice.get("delta") or {})
+        for output_field in ("content", "reasoning_content", "reasoning"):
             content = message.get(output_field)
-            if isinstance(content, str):
-                parts.append(content)
-            elif isinstance(content, list):
-                parts.extend(
+            if isinstance(content, list):
+                message[output_field] = "".join(
                     part["text"]
                     for part in content
                     if isinstance(part, dict) and isinstance(part.get("text"), str)
                 )
+        content = message.get("content")
+        if isinstance(content, str):
+            parts.append(content)
+        parts.append(_extract_reasoning_delta(message))
         for call in message.get("tool_calls") or []:
             function = call.get("function") or {}
             for output_field in ("name", "arguments"):

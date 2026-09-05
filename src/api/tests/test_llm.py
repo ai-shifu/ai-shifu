@@ -2304,8 +2304,25 @@ def test_gateway_token_count_and_default_output_limit(
 
 
 @pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    ("reasoning_fields", "expected_reasoning"),
+    [
+        ({}, ""),
+        ({"reasoning": "thought"}, "thought"),
+        ({"reasoning_content": "thought"}, "thought"),
+        ({"reasoning_content": "thought", "reasoning": "thought"}, "thought"),
+        ({"reasoning_content": "", "reasoning": "thought"}, "thought"),
+        ({"reasoning_content": "primary", "reasoning": "secondary"}, "primary"),
+        ({"reasoning_content": [{"text": "first"}, {"text": "second"}]}, "firstsecond"),
+        ({"reasoning": [{"text": "first"}, {"text": "second"}]}, "firstsecond"),
+    ],
+)
 def test_gateway_missing_usage_counts_only_generated_output(
-    monkeypatch: pytest.MonkeyPatch, app: object, stream: bool
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    stream: bool,
+    reasoning_fields: dict[str, object],
+    expected_reasoning: str,
 ) -> None:
     recorded = {}
     monkeypatch.setattr(
@@ -2329,6 +2346,7 @@ def test_gateway_missing_usage_counts_only_generated_output(
     )
     message = {
         "content": "hello",
+        **reasoning_fields,
         "tool_calls": [{"function": {"name": "lookup", "arguments": "{}"}}],
     }
     response = FakeOpenAIResponse({"choices": [{"message": message}]})
@@ -2337,7 +2355,7 @@ def test_gateway_missing_usage_counts_only_generated_output(
         for delta in [
             {"role": "assistant"},
             {"content": "hel"},
-            {"content": "lo"},
+            {"content": "lo", **reasoning_fields},
             {"tool_calls": [{"function": {"name": "lookup", "arguments": "{"}}]},
             {"tool_calls": [{"function": {"arguments": "}"}}]},
             {},
@@ -2358,16 +2376,20 @@ def test_gateway_missing_usage_counts_only_generated_output(
         "fallback_input_tokens": 3,
     }
     if stream:
-        assert len(list(llm.stream_openai_chat_completion(app, **kwargs))) == len(
-            chunks
-        )
+        payloads = list(llm.stream_openai_chat_completion(app, **kwargs))
+        assert len(payloads) == len(chunks)
+        assert payloads[2]["choices"][0]["delta"] == {
+            "content": "lo",
+            **reasoning_fields,
+        }
     else:
         assert (
             llm.complete_openai_chat_completion(app, **kwargs)["choices"][0]["message"]
             == message
         )
-    assert recorded["output"] == len("hellolookup{}")
-    assert recorded["extra"]["output_text"] == "hellolookup{}"
+    expected_output = f"hello{expected_reasoning}lookup{{}}"
+    assert recorded["output"] == len(expected_output)
+    assert recorded["extra"]["output_text"] == expected_output
     assert recorded["extra"]["usage_source"] == "estimated"
 
 
