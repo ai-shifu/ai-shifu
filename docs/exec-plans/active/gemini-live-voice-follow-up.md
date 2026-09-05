@@ -57,6 +57,11 @@ auditing, or another correctness-sensitive decision.
   DB-aware Live flag inside a Flask application context, not just the raw
   environment/default value. Regression tests cover both override directions
   and configuration failure without blocking HTTP route registration.
+- [x] 2026-09-06: Follow-up review adds bounded background startup preparation
+  retries for transient configuration/Redis errors and DB-disabled fallbacks.
+  One daemon task retries at 30-second intervals, at most 20 times; it stops on
+  initialized/warming state or explicit environment-off. Deployment probes
+  remain required after longer outages. No token minting or reservation reset.
 
 - [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
   Live controls, RTL regression coverage, cached keepalive transport, and

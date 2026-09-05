@@ -113,6 +113,11 @@ a credential. Redis must use `noeviction`. A missing accounting marker or a
 changed Redis run ID starts the full shared 15-minute safety window; repeated
 worker starts and probes do not reset or shorten it. Do not delete accounting
 records to bypass this window.
+If startup config/Redis lookup fails (including a DB lookup falling back to
+disabled), one daemon task per registering worker retries every 30 seconds,
+at most 20 times. It stops once the marker is initialized, even while warming;
+an explicit environment-off switch starts no retry task. Longer outages still
+require the deployment readiness gate below; retries do not bypass it.
 
 Before announcing Live availability, query
 `GET /api/learn/live-follow-up/readiness` through the normal authenticated API

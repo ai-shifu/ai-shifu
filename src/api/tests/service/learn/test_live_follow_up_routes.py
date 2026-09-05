@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from types import SimpleNamespace
 from typing import ClassVar
+from unittest.mock import Mock
 
 import pytest
 from flask import Flask, request
@@ -42,6 +43,14 @@ from flaskr.service.learn.live_follow_up_session_store import (
     LiveFollowUpTurnState,
     StoredLiveFollowUpSession,
 )
+
+
+@pytest.fixture(autouse=True)
+def prevent_background_startup_threads(monkeypatch: pytest.MonkeyPatch) -> Mock:
+    worker = Mock()
+    monkeypatch.setattr(routes, "Thread", worker)
+    monkeypatch.setattr(routes, "has_explicit_env_override", lambda _key: False)
+    return worker
 
 
 class _FakeTrace:
@@ -172,6 +181,7 @@ def test_startup_uses_effective_config_in_app_context(
 
 def test_startup_config_failure_does_not_block_http_routes(
     monkeypatch: pytest.MonkeyPatch,
+    prevent_background_startup_threads: Mock,
 ) -> None:
     app = Flask("unavailable-live-config")
 
@@ -180,9 +190,61 @@ def test_startup_config_failure_does_not_block_http_routes(
 
     monkeypatch.setattr(routes, "is_gemini_live_enabled", unavailable)
     routes.register_live_follow_up_routes(app)
+    prevent_background_startup_threads.assert_called_once_with(
+        target=routes._retry_live_follow_up_preparation,
+        args=(app,),
+        name="live-follow-up-startup",
+        daemon=True,
+    )
     assert "/api/learn/live-follow-up/readiness" in {
         rule.rule for rule in app.url_map.iter_rules()
     }
+
+
+def test_background_preparation_recovers_from_error_and_disabled_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Flask("retry-live-config")
+    enabled = Mock(side_effect=[RuntimeError, False, True])
+    readiness = Mock(side_effect=[{"status": "disabled"}, {"status": "warming"}])
+    sleep = Mock()
+    monkeypatch.setattr(routes, "is_gemini_live_enabled", enabled)
+    monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)
+    monkeypatch.setattr(routes.time, "sleep", sleep)
+    assert routes._prepare_live_follow_up(app) is False
+    routes._retry_live_follow_up_preparation(app)
+    assert sleep.call_count == 2
+    assert all(call.args == (30,) for call in sleep.call_args_list)
+    assert readiness.call_args_list[-1].kwargs == {"enabled": True}
+
+
+def test_background_preparation_has_a_fixed_retry_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prepare = Mock(return_value=False)
+    sleep = Mock()
+    monkeypatch.setattr(routes, "_prepare_live_follow_up", prepare)
+    monkeypatch.setattr(routes.time, "sleep", sleep)
+    routes._retry_live_follow_up_preparation(Flask("bounded-live-retries"))
+    assert prepare.call_count == 20
+    assert sleep.call_count == 20
+
+
+def test_explicitly_disabled_or_initialized_service_does_not_retry(
+    monkeypatch: pytest.MonkeyPatch,
+    prevent_background_startup_threads: Mock,
+) -> None:
+    monkeypatch.setattr(routes, "is_gemini_live_enabled", lambda: False)
+    monkeypatch.setattr(routes, "has_explicit_env_override", lambda _key: True)
+    readiness = Mock()
+    monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)
+    routes.register_live_follow_up_routes(Flask("disabled-live-startup"))
+    readiness.assert_not_called()
+    prevent_background_startup_threads.assert_not_called()
+    monkeypatch.setattr(routes, "is_gemini_live_enabled", lambda: True)
+    readiness.return_value = {"status": "warming"}
+    routes.register_live_follow_up_routes(Flask("warming-live-startup"))
+    prevent_background_startup_threads.assert_not_called()
 
 
 def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:

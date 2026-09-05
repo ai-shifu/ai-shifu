@@ -10,11 +10,13 @@ import time
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
+from threading import Thread
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Flask, Response, request
 from flaskr.api.langfuse import get_request_id
 from flaskr.api.llm import is_live_follow_up_model_available
+from flaskr.common.config import has_explicit_env_override
 from flaskr.common.http import make_common_response, sensitive_body
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.i18n import get_current_language
@@ -602,6 +604,30 @@ def _failed_operation_response(
     return raise_param_error("live_follow_up")
 
 
+def _prepare_live_follow_up(app: Flask) -> bool:
+    """Return whether preparation is done or Live is explicitly disabled."""
+    try:
+        with app.app_context():
+            enabled = is_gemini_live_enabled()
+            if not enabled and has_explicit_env_override("GEMINI_LIVE_ENABLED"):
+                return True
+            status = live_follow_up_readiness(app, enabled=enabled)["status"]
+            # A warming marker is already initialized; no need to wait for its
+            # deadline. A DB-backed false may be a transient lookup fallback.
+            return status in {"ready", "warming"}
+    except Exception:
+        return False
+
+
+def _retry_live_follow_up_preparation(app: Flask) -> None:
+    """Retry startup failures without learner traffic or unbounded task growth."""
+    for _attempt in range(20):
+        time.sleep(30)
+        if _prepare_live_follow_up(app):
+            return
+    app.logger.warning("Live follow-up startup preparation still unavailable")
+
+
 def register_live_follow_up_routes(
     app: Flask,
     path_prefix: str = "/api/learn",
@@ -609,11 +635,16 @@ def register_live_follow_up_routes(
     """Register the direct Live session, heartbeat, turn, and end endpoints."""
     # Start recovery during process initialization, never on the first learner
     # click. This is bounded/best-effort; ordinary HTTP must remain available.
-    try:
-        with app.app_context():
-            live_follow_up_readiness(app, enabled=is_gemini_live_enabled())
-    except Exception:
-        app.logger.warning("Live follow-up startup readiness unavailable")
+    if not _prepare_live_follow_up(app):
+        try:
+            Thread(
+                target=_retry_live_follow_up_preparation,
+                args=(app,),
+                name="live-follow-up-startup",
+                daemon=True,
+            ).start()
+        except Exception:
+            app.logger.warning("Live follow-up startup retry unavailable")
 
     @app.route(path_prefix + "/live-follow-up/readiness", methods=["GET"])
     def live_follow_up_readiness_api() -> Response:
