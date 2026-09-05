@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { Maximize2 } from 'lucide-react';
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { LoadingDots } from '@/components/loading';
@@ -20,13 +20,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/Popover';
-import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
-import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
-import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
+import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
+import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
   localizeSystemInteractionContent,
-} from '@/c-utils/system-interaction';
+} from '@/lib/system-interaction';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
@@ -59,7 +59,7 @@ import {
 } from './listenPlaybackSpeed';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
-import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import AskIcon from '@/assets/newchat/light/icon_ask.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
@@ -1110,6 +1110,39 @@ const ListenModeSlideRenderer = ({
     isMobileAskOpen || !mobileAskPanelElementBid
       ? resolvedAskElementBid
       : mobileAskPanelElementBid;
+  const renderedAskElementBid = mobileStyle
+    ? renderedMobileAskElementBid
+    : renderedPlayerCustomAskElementBid;
+  const isAskPanelOpen = mobileStyle
+    ? isMobileAskOpen
+    : playerCustomActionState.isActive;
+  const liveVoiceAnchor = liveVoice?.anchorElementBid;
+  const hasLiveVoiceSession =
+    Boolean(liveVoice?.paused) ||
+    (liveVoice !== undefined && liveVoice.state !== 'ended');
+  const closeLiveVoice = liveVoice?.close;
+  useLayoutEffect(() => {
+    // A collapsed panel retains its session, but a new slide must not inherit
+    // that anchor's attempt. End it before the new input can be submitted;
+    // the controller still owns credential expiry and admission guards.
+    if (
+      followUpMode === 'live_voice' &&
+      isAskPanelOpen &&
+      hasLiveVoiceSession &&
+      renderedAskElementBid &&
+      liveVoiceAnchor &&
+      liveVoiceAnchor !== renderedAskElementBid
+    ) {
+      closeLiveVoice?.();
+    }
+  }, [
+    closeLiveVoice,
+    followUpMode,
+    hasLiveVoiceSession,
+    isAskPanelOpen,
+    liveVoiceAnchor,
+    renderedAskElementBid,
+  ]);
   const resolveAskListByElementBid = useCallback(
     (elementBid: string) => {
       if (!elementBid) {

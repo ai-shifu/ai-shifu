@@ -6,32 +6,29 @@ import React, {
   useEffect,
 } from 'react';
 import { cn } from '@/lib/utils';
-import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
-import {
-  getRunMessage,
-  SSE_INPUT_TYPE,
-  SSE_OUTPUT_TYPE,
-} from '@/c-api/studyV2';
-import { fixMarkdownStream } from '@/c-utils/markdownUtils';
+import { getRunMessage, SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/api/studyV2';
+import { fixMarkdownStream } from '@/lib/markdownUtils';
 import LoadingBar from './LoadingBar';
 import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
 import styles from './AskBlock.module.scss';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
-import { BLOCK_TYPE } from '@/c-api/studyV2';
+import { BLOCK_TYPE } from '@/api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import {
   EMPTY_ASK_MESSAGE_LIST,
   normalizeAskMessageList,
   type AskMessage,
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
-import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { isRtlLocale } from '@/lib/i18n-locales';
 import {
   AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
   AI_SERVICE_ERROR_TOAST_DURATION_MS,
@@ -43,8 +40,11 @@ import {
   resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { LiveVoiceFollowUpControls } from '@/components/live-follow-up/LiveVoiceFollowUpControls';
+import { useTracking } from '@/hooks/useTracking';
+import {
+  LiveVoiceFollowUpControls,
+  LiveVoiceFollowUpMicrophoneButton,
+} from '@/components/live-follow-up/LiveVoiceFollowUpControls';
 import type {
   LiveVoiceFollowUpController,
   LiveVoiceFollowUpTarget,
@@ -161,7 +161,7 @@ export default function AskBlock({
     return () => {
       const controller = liveRef.current;
       if (controller?.anchorElementBid === element_bid && controller.open)
-        controller.close();
+        controller.pause();
     };
   }, [element_bid, expanded, isLive]);
   const shouldForceSlideMobileDialog =
@@ -719,10 +719,12 @@ export default function AskBlock({
   }, [expanded, isDesktopSlideAskBlock, messagesToShow]);
 
   const handleClose = useCallback(() => {
+    if (isLive && liveRef.current?.anchorElementBid === element_bid)
+      liveRef.current.pause();
     setIsFullscreen(false);
     // onClose?.();
     onToggleAskExpanded?.(element_bid);
-  }, [onToggleAskExpanded, element_bid]);
+  }, [onToggleAskExpanded, element_bid, isLive]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -876,18 +878,33 @@ export default function AskBlock({
         ref={inputWrapperRef}
         onKeyDownCapture={handleInputKeyDownCapture}
       >
-        <MarkdownFlowInput
-          locale={markdownFlowLocale}
-          placeholder={t('module.chat.askContent')}
-          value={inputValue}
-          onChange={handleInputChange}
-          onSend={handleSendCustomQuestion}
-          sendShortcut={mobileStyle ? 'none' : 'enter'}
-          className={cn(
-            styles.inputGroup,
-            isStreamingRef.current ? styles.isSending : '',
-          )}
-        />
+        <div
+          className={isLive && liveVoice ? styles.liveInput : undefined}
+          dir={isRtlLocale(markdownFlowLocale) ? 'rtl' : 'ltr'}
+        >
+          <MarkdownFlowInput
+            locale={markdownFlowLocale}
+            placeholder={t('module.chat.askContent')}
+            value={inputValue}
+            onChange={handleInputChange}
+            onSend={handleSendCustomQuestion}
+            sendShortcut={mobileStyle ? 'none' : 'enter'}
+            className={cn(
+              styles.inputGroup,
+              isStreamingRef.current ? styles.isSending : '',
+            )}
+            textareaClassName={
+              isLive && liveVoice ? styles.liveTextarea : undefined
+            }
+          />
+          {isLive && liveVoice ? (
+            <LiveVoiceFollowUpMicrophoneButton
+              controller={liveVoice}
+              target={liveTarget}
+              className={styles.liveMicrophone}
+            />
+          ) : null}
+        </div>
         {isLive && liveVoice ? (
           <LiveVoiceFollowUpControls
             controller={liveVoice}

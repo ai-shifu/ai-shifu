@@ -33,7 +33,7 @@ jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

@@ -8,8 +8,10 @@ import {
   encodeGeminiLiveAudioMessage,
   endLiveFollowUpSession,
   finalizeLiveFollowUpSession,
+  getLiveFollowUpOperationStatus,
   heartbeatLiveFollowUpSession,
   LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE,
+  LiveFollowUpControlError,
   mergeLiveTranscript,
   parseGeminiLiveServerMessage,
   resolveGeminiLiveWebSocketUrl,
@@ -93,6 +95,65 @@ describe('live voice follow-up direct protocol helpers', () => {
       { turns: [], reason: 'page_hidden' },
       { skipErrorToast: true, credentials: 'include', keepalive: true },
     );
+  });
+
+  it('makes status recovery non-minting even against a legacy server', async () => {
+    await getLiveFollowUpOperationStatus('course/1', 'outline/1', 'request-1', {
+      anchor_element_bid: 'anchor-1',
+      preview_mode: false,
+      learning_mode: 'read',
+      surface: 'read_content',
+      operation: 'create',
+      request_bid: 'must-not-copy',
+      replace_session_bid: 'session-1',
+      expected_admission_revision: 'revision-1',
+    });
+    expect(mockedPost).toHaveBeenCalledWith(
+      '/api/learn/shifu/course%2F1/live-follow-up/outline%2F1/session',
+      {
+        operation: 'status',
+        request_bid: 'request-1',
+        target: {
+          anchor_element_bid: 'anchor-1',
+          preview_mode: false,
+          learning_mode: 'read',
+          surface: 'read_content',
+          replace_session_bid: 'session-1',
+          expected_admission_revision: 'revision-1',
+        },
+      },
+      { skipErrorToast: true, credentials: 'include' },
+    );
+    const body = mockedPost.mock.calls[0][1] as Record<string, unknown>;
+    expect(body).not.toHaveProperty('anchor_element_bid');
+    expect(JSON.stringify(body)).not.toMatch(/token|prompt|transcript/);
+  });
+
+  it('treats retired ownership as a terminal heartbeat control failure', async () => {
+    mockedPost.mockResolvedValueOnce({
+      session_bid: 'session-1',
+      operation_status: 'rejected',
+      error_code: 'ownership_conflict',
+      retry_after_ms: 400,
+    });
+    await expect(heartbeatLiveFollowUpSession('session-1')).rejects.toEqual(
+      new LiveFollowUpControlError('ownership_conflict', 400),
+    );
+  });
+
+  it.each([NaN, Infinity, -1, 0, undefined])(
+    'ignores invalid retry delays: %s',
+    delay => {
+      expect(
+        new LiveFollowUpControlError('capacity_exceeded', delay).retryAfterMs,
+      ).toBeUndefined();
+    },
+  );
+
+  it('bounds server retry delays without retaining a raw response', () => {
+    const failure = new LiveFollowUpControlError('capacity_exceeded', 900_000);
+    expect(failure.retryAfterMs).toBe(60_000);
+    expect(failure.message).toBe('Live follow-up admission could not complete');
   });
 
   it('only appends an ephemeral token to the official constrained endpoint', () => {

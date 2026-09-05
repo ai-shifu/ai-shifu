@@ -1,4 +1,4 @@
-import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
+import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 
 describe('resolveInteractionSubmission', () => {
   it('deduplicates identical values from selectedValues and buttonText', () => {

@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
-import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 
 interface FormSchema {
   shifu_name: string;

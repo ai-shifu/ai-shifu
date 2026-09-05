@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useUserStore } from '@/store';
 import { useTranslation } from 'react-i18next';
-import type { UserInfo } from '@/c-types';
+import type { UserInfo } from '@/types';
 import {
   clearGoogleOAuthSession,
   getGoogleOAuthRedirect,
@@ -15,7 +15,7 @@ import {
   setGoogleOAuthRedirect,
   setGoogleOAuthState,
 } from '@/lib/google-oauth-session';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   buildLoginAttemptAnalytics,
   buildLoginResultAnalytics,

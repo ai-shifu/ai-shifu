@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { shifu } from '@/c-service/Shifu';
+import { shifu } from '@/lib/shifu/Shifu';
 
 const MobileHeaderIconPopover = ({ payload, onClose, onOpen }) => {
   const Control = shifu.getControl(

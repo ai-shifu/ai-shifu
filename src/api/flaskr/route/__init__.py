@@ -12,6 +12,7 @@ def register_route(app: Flask) -> Flask:
     from .config import register_config_handler
     from .creator_analytics import register_creator_analytics_handler
     from .dicts import register_dict_handler
+    from .model_gateway import register_model_gateway_handler
     from .open_api import register_open_api_handler
     from .order import register_order_handler
     from .storage import register_storage_handler
@@ -26,6 +27,7 @@ def register_route(app: Flask) -> Flask:
     app = register_order_handler(app, prefix + "/order")
     app = register_callback_handler(app, prefix + "/callback")
     app = register_open_api_handler(app, prefix + "/open-api/v1")
+    app = register_model_gateway_handler(app, prefix + "/gateway")
     app = register_creator_analytics_handler(app, prefix + "/creator-analytics")
     register_referral_routes(app, prefix + "/referral")
     return app

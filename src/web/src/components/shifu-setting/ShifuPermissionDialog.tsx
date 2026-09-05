@@ -3,7 +3,7 @@ import { Check, ChevronDown } from 'lucide-react';
 import useSWR from 'swr';
 import { Trans, useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import { useUserStore } from '@/store';
 import { useToast } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';

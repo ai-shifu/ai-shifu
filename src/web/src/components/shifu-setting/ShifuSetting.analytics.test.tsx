@@ -44,14 +44,11 @@ jest.mock('@/store', () => ({
   useUserStore: Object.assign(jest.fn(), {
     getState: () => ({ getToken: () => '' }),
   }),
-}));
-
-jest.mock('@/c-store', () => ({
   useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
     selector(mockEnvState),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

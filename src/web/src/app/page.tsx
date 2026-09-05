@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react';
 import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import { EnvStoreState } from '@/types/store';
 import { environment } from '@/config/environment';
 
 export default function Home() {

@@ -1,1 +1,1 @@
-export { AppContext } from '@/c-components/AppContext';
+export { AppContext } from '@/components/AppContext';

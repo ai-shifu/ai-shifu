@@ -115,12 +115,12 @@ jest.mock('zustand/react/shallow', () => ({
   useShallow: (selector: unknown) => selector,
 }));
 
-jest.mock('@/c-assets/newchat/light/icon_ask.svg', () => ({
+jest.mock('@/assets/newchat/light/icon_ask.svg', () => ({
   __esModule: true,
   default: { src: '/ask.svg' },
 }));
 
-jest.mock('@/c-assets/logos/ai-shifu-logo-horizontal.png', () => ({
+jest.mock('@/assets/logos/ai-shifu-logo-horizontal.png', () => ({
   __esModule: true,
   default: {
     src: '/ai-shifu-logo-horizontal.png',
@@ -171,14 +171,14 @@ jest.mock('./useLessonPdfPrint', () => ({
   }),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: jest.fn(),
     trackTrailProgress: jest.fn(),
   }),
 }));
 
-jest.mock('@/c-service/Shifu', () => ({
+jest.mock('@/lib/shifu/Shifu', () => ({
   shifu: {
     resetTools: {
       resetChapter: jest.fn(),
@@ -186,7 +186,7 @@ jest.mock('@/c-service/Shifu', () => ({
   },
 }));
 
-jest.mock('@/c-store/envStore', () => ({
+jest.mock('@/store/envStore', () => ({
   useEnvStore: Object.assign(
     (selector: (state: any) => unknown) =>
       selector({
@@ -209,7 +209,7 @@ jest.mock('@/store', () => ({
     }),
 }));
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (selector: (state: any) => unknown) =>
     selector({
       courseAvatar: mockCourseAvatar,
@@ -225,7 +225,7 @@ jest.mock('@/c-store/useCourseStore', () => ({
     }),
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: any) => unknown) =>
     selector({
       learningMode: mockLearningMode,

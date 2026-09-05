@@ -65,6 +65,11 @@ def is_gemini_live_enabled() -> bool:
     return _config_bool(get_config("GEMINI_LIVE_ENABLED", default=False))
 
 
+def is_gemini_live_rotation_enabled() -> bool:
+    """Allow bounded early credential replacement only after explicit rollout."""
+    return _config_bool(get_config("GEMINI_LIVE_ROTATION_ENABLED", default=False))
+
+
 def is_live_follow_up_model(model: object) -> bool:
     """Match a model against the server-owned Live allowlist."""
     return str(model or "").strip() in GEMINI_LIVE_MODEL_ALLOWLIST

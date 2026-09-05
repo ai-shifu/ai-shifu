@@ -12,6 +12,7 @@ frontend ownership.
   and cross-domain frontend interfaces.
 
 - Representative files in this subtree: `src/web/src/types/shifu.ts`,
+  `src/web/src/types/store.ts`, `src/web/src/types/sse.d.ts`,
   `src/web/src/types/markdown-flow-ui.d.ts`,
   `src/web/src/types/i18n-keys.d.ts`
 

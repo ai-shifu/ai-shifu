@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { Check, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   BillingStripeRedirectOverlay,
   type BillingStripeRedirectPhase,

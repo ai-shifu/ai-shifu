@@ -74,7 +74,7 @@ type ResetChapterEventHandler = (
 ) => Promise<void>;
 
 const getResetChapterEventHandler = () => {
-  const { shifu: mockedShifu } = jest.requireMock('@/c-service/Shifu') as {
+  const { shifu: mockedShifu } = jest.requireMock('@/lib/shifu/Shifu') as {
     shifu: {
       events: {
         addEventListener: jest.Mock;
@@ -328,7 +328,7 @@ jest.mock('zustand/react/shallow', () => ({
   useShallow: (selector: unknown) => selector,
 }));
 
-jest.mock('@/c-constants/uiConstants', () => ({
+jest.mock('@/constants/uiConstants', () => ({
   FRAME_LAYOUT_MOBILE: 'mobile',
   LISTEN_MODE_VH_FALLBACK_CLASSNAME: 'listen-mode-vh-fallback',
   calcFrameLayout: () => 'desktop',
@@ -337,7 +337,7 @@ jest.mock('@/c-constants/uiConstants', () => ({
   wechatLogin: (...args: unknown[]) => mockWechatLogin(...args),
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   useEnvStore: Object.assign(
     (selector?: (state: typeof mockEnvStoreState) => unknown) =>
       selector ? selector(mockEnvStoreState) : undefined,
@@ -361,9 +361,6 @@ jest.mock('@/c-store', () => ({
   ),
   useSystemStore: (selector: (state: typeof mockSystemStoreState) => unknown) =>
     selector(mockSystemStoreState),
-}));
-
-jest.mock('@/store', () => ({
   useUserStore: Object.assign(
     (selector: (state: typeof mockUserStoreState) => unknown) =>
       selector(mockUserStoreState),
@@ -373,7 +370,7 @@ jest.mock('@/store', () => ({
   ),
 }));
 
-jest.mock('@/c-common/hooks/useDisclosure', () => ({
+jest.mock('@/hooks/useDisclosure', () => ({
   useDisclosure: () => ({
     open: true,
     onClose: jest.fn(),
@@ -381,13 +378,13 @@ jest.mock('@/c-common/hooks/useDisclosure', () => ({
   }),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),
 }));
 
-jest.mock('@/c-api/user', () => ({
+jest.mock('@/api/user', () => ({
   getProfileOnboarding: (...args: unknown[]) =>
     mockGetProfileOnboarding(...args),
   isProfileOnboardingStatus: (value: unknown) =>
@@ -401,7 +398,7 @@ jest.mock('@/c-api/user', () => ({
   updateWxcode: (...args: unknown[]) => mockUpdateWxcode(...args),
 }));
 
-jest.mock('@/c-service/Shifu', () => ({
+jest.mock('@/lib/shifu/Shifu', () => ({
   shifu: {
     EventTypes: {
       OPEN_LOGIN_MODAL: 'OPEN_LOGIN_MODAL',

@@ -6,7 +6,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/Popover';
-import type { AudioSegment } from '@/c-utils/audio-utils';
+import type { AudioSegment } from '@/lib/audio-utils';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   Dialog,

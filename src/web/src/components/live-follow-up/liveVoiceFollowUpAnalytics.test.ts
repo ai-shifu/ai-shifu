@@ -1,8 +1,13 @@
 import {
   buildLiveVoiceFollowUpTextAnalytics,
   buildLiveVoiceFollowUpMicrophoneAnalytics,
+  buildLiveVoiceFollowUpPauseAnalytics,
+  buildLiveVoiceFollowUpResumeAnalytics,
   LIVE_VOICE_FOLLOW_UP_TEXT_SUBMIT_EVENT,
   LIVE_VOICE_FOLLOW_UP_MICROPHONE_RESULT_EVENT,
+  LIVE_VOICE_FOLLOW_UP_PAUSE_EVENT,
+  LIVE_VOICE_FOLLOW_UP_PAUSE_REASONS,
+  LIVE_VOICE_FOLLOW_UP_RESUME_EVENT,
   buildLiveVoiceFollowUpAttemptAnalytics,
   buildLiveVoiceFollowUpResultAnalytics,
   buildLiveVoiceFollowUpSessionEndAnalytics,
@@ -91,6 +96,9 @@ const prohibitedFields = [
   'error',
   'error_message',
   'provider_response',
+  'request_bid',
+  'admission_revision',
+  'credential_count',
 ] as const;
 
 const expectNoProhibitedFields = (payload: Record<string, unknown>) => {
@@ -100,6 +108,49 @@ const expectNoProhibitedFields = (payload: Record<string, unknown>) => {
 };
 
 describe('live voice follow-up analytics contract', () => {
+  it('allowlists pause reasons and resume dimensions without private input', () => {
+    expect(LIVE_VOICE_FOLLOW_UP_PAUSE_EVENT).toBe(
+      'learner_voice_follow_up_pause',
+    );
+    expect(LIVE_VOICE_FOLLOW_UP_RESUME_EVENT).toBe(
+      'learner_voice_follow_up_resume',
+    );
+    expect(LIVE_VOICE_FOLLOW_UP_PAUSE_REASONS).toEqual([
+      'panel_closed',
+      'page_hidden',
+      'audio_replaced',
+    ]);
+    const extra = {
+      ...baseInput,
+      prompt: 'private',
+      text: 'private question',
+      model: 'private model',
+      voice: 'private voice',
+      token: 'private credential',
+      url: 'https://private.invalid',
+      reason: 'panel_closed' as const,
+    };
+    for (const reason of LIVE_VOICE_FOLLOW_UP_PAUSE_REASONS) {
+      const pause = buildLiveVoiceFollowUpPauseAnalytics({ ...extra, reason });
+      expect(pause).toEqual({
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'listen',
+        surface: 'listen_player',
+        reason,
+      });
+      expectNoProhibitedFields(pause);
+    }
+    const resume = buildLiveVoiceFollowUpResumeAnalytics(extra);
+    expect(resume).toEqual({
+      shifu_bid: 'course-1',
+      outline_bid: 'lesson-1',
+      learning_mode: 'listen',
+      surface: 'listen_player',
+    });
+    expectNoProhibitedFields(resume);
+  });
+
   it('supports the documented aggregate consumer without counting microphone-off as adoption', () => {
     const attempts = Array.from({ length: 3 }, () =>
       buildLiveVoiceFollowUpAttemptAnalytics(baseInput),
@@ -143,6 +194,10 @@ describe('live voice follow-up analytics contract', () => {
         endReason: 'user_end',
       }),
     );
+    const pauses = (['panel_closed', 'page_hidden'] as const).map(reason =>
+      buildLiveVoiceFollowUpPauseAnalytics({ ...baseInput, reason }),
+    );
+    const resumes = [buildLiveVoiceFollowUpResumeAnalytics(baseInput)];
     expect(text).toHaveLength(2);
     expect(microphone.filter(row => row.enabled)).toHaveLength(3);
     expect(
@@ -154,6 +209,46 @@ describe('live voice follow-up analytics contract', () => {
     expect(ends.filter(row => row.had_exchange).length / ends.length).toBe(
       1 / 2,
     );
+    expect(pauses).toHaveLength(2);
+    expect(resumes).toHaveLength(1);
+    expect(resumes.length / pauses.length).toBe(1 / 2);
+    expect(attempts).toHaveLength(3);
+    expect(results).toHaveLength(3);
+    expect(ends).toHaveLength(2);
+
+    // The rotation release cohort includes locally accepted replacements,
+    // including server quota rejection. Internal status work adds no events.
+    attempts.push(
+      buildLiveVoiceFollowUpAttemptAnalytics(baseInput),
+      buildLiveVoiceFollowUpAttemptAnalytics(baseInput),
+    );
+    results.push(
+      buildLiveVoiceFollowUpResultAnalytics({
+        ...baseInput,
+        outcome: 'success',
+        errorCode: 'none',
+      }),
+      buildLiveVoiceFollowUpResultAnalytics({
+        ...baseInput,
+        outcome: 'failed',
+        errorCode: 'capacity_exceeded',
+      }),
+    );
+    ends.push(
+      buildLiveVoiceFollowUpSessionEndAnalytics({
+        ...baseInput,
+        hadExchange: false,
+        durationMs: 1000,
+        endReason: 'user_end',
+      }),
+    );
+    expect(attempts).toHaveLength(5);
+    expect(results.filter(row => row.outcome === 'failed')).toHaveLength(2);
+    expect(
+      results.filter(row => row.outcome === 'success').length / attempts.length,
+    ).toBe(3 / 5);
+    expect(ends).toHaveLength(3);
+    [...attempts, ...results, ...ends].forEach(expectNoProhibitedFields);
   });
 
   it('uses stable version-one event names', () => {

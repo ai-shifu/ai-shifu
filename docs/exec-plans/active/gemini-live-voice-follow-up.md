@@ -31,14 +31,138 @@ available. Ordinary text follow-ups continue to inherit the Course Prompt.
 
 The first release supports reading mode, listen mode, and teacher preview;
 classroom remains excluded. It is available to every teacher only when
-`GEMINI_LIVE_ENABLED=true`. Sessions warn 30 seconds before the issued token's
-absolute 15-minute expiry and end at that expiry, including provisioning and
-connection time. Usage and transcripts reported after the media plane moves into the
+`GEMINI_LIVE_ENABLED=true`. The issued token's absolute 15-minute expiry is an
+internal connection boundary, including provisioning and connection time, not
+a user-facing countdown or error. Expiry retains the panel, history, and draft;
+the next deliberate input establishes a new connection after bounded final
+history persistence. Never replay an already-sent question or mint idle tokens.
+Usage and transcripts reported after the media plane moves into the
 browser are explicitly client-reported and untrusted. They are bounded,
 persisted only with `billable=0`, and must never drive settlement, permissions,
 auditing, or another correctness-sensitive decision.
 
 ## Progress
+
+- [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
+  Live controls, RTL regression coverage, cached keepalive transport, and
+  analytics fields while adopting the unified frontend source directories.
+  Updated Live-only imports and test mocks that Git could not migrate
+  automatically; regenerated repository knowledge indexes.
+  Validation: all 228 frontend suites / 2,336 tests passed; focused Live,
+  shared LLM, configuration and deployment-contract tests passed (365 passed,
+  one skipped), including real Redis coverage. TypeScript, lint and the full
+  all-files pre-commit gate passed. No deployment was performed.
+
+- [x] 2026-09-05: Current-head review of `f1f259390` found two further edge
+      cases. Reproduce three Redis failures where an undisclosed failed mint's
+      retired head blocked retry despite released risk; rely on actual risk
+      and rolling quotas instead of its obsolete expiry. All 260 focused
+      backend tests pass, including 61 real Redis cases. Four final-input-first
+      variants also reproduced (unrelated, repeated, shared-prefix, overlapping
+      questions). Freeze already-final input at the terminal boundary; retain
+      missing-final and pre-terminal fragment reconciliation. All 199 focused
+      accumulator/controller tests and TypeScript pass. Keep both review
+      threads open until these fixes are pushed and verified in the PR.
+- [x] 2026-09-05: User authorized adjusting the one-valid-credential rule and
+      designing controlled replacement. Record the proposed bounded contract
+      in Phase 4 below; this is a design, not an implemented capacity change.
+      Keep the existing global credential exposure unchanged and distinguish
+      application ownership from still-valid Google credentials.
+- [x] 2026-09-05: All applicable CI checks on `6f28f2916` reached terminal
+      states; executed checks passed. Bugbot's quota skip and CodeRabbit's
+      size skip are not review approvals. The admission review remains open:
+      retiring an old anchor does not yet permit immediate token replacement.
+- [x] 2026-09-05: Verify the audio-ownership review against the actual pinned
+      `markdown-flow-ui@0.2.24` Slide/Player in Chrome, not a mocked player.
+      Opening the original desktop/mobile Ask panel physically pauses native
+      course audio before Live connects. End inside the still-open panel keeps
+      it paused; closing resumes only prior playing intent, not manually paused
+      narration. Resolve the disproven review without another playback owner.
+      Gemini transport was mocked; temporary fixtures and services were removed.
+- [x] 2026-09-05: Implement Phase 4 behind default-off
+      `GEMINI_LIVE_ROTATION_ENABLED`. Verify End/new-anchor replacement,
+      metadata-only lost-response recovery, one shared startup budget, history
+      gating, generation guards, and exact analytics/consumer contracts.
+      Frontend: 228 suites / 2,330 tests passed, including 156 controller cases.
+      Backend: 255 focused tests passed, including 56 real Redis Lua cases.
+      Independent review caught and corrected post-admission failure responses
+      losing the successor identity; regressions cover recovery via that ID.
+- [x] 2026-09-05: Full dev-tool check and repository-wide pre-commit passed,
+      including pinned Ruff, five-locale parity/usage, architecture, and harness.
+      TypeScript and full lint passed with existing warnings. Current-head CI
+      and review synchronization are recorded in PR #2744 after each push.
+- [ ] Deployment/enablement and physical Gemini/Safari/mobile acceptance remain
+      separate, unperformed operations; do not infer them from local tests.
+- [x] 2026-09-05: Merge current main in `db6b859fe` and regenerate the sole
+      conflicting `docs/generated/harness-health.md`; dev-tool verification
+      and full pre-commit passed. No deployment was performed.
+- [x] 2026-09-05: Reproduce review `discussion_r3938739497`: the first output
+      of a spoken next turn inside reconciliation could merge into a terminal
+      predecessor before its input transcription arrived. Route new output to
+      the active turn while retaining input/usage-only late reconciliation.
+      Four ordering regressions and the existing accumulator/controller suite
+      pass (165 tests); the three initial reproductions failed before the fix.
+- [x] 2026-09-05: Codex review of `201e096f8` found a paused listen attempt
+      retained after the rendered slide anchor changed. End mismatched retained
+      attempts before the new panel becomes interactive; keep same-anchor
+      collapse paused and leave credential admission unchanged. Four desktop/
+      mobile, expanded/collapsed regressions pass (red before correction).
+      The final full frontend run passed 227 suites / 2,271 tests, TypeScript,
+      and full pre-commit; subsequent CI passed, while the separate admission
+      contract review remains open as recorded above.
+- [x] 2026-09-05: Codex review of `201e096f8` found resume telemetry without
+      an originating connected pause when setup finished in the background.
+      Track the connected-pause transition independently of event delivery;
+      do not infer it from later connection readiness. The new regression
+      failed before correction, and all 128 controller tests now pass.
+- [x] 2026-09-05: Follow-up regression review found that a discarded answer
+      could leave `speaking` state behind after pause. Reset only the audible
+      speaking state, preserving connecting/reconnecting. Both microphone and
+      keyboard reproductions failed before correction; all 127 controller
+      tests now pass, including a non-interrupted next text-submit event.
+- [x] 2026-09-05: User approved pause/continue for panel collapse and temporary
+      backgrounding, with no visible 15-minute limit. Explicit End, different
+      anchor/lesson/course, page unload, and expiry still retire the connection.
+      Opening a panel alone does not resume media or microphone capture.
+- [x] 2026-09-05: Integrate and verify pause/output suppression, click-safe
+      resume, exact credential/admission deadline, retained background binding,
+      silent natural expiry, finalization-gated next input, and pause/resume
+      analytics. Local Chrome with real AudioContext/worklet and mocked
+      transport verified collapse releases capture and suspends output;
+      reopening alone remains muted, next text reuses one session/socket,
+      and shortened natural expiry retains history without error or a clock.
+      The next explicit Send creates exactly one replacement connection.
+      Desktop/mobile screenshots confirm the microphone beside Send inside
+      the original input. Temporary QA route/server/browser were removed.
+- [x] 2026-09-05: Regression review fixed paused typed-handoff deadlock,
+      premature history commit before the final playback watermark, and a
+      failed binding-close request poisoning future input. Bound native audio
+      close to one second. Keep retained-history recovery explicit and bounded;
+      one click never chains two closing budgets. Backend Live suites:
+      183 passed, one environment-dependent skip; no schema or deployment edits.
+- [x] 2026-09-05: Final full frontend run passed all 227 suites / 2,264 tests;
+      controller 125 and writer 33 focused cases passed. TypeScript, lint,
+      architecture boundaries, and repository harness passed. Physical
+      Safari/iOS/mobile Chrome, real Gemini, and real Redis integration remain
+      unverified; browser fixture coverage is not presented as those gates.
+- [x] 2026-09-05: Move the manual microphone action into the original input,
+      beside Send, using the public textarea class hook and a local adornment.
+      Preserve one textarea, existing keyboard behavior, and manual capture.
+      Real Chrome with mocked Gemini verified desktop, 390px mobile, RTL,
+      typed input without capture, click activation, and capture release on
+      editing. The status and retry row remain below the input. The later
+      user-approved lifecycle removes retry clocks entirely in all five locales.
+- [x] 2026-09-05: Add one bounded recovery for unexpected resumable socket
+      closes and one transient heartbeat retry; retain the same admission,
+      token, history accumulator, expiry, and analytics session. Preserve
+      the original failure during cooldown. Controller tests: 95 passed;
+      full frontend suite: 227 suites / 2,207 tests passed.
+- [x] 2026-09-05: Complete full `lefthook run pre-commit --all-files`, including
+      five-locale parity/usage, pinned Ruff 0.16.5, architecture and repository
+      harness. The first run sorted the new locale keys; the second passed.
+- [x] 2026-09-05: Update PR #2744 and follow CI/review for the
+      input/pause/reliability revision through `6f28f2916`. The newly authorized
+      admission change is an outstanding implementation, not a resolved review.
 
 - [x] 2026-09-04: Integrate Live into the existing AskBlock; separate playback,
       microphone, and connection activation; add keyboard interruption and
@@ -128,9 +252,14 @@ Use realtimeInput.text for keyboard questions. Stop queued playback immediately
 on a typed interruption but reconcile the old turn at the upstream interruption
 or completion boundary. Accept only one pending handoff, retain failed drafts,
 and never replay a question automatically after an ambiguous disconnect.
-Closing/collapsing the panel or changing anchor ends Live; ending Live itself
-leaves the panel/history visible. Page hide, scope change, timeout, and unmount
-release capture and playback. The existing listen custom-action panel owns
+As amended on 2026-09-05, collapsing the panel or a visibility change pauses
+Live: release microphone and audio exclusivity, mute and clear playback, suppress
+late output from the discarded turn, and retain its played-prefix history.
+The next explicit input resumes the existing AudioContext and revalidates the
+binding; it never enables the microphone without an explicit microphone click.
+Actual pagehide/unload, scope/anchor change, End, and internal expiry retire the
+connection. Ending Live itself leaves the panel/history visible.
+The existing listen custom-action panel owns
 course pause/resume; a still-open panel never resumes course audio.
 
 Analytics extends the existing adoption/connection consumer with typed-use and
@@ -243,7 +372,7 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
       directory; the shared local virtualenv still had Flask 3.0.3.
 - [x] 2026-09-04: Addressed CodeQL's reflected-HTML findings by returning
       explicit `application/json` responses with `X-Content-Type-Options:
-      nosniff` from every Live endpoint. The shared envelope and unrelated
+  nosniff` from every Live endpoint. The shared envelope and unrelated
       routes are unchanged; tests cover markup-like values and MIME headers.
       All 102 focused backend tests and the full pre-commit gate pass.
 - [x] 2026-09-04: Added stable business code `4018` for user/worker/global
@@ -455,6 +584,30 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Surprises & Discoveries
 
+- 2026-09-05: Same-anchor pause resolves the reported collapse incident but
+  does not remove the one-valid-credential admission block after a real End or
+  anchor change. Google token expiry and application session retirement are
+  separate facts. The public [Live AuthToken contract](https://ai.google.dev/api/live#AuthToken)
+  describes immutable expiry/setup and creation; it does not expose a revoke
+  operation. A claimed browser close is not proof of upstream revocation.
+- 2026-09-05: A token response cannot be replayed after response loss without
+  retaining the credential. Phase 4 deliberately keeps the no-token-storage
+  rule: request idempotence prevents a second mint, but status recovery returns
+  metadata only. A separate explicit replacement may consume another bounded
+  risk slot. Do not describe these two operations as transparent token replay.
+- 2026-09-05: The reported dev incident is not a 15-minute expiry. Sanitized
+  API timings show a session created at 06:17:25 UTC, followed by turn/end
+  requests around 06:17:35, before the first heartbeat. The displayed retry
+  time matches the separately reserved token lifetime plus expiry grace.
+  API logs intentionally omit sensitive request bodies and do not establish
+  the original browser teardown reason. A cooldown click previously replaced
+  that reason with `capacity_exceeded`; do not infer capacity or timeout from
+  that UI. No Live persistence exception was logged for the observed turn.
+  The learner subsequently confirmed collapsing the panel before the error,
+  which explains the current `user_close` teardown and reservation conflict.
+  The user approved changing collapse to pause and hiding the internal lifetime.
+  Preserve that decision in the amended lifecycle contract above.
+
 - The provider can complete with output transcription but no PCM audio even
   when server and browser setup both request only `AUDIO`. Authorized temporary
   probes with the affected Course Prompt reproduced this; adding one voice
@@ -514,6 +667,37 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Decision Log
 
+- Decision (2026-09-05): once a terminal spoken turn already has final input,
+  subsequent final-only input starts its successor, including identical or
+  text-overlapping questions. Only a missing final input can reconcile into
+  that terminal turn; do not infer ownership from text similarity.
+  - Why: Gemini input transcription is unordered and carries no turn ID or
+    completion marker. The bounded reconciliation window cannot resolve every
+    ambiguity when the old input is entirely missing. Preserve explicit known
+    boundaries without pretending arbitrary ASR order is fully attributable.
+- Decision (2026-09-05): a retired ownership head is not a credential quota.
+  Even with rotation disabled, positively undisclosed failures can retry when
+  the actual risk ledger is empty; retained uncertain/disclosed credentials and
+  rolling mint limits continue to block admission normally.
+- Decision (2026-09-05, implemented behind a default-off policy): separate
+  one application owner per user from a non-releasable ledger of issued or
+  disclosure-uncertain credentials. Initial bounds are three such
+  credentials per user, 24 globally, and six per issuing worker; validated mint
+  attempts are limited to four per user and 24 globally per rolling minute.
+  - Why: normal End/context replacement can use a second credential without
+    pretending to revoke the first. Preserve the existing total risk ceiling
+    rather than silently doubling provider exposure. This permits an initial
+    credential plus two early replacements, not unlimited instant reconnects.
+    At saturation, keep the draft and return bounded busy without expiry copy.
+    These are code defaults, not a claim of deployed enablement.
+- Decision (2026-09-05): keep replacement explicit, with a versioned
+  owner comparison, bounded request idempotence, retained retirement receipts,
+  and no credential response cache. Pause/resume keeps the same token. Natural
+  expiry remains silent and lazy; no continuous-microphone rollover is added.
+  - Why: a late End or mint response must never change a newer owner. Avoid
+    introducing stored bearer credentials or replaying ambiguously sent input.
+    The existing single-credential limit remains authoritative while the
+    rotation policy is off; the risk ledger and recovery gate apply either way.
 - Decision: a single close operation owns persistence through recovery, with
   a 25-second elapsed-time budget rather than fire-and-forget successor writes.
   - Why: teardown intentionally stops media and heartbeats immediately. A
@@ -582,7 +766,8 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   terminal cleanup. Bind the session to user, course, outline, anchor, preview
   state, Origin, model, voice, language, and absolute token expiry in Redis.
   - Why: access and capacity remain trusted even though the media plane is not.
-- Decision: reserve per-worker, global, and per-user Redis capacity for the
+- Decision (superseded for deadlines and binding retention on 2026-09-05):
+  reserve per-worker, global, and per-user Redis capacity for the
   full 15-minute credential lifetime plus the 30-second connection margin.
   Keep the authenticated control-plane binding on a separate 45-second TTL,
   refreshed by a 15-second heartbeat. Never release capacity after the token
@@ -596,12 +781,26 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   until their binding or credential expires.
   - Why: disabling the feature cannot revoke Google's credential, and must not
     discard the final transcripts of an already active direct session.
-- Decision: after a credential is issued, disable retry until its expiry plus
+- Decision (superseded for user-visible clocks and the extra margin on
+  2026-09-05): after a credential is issued, disable retry until its expiry plus
   the capacity safety margin and display the eligible retry time in all five
   locales. Re-entry shares that guard; no microphone, API request, or analytics
   attempt starts while the credential reservation is known to remain active.
   - Why: an immediate retry cannot succeed under the deliberately retained
     one-credential-per-user admission limit.
+- Decision (2026-09-05, user approved): collapse and temporary hiding pause the
+  existing connection, while explicit End/navigation/unload really end it.
+  Hide the internal 15-minute lifetime and all expiry clocks. A natural expiry
+  preserves the original panel, history, and draft; the next deliberate input
+  obtains a fresh credential after bounded history finalization. Use one UTC
+  issuance timestamp for capacity and token expiry, with only millisecond
+  rounding, and retain authenticated binding through its fixed finalization
+  deadline without heartbeat renewal.
+  - Why: a normal collapse must not strand the learner behind an unrevocable
+    credential reservation. Internal renewal should not become a user task,
+    and throttled background timers must not delete valid session identity.
+    Keep all existing access checks, single-credential limits, and manual mic
+    consent; never silently replay input or create idle replacement sessions.
 - Decision: treat credential expiry plus 30 seconds as an admission cutoff for
   new finalization requests, not as cancellation of an already accepted bounded
   batch. Under the existing connection-owned DB lock, compare the binding and
@@ -674,6 +873,15 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   - Why: adoption can be measured without collecting conversation or secrets.
 
 ## Outcomes & Retrospective
+
+The 2026-09-05 pause/input implementation and its verified review corrections
+are pushed through `6f28f2916`; its executed CI checks passed. Actual pinned
+player acceptance confirms original-panel ownership of narration pause/resume.
+Controlled early credential replacement is implemented and locally verified
+behind a default-off policy. Main's generated-report conflict is resolved in
+`db6b859fe`. Current-head PR checks and review synchronization remain pending;
+no deployment or policy enablement occurred. Local regression evidence must not
+be reported as physical Gemini/Safari/mobile acceptance or a deployed fix.
 
 The implementation is now aligned with the deployment the user actually has:
 the AI-Shifu ingress handles only ordinary HTTPS for Live, while the browser
@@ -762,7 +970,9 @@ capacity through the credential lifetime. Build the follow-up instruction and
 latest ten turns through the shared context builder, with the Live voice
 default instead of the Course Prompt. Mint a Gemini token with `uses=1`, a
 30-second new-session window, 15-minute expiry, and a locked effective Bidi
-setup. Store a separate 45-second Redis session binding and return only the
+setup. Keep the authenticated Redis binding until the same credential deadline
+plus the existing 30-second finalization grace; do not require background
+JavaScript timers to renew it. Return only the
 ephemeral token, allowlisted constrained WSS endpoint, prompt-free setup,
 history frame, expiries, and heartbeat period.
 
@@ -775,9 +985,11 @@ spellings used by the API. Clear playback immediately on interruption. Resume
 `GoAway` with the newest handle on another constrained socket using the same
 ephemeral token.
 
-Every 15 seconds the browser renews only the trusted Redis control-plane
-binding over authenticated HTTPS; the independent capacity reservation expires
-with the disclosed credential. A completed/interrupted turn waits 500 ms for
+Every 15 seconds the browser validates control-plane health and authorization
+over authenticated HTTPS without extending the binding or credential lifetime.
+The independent capacity reservation expires with the disclosed credential,
+using the same UTC issuance instant and rounded-up millisecond deadline.
+A completed/interrupted turn waits 500 ms for
 late transcription and waits for the playback watermark before POSTing. The
 backend validates/bounds the report, filters usage to allowed numeric token and
 modality fields, writes history idempotently, and forces `billable=0`. On close,
@@ -814,19 +1026,299 @@ requesting capture. An explicit microphone click also requests capture in that
 stack; permission denial leaves keyboard input available. Editing stops capture
 without disconnecting. Only explicit microphone activation can restart it.
 
-Compact controls show connection/microphone state, end, warning, and retry.
+Compact controls show connection/microphone state, end, and retry. The
+microphone sits inside the existing input beside Send, including RTL layouts.
+No countdown, lifetime warning, or credential-expiry clock is user-facing.
 All failures remain in AskBlock; no Live input enters the ordinary SSE path.
 Ending Live leaves the panel open. The original listen custom-action panel owns
 pause/resume intent, so ending a session inside the panel never resumes the
-course. Page hide, lesson/course/anchor change, unmount, panel collapse, and
-timeout stop tracks, clear playback, close the AudioContext, and release the
-socket. No deployment settings or production environment change in this phase.
+course. Panel collapse, temporary document hiding, and audio-ownership handoff
+pause capture and output immediately, retaining the same session. Resume only
+on deliberate text or microphone input, after playback and authorization are
+ready. Discard late output from paused turns and await the worklet watermark
+before committing heard history. Actual pagehide, lesson/course/anchor change,
+unmount, explicit End, and internal expiry close all media and transport
+resources. Natural expiry retains panel/history/draft without an error; the
+next explicit input starts a fresh session after bounded finalization of the
+previous history. Do not replay already-sent input or auto-enable capture.
+No deployment settings or production environment change in this phase.
 
 Maintain disclosure, five locales, privacy copy, and the existing event family:
 `learner_voice_follow_up_attempt`, `learner_voice_follow_up_result`, and
 `learner_voice_follow_up_session_end`. Include production guest/member learners
 in read/listen; exclude teacher preview and classroom. Keep analytics best
 effort and independent from the user-visible operation.
+
+### Phase 4: bounded credential rotation (implemented; disabled by default)
+
+This amendment is authorized by the user's 2026-09-05 response permitting a
+capacity-contract adjustment. It supersedes the single-valid-credential rule
+only when implemented and enabled. Keep the direct Gemini media plane, locked
+token setup, fixed internal expiry, original AskBlock, explicit microphone
+consent, Course Prompt exclusion, and non-billable persistence. Do not change
+deployment configuration or enable the policy as part of this revision.
+
+#### Ownership and risk bounds
+
+An application owner is the one session our authenticated control plane accepts
+as current for a user. A credential reservation represents a Google token that
+may still be usable, even after that owner is retired. They are not the same
+resource. The backend cannot prove that a modified direct browser closed its
+old Gemini socket. Guarantee one logical owner, not one physical Google socket.
+
+| Resource | Initial default | Release rule |
+| --- | --- | --- |
+| Application owner | One per user | Authenticated End or compare-and-swap replacement of that exact owner; hard expiry also retires it |
+| Outstanding credential reservations | Three per user, 24 globally, six per issuing worker | Fixed credential expiry; only positively undisclosed failures may roll back early |
+| Validated mint attempts | Four per user and 24 globally per rolling 60 seconds | Rolling server-time window; provider failures count, exact idempotent duplicates do not |
+| In-flight issuance | One per user | Bounded operation deadline or terminal completion, guarded by owner revision |
+
+Existing global/worker limits remain total credential bounds, not additional
+limits on top of 24 active users. Each owner must have a reservation, so logical
+global/worker counts cannot exceed those bounds. The worker dimension describes
+issuance bookkeeping, not server-side media sockets or threads. Replacements
+consume headroom: at 24 outstanding credentials there is no rotation slot, and
+one user's third early replacement is refused while their first three tokens
+remain valid. This finite tradeoff is intentional; do not promise unlimited
+instant renewal. Increasing to 48 globally and 12 per worker would double the
+previous credential exposure and requires a separate measured decision.
+
+#### Atomic admission, retirement, and request idempotence
+
+Extend the existing authenticated session POST instead of adding another media
+path. Add `operation=create|status` (default `create`), `request_bid`, optional
+`replace_session_bid`, and optional
+`expected_admission_revision`. Return `admission_revision` with the current
+successful response. Use a server-generated opaque ownership revision and
+compare the pair of predecessor session BID and revision; a recreated Redis
+key cannot make a stale request current again. Bind every operation to user,
+normalized Origin, exact course/outline/anchor, preview, learning mode, and its
+predecessor. Revalidate permissions and effective Live configuration for every
+create. Status authenticates the original user, Origin, and stored target, but
+does not require still-valid access to a retired course or a surviving anchor:
+it returns only the caller's own operation metadata, never course content.
+
+Use time-bearing UUIDv7 request IDs with a server-validated acceptance window:
+at most 120 seconds old and at most 30 seconds ahead of server UTC. Keep terminal
+operation tombstones for 20 minutes. An expired ID is rejected before provider
+access, including after its tombstone is removed; the same ID cannot become a
+new mint later. A bounded stale-ID response may include server UTC for client
+clock correction. Correcting an ID is safe only after this pre-mint rejection;
+never turn an ambiguous timeout into an automatic new ID. Request IDs and
+ownership revisions are control-plane metadata, never analytics dimensions.
+Use Redis server time consistently for admission, rolling windows, expiry
+pruning, and the accepted issuance instant returned to the token issuer;
+different worker clocks must not release risk or extend request validity.
+
+After permission/context preparation, one Redis Lua transaction must prune
+expired reservations, validate the operation's immutable binding, check exact
+owner or retirement receipt, enforce risk/rate bounds, reserve risk, and claim
+one pending successor. All rejections occur before contacting Gemini. A
+duplicate ID with a different binding is rejected; an exact duplicate returns
+the same bounded operation status without another provider call or rate charge.
+`operation_status=rejected` is reserved for a definite pre-admission refusal.
+After reservation, provider/binding failures return that operation's current
+`failed`, `cancelled`, `pending`, or `issued` metadata. If Redis cannot establish
+the status, return a generic failure, preserving the caller's new request ID.
+Never label an advanced/uncertain owner as rejected and restore its predecessor:
+that would strand the next retry on an obsolete head.
+The explicit `status` operation only reads an existing operation record; it
+never runs mint admission, creates a missing record, consumes capacity/rate
+budget, or returns a credential. Put the original immutable fields inside a
+nested `target` object on status requests; omit root `anchor_element_bid`.
+This is deliberately invalid as a legacy create so an older worker cannot
+ignore `operation=status` and accidentally mint after a lost response.
+Authenticate user/Origin and exact target
+before lookup. Unlike `create`, status remains valid throughout the 20-minute
+tombstone retention even after the request ID's mint window has elapsed.
+Existing risk keys stay non-releasable; new versioned user-risk/owner/operation
+keys do not replace the existing per-user STRING in place.
+
+Mint outside Lua with a provider wait capped at ten seconds and a total server
+operation deadline of 15 seconds, shorter than the browser's existing 20-second
+startup budget. Same-ID status retries share that original browser deadline,
+leaving time for delivery/setup instead of resetting the clock. Use one server
+issuance time for token and risk expiry as today. Commit the
+binding and ready ownership only if the operation and revision are still
+current and within deadline, before exposing the token. A late provider result
+cannot resurrect a cancelled or superseded operation. Reserve before the call:
+process crashes, uncertain completion, and uncertain disclosure retain the
+reservation conservatively. Confirmed pre-disclosure failure may release only
+its own reservation, never a predecessor's, and never refund a provider attempt
+from the rolling rate limit. Do not revive a retired predecessor after failure.
+
+Keep the token only in the original successful response; Redis, SQL, traces,
+and logs retain no raw or encrypted credential response. Repeating the POST
+with the same ID can return `pending`, `issued`, `failed`, or `cancelled` status
+plus non-secret session/revision metadata, but cannot replay a lost token.
+Bound same-operation status retries within the original frontend startup
+budget. An `issued` response without the original token ends that attempt as a
+bounded failure, preserving unsent input. A later deliberate retry creates a
+new ID and may replace that orphan through the same reservation/CAS rules.
+Aborting fetch is never treated as proof the provider did not issue a token.
+If the original response and all status responses are lost, preserve the old
+request ID even though no session BID/revision was received. The next explicit
+retry first performs a bounded, non-minting status lookup with that ID; the
+expired startup budget does not prohibit a new user-requested lookup. It may
+recover only that operation's session/revision and whether it still matches the
+current ownership head. Do not return an unrelated successor as an implicit
+takeover target. Only a matching current/retired head allows a fresh-ID CAS
+replacement; a stale operation preserves the draft and reports an ownership
+conflict. Pending operations must settle or hit their original server deadline
+before a successor is admitted. A new retry shares one 20-second startup budget
+across status recovery and any subsequent issuance/setup; it never chains new
+budgets automatically. If the tombstone no longer exists, do not recreate it or
+remint its ID: all credentials it could have issued have expired, and a fresh
+initial operation still has to pass current ownership and quota checks.
+
+Authenticated End/finalize may retire only their own owner revision. Keep a
+separate retirement receipt until at least the original expiry plus 300 seconds,
+even when successful finalization consumes the history binding. It identifies
+the predecessor, owner revision, target, and committed-history cursor but
+contains no transcript or credential. It cannot authorize another user's or
+Origin's replacement, and it is not sufficient by itself: retain the user's
+latest ownership head/revision even after its owner is retired. A receipt must
+match that current head and may advance it only once. An old predecessor cannot
+be reused after its successor has also ended. Keep head/tombstone retention
+beyond the request-validity window and any corresponding receipt deadline.
+Preserve the existing history-admission cutoff and
+bounded accepted-write lease; the receipt is not extended history permission.
+Old reports may finish within their original window, but a retired session
+cannot regain current heartbeat/media ownership. Late End, finalization, or
+stale browser callbacks must not clear a successor. Two tabs attempting the
+same predecessor have one CAS winner; the other keeps its draft. A new tab
+without a matching predecessor must not silently seize another tab's owner.
+An initial create without a predecessor may proceed after the current head is
+retired (there is no active owner), subject to all risk/rate limits. Advancing
+that head invalidates previous receipts; a stale explicit CAS still fails.
+
+Return a bounded machine reason and server-calculated `retry_after_ms` for
+actual risk/rate saturation. Compute when every blocking quota could admit the
+request; do not copy the last browser credential expiry or promise admission
+at that moment. Ownership conflicts need an explicit ownership action, not a
+fabricated retry deadline. Redis unavailable remains Live fail-closed, with
+ordinary HTTP and text follow-ups unaffected.
+
+#### Frontend operation and playback contract
+
+Keep same-anchor collapse/background pause and explicit resume unchanged:
+neither creates a credential, asks for capture, or starts connection analytics
+just because the panel opens. For a real End or context change, synchronously
+isolate old callbacks, stop microphone/output, capture the played watermark,
+and close the old socket. Retain the predecessor receipt independently of the
+destroyed media attempt. End alone never starts another connection.
+
+On the next valid explicit text/microphone action, activate native playback in
+the real click stack, retain only this unsent question, await existing bounded
+history finalization, then submit a replacement operation. Do not mint before
+a potential 25-second history wait consumes the initial connection window.
+Same-context replacement must rebuild server history only after prior pending
+turns are durable. Reuse the writer's single per-click closing budget; failure
+preserves the draft for another deliberate action. Already-sent input is never
+replayed, and old unplayed answers never become new context.
+
+Replace the local token-expiry admission guard with authoritative admission
+responses and a single pending operation. All callbacks check controller
+generation, target, request ID, and owner revision. A stale response can retire
+only its own returned session, never attach capture or playback to a new one.
+Only the current explicit microphone action can grant capture; text still
+works without microphone permission. Keep original listen-panel audio intent:
+an open Ask panel keeps course audio paused, including during replacement.
+
+No lifetime warning, countdown, or token-expiry retry clock returns to the UI.
+Show only compact connection progress or a genuine bounded error/retry state.
+Natural expiry still cleans up silently; the next explicit input can acquire a
+fresh session. There is no idle pre-minting or automatic continuous-microphone
+rollover in this first cut. Finite capacity, network, and persistence failures
+may still require a retry; do not hide them by discarding drafts or claiming a
+successful connection. Busy retry availability is internal state, not a clock.
+
+#### Analytics and compatibility gates
+
+Extend the existing connection-reliability consumer rather than inventing a
+second funnel. Its decision remains accepted-connection success and bounded
+failure counts in UTC daily/seven-day windows. A replacement passing local
+guards and starting connection work is one new attempt, one result, and (only
+if connected) one eventual session end. Acceptance is local, not server quota
+approval: quota/CAS rejection still produces one failed result. An
+internal same-ID HTTP/status retry adds none. A failed old session's late
+callback cannot emit for the successor. Existing text-submit and microphone
+operation counts still correspond to explicit accepted user actions, not
+issuance calls. Same-token pause/resume remains a separate paired transition.
+
+Keep the current exact event names, payload allowlists, guest/member read/listen
+population, preview/classroom exclusions, deduplication, and fail-open behavior.
+Map quota/rate rejection to existing `capacity_exceeded`; map ambiguous token
+response and owner conflict to an existing bounded creation/network outcome,
+never raw server text. Request IDs, revisions, credential counts, tokens,
+content, model, and voice do not enter product events. At implementation time,
+update the canonical analytics spec, producers, and consumer fixture together.
+Segment reliability reports at the actual rotation-enable timestamp per
+environment: formerly locally blocked attempts can now reach admission, so
+historical attempt denominators are not interchangeable. No backfill or dual
+write; server-owned capacity telemetry, not Umami, controls quotas.
+
+`GEMINI_LIVE_ROTATION_ENABLED` defaults off. Deploying/enabling it is a
+separate authorized operation. The smallest safe rollout is all compatible
+backend workers first, temporarily pause new admission with the existing Live
+flag, drain legacy issued credentials through their expiry/finalization grace,
+then enable the new policy and restore admission. Existing global/worker risk
+ZSETs remain shared throughout. If a no-drain mixed-version rollout is required,
+implement explicit dual-read/write legacy guards first; do not let old workers
+mint around V2 limits or treat an empty V2 namespace as empty risk. Old frontends
+without operation metadata retain the non-replacement contract and cannot
+bypass V2 ownership/risk checks. Turning rotation off denies new early
+replacement but keeps V2 risk accounting and existing-session finalization.
+Never roll back by erasing reservations or selecting an empty old namespace.
+Rolling back to an old binary that cannot enforce V2 risk is also prohibited
+until all V2 credentials drain. If Redis recovers with missing accounting
+state, absence is not proof of zero outstanding credentials: keep new issuance
+closed for at least the maximum remaining credential lifetime, using a shared
+recovery epoch established before reopening. Bootstrap the accounting marker
+while admission is disabled; a missing marker after restart/reset triggers this
+conservative recovery rather than an empty-ledger bypass. Normal text/HTTP and
+already-issued Google credentials do not depend on this new admission gate.
+A surviving marker is not sufficient after restoring an older snapshot. Verify
+the shared Redis instance/recovery generation on admission; restart, failover,
+or restore invalidates it and triggers the same conservative window even when
+the marker survives. Risk/owner/operation keys must not be individually evicted:
+verify non-evicting storage on admission. The new binary always applies this
+generation/noeviction gate, even while rotation is off; otherwise accounting
+loss could hide still-valid V2 credentials during rollback. First bootstrap or
+a missing/changed Redis run ID starts a shared 15-minute quarantine. Redis
+generation and eviction policy are checked inside the admission Lua operation.
+A same-process privileged DEBUG RELOAD/RESTORE or selective administrative key
+deletion cannot be detected reliably from run ID; prohibit those operations
+while admission is enabled. Operators must disable admission and establish a
+fresh recovery epoch/quarantine before such restoration. This implementation
+does not claim arbitrary privileged partial-restore detection. If these
+properties cannot be established, keep Live admission disabled and report the
+operational gate; do not silently change Redis deployment settings here.
+Non-eviction must hold continuously while credentials are valid, not just at
+the instant of a check; a temporary privileged policy change also requires
+disabled admission and a complete drain/recovery window before reopening.
+
+Implementation uses `live_follow_up_admission.py` alongside the existing
+`live_follow_up_capacity.py`,
+`live_follow_up_session_store.py`, `live_follow_up_routes.py`, existing direct
+request DTOs/controller/writer integration, their neighboring tests, and the
+canonical analytics specification. Redis metadata suffices; no SQL migration,
+provider key exposure, token response cache, or media proxy is proposed.
+
+Acceptance must include real Redis Lua concurrent workers/tabs, exact expiry,
+three-per-user/global/worker exhaustion, rolling-rate edges, identical/mutated/
+expired request IDs, worker clock skew, provider timeout/crash/late success,
+response loss (including loss of every status response followed by recovery
+after the UUID mint window), stale End/finalize, retirement after consumed binding, replay of
+an old predecessor after its successor ends, V1/V2 rollout and rollback, and
+Redis fail-closed/accounting loss, including restored markers with missing
+newer reservations. Frontend tests must reproduce End/new-anchor immediate
+replacement under available budget, paused same-anchor reuse, one pending send,
+clock skew, dropped/stale responses, draft/history preservation, no sent-input
+replay, manual capture and click activation, output isolation, and exact
+analytics payloads/terminal counts/fail-open. Real browser/Gemini and physical
+Safari/mobile acceptance remain required for microphone/voice claims. Keep the
+admission review open until implemented behavior, not this design, proves it.
 
 ## Product Analytics Contract (v2: embedded input)
 
@@ -849,15 +1341,17 @@ The business question is the share of accepted production learner voice
 attempts that connect, their bounded failure outcomes, and whether connected
 sessions produce an exchange. An attempt fires after local ID validation and
 before playback/session startup. Each accepted connection start or retry is one
-attempt. The local credential-cooldown guard runs before that point: a disabled
-retry or re-entry while admission is still reserved starts no microphone,
-request, or analytics attempt. The existing aggregate attempt/result consumer
-and payload allowlist remain unchanged; the UI explains the retry deadline.
+attempt. The local retry guard runs before that point: a disabled
+retry or re-entry starts no microphone, request, or analytics attempt. For
+legacy sessions it retains the old credential-expiry guard; rotation-enabled
+sessions rely on server admission. The aggregate attempt/result consumer
+and payload allowlist remain unchanged; no retry deadline is shown in the UI.
 An API capacity rejection uses business code `4018`, emits the existing bounded
 `capacity_exceeded` result, and applies a 30-second explicit-retry backoff when
 the occupying credential's expiry is unknown. A stalled session POST is a
-`failed` result with the existing `network_error` code after 20 seconds, followed
-by the same explicit-retry backoff; late responses never emit another result.
+`failed` result with the existing `network_error` code after one 20-second
+status/issuance/setup budget; the next deliberate retry can recover its stored
+operation identity without minting blindly. Late responses never emit another result.
 This does not change the capacity error payload. It never infers capacity from
 localized or raw error text, retries automatically, or sends another attempt
 event while that backoff is active. Older servers without the new code retain
@@ -903,6 +1397,10 @@ IDs, WSS/HTTP URLs, token, resumption handle, and raw error are prohibited.
 7. Run repository static/harness/pre-commit gates and update the open PR.
 8. For the embedded revision, validate locally, update the feature PR, and
    follow current-head CI and review feedback. Do not change deployments.
+9. Implement Phase 4 only against the documented two-ledger contract, retaining
+   the current single-credential behavior until its compatibility gate is met.
+   Resolve the outstanding admission review with regression evidence; a design
+   approval or hidden expiry copy alone does not fix it.
 
 ## Validation and Acceptance
 
@@ -919,7 +1417,7 @@ IDs, WSS/HTTP URLs, token, resumption handle, and raw error are prohibited.
   composition and precedence over an optional fallback.
 - Session tests cover permission and Origin binding, Redis fail-closed,
   capacity acquisition/pre-disclosure rollback/token-lifetime expiry, hashed
-  Redis keys, the independent heartbeat TTL, consume-once end without early
+  Redis keys, fixed binding retention and heartbeat authorization, consume-once end without early
   capacity release, and no internal AI-Shifu WebSocket route.
 - Protocol/controller tests cover setup-before-history, exact Google endpoint
   validation, PCM encoding, over-8-KiB and buffered-frame drops, multi-part
@@ -950,8 +1448,9 @@ reservation, and ephemeral token. A token opens one new Gemini session;
 resumption inside that session reuses the token with the newest handle. If
 provisioning or Redis storage fails before the token is disclosed, release the
 reservation. Once disclosed, the reservation expires naturally after the
-maximum token lifetime. Missed heartbeats expire only the control-plane
-binding. End consumes that binding atomically; repeated end is harmless from
+maximum token lifetime. Missed background heartbeats do not invalidate an
+otherwise unexpired binding; all requests still enforce its hard access
+deadline. End consumes that binding atomically; repeated end is harmless from
 the browser's perspective and cannot revoke or release the Gemini credential.
 
 Turn BIDs derive deterministically from Live session and turn index. The
@@ -960,7 +1459,16 @@ back partial ASK/ANSWER work. A commit failure ends the current controller and
 offers voice retry; it does not silently continue with unsaved history.
 
 If the browser socket closes without a usable resumption path, stop the session
-and require an explicit retry. If Redis is unavailable, reject Live while text
+and require an explicit retry. An established session may recover one unexpected
+close with a current resumable handle, an unexpired token, and no pending typed
+handoff. Policy/normal closes, failed setup, non-resumable updates, and a second
+unexpected close remain terminal. Never replay typed input automatically.
+Heartbeat requests have a five-second bound and one transient retry after one
+second. Paused sessions tolerate transient health-check failure; deliberate
+resume validates authorization again. Business/auth failures end immediately.
+Pause/resume and transport recovery create no
+new analytics attempt or session; terminal teardown still emits end once.
+If Redis is unavailable, reject Live while text
 follow-up and normal HTTP stay operational. Rollback is
 `GEMINI_LIVE_ENABLED=false`; saved Live configuration remains intact and
 learner entries resolve disabled rather than falling back to text.
@@ -977,8 +1485,8 @@ returns `session_bid`, `ephemeral_token`, the fixed constrained
 `websocket_url`, prompt-free `setup`, optional `history`, `expires_at`,
 `new_session_expires_at`, and `heartbeat_interval_ms`.
 
-`POST /api/learn/live-follow-up/session/{session_bid}/heartbeat` renews the
-trusted control-plane binding only. `POST .../turn` accepts bounded
+`POST /api/learn/live-follow-up/session/{session_bid}/heartbeat` validates the
+trusted control-plane binding without extending its lifetime. `POST .../turn` accepts bounded
 client-reported transcript/playback/usage data and returns deterministic
 persisted element IDs. `POST .../end` consumes the binding; the independent
 capacity reservation remains until the already-disclosed token expires.

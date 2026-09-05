@@ -37,7 +37,7 @@ import {
   useCallback,
   useRef,
 } from 'react';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import { LEARNING_PERMISSION } from '@/api/studyV2';
 import {
   getStoredPreviewVariables,
   mapKeysToStoredVariables,
@@ -45,7 +45,7 @@ import {
   savePreviewVariables,
   StoredVariablesByScope,
 } from '@/components/lesson-preview/variableStorage';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   buildOutlineCreateAnalytics,
   OUTLINE_CREATE_EVENT,
@@ -485,14 +485,6 @@ export const ShifuProvider = ({
     }
   };
 
-  const loadProfileItemDefinations = async (shifuId: string) => {
-    const list = await api.getProfileItemDefinitions({
-      parent_id: shifuId,
-      type: 'all',
-    });
-    setProfileItemDefinations(list);
-  };
-
   const remapOutlineTree = (
     items: any,
     parentBid = '',
@@ -739,7 +731,6 @@ export const ShifuProvider = ({
       setChapters(list);
       buildOutlineTree(list);
       await refreshVariableUsage(shifuId);
-      // loadProfileItemDefinations(shifuId);
     } catch (error) {
       console.error(error);
       setError('Failed to load chapters');

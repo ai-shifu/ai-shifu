@@ -21,10 +21,14 @@ from flaskr.service.learn.gemini_live_token import (
     GeminiLiveEphemeralToken,
     GeminiLiveHistoryTurn,
     GeminiLiveTokenError,
+    GeminiLiveTokenTimeoutError,
+)
+from flaskr.service.learn.live_follow_up_admission import (
+    AdmissionRequest,
+    AdmissionResult,
 )
 from flaskr.service.learn.live_follow_up_capacity import (
     LiveFollowUpCapacityLease,
-    LiveFollowUpCapacityLimitError,
 )
 from flaskr.service.learn.live_follow_up_persistence import (
     LiveFollowUpPersistenceError,
@@ -118,6 +122,22 @@ def _route_app(monkeypatch: pytest.MonkeyPatch, *, enabled: bool = True) -> Flas
 
 
 def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(routes, "is_gemini_live_rotation_enabled", lambda: False)
+    monkeypatch.setattr(
+        routes, "legacy_request_bid", lambda: "01990000-0000-7000-8000-000000000001"
+    )
+    monkeypatch.setattr(routes, "begin_admission", lambda *_a, **_k: _admission())
+    monkeypatch.setattr(routes, "complete_admission", lambda *_a, **_k: True)
+    monkeypatch.setattr(routes, "fail_admission", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        routes,
+        "admission_status",
+        lambda *_a, **_k: {
+            **_admission().data,
+            "operation_status": "failed",
+            "ownership_current": True,
+        },
+    )
     monkeypatch.setattr(routes, "is_live_follow_up_model_available", lambda _: True)
     monkeypatch.setattr(routes, "_require_course_access", lambda *_a, **_k: None)
     monkeypatch.setattr(
@@ -152,8 +172,23 @@ def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _token() -> GeminiLiveEphemeralToken:
-    now = datetime.now(tz=UTC)
+def _admission() -> AdmissionResult:
+    return AdmissionResult(
+        {
+            "request_bid": "01990000-0000-7000-8000-000000000001",
+            "session_bid": "session-1",
+            "admission_revision": "revision-1",
+            "operation_status": "pending",
+            "ownership_current": True,
+            "rotation_enabled": False,
+        },
+        lease=_stored_session().lease,
+        issued_at_ms=1_788_570_123_123,
+        deadline_ms=1_788_570_138_123,
+    )
+
+
+def _token(now: datetime) -> GeminiLiveEphemeralToken:
     return GeminiLiveEphemeralToken(
         token="auth_tokens/ephemeral",
         expires_at=now + timedelta(minutes=15),
@@ -289,22 +324,25 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
         }.get(name, default),
     )
     minted: list[dict[str, object]] = []
+    admitted: list[dict[str, object]] = []
     stored: list[StoredLiveFollowUpSession] = []
-    lease = _stored_session().lease
+    issued_at = datetime.fromtimestamp(_admission().issued_at_ms / 1000, tz=UTC)
     monkeypatch.setattr(
         routes,
-        "acquire_live_follow_up_capacity",
-        lambda *_args, **_kwargs: lease,
+        "begin_admission",
+        lambda *_args, **kwargs: admitted.append(kwargs) or _admission(),
     )
     monkeypatch.setattr(
         routes,
         "mint_gemini_live_ephemeral_token",
-        lambda **kwargs: minted.append(kwargs) or _token(),
+        lambda **kwargs: minted.append(kwargs) or _token(kwargs["current_time"]),
     )
     monkeypatch.setattr(
         routes,
-        "store_live_follow_up_session",
-        lambda _app, *, session: stored.append(session),
+        "complete_admission",
+        lambda *_args, session_payload: (
+            stored.append(session_store._decode_session(session_payload)) or True
+        ),
     )
 
     response = _post_session(
@@ -337,10 +375,17 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
             "voice_name": "Kore",
             "system_instruction": "private system instruction",
             "include_initial_history": True,
+            "current_time": issued_at,
         }
     ]
+    assert admitted == [
+        {"session_bid": "session-1", "rotation_enabled": False, "legacy": True}
+    ]
     assert stored[0].binding.origin == "https://learn.example.com"
-    assert stored[0].binding.expires_at_epoch > 0
+    assert (
+        stored[0].binding.expires_at_epoch
+        == (issued_at + timedelta(minutes=15)).timestamp()
+    )
 
 
 @pytest.mark.parametrize(
@@ -360,31 +405,26 @@ def test_session_releases_capacity_when_token_or_redis_fails(
     released: list[LiveFollowUpCapacityLease] = []
     monkeypatch.setattr(
         routes,
-        "acquire_live_follow_up_capacity",
-        lambda *_args, **_kwargs: lease,
-    )
-    monkeypatch.setattr(
-        routes,
         "mint_gemini_live_ephemeral_token",
-        lambda **_kwargs: (
+        lambda **kwargs: (
             (_ for _ in ()).throw(failure)
             if isinstance(failure, GeminiLiveTokenError)
-            else _token()
+            else _token(kwargs["current_time"])
         ),
     )
     monkeypatch.setattr(
         routes,
-        "store_live_follow_up_session",
+        "complete_admission",
         lambda *_args, **_kwargs: (
             (_ for _ in ()).throw(failure)
             if isinstance(failure, LiveFollowUpSessionStoreUnavailableError)
-            else None
+            else True
         ),
     )
     monkeypatch.setattr(
         routes,
-        "release_live_follow_up_capacity",
-        lambda _app, *, lease: released.append(lease),
+        "fail_admission",
+        lambda _app, _request, result, **_kwargs: released.append(result.lease),
     )
 
     with pytest.raises(AppError):
@@ -392,18 +432,54 @@ def test_session_releases_capacity_when_token_or_redis_fails(
     assert released == [lease]
 
 
-@pytest.mark.parametrize("scope", ["user", "worker", "global"])
+@pytest.mark.parametrize("changed_field", ["expires_at", "new_session_expires_at"])
+def test_session_rejects_a_token_outside_its_reserved_deadlines(
+    monkeypatch: pytest.MonkeyPatch,
+    changed_field: str,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    lease = _stored_session().lease
+    released: list[LiveFollowUpCapacityLease] = []
+
+    def mismatched_token(**kwargs: object) -> GeminiLiveEphemeralToken:
+        token = _token(kwargs["current_time"])
+        return replace(
+            token,
+            **{changed_field: getattr(token, changed_field) + timedelta(seconds=1)},
+        )
+
+    monkeypatch.setattr(routes, "mint_gemini_live_ephemeral_token", mismatched_token)
+    monkeypatch.setattr(
+        routes,
+        "complete_admission",
+        lambda *_args, **_kwargs: pytest.fail("mismatched credential was stored"),
+    )
+    monkeypatch.setattr(
+        routes,
+        "fail_admission",
+        lambda _app, _request, result, **_kwargs: released.append(result.lease),
+    )
+
+    with pytest.raises(AppError):
+        _post_session(app, _valid_payload())
+    assert released == [lease]
+
+
 def test_capacity_limit_is_bounded_before_token_mint(
     monkeypatch: pytest.MonkeyPatch,
-    scope: str,
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_session_validation(monkeypatch)
     monkeypatch.setattr(
         routes,
-        "acquire_live_follow_up_capacity",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            LiveFollowUpCapacityLimitError(scope)
+        "begin_admission",
+        lambda *_args, **_kwargs: AdmissionResult(
+            {
+                "operation_status": "rejected",
+                "error_code": "capacity_exceeded",
+                "retry_after_ms": 1000,
+            }
         ),
     )
     monkeypatch.setattr(
@@ -449,22 +525,24 @@ def _stub_active_direct_session(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_heartbeat_renews_only_the_control_plane_binding(
+def test_heartbeat_validates_binding_without_extending_its_deadline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
-    touched: list[str] = []
+    touched: list[tuple[str, bool]] = []
     monkeypatch.setattr(
         routes,
         "touch_live_follow_up_session",
-        lambda _app, *, session_bid: touched.append(session_bid),
+        lambda _app, *, session_bid, finalizing: touched.append(
+            (session_bid, finalizing)
+        ),
     )
 
     response = _post_action(app, "heartbeat")
     body = json.loads(response.get_data(as_text=True))["data"]
     assert body["session_bid"] == "session-1"
-    assert touched == ["session-1"]
+    assert touched == [("session-1", False)]
 
 
 @pytest.mark.parametrize("action", ["heartbeat", "turn", "end", "finalize"])
@@ -851,9 +929,12 @@ def test_accepted_finalization_outlives_binding_and_admission_deadlines(
     _stub_active_direct_session(monkeypatch)
     clock = [1_000.0]
     session = _stored_session(
-        expires_at_epoch=971 if boundary == "admission_deadline" else 2_000
+        expires_at_epoch=971 if boundary == "admission_deadline" else 1_015
     )
-    retained_until = [clock[0] + session_store.LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS]
+    retained_until = [
+        session.binding.expires_at_epoch
+        + session_store.LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS
+    ]
     consumed: list[str] = []
     persisted: list[int] = []
     renewals: list[bool] = []
@@ -870,7 +951,7 @@ def test_accepted_finalization_outlives_binding_and_admission_deadlines(
         ttl = (
             session_store.LIVE_FOLLOW_UP_SESSION_FINALIZATION_LEASE_SECONDS
             if finalizing
-            else session_store.LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS
+            else 0
         )
         retained_until[0] = max(retained_until[0], clock[0] + ttl)
 
@@ -931,7 +1012,7 @@ def test_accepted_finalization_outlives_binding_and_admission_deadlines(
     assert result.status_code == 200
     assert persisted == [1, 2, 3]
     assert consumed == ["session-1"]
-    assert renewals == [False, True, True, True]
+    assert renewals == [True, True, True, True]
     assert get_binding("") is None
 
 
@@ -1124,7 +1205,7 @@ def test_end_consumes_binding_but_retains_capacity_until_token_expiry(
     )
     monkeypatch.setattr(
         routes,
-        "release_live_follow_up_capacity",
+        "fail_admission",
         lambda *_args, **_kwargs: pytest.fail("disclosed token capacity released"),
     )
 
@@ -1132,3 +1213,384 @@ def test_end_consumes_binding_but_retains_capacity_until_token_expiry(
     body = json.loads(response.get_data(as_text=True))["data"]
     assert body == {"session_bid": "session-1", "reason": "ended_by_user"}
     assert consumed == ["session-1"]
+
+
+def _v2_payload(**overrides: object) -> dict[str, object]:
+    return _valid_payload(request_bid=_admission().data["request_bid"], **overrides)
+
+
+@pytest.mark.parametrize(
+    "status", ["pending", "issued", "failed", "cancelled", "missing"]
+)
+def test_status_only_reads_original_bound_metadata_even_when_live_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    status: str,
+) -> None:
+    app = _route_app(monkeypatch, enabled=False)
+    _stub_session_validation(monkeypatch)
+    seen: list[AdmissionRequest] = []
+    for name in (
+        "_require_course_access",
+        "_load_anchor",
+        "_resolve_live_config",
+        "_build_conversation",
+        "begin_admission",
+        "mint_gemini_live_ephemeral_token",
+    ):
+        monkeypatch.setattr(
+            routes,
+            name,
+            lambda *_a, **_k: pytest.fail("status reached mint/content preparation"),
+        )
+    monkeypatch.setattr(
+        routes,
+        "admission_status",
+        lambda _app, operation, **_k: (
+            seen.append(operation)
+            or {
+                "request_bid": operation.request_bid,
+                "operation_status": status,
+                "ownership_current": False,
+                "rotation_enabled": False,
+            }
+        ),
+    )
+    response = _post_session(
+        app,
+        {
+            "operation": "status",
+            "request_bid": _admission().data["request_bid"],
+            "target": _valid_payload(
+                replace_session_bid="previous",
+                expected_admission_revision="old-revision",
+            ),
+        },
+    )
+    data = response.get_json()["data"]
+    assert data["operation_status"] == status
+    assert set(data) == {
+        "request_bid",
+        "operation_status",
+        "ownership_current",
+        "rotation_enabled",
+    }
+    assert seen[0].origin == "https://learn.example.com"
+    assert seen[0].user_bid == "user-1"
+    assert seen[0].replace_session_bid == "previous"
+    assert seen[0].expected_admission_revision == "old-revision"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"operation": "status", "request_bid": "bad", "target": _valid_payload()},
+        {"operation": "status", "request_bid": _admission().data["request_bid"]},
+        {
+            "operation": "status",
+            "request_bid": _admission().data["request_bid"],
+            "target": _valid_payload(),
+            "anchor_element_bid": "unsafe-legacy-fallback",
+        },
+        {
+            "operation": "status",
+            "request_bid": _admission().data["request_bid"],
+            "target": _valid_payload(replace_session_bid="partial-predecessor"),
+        },
+    ],
+)
+def test_status_rejects_malformed_or_legacy_mint_compatible_shape(
+    monkeypatch: pytest.MonkeyPatch, payload: dict[str, object]
+) -> None:
+    app = _route_app(monkeypatch)
+    monkeypatch.setattr(
+        routes,
+        "admission_status",
+        lambda *_a, **_k: pytest.fail("invalid status reached Redis"),
+    )
+    with pytest.raises(AppError):
+        _post_session(app, payload)
+
+
+@pytest.mark.parametrize(
+    "error_code",
+    [
+        "capacity_exceeded",
+        "ownership_conflict",
+        "stale_request",
+        "operation_conflict",
+        "admission_unavailable",
+    ],
+)
+def test_v2_admission_rejection_is_bounded_data_without_provider_call(
+    monkeypatch: pytest.MonkeyPatch, error_code: str
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    expected = {
+        "request_bid": _admission().data["request_bid"],
+        "operation_status": "rejected",
+        "error_code": error_code,
+        "rotation_enabled": True,
+        "retry_after_ms": 1000,
+    }
+    monkeypatch.setattr(
+        routes, "begin_admission", lambda *_a, **_k: AdmissionResult(expected)
+    )
+    monkeypatch.setattr(
+        routes,
+        "mint_gemini_live_ephemeral_token",
+        lambda **_k: pytest.fail("rejection minted token"),
+    )
+    response = _post_session(app, _v2_payload())
+    assert response.get_json()["code"] == 0
+    assert response.get_json()["data"] == expected
+
+
+def test_v2_success_binds_metadata_before_returning_one_original_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    operations: list[AdmissionRequest] = []
+    stored: list[StoredLiveFollowUpSession] = []
+    monkeypatch.setattr(routes, "is_gemini_live_rotation_enabled", lambda: True)
+    monkeypatch.setattr(
+        routes,
+        "begin_admission",
+        lambda _app, operation, **_k: operations.append(operation) or _admission(),
+    )
+    monkeypatch.setattr(
+        routes,
+        "mint_gemini_live_ephemeral_token",
+        lambda **kwargs: _token(kwargs["current_time"]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "complete_admission",
+        lambda *_a, session_payload: (
+            stored.append(session_store._decode_session(session_payload)) or True
+        ),
+    )
+    response = _post_session(
+        app,
+        _v2_payload(
+            replace_session_bid="prior", expected_admission_revision="prior-revision"
+        ),
+    )
+    data = response.get_json()["data"]
+    assert data["rotation_enabled"] is True
+    assert data["operation_status"] == "issued"
+    assert data["admission_revision"] == "revision-1"
+    assert data["request_bid"] == _admission().data["request_bid"]
+    assert stored[0].admission == operations[0]
+    assert stored[0].admission_revision == "revision-1"
+    assert stored[0].admission.replace_session_bid == "prior"
+    assert "auth_tokens" not in routes.serialize_live_follow_up_session(stored[0])
+
+
+def test_v2_late_provider_cannot_disclose_after_operation_cancelled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    monkeypatch.setattr(
+        routes,
+        "mint_gemini_live_ephemeral_token",
+        lambda **kwargs: _token(kwargs["current_time"]),
+    )
+    monkeypatch.setattr(routes, "complete_admission", lambda *_a, **_k: False)
+    data = _post_session(app, _v2_payload()).get_json()["data"]
+    assert data["operation_status"] == "failed"
+    assert data["ownership_current"] is True
+    assert "ephemeral_token" not in data
+
+
+def test_provider_wait_timeout_preserves_uncertain_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    failures: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        routes,
+        "mint_gemini_live_ephemeral_token",
+        lambda **_k: (_ for _ in ()).throw(GeminiLiveTokenTimeoutError("bounded")),
+    )
+    monkeypatch.setattr(
+        routes, "fail_admission", lambda *_a, **kwargs: failures.append(kwargs)
+    )
+    data = _post_session(app, _v2_payload()).get_json()["data"]
+    assert data["operation_status"] == "failed"
+    assert failures == [{"undisclosed": False}]
+
+
+def test_ambiguous_admission_failure_does_not_claim_pre_admission_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    from flaskr.service.learn.live_follow_up_capacity import (
+        LiveFollowUpCapacityUnavailableError,
+    )
+
+    monkeypatch.setattr(
+        routes,
+        "begin_admission",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            LiveFollowUpCapacityUnavailableError("bounded")
+        ),
+    )
+    monkeypatch.setattr(
+        routes,
+        "admission_status",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            LiveFollowUpCapacityUnavailableError("bounded")
+        ),
+    )
+    with pytest.raises(AppError):
+        _post_session(app, _v2_payload())
+
+
+def test_failed_successor_response_preserves_its_revision_for_the_next_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    monkeypatch.setattr(
+        routes,
+        "mint_gemini_live_ephemeral_token",
+        lambda **_k: (_ for _ in ()).throw(GeminiLiveTokenError("bounded")),
+    )
+    data = _post_session(
+        app,
+        _v2_payload(
+            replace_session_bid="predecessor-a",
+            expected_admission_revision="revision-a",
+        ),
+    ).get_json()["data"]
+    assert data["operation_status"] == "failed"
+    assert data["session_bid"] == "session-1"
+    assert data["admission_revision"] == "revision-1"
+    assert data["ownership_current"] is True
+    seen: list[AdmissionRequest] = []
+    monkeypatch.setattr(
+        routes,
+        "begin_admission",
+        lambda _app, operation, **_k: seen.append(operation) or _admission(),
+    )
+    monkeypatch.setattr(
+        routes,
+        "mint_gemini_live_ephemeral_token",
+        lambda **kwargs: _token(kwargs["current_time"]),
+    )
+    payload = _v2_payload(
+        replace_session_bid=str(data["session_bid"]),
+        expected_admission_revision=str(data["admission_revision"]),
+    )
+    payload["request_bid"] = "01990000-0000-7000-8000-000000000002"
+    assert (
+        _post_session(app, payload).get_json()["data"]["operation_status"] == "issued"
+    )
+    assert seen[0].replace_session_bid == "session-1"
+    assert seen[0].expected_admission_revision == "revision-1"
+
+
+def _v2_session() -> StoredLiveFollowUpSession:
+    return replace(
+        _stored_session(),
+        admission=AdmissionRequest(
+            request_bid=str(_admission().data["request_bid"]),
+            user_bid="user-1",
+            origin="https://learn.example.com",
+            shifu_bid="course-1",
+            outline_bid="chapter-1",
+            anchor_element_bid="element-1",
+            preview_mode=False,
+            learning_mode="read",
+            surface="read_content",
+        ),
+        admission_revision="revision-1",
+    )
+
+
+def test_heartbeat_rejects_retired_owner_without_extending_or_replacing_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    monkeypatch.setattr(
+        routes, "load_live_follow_up_session", lambda *_a, **_k: _v2_session()
+    )
+    monkeypatch.setattr(routes, "current_admission", lambda *_a, **_k: False)
+    monkeypatch.setattr(
+        routes,
+        "touch_live_follow_up_session",
+        lambda *_a, **_k: pytest.fail("retired owner touched"),
+    )
+    assert _post_action(app, "heartbeat", {}).get_json()["data"] == {
+        "session_bid": "session-1",
+        "operation_status": "rejected",
+        "error_code": "ownership_conflict",
+    }
+
+
+@pytest.mark.parametrize("action", ["end", "finalize"])
+def test_consumed_binding_receipt_acknowledges_only_previously_committed_history(
+    monkeypatch: pytest.MonkeyPatch, action: str
+) -> None:
+    app = _route_app(monkeypatch)
+    monkeypatch.setattr(
+        routes,
+        "load_live_follow_up_session",
+        lambda *_a, **_k: (_ for _ in ()).throw(LiveFollowUpSessionRejectedError()),
+    )
+    monkeypatch.setattr(
+        routes,
+        "retirement_receipt",
+        lambda *_a, **_k: {
+            "admission_revision": "old-revision",
+            "last_committed_index": 2,
+        },
+    )
+    monkeypatch.setattr(
+        routes,
+        "persist_live_follow_up_turn",
+        lambda *_a, **_k: pytest.fail("receipt granted new write"),
+    )
+    payload = (
+        {"turns": [_turn_report(1), _turn_report(2)]}
+        if action == "finalize"
+        else {"reason": "ended_by_user"}
+    )
+    data = _post_action(app, action, payload).get_json()["data"]
+    assert data["admission_revision"] == "old-revision"
+    if action == "finalize":
+        with pytest.raises(AppError):
+            _post_action(app, action, {"turns": [_turn_report(3)]})
+
+
+def test_end_receipt_uses_latest_cursor_under_database_lock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    session = _v2_session()
+    calls: list[dict[str, object]] = []
+    loads = iter(
+        [
+            session,
+            replace(session, turn_state=LiveFollowUpTurnState(last_committed_index=2)),
+        ]
+    )
+    monkeypatch.setattr(
+        routes, "load_live_follow_up_session", lambda *_a, **_k: next(loads)
+    )
+    monkeypatch.setattr(routes, "admission_time", lambda: 100)
+    monkeypatch.setattr(routes, "touch_live_follow_up_session", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        routes, "retire_admission", lambda *_a, **kwargs: calls.append(kwargs)
+    )
+    monkeypatch.setattr(
+        routes, "consume_live_follow_up_session", lambda *_a, **_k: None
+    )
+    data = _post_action(app, "end", {"reason": "ended_by_user"}).get_json()["data"]
+    assert data["admission_revision"] == "revision-1"
+    assert calls[0]["last_committed_index"] == 2

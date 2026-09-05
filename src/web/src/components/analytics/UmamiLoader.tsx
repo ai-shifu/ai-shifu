@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
-import { flushUmamiIdentify, trackPageview } from '@/c-common/tools/tracking';
+import { flushUmamiIdentify, trackPageview } from '@/lib/tracking';
 import { useUserStore } from '@/store';
 
 const SCRIPT_ID = 'umami-analytics-script';

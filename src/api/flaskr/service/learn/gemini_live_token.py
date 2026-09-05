@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from threading import BoundedSemaphore, Event, Thread
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
@@ -31,6 +32,7 @@ GEMINI_LIVE_TOKEN_REQUEST_TIMEOUT_SECONDS = 10.0
 _ERROR_INVALID_CONFIGURATION = "invalid_configuration"
 _ERROR_INVALID_RESPONSE = "invalid_token_response"
 _ERROR_PROVISION_FAILED = "token_provision_failed"
+_TOKEN_REQUEST_SLOTS = BoundedSemaphore(6)
 _LOCKED_BIDI_SETUP_FIELDS = (
     "model",
     "generationConfig",
@@ -46,6 +48,68 @@ _LOCKED_BIDI_SETUP_FIELDS = (
 
 class GeminiLiveTokenError(RuntimeError):
     """Signal a bounded ephemeral-token provisioning failure."""
+
+
+class GeminiLiveTokenTimeoutError(GeminiLiveTokenError):
+    """The private mint may still finish, so preserve its risk reservation."""
+
+
+def _bounded_token_request(
+    request_post: Callable[..., requests.Response],
+    *,
+    endpoint: str,
+    normalized_key: str,
+    payload: dict[str, object],
+) -> object:
+    """Bound wall-clock waiting as well as requests' socket inactivity timeout.
+
+    At most six private requests can outlive their caller in a worker. A late
+    response is discarded; it cannot publish a token or mutate admission.
+    """
+    slots = _TOKEN_REQUEST_SLOTS
+    if not slots.acquire(blocking=False):
+        raise GeminiLiveTokenError(_ERROR_PROVISION_FAILED)
+    finished = Event()
+    abandoned = Event()
+    failed = Event()
+    body: list[object] = []
+
+    def provision() -> None:
+        try:
+            response = request_post(
+                endpoint,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": normalized_key,
+                },
+                json=payload,
+                timeout=GEMINI_LIVE_TOKEN_REQUEST_TIMEOUT_SECONDS,
+                allow_redirects=False,
+            )
+            response.raise_for_status()
+            result = response.json()
+            if not abandoned.is_set():
+                body.append(result)
+        except Exception:
+            # Provider details can contain keys or prompt content. The caller
+            # receives only the stable bounded error below.
+            failed.set()
+        finally:
+            finished.set()
+            slots.release()
+
+    worker = Thread(target=provision, name="gemini-live-token", daemon=True)
+    try:
+        worker.start()
+    except Exception:
+        slots.release()
+        raise GeminiLiveTokenError(_ERROR_PROVISION_FAILED) from None
+    if not finished.wait(GEMINI_LIVE_TOKEN_REQUEST_TIMEOUT_SECONDS):
+        abandoned.set()
+        raise GeminiLiveTokenTimeoutError(_ERROR_PROVISION_FAILED)
+    if failed.is_set() or not body:
+        raise GeminiLiveTokenError(_ERROR_PROVISION_FAILED)
+    return body[0]
 
 
 @dataclass(frozen=True)
@@ -252,22 +316,9 @@ def mint_gemini_live_ephemeral_token(
             include_initial_history=include_initial_history,
         ),
     }
-    try:
-        response = request_post(
-            endpoint,
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": normalized_key,
-            },
-            json=payload,
-            timeout=GEMINI_LIVE_TOKEN_REQUEST_TIMEOUT_SECONDS,
-            # A redirect must not forward the custom API-key header elsewhere.
-            allow_redirects=False,
-        )
-        response.raise_for_status()
-        body = response.json()
-    except Exception:
-        raise GeminiLiveTokenError(_ERROR_PROVISION_FAILED) from None
+    body = _bounded_token_request(
+        request_post, endpoint=endpoint, normalized_key=normalized_key, payload=payload
+    )
 
     token = body.get("name") if isinstance(body, dict) else None
     if not isinstance(token, str) or not token.startswith("auth_tokens/"):

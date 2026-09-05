@@ -46,8 +46,8 @@ import {
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 
 interface ImportActivationDialogProps {
   open: boolean;

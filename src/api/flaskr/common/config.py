@@ -488,6 +488,17 @@ Default: "phone".""",
         group="legal",
     ),
     # LLM Configuration
+    "MODEL_GATEWAY_CLIENT_ALLOWLIST": EnvVar(
+        name="MODEL_GATEWAY_CLIENT_ALLOWLIST",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated client IDs allowed to list and invoke gateway models. "
+            "Requests must send X-AI-Shifu-Client-ID and a user Bearer token. "
+            "Empty denies all clients; IDs are case-sensitive with no wildcard matching."
+        ),
+        group="llm",
+    ),
     "OPENAI_API_KEY": EnvVar(
         name="OPENAI_API_KEY",
         default="",
@@ -596,6 +607,17 @@ Default: "phone".""",
         description=(
             "Expose the allowlisted Gemini Live model for voice follow-up sessions. "
             "Keep disabled until the WebSocket infrastructure is ready."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_ROTATION_ENABLED": EnvVar(
+        name="GEMINI_LIVE_ROTATION_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Allow bounded Gemini Live credential rotation. Requires compatible "
+            "workers, non-evicting Redis and the credential-drain recovery gate."
         ),
         group="llm",
         required=False,

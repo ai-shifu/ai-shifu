@@ -28,7 +28,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { submitFeedback } from '@/c-api/bz';
+import { submitFeedback } from '@/api/bz';
 import { toast } from '@/hooks/useToast';
 import { resolveLearnerErrorMessage } from '@/lib/learnerError';
 

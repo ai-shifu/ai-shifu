@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from dataclasses import replace
 
@@ -23,27 +24,38 @@ class _FakeRedis:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
         self.expirations: dict[str, int] = {}
+        self.absolute_expirations: dict[str, int] = {}
 
     def set(
         self,
         key: str,
         value: str,
         *,
-        ex: int,
+        pxat: int,
         nx: bool,
     ) -> bool:
-        if nx and key in self.values:
+        if nx and self.get(key) is not None:
             return False
         self.values[key] = value
-        self.expirations[key] = ex
+        self.expirations[key] = math.ceil(pxat / 1000 - time.time())
+        self.absolute_expirations[key] = pxat
         return True
 
     def get(self, key: str) -> str | None:
+        if self.absolute_expirations.get(key, math.inf) <= time.time() * 1000:
+            self.values.pop(key, None)
+            self.expirations.pop(key, None)
+            self.absolute_expirations.pop(key, None)
         return self.values.get(key)
 
     def eval(
         self, script: str, _key_count: int, key: str, *args: str
     ) -> int | str | None:
+        if "cjson.encode(record)" in script:
+            # Cursor rewrites retain the exact deadline instead of repeatedly
+            # truncating it to whole-second TTL values.
+            assert "redis.call('PTTL', KEYS[1])" in script
+            assert "cjson.encode(record), 'KEEPTTL'" in script
         if "live_follow_up_reserve_turn" in script:
             raw = self.values.get(key)
             if raw is None:
@@ -96,12 +108,17 @@ class _FakeRedis:
             self.values[key] = json.dumps(record)
             return 1
         if "EXPIRE" in script:
-            if key not in self.values:
+            if self.get(key) is None:
                 return 0
-            self.expirations[key] = max(self.expirations[key], int(args[0]))
+            ttl = int(args[0])
+            deadline = math.ceil(time.time() * 1000) + ttl * 1000
+            if ttl > 0 and self.absolute_expirations[key] < deadline:
+                self.expirations[key] = ttl
+                self.absolute_expirations[key] = deadline
             return 1
         value = self.values.pop(key, None)
         self.expirations.pop(key, None)
+        self.absolute_expirations.pop(key, None)
         return value
 
 
@@ -156,7 +173,9 @@ def test_store_round_trip_uses_hashed_key_and_bounded_ttl(
     key = next(iter(redis.values))
     assert key.startswith("test-prefix:live-follow-up:session:")
     assert "session-1" not in key
-    assert redis.expirations[key] == store.LIVE_FOLLOW_UP_SESSION_STORE_TTL_SECONDS
+    assert redis.absolute_expirations[key] == math.ceil(
+        (session.binding.expires_at_epoch + 30) * 1000
+    )
     assert store.load_live_follow_up_session(app, session_bid="session-1") == session
 
 
@@ -172,10 +191,44 @@ def test_touch_requires_an_existing_binding(monkeypatch: pytest.MonkeyPatch) -> 
     store.touch_live_follow_up_session(app, session_bid="session-1")
 
 
+def test_paused_binding_survives_missing_heartbeats_without_extending_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current_time = [100.0]
+    monkeypatch.setattr(store.time, "time", lambda: current_time[0])
+    redis = _FakeRedis()
+    monkeypatch.setattr(store, "_redis_client", lambda: redis)
+    app = _app()
+    session = _session(expires_at_epoch=1_000.000123)
+    store.store_live_follow_up_session(app, session=session)
+    key = next(iter(redis.values))
+    deadline = 1_030_001
+    assert redis.absolute_expirations[key] == deadline
+
+    # No heartbeat for fourteen minutes: the same bound credential still works.
+    current_time[0] = 940
+    assert store.load_live_follow_up_session(app, session_bid="session-1") == session
+    store.touch_live_follow_up_session(app, session_bid="session-1")
+    assert redis.absolute_expirations[key] == deadline
+
+    current_time[0] = 1_000.000123
+    with pytest.raises(LiveFollowUpSessionRejectedError):
+        store.load_live_follow_up_session(app, session_bid="session-1")
+    assert (
+        store.load_live_follow_up_session(
+            app, session_bid="session-1", allow_finalization=True
+        )
+        == session
+    )
+    current_time[0] = 1_030.001
+    assert redis.get(key) is None
+
+
 def test_finalization_lease_cannot_be_shortened_or_extend_request_admission(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redis = _FakeRedis()
+    monkeypatch.setattr(store.time, "time", lambda: 900)
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
     session = _session(expires_at_epoch=1_000)
@@ -217,6 +270,8 @@ def test_turn_reservations_are_ordered_and_one_time(
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
     store.store_live_follow_up_session(app, session=_session())
+    key = next(iter(redis.values))
+    deadline = redis.absolute_expirations[key]
 
     first = store.reserve_live_follow_up_turn(
         app,
@@ -268,6 +323,7 @@ def test_turn_reservations_are_ordered_and_one_time(
         ).turn_state.last_committed_index
         == 2
     )
+    assert redis.absolute_expirations[key] == deadline
 
 
 def test_failed_turn_reservation_can_be_retried(
@@ -373,6 +429,7 @@ def test_expired_binding_is_rejected_without_extending_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redis = _FakeRedis()
+    monkeypatch.setattr(store.time, "time", lambda: 99)
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
     store.store_live_follow_up_session(
@@ -392,6 +449,7 @@ def test_finalization_grace_does_not_extend_live_access_or_the_deadline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redis = _FakeRedis()
+    monkeypatch.setattr(store.time, "time", lambda: 99)
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
     session = _session(expires_at_epoch=100.0)

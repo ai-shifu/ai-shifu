@@ -16,7 +16,7 @@ import {
   isListenLessonFeedbackPromptReady,
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
-import type { ChatContentItem } from '@/c-types/chatUi';
+import type { ChatContentItem } from '@/types/chatUi';
 
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
@@ -37,6 +37,7 @@ const mockAskBlock = jest.fn(
   ),
 );
 let mockSlideMountId = 0;
+let mockSlideCurrentElement = { blockBid: 'content-1', type: 'content' };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -62,12 +63,8 @@ jest.mock('next/image', () => ({
 jest.mock('markdown-flow-ui/slide', () => {
   const ReactRuntime = jest.requireActual('react') as typeof React;
   const slideBuiltInActionClick = jest.fn();
-  const slideCustomActionElement = {
-    blockBid: 'content-1',
-    type: 'content',
-  };
   type SlideCustomActionContext = {
-    currentElement: typeof slideCustomActionElement;
+    currentElement: typeof mockSlideCurrentElement;
     currentIndex: number;
     isActive: boolean;
     setActive: (active: boolean) => void;
@@ -86,18 +83,19 @@ jest.mock('markdown-flow-ui/slide', () => {
           | ((context: SlideCustomActionContext) => React.ReactNode);
       }) => {
         const [isActive, setIsActive] = ReactRuntime.useState(false);
+        const currentElement = mockSlideCurrentElement;
         const toggleActive = ReactRuntime.useCallback(() => {
           setIsActive(currentActive => !currentActive);
         }, []);
         const slideCustomActionContext = ReactRuntime.useMemo(
           () => ({
-            currentElement: slideCustomActionElement,
+            currentElement,
             currentIndex: 0,
             isActive,
             setActive: setIsActive,
             toggleActive,
           }),
-          [isActive, toggleActive],
+          [currentElement, isActive, toggleActive],
         );
         const mountId = ReactRuntime.useMemo(() => {
           mockSlideMountId += 1;
@@ -149,16 +147,16 @@ jest.mock('./AskBlock', () => ({
     mockAskBlock(props),
 }));
 
-jest.mock('@/c-utils/lesson-feedback-interaction-defaults', () => ({
+jest.mock('@/lib/lesson-feedback-interaction-defaults', () => ({
   lessonFeedbackInteractionDefaultValueOptions: {},
 }));
 
-jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
+jest.mock('@/lib/lesson-feedback-interaction', () => ({
   isLessonFeedbackInteractionContent: (content?: string) =>
     mockIsLessonFeedbackInteractionContent(content),
 }));
 
-jest.mock('@/c-utils/system-interaction', () => ({
+jest.mock('@/lib/system-interaction', () => ({
   isSystemInteractionContent: (content?: string) =>
     content?.includes('_sys_') ?? false,
   localizeSystemInteractionContent: (
@@ -171,7 +169,7 @@ jest.mock('@/c-utils/system-interaction', () => ({
     ),
 }));
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   SYS_INTERACTION_TYPE: {},
 }));
 
@@ -204,6 +202,7 @@ describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockSlideMountId = 0;
+    mockSlideCurrentElement = { blockBid: 'content-1', type: 'content' };
     getMockSlide().mockClear();
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
@@ -1472,6 +1471,91 @@ describe('ListenModeSlideRenderer', () => {
           'false',
         ),
       );
+    },
+  );
+
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])(
+    'ends the previous Live anchor when a different slide is shown (mobile=%s, collapsed=%s)',
+    async (mobileStyle, collapseBeforeChange) => {
+      const liveVoice = mockLiveVoiceController({
+        anchorElementBid: 'content-1',
+        open: !collapseBeforeChange,
+        paused: collapseBeforeChange,
+        state: 'listening',
+      });
+      const items: ChatContentItem[] = [
+        {
+          type: 'content',
+          content: 'First slide',
+          element_bid: 'content-1',
+          is_speakable: true,
+        },
+        {
+          type: 'content',
+          content: 'Second slide',
+          element_bid: 'content-2',
+          is_speakable: true,
+        },
+      ];
+      const chatRef = createChatRef();
+      const renderSlide = () => (
+        <ListenModeSlideRenderer
+          items={[...items]}
+          mobileStyle={mobileStyle}
+          chatRef={chatRef}
+          followUpMode='live_voice'
+          liveVoice={liveVoice}
+        />
+      );
+      const { rerender } = render(renderSlide());
+      const askButton = mobileStyle
+        ? (await screen.findByText('module.chat.ask')).closest('button')!
+        : await screen.findByRole('button', { name: 'module.chat.ask' });
+      fireEvent.click(askButton);
+      await waitFor(() =>
+        expect(screen.getByTestId('ask-block')).toHaveAttribute(
+          'data-element-bid',
+          'content-1',
+        ),
+      );
+      expect(liveVoice.close).not.toHaveBeenCalled();
+      if (collapseBeforeChange) {
+        fireEvent.click(askButton);
+        await waitFor(() =>
+          expect(screen.getByTestId('ask-block')).toHaveAttribute(
+            'data-expanded',
+            'false',
+          ),
+        );
+        expect(liveVoice.close).not.toHaveBeenCalled();
+      }
+
+      mockSlideCurrentElement = { blockBid: 'content-2', type: 'content' };
+      rerender(renderSlide());
+      if (collapseBeforeChange) {
+        // Advancing while collapsed keeps the hidden panel on its old anchor.
+        expect(screen.getByTestId('ask-block')).toHaveAttribute(
+          'data-element-bid',
+          'content-1',
+        );
+        expect(liveVoice.close).not.toHaveBeenCalled();
+        fireEvent.click(askButton);
+      }
+      await waitFor(() =>
+        expect(screen.getByTestId('ask-block')).toHaveAttribute(
+          'data-element-bid',
+          'content-2',
+        ),
+      );
+      expect(liveVoice.close).toHaveBeenCalledTimes(1);
+      expect(liveVoice.start).not.toHaveBeenCalled();
+      expect(liveVoice.startMicrophone).not.toHaveBeenCalled();
+      expect(liveVoice.sendText).not.toHaveBeenCalled();
     },
   );
 

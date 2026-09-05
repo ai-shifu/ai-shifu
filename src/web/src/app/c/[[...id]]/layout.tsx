@@ -4,28 +4,24 @@ import { useEffect, useRef, useState } from 'react';
 // import routes from './Router/index';
 // import { useRoutes } from 'react-router-dom';
 // import { ConfigProvider } from 'antd';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useSystemStore } from '@/store/useSystemStore';
 import { useTranslation } from 'react-i18next';
-import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
 
 import { useShallow } from 'zustand/react/shallow';
 import { useParams, useSearchParams } from 'next/navigation';
 
-import {
-  inWechat,
-  inMiniProgram,
-  wechatLogin,
-} from '@/c-constants/uiConstants';
-import { getCourseInfo } from '@/c-api/course';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { inWechat, inMiniProgram, wechatLogin } from '@/constants/uiConstants';
+import { getCourseInfo } from '@/api/course';
+import { useTracking } from '@/hooks/useTracking';
 import {
   EnvStoreState,
   SystemStoreState,
   CourseStoreState,
   LearningMode,
-} from '@/c-types/store';
+} from '@/types/store';
 
-import { useEnvStore, useCourseStore } from '@/c-store';
+import { useEnvStore, useCourseStore } from '@/store';
 import { UserProvider } from '@/store/userProvider';
 import { useUserStore } from '@/store/useUserStore';
 import {
