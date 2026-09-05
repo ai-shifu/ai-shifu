@@ -30,7 +30,6 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
   const { trackEvent } = useTracking();
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
-  const [shareUrl, setShareUrl] = useState('');
   const [guideOpen, setGuideOpen] = useState(false);
   const guideId = useId();
   const [status, setStatus] = useState<
@@ -71,7 +70,6 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
           }),
         );
         setStatus('idle');
-        setShareUrl(url);
         setGuideOpen(false);
         track('teacher_course_share_open');
       } catch {
@@ -123,47 +121,30 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
         </Button>
       </DialogTrigger>
       <DialogContent
-        className='flex max-h-[90dvh] max-w-xl flex-col gap-0 overflow-hidden rounded-2xl p-0'
+        className='flex max-h-[90dvh] max-w-md flex-col gap-0 overflow-hidden rounded-2xl p-0'
         overlayClassName='bg-black/40 backdrop-blur-sm'
         onCloseAutoFocus={() => trigger.current?.focus()}
       >
         <DialogHeader className='px-6 pb-5 pt-6 text-start'>
           <DialogTitle>{t('common.core.shareCourse')}</DialogTitle>
-          <DialogDescription>
-            {t('common.core.posterShareIntro')}
-          </DialogDescription>
+          <DialogDescription>{props.courseTitle}</DialogDescription>
         </DialogHeader>
         <div className='min-h-0 overflow-y-auto px-6 pb-6'>
-          <div className='rounded-xl border bg-background p-5 shadow-sm'>
-            <p className='break-words text-base font-semibold leading-6'>
-              {props.courseTitle}
-            </p>
-            <p className='mt-2 line-clamp-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground'>
-              {props.courseDescription}
-            </p>
-            <p
-              className='mt-3 truncate rounded-lg border bg-background px-3 py-2 text-xs leading-5 text-muted-foreground'
-              title={shareUrl}
-              dir='ltr'
-            >
-              {shareUrl}
-            </p>
-            <div className='mt-4'>
-              <CourseShareButton
-                {...props}
-                surface='teacher_header'
-                showLabel
-                label={t('common.core.shareIntroductionAndLink')}
-                variant='default'
-                size='default'
-                className='w-full gap-2'
-              />
-            </div>
-            <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+          <div>
+            <CourseShareButton
+              {...props}
+              surface='teacher_header'
+              showLabel
+              label={t('common.core.shareIntroductionAndLink')}
+              variant='default'
+              size='default'
+              className='w-full gap-2'
+            />
+            <p className='mt-2 text-center text-xs leading-5 text-muted-foreground'>
               {t('common.core.shareForwardHint')}
             </p>
           </div>
-          <section className='mt-4 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 to-background p-5'>
+          <section className='mt-5 rounded-xl border border-primary/15 bg-primary/5 p-4'>
             <div className='flex items-start gap-3'>
               <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/10'>
                 <Sparkles

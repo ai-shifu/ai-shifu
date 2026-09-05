@@ -42,7 +42,6 @@ export type I18nKey =
   | 'common.core.posterNextStep'
   | 'common.core.posterPrompt'
   | 'common.core.posterPromptLabel'
-  | 'common.core.posterShareIntro'
   | 'common.core.posterViewPrompt'
   | 'common.core.profileOnboardingManagement'
   | 'common.core.promotionManagement'
