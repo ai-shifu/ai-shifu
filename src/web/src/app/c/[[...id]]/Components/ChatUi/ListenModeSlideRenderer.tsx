@@ -57,6 +57,12 @@ import {
   type ListenPlaybackSpeed,
   writeListenPlaybackSpeedToStorage,
 } from './listenPlaybackSpeed';
+import {
+  clearListenPlaybackCheckpoint,
+  readListenPlaybackCheckpoint,
+  writeListenPlaybackCheckpoint,
+} from './listenPlaybackCheckpoint';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
@@ -742,6 +748,7 @@ const ListenModeSlideRenderer = ({
   disableInteractionEdits = false,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
@@ -789,6 +796,16 @@ const ListenModeSlideRenderer = ({
     isAudioPlaying: false,
     isAudioWaiting: false,
   });
+  const restoredPlaybackScopeRef = useRef('');
+  const trackedPlaybackRestoreScopeRef = useRef('');
+  const nextPlaybackRestoreRequestIdRef = useRef(0);
+  const [resolvedPlaybackRestoreScope, setResolvedPlaybackRestoreScope] =
+    useState('');
+  const [playbackRestoreRequest, setPlaybackRestoreRequest] = useState<{
+    audioKey: string;
+    id: number;
+    timeMs: number;
+  } | null>(null);
   const [hasSettledTailInteraction, setHasSettledTailInteraction] =
     useState(false);
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
@@ -988,6 +1005,85 @@ const ListenModeSlideRenderer = ({
     showLeadingTextPlaceholder,
     t,
   ]);
+
+  useEffect(() => {
+    const scopeKey = `${shifuBid}:${lessonId}`;
+    if (variant !== 'listen') {
+      restoredPlaybackScopeRef.current = '';
+      setPlaybackRestoreRequest(null);
+      setResolvedPlaybackRestoreScope('');
+      return;
+    }
+
+    if (!shifuBid || !lessonId) {
+      restoredPlaybackScopeRef.current = '';
+      setPlaybackRestoreRequest(null);
+      setResolvedPlaybackRestoreScope('');
+      return;
+    }
+
+    if (restoredPlaybackScopeRef.current === scopeKey) {
+      return;
+    }
+
+    restoredPlaybackScopeRef.current = scopeKey;
+    setResolvedPlaybackRestoreScope('');
+    setPlaybackRestoreRequest(null);
+    const checkpoint = readListenPlaybackCheckpoint({
+      courseId: shifuBid,
+      lessonId,
+    });
+    if (checkpoint) {
+      nextPlaybackRestoreRequestIdRef.current += 1;
+      setPlaybackRestoreRequest({
+        ...checkpoint,
+        id: nextPlaybackRestoreRequestIdRef.current,
+      });
+      if (!previewMode && trackedPlaybackRestoreScopeRef.current !== scopeKey) {
+        trackedPlaybackRestoreScopeRef.current = scopeKey;
+        void Promise.resolve(
+          trackEvent('learner_listen_resume_requested', {
+            shifu_bid: shifuBid,
+            surface: 'learner_listen',
+          }),
+        ).catch(() => {});
+      }
+    }
+    setResolvedPlaybackRestoreScope(scopeKey);
+  }, [lessonId, previewMode, shifuBid, trackEvent, variant]);
+
+  const playbackRestoreScopeKey = `${shifuBid}:${lessonId}`;
+  const isPlaybackRestoreReady =
+    variant !== 'listen' ||
+    (Boolean(shifuBid && lessonId) &&
+      resolvedPlaybackRestoreScope === playbackRestoreScopeKey);
+
+  const handlePlaybackCheckpoint = useCallback(
+    ({
+      audioKey,
+      isComplete,
+      timeMs,
+    }: {
+      audioKey: string;
+      isComplete: boolean;
+      timeMs: number;
+    }) => {
+      if (variant !== 'listen' || !shifuBid || !lessonId) {
+        return;
+      }
+
+      if (isComplete) {
+        clearListenPlaybackCheckpoint({ courseId: shifuBid, lessonId });
+        return;
+      }
+
+      writeListenPlaybackCheckpoint(
+        { courseId: shifuBid, lessonId },
+        { audioKey, timeMs },
+      );
+    },
+    [lessonId, shifuBid, variant],
+  );
   const markerStepCount = useMemo(
     () => elementList.filter(element => Boolean(element.is_marker)).length,
     [elementList],
@@ -2154,6 +2250,7 @@ const ListenModeSlideRenderer = ({
             waitingForAudio: t('module.chat.thinking'),
           }}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
+          onPlaybackCheckpoint={handlePlaybackCheckpoint}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
@@ -2162,6 +2259,7 @@ const ListenModeSlideRenderer = ({
           fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
+          playbackRestoreRequest={playbackRestoreRequest}
           playerClassName={cn(
             listenPlayerClassName,
             mobileStyle ? 'listen-slide-player-mobile' : '',
@@ -2169,7 +2267,7 @@ const ListenModeSlideRenderer = ({
           )}
           playerCustomActionPauseOnActive={pausePlayerCustomActionOnActive}
           playerCustomActions={enableCustomActions ? playerCustomActions : null}
-          playerEnabled={!shouldRenderEmptyPpt}
+          playerEnabled={!shouldRenderEmptyPpt && isPlaybackRestoreReady}
         />
         {shouldRenderManualFullscreenButton ? (
           <button
