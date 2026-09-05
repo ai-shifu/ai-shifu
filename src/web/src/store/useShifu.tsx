@@ -485,14 +485,6 @@ export const ShifuProvider = ({
     }
   };
 
-  const loadProfileItemDefinations = async (shifuId: string) => {
-    const list = await api.getProfileItemDefinitions({
-      parent_id: shifuId,
-      type: 'all',
-    });
-    setProfileItemDefinations(list);
-  };
-
   const remapOutlineTree = (
     items: any,
     parentBid = '',
@@ -739,7 +731,6 @@ export const ShifuProvider = ({
       setChapters(list);
       buildOutlineTree(list);
       await refreshVariableUsage(shifuId);
-      // loadProfileItemDefinations(shifuId);
     } catch (error) {
       console.error(error);
       setError('Failed to load chapters');
