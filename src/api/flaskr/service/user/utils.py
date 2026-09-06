@@ -20,11 +20,16 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
 from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
+from flaskr.service.common.contact_identifiers import (
+    CONTACT_TYPE_EMAIL,
+    validate_contact_identifier,
+)
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
     normalize_phone_identifier,
 )
+from flaskr.service.common.smtp import SMTP_TIMEOUT_SECONDS
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user.captcha import consume_captcha_ticket
@@ -537,9 +542,11 @@ def send_email_code(
 ) -> dict[str, int]:
     """Send and persist an email verification code for an address."""
     with app.app_context():
-        email = str(email or "").strip().lower()
-        if not email:
-            raise_error("server.common.unknownError")
+        email = validate_contact_identifier(
+            email,
+            CONTACT_TYPE_EMAIL,
+            empty_error="email",
+        )
 
         def _deliver_email(challenge: _PreparedVerificationChallenge) -> bool:
             msg = MIMEMultipart("alternative")
@@ -565,9 +572,17 @@ def send_email_code(
 
                 # Port 465 uses implicit SSL; 587 uses STARTTLS
                 if smtp_port == 465:
-                    server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+                    server = smtplib.SMTP_SSL(
+                        smtp_server,
+                        smtp_port,
+                        timeout=SMTP_TIMEOUT_SECONDS,
+                    )
                 else:
-                    server = smtplib.SMTP(smtp_server, smtp_port)
+                    server = smtplib.SMTP(
+                        smtp_server,
+                        smtp_port,
+                        timeout=SMTP_TIMEOUT_SECONDS,
+                    )
                     server.starttls()
                 server.login(smtp_username, smtp_password)
                 server.sendmail(smtp_sender, email, msg.as_string())

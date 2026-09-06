@@ -509,6 +509,42 @@ def test_send_email_code_stores_lowercase_identifier(
             db.session.commit()
 
 
+def test_send_email_code_rejects_invalid_email_before_challenge(
+    app: object, monkeypatch: object
+) -> None:
+    import flaskr.service.user.utils as user_utils
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.user.models import UserVerifyCode
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(
+        user_utils.smtplib,
+        "SMTP",
+        lambda *_args, **_kwargs: pytest.fail(
+            "invalid emails must not open an SMTP connection"
+        ),
+    )
+    prepare_calls: list[str] = []
+    monkeypatch.setattr(
+        user_utils,
+        "_prepare_verification_challenge",
+        lambda *_args, **_kwargs: prepare_calls.append("called"),
+    )
+
+    with app.app_context():
+        with pytest.raises(AppError) as exc_info:
+            user_utils.send_email_code(app, "not-an-email")
+
+        assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+        assert "email" in exc_info.value.message
+        assert prepare_calls == []
+        assert UserVerifyCode.query.filter_by(mail="not-an-email").first() is None
+        assert fake_redis._store == {}
+
+
 @pytest.mark.parametrize(
     ("policy_name", "identifier", "next_identifier", "expected_rate_code"),
     [
@@ -780,8 +816,11 @@ def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
         initialized_with: tuple[object, object] | None = None
         quit_called = False
 
-        def __init__(self, server: object, port: object) -> None:
+        def __init__(
+            self, server: object, port: object, timeout: object = None
+        ) -> None:
             type(self).initialized_with = (server, port)
+            type(self).timeout = timeout
 
         def login(self, *_args: object) -> None:
             return None
@@ -826,6 +865,7 @@ def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
                 user_utils.send_email_code(app, email)
 
             assert _FailingSMTPSSL.initialized_with == ("smtp.example.com", 465)
+            assert _FailingSMTPSSL.timeout == 10.0
             assert _FailingSMTPSSL.quit_called is True
         finally:
             UserVerifyCode.query.filter_by(mail=email).delete(synchronize_session=False)
