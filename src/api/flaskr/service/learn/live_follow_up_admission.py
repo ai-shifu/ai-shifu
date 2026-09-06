@@ -13,6 +13,7 @@ import json
 import math
 import secrets
 import uuid
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -32,6 +33,8 @@ from .live_follow_up_capacity import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from flask import Flask
 
 _ERROR_UNAVAILABLE = "admission_unavailable"
@@ -373,6 +376,26 @@ def admission_time() -> float:
         raise LiveFollowUpCapacityUnavailableError(_ERROR_UNAVAILABLE) from exc
 
 
+@contextmanager
+def live_follow_up_readiness_client() -> Iterator[Redis]:
+    """Bound optional readiness/cache I/O without mutating the shared pool."""
+    source = _require_redis().connection_pool
+    pool = ConnectionPool(
+        connection_class=source.connection_class,
+        **{
+            **source.connection_kwargs,
+            "socket_connect_timeout": 1,
+            "socket_timeout": 1,
+            "retry": Retry(NoBackoff(), 0),
+            "retry_on_error": [],
+        },
+    )
+    try:
+        yield Redis(connection_pool=pool)
+    finally:
+        pool.disconnect()
+
+
 def live_follow_up_readiness(
     app: Flask, *, enabled: bool | None = None
 ) -> dict[str, object]:
@@ -391,26 +414,12 @@ def live_follow_up_readiness(
     if not enabled:
         return {"status": "disabled"}
     try:
-        source = _require_redis().connection_pool
-        # Do not inherit the ordinary client's unlimited socket wait at startup.
-        pool = ConnectionPool(
-            connection_class=source.connection_class,
-            **{
-                **source.connection_kwargs,
-                "socket_connect_timeout": 1,
-                "socket_timeout": 1,
-                "retry": Retry(NoBackoff(), 0),
-                "retry_on_error": [],
-            },
-        )
-        try:
+        with live_follow_up_readiness_client() as client:
             result = json.loads(
-                Redis(connection_pool=pool).eval(
+                client.eval(
                     _READINESS_SCRIPT, 1, f"{_key_prefix(app)}:v2:accounting", "{}"
                 )
             )
-        finally:
-            pool.disconnect()
         if result.get("ready") is True:
             return {"status": "ready"}
         delay = result.get("retry_after_ms")

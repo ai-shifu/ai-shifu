@@ -107,7 +107,8 @@ GEMINI_LIVE_ENABLED=true
 ```
 
 Live readiness is separate from ordinary HTTP health. On startup, every
-enabled API worker resolves the effective (environment or DB-backed) flag and
+enabled API worker schedules a single background task to resolve the effective
+(environment or DB-backed) flag and
 initializes the shared Redis recovery guard without minting
 a credential. Redis must use `noeviction`. A missing accounting marker or a
 changed Redis run ID starts the full shared 15-minute safety window; repeated
@@ -116,18 +117,27 @@ records to bypass this window.
 If startup config/Redis lookup fails (including a DB lookup falling back to
 disabled), one daemon task per API worker retries every 30 seconds,
 at most 20 times. It stops once the marker is initialized, even while warming;
-an explicit environment-off switch starts no retry task. Longer outages still
+an explicit environment-off switch completes the first attempt without retries.
+Longer outages still
 require the deployment readiness gate below; retries do not bypass it.
 Gunicorn preload skips preparation in the master; the existing `post_fork`
 hook initializes it after per-worker connection pools and tracing are reset.
 Initialization is idempotent per process, including non-preloaded app factories.
+Neither the initial lookup nor retries run on the HTTP/startup thread. Config
+cache reads use an isolated Redis client with one-second connect/read timeouts;
+the existing DB lookup stays within that one background task. A stalled DB
+operation is not joined and does not create replacement tasks or block workers.
 
 Before announcing Live availability, query
 `GET /api/learn/live-follow-up/readiness` through the normal authenticated API
 transport and require `data.status == "ready"`. Other bounded statuses are
 `warming`, `unavailable`, and `disabled`; `retry_after_ms` is a suggested probe
 interval, not a credential expiry. The probe allocates no user/session capacity
-and returns no credentials or Redis identifiers. Startup probing uses bounded
+and reads only explicit overrides or bounded cached configuration, with no DB
+fallback; a cold/missing config cache is `unavailable` until background lookup
+or the existing config service populates it. Capability validation reuses the
+same resolved flag rather than performing another shared-cache lookup. The probe
+returns no credentials or Redis identifiers. Startup probing uses bounded
 Redis socket waits; a Live outage must not fail ordinary `/health` or text
 follow-ups. The original follow-up panel also probes before enabling new Live
 input and refreshes while unavailable, without automatically connecting,

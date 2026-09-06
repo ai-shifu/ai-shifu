@@ -12,6 +12,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from threading import Thread
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Flask, Response, request
@@ -23,7 +24,13 @@ from flaskr.common.shifu_context import with_shifu_context
 from flaskr.i18n import get_current_language
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import AppError, raise_param_error
-from flaskr.service.config import get_config
+from flaskr.service.config import (
+    config_cache_client,
+    config_overrides,
+    get_cached_config,
+    get_config,
+    has_config_override,
+)
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
 )
@@ -52,6 +59,7 @@ from flaskr.service.learn.live_follow_up_admission import (
     fail_admission,
     legacy_request_bid,
     live_follow_up_readiness,
+    live_follow_up_readiness_client,
     request_timestamp_ms,
     retire_admission,
     retirement_receipt,
@@ -104,6 +112,9 @@ from flaskr.util.datetime import to_utc_iso
 from flaskr.util.prompt_loader import load_prompt_template
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 LIVE_FOLLOW_UP_SESSION_SECONDS = 15 * 60
 LIVE_FOLLOW_UP_WARNING_SECONDS = 14 * 60 + 30
@@ -605,10 +616,27 @@ def _failed_operation_response(
     return raise_param_error("live_follow_up")
 
 
+@contextlib.contextmanager
+def _bounded_live_config() -> Iterator[None]:
+    key = "GEMINI_LIVE_ENABLED"
+    if has_explicit_env_override(key) or has_config_override(key):
+        yield
+    else:
+        with live_follow_up_readiness_client() as client, config_cache_client(client):
+            yield
+
+
+def _cached_live_enabled() -> bool:
+    with _bounded_live_config():
+        value = get_cached_config("GEMINI_LIVE_ENABLED", default=False)
+    with config_overrides({"GEMINI_LIVE_ENABLED": value}):
+        return is_gemini_live_enabled()
+
+
 def _prepare_live_follow_up(app: Flask) -> bool:
     """Return whether preparation is done or Live is explicitly disabled."""
     try:
-        with app.app_context():
+        with app.app_context(), _bounded_live_config():
             enabled = is_gemini_live_enabled()
             if not enabled and has_explicit_env_override("GEMINI_LIVE_ENABLED"):
                 return True
@@ -622,8 +650,9 @@ def _prepare_live_follow_up(app: Flask) -> bool:
 
 def _retry_live_follow_up_preparation(app: Flask) -> None:
     """Retry startup failures without learner traffic or unbounded task growth."""
-    for _attempt in range(20):
-        time.sleep(30)
+    for attempt in range(21):
+        if attempt:
+            time.sleep(30)
         if _prepare_live_follow_up(app):
             return
     app.logger.warning("Live follow-up startup preparation still unavailable")
@@ -637,16 +666,17 @@ def init_live_follow_up_readiness(app: Flask) -> None:
     if app.extensions.get("live_follow_up_startup_pid") == process_id:
         return
     app.extensions["live_follow_up_startup_pid"] = process_id
-    if not _prepare_live_follow_up(app):
-        try:
-            Thread(
-                target=_retry_live_follow_up_preparation,
-                args=(app,),
-                name="live-follow-up-startup",
-                daemon=True,
-            ).start()
-        except Exception:
-            app.logger.warning("Live follow-up startup retry unavailable")
+    # Even the first DB-backed config lookup belongs in this one task. Never
+    # join it or create timeout-replacement threads if a dependency is stalled.
+    try:
+        Thread(
+            target=_retry_live_follow_up_preparation,
+            args=(app,),
+            name="live-follow-up-startup",
+            daemon=True,
+        ).start()
+    except Exception:
+        app.logger.warning("Live follow-up startup retry unavailable")
 
 
 def register_live_follow_up_routes(
@@ -660,12 +690,17 @@ def register_live_follow_up_routes(
 
     @app.route(path_prefix + "/live-follow-up/readiness", methods=["GET"])
     def live_follow_up_readiness_api() -> Response:
-        readiness = live_follow_up_readiness(app, enabled=is_gemini_live_enabled())
-        if readiness["status"] in {"ready", "warming"} and not (
-            is_live_follow_up_model_available(GEMINI_LIVE_MODEL_ID)
-        ):
-            # Match session admission without issuing tokens or performing a
-            # provider request. Startup discovery must confirm Bidi support.
+        try:
+            enabled = _cached_live_enabled()
+            # Reuse the resolved flag so the capability check cannot re-enter
+            # the shared unbounded config cache or its DB fallback.
+            with config_overrides({"GEMINI_LIVE_ENABLED": enabled}):
+                readiness = live_follow_up_readiness(app, enabled=enabled)
+                if readiness["status"] in {"ready", "warming"} and not (
+                    is_live_follow_up_model_available(GEMINI_LIVE_MODEL_ID)
+                ):
+                    readiness = {"status": "unavailable", "retry_after_ms": 30_000}
+        except Exception:
             readiness = {"status": "unavailable", "retry_after_ms": 30_000}
         return _make_live_response(readiness)
 

@@ -73,6 +73,15 @@ auditing, or another correctness-sensitive decision.
   state. Tests cover missing provider/model, text-only capability, warming,
   ready, and closed gates. Discovery remains startup-scoped; no provider
   polling is introduced and operators must restart after discovery/config fixes.
+- [x] 2026-09-06: Follow-up review isolates all initial configuration work from
+  worker startup in the single existing background task. Configuration cache
+  reads use the same one-second isolated Redis client as recovery, without
+  mutating shared cache/pool state. HTTP probes use cache-only configuration
+  and reuse the resolved flag for model checks; a cold cache fails closed and
+  is populated by background or normal configuration reads. DB operations stay
+  in one unjoined task; stalls never spawn replacement threads. Tests exercise
+  non-responsive TCP Redis, blocked background work, cache-only/encrypted reads,
+  local override restoration, and no second shared lookup from model checks.
 
 - [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
   Live controls, RTL regression coverage, cached keepalive transport, and
