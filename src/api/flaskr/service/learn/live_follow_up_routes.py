@@ -685,7 +685,9 @@ def _retry_live_follow_up_preparation(
 
 def init_live_follow_up_readiness(app: Flask, *, refresh: bool = False) -> None:
     """Prepare/refresh Live without overlapping tasks or preload-master I/O."""
-    if os.environ.get("AI_SHIFU_PRELOAD_MASTER"):
+    if os.environ.get("AI_SHIFU_PRELOAD_MASTER") or not app.extensions.get(
+        "serving_http", True
+    ):
         return
     # A PID-scoped key never acquires a lock inherited from another process.
     candidate = _LiveReadinessTask()

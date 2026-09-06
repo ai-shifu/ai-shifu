@@ -43,6 +43,12 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-06: Restrict Live background preparation to HTTP app instances.
+  Celery bootstrap passes a process-local `serving_http=False` factory role
+  before route registration; parent, children and beat never start this optional
+  task. Preserve Gunicorn post-fork initialization, default HTTP factories,
+  singleton ownership, existing pool disposal and all deployment flags.
+
 - [x] 2026-09-06: Review follow-up retires expired sessions before the readiness
   gate, so a foreground input that beats a frozen timer still releases the old
   socket/audio and commits one timeout end. New input remains blocked while

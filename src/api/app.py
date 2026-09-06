@@ -44,7 +44,7 @@ _application_state = _ApplicationState()
 app: Flask | None = None
 
 
-def create_app() -> Flask:
+def create_app(*, serving_http: bool = True) -> Flask:
     """Create and configure the Flask application."""
     if _application_state.app is not None:
         return _application_state.app
@@ -52,6 +52,8 @@ def create_app() -> Flask:
 
     pymysql.install_as_MySQLdb()
     flask_app = Flask(__name__, instance_relative_config=True)
+    # Record the process role before plugins/routes can schedule HTTP work.
+    flask_app.extensions["serving_http"] = serving_http
     CORS(
         flask_app,
         resources={

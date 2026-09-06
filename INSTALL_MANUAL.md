@@ -123,6 +123,10 @@ require the deployment readiness gate below; retries do not bypass it.
 Gunicorn preload skips preparation in the master; the existing `post_fork`
 hook initializes it after per-worker connection pools and tracing are reset.
 Initialization is idempotent per process, including non-preloaded app factories.
+The Celery bootstrap creates its Flask app with `serving_http=False`, recorded
+before route registration. That process-local role skips Live preparation in
+both the prefork parent and queue/beat workers; it does not change rollout flags
+or start an unnecessary readiness thread in Celery children.
 Neither the initial lookup nor retries run on the HTTP/startup thread. Config
 cache reads use an isolated Redis client with one-second connect/read timeouts;
 the existing DB lookup stays within that one background task. A stalled DB
