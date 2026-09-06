@@ -144,13 +144,15 @@ def test_readiness_never_reenters_shared_config_or_database(
     assert response.get_json()["data"]["status"] == (
         "ready" if cached is not None else "unavailable"
     )
-    client.get.assert_called_once()
+    assert client.get.call_count == (1 if cached is not None else 2)
     client.lock.assert_not_called()
     shared.get.assert_not_called()
 
 
+@pytest.mark.parametrize("row_value", ["true", None])
 def test_expired_flag_repopulates_without_sync_db_or_duplicate_refresh(
     monkeypatch: pytest.MonkeyPatch,
+    row_value: str | None,
 ) -> None:
     monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER", raising=False)
     clock = [100.0]
@@ -159,18 +161,23 @@ def test_expired_flag_repopulates_without_sync_db_or_duplicate_refresh(
     monkeypatch.setattr(routes, "Thread", workers)
     monkeypatch.setattr(routes, "has_explicit_env_override", lambda _: False)
     monkeypatch.setattr(funcs, "has_explicit_env_override", lambda _: False)
+    monkeypatch.setattr(
+        funcs, "get_config_from_common", lambda _key, default=None: default
+    )
     client = InMemoryCacheProvider()
     monkeypatch.setattr(
         routes, "live_follow_up_readiness_client", lambda: nullcontext(client)
     )
     model = Mock()
     query = model.query.filter.return_value.order_by.return_value.first
-    query.return_value = SimpleNamespace(value="true", is_encrypted=False)
+    query.return_value = (
+        SimpleNamespace(value=row_value, is_encrypted=False) if row_value else None
+    )
     monkeypatch.setattr(funcs, "Config", model)
     monkeypatch.setattr(
         routes,
         "live_follow_up_readiness",
-        lambda *_args, **_kwargs: {"status": "ready"},
+        lambda *_args, enabled: {"status": "ready" if enabled else "disabled"},
     )
     monkeypatch.setattr(
         routes,
@@ -193,20 +200,30 @@ def test_expired_flag_repopulates_without_sync_db_or_duplicate_refresh(
         )
 
     run_background_task()
-    assert probe() == "ready"
+    expected = "ready" if row_value else "disabled"
+    assert probe() == expected
+    for _ in range(10):
+        assert probe() == expected
+    assert workers.call_count == 1
     assert query.call_count == 1
     # Simulate expiry after startup has completed and its task has exited.
     clock[0] += 86401
-    client.delete("test:sys:config:GEMINI_LIVE_ENABLED")
+    client.delete(
+        "test:sys:config:GEMINI_LIVE_ENABLED",
+        "test:sys:config:GEMINI_LIVE_ENABLED:absent",
+    )
     for _ in range(10):
         assert probe() == "unavailable"
     assert query.call_count == 1  # No DB work in any HTTP request.
     assert workers.call_count == 2  # Exactly one repopulation task.
     run_background_task()
     assert query.call_count == 2
-    assert probe() == "ready"
+    assert probe() == expected
     # Repeated misses are limited to one new task per 30 seconds after exit.
-    client.delete("test:sys:config:GEMINI_LIVE_ENABLED")
+    client.delete(
+        "test:sys:config:GEMINI_LIVE_ENABLED",
+        "test:sys:config:GEMINI_LIVE_ENABLED:absent",
+    )
     assert probe() == "unavailable"
     assert workers.call_count == 2
     clock[0] += 31

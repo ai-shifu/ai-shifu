@@ -51,6 +51,7 @@ def prevent_background_startup_threads(monkeypatch: pytest.MonkeyPatch) -> Mock:
     monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER", raising=False)
     monkeypatch.setattr(routes, "Thread", worker)
     monkeypatch.setattr(routes, "_bounded_live_config", nullcontext)
+    monkeypatch.setattr(routes, "get_cached_config", Mock(side_effect=LookupError))
     monkeypatch.setattr(routes, "has_explicit_env_override", lambda _key: False)
     return worker
 
@@ -243,6 +244,9 @@ def test_startup_uses_effective_config_in_app_context(
 
     monkeypatch.setattr(live_follow_up_config, "get_config", effective_config)
     monkeypatch.setattr(
+        routes, "get_cached_config", lambda *_args, **_kwargs: str(effective_enabled)
+    )
+    monkeypatch.setattr(
         routes, "is_gemini_live_enabled", live_follow_up_config.is_gemini_live_enabled
     )
     monkeypatch.setattr(
@@ -253,7 +257,7 @@ def test_startup_uses_effective_config_in_app_context(
     routes.register_live_follow_up_routes(app)
     assert calls == []
     routes._prepare_live_follow_up(app)
-    assert calls == [(app, effective_enabled)]
+    assert calls == ([(app, True)] if effective_enabled else [])
 
 
 def test_startup_config_failure_does_not_block_http_routes(
@@ -282,7 +286,7 @@ def test_background_preparation_recovers_from_error_and_disabled_fallback(
 ) -> None:
     app = Flask("retry-live-config")
     enabled = Mock(side_effect=[RuntimeError, False, True])
-    readiness = Mock(side_effect=[{"status": "disabled"}, {"status": "warming"}])
+    readiness = Mock(return_value={"status": "warming"})
     sleep = Mock()
     monkeypatch.setattr(routes, "is_gemini_live_enabled", enabled)
     monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)

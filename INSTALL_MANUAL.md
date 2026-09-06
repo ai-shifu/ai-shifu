@@ -140,7 +140,11 @@ schedules repopulation in the same single worker-local task slot, never inline.
 An active (including stalled) task is not replaced, and new task starts have a
 30-second cooldown after completion or start failure. Each task retains the
 initial-plus-20 retry budget. Capability validation reuses the
-same resolved flag rather than performing another shared-cache lookup. The probe
+same resolved flag rather than performing another shared-cache lookup.
+Confirmed database absence is cached as separate metadata for 24 hours, so
+the supported default-off state settles as `disabled`; transient database
+failures never create this marker. The normal config service's positive cache
+writes take precedence immediately when a flag is created or updated. The probe
 returns no credentials or Redis identifiers. Startup probing uses bounded
 Redis socket waits; a Live outage must not fail ordinary `/health` or text
 follow-ups. The original follow-up panel also probes before enabling new Live

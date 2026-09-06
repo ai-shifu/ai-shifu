@@ -52,10 +52,14 @@ def has_config_override(key: str) -> bool:
 
 
 @contextmanager
-def config_cache_client(client: CacheProvider) -> Iterator[None]:
+def config_cache_client(
+    client: CacheProvider, *, cache_absence: bool = False
+) -> Iterator[None]:
     """Use a caller-owned cache for config reads without replacing shared I/O."""
     previous = getattr(_config_override_local, "cache_client", None)
+    previous_absence = getattr(_config_override_local, "cache_absence", None)
     _config_override_local.cache_client = client
+    _config_override_local.cache_absence = cache_absence
     try:
         yield
     finally:
@@ -63,6 +67,10 @@ def config_cache_client(client: CacheProvider) -> Iterator[None]:
             del _config_override_local.cache_client
         else:
             _config_override_local.cache_client = previous
+        if previous_absence is None:
+            del _config_override_local.cache_absence
+        else:
+            _config_override_local.cache_absence = previous_absence
 
 
 class ConfigCache(BaseModel):
@@ -169,8 +177,11 @@ def get_cached_config(key: str, default: object = None) -> object:
     if has_explicit_env_override(key):
         return get_config_from_common(key, default)
     client = getattr(_config_override_local, "cache_client", redis)
-    cache = client.get(_get_config_cache_key(current_app, key))
+    cache_key = _get_config_cache_key(current_app, key)
+    cache = client.get(cache_key)
     if not cache:
+        if client.get(cache_key + ":absent"):
+            return get_config_from_common(key, default)
         message = "Configuration cache unavailable"
         raise LookupError(message)
     return _decode_config_cache(current_app, cache)
@@ -225,6 +236,10 @@ def get_config(key: str, default: str | None = None) -> str:
                         .first()
                     )
                     if not config:
+                        if getattr(_config_override_local, "cache_absence", False):
+                            # Cache presence metadata, not a caller's default.
+                            # A positive cache write always takes precedence.
+                            cache_client.set(cache_key + ":absent", "1", ex=86400)
                         return get_config_from_common(key, default)
                     raw_value = config.value
                     if bool(config.is_encrypted):

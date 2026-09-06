@@ -88,6 +88,12 @@ auditing, or another correctness-sensitive decision.
   completion/start failure imposes a 30-second cooldown and each task keeps the
   initial-plus-20 retry budget. Tests simulate post-startup expiry, repeated
   probes, restored readiness, stalled work, and start-failure rate limiting.
+- [x] 2026-09-06: Follow-up review settles confirmed absent/default-off flags
+  instead of repeatedly treating them as transient cache failures. The scoped
+  background config reader opts into a separate 24-hour absence marker only
+  after a successful no-row query. Positive config cache entries win immediately;
+  DB failures never mark absence. Preparation distinguishes confirmed disabled
+  from fallback false. Regression coverage includes default-off probes and expiry.
 
 - [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
   Live controls, RTL regression coverage, cached keepalive transport, and

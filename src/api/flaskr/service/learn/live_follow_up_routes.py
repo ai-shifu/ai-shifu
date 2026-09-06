@@ -622,7 +622,10 @@ def _bounded_live_config() -> Iterator[None]:
     if has_explicit_env_override(key) or has_config_override(key):
         yield
     else:
-        with live_follow_up_readiness_client() as client, config_cache_client(client):
+        with (
+            live_follow_up_readiness_client() as client,
+            config_cache_client(client, cache_absence=True),
+        ):
             yield
 
 
@@ -640,9 +643,16 @@ def _prepare_live_follow_up(app: Flask) -> bool:
             enabled = is_gemini_live_enabled()
             if not enabled and has_explicit_env_override("GEMINI_LIVE_ENABLED"):
                 return True
+            if not enabled:
+                # Only a confirmed cached value/DB absence can settle disabled;
+                # a transient DB failure fallback has neither and keeps retrying.
+                value = get_cached_config("GEMINI_LIVE_ENABLED", default=False)
+                with config_overrides({"GEMINI_LIVE_ENABLED": value}):
+                    enabled = is_gemini_live_enabled()
+                if not enabled:
+                    return True
             status = live_follow_up_readiness(app, enabled=enabled)["status"]
-            # A warming marker is already initialized; no need to wait for its
-            # deadline. A DB-backed false may be a transient lookup fallback.
+            # A warming marker is already initialized; no need to wait for its deadline.
             return status in {"ready", "warming"}
     except Exception:
         return False
