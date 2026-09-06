@@ -43,6 +43,12 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-06: Review follow-up retires expired sessions before the readiness
+  gate, so a foreground input that beats a frozen timer still releases the old
+  socket/audio and commits one timeout end. New input remains blocked while
+  unready, preserves its draft, and is never replayed automatically. Cover
+  text/microphone clicks against all three unready states and later explicit use.
+
 - [x] 2026-09-06: Deployment review adds bounded readiness-state exposure
   telemetry for eligible open panels, including learners blocked before an
   attempt. Deduplicate each state per opening and scope; exclude hidden,

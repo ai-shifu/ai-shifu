@@ -830,14 +830,6 @@ export const useLiveVoiceFollowUp = ({
       }
       if (sessionScope === 'classroom') return false;
       if (
-        readinessRef.current.readiness !== 'ready' &&
-        (!attemptRef.current ||
-          attemptRef.current.anchorElementBid !== normalizedAnchor ||
-          (sessionRef.current &&
-            Date.parse(sessionRef.current.expires_at) <= Date.now()))
-      )
-        return false;
-      if (
         attemptRef.current &&
         sessionRef.current &&
         Date.parse(sessionRef.current.expires_at) <= Date.now()
@@ -845,6 +837,12 @@ export const useLiveVoiceFollowUp = ({
         // A foreground click may beat the expiry timer after browser freezing.
         finishAttempt({ reason: 'timeout', keepOpen: true });
       }
+      if (
+        readinessRef.current.readiness !== 'ready' &&
+        (!attemptRef.current ||
+          attemptRef.current.anchorElementBid !== normalizedAnchor)
+      )
+        return false;
       if (
         attemptRef.current &&
         attemptRef.current.anchorElementBid !== normalizedAnchor
