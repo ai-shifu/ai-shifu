@@ -4,6 +4,8 @@ export const mockLiveVoiceController = (
   overrides: Partial<LiveVoiceFollowUpController> = {},
 ): LiveVoiceFollowUpController => ({
   open: false,
+  readiness: 'ready',
+  prepare: jest.fn(),
   paused: false,
   state: 'ended',
   muted: true,

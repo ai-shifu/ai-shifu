@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 from cryptography.fernet import Fernet
 from flask import Flask
+from flaskr.common.cache_provider import CacheProvider
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import (
     get_config as get_config_from_common,
@@ -48,6 +49,28 @@ def config_overrides(values: dict[str, object]) -> Iterator[None]:
 def has_config_override(key: str) -> bool:
     """Return whether config override."""
     return key in getattr(_config_override_local, "values", {})
+
+
+@contextmanager
+def config_cache_client(
+    client: CacheProvider, *, cache_absence: bool = False
+) -> Iterator[None]:
+    """Use a caller-owned cache for config reads without replacing shared I/O."""
+    previous = getattr(_config_override_local, "cache_client", None)
+    previous_absence = getattr(_config_override_local, "cache_absence", None)
+    _config_override_local.cache_client = client
+    _config_override_local.cache_absence = cache_absence
+    try:
+        yield
+    finally:
+        if previous is None:
+            del _config_override_local.cache_client
+        else:
+            _config_override_local.cache_client = previous
+        if previous_absence is None:
+            del _config_override_local.cache_absence
+        else:
+            _config_override_local.cache_absence = previous_absence
 
 
 class ConfigCache(BaseModel):
@@ -137,6 +160,33 @@ def _get_config_lock_key(app: Flask, key: str) -> str:
     return prefix + "sys:config:lock:" + key
 
 
+def _decode_config_cache(app: Flask, cache: object) -> str:
+    cache_config = ConfigCache.model_validate_json(cache)
+    if cache_config.is_encrypted:
+        return _decrypt_config(app, cache_config.value)
+    return cache_config.value
+
+
+def get_cached_config(key: str, default: object = None) -> object:
+    """Read overrides/env/cache only; a cache miss must never trigger DB I/O."""
+    from flask import current_app
+
+    overrides = getattr(_config_override_local, "values", {})
+    if key in overrides:
+        return overrides[key]
+    if has_explicit_env_override(key):
+        return get_config_from_common(key, default)
+    client = getattr(_config_override_local, "cache_client", redis)
+    cache_key = _get_config_cache_key(current_app, key)
+    cache = client.get(cache_key)
+    if not cache:
+        if client.get(cache_key + ":absent"):
+            return get_config_from_common(key, default)
+        message = "Configuration cache unavailable"
+        raise LookupError(message)
+    return _decode_config_cache(current_app, cache)
+
+
 @extensible
 def get_config(key: str, default: str | None = None) -> str:
     """Get config value by key, automatically decrypt if is_secret=1.
@@ -168,15 +218,13 @@ def get_config(key: str, default: str | None = None) -> str:
         if has_explicit_env_override(key):
             return get_config_from_common(key, default)
         try:
+            cache_client = getattr(_config_override_local, "cache_client", redis)
             cache_key = _get_config_cache_key(app, key)
-            cache = redis.get(cache_key)
+            cache = cache_client.get(cache_key)
             if cache:
-                cache_config = ConfigCache.model_validate_json(cache)
-                if cache_config.is_encrypted:
-                    return _decrypt_config(app, cache_config.value)
-                return cache_config.value
+                return _decode_config_cache(app, cache)
             lock_key = _get_config_lock_key(app, key)
-            lock = redis.lock(lock_key, timeout=1, blocking_timeout=1)
+            lock = cache_client.lock(lock_key, timeout=1, blocking_timeout=1)
             if lock.acquire(blocking=False):
                 try:
                     config = (
@@ -188,13 +236,17 @@ def get_config(key: str, default: str | None = None) -> str:
                         .first()
                     )
                     if not config:
+                        if getattr(_config_override_local, "cache_absence", False):
+                            # Cache presence metadata, not a caller's default.
+                            # A positive cache write always takes precedence.
+                            cache_client.set(cache_key + ":absent", "1", ex=86400)
                         return get_config_from_common(key, default)
                     raw_value = config.value
                     if bool(config.is_encrypted):
                         value = _decrypt_config(app, raw_value)
                     else:
                         value = raw_value
-                    redis.set(
+                    cache_client.set(
                         cache_key,
                         ConfigCache(
                             is_encrypted=bool(config.is_encrypted),

@@ -31,6 +31,15 @@ const mockActivateAudio = jest.fn();
 const mockRequestMicrophone = jest.fn();
 const mockRequestExclusive = jest.fn();
 const mockReleaseExclusive = jest.fn();
+let mockReadiness = 'ready';
+const mockRefreshReadiness = jest.fn();
+jest.mock('./useLiveFollowUpReadiness', () => ({
+  useLiveFollowUpReadiness: () => ({
+    readiness: mockReadiness,
+    prepare: jest.fn(),
+    refresh: mockRefreshReadiness,
+  }),
+}));
 
 const mockAudio = {
   clearPlayback: jest.fn(),
@@ -412,6 +421,29 @@ const makeReady = async (socket = mockSockets.at(-1)!) => {
 };
 
 describe('useLiveVoiceFollowUp browser-direct transport', () => {
+  it.each(['checking', 'warming', 'unavailable'])(
+    'rejects input before readiness (%s) without media or analytics',
+    async readiness => {
+      mockReadiness = readiness;
+      const onTextResult = jest.fn();
+      const { rerender } = render(<Harness onTextResult={onTextResult} />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      fireEvent.click(screen.getByRole('button', { name: 'text' }));
+      await act(async () => {});
+      expect(onTextResult).toHaveBeenCalledWith(false);
+      expect(mockActivateAudio).not.toHaveBeenCalled();
+      expect(mockRequestMicrophone).not.toHaveBeenCalled();
+      expect(mockCreateSession).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      mockReadiness = 'ready';
+      rerender(<Harness onTextResult={onTextResult} />);
+      expect(mockCreateSession).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'text' }));
+      expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    },
+  );
   it('shares one provisioning and first socket setup deadline', async () => {
     jest.useFakeTimers();
     const provisioned = createDeferred<ReturnType<typeof sessionResponse>>();
@@ -2331,6 +2363,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
   });
 
   beforeEach(() => {
+    mockReadiness = 'ready';
     jest.useRealTimers();
     jest.clearAllMocks();
     mockTrackEvent.mockReset();

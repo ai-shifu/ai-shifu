@@ -14,6 +14,63 @@ jest.mock('react-i18next', () => ({
 }));
 const target = { anchorElementBid: 'anchor', surface: 'read_content' as const };
 
+it('removes idle instructions and the inline privacy notice', () => {
+  const { container } = render(
+    <LiveVoiceFollowUpControls
+      controller={mockLiveVoiceController()}
+      target={target}
+    />,
+  );
+  expect(container).toBeEmptyDOMElement();
+  expect(
+    screen.queryByText('module.chat.liveVoiceInputHint'),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('module.chat.liveVoicePrivacyNotice'),
+  ).not.toBeInTheDocument();
+});
+
+it.each(['checking', 'warming', 'unavailable'] as const)(
+  'gates microphone and retry with honest service status (%s)',
+  readiness => {
+    const controller = mockLiveVoiceController({
+      readiness,
+      anchorElementBid: 'anchor',
+      errorCode: 'server_error',
+      retryable: true,
+    });
+    render(
+      <>
+        <LiveVoiceFollowUpMicrophoneButton
+          controller={controller}
+          target={target}
+        />
+        <LiveVoiceFollowUpControls
+          controller={controller}
+          target={target}
+        />
+      </>,
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.chat.liveVoiceStartMicrophone',
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'module.chat.liveVoiceRetry' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      readiness === 'unavailable'
+        ? 'module.chat.liveVoiceServiceUnavailable'
+        : 'module.chat.liveVoiceServicePreparing',
+    );
+    expect(
+      screen.queryByText('module.chat.liveVoiceConnectionFailed'),
+    ).not.toBeInTheDocument();
+    expect(controller.startMicrophone).not.toHaveBeenCalled();
+  },
+);
+
 it('renders compact manual controls without opening a dialog or microphone', () => {
   const controller = mockLiveVoiceController();
   render(
@@ -151,9 +208,7 @@ it('does not expose internal session expiry or warnings', () => {
       target={target}
     />,
   );
-  expect(screen.getByRole('status')).toHaveTextContent(
-    'module.chat.liveVoiceInputHint',
-  );
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(
     screen.queryByText('module.chat.liveVoiceTimeWarning'),
   ).not.toBeInTheDocument();
@@ -175,9 +230,7 @@ it('does not show pause state belonging to another input anchor', () => {
       target={target}
     />,
   );
-  expect(screen.getByRole('status')).toHaveTextContent(
-    'module.chat.liveVoiceInputHint',
-  );
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(
     screen.queryByRole('button', { name: 'module.chat.liveVoiceEnd' }),
   ).not.toBeInTheDocument();

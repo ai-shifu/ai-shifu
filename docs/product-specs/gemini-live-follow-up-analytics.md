@@ -50,6 +50,15 @@ Panel opening, disabled controls, invalid/empty/over-limit input, capacity
 cooldown, re-renders, duplicate pending sends, and duplicate microphone requests
 emit nothing. Later deliberate submissions/operations count again.
 
+The 2026-09-06 readiness revision adds a non-minting service probe before
+enabling Live input. Probe requests, automatic readiness refreshes, and actions
+blocked while checking/warming/unavailable emit no attempt, text-submit, or
+microphone-result events. The existing adoption/outcome consumer now counts
+only actions accepted after this readiness gate; do not compare deployment
+warm-up failures across the release boundary as connection reliability changes.
+The server still checks admission atomically at mint time. A later service
+failure uses the existing `server_error` result, not a new event or payload.
+
 | Event                                       | Exact trigger                                                                                                    | Additional fields beyond common fields      |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | `learner_voice_follow_up_attempt`           | Once after local guards accept a new connection, before activation/session POST                                  | none                                        |

@@ -43,6 +43,58 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-06: Initialize the shared recovery guard at API startup, expose
+  non-minting readiness for deployment/UI, and gate new Live input until ready.
+  Preserve Redis generation/noeviction checks and the full recovery window.
+  Remove idle input instructions and the repeated inline privacy notice;
+  keep privacy policies, active status and actionable errors. Validate startup,
+  multi-worker idempotence, recovery, input/analytics gating and five locales.
+  Full frontend: 229 suites / 2,352 tests passed; focused backend/config and
+  deployment-contract tests passed (265, including real Redis); types/lint
+  and full pre-commit passed. No environment changes, deployment, microphone
+  capture or live-provider traffic were performed for this revision.
+- [x] 2026-09-06: Review follow-up aligns startup with the effective
+  DB-aware Live flag inside a Flask application context, not just the raw
+  environment/default value. Regression tests cover both override directions
+  and configuration failure without blocking HTTP route registration.
+- [x] 2026-09-06: Follow-up review adds bounded background startup preparation
+  retries for transient configuration/Redis errors and DB-disabled fallbacks.
+  One daemon task retries at 30-second intervals, at most 20 times; it stops on
+  initialized/warming state or explicit environment-off. Deployment probes
+  remain required after longer outages. No token minting or reservation reset.
+- [x] 2026-09-06: Follow-up review defers Live preparation out of the Gunicorn
+  preload master into the existing `post_fork` lifecycle hook, after pool and
+  tracing resets. Process-idempotent initialization also supports ordinary
+  app factories without launching duplicate retry tasks. Regression coverage
+  executes the real hook with isolated resources and verifies preload deferral.
+- [x] 2026-09-06: Follow-up review aligns readiness with session admission's
+  discovered model/Bidi capability check. Missing provider configuration or
+  startup discovery failure returns bounded `unavailable`, not a false ready
+  state. Tests cover missing provider/model, text-only capability, warming,
+  ready, and closed gates. Discovery remains startup-scoped; no provider
+  polling is introduced and operators must restart after discovery/config fixes.
+- [x] 2026-09-06: Follow-up review isolates all initial configuration work from
+  worker startup in the single existing background task. Configuration cache
+  reads use the same one-second isolated Redis client as recovery, without
+  mutating shared cache/pool state. HTTP probes use cache-only configuration
+  and reuse the resolved flag for model checks; a cold cache fails closed and
+  is populated by background or normal configuration reads. DB operations stay
+  in one unjoined task; stalls never spawn replacement threads. Tests exercise
+  non-responsive TCP Redis, blocked background work, cache-only/encrypted reads,
+  local override restoration, and no second shared lookup from model checks.
+- [x] 2026-09-06: Follow-up review handles expiry of DB-backed flag cache entries
+  after initial warmup. A cache miss schedules background repopulation through
+  one PID-scoped, locked task slot. Active/stalled tasks are never replaced;
+  completion/start failure imposes a 30-second cooldown and each task keeps the
+  initial-plus-20 retry budget. Tests simulate post-startup expiry, repeated
+  probes, restored readiness, stalled work, and start-failure rate limiting.
+- [x] 2026-09-06: Follow-up review settles confirmed absent/default-off flags
+  instead of repeatedly treating them as transient cache failures. The scoped
+  background config reader opts into a separate 24-hour absence marker only
+  after a successful no-row query. Positive config cache entries win immediately;
+  DB failures never mark absence. Preparation distinguishes confirmed disabled
+  from fallback false. Regression coverage includes default-off probes and expiry.
+
 - [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
   Live controls, RTL regression coverage, cached keepalive transport, and
   analytics fields while adopting the unified frontend source directories.
