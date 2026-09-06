@@ -2,7 +2,7 @@
 title: Embedded Gemini Live Follow-Up Analytics
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-09-05
+last_reviewed: 2026-09-06
 canonical: true
 ---
 
@@ -27,6 +27,12 @@ repository; external/ad-hoc consumers must use the following definitions:
   operations separately; implicit cleanup is not a deliberate off operation.
 - Connection outcome: count `learner_voice_follow_up_result` by `outcome` over
   accepted `learner_voice_follow_up_attempt` counts in the same time window.
+- Readiness exposure: count `learner_voice_follow_up_readiness` with
+  `initial=true` as eligible panel openings. Group these by `state` to measure
+  initial gating; count each state's exposures separately to measure panels
+  that encountered warming/unavailability or became ready. Divide ready-state
+  counts by initial counts in the same UTC daily/seven-day window as an
+  aggregate availability ratio, not an exact recovery or abandonment funnel.
 - Observed exchange share: session-end counts with `had_exchange=true` divided
   by all `learner_voice_follow_up_session_end` counts in that window; report
   `duration_ms` and `end_reason` alongside it.
@@ -46,12 +52,37 @@ mode, and surface uses only the IDs/enums below.
 Formal guest and member learners in reading/listening are eligible. Teacher
 preview and classroom are excluded. Capture originating dimensions per
 operation; navigation cannot reclassify preview activity as learner activity.
-Panel opening, disabled controls, invalid/empty/over-limit input, capacity
+Except for the readiness exposure event below, panel opening, disabled controls, invalid/empty/over-limit input, capacity
 cooldown, re-renders, duplicate pending sends, and duplicate microphone requests
 emit nothing. Later deliberate submissions/operations count again.
 
+The 2026-09-06 readiness revision adds a non-minting service probe before
+enabling Live input. Probe requests, automatic readiness refreshes, and actions
+blocked while checking/warming/unavailable emit no attempt, text-submit, or
+microphone-result events. The existing adoption/outcome consumer now counts
+only actions accepted after this readiness gate; do not compare deployment
+warm-up failures across the release boundary as connection reliability changes.
+The server still checks admission atomically at mint time. A later service
+failure uses the existing `server_error` result, not a new event or payload.
+
+The additive readiness event describes committed, visible, expanded, editable
+Live panels, including panels that never start a connection. Each mounted
+AskBlock retains a set of observed states per opening and course/lesson/anchor/
+surface. The first visible state has `initial=true`; each subsequently observed
+state is emitted once with `initial=false`. Polling, repeated states, StrictMode
+effects and rerenders do not inflate counts. Closing, unmounting, or changing
+that scope starts a new exposure unit. Background-only states are not observed;
+foregrounding can report the current state without resetting deduplication.
+An active same-anchor connection reports `ready` even if a background service
+probe is unready, matching the input's readiness bypass. Other disabling reasons
+(pending sends, microphone operations, or capacity cooldown) do not change this
+service-readiness metric. Readonly, print/classroom, preview, ordinary text, and
+missing-controller panels emit nothing. These are state exposures, not attempts
+with terminal cancellation events: closing before ready cannot prove abandonment.
+
 | Event                                       | Exact trigger                                                                                                    | Additional fields beyond common fields      |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `learner_voice_follow_up_readiness`         | First visible committed state per eligible opening, then once per distinct readiness state within that opening    | `state`, `initial`                          |
 | `learner_voice_follow_up_attempt`           | Once after local guards accept a new connection, before activation/session POST                                  | none                                        |
 | `learner_voice_follow_up_result`            | Once per attempt: setup and playback ready, pre-connection failure, or cancellation                              | `outcome`, `error_code`                     |
 | `learner_voice_follow_up_session_end`       | Once per connected session after teardown and bounded local turn reconciliation, independent of HTTP persistence | `duration_ms`, `had_exchange`, `end_reason` |
@@ -113,6 +144,8 @@ pseudonymous course/lesson IDs for aggregate grouping), `learning_mode=read|list
 and `surface=read_content|listen_player` (low-cardinality non-personal enums).
 All other fields are low-cardinality non-personal scalars:
 
+- `state=checking|warming|unavailable|ready` and boolean `initial` for readiness
+  only; neither a retry countdown nor internal credential timing is collected.
 - `submission_method=keyboard|button`; `interrupted` is boolean.
 - `enabled` is the requested boolean microphone state.
 - `reason=panel_closed|page_hidden|audio_replaced` for pause events only.
@@ -140,6 +173,16 @@ combine pre/post windows as unchanged connection or microphone adoption funnels.
 New input events begin at v2 deployment, without backfill or legacy aliases;
 never interpret missing historical rows as zero input usage. Ordinary
 `learner_follow_up_submit` remains text-provider-only; no Live dual write.
+
+Readiness exposures begin at the actual readiness-telemetry deployment timestamp
+per environment, without backfill or dual write. Existing attempts still measure
+accepted connections only. Consumer fixture: one panel with checking, warming,
+repeated warming, unavailable, ready produces four readiness events with one
+initial event; a second panel initially ready adds one initial/ready event.
+The initial denominator is 2, initial checking share 1/2, warming exposure count
+1, unavailable exposure count 1, and aggregate ready/initial ratio 2/2. These
+counts do not identify unique people, prove a connection, or correlate recovery
+across events; no new session/anchor identifier is collected.
 
 Consumer fixture: three accepted connections, two successes, one failure, two
 text submissions (keyboard and button), three microphone-on results (success,

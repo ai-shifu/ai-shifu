@@ -37,6 +37,8 @@ export const LiveVoiceFollowUpMicrophoneButton = ({
       }
       aria-pressed={!muted}
       disabled={
+        (controller.readiness !== 'ready' &&
+          !(ownsTarget && controller.state !== 'ended')) ||
         pending ||
         (ownsTarget &&
           (controller.textPending ||
@@ -71,24 +73,41 @@ export const LiveVoiceFollowUpControls = ({
   const muted = !ownsTarget || controller.muted;
   const error = ownsTarget && controller.errorCode;
   const retryAt = ownsTarget ? controller.retryAvailableAt : null;
-  const status =
-    ownsTarget && controller.paused
+  const notReady = state === 'ended' && controller.readiness !== 'ready';
+  const status = notReady
+    ? controller.readiness === 'unavailable'
+      ? t('module.chat.liveVoiceServiceUnavailable')
+      : t('module.chat.liveVoiceServicePreparing')
+    : ownsTarget && controller.paused
       ? t('module.chat.liveVoicePaused')
       : state === 'listening' && muted
         ? t('module.chat.liveVoiceReady')
         : state === 'ended'
-          ? t('module.chat.liveVoiceInputHint')
+          ? null
           : t(`module.chat.liveVoiceState.${state}`);
+  const showRetry =
+    !notReady && ownsTarget && (controller.retryable || retryAt !== null);
+  if (
+    !status &&
+    !error &&
+    !showRetry &&
+    !(ownsTarget && controller.microphoneError)
+  )
+    return null;
   return (
     <div className='mt-2 space-y-1 text-xs text-muted-foreground'>
       <div className='flex min-w-0 items-center gap-2'>
-        <span
-          className='min-w-0 flex-1'
-          role='status'
-          aria-live='polite'
-        >
-          {status}
-        </span>
+        {status ? (
+          <span
+            className='min-w-0 flex-1'
+            role='status'
+            aria-live='polite'
+          >
+            {status}
+          </span>
+        ) : (
+          <span className='flex-1' />
+        )}
         {state !== 'ended' ? (
           <Button
             type='button'
@@ -98,7 +117,7 @@ export const LiveVoiceFollowUpControls = ({
           >
             {t('module.chat.liveVoiceEnd')}
           </Button>
-        ) : ownsTarget && (controller.retryable || retryAt !== null) ? (
+        ) : showRetry ? (
           <Button
             type='button'
             variant='ghost'
@@ -110,20 +129,21 @@ export const LiveVoiceFollowUpControls = ({
           </Button>
         ) : null}
       </div>
-      {error ? (
+      {error && !notReady ? (
         <p
           role='alert'
           className='text-destructive'
         >
           {error === 'capacity_exceeded'
             ? t('module.chat.liveVoiceCapacityExceeded')
-            : t('module.chat.liveVoiceConnectionFailed')}
+            : error === 'server_error'
+              ? t('module.chat.liveVoiceServiceUnavailable')
+              : t('module.chat.liveVoiceConnectionFailed')}
         </p>
       ) : null}
       {ownsTarget && controller.microphoneError ? (
         <p role='alert'>{t('module.chat.liveVoiceMicrophoneOptional')}</p>
       ) : null}
-      <p>{t('module.chat.liveVoicePrivacyNotice')}</p>
     </div>
   );
 };

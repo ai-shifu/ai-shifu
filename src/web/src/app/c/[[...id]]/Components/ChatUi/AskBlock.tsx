@@ -41,6 +41,7 @@ import {
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
 import { useTracking } from '@/hooks/useTracking';
+import { useLiveReadinessAnalytics } from '@/components/live-follow-up/useLiveReadinessAnalytics';
 import {
   LiveVoiceFollowUpControls,
   LiveVoiceFollowUpMicrophoneButton,
@@ -156,6 +157,23 @@ export default function AskBlock({
     : (isExpanded ?? (!mobileStyle && hasDisplayMessages));
   const expandedRef = useRef(expanded);
   const previousExpandedRef = useRef(expanded);
+  useLiveReadinessAnalytics({
+    enabled:
+      isLive && !!liveVoice && expanded && !printMode && !readonlyHistory,
+    previewMode: preview_mode,
+    shifuBid: shifu_bid,
+    outlineBid: outline_bid,
+    anchorElementBid: element_bid,
+    surface: liveTarget.surface,
+    state:
+      liveVoice?.anchorElementBid === element_bid && liveVoice.state !== 'ended'
+        ? 'ready'
+        : (liveVoice?.readiness ?? 'checking'),
+  });
+  useEffect(() => {
+    if (isLive && expanded && !printMode && !readonlyHistory)
+      liveRef.current?.prepare();
+  }, [isLive, expanded, printMode, readonlyHistory, outline_bid, element_bid]);
   useEffect(() => {
     if (!isLive || !expanded) return;
     return () => {
@@ -883,6 +901,14 @@ export default function AskBlock({
           dir={isRtlLocale(markdownFlowLocale) ? 'rtl' : 'ltr'}
         >
           <MarkdownFlowInput
+            disabled={
+              isLive &&
+              liveVoice?.readiness !== 'ready' &&
+              !(
+                liveVoice?.anchorElementBid === element_bid &&
+                liveVoice.state !== 'ended'
+              )
+            }
             locale={markdownFlowLocale}
             placeholder={t('module.chat.askContent')}
             value={inputValue}

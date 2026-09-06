@@ -50,6 +50,10 @@ import {
 } from './liveVoiceFollowUpAudio';
 import { LiveFollowUpTurnWriter } from './liveFollowUpTurnWriter';
 import { LiveFollowUpSessionAdmission } from './liveFollowUpSessionAdmission';
+import {
+  useLiveFollowUpReadiness,
+  type LiveReadinessState,
+} from './useLiveFollowUpReadiness';
 
 const GEMINI_LIVE_SETUP_TIMEOUT_MS = 20_000;
 // Redis rounds its matching absolute credential expiry up to a millisecond.
@@ -164,6 +168,8 @@ export type LiveVoiceFollowUpViewState = {
 };
 
 export type LiveVoiceFollowUpController = LiveVoiceFollowUpViewState & {
+  readiness: LiveReadinessState;
+  prepare: () => void;
   start: (target: StartTarget) => void;
   startMicrophone: (target: StartTarget) => void;
   stopMicrophone: (explicit?: boolean) => void;
@@ -339,6 +345,9 @@ export const useLiveVoiceFollowUp = ({
   const unmountedRef = useRef(false);
   const sessionScopeKey = `${shifuBid}:${outlineBid}:${sessionScope}:${previewMode ? 'preview' : 'learner'}`;
   const previousSessionScopeKeyRef = useRef(sessionScopeKey);
+  const readiness = useLiveFollowUpReadiness(sessionScopeKey);
+  const readinessRef = useRef(readiness);
+  readinessRef.current = readiness;
 
   const trackSafely = useCallback(
     (eventName: string, payload: Record<string, unknown>) => {
@@ -355,6 +364,12 @@ export const useLiveVoiceFollowUp = ({
   });
 
   const applyControlRetry = useCallback((error: unknown) => {
+    if (
+      error instanceof LiveFollowUpControlError &&
+      error.reason === 'admission_unavailable'
+    ) {
+      readinessRef.current.refresh();
+    }
     if (
       error instanceof LiveFollowUpControlError &&
       typeof error.retryAfterMs === 'number' &&
@@ -822,6 +837,12 @@ export const useLiveVoiceFollowUp = ({
         // A foreground click may beat the expiry timer after browser freezing.
         finishAttempt({ reason: 'timeout', keepOpen: true });
       }
+      if (
+        readinessRef.current.readiness !== 'ready' &&
+        (!attemptRef.current ||
+          attemptRef.current.anchorElementBid !== normalizedAnchor)
+      )
+        return false;
       if (
         attemptRef.current &&
         attemptRef.current.anchorElementBid !== normalizedAnchor
@@ -2014,6 +2035,8 @@ export const useLiveVoiceFollowUp = ({
 
   return {
     ...viewState,
+    readiness: readiness.readiness,
+    prepare: readiness.prepare,
     start,
     startMicrophone,
     stopMicrophone,

@@ -9,6 +9,7 @@ import {
   endLiveFollowUpSession,
   finalizeLiveFollowUpSession,
   getLiveFollowUpOperationStatus,
+  getLiveFollowUpReadiness,
   heartbeatLiveFollowUpSession,
   LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE,
   LiveFollowUpControlError,
@@ -26,6 +27,21 @@ jest.mock('@/lib/request', () => ({
 }));
 
 describe('live voice follow-up direct protocol helpers', () => {
+  it('probes through authenticated shared transport without a credential POST', async () => {
+    const signal = new AbortController().signal;
+    jest
+      .mocked(request.get)
+      .mockResolvedValueOnce({ status: 'warming', retry_after_ms: 30000 });
+    expect(await getLiveFollowUpReadiness(signal)).toEqual({
+      status: 'warming',
+      retry_after_ms: 30000,
+    });
+    expect(request.get).toHaveBeenCalledWith(
+      '/api/learn/live-follow-up/readiness',
+      { signal, skipErrorToast: true, credentials: 'include' },
+    );
+    expect(request.post).not.toHaveBeenCalled();
+  });
   const mockedPost = jest.mocked(request.post);
 
   beforeAll(() => {

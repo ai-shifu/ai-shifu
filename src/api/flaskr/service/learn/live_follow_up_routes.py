@@ -6,21 +6,31 @@ import contextlib
 import hmac
 import json
 import math
+import os
 import time
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
+from threading import Lock, Thread
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Flask, Response, request
 from flaskr.api.langfuse import get_request_id
 from flaskr.api.llm import is_live_follow_up_model_available
+from flaskr.common.config import has_explicit_env_override
 from flaskr.common.http import make_common_response, sensitive_body
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.i18n import get_current_language
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import AppError, raise_param_error
-from flaskr.service.config import get_config
+from flaskr.service.config import (
+    config_cache_client,
+    config_overrides,
+    get_cached_config,
+    get_config,
+    has_config_override,
+)
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
 )
@@ -48,6 +58,8 @@ from flaskr.service.learn.live_follow_up_admission import (
     current_admission,
     fail_admission,
     legacy_request_bid,
+    live_follow_up_readiness,
+    live_follow_up_readiness_client,
     request_timestamp_ms,
     retire_admission,
     retirement_receipt,
@@ -100,6 +112,9 @@ from flaskr.util.datetime import to_utc_iso
 from flaskr.util.prompt_loader import load_prompt_template
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 LIVE_FOLLOW_UP_SESSION_SECONDS = 15 * 60
 LIVE_FOLLOW_UP_WARNING_SECONDS = 14 * 60 + 30
@@ -601,11 +616,132 @@ def _failed_operation_response(
     return raise_param_error("live_follow_up")
 
 
+@contextlib.contextmanager
+def _bounded_live_config() -> Iterator[None]:
+    key = "GEMINI_LIVE_ENABLED"
+    if has_explicit_env_override(key) or has_config_override(key):
+        yield
+    else:
+        with (
+            live_follow_up_readiness_client() as client,
+            config_cache_client(client, cache_absence=True),
+        ):
+            yield
+
+
+def _cached_live_enabled() -> bool:
+    with _bounded_live_config():
+        value = get_cached_config("GEMINI_LIVE_ENABLED", default=False)
+    with config_overrides({"GEMINI_LIVE_ENABLED": value}):
+        return is_gemini_live_enabled()
+
+
+def _prepare_live_follow_up(app: Flask) -> bool:
+    """Return whether preparation is done or Live is explicitly disabled."""
+    try:
+        with app.app_context(), _bounded_live_config():
+            enabled = is_gemini_live_enabled()
+            if not enabled and has_explicit_env_override("GEMINI_LIVE_ENABLED"):
+                return True
+            if not enabled:
+                # Only a confirmed cached value/DB absence can settle disabled;
+                # a transient DB failure fallback has neither and keeps retrying.
+                value = get_cached_config("GEMINI_LIVE_ENABLED", default=False)
+                with config_overrides({"GEMINI_LIVE_ENABLED": value}):
+                    enabled = is_gemini_live_enabled()
+                if not enabled:
+                    return True
+            status = live_follow_up_readiness(app, enabled=enabled)["status"]
+            # A warming marker is already initialized; no need to wait for its deadline.
+            return status in {"ready", "warming"}
+    except Exception:
+        return False
+
+
+@dataclass
+class _LiveReadinessTask:
+    lock: Lock = field(default_factory=Lock)
+    active: bool = False
+    next_start_at: float = 0
+
+
+def _retry_live_follow_up_preparation(
+    app: Flask, task: _LiveReadinessTask | None = None
+) -> None:
+    """Retry startup failures without learner traffic or unbounded task growth."""
+    try:
+        for attempt in range(21):
+            if attempt:
+                time.sleep(30)
+            if _prepare_live_follow_up(app):
+                return
+        app.logger.warning("Live follow-up startup preparation still unavailable")
+    finally:
+        if task is not None:
+            with task.lock:
+                task.active = False
+                task.next_start_at = time.monotonic() + 30
+
+
+def init_live_follow_up_readiness(app: Flask, *, refresh: bool = False) -> None:
+    """Prepare/refresh Live without overlapping tasks or preload-master I/O."""
+    if os.environ.get("AI_SHIFU_PRELOAD_MASTER") or not app.extensions.get(
+        "serving_http", True
+    ):
+        return
+    # A PID-scoped key never acquires a lock inherited from another process.
+    candidate = _LiveReadinessTask()
+    task = app.extensions.setdefault(f"live_follow_up_startup:{os.getpid()}", candidate)
+    if task is not candidate and not refresh:
+        return
+    # Even the first DB-backed config lookup belongs in this one task. Never
+    # join it or create timeout-replacement threads if a dependency is stalled.
+    with task.lock:
+        if task.active or time.monotonic() < task.next_start_at:
+            return
+        task.active = True
+        try:
+            Thread(
+                target=_retry_live_follow_up_preparation,
+                args=(app, task),
+                name="live-follow-up-startup",
+                daemon=True,
+            ).start()
+        except Exception:
+            task.active = False
+            task.next_start_at = time.monotonic() + 30
+            app.logger.warning("Live follow-up startup retry unavailable")
+
+
 def register_live_follow_up_routes(
     app: Flask,
     path_prefix: str = "/api/learn",
 ) -> None:
     """Register the direct Live session, heartbeat, turn, and end endpoints."""
+    # Preloaded deployments defer process-local work to post_fork; ordinary
+    # app factories prepare here without waiting for a learner request.
+    init_live_follow_up_readiness(app)
+
+    @app.route(path_prefix + "/live-follow-up/readiness", methods=["GET"])
+    def live_follow_up_readiness_api() -> Response:
+        try:
+            enabled = _cached_live_enabled()
+            # Reuse the resolved flag so the capability check cannot re-enter
+            # the shared unbounded config cache or its DB fallback.
+            with config_overrides({"GEMINI_LIVE_ENABLED": enabled}):
+                readiness = live_follow_up_readiness(app, enabled=enabled)
+                if readiness["status"] in {"ready", "warming"} and not (
+                    is_live_follow_up_model_available(GEMINI_LIVE_MODEL_ID)
+                ):
+                    readiness = {"status": "unavailable", "retry_after_ms": 30_000}
+        except LookupError:
+            # Expired DB-backed flags need repopulation even after successful
+            # startup. This schedules at most one rate-limited background task.
+            init_live_follow_up_readiness(app, refresh=True)
+            readiness = {"status": "unavailable", "retry_after_ms": 30_000}
+        except Exception:
+            readiness = {"status": "unavailable", "retry_after_ms": 30_000}
+        return _make_live_response(readiness)
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/live-follow-up/<outline_bid>/session",

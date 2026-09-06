@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from types import SimpleNamespace
 from typing import ClassVar
+from unittest.mock import Mock
 
 import pytest
 from flask import Flask, request
@@ -42,6 +43,17 @@ from flaskr.service.learn.live_follow_up_session_store import (
     LiveFollowUpTurnState,
     StoredLiveFollowUpSession,
 )
+
+
+@pytest.fixture(autouse=True)
+def prevent_background_startup_threads(monkeypatch: pytest.MonkeyPatch) -> Mock:
+    worker = Mock()
+    monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER", raising=False)
+    monkeypatch.setattr(routes, "Thread", worker)
+    monkeypatch.setattr(routes, "_bounded_live_config", nullcontext)
+    monkeypatch.setattr(routes, "get_cached_config", Mock(side_effect=LookupError))
+    monkeypatch.setattr(routes, "has_explicit_env_override", lambda _key: False)
+    return worker
 
 
 class _FakeTrace:
@@ -113,12 +125,232 @@ def _route_app(monkeypatch: pytest.MonkeyPatch, *, enabled: bool = True) -> Flas
         request.user = SimpleNamespace(user_id="user-1")
 
     monkeypatch.setattr(routes, "is_gemini_live_enabled", lambda: enabled)
+    monkeypatch.setattr(routes, "_cached_live_enabled", lambda: enabled)
     monkeypatch.setattr(routes, "is_allowed_oauth_origin", lambda *_args: False)
     monkeypatch.setattr(
         routes, "live_follow_up_persistence_lock", lambda *_args: nullcontext()
     )
     routes.register_live_follow_up_routes(app)
     return app
+
+
+def test_register_warms_guard_and_probe_returns_only_readiness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def readiness(app: Flask, *, enabled: bool | None = None) -> dict[str, object]:
+        calls.append((app, enabled))
+        return {"status": "warming", "retry_after_ms": 30000}
+
+    monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)
+    monkeypatch.setattr(routes, "is_live_follow_up_model_available", lambda _: True)
+    app = _route_app(monkeypatch)
+    assert calls == []
+    routes._retry_live_follow_up_preparation(app)
+    assert calls == [(app, True)]
+    response = app.test_client().get("/api/learn/live-follow-up/readiness")
+    assert response.status_code == 200
+    assert response.get_json()["data"] == {"status": "warming", "retry_after_ms": 30000}
+    assert calls == [(app, True), (app, True)]
+
+
+@pytest.mark.parametrize("redis_status", ["ready", "warming"])
+@pytest.mark.parametrize(
+    ("provider_enabled", "discovered", "methods", "available"),
+    [
+        (False, True, {"bidiGenerateContent"}, False),
+        (True, False, {"bidiGenerateContent"}, False),
+        (True, True, {"generateContent"}, False),
+        (True, True, {"bidiGenerateContent"}, True),
+    ],
+)
+def test_readiness_requires_discovered_live_model(
+    monkeypatch: pytest.MonkeyPatch,
+    redis_status: str,
+    provider_enabled: bool,
+    discovered: bool,
+    methods: set[str],
+    available: bool,
+) -> None:
+    from flaskr.api import llm
+
+    model = routes.GEMINI_LIVE_MODEL_ID
+    monkeypatch.setitem(
+        llm.PROVIDER_STATES,
+        "gemini",
+        llm.ProviderState(
+            enabled=provider_enabled,
+            params={},
+            models=[model] if discovered else [],
+        ),
+    )
+    monkeypatch.setitem(
+        llm.MODEL_SUPPORTED_GENERATION_METHODS, model, frozenset(methods)
+    )
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
+    monkeypatch.setattr(
+        routes,
+        "is_live_follow_up_model_available",
+        llm.is_live_follow_up_model_available,
+    )
+    monkeypatch.setattr(
+        routes,
+        "live_follow_up_readiness",
+        lambda *_args, **_kwargs: {"status": redis_status},
+    )
+    app = _route_app(monkeypatch)
+    response = app.test_client().get("/api/learn/live-follow-up/readiness")
+    expected = (
+        {"status": redis_status}
+        if available
+        else {"status": "unavailable", "retry_after_ms": 30_000}
+    )
+    assert response.get_json()["data"] == expected
+
+
+@pytest.mark.parametrize("status", ["disabled", "unavailable"])
+def test_readiness_preserves_closed_gate_without_model_lookup(
+    monkeypatch: pytest.MonkeyPatch, status: str
+) -> None:
+    lookup = Mock()
+    monkeypatch.setattr(routes, "is_live_follow_up_model_available", lookup)
+    monkeypatch.setattr(
+        routes, "live_follow_up_readiness", lambda *_args, **_kwargs: {"status": status}
+    )
+    app = _route_app(monkeypatch)
+    response = app.test_client().get("/api/learn/live-follow-up/readiness")
+    assert response.get_json()["data"] == {"status": status}
+    lookup.assert_not_called()
+
+
+@pytest.mark.parametrize("effective_enabled", [True, False])
+def test_startup_uses_effective_config_in_app_context(
+    monkeypatch: pytest.MonkeyPatch,
+    effective_enabled: bool,
+) -> None:
+    from flask import has_app_context
+    from flaskr.service.learn import live_follow_up_config
+
+    app = Flask("effective-live-readiness")
+    app.config["GEMINI_LIVE_ENABLED"] = not effective_enabled
+    calls = []
+
+    def effective_config(key: str, default: object = None) -> str:
+        assert has_app_context()
+        assert key == "GEMINI_LIVE_ENABLED"
+        assert default is False
+        return str(effective_enabled).lower()
+
+    monkeypatch.setattr(live_follow_up_config, "get_config", effective_config)
+    monkeypatch.setattr(
+        routes, "get_cached_config", lambda *_args, **_kwargs: str(effective_enabled)
+    )
+    monkeypatch.setattr(
+        routes, "is_gemini_live_enabled", live_follow_up_config.is_gemini_live_enabled
+    )
+    monkeypatch.setattr(
+        routes,
+        "live_follow_up_readiness",
+        lambda app, *, enabled: calls.append((app, enabled)),
+    )
+    routes.register_live_follow_up_routes(app)
+    assert calls == []
+    routes._prepare_live_follow_up(app)
+    assert calls == ([(app, True)] if effective_enabled else [])
+
+
+def test_startup_config_failure_does_not_block_http_routes(
+    monkeypatch: pytest.MonkeyPatch,
+    prevent_background_startup_threads: Mock,
+) -> None:
+    app = Flask("unavailable-live-config")
+
+    unavailable = Mock(side_effect=RuntimeError)
+    monkeypatch.setattr(routes, "is_gemini_live_enabled", unavailable)
+    routes.register_live_follow_up_routes(app)
+    unavailable.assert_not_called()
+    prevent_background_startup_threads.assert_called_once_with(
+        target=routes._retry_live_follow_up_preparation,
+        args=(app, app.extensions[f"live_follow_up_startup:{routes.os.getpid()}"]),
+        name="live-follow-up-startup",
+        daemon=True,
+    )
+    assert "/api/learn/live-follow-up/readiness" in {
+        rule.rule for rule in app.url_map.iter_rules()
+    }
+
+
+def test_background_preparation_recovers_from_error_and_disabled_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Flask("retry-live-config")
+    enabled = Mock(side_effect=[RuntimeError, False, True])
+    readiness = Mock(return_value={"status": "warming"})
+    sleep = Mock()
+    monkeypatch.setattr(routes, "is_gemini_live_enabled", enabled)
+    monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)
+    monkeypatch.setattr(routes.time, "sleep", sleep)
+    routes._retry_live_follow_up_preparation(app)
+    assert sleep.call_count == 2
+    assert all(call.args == (30,) for call in sleep.call_args_list)
+    assert readiness.call_args_list[-1].kwargs == {"enabled": True}
+
+
+def test_preload_defers_preparation_and_worker_initialization_is_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+    prevent_background_startup_threads: Mock,
+) -> None:
+    app = Flask("preloaded-live-startup")
+    prepare = Mock(return_value=False)
+    monkeypatch.setattr(routes, "_prepare_live_follow_up", prepare)
+    monkeypatch.setenv("AI_SHIFU_PRELOAD_MASTER", "1")
+    routes.register_live_follow_up_routes(app)
+    prepare.assert_not_called()
+    prevent_background_startup_threads.assert_not_called()
+
+    monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER")
+    monkeypatch.setattr(routes.os, "getpid", lambda: 100)
+    routes.init_live_follow_up_readiness(app)
+    routes.init_live_follow_up_readiness(app)
+    prepare.assert_not_called()
+    prevent_background_startup_threads.return_value.start.assert_called_once()
+
+    # An inherited application must initialize independently in another worker.
+    monkeypatch.setattr(routes.os, "getpid", lambda: 101)
+    routes.init_live_follow_up_readiness(app)
+    prepare.assert_not_called()
+    assert prevent_background_startup_threads.call_count == 2
+
+
+def test_background_preparation_has_a_fixed_retry_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prepare = Mock(return_value=False)
+    sleep = Mock()
+    monkeypatch.setattr(routes, "_prepare_live_follow_up", prepare)
+    monkeypatch.setattr(routes.time, "sleep", sleep)
+    routes._retry_live_follow_up_preparation(Flask("bounded-live-retries"))
+    assert prepare.call_count == 21
+    assert sleep.call_count == 20
+
+
+def test_explicitly_disabled_or_initialized_service_does_not_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(routes, "is_gemini_live_enabled", lambda: False)
+    monkeypatch.setattr(routes, "has_explicit_env_override", lambda _key: True)
+    readiness = Mock()
+    sleep = Mock()
+    monkeypatch.setattr(routes.time, "sleep", sleep)
+    monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)
+    routes._retry_live_follow_up_preparation(Flask("disabled-live-startup"))
+    readiness.assert_not_called()
+    sleep.assert_not_called()
+    monkeypatch.setattr(routes, "is_gemini_live_enabled", lambda: True)
+    readiness.return_value = {"status": "warming"}
+    routes._retry_live_follow_up_preparation(Flask("warming-live-startup"))
+    sleep.assert_not_called()
 
 
 def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:

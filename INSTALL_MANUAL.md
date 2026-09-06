@@ -106,6 +106,61 @@ then set:
 GEMINI_LIVE_ENABLED=true
 ```
 
+Live readiness is separate from ordinary HTTP health. On startup, every
+enabled API worker schedules a single background task to resolve the effective
+(environment or DB-backed) flag and
+initializes the shared Redis recovery guard without minting
+a credential. Redis must use `noeviction`. A missing accounting marker or a
+changed Redis run ID starts the full shared 15-minute safety window; repeated
+worker starts and probes do not reset or shorten it. Do not delete accounting
+records to bypass this window.
+If startup config/Redis lookup fails (including a DB lookup falling back to
+disabled), one daemon task per API worker retries every 30 seconds,
+at most 20 times. It stops once the marker is initialized, even while warming;
+an explicit environment-off switch completes the first attempt without retries.
+Longer outages still
+require the deployment readiness gate below; retries do not bypass it.
+Gunicorn preload skips preparation in the master; the existing `post_fork`
+hook initializes it after per-worker connection pools and tracing are reset.
+Initialization is idempotent per process, including non-preloaded app factories.
+The Celery bootstrap creates its Flask app with `serving_http=False`, recorded
+before route registration. That process-local role skips Live preparation in
+both the prefork parent and queue/beat workers; it does not change rollout flags
+or start an unnecessary readiness thread in Celery children.
+Neither the initial lookup nor retries run on the HTTP/startup thread. Config
+cache reads use an isolated Redis client with one-second connect/read timeouts;
+the existing DB lookup stays within that one background task. A stalled DB
+operation is not joined and does not create replacement tasks or block workers.
+
+Before announcing Live availability, query
+`GET /api/learn/live-follow-up/readiness` through the normal authenticated API
+transport and require `data.status == "ready"`. Other bounded statuses are
+`warming`, `unavailable`, and `disabled`; `retry_after_ms` is a suggested probe
+interval, not a credential expiry. The probe allocates no user/session capacity
+and reads only explicit overrides or bounded cached configuration, with no DB
+fallback; a cold/missing config cache is `unavailable` until background lookup
+or the existing config service populates it. A cache miss after startup
+schedules repopulation in the same single worker-local task slot, never inline.
+An active (including stalled) task is not replaced, and new task starts have a
+30-second cooldown after completion or start failure. Each task retains the
+initial-plus-20 retry budget. Capability validation reuses the
+same resolved flag rather than performing another shared-cache lookup.
+Confirmed database absence is cached as separate metadata for 24 hours, so
+the supported default-off state settles as `disabled`; transient database
+failures never create this marker. The normal config service's positive cache
+writes take precedence immediately when a flag is created or updated. The probe
+returns no credentials or Redis identifiers. Startup probing uses bounded
+Redis socket waits; a Live outage must not fail ordinary `/health` or text
+follow-ups. The original follow-up panel also probes before enabling new Live
+input and refreshes while unavailable, without automatically connecting,
+requesting microphone permission, or exposing an internal countdown. Mint-time
+admission still enforces the same guard atomically after readiness succeeds.
+The probe also requires the allowlisted model's discovered Bidi capability;
+a disabled/missing Gemini provider, absent model, or text-only capability returns
+`unavailable` even when Redis is ready. Discovery retains the existing startup
+lifecycle: after correcting provider configuration or a startup ListModels
+failure, restart API workers and verify readiness. Probes do not call Gemini.
+
 The API mints a one-use, short-lived Gemini credential constrained to the
 selected model, voice, and server-built prompt. The browser then opens the
 Gemini Live WebSocket directly, so the AI-Shifu ingress does not need a
