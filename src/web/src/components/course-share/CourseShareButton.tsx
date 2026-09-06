@@ -40,6 +40,9 @@ export type CourseShareButtonProps = {
   size?: ButtonProps['size'];
   className?: string;
   tooltipSide?: ComponentPropsWithoutRef<typeof TooltipContent>['side'];
+  onShareComplete?: () => void;
+  onShareStart?: () => void;
+  disabled?: boolean;
 };
 
 export function CourseShareButton({
@@ -54,6 +57,9 @@ export function CourseShareButton({
   size = 'icon',
   className,
   tooltipSide = 'top',
+  onShareComplete,
+  onShareStart,
+  disabled = false,
 }: CourseShareButtonProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -84,12 +90,13 @@ export function CourseShareButton({
   };
 
   const handleShare = async () => {
-    if (sharingRef.current) {
+    if (sharingRef.current || disabled) {
       return;
     }
 
     sharingRef.current = true;
     setSharing(true);
+    onShareStart?.();
     track('course_share_click', {
       shifu_bid: shifuBid,
       surface,
@@ -134,6 +141,7 @@ export function CourseShareButton({
     } finally {
       sharingRef.current = false;
       setSharing(false);
+      onShareComplete?.();
     }
   };
 
@@ -146,7 +154,7 @@ export function CourseShareButton({
       className={className}
       aria-label={accessibleLabel}
       aria-busy={sharing}
-      disabled={sharing}
+      disabled={sharing || disabled}
       onClick={() => {
         void handleShare();
       }}
@@ -155,6 +163,8 @@ export function CourseShareButton({
       {showLabel ? <span>{shareLabel}</span> : null}
     </Button>
   );
+
+  if (label && showLabel) return button;
 
   return (
     <TooltipProvider delayDuration={200}>

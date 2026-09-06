@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import { AlertProvider } from '@/components/ui/UseAlert';
 import Header from './Header';
@@ -370,8 +376,8 @@ describe('Header publish success link', () => {
 
     fireEvent.click(shareButton);
     fireEvent.click(
-      screen.getByRole('button', {
-        name: 'common.core.shareIntroductionAndLink',
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: 'common.core.shareCourse',
       }),
     );
 
@@ -398,8 +404,8 @@ describe('Header publish success link', () => {
       screen.getByRole('button', { name: 'common.core.shareCourse' }),
     );
     fireEvent.click(
-      screen.getByRole('button', {
-        name: 'common.core.shareIntroductionAndLink',
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: 'common.core.shareCourse',
       }),
     );
 
@@ -434,8 +440,8 @@ describe('Header publish success link', () => {
         screen.getByRole('button', { name: 'common.core.shareCourse' }),
       );
       fireEvent.click(
-        screen.getByRole('button', {
-          name: 'common.core.shareIntroductionAndLink',
+        within(screen.getByRole('dialog')).getByRole('button', {
+          name: 'common.core.shareCourse',
         }),
       );
 

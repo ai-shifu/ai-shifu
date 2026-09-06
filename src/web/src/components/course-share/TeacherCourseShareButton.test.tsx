@@ -71,61 +71,43 @@ afterAll(() => {
 });
 const open = () => {
   fireEvent.click(screen.getByRole('button', { name: zh.shareCourse }));
-  const guide = screen.queryByRole('button', { name: zh.posterViewPrompt });
-  if (guide) fireEvent.click(guide);
 };
 const clickCopy = () =>
   fireEvent.click(screen.getByRole('button', { name: zh.posterCopy }));
+const closed = () =>
+  waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-test('prioritizes ordinary sharing and only shows the poster prompt after expansion', () => {
-  const view = render(<TeacherCourseShareButton {...props} />);
-  fireEvent.click(screen.getByRole('button', { name: zh.shareCourse }));
+test('shows only two actions in a non-modal anchored popover', () => {
+  render(<TeacherCourseShareButton {...props} />);
+  open();
+  const popup = screen.getByRole('dialog');
+  expect(within(popup).getAllByRole('button')).toHaveLength(2);
   expect(
-    screen.getByRole('button', { name: zh.shareIntroductionAndLink }),
+    within(popup).getByRole('button', { name: zh.shareCourse }),
   ).toBeVisible();
-  expect(screen.getByText(props.courseTitle)).toBeVisible();
-  expect(screen.queryByRole('region')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: zh.posterCopy })).toBeVisible();
-  expect(screen.getByRole('heading', { name: zh.posterHeading })).toBeVisible();
-  expect(screen.getByText(zh.posterHint)).toBeVisible();
-  const guide = screen.getByRole('button', { name: zh.posterViewPrompt });
-  expect(guide).toHaveAttribute('aria-expanded', 'false');
-  fireEvent.click(guide);
-  view.rerender(<TeacherCourseShareButton {...props} />);
-  expect(screen.getByRole('region')).toBeVisible();
-  fireEvent.click(guide);
-  expect(screen.queryByRole('region')).not.toBeInTheDocument();
-  expect(
-    mockTrack.mock.calls.filter(
-      ([name]) => name === 'teacher_poster_guide_open',
-    ),
-  ).toHaveLength(1);
+  expect(screen.queryByText(props.courseTitle)).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  expect(document.body).not.toHaveStyle({ pointerEvents: 'none' });
   expect(copy).not.toHaveBeenCalled();
 });
 
-test('copies the exact visible prompt, with the full introduction and cleaned link; events contain only allowed fields', async () => {
+test('copies complete course prompt and closes with a next-step toast and privacy-safe events', async () => {
   const view = render(<TeacherCourseShareButton {...props} />);
   open();
   view.rerender(<TeacherCourseShareButton {...props} />);
-  expect(copy).not.toHaveBeenCalled();
-  expect(mockTrack).toHaveBeenCalledTimes(2);
-  const prompt = screen.getByRole('region', {
-    name: zh.posterPromptLabel,
-  }).textContent;
-  expect(prompt).toContain(description);
+  expect(mockTrack).toHaveBeenCalledTimes(1);
+  clickCopy();
+  await closed();
+  expect(copy).toHaveBeenCalledWith(expect.stringContaining(description));
+  const prompt = copy.mock.calls[0][0];
   expect(prompt).toContain('https://example.com/c/course-1');
   expect(prompt).not.toContain('secret=value');
   expect(prompt).not.toContain('{courseContent}');
-  clickCopy();
-  await screen.findByRole('button', { name: zh.posterCopied });
-  expect(copy).toHaveBeenCalledWith(prompt);
+  expect(mockToast).toHaveBeenCalledWith({ title: zh.posterNextStep });
   expect(mockTrack.mock.calls).toEqual([
     [
       'teacher_course_share_open',
-      { shifu_bid: 'course-1', surface: 'teacher_header' },
-    ],
-    [
-      'teacher_poster_guide_open',
       { shifu_bid: 'course-1', surface: 'teacher_header' },
     ],
     [
@@ -139,21 +121,7 @@ test('copies the exact visible prompt, with the full introduction and cleaned li
   ]);
 });
 
-test('copies the full prompt without expanding its preview', async () => {
-  render(<TeacherCourseShareButton {...props} />);
-  fireEvent.click(screen.getByRole('button', { name: zh.shareCourse }));
-  clickCopy();
-  await screen.findByRole('button', { name: zh.posterCopied });
-  expect(copy).toHaveBeenCalledWith(expect.stringContaining(description));
-  expect(screen.queryByRole('region')).not.toBeInTheDocument();
-  expect(mockTrack.mock.calls.map(([name]) => name)).toEqual([
-    'teacher_course_share_open',
-    'teacher_poster_prompt_copy',
-    'teacher_poster_prompt_result',
-  ]);
-});
-
-test('blocks concurrent copies and preserves manual copy text on failure, then supports retry', async () => {
+test('blocks concurrent copies and keeps manual fallback on failure then retries', async () => {
   let rejectCopy: (reason: Error) => void = () => {};
   copy.mockImplementationOnce(
     () =>
@@ -161,46 +129,114 @@ test('blocks concurrent copies and preserves manual copy text on failure, then s
         rejectCopy = reject;
       }),
   );
+
   render(<TeacherCourseShareButton {...props} />);
   open();
   clickCopy();
   clickCopy();
   expect(copy).toHaveBeenCalledTimes(1);
-  await act(async () => rejectCopy(new Error('clipboard blocked')));
-  expect(screen.getByRole('status')).toHaveTextContent(zh.posterCopyFailed);
-  expect(screen.getByRole('region')).toHaveTextContent('最终产出');
+  await act(async () => rejectCopy(new Error('blocked')));
+  expect(screen.getByRole('textbox')).toHaveValue(copy.mock.calls[0][0]);
+  expect(mockToast).toHaveBeenCalledWith({
+    title: zh.posterCopyFailed,
+    variant: 'destructive',
+  });
   expect(mockTrack).toHaveBeenLastCalledWith('teacher_poster_prompt_result', {
     shifu_bid: 'course-1',
     surface: 'teacher_header',
     outcome: 'failed',
   });
   clickCopy();
-  await screen.findByRole('button', { name: zh.posterCopied });
+  await closed();
   expect(copy).toHaveBeenCalledTimes(2);
 });
 
-test('ordinary sharing still works from the dialog and analytics failure cannot block copying', async () => {
-  mockTrack.mockImplementation(() => {
-    throw new Error('offline');
-  });
-  const share = jest.fn().mockResolvedValue(undefined);
+test.each(['success', 'cancelled'])(
+  'native sharing closes after %s even when analytics fails',
+  async outcome => {
+    mockTrack.mockImplementation(() => {
+      throw new Error('offline');
+    });
+    const share =
+      outcome === 'success'
+        ? jest.fn().mockResolvedValue(undefined)
+        : jest
+            .fn()
+            .mockRejectedValue(new DOMException('cancelled', 'AbortError'));
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: share,
+    });
+    render(<TeacherCourseShareButton {...props} />);
+    open();
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: zh.shareCourse,
+      }),
+    );
+    expect(share).toHaveBeenCalledTimes(1);
+    await closed();
+  },
+);
+
+test('copying still works when tracking rejects', async () => {
+  mockTrack.mockRejectedValue(new Error('offline'));
+  render(<TeacherCourseShareButton {...props} />);
+  open();
+  clickCopy();
+  await closed();
+  expect(copy).toHaveBeenCalledTimes(1);
+});
+
+test('ordinary share failure closes with existing error feedback', async () => {
   Object.defineProperty(navigator, 'share', {
     configurable: true,
-    value: share,
+    value: undefined,
+  });
+  copy.mockRejectedValue(new Error('blocked'));
+  render(<TeacherCourseShareButton {...props} />);
+  open();
+  fireEvent.click(
+    within(screen.getByRole('dialog')).getByRole('button', {
+      name: zh.shareCourse,
+    }),
+  );
+  await closed();
+  expect(mockToast).toHaveBeenCalledWith({
+    title: zh.shareFailed,
+    variant: 'destructive',
+  });
+});
+
+test('pending sharing blocks prompt copying and reopening until completion', async () => {
+  let finish: () => void = () => {};
+  Object.defineProperty(navigator, 'share', {
+    configurable: true,
+    value: jest.fn(
+      () =>
+        new Promise<void>(resolve => {
+          finish = resolve;
+        }),
+    ),
   });
   render(<TeacherCourseShareButton {...props} />);
   open();
   fireEvent.click(
     within(screen.getByRole('dialog')).getByRole('button', {
-      name: zh.shareIntroductionAndLink,
+      name: zh.shareCourse,
     }),
   );
-  expect(share).toHaveBeenCalledTimes(1);
-  clickCopy();
-  await screen.findByRole('button', { name: zh.posterCopied });
+  expect(screen.getByRole('button', { name: zh.posterCopy })).toBeDisabled();
+  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+  await closed();
+  open();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  await act(async () => finish());
+  open();
+  expect(screen.getByRole('button', { name: zh.posterCopy })).toBeEnabled();
 });
 
-test('invalid URLs cannot produce a prompt or successful exposure event', () => {
+test('invalid URLs cannot produce a prompt or exposure event', () => {
   render(
     <TeacherCourseShareButton
       {...props}
@@ -213,17 +249,11 @@ test('invalid URLs cannot produce a prompt or successful exposure event', () => 
   expect(copy).not.toHaveBeenCalled();
 });
 
-test('reopening refreshes course content and resets copied state', async () => {
+test('reopening refreshes the current course data', async () => {
   const view = render(<TeacherCourseShareButton {...props} />);
   open();
   clickCopy();
-  await screen.findByRole('button', { name: zh.posterCopied });
-  fireEvent.click(
-    screen.getByRole('button', { name: 'component.header.close' }),
-  );
-  await waitFor(() =>
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
-  );
+  await closed();
   view.rerender(
     <TeacherCourseShareButton
       {...props}
@@ -231,11 +261,88 @@ test('reopening refreshes course content and resets copied state', async () => {
     />,
   );
   open();
-  expect(screen.getByRole('region')).toHaveTextContent('更新的介绍');
-  expect(screen.getByRole('button', { name: zh.posterCopy })).toBeEnabled();
+  clickCopy();
+  await closed();
+  expect(copy.mock.calls[1][0]).toContain('更新的介绍');
+  expect(copy.mock.calls[1][0]).not.toContain(description);
   expect(
     mockTrack.mock.calls.filter(
       ([event]) => event === 'teacher_course_share_open',
     ),
   ).toHaveLength(2);
+});
+
+test('Escape closes and restores focus without copying', async () => {
+  render(<TeacherCourseShareButton {...props} />);
+  const trigger = screen.getByRole('button', { name: zh.shareCourse });
+  open();
+  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+  await closed();
+  expect(trigger).toHaveFocus();
+  expect(copy).not.toHaveBeenCalled();
+});
+
+test('outside interaction dismisses without copying', async () => {
+  render(
+    <>
+      <button>{zh.share}</button>
+      <TeacherCourseShareButton {...props} />
+    </>,
+  );
+  open();
+  // Radix installs its outside pointer listener on the next task.
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  fireEvent.pointerDown(
+    screen.getByRole('button', { name: zh.share, exact: true }),
+    {
+      pointerType: 'mouse',
+    },
+  );
+  fireEvent.focusIn(
+    screen.getByRole('button', { name: zh.share, exact: true }),
+  );
+  await closed();
+  expect(copy).not.toHaveBeenCalled();
+});
+
+const pointer = (element: Element, type: string, pointerType: string) => {
+  const event = new Event(type, { bubbles: true });
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  fireEvent(element, event);
+};
+
+test('mouse departure dismisses after a grace period and re-entry cancels dismissal', () => {
+  jest.useFakeTimers();
+  try {
+    render(<TeacherCourseShareButton {...props} />);
+    open();
+    const popup = screen.getByRole('dialog');
+    pointer(popup, 'pointerout', 'mouse');
+    act(() => jest.advanceTimersByTime(150));
+    expect(popup).toBeVisible();
+    pointer(popup, 'pointerover', 'mouse');
+    act(() => jest.advanceTimersByTime(300));
+    expect(popup).toBeVisible();
+    pointer(popup, 'pointerout', 'mouse');
+    act(() => jest.advanceTimersByTime(301));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(copy).not.toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('touch departure does not dismiss the choices', () => {
+  jest.useFakeTimers();
+  try {
+    render(<TeacherCourseShareButton {...props} />);
+    open();
+    pointer(screen.getByRole('dialog'), 'pointerout', 'touch');
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByRole('dialog')).toBeVisible();
+  } finally {
+    jest.useRealTimers();
+  }
 });

@@ -1,18 +1,15 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
-import { Check, ChevronDown, Copy, Share2, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Copy, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { Button } from '@/components/ui/Button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/Dialog';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/Popover';
 import { useToast } from '@/hooks/useToast';
 import {
   buildCourseShareContent,
@@ -30,14 +27,15 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
   const { trackEvent } = useTracking();
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
-  const [guideOpen, setGuideOpen] = useState(false);
-  const guideId = useId();
-  const [status, setStatus] = useState<
-    'idle' | 'copying' | 'success' | 'failed'
-  >('idle');
+  const [status, setStatus] = useState<'idle' | 'copying' | 'failed'>('idle');
   const copying = useRef(false);
   const opened = useRef(false);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearDismiss = () => {
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    dismissTimer.current = null;
+  };
+  useEffect(() => () => clearDismiss(), []);
 
   const track = (name: string, outcome?: 'success' | 'failed') => {
     try {
@@ -51,7 +49,9 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
   };
 
   const changeOpen = (nextOpen: boolean) => {
-    if (copying.current || nextOpen === opened.current) return;
+    clearDismiss();
+    if (nextOpen === opened.current) return;
+    if (nextOpen && copying.current) return;
     if (nextOpen) {
       try {
         const url = normalizeCourseShareUrl(props.resolveShareUrl());
@@ -70,7 +70,6 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
           }),
         );
         setStatus('idle');
-        setGuideOpen(false);
         track('teacher_course_share_open');
       } catch {
         toast({ title: t('common.core.shareFailed'), variant: 'destructive' });
@@ -81,156 +80,113 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
     setOpen(nextOpen);
   };
 
+  const leave = (event: React.PointerEvent) => {
+    if (event.pointerType !== 'mouse' || status !== 'idle' || copying.current)
+      return;
+    clearDismiss();
+    dismissTimer.current = setTimeout(() => changeOpen(false), 300);
+  };
+
   const copyPrompt = async () => {
     if (copying.current) return;
+    clearDismiss();
     copying.current = true;
     setStatus('copying');
     track('teacher_poster_prompt_copy');
+    let success = false;
     try {
-      const success = await copyCourseShareText(prompt);
-      const outcome = success ? 'success' : 'failed';
-      if (!success) setGuideOpen(true);
-      track('teacher_poster_prompt_result', outcome);
-      setStatus(outcome);
+      success = await copyCourseShareText(prompt);
     } catch {
-      setGuideOpen(true);
-      track('teacher_poster_prompt_result', 'failed');
+      // Preserve a selectable fallback when clipboard access fails.
+    }
+    copying.current = false;
+    track('teacher_poster_prompt_result', success ? 'success' : 'failed');
+    if (success) {
+      setStatus('idle');
+      changeOpen(false);
+      toast({ title: t('common.core.posterNextStep') });
+    } else {
       setStatus('failed');
-    } finally {
-      copying.current = false;
+      toast({
+        title: t('common.core.posterCopyFailed'),
+        variant: 'destructive',
+      });
     }
   };
 
   return (
-    <Dialog
+    <Popover
       open={open}
       onOpenChange={changeOpen}
+      modal={false}
     >
-      <DialogTrigger asChild>
+      <PopoverTrigger asChild>
         <Button
-          ref={trigger}
           type='button'
           variant={props.variant}
           size={props.size}
           className={props.className}
           aria-label={t('common.core.shareCourse')}
           data-lesson-print-exclude='true'
+          onPointerEnter={clearDismiss}
+          onPointerLeave={leave}
         >
           <Share2 aria-hidden='true' />
           {props.showLabel ? t('common.core.share') : null}
         </Button>
-      </DialogTrigger>
-      <DialogContent
-        className='flex max-h-[90dvh] max-w-md flex-col gap-0 overflow-hidden rounded-2xl p-0'
-        overlayClassName='bg-black/40 backdrop-blur-sm'
-        onCloseAutoFocus={() => trigger.current?.focus()}
+      </PopoverTrigger>
+      <PopoverContent
+        align='end'
+        sideOffset={4}
+        collisionPadding={8}
+        aria-label={t('common.core.shareCourse')}
+        className='w-max max-w-[calc(100vw-16px)] rounded-lg p-1'
+        onPointerEnter={clearDismiss}
+        onPointerLeave={leave}
       >
-        <DialogHeader className='px-6 pb-5 pt-6 text-start'>
-          <DialogTitle>{t('common.core.shareCourse')}</DialogTitle>
-          <DialogDescription>{props.courseTitle}</DialogDescription>
-        </DialogHeader>
-        <div className='min-h-0 overflow-y-auto px-6 pb-6'>
-          <div>
-            <CourseShareButton
-              {...props}
-              surface='teacher_header'
-              showLabel
-              label={t('common.core.shareIntroductionAndLink')}
-              variant='default'
-              size='default'
-              className='w-full gap-2'
-            />
-            <p className='mt-2 text-center text-xs leading-5 text-muted-foreground'>
-              {t('common.core.shareForwardHint')}
-            </p>
-          </div>
-          <section className='mt-5 rounded-xl border border-primary/15 bg-primary/5 p-4'>
-            <div className='flex items-start gap-3'>
-              <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/10'>
-                <Sparkles
-                  className='h-5 w-5'
-                  aria-hidden='true'
-                />
-              </div>
-              <div>
-                <h3 className='text-sm font-semibold leading-6'>
-                  {t('common.core.posterHeading')}
-                </h3>
-                <p className='mt-1 text-sm leading-6 text-muted-foreground'>
-                  {t('common.core.posterHint')}
-                </p>
-              </div>
-            </div>
-            <div className='mt-4 flex flex-wrap items-center gap-3'>
-              <Button
-                variant='outline'
-                className='gap-2 border-primary/25 bg-background text-primary hover:bg-primary/10 hover:text-primary'
-                disabled={status === 'copying'}
-                aria-busy={status === 'copying'}
-                onClick={() => void copyPrompt()}
-              >
-                {status === 'success' ? (
-                  <Check
-                    className='h-4 w-4'
-                    aria-hidden='true'
-                  />
-                ) : (
-                  <Copy
-                    className='h-4 w-4'
-                    aria-hidden='true'
-                  />
-                )}
-                {status === 'success'
-                  ? t('common.core.posterCopied')
-                  : t('common.core.posterCopy')}
-              </Button>
-              <button
-                type='button'
-                aria-expanded={guideOpen}
-                aria-controls={guideId}
-                className='flex min-h-10 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-primary/5 hover:text-foreground'
-                onClick={() => {
-                  if (!guideOpen) track('teacher_poster_guide_open');
-                  setGuideOpen(!guideOpen);
-                }}
-              >
-                {t('common.core.posterViewPrompt')}
-                <ChevronDown
-                  aria-hidden='true'
-                  className={`h-4 w-4 text-muted-foreground transition-transform ${guideOpen ? 'rotate-180' : ''}`}
-                />
-              </button>
-            </div>
-            {status !== 'idle' && status !== 'copying' && (
-              <p
-                role='status'
-                className='mt-3 text-xs leading-5 text-muted-foreground'
-              >
-                {status === 'failed'
-                  ? t('common.core.posterCopyFailed')
-                  : t('common.core.posterNextStep')}
-              </p>
-            )}
-            <div
-              id={guideId}
-              hidden={!guideOpen}
-            >
-              <p className='mb-2 mt-4 text-xs font-medium text-muted-foreground'>
-                {t('common.core.posterPromptLabel')}
-              </p>
-              <div
-                tabIndex={0}
-                role='region'
-                aria-label={t('common.core.posterPromptLabel')}
-                className='max-h-56 select-text overflow-y-auto whitespace-pre-wrap break-words rounded-xl border bg-muted/20 p-4 text-sm leading-7'
-                dir='auto'
-              >
-                {prompt}
-              </div>
-            </div>
-          </section>
-        </div>
-      </DialogContent>
-    </Dialog>
+        <CourseShareButton
+          {...props}
+          surface='teacher_header'
+          showLabel
+          label={t('common.core.shareCourse')}
+          variant='ghost'
+          size='default'
+          className='w-full justify-start gap-2'
+          disabled={status === 'copying'}
+          onShareStart={() => {
+            clearDismiss();
+            copying.current = true;
+            setStatus('copying');
+          }}
+          onShareComplete={() => {
+            copying.current = false;
+            setStatus('idle');
+            changeOpen(false);
+          }}
+        />
+        <Button
+          variant='ghost'
+          className='flex w-full justify-start gap-2'
+          disabled={status === 'copying'}
+          aria-busy={status === 'copying'}
+          onClick={() => void copyPrompt()}
+        >
+          <Copy
+            className='h-4 w-4 text-primary'
+            aria-hidden='true'
+          />
+          {t('common.core.posterCopy')}
+        </Button>
+        {status === 'failed' && (
+          <textarea
+            readOnly
+            aria-label={t('common.core.posterPromptLabel')}
+            value={prompt}
+            onFocus={event => event.currentTarget.select()}
+            className='m-1 block h-32 w-60 max-w-full resize-none rounded border p-2 text-xs'
+          />
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

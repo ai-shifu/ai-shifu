@@ -178,9 +178,22 @@ accepting the generated file rather than hand-editing it.
 
 ## Interfaces and Dependencies
 
-### Teacher poster prompt handoff (2026-09-05)
+### Teacher poster prompt handoff (2026-09-06)
 
-The teacher header opens a share dialog with the existing ordinary share
+The compact revision replaces the modal with a non-modal anchored popover
+containing only ordinary sharing and prompt copying. Successful copy and all
+ordinary-share terminal outcomes close it. Outside interaction, Escape and
+mouse departure (300ms grace period) dismiss it without an analytics event;
+these incidental dismissals are not adoption signals. Keyboard focus and touch
+remain usable without a forced inactivity timeout. Failed copying retains a
+selectable prompt and retry action, and does not auto-dismiss on mouse departure.
+No prompt preview action remains: `teacher_poster_guide_open` is retired before
+release, with no deployed consumer or history to migrate. The weekly consumer
+uses prompt-copy attempts per popover open, not preview expansion. Other event
+names, payloads, populations and count units below remain unchanged. Opening
+means a closed-to-open transition of the anchored choices, not a modal view.
+
+The teacher header opens a share popover with the existing ordinary share
 action and a poster prompt containing the exact full recommendation,
 description, and canonical URL. The prompt is assembled locally and copied
 only on an explicit click. Learner entry points retain direct sharing.
@@ -189,12 +202,6 @@ Copy failure leaves selectable text. Opening or copying never publishes a course
 Analytics contract (consumer: product team's weekly course-sharing analysis):
 
 - `teacher_course_share_open`: once per accepted closed-to-open transition.
-- `teacher_poster_guide_open`: once per deliberate collapsed-to-expanded
-  transition of the prompt preview (same `shifu_bid`/`surface` payload).
-  The preview resets to collapsed on each dialog open; title, purpose and copy
-  action remain visible. Weekly preview opens per dialog open measure interest
-  in inspecting the prompt; repeated expansions count. Copying does not require
-  expansion. This event has not been deployed; no historical consumer exists.
 - `teacher_poster_prompt_copy`: once per accepted copy action, before copying.
 - `teacher_poster_prompt_result`: once per attempt after copy completion;
   `outcome` is `success` or `failed`. This does not mean a poster was generated.
@@ -206,18 +213,23 @@ Analytics contract (consumer: product team's weekly course-sharing analysis):
   No text, prompts, titles, URLs, or raw errors are collected.
 - Count unit: deliberate open or copy attempt. Re-renders do not count;
   concurrent copies are blocked by a ref; later deliberate retries count again.
-- Metric: weekly copy attempts per dialog open and success/failure counts per
+- Metric: weekly copy attempts per popover open and success/failure counts per
   course. Ratios are aggregate activity ratios, not unique-user conversion or
   exact attempt joins (there is no correlation ID).
 - Compatibility: additive event family. Existing `course_share_click/result`
   continue to mean actual ordinary share attempts, now from inside the teacher
-  dialog. Historical teacher click totals should not be compared as entry-open
+  popover. Historical teacher click totals should not be compared as entry-open
   totals. No existing dashboard/query is modified.
 - Tracking is best-effort and never awaited before clipboard or native share.
   Tests cover exact payloads, privacy, retry/re-entry, failure isolation, full
   content copying, and ordinary share regression.
 
-Local verification: 51 focused tests passed across the teacher dialog, shared
+Compact popover verification: focused regression tests cover automatic closure,
+outside interaction, Escape/focus return, pointer grace/re-entry, touch behavior,
+copy failure/retry, and concurrent actions. Local browser checks confirmed the
+anchored two-action layout, successful-copy dismissal, and pointer dismissal.
+
+Previous dialog verification: 51 focused tests passed across the teacher dialog, shared
 button, header, and formatting suites. TypeScript, lint (existing warnings),
 translation validation, and repository harness passed. A temporary local
 fixture rendered the actual teacher component with a user-supplied course
