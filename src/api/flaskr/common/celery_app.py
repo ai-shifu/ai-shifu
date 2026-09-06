@@ -248,7 +248,7 @@ def _parse_crontab_expression(expression: str) -> crontab | None:
 def _load_flask_app() -> Flask:
     os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
     app_module = importlib.import_module("app")
-    return app_module.create_app()
+    return app_module.create_app(serving_http=False)
 
 
 def _register_default_tasks() -> None:

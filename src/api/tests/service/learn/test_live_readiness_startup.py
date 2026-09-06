@@ -17,6 +17,22 @@ from flaskr.service.learn import live_follow_up_routes as routes
 from redis import Redis
 
 
+def test_non_http_app_never_prepares_live_before_or_after_fork(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER", raising=False)
+    workers = Mock()
+    monkeypatch.setattr(routes, "Thread", workers)
+    app = Flask("celery-live-startup")
+    app.extensions["serving_http"] = False
+    routes.register_live_follow_up_routes(app)
+    for pid in (1000, 2000):
+        monkeypatch.setattr(routes.os, "getpid", lambda pid=pid: pid)
+        routes.init_live_follow_up_readiness(app, refresh=True)
+    workers.assert_not_called()
+    assert app.extensions == {"serving_http": False}
+
+
 def test_stalled_configuration_task_does_not_delay_http_or_duplicate_threads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
