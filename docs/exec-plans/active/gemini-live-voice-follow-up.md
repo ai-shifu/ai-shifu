@@ -82,6 +82,12 @@ auditing, or another correctness-sensitive decision.
   in one unjoined task; stalls never spawn replacement threads. Tests exercise
   non-responsive TCP Redis, blocked background work, cache-only/encrypted reads,
   local override restoration, and no second shared lookup from model checks.
+- [x] 2026-09-06: Follow-up review handles expiry of DB-backed flag cache entries
+  after initial warmup. A cache miss schedules background repopulation through
+  one PID-scoped, locked task slot. Active/stalled tasks are never replaced;
+  completion/start failure imposes a 30-second cooldown and each task keeps the
+  initial-plus-20 retry budget. Tests simulate post-startup expiry, repeated
+  probes, restored readiness, stalled work, and start-failure rate limiting.
 
 - [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
   Live controls, RTL regression coverage, cached keepalive transport, and

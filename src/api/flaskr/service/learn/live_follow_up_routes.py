@@ -8,10 +8,10 @@ import json
 import math
 import os
 import time
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
-from threading import Thread
+from threading import Lock, Thread
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
@@ -648,35 +648,57 @@ def _prepare_live_follow_up(app: Flask) -> bool:
         return False
 
 
-def _retry_live_follow_up_preparation(app: Flask) -> None:
+@dataclass
+class _LiveReadinessTask:
+    lock: Lock = field(default_factory=Lock)
+    active: bool = False
+    next_start_at: float = 0
+
+
+def _retry_live_follow_up_preparation(
+    app: Flask, task: _LiveReadinessTask | None = None
+) -> None:
     """Retry startup failures without learner traffic or unbounded task growth."""
-    for attempt in range(21):
-        if attempt:
-            time.sleep(30)
-        if _prepare_live_follow_up(app):
-            return
-    app.logger.warning("Live follow-up startup preparation still unavailable")
+    try:
+        for attempt in range(21):
+            if attempt:
+                time.sleep(30)
+            if _prepare_live_follow_up(app):
+                return
+        app.logger.warning("Live follow-up startup preparation still unavailable")
+    finally:
+        if task is not None:
+            with task.lock:
+                task.active = False
+                task.next_start_at = time.monotonic() + 30
 
 
-def init_live_follow_up_readiness(app: Flask) -> None:
-    """Prepare Live once per process, never in the Gunicorn preload master."""
+def init_live_follow_up_readiness(app: Flask, *, refresh: bool = False) -> None:
+    """Prepare/refresh Live without overlapping tasks or preload-master I/O."""
     if os.environ.get("AI_SHIFU_PRELOAD_MASTER"):
         return
-    process_id = os.getpid()
-    if app.extensions.get("live_follow_up_startup_pid") == process_id:
+    # A PID-scoped key never acquires a lock inherited from another process.
+    candidate = _LiveReadinessTask()
+    task = app.extensions.setdefault(f"live_follow_up_startup:{os.getpid()}", candidate)
+    if task is not candidate and not refresh:
         return
-    app.extensions["live_follow_up_startup_pid"] = process_id
     # Even the first DB-backed config lookup belongs in this one task. Never
     # join it or create timeout-replacement threads if a dependency is stalled.
-    try:
-        Thread(
-            target=_retry_live_follow_up_preparation,
-            args=(app,),
-            name="live-follow-up-startup",
-            daemon=True,
-        ).start()
-    except Exception:
-        app.logger.warning("Live follow-up startup retry unavailable")
+    with task.lock:
+        if task.active or time.monotonic() < task.next_start_at:
+            return
+        task.active = True
+        try:
+            Thread(
+                target=_retry_live_follow_up_preparation,
+                args=(app, task),
+                name="live-follow-up-startup",
+                daemon=True,
+            ).start()
+        except Exception:
+            task.active = False
+            task.next_start_at = time.monotonic() + 30
+            app.logger.warning("Live follow-up startup retry unavailable")
 
 
 def register_live_follow_up_routes(
@@ -700,6 +722,11 @@ def register_live_follow_up_routes(
                     is_live_follow_up_model_available(GEMINI_LIVE_MODEL_ID)
                 ):
                     readiness = {"status": "unavailable", "retry_after_ms": 30_000}
+        except LookupError:
+            # Expired DB-backed flags need repopulation even after successful
+            # startup. This schedules at most one rate-limited background task.
+            init_live_follow_up_readiness(app, refresh=True)
+            readiness = {"status": "unavailable", "retry_after_ms": 30_000}
         except Exception:
             readiness = {"status": "unavailable", "retry_after_ms": 30_000}
         return _make_live_response(readiness)

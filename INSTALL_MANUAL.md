@@ -135,7 +135,11 @@ transport and require `data.status == "ready"`. Other bounded statuses are
 interval, not a credential expiry. The probe allocates no user/session capacity
 and reads only explicit overrides or bounded cached configuration, with no DB
 fallback; a cold/missing config cache is `unavailable` until background lookup
-or the existing config service populates it. Capability validation reuses the
+or the existing config service populates it. A cache miss after startup
+schedules repopulation in the same single worker-local task slot, never inline.
+An active (including stalled) task is not replaced, and new task starts have a
+30-second cooldown after completion or start failure. Each task retains the
+initial-plus-20 retry budget. Capability validation reuses the
 same resolved flag rather than performing another shared-cache lookup. The probe
 returns no credentials or Redis identifiers. Startup probing uses bounded
 Redis socket waits; a Live outage must not fail ordinary `/health` or text

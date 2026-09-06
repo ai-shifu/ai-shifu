@@ -268,7 +268,7 @@ def test_startup_config_failure_does_not_block_http_routes(
     unavailable.assert_not_called()
     prevent_background_startup_threads.assert_called_once_with(
         target=routes._retry_live_follow_up_preparation,
-        args=(app,),
+        args=(app, app.extensions[f"live_follow_up_startup:{routes.os.getpid()}"]),
         name="live-follow-up-startup",
         daemon=True,
     )
