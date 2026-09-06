@@ -43,6 +43,12 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-06: Deployment review adds bounded readiness-state exposure
+  telemetry for eligible open panels, including learners blocked before an
+  attempt. Deduplicate each state per opening and scope; exclude hidden,
+  readonly, print/classroom and preview surfaces. Keep connection metrics
+  unchanged and update the aggregate consumer fixture and privacy contract.
+
 - [x] 2026-09-06: Initialize the shared recovery guard at API startup, expose
   non-minting readiness for deployment/UI, and gate new Live input until ready.
   Preserve Redis generation/noeviction checks and the full recovery window.

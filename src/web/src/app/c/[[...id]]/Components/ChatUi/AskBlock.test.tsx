@@ -240,6 +240,9 @@ describe('AskBlock', () => {
     expect(screen.getByRole('textbox')).toBeDisabled();
     expect(screen.getByRole('textbox')).toHaveValue('Keep my draft');
     expect(controller.sendText).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.map(([, payload]) => payload.state),
+    ).toEqual(['ready', 'warming']);
     rerender(
       <AskBlock
         {...props}
@@ -248,6 +251,57 @@ describe('AskBlock', () => {
     );
     expect(screen.getByRole('textbox')).toBeEnabled();
     expect(screen.getByRole('textbox')).toHaveValue('Keep my draft');
+    expect(mockTrackEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { preview_mode: true },
+    { isExpanded: false },
+    { liveVoice: undefined },
+    { followUpMode: 'disabled' as const },
+  ])('does not count unexposed or excluded readiness (%j)', overrides => {
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        liveVoice={mockLiveVoiceController({ readiness: 'warming' })}
+        {...overrides}
+      />,
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  it('counts an active listen input as ready even while the service probe is warming', () => {
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        liveVoiceSurface='listen_player'
+        liveVoice={mockLiveVoiceController({
+          readiness: 'warming',
+          anchorElementBid: 'element-1',
+          state: 'listening',
+        })}
+      />,
+    );
+    expect(screen.getByRole('textbox')).toBeEnabled();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_readiness',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'listen',
+        surface: 'listen_player',
+        state: 'ready',
+        initial: true,
+      },
+    );
   });
 
   it.each([
@@ -269,6 +323,7 @@ describe('AskBlock', () => {
         />,
       );
       expect(controller.prepare).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
     },
   );
   it('mirrors the in-input microphone with the existing Send action in RTL', () => {
@@ -361,7 +416,18 @@ describe('AskBlock', () => {
         ),
       );
       expect(mockGetRunMessage).not.toHaveBeenCalled();
-      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_voice_follow_up_readiness',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+          state: 'ready',
+          initial: true,
+        },
+      );
       await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue(''));
     },
   );
