@@ -67,6 +67,12 @@ auditing, or another correctness-sensitive decision.
   tracing resets. Process-idempotent initialization also supports ordinary
   app factories without launching duplicate retry tasks. Regression coverage
   executes the real hook with isolated resources and verifies preload deferral.
+- [x] 2026-09-06: Follow-up review aligns readiness with session admission's
+  discovered model/Bidi capability check. Missing provider configuration or
+  startup discovery failure returns bounded `unavailable`, not a false ready
+  state. Tests cover missing provider/model, text-only capability, warming,
+  ready, and closed gates. Discovery remains startup-scoped; no provider
+  polling is introduced and operators must restart after discovery/config fixes.
 
 - [x] 2026-09-05: Resolved the merge with main `724ed0818`, preserving
   Live controls, RTL regression coverage, cached keepalive transport, and

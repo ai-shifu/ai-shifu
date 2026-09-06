@@ -141,12 +141,82 @@ def test_register_warms_guard_and_probe_returns_only_readiness(
         return {"status": "warming", "retry_after_ms": 30000}
 
     monkeypatch.setattr(routes, "live_follow_up_readiness", readiness)
+    monkeypatch.setattr(routes, "is_live_follow_up_model_available", lambda _: True)
     app = _route_app(monkeypatch)
     assert calls == [(app, True)]
     response = app.test_client().get("/api/learn/live-follow-up/readiness")
     assert response.status_code == 200
     assert response.get_json()["data"] == {"status": "warming", "retry_after_ms": 30000}
     assert calls == [(app, True), (app, True)]
+
+
+@pytest.mark.parametrize("redis_status", ["ready", "warming"])
+@pytest.mark.parametrize(
+    ("provider_enabled", "discovered", "methods", "available"),
+    [
+        (False, True, {"bidiGenerateContent"}, False),
+        (True, False, {"bidiGenerateContent"}, False),
+        (True, True, {"generateContent"}, False),
+        (True, True, {"bidiGenerateContent"}, True),
+    ],
+)
+def test_readiness_requires_discovered_live_model(
+    monkeypatch: pytest.MonkeyPatch,
+    redis_status: str,
+    provider_enabled: bool,
+    discovered: bool,
+    methods: set[str],
+    available: bool,
+) -> None:
+    from flaskr.api import llm
+
+    model = routes.GEMINI_LIVE_MODEL_ID
+    monkeypatch.setitem(
+        llm.PROVIDER_STATES,
+        "gemini",
+        llm.ProviderState(
+            enabled=provider_enabled,
+            params={},
+            models=[model] if discovered else [],
+        ),
+    )
+    monkeypatch.setitem(
+        llm.MODEL_SUPPORTED_GENERATION_METHODS, model, frozenset(methods)
+    )
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
+    monkeypatch.setattr(
+        routes,
+        "is_live_follow_up_model_available",
+        llm.is_live_follow_up_model_available,
+    )
+    monkeypatch.setattr(
+        routes,
+        "live_follow_up_readiness",
+        lambda *_args, **_kwargs: {"status": redis_status},
+    )
+    app = _route_app(monkeypatch)
+    response = app.test_client().get("/api/learn/live-follow-up/readiness")
+    expected = (
+        {"status": redis_status}
+        if available
+        else {"status": "unavailable", "retry_after_ms": 30_000}
+    )
+    assert response.get_json()["data"] == expected
+
+
+@pytest.mark.parametrize("status", ["disabled", "unavailable"])
+def test_readiness_preserves_closed_gate_without_model_lookup(
+    monkeypatch: pytest.MonkeyPatch, status: str
+) -> None:
+    lookup = Mock()
+    monkeypatch.setattr(routes, "is_live_follow_up_model_available", lookup)
+    monkeypatch.setattr(
+        routes, "live_follow_up_readiness", lambda *_args, **_kwargs: {"status": status}
+    )
+    app = _route_app(monkeypatch)
+    response = app.test_client().get("/api/learn/live-follow-up/readiness")
+    assert response.get_json()["data"] == {"status": status}
+    lookup.assert_not_called()
 
 
 @pytest.mark.parametrize("effective_enabled", [True, False])

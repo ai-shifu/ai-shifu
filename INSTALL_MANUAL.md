@@ -133,6 +133,11 @@ follow-ups. The original follow-up panel also probes before enabling new Live
 input and refreshes while unavailable, without automatically connecting,
 requesting microphone permission, or exposing an internal countdown. Mint-time
 admission still enforces the same guard atomically after readiness succeeds.
+The probe also requires the allowlisted model's discovered Bidi capability;
+a disabled/missing Gemini provider, absent model, or text-only capability returns
+`unavailable` even when Redis is ready. Discovery retains the existing startup
+lifecycle: after correcting provider configuration or a startup ListModels
+failure, restart API workers and verify readiness. Probes do not call Gemini.
 
 The API mints a one-use, short-lived Gemini credential constrained to the
 selected model, voice, and server-built prompt. The browser then opens the

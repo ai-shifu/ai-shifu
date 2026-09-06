@@ -660,9 +660,14 @@ def register_live_follow_up_routes(
 
     @app.route(path_prefix + "/live-follow-up/readiness", methods=["GET"])
     def live_follow_up_readiness_api() -> Response:
-        return _make_live_response(
-            live_follow_up_readiness(app, enabled=is_gemini_live_enabled())
-        )
+        readiness = live_follow_up_readiness(app, enabled=is_gemini_live_enabled())
+        if readiness["status"] in {"ready", "warming"} and not (
+            is_live_follow_up_model_available(GEMINI_LIVE_MODEL_ID)
+        ):
+            # Match session admission without issuing tokens or performing a
+            # provider request. Startup discovery must confirm Bidi support.
+            readiness = {"status": "unavailable", "retry_after_ms": 30_000}
+        return _make_live_response(readiness)
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/live-follow-up/<outline_bid>/session",
