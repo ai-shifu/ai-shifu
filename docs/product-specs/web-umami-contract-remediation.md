@@ -163,10 +163,10 @@ The only contact enum is `surface=admin|invite|other`.
   Repeated deliberate attempts count again; without an attempt ID, only
   aggregate conversion is valid.
 - Trigger: after local validation and terms acceptance, immediately before the
-  password/SMS/OAuth-start request; result after local login state is committed
+  email/password/SMS/OAuth-start request; result after local login state is committed
   or a bounded terminal failure is known. OAuth callback results correlate to
   the earlier start only at aggregate level.
-- Population: guests using password, SMS, or Google login. Validation-only and
+- Population: guests using email, password, SMS, or Google login. Validation-only and
   terms-dialog opens are excluded.
 - Deduplication: UI submission guards own concurrent suppression; otherwise none.
 - Consumer: login conversion and reliability analysis.
@@ -175,7 +175,7 @@ The only contact enum is `surface=admin|invite|other`.
 
 | Event                   | Fields and allowed values                                                                                                                                                                 |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `learner_login_attempt` | `login_method` is `password`, `sms`, or `google`                                                                                                                                          |
+| `learner_login_attempt` | `login_method` is `email`, `password`, `sms`, or `google`                                                                                                                                 |
 | `learner_login_result`  | `login_method`; `outcome` is `success` or `failed`; failed only: `failure_category` is `credentials_rejected`, `request_failed`, `start_failed`, `callback_invalid`, or `callback_failed` |
 
 Credentials, mobile/email identifiers, OAuth code/state, token, user ID, and raw

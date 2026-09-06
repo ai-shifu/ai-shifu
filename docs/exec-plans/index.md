@@ -71,6 +71,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 - [Unify Frontend Source Directories](./completed/unify-frontend-directories.md)
+- [Reuse Email and SMS Verification Login](./completed/verification-code-login-reuse.md)
 
 ## Supporting Tracker
 

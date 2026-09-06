@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import contextlib
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -22,7 +19,6 @@ from flaskr.service.user.consts import (
     USER_STATE_UNREGISTERED,
 )
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -40,12 +36,10 @@ from flaskr.service.user.utils import (
     ensure_admin_creator_and_demo_permissions,
     generate_token,
 )
-from flaskr.util.datetime import now_utc
+from flaskr.service.user.verification_codes import consume_verification_code
 from sqlalchemy import text
 
 if TYPE_CHECKING:
-    import datetime
-
     from flask import Flask
 
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
@@ -82,47 +76,6 @@ def _release_bootstrap_lock() -> None:
         text("SELECT RELEASE_LOCK(:name)"),
         {"name": BOOTSTRAP_LOCK_NAME},
     )
-
-
-def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
-    if value is None:
-        return False
-    with contextlib.suppress(Exception):
-        if value.tzinfo is not None:
-            value = value.replace(tzinfo=None)
-    now = now_utc()
-    return (now - value).total_seconds() <= seconds
-
-
-def _consume_latest_sms_code_from_db(app: Flask, phone: str, code: str) -> str:
-    """Consume the latest sent SMS verification code from the database.
-
-    Returns:
-      - "ok" when the code is valid and is marked as used.
-      - "expired" when no valid code exists (missing/used/expired).
-      - "invalid" when a code exists but does not match.
-
-    """
-    expire_seconds = int(app.config.get("PHONE_CODE_EXPIRE_TIME", 300))
-    latest = (
-        UserVerifyCode.query.filter(
-            UserVerifyCode.phone == phone,
-            UserVerifyCode.verify_code_type == 1,
-            UserVerifyCode.verify_code_send == 1,
-        )
-        .order_by(UserVerifyCode.created.desc(), UserVerifyCode.id.desc())
-        .first()
-    )
-    if not latest or int(getattr(latest, "verify_code_used", 0) or 0) == 1:
-        return "expired"
-    created_at = getattr(latest, "created", None)
-    if not created_at or not _is_within_seconds(created_at, seconds=expire_seconds):
-        return "expired"
-    if (latest.verify_code or "") != (code or ""):
-        return "invalid"
-    latest.verify_code_used = 1
-    db.session.flush()
-    return "ok"
 
 
 def migrate_user_study_record(
@@ -279,48 +232,16 @@ def verify_phone_code(
         update_user_profile_with_lable,
     )
 
-    fixed_check_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
-
     raw_phone = (phone or "").strip()
     normalized_phone = normalize_phone_identifier(raw_phone)
     if not normalized_phone:
         raise_param_error("mobile")
-    lookup_phones = [normalized_phone]
-    if raw_phone and raw_phone not in lookup_phones:
-        lookup_phones.append(raw_phone)
-    phone_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app)
-    code_keys = [phone_code_prefix + lookup_phone for lookup_phone in lookup_phones]
-    if code != fixed_check_code:
-        cached = None
-        cached_phone = normalized_phone
-        for code_key, lookup_phone in zip(code_keys, lookup_phones, strict=False):
-            cached = redis.get(code_key)
-            if cached is not None:
-                cached_phone = lookup_phone
-                break
-        if cached is not None:
-            cached_str = (
-                cached.decode("utf-8") if isinstance(cached, bytes) else str(cached)
-            )
-            if code != cached_str:
-                raise_error("server.user.smsCheckError")
-            status = _consume_latest_sms_code_from_db(app, cached_phone, code)
-            if status != "ok" and cached_phone != normalized_phone:
-                _consume_latest_sms_code_from_db(app, normalized_phone, code)
-        else:
-            status = "expired"
-            for lookup_phone in lookup_phones:
-                status = _consume_latest_sms_code_from_db(app, lookup_phone, code)
-                if status == "ok":
-                    break
-                if status == "invalid":
-                    break
-            if status == "invalid":
-                raise_error("server.user.smsCheckError")
-            if status != "ok":
-                raise_error("server.user.smsSendExpired")
-
-    redis.delete(*code_keys)
+    consume_verification_code(
+        app,
+        identifier=raw_phone,
+        code=code,
+        kind="sms",
+    )
 
     created_new_user = False
     creator_granted_now = False

@@ -125,7 +125,9 @@ describe('PhoneLogin captcha flow', () => {
       target: { value: '0000' },
     });
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
 
     await waitFor(() =>
       expect(apiService.verifyCaptcha).toHaveBeenCalledWith({
@@ -134,11 +136,14 @@ describe('PhoneLogin captcha flow', () => {
         language: 'en-US',
       }),
     );
-    expect(apiService.sendSmsCode).toHaveBeenCalledWith({
-      mobile: '13800138000',
-      captcha_ticket: 'captcha-ticket',
-      language: 'en-US',
-    });
+    expect(apiService.sendSmsCode).toHaveBeenCalledWith(
+      {
+        mobile: '13800138000',
+        captcha_ticket: 'captcha-ticket',
+        language: 'en-US',
+      },
+      { skipErrorToast: true },
+    );
   });
 
   test('refreshes captcha and clears input after verification failure', async () => {
@@ -157,7 +162,9 @@ describe('PhoneLogin captcha flow', () => {
       target: { value: '0000' },
     });
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
 
     await waitFor(() =>
       expect(mockToast).toHaveBeenCalledWith({
@@ -184,14 +191,19 @@ describe('PhoneLogin captcha flow', () => {
       target: { value: '0000' },
     });
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
 
     await waitFor(() =>
-      expect(apiService.sendSmsCode).toHaveBeenCalledWith({
-        mobile: '13800138000',
-        captcha_ticket: 'captcha-ticket',
-        language: 'en-US',
-      }),
+      expect(apiService.sendSmsCode).toHaveBeenCalledWith(
+        {
+          mobile: '13800138000',
+          captcha_ticket: 'captcha-ticket',
+          language: 'en-US',
+        },
+        { skipErrorToast: true },
+      ),
     );
     expect(screen.getByTestId('captcha-input')).toHaveValue('0000');
     expect(apiService.getCaptcha).toHaveBeenCalledTimes(1);
@@ -214,14 +226,18 @@ describe('PhoneLogin captcha flow', () => {
       });
       fireEvent.click(screen.getByRole('checkbox'));
       fireEvent.click(
-        screen.getByRole('button', { name: 'module.auth.getOtp' }),
+        screen.getByRole('button', {
+          name: 'module.auth.sendVerificationCode',
+        }),
       );
 
       await waitFor(() => expect(apiService.sendSmsCode).toHaveBeenCalled());
 
-      await act(async () => {
-        jest.advanceTimersByTime(60000);
-      });
+      for (let second = 0; second < 60; second += 1) {
+        await act(async () => {
+          jest.advanceTimersByTime(1000);
+        });
+      }
 
       await waitFor(() =>
         expect(apiService.getCaptcha).toHaveBeenCalledTimes(2),
@@ -251,21 +267,29 @@ describe('PhoneLogin captcha flow', () => {
       target: { value: '0000' },
     });
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
 
-    const otpInput = screen.getByPlaceholderText('module.auth.otpPlaceholder');
+    const otpInput = screen.getByPlaceholderText(
+      'module.auth.verificationCodePlaceholder',
+    );
     await waitFor(() => expect(otpInput).toBeEnabled());
-    fireEvent.change(otpInput, { target: { value: '9999' } });
+    fireEvent.change(otpInput, { target: { value: '99999999' } });
+    expect(otpInput).toHaveValue('9999');
     fireEvent.keyDown(otpInput, { key: 'Enter' });
 
     await waitFor(() =>
-      expect(apiService.smsLogin).toHaveBeenCalledWith({
-        mobile: '13800138000',
-        sms_code: '9999',
-        language: 'en-US',
-        login_context: 'admin',
-        course_id: 'course-1',
-      }),
+      expect(apiService.smsLogin).toHaveBeenCalledWith(
+        {
+          mobile: '13800138000',
+          sms_code: '9999',
+          language: 'en-US',
+          login_context: 'admin',
+          course_id: 'course-1',
+        },
+        { skipErrorToast: true },
+      ),
     );
     expect((useUserStore as any).getState().login).toHaveBeenCalled();
     expect(onLoginSuccess).toHaveBeenCalled();
@@ -292,9 +316,13 @@ describe('PhoneLogin captcha flow', () => {
       target: { value: '0000' },
     });
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
 
-    const otpInput = screen.getByPlaceholderText('module.auth.otpPlaceholder');
+    const otpInput = screen.getByPlaceholderText(
+      'module.auth.verificationCodePlaceholder',
+    );
     await waitFor(() => expect(otpInput).toBeEnabled());
     fireEvent.change(otpInput, { target: { value: '9999' } });
     fireEvent.keyDown(otpInput, { key: 'Enter' });
@@ -306,6 +334,7 @@ describe('PhoneLogin captcha flow', () => {
           referral_session_id: 'session-1',
           referral_entry_source: 'invite_link',
         }),
+        { skipErrorToast: true },
       ),
     );
   });
@@ -322,7 +351,9 @@ describe('PhoneLogin captcha flow', () => {
       target: { value: '0000' },
     });
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'module.auth.login' })),
@@ -330,7 +361,7 @@ describe('PhoneLogin captcha flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
 
     expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.auth.otpRequired',
+      title: 'module.auth.verificationCodeRequired',
       variant: 'destructive',
     });
     expect(apiService.smsLogin).not.toHaveBeenCalled();
@@ -353,9 +384,13 @@ describe('PhoneLogin captcha flow', () => {
       target: { value: '0000' },
     });
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
 
-    const otpInput = screen.getByPlaceholderText('module.auth.otpPlaceholder');
+    const otpInput = screen.getByPlaceholderText(
+      'module.auth.verificationCodePlaceholder',
+    );
     await waitFor(() => expect(otpInput).toBeEnabled());
     fireEvent.change(otpInput, { target: { value: '9999' } });
     fireEvent.keyDown(otpInput, { key: 'Enter' });
@@ -380,7 +415,55 @@ describe('PhoneLogin captcha flow', () => {
     fireEvent.click(screen.getByRole('checkbox'));
 
     expect(
-      screen.getByRole('button', { name: 'module.auth.getOtp' }),
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
     ).toBeDisabled();
+  });
+
+  test('keeps the phone editable during the SMS cooldown', async () => {
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
+    const phoneInput = screen.getByLabelText('module.auth.phone');
+    fireEvent.change(phoneInput, { target: { value: '13800138000' } });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.auth.sendVerificationCode',
+      }),
+    );
+
+    await waitFor(() => expect(apiService.sendSmsCode).toHaveBeenCalled());
+    expect(phoneInput).toBeEnabled();
+  });
+
+  test('uses one tailored toast for an SMS rate limit', async () => {
+    (apiService.sendSmsCode as jest.Mock).mockResolvedValue({
+      code: 1012,
+      message: 'private backend detail',
+    });
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText('module.auth.phone'), {
+      target: { value: '13800138000' },
+    });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.auth.sendVerificationCode',
+      }),
+    );
+
+    await waitFor(() => expect(mockToast).toHaveBeenCalledTimes(1));
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.auth.checkYourSms',
+      description: 'server.user.smsSendTooFrequent',
+    });
   });
 });
