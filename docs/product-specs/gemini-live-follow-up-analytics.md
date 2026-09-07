@@ -155,6 +155,14 @@ emit a microphone-operation event. A paused/idle session still expires silently
 and waits for the next explicit input. Automatic renewal failure is terminal;
 there is no infinite retry loop or idle token minting.
 
+Credential lifetime includes an uncertainty window bounded by the monotonic
+request start and response receipt. A transport/heartbeat failure after the
+earliest possible expiry does not resume the possibly expired credential or
+become a connection-failure event: input stays pending until the latest possible
+expiry, then the ordinary timeout end and eligible renewal occur once. No new
+admission can bypass the old risk lifetime, and the waiting interval emits no
+extra adoption event.
+
 During finalization/issuance/setup, retained input is gated and the microphone
 button shows its pending spinner with `aria-busy`, not an enabled speech pulse.
 It remains stoppable without a new action. Only confirmed successor readiness

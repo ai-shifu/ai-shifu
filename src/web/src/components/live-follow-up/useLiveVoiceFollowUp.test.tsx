@@ -460,6 +460,89 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     },
   );
 
+  it.each(['close', 'error', 'goAway', 'heartbeat', 'upstream'])(
+    'handles delayed session responses on %s without expired resumption or early admission',
+    async terminal => {
+      jest.useFakeTimers();
+      const response = createDeferred<
+        ReturnType<typeof sessionResponse> & { expires_in_ms: number }
+      >();
+      mockCreateSession.mockReturnValueOnce(response.promise);
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await act(async () => jest.advanceTimersByTime(4_000));
+      await act(async () =>
+        response.resolve({
+          ...sessionResponse(Date.now() + 16_000),
+          // Sampled by the server at t=2s, delivered at t=4s: true expiry t=20s.
+          expires_in_ms: 18_000,
+          heartbeat_interval_ms: 16_000,
+        }),
+      );
+      act(() => mockSockets[0].open());
+      await makeReady();
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            resumptionHandle: 'possibly-expired',
+            resumable: true,
+          }),
+        ),
+      );
+      // Earliest possible expiry t=18s, receipt upper bound t=22s.
+      if (terminal === 'heartbeat')
+        mockHeartbeatSession.mockRejectedValueOnce(
+          new Error('expired binding'),
+        );
+      await act(async () => jest.advanceTimersByTime(16_000));
+      if (terminal === 'close') act(() => mockSockets[0].serverClose());
+      else if (terminal === 'error') act(() => mockSockets[0].fail());
+      else if (terminal === 'goAway')
+        act(() => mockSockets[0].message(serverEvent({ goAway: true })));
+      else if (terminal === 'upstream')
+        act(() => mockSockets[0].message(serverEvent({ upstreamError: true })));
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      expect(mockSockets).toHaveLength(1);
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      act(() =>
+        mockActivateAudio.mock.calls[0][0].onInputFrame(
+          new Int16Array(640).fill(1500).buffer,
+        ),
+      );
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      await act(async () => jest.advanceTimersByTime(1_999));
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(2));
+      expect(mockCreateSession).toHaveBeenCalledTimes(2);
+      expect(mockSockets).toHaveLength(2);
+      expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+      expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+      act(() => mockSockets[1].open());
+      await makeReady(mockSockets[1]);
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_voice_follow_up_session_end',
+        expect.objectContaining({ end_reason: 'timeout' }),
+      );
+      expect(mockTrackEvent).not.toHaveBeenCalledWith(
+        'learner_voice_follow_up_result',
+        expect.objectContaining({ outcome: 'failed' }),
+      );
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_renewal_attempt',
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
   it('does not clear the credential cooldown when the device clock jumps forward', async () => {
     jest.useFakeTimers();
     mockCreateSession.mockResolvedValueOnce({
