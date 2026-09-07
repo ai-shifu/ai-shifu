@@ -58,13 +58,11 @@ import {
   writeListenPlaybackSpeedToStorage,
 } from './listenPlaybackSpeed';
 import {
-  clearListenPlaybackPositionFromStorage,
-  normalizeListenPlaybackSource,
-  readListenLessonPlaybackTargetFromStorage,
-  readListenPlaybackPositionFromStorage,
-  writeListenPlaybackPositionToStorage,
-  type ListenPlaybackPositionScope,
-} from './listenPlaybackPosition';
+  clearListenPlaybackCheckpoint,
+  readListenPlaybackCheckpoint,
+  writeListenPlaybackCheckpoint,
+} from './listenPlaybackCheckpoint';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
@@ -89,23 +87,10 @@ type ListenSlideElement = SlideElement & {
   isAudioStreaming?: boolean;
   ask_list?: AskMessage[];
   subtitle_cues?: ElementSubtitleCue[];
-  audioDurationMs?: number;
   // Identity seed for elements whose `content` is a React node rather than a
   // string. The reuse fingerprint cannot inspect a node, so such elements must
   // declare what makes them distinct or they all collapse into one cache entry.
   fingerprintSeed?: string;
-};
-
-type SlidePlaybackPosition = {
-  audioKey: string;
-  element?: SlideElement;
-  timeMs: number;
-};
-
-type SlidePlaybackResumeRequest = {
-  audioKey: string;
-  id: number | string;
-  timeMs: number;
 };
 
 type ListenSlideElementCacheEntry = {
@@ -278,35 +263,6 @@ type PlayerCustomActionState = {
 type PlayerCustomActionContextSnapshot = PlayerCustomActionState & {
   setActive: (active: boolean) => void;
 };
-
-const getListenSlideStepIndex = (
-  elements: ListenSlideElement[],
-  elementIndex: number,
-) =>
-  elements
-    .slice(0, elementIndex + 1)
-    .filter(element => Boolean(element.is_marker)).length - 1;
-
-const LISTEN_PLAYBACK_POSITION_WRITE_INTERVAL_MS = 5_000;
-
-const getListenPlaybackSourceForElement = (element: ListenSlideElement) => {
-  const completedSource = normalizeListenPlaybackSource(
-    String(element.audio_url ?? ''),
-  );
-  if (completedSource) {
-    return completedSource;
-  }
-
-  const elementBid = element.blockBid?.trim();
-  return elementBid ? `stream:${elementBid}` : '';
-};
-
-const isStreamingListenPlaybackElement = (element: ListenSlideElement) =>
-  Boolean(
-    element.is_audio_streaming ||
-    element.isAudioStreaming ||
-    !normalizeListenPlaybackSource(String(element.audio_url ?? '')),
-  );
 
 interface ListenSlideAskPlayerActionProps {
   actionRef?: React.MutableRefObject<HTMLButtonElement | null>;
@@ -703,7 +659,6 @@ const buildSlideElementList = ({
               isAudioStreaming,
               audio_segments: audioSegments,
               subtitle_cues: subtitleCues,
-              audioDurationMs: item.audioDurationMs,
             }
           : {}),
         ask_list: askList,
@@ -793,6 +748,7 @@ const ListenModeSlideRenderer = ({
   disableInteractionEdits = false,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
@@ -828,20 +784,6 @@ const ListenModeSlideRenderer = ({
     chatRef.current,
   );
   const playbackSpeedRef = useRef<ListenPlaybackSpeed>(playbackSpeed);
-  const restoredAudioSourceMapRef = useRef<WeakMap<HTMLAudioElement, string>>(
-    new WeakMap(),
-  );
-  const lastPlaybackPositionWriteMapRef = useRef<
-    WeakMap<HTMLAudioElement, number>
-  >(new WeakMap());
-  const lastSlidePlaybackPositionWriteRef = useRef<Map<string, number>>(
-    new Map(),
-  );
-  const latestSlidePlaybackPositionRef = useRef<{
-    scope: ListenPlaybackPositionScope;
-    positionSeconds: number;
-    isOpenEnded: boolean;
-  } | null>(null);
   const [interactionInputMap, setInteractionInputMap] = useState<
     Record<string, string>
   >({});
@@ -854,6 +796,16 @@ const ListenModeSlideRenderer = ({
     isAudioPlaying: false,
     isAudioWaiting: false,
   });
+  const restoredPlaybackScopeRef = useRef('');
+  const trackedPlaybackRestoreScopeRef = useRef('');
+  const nextPlaybackRestoreRequestIdRef = useRef(0);
+  const [resolvedPlaybackRestoreScope, setResolvedPlaybackRestoreScope] =
+    useState('');
+  const [playbackRestoreRequest, setPlaybackRestoreRequest] = useState<{
+    audioKey: string;
+    id: number;
+    timeMs: number;
+  } | null>(null);
   const [hasSettledTailInteraction, setHasSettledTailInteraction] =
     useState(false);
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
@@ -873,9 +825,6 @@ const ListenModeSlideRenderer = ({
       currentElement: undefined,
       isActive: false,
     });
-  const playerCustomActionElementRef = useRef<ListenSlideElement | undefined>(
-    undefined,
-  );
   const [isDesktopAskPanelMounted, setIsDesktopAskPanelMounted] =
     useState(false);
   const [desktopAskPanelElementBid, setDesktopAskPanelElementBid] =
@@ -1056,212 +1005,84 @@ const ListenModeSlideRenderer = ({
     showLeadingTextPlaceholder,
     t,
   ]);
-  const [requestedStepIndex, setRequestedStepIndex] = useState<number>();
-  const [playbackResumeRequest, setPlaybackResumeRequest] =
-    useState<SlidePlaybackResumeRequest | null>(null);
-  const restoredLessonPlaybackTargetRef = useRef('');
+
   useEffect(() => {
-    const lessonScopeKey = `${shifuBid}:${lessonId}`;
-    if (
-      !shifuBid ||
-      !lessonId ||
-      restoredLessonPlaybackTargetRef.current === lessonScopeKey
-    ) {
+    const scopeKey = `${shifuBid}:${lessonId}`;
+    if (variant !== 'listen') {
+      restoredPlaybackScopeRef.current = '';
+      setPlaybackRestoreRequest(null);
+      setResolvedPlaybackRestoreScope('');
       return;
     }
 
-    const storedTarget = readListenLessonPlaybackTargetFromStorage({
+    if (!shifuBid || !lessonId) {
+      restoredPlaybackScopeRef.current = '';
+      setPlaybackRestoreRequest(null);
+      setResolvedPlaybackRestoreScope('');
+      return;
+    }
+
+    if (restoredPlaybackScopeRef.current === scopeKey) {
+      return;
+    }
+
+    restoredPlaybackScopeRef.current = scopeKey;
+    setResolvedPlaybackRestoreScope('');
+    setPlaybackRestoreRequest(null);
+    const checkpoint = readListenPlaybackCheckpoint({
       courseId: shifuBid,
       lessonId,
     });
-    if (!storedTarget) {
-      restoredLessonPlaybackTargetRef.current = lessonScopeKey;
-      return;
+    if (checkpoint) {
+      nextPlaybackRestoreRequestIdRef.current += 1;
+      setPlaybackRestoreRequest({
+        ...checkpoint,
+        id: nextPlaybackRestoreRequestIdRef.current,
+      });
+      if (!previewMode && trackedPlaybackRestoreScopeRef.current !== scopeKey) {
+        trackedPlaybackRestoreScopeRef.current = scopeKey;
+        void Promise.resolve(
+          trackEvent('learner_listen_resume_requested', {
+            shifu_bid: shifuBid,
+            surface: 'learner_listen',
+          }),
+        ).catch(() => {});
+      }
     }
+    setResolvedPlaybackRestoreScope(scopeKey);
+  }, [lessonId, previewMode, shifuBid, trackEvent, variant]);
 
-    const targetElementIndex = elementList.findIndex(element => {
-      if (element.blockBid !== storedTarget.elementBid) {
-        return false;
+  const playbackRestoreScopeKey = `${shifuBid}:${lessonId}`;
+  const isPlaybackRestoreReady =
+    variant !== 'listen' ||
+    (Boolean(shifuBid && lessonId) &&
+      resolvedPlaybackRestoreScope === playbackRestoreScopeKey);
+
+  const handlePlaybackCheckpoint = useCallback(
+    ({
+      audioKey,
+      isComplete,
+      timeMs,
+    }: {
+      audioKey: string;
+      isComplete: boolean;
+      timeMs: number;
+    }) => {
+      if (variant !== 'listen' || !shifuBid || !lessonId) {
+        return;
       }
 
-      return (
-        getListenPlaybackSourceForElement(element) === storedTarget.source ||
-        storedTarget.source === `stream:${storedTarget.elementBid}`
+      if (isComplete) {
+        clearListenPlaybackCheckpoint({ courseId: shifuBid, lessonId });
+        return;
+      }
+
+      writeListenPlaybackCheckpoint(
+        { courseId: shifuBid, lessonId },
+        { audioKey, timeMs },
       );
-    });
-    if (targetElementIndex < 0) {
-      return;
-    }
-
-    restoredLessonPlaybackTargetRef.current = lessonScopeKey;
-    const targetElement = elementList[targetElementIndex];
-    if (!targetElement) {
-      return;
-    }
-
-    const scope = {
-      courseId: shifuBid,
-      lessonId,
-      elementBid: storedTarget.elementBid,
-      source: storedTarget.source,
-    } satisfies ListenPlaybackPositionScope;
-    const positionSeconds = readListenPlaybackPositionFromStorage(scope);
-
-    setRequestedStepIndex(
-      getListenSlideStepIndex(elementList, targetElementIndex),
-    );
-    if (positionSeconds !== null) {
-      setPlaybackResumeRequest({
-        audioKey: targetElement.blockBid ?? storedTarget.elementBid,
-        id: `${lessonScopeKey}:${storedTarget.elementBid}:${storedTarget.source}:${positionSeconds}`,
-        timeMs: positionSeconds * 1_000,
-      });
-    }
-  }, [elementList, lessonId, shifuBid]);
-
-  const persistSlidePlaybackPosition = useCallback(
-    (position: SlidePlaybackPosition, force = false) => {
-      const element = elementList.find(
-        candidate => candidate.blockBid === position.audioKey,
-      );
-      const elementBid = element?.blockBid?.trim() ?? '';
-      const source = element ? getListenPlaybackSourceForElement(element) : '';
-      const positionSeconds = position.timeMs / 1_000;
-      if (
-        !element ||
-        !elementBid ||
-        !source ||
-        !Number.isFinite(positionSeconds)
-      ) {
-        return;
-      }
-
-      const scope = {
-        courseId: shifuBid,
-        lessonId,
-        elementBid,
-        source,
-      } satisfies ListenPlaybackPositionScope;
-      const isOpenEnded = isStreamingListenPlaybackElement(element);
-      // Completed files keep the established native-audio persistence path.
-      // This callback specifically fills the gap for logical streamed audio,
-      // whose native element only knows the temporary current segment.
-      if (!isOpenEnded) {
-        return;
-      }
-      latestSlidePlaybackPositionRef.current = {
-        scope,
-        positionSeconds,
-        isOpenEnded,
-      };
-
-      const scopeKey = `${elementBid}:${source}`;
-      const now = Date.now();
-      const lastWrite = lastSlidePlaybackPositionWriteRef.current.get(scopeKey);
-      if (
-        !force &&
-        lastWrite &&
-        now - lastWrite < LISTEN_PLAYBACK_POSITION_WRITE_INTERVAL_MS
-      ) {
-        return;
-      }
-
-      lastSlidePlaybackPositionWriteRef.current.set(scopeKey, now);
-      writeListenPlaybackPositionToStorage({
-        scope,
-        positionSeconds,
-        durationSeconds: 0,
-        isOpenEnded,
-      });
     },
-    [elementList, lessonId, shifuBid],
-  );
-
-  useEffect(
-    () => () => {
-      const latestPosition = latestSlidePlaybackPositionRef.current;
-      if (!latestPosition) {
-        return;
-      }
-
-      writeListenPlaybackPositionToStorage({
-        ...latestPosition,
-        durationSeconds: 0,
-      });
-    },
-    [],
-  );
-
-  const resolveListenPlaybackPositionScope = useCallback(() => {
-    // The native player can be playing a temporary segment URL. The Slide
-    // custom-action context instead identifies the logical audio element
-    // currently selected by the player, including non-marker children.
-    const activeAudioElement = playerCustomActionElementRef.current;
-    const elementBid = activeAudioElement?.blockBid?.trim() ?? '';
-    const source = normalizeListenPlaybackSource(
-      String(activeAudioElement?.audio_url ?? ''),
-    );
-
-    if (
-      !elementBid ||
-      !source ||
-      activeAudioElement?.is_audio_streaming ||
-      activeAudioElement?.isAudioStreaming
-    ) {
-      return null;
-    }
-
-    return {
-      courseId: shifuBid,
-      lessonId,
-      elementBid,
-      source,
-    } satisfies ListenPlaybackPositionScope;
-  }, [lessonId, shifuBid]);
-  const syncPlaybackTimeline = useCallback(
-    (audioElement: HTMLAudioElement) => {
-      const scope = resolveListenPlaybackPositionScope();
-      const durationSeconds = audioElement.duration;
-
-      if (!scope || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-        return null;
-      }
-
-      const currentTimeSeconds = Math.min(
-        Math.max(audioElement.currentTime, 0),
-        durationSeconds,
-      );
-
-      return { scope, currentTimeSeconds, durationSeconds };
-    },
-    [resolveListenPlaybackPositionScope],
-  );
-  const persistListenPlaybackPosition = useCallback(
-    (audioElement: HTMLAudioElement, force = false) => {
-      const playbackTimeline = syncPlaybackTimeline(audioElement);
-      if (!playbackTimeline) {
-        return;
-      }
-
-      const now = Date.now();
-      const lastWrite =
-        lastPlaybackPositionWriteMapRef.current.get(audioElement);
-      if (
-        !force &&
-        lastWrite &&
-        now - lastWrite < LISTEN_PLAYBACK_POSITION_WRITE_INTERVAL_MS
-      ) {
-        return;
-      }
-
-      lastPlaybackPositionWriteMapRef.current.set(audioElement, now);
-      writeListenPlaybackPositionToStorage({
-        scope: playbackTimeline.scope,
-        positionSeconds: playbackTimeline.currentTimeSeconds,
-        durationSeconds: playbackTimeline.durationSeconds,
-      });
-    },
-    [syncPlaybackTimeline],
+    [lessonId, shifuBid, variant],
   );
   const markerStepCount = useMemo(
     () => elementList.filter(element => Boolean(element.is_marker)).length,
@@ -1466,7 +1287,6 @@ const ListenModeSlideRenderer = ({
       setActive,
     }: PlayerCustomActionContextSnapshot) => {
       playerCustomActionSetActiveRef.current = setActive;
-      playerCustomActionElementRef.current = currentElement;
       if (isActive) {
         setDesktopAskPanelElementBid(
           resolvePlayerAskElementBid(currentElement),
@@ -1682,38 +1502,6 @@ const ListenModeSlideRenderer = ({
         }));
         syncMediaPlaybackState();
       };
-      const handlePlaybackMetadata = () => {
-        const playbackTimeline = syncPlaybackTimeline(audioElement);
-        if (!playbackTimeline) {
-          return;
-        }
-
-        const restoredSource =
-          restoredAudioSourceMapRef.current.get(audioElement);
-        if (restoredSource === playbackTimeline.scope.source) {
-          return;
-        }
-
-        restoredAudioSourceMapRef.current.set(
-          audioElement,
-          playbackTimeline.scope.source,
-        );
-        const storedPosition = readListenPlaybackPositionFromStorage(
-          playbackTimeline.scope,
-        );
-        if (storedPosition === null) {
-          return;
-        }
-
-        audioElement.currentTime = Math.min(
-          storedPosition,
-          playbackTimeline.durationSeconds,
-        );
-        syncPlaybackTimeline(audioElement);
-      };
-      const handlePlaybackTimeUpdate = () => {
-        persistListenPlaybackPosition(audioElement);
-      };
       const handlePlaybackWaiting = () => {
         setWaitingState(true);
         setPlaybackState(prevState => ({
@@ -1728,15 +1516,10 @@ const ListenModeSlideRenderer = ({
       };
       const handlePlaybackPaused = () => {
         setWaitingState(false);
-        persistListenPlaybackPosition(audioElement, true);
         syncMediaPlaybackState();
       };
       const handlePlaybackEnded = () => {
         setWaitingState(false);
-        const playbackTimeline = syncPlaybackTimeline(audioElement);
-        if (playbackTimeline) {
-          clearListenPlaybackPositionFromStorage(playbackTimeline.scope);
-        }
         setPlaybackState(prevState => ({
           ...prevState,
           hasCompletedCurrentStepAudio: true,
@@ -1747,48 +1530,27 @@ const ListenModeSlideRenderer = ({
       audioWaitingStateMapRef.current.set(audioElement, false);
       audioElement.addEventListener('play', handlePlaybackStarted);
       audioElement.addEventListener('playing', handlePlaybackStarted);
-      audioElement.addEventListener('loadedmetadata', handlePlaybackMetadata);
       audioElement.addEventListener('loadstart', handlePlaybackWaiting);
       audioElement.addEventListener('waiting', handlePlaybackWaiting);
       audioElement.addEventListener('seeking', handlePlaybackWaiting);
       audioElement.addEventListener('canplay', handlePlaybackReady);
       audioElement.addEventListener('canplaythrough', handlePlaybackReady);
       audioElement.addEventListener('seeked', handlePlaybackReady);
-      audioElement.addEventListener('timeupdate', handlePlaybackTimeUpdate);
       audioElement.addEventListener('pause', handlePlaybackPaused);
       audioElement.addEventListener('ended', handlePlaybackEnded);
       audioListenerCleanupMapRef.current.set(audioElement, () => {
-        const playbackPosition = syncPlaybackTimeline(audioElement);
-        if (playbackPosition) {
-          writeListenPlaybackPositionToStorage({
-            scope: playbackPosition.scope,
-            positionSeconds: playbackPosition.currentTimeSeconds,
-            durationSeconds: playbackPosition.durationSeconds,
-          });
-        }
         audioElement.removeEventListener('play', handlePlaybackStarted);
         audioElement.removeEventListener('playing', handlePlaybackStarted);
-        audioElement.removeEventListener(
-          'loadedmetadata',
-          handlePlaybackMetadata,
-        );
         audioElement.removeEventListener('loadstart', handlePlaybackWaiting);
         audioElement.removeEventListener('waiting', handlePlaybackWaiting);
         audioElement.removeEventListener('seeking', handlePlaybackWaiting);
         audioElement.removeEventListener('canplay', handlePlaybackReady);
         audioElement.removeEventListener('canplaythrough', handlePlaybackReady);
         audioElement.removeEventListener('seeked', handlePlaybackReady);
-        audioElement.removeEventListener(
-          'timeupdate',
-          handlePlaybackTimeUpdate,
-        );
         audioElement.removeEventListener('pause', handlePlaybackPaused);
         audioElement.removeEventListener('ended', handlePlaybackEnded);
         audioWaitingStateMapRef.current.delete(audioElement);
       });
-      if (audioElement.readyState >= HTMLMediaElement.HAVE_METADATA) {
-        handlePlaybackMetadata();
-      }
       syncMediaPlaybackState();
     };
 
@@ -1827,29 +1589,7 @@ const ListenModeSlideRenderer = ({
       audioListenerCleanupMap.clear();
       audioWaitingStateMap.clear();
     };
-  }, [
-    chatRef,
-    persistListenPlaybackPosition,
-    syncMediaPlaybackState,
-    syncPlaybackTimeline,
-  ]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== 'hidden') {
-        return;
-      }
-
-      audioListenerCleanupMapRef.current.forEach((_cleanup, audioElement) => {
-        persistListenPlaybackPosition(audioElement, true);
-      });
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [persistListenPlaybackPosition]);
+  }, [chatRef, syncMediaPlaybackState]);
 
   useEffect(() => {
     const container = chatRef.current;
@@ -1898,8 +1638,7 @@ const ListenModeSlideRenderer = ({
 
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
-      const currentElement = element as ListenSlideElement | undefined;
-      const blockBid = currentElement?.blockBid;
+      const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
       if (blockBid && blockBid !== 'empty-ppt') {
         setCurrentStepBlockBid(blockBid);
       }
@@ -2425,6 +2164,7 @@ const ListenModeSlideRenderer = ({
       <div className='slide-player__ask-arrow' />
     </div>
   ) : null;
+
   return (
     <div
       className={cn(
@@ -2510,8 +2250,8 @@ const ListenModeSlideRenderer = ({
             waitingForAudio: t('module.chat.thinking'),
           }}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
+          onPlaybackCheckpoint={handlePlaybackCheckpoint}
           onStepChange={handleStepChange}
-          onPlaybackPositionChange={persistSlidePlaybackPosition}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
           }
@@ -2519,8 +2259,7 @@ const ListenModeSlideRenderer = ({
           fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
-          requestedStepIndex={requestedStepIndex}
-          playbackResumeRequest={playbackResumeRequest}
+          playbackRestoreRequest={playbackRestoreRequest}
           playerClassName={cn(
             listenPlayerClassName,
             mobileStyle ? 'listen-slide-player-mobile' : '',
@@ -2528,7 +2267,7 @@ const ListenModeSlideRenderer = ({
           )}
           playerCustomActionPauseOnActive={pausePlayerCustomActionOnActive}
           playerCustomActions={enableCustomActions ? playerCustomActions : null}
-          playerEnabled={!shouldRenderEmptyPpt}
+          playerEnabled={!shouldRenderEmptyPpt && isPlaybackRestoreReady}
         />
         {shouldRenderManualFullscreenButton ? (
           <button

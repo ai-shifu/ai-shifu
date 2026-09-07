@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { arrayMove } from '@dnd-kit/sortable';
 
 import type { FlattenedItem, TreeItem, TreeItems } from './types';
@@ -8,10 +7,6 @@ export const iOS =
   typeof window !== 'undefined'
     ? /iPad|iPhone|iPod/.test(navigator.platform)
     : false;
-
-function getDragDepth(offset: number, indentationWidth: number) {
-  return Math.round(offset / indentationWidth);
-}
 
 let _revertLastChanges = () => {};
 export function getProjection<T>(
@@ -79,14 +74,6 @@ export function getProjection<T>(
     isLast,
   };
 
-  function findParentWithDepth(depth: number, previousItem: FlattenedItem<T>) {
-    if (!previousItem) return null;
-    while (depth < previousItem.depth) {
-      if (previousItem.parent === null) return null;
-      previousItem = previousItem.parent;
-    }
-    return previousItem;
-  }
   function findParentWhichCanHaveChildren(
     parent: FlattenedItem<T> | null,
     dragItem: FlattenedItem<T>,

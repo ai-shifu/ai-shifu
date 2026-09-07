@@ -12,14 +12,20 @@ import {
   writeListenPlaybackSpeedToStorage,
 } from './listenPlaybackSpeed';
 import {
-  readListenPlaybackPositionFromStorage,
-  writeListenPlaybackPositionToStorage,
-} from './listenPlaybackPosition';
+  readListenPlaybackCheckpoint,
+  writeListenPlaybackCheckpoint,
+} from './listenPlaybackCheckpoint';
 import {
   isListenLessonFeedbackPromptReady,
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
 import type { ChatContentItem } from '@/c-types/chatUi';
+
+const mockTrackEvent = jest.fn();
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
 
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
@@ -40,8 +46,6 @@ const mockAskBlock = jest.fn(
   ),
 );
 let mockSlideMountId = 0;
-let mockSlideAudioInitialReadyState: number | null = null;
-let mockSlideAudioInitialDuration: number | null = null;
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -70,8 +74,6 @@ jest.mock('markdown-flow-ui/slide', () => {
   const slideCustomActionElement = {
     blockBid: 'content-1',
     type: 'content',
-    audio_url: '',
-    is_marker: true,
   };
   type SlideCustomActionContext = {
     currentElement: typeof slideCustomActionElement;
@@ -91,64 +93,20 @@ jest.mock('markdown-flow-ui/slide', () => {
         playerCustomActions?:
           | React.ReactNode
           | ((context: SlideCustomActionContext) => React.ReactNode);
-        elementList?: Array<typeof slideCustomActionElement>;
-        requestedStepIndex?: number;
-        onStepChange?: (
-          element: typeof slideCustomActionElement | undefined,
-          index: number,
-        ) => void;
       }) => {
         const [isActive, setIsActive] = ReactRuntime.useState(false);
-        const elementList = props.elementList ?? [];
-        const stepElements = elementList.filter(element =>
-          Boolean(element.is_marker),
-        );
-        const initialAudioElementIndex = elementList.findIndex(element =>
-          Boolean(element.audio_url),
-        );
-        const initialStepElement =
-          elementList
-            .slice(0, initialAudioElementIndex + 1)
-            .reverse()
-            .find(element => Boolean(element.is_marker)) ?? stepElements?.[0];
-        const currentElement =
-          (typeof props.requestedStepIndex === 'number'
-            ? stepElements?.[props.requestedStepIndex]
-            : undefined) ??
-          initialStepElement ??
-          elementList[0] ??
-          slideCustomActionElement;
-        const currentIndex = Math.max(
-          0,
-          stepElements?.indexOf(currentElement) ?? 0,
-        );
-        const currentElementIndex = elementList.indexOf(currentElement);
-        const nextMarkerIndex = elementList.findIndex(
-          (element, index) =>
-            index > currentElementIndex && Boolean(element.is_marker),
-        );
-        const currentAudioElement = elementList
-          .slice(
-            Math.max(currentElementIndex, 0),
-            nextMarkerIndex >= 0 ? nextMarkerIndex : elementList.length,
-          )
-          .find(element => Boolean(element.audio_url));
-        const playerCustomActionElement = currentAudioElement ?? currentElement;
-        ReactRuntime.useEffect(() => {
-          props.onStepChange?.(currentElement, currentIndex);
-        }, [currentElement, currentIndex, props.onStepChange]);
         const toggleActive = ReactRuntime.useCallback(() => {
           setIsActive(currentActive => !currentActive);
         }, []);
         const slideCustomActionContext = ReactRuntime.useMemo(
           () => ({
-            currentElement: playerCustomActionElement,
-            currentIndex,
+            currentElement: slideCustomActionElement,
+            currentIndex: 0,
             isActive,
             setActive: setIsActive,
             toggleActive,
           }),
-          [playerCustomActionElement, currentIndex, isActive, toggleActive],
+          [isActive, toggleActive],
         );
         const mountId = ReactRuntime.useMemo(() => {
           mockSlideMountId += 1;
@@ -160,24 +118,7 @@ jest.mock('markdown-flow-ui/slide', () => {
             data-testid='mock-slide'
             data-mount-id={mountId}
           >
-            <audio
-              data-testid='slide-audio'
-              ref={audioElement => {
-                if (!audioElement || mockSlideAudioInitialReadyState === null) {
-                  return;
-                }
-
-                Object.defineProperty(audioElement, 'readyState', {
-                  configurable: true,
-                  value: mockSlideAudioInitialReadyState,
-                });
-                Object.defineProperty(audioElement, 'duration', {
-                  configurable: true,
-                  value: mockSlideAudioInitialDuration,
-                });
-              }}
-              src={String(currentAudioElement?.audio_url ?? '')}
-            />
+            <audio data-testid='slide-audio' />
             <button
               aria-hidden='true'
               aria-label='Notes'
@@ -272,12 +213,11 @@ describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockSlideMountId = 0;
-    mockSlideAudioInitialReadyState = null;
-    mockSlideAudioInitialDuration = null;
     getMockSlide().mockClear();
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
     mockIsLessonFeedbackInteractionContent.mockClear();
+    mockTrackEvent.mockClear();
   });
 
   afterEach(() => {
@@ -308,6 +248,145 @@ describe('ListenModeSlideRenderer', () => {
         name: 'module.chat.audioLoading',
       }),
     ).toBeInTheDocument();
+  });
+
+  it('defers player startup until it has supplied the saved audio checkpoint', async () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'later-stream', timeMs: 12_000 },
+    );
+    expect(
+      readListenPlaybackCheckpoint({
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+      }),
+    ).toEqual({ audioKey: 'later-stream', timeMs: 12_000 });
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Later stream',
+            element_bid: 'later-stream',
+            is_speakable: true,
+            audioTracks: [
+              {
+                position: 0,
+                audioUrl: '/audio/later-stream.mp3',
+                isAudioStreaming: false,
+              },
+            ],
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+      />,
+    );
+
+    const initialSlideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { playerEnabled?: boolean }
+      | undefined;
+    expect(initialSlideProps?.playerEnabled).toBe(false);
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | {
+            playbackRestoreRequest?: {
+              audioKey: string;
+              id: number;
+              timeMs: number;
+            } | null;
+            playerEnabled?: boolean;
+          }
+        | undefined;
+
+      expect(slideProps?.playerEnabled).toBe(true);
+      expect(slideProps?.playbackRestoreRequest).toEqual({
+        audioKey: 'later-stream',
+        id: 1,
+        timeMs: 12_000,
+      });
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_listen_resume_requested',
+      {
+        shifu_bid: 'course-1',
+        surface: 'learner_listen',
+      },
+    );
+  });
+
+  it('clears the saved checkpoint when its logical audio item completes', () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'later-stream', timeMs: 12_000 },
+    );
+
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+      | {
+          onPlaybackCheckpoint?: (checkpoint: {
+            audioKey: string;
+            isComplete: boolean;
+            timeMs: number;
+          }) => void;
+        }
+      | undefined;
+    slideProps?.onPlaybackCheckpoint?.({
+      audioKey: 'later-stream',
+      isComplete: true,
+      timeMs: 20_000,
+    });
+
+    expect(
+      readListenPlaybackCheckpoint({
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+      }),
+    ).toBeNull();
+  });
+
+  it('does not track checkpoint restoration in preview mode', async () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'later-stream', timeMs: 12_000 },
+    );
+
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+        previewMode
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | { playbackRestoreRequest?: { audioKey: string } | null }
+        | undefined;
+      expect(slideProps?.playbackRestoreRequest?.audioKey).toBe('later-stream');
+    });
+
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   it('relies on slide locale defaults for matching built-in copy', () => {
@@ -1463,412 +1542,6 @@ describe('ListenModeSlideRenderer', () => {
     await waitFor(() => {
       expect(audioElement.defaultPlaybackRate).toBe(1.5);
       expect(audioElement.playbackRate).toBe(1.5);
-    });
-  });
-
-  it('restores a saved finalized audio position after metadata without starting playback', async () => {
-    writeListenPlaybackPositionToStorage({
-      scope: {
-        courseId: 'course-1',
-        lessonId: 'lesson-1',
-        elementBid: 'content-1',
-        source: 'https://audio.example.com/content-1.mp3',
-      },
-      positionSeconds: 24,
-      durationSeconds: 60,
-    });
-
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'Hello',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    const playSpy = jest.spyOn(audioElement, 'play');
-
-    fireEvent.loadedMetadata(audioElement);
-
-    await waitFor(() => {
-      expect(audioElement.currentTime).toBe(24);
-      expect(playSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  it('restores the position for the audio source selected after the first slide', async () => {
-    writeListenPlaybackPositionToStorage({
-      scope: {
-        courseId: 'course-1',
-        lessonId: 'lesson-1',
-        elementBid: 'content-1',
-        source: 'https://audio.example.com/content-1.mp3',
-      },
-      positionSeconds: 12,
-      durationSeconds: 60,
-    });
-    writeListenPlaybackPositionToStorage({
-      scope: {
-        courseId: 'course-1',
-        lessonId: 'lesson-1',
-        elementBid: 'content-2',
-        source: 'https://audio.example.com/content-2.mp3',
-      },
-      positionSeconds: 36,
-      durationSeconds: 60,
-    });
-
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'First',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-          },
-          {
-            type: 'content',
-            content: 'Second',
-            element_bid: 'content-2',
-            audio_url: 'https://audio.example.com/content-2.mp3',
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    audioElement.src = 'https://audio.example.com/content-2.mp3';
-    fireEvent.loadedMetadata(audioElement);
-
-    await waitFor(() => {
-      expect(audioElement.currentTime).toBe(36);
-    });
-  });
-
-  it('returns to the last resumable audio in a lesson before restoring its position', async () => {
-    writeListenPlaybackPositionToStorage({
-      scope: {
-        courseId: 'course-1',
-        lessonId: 'lesson-1',
-        elementBid: 'content-2',
-        source: 'https://audio.example.com/content-2.mp3',
-      },
-      positionSeconds: 36,
-      durationSeconds: 60,
-    });
-
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'First',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-          },
-          {
-            type: 'content',
-            content: 'Second',
-            element_bid: 'content-2',
-            audio_url: 'https://audio.example.com/content-2.mp3',
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = await screen.findByTestId('slide-audio');
-    await waitFor(() => {
-      expect(audioElement).toHaveAttribute(
-        'src',
-        'https://audio.example.com/content-2.mp3',
-      );
-    });
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    fireEvent.loadedMetadata(audioElement);
-
-    await waitFor(() => {
-      expect((audioElement as HTMLAudioElement).currentTime).toBe(36);
-    });
-  });
-
-  it('restores a later marker step when earlier elements are not slide steps', async () => {
-    writeListenPlaybackPositionToStorage({
-      scope: {
-        courseId: 'course-1',
-        lessonId: 'lesson-1',
-        elementBid: 'content-2',
-        source: 'https://audio.example.com/content-2.mp3',
-      },
-      positionSeconds: 18,
-      durationSeconds: 60,
-    });
-
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: '<p>Unmarked context</p>',
-            element_type: 'html',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-            is_marker: false,
-          },
-          {
-            type: 'content',
-            content: '<p>Second</p>',
-            element_type: 'html',
-            element_bid: 'content-2',
-            audio_url: 'https://audio.example.com/content-2.mp3',
-            is_marker: true,
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const audioElement = await screen.findByTestId('slide-audio');
-    await waitFor(() => {
-      expect(audioElement).toHaveAttribute(
-        'src',
-        'https://audio.example.com/content-2.mp3',
-      );
-    });
-    Object.defineProperty(audioElement, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    fireEvent.loadedMetadata(audioElement);
-
-    await waitFor(() => {
-      expect((audioElement as HTMLAudioElement).currentTime).toBe(18);
-    });
-  });
-
-  it('persists and restores segment playback owned by the current marker step', async () => {
-    const items = [
-      {
-        type: 'interaction',
-        content: 'Answer the question before continuing.',
-        element_bid: 'interaction-1',
-      },
-      {
-        type: 'content',
-        content: 'The explanation belongs to the interaction step.',
-        element_bid: 'content-1',
-        audio_url: 'https://audio.example.com/content-1.mp3',
-        audio_segments: [
-          {
-            audio_data: 'segment-audio',
-            duration_ms: 60_000,
-            is_final: true,
-            position: 0,
-            segment_index: 0,
-          },
-        ],
-        is_marker: false,
-      },
-      {
-        type: 'content',
-        content: 'Next step',
-        element_bid: 'content-2',
-        audio_url: 'https://audio.example.com/content-2.mp3',
-      },
-    ] as ChatContentItem[];
-    const firstRender = render(
-      <ListenModeSlideRenderer
-        items={items}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const firstAudio = screen.getByTestId('slide-audio') as HTMLAudioElement;
-    Object.defineProperty(firstAudio, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    firstAudio.src = 'blob:https://audio.example.com/temporary-segment';
-    fireEvent.loadedMetadata(firstAudio);
-    firstAudio.currentTime = 24;
-    fireEvent.timeUpdate(firstAudio);
-
-    await waitFor(() => {
-      expect(
-        readListenPlaybackPositionFromStorage({
-          courseId: 'course-1',
-          lessonId: 'lesson-1',
-          elementBid: 'content-1',
-          source: 'https://audio.example.com/content-1.mp3',
-        }),
-      ).toBe(24);
-    });
-
-    firstRender.unmount();
-    render(
-      <ListenModeSlideRenderer
-        items={items}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const restoredAudio = (await screen.findByTestId(
-      'slide-audio',
-    )) as HTMLAudioElement;
-    Object.defineProperty(restoredAudio, 'duration', {
-      configurable: true,
-      value: 60,
-    });
-    fireEvent.loadedMetadata(restoredAudio);
-
-    await waitFor(() => {
-      expect(restoredAudio).toHaveAttribute(
-        'src',
-        'https://audio.example.com/content-1.mp3',
-      );
-      expect(restoredAudio.currentTime).toBe(24);
-    });
-  });
-
-  it('persists an absolute streamed offset and asks Slide to restore it', async () => {
-    const items = [
-      {
-        type: 'content',
-        content: 'Streaming lesson content.',
-        element_bid: 'content-1',
-        isAudioStreaming: true,
-      },
-    ] as ChatContentItem[];
-    const firstRender = render(
-      <ListenModeSlideRenderer
-        items={items}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    const firstSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
-      onPlaybackPositionChange?: (position: {
-        audioKey: string;
-        timeMs: number;
-      }) => void;
-    };
-    act(() => {
-      firstSlideProps.onPlaybackPositionChange?.({
-        audioKey: 'content-1',
-        timeMs: 24_000,
-      });
-    });
-
-    expect(
-      readListenPlaybackPositionFromStorage({
-        courseId: 'course-1',
-        lessonId: 'lesson-1',
-        elementBid: 'content-1',
-        source: 'stream:content-1',
-      }),
-    ).toBe(24);
-
-    firstRender.unmount();
-    render(
-      <ListenModeSlideRenderer
-        items={items}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    await waitFor(() => {
-      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
-        playbackResumeRequest?: {
-          audioKey: string;
-          timeMs: number;
-        } | null;
-      };
-      expect(slideProps.playbackResumeRequest).toMatchObject({
-        audioKey: 'content-1',
-        timeMs: 24_000,
-      });
-    });
-  });
-
-  it('restores cached metadata that loaded before the audio listener registered', async () => {
-    writeListenPlaybackPositionToStorage({
-      scope: {
-        courseId: 'course-1',
-        lessonId: 'lesson-1',
-        elementBid: 'content-1',
-        source: 'https://audio.example.com/content-1.mp3',
-      },
-      positionSeconds: 24,
-      durationSeconds: 60,
-    });
-    mockSlideAudioInitialReadyState = HTMLMediaElement.HAVE_METADATA;
-    mockSlideAudioInitialDuration = 60;
-
-    render(
-      <ListenModeSlideRenderer
-        items={[
-          {
-            type: 'content',
-            content: 'Hello',
-            element_bid: 'content-1',
-            audio_url: 'https://audio.example.com/content-1.mp3',
-          },
-        ]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        lessonId='lesson-1'
-        shifuBid='course-1'
-      />,
-    );
-
-    await waitFor(() => {
-      expect(
-        (screen.getByTestId('slide-audio') as HTMLAudioElement).currentTime,
-      ).toBe(24);
     });
   });
 

@@ -148,6 +148,8 @@ rules, but must not duplicate or redefine them.
 - The local `commit-msg` hook is only a baseline Conventional Commits syntax
   check. It does not enforce the `Changed:` / `Benefit:` body or the
   classification rules below.
+- The `Changed:` / `Benefit:` body requirement applies only to commit messages;
+  PR descriptions are not subject to this constraint.
 - Subject: use English Conventional Commits without scope parentheses, such as
   `type: summary`; do not use `type(scope): summary`. Write the summary in
   plain language that product users can understand. When a change affects
