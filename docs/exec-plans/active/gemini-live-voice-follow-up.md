@@ -45,6 +45,15 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Review `r3946490434` bounds server-relative expiry with both
+      request-start and response-receipt monotonic times. Only the conservative
+      request-start bound proves a credential may resume; receipt is the safe
+      admission upper bound, not continued-validity evidence. Transport errors,
+      close, GoAway and heartbeat failure inside this uncertainty window keep
+      input pending and suppress stale resumption, then renew once after the old
+      credential is certainly expired. No premature capacity release or extra
+      connection-failure/adoption telemetry. All 358 focused Live tests,
+      230 frontend suites / 2,414 tests, TypeScript and full pre-commit pass.
 - [x] 2026-09-07: Review `r3946439345` extends pending/muted capture gating to
       initial setup and same-token GoAway/unexpected-close resumption. Only
       socket/playback-ready input can pulse or upload. Explicit microphone-on
@@ -1008,11 +1017,12 @@ directions. An active microphone is carried across natural expiry without
 another native activation or permission request, while old played checkpoints
 and history finalize before successor admission. Cancelled/failed handoffs
 release resources; silent/paused sessions do not mint idle tokens. Local
-regression evidence after review fixes is 230 frontend suites / 2,409 tests,
-353 focused Live tests, and 231 backend tests. Initial, resumed and retained
+regression evidence after review fixes is 230 frontend suites / 2,414 tests,
+358 focused Live tests, and 231 backend tests. Initial, resumed and retained
 capture stays visibly pending and silent until socket/playback readiness;
-new-server relative lifetimes
-and monotonic browser deadlines prevent device-clock-driven expiry. This is not real-device or Gemini
+new-server relative lifetimes and monotonic request/receipt expiry bounds
+prevent device-clock-driven expiry, late-response expired resumption, and early
+admission. This is not real-device or Gemini
 handoff acceptance, and does not deploy to dev or production.
 
 The 2026-09-05 pause/input implementation and its verified review corrections

@@ -318,7 +318,16 @@ export const useLiveVoiceFollowUp = ({
   const generationRef = useRef(0);
   const websocketRef = useRef<WebSocket | null>(null);
   const sessionRef = useRef<LiveFollowUpSession | null>(null);
+  // Receipt bounds the latest expiry; request start bounds the earliest.
+  // Never use the latest bound as proof that a credential can still resume.
   const sessionDeadlineRef = useRef<number | null>(null);
+  const sessionValidUntilRef = useRef<number | null>(null);
+  const credentialMayHaveExpired = useCallback(
+    () =>
+      sessionValidUntilRef.current !== null &&
+      performance.now() >= sessionValidUntilRef.current,
+    [],
+  );
   const remainingSessionMs = useCallback(
     () =>
       sessionDeadlineRef.current === null
@@ -698,6 +707,7 @@ export const useLiveVoiceFollowUp = ({
       const accumulator = accumulatorRef.current;
       sessionRef.current = null;
       sessionDeadlineRef.current = null;
+      sessionValidUntilRef.current = null;
       accumulatorRef.current = null;
       const audio = audioRef.current;
       audioRef.current = null;
@@ -1015,6 +1025,7 @@ export const useLiveVoiceFollowUp = ({
       const attemptAccumulator = new GeminiLiveTurnAccumulator();
       accumulatorRef.current = attemptAccumulator;
       let connectionDeadline: number | null = null;
+      let sessionRequestStartedAt = performance.now();
 
       if (analyticsEnabled) {
         trackSafely(
@@ -1254,6 +1265,7 @@ export const useLiveVoiceFollowUp = ({
           if (attemptRef.current?.generation !== generation)
             throw new Error('Live session startup cancelled');
           armConnectionTimeout();
+          sessionRequestStartedAt = performance.now();
           return admissionRef.current!.create(
             shifuBid,
             outlineBid,
@@ -1368,6 +1380,10 @@ export const useLiveVoiceFollowUp = ({
             return;
           }
           if (message.upstreamError) {
+            if (credentialMayHaveExpired()) {
+              expireSessionRef.current(generation);
+              return;
+            }
             finishAttempt({
               reason: 'connection_error',
               keepOpen: true,
@@ -1465,7 +1481,7 @@ export const useLiveVoiceFollowUp = ({
           }
 
           if (message.goAway) {
-            if (remainingSessionMs() <= 0) {
+            if (credentialMayHaveExpired()) {
               expireSessionRef.current(generation);
               return;
             }
@@ -1500,7 +1516,7 @@ export const useLiveVoiceFollowUp = ({
           ) {
             return;
           }
-          if (remainingSessionMs() <= 0) {
+          if (credentialMayHaveExpired()) {
             expireSessionRef.current(generation);
             return;
           }
@@ -1522,7 +1538,7 @@ export const useLiveVoiceFollowUp = ({
           ) {
             return;
           }
-          if (remainingSessionMs() <= 0) {
+          if (credentialMayHaveExpired()) {
             expireSessionRef.current(generation);
             return;
           }
@@ -1533,7 +1549,7 @@ export const useLiveVoiceFollowUp = ({
             !unexpectedResumptionUsed &&
             !textTransitionRef.current &&
             RECOVERABLE_WEBSOCKET_CLOSE_CODES.has(event.code) &&
-            remainingSessionMs() > 0
+            !credentialMayHaveExpired()
           ) {
             unexpectedResumptionUsed = true;
             reconnectingRef.current = true;
@@ -1603,6 +1619,13 @@ export const useLiveVoiceFollowUp = ({
           }
           sessionRef.current = session;
           sessionDeadlineRef.current = expiresAt;
+          // The server sampled its remaining lifetime somewhere within this
+          // request. Subtract the full elapsed request for a conservative
+          // resumption bound, but retain the receipt bound for safe admission.
+          sessionValidUntilRef.current =
+            session.expires_in_ms === undefined
+              ? expiresAt
+              : sessionRequestStartedAt + lifetime;
           if (
             connectionDeadline !== null &&
             performance.now() >= connectionDeadline
@@ -1645,7 +1668,7 @@ export const useLiveVoiceFollowUp = ({
               }
             } catch (error) {
               if (attemptRef.current?.generation !== generation) return;
-              if (remainingSessionMs() <= 0) {
+              if (credentialMayHaveExpired()) {
                 expireSessionRef.current(generation);
                 return;
               }
@@ -1729,6 +1752,7 @@ export const useLiveVoiceFollowUp = ({
       analyticsEnabled,
       applyControlRetry,
       applyTranscriptUpdates,
+      credentialMayHaveExpired,
       finishAttempt,
       flushReadyCommits,
       learningMode,
@@ -1749,6 +1773,31 @@ export const useLiveVoiceFollowUp = ({
     if (!attempt || attempt.generation !== generation) return;
     const remaining = remainingSessionMs() + CREDENTIAL_RESERVATION_MARGIN_MS;
     if (Number.isFinite(remaining) && remaining > 0) {
+      // Transport ended in the response-latency uncertainty window. Do not
+      // resume a possibly expired token or mint before its risk lease drains.
+      setupReadyRef.current = false;
+      reconnectingRef.current = true;
+      inputActivityRef.current = { active: false, quietFrames: 0 };
+      audioRef.current?.setMuted(true);
+      const websocket = websocketRef.current;
+      websocketRef.current = null;
+      if (websocket) {
+        websocket.onopen = null;
+        websocket.onmessage = null;
+        websocket.onerror = null;
+        websocket.onclose = null;
+        if (
+          websocket.readyState === WebSocket.OPEN ||
+          websocket.readyState === WebSocket.CONNECTING
+        )
+          websocket.close(1000, 'session expiring');
+      }
+      setViewState(previous => ({
+        ...previous,
+        state: 'reconnecting',
+        inputActive: false,
+        microphonePending: !mutedRef.current,
+      }));
       if (timeoutTimerRef.current !== null)
         window.clearTimeout(timeoutTimerRef.current);
       timeoutTimerRef.current = window.setTimeout(
