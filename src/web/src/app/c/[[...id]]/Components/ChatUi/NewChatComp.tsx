@@ -64,6 +64,7 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import {
   getMissingListenModeAudioBlockBids,
+  getPendingListenModeAudioBackfillElementBids,
   hasPlayableListenAudioForItem,
   isListenModeAudioBackfillReady,
   isListenModeAudioBackfillCandidate,
@@ -238,6 +239,10 @@ export const NewChatComponents = ({
     {},
   );
   const listenAudioBackfillFailedBlockBidsRef = useRef<Set<string>>(new Set());
+  const [
+    listenAudioBackfillFailedBlockBids,
+    setListenAudioBackfillFailedBlockBids,
+  ] = useState<ReadonlySet<string>>(new Set());
   const listenAudioBackfillLessonIdRef = useRef('');
 
   const isScrollableElementForFeedback = useCallback(
@@ -326,11 +331,13 @@ export const NewChatComponents = ({
     listenAudioBackfillLessonIdRef.current = resolvedLessonId;
     listenAudioBackfillInFlightRef.current = {};
     listenAudioBackfillFailedBlockBidsRef.current = new Set();
+    setListenAudioBackfillFailedBlockBids(new Set());
   }, [resolvedLessonId]);
 
   useEffect(() => {
     if (!previousListenModeActiveRef.current && isListenModeActive) {
       listenAudioBackfillFailedBlockBidsRef.current = new Set();
+      setListenAudioBackfillFailedBlockBids(new Set());
     }
     previousListenModeActiveRef.current = isListenModeActive;
     isListenModeActiveRef.current = isListenModeActive;
@@ -481,7 +488,11 @@ export const NewChatComponents = ({
         onStreamSettled: clearTrackedRequest,
       }).then(result => {
         if (result) {
-          listenAudioBackfillFailedBlockBidsRef.current.delete(blockBid);
+          if (listenAudioBackfillFailedBlockBidsRef.current.delete(blockBid)) {
+            setListenAudioBackfillFailedBlockBids(
+              new Set(listenAudioBackfillFailedBlockBidsRef.current),
+            );
+          }
           const askEntry = Object.entries(
             useAskStateStore.getState().askListByAnchorElementBid,
           ).find(([, askList]) =>
@@ -903,6 +914,11 @@ export const NewChatComponents = ({
       failedBlockBids.forEach(blockBid => {
         listenAudioBackfillFailedBlockBidsRef.current.add(blockBid);
       });
+      if (failedBlockBids.length > 0) {
+        setListenAudioBackfillFailedBlockBids(
+          new Set(listenAudioBackfillFailedBlockBidsRef.current),
+        );
+      }
       const hasBackfillFailure = failedBlockBids.length > 0;
       const hasBackfillInFlight =
         Object.keys(listenAudioBackfillInFlightRef.current).length > 0;
@@ -950,6 +966,17 @@ export const NewChatComponents = ({
     t,
     updateLearningMode,
   ]);
+
+  const isEnteringListenMode =
+    isListenModeActive && !previousListenModeActiveRef.current;
+  const pendingListenAudioBackfillElementBids = useMemo(
+    () =>
+      getPendingListenModeAudioBackfillElementBids(
+        slideModeItems,
+        isEnteringListenMode ? new Set() : listenAudioBackfillFailedBlockBids,
+      ),
+    [isEnteringListenMode, listenAudioBackfillFailedBlockBids, slideModeItems],
+  );
 
   useEffect(() => {
     setIsListenFeedbackReady(false);
@@ -1346,6 +1373,9 @@ export const NewChatComponents = ({
               onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
               pausePlaybackWhen={reGenerateConfirm.open}
               disableInteractionEdits={isOutputInProgress}
+              pendingAudioBackfillElementBids={
+                pendingListenAudioBackfillElementBids
+              }
             />
           </>
         ) : (

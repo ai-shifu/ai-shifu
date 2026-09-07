@@ -57,6 +57,11 @@ export const writeListenPlaybackCheckpoint = (
   }
 
   if (checkpoint.timeMs < MINIMUM_POSITION_MS) {
+    const existingCheckpoint = readListenPlaybackCheckpoint(scope);
+    if (existingCheckpoint?.audioKey === checkpoint.audioKey) {
+      return;
+    }
+
     clearListenPlaybackCheckpoint(scope);
     return;
   }

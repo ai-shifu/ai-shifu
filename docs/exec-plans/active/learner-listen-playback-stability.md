@@ -20,9 +20,15 @@ refer to the stream that was actually playing, never the first stream.
   first audio item while a restore request is pending.
 - [x] Locally verified the supplied multi-stream lesson, including refresh and
   mode round trips, with the learner test environment.
-- [ ] Run repository verification, commit, push, and open the replacement PRs.
-- [ ] Publish an approved release of `markdown-flow-ui`, then update the
-  application dependency pin before either branch merges into `main`.
+- [x] Published `markdown-flow-ui` 0.2.25, updated the application release pin,
+  and merged the library and application changes.
+- [x] Reproduced and fixed a production mode-round-trip race where historical
+  text returned before its audio backfill and the application discarded the
+  still-valid checkpoint.
+- [x] Limited restore waiting to audio items whose backfill remains eligible;
+  terminal failures and ineligible items now release the player and clear the
+  unusable checkpoint.
+- [ ] Run verification and publish the production race fix.
 
 ## Decision Log
 
@@ -42,6 +48,21 @@ refer to the stream that was actually playing, never the first stream.
   - Why: Timeline UI, arbitrary seek, subtitle positioning, interaction-card
     positioning, and playback-source ordering were unrelated experimental
     changes and remain excluded.
+- Decision: Treat a restored element without playable audio as pending audio
+  backfill, not as a stale checkpoint.
+  - Why: Returning from reading mode can restore persisted text before its
+    narration is reattached. The element identity remains valid during that
+    interval, and allowing normal startup would both erase the checkpoint and
+    play the first sentence.
+- Decision: Ignore a near-zero checkpoint for the same logical audio key when
+  a valid later position is already stored.
+  - Why: Player teardown resets its media time before the unmount checkpoint is
+    delivered. A same-key zero is lifecycle noise, while a different-key zero
+    still means regenerated playback replaced the previously stored audio.
+- Decision: Derive restore waiting from the application backfill lifecycle,
+  including its terminal failure set, instead of from element presence alone.
+  - Why: Persisted text can legitimately wait for narration, but failed or
+    ineligible narration must not leave the player permanently disabled.
 
 ## Context and Orientation
 

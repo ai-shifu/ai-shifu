@@ -392,6 +392,132 @@ describe('ListenModeSlideRenderer', () => {
     ).toBeNull();
   });
 
+  it('keeps a checkpoint while its restored history audio is being backfilled', async () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'later-stream', timeMs: 12_000 },
+    );
+
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Later stream',
+            element_bid: 'later-stream',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        isLoading={false}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+        pendingAudioBackfillElementBids={new Set(['later-stream'])}
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | {
+            playbackRestoreRequest?: { audioKey: string } | null;
+            playerEnabled?: boolean;
+          }
+        | undefined;
+      expect(slideProps?.playbackRestoreRequest?.audioKey).toBe('later-stream');
+      expect(slideProps?.playerEnabled).toBe(false);
+    });
+    expect(
+      readListenPlaybackCheckpoint({
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+      }),
+    ).toEqual({ audioKey: 'later-stream', timeMs: 12_000 });
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Later stream',
+            element_bid: 'later-stream',
+            is_speakable: true,
+            audioTracks: [
+              {
+                position: 0,
+                audioUrl: '/audio/later-stream.mp3',
+                isAudioStreaming: false,
+              },
+            ],
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        isLoading={false}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+        pendingAudioBackfillElementBids={new Set(['later-stream'])}
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | {
+            playbackRestoreRequest?: { audioKey: string } | null;
+            playerEnabled?: boolean;
+          }
+        | undefined;
+      expect(slideProps?.playbackRestoreRequest?.audioKey).toBe('later-stream');
+      expect(slideProps?.playerEnabled).toBe(true);
+    });
+  });
+
+  it('clears a checkpoint when its matching element cannot be backfilled', async () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'failed-stream', timeMs: 12_000 },
+    );
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Failed stream',
+            element_bid: 'failed-stream',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        isLoading={false}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+        pendingAudioBackfillElementBids={new Set()}
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | {
+            playbackRestoreRequest?: { audioKey: string } | null;
+            playerEnabled?: boolean;
+          }
+        | undefined;
+      expect(slideProps?.playbackRestoreRequest).toBeNull();
+      expect(slideProps?.playerEnabled).toBe(true);
+    });
+    expect(
+      readListenPlaybackCheckpoint({
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+      }),
+    ).toBeNull();
+  });
+
   it('clears the saved checkpoint when its logical audio item completes', () => {
     writeListenPlaybackCheckpoint(
       { courseId: 'course-1', lessonId: 'lesson-1' },
