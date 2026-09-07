@@ -42,6 +42,7 @@ jest.mock('./useLiveFollowUpReadiness', () => ({
 }));
 
 const mockAudio = {
+  setCallbacks: jest.fn(),
   clearPlayback: jest.fn(),
   enqueueOutput: jest.fn(),
   finishOutput: jest.fn(),
@@ -394,6 +395,10 @@ const Harness = ({
       <span data-testid='open'>{String(controller.open)}</span>
       <span data-testid='warning'>{String(controller.warning)}</span>
       <span data-testid='muted'>{String(controller.muted)}</span>
+      <span data-testid='input-active'>{String(controller.inputActive)}</span>
+      <span data-testid='microphone-pending'>
+        {String(controller.microphonePending)}
+      </span>
       <span data-testid='error'>{controller.errorCode || ''}</span>
       <span data-testid='microphone-error'>
         {controller.microphoneError || ''}
@@ -421,6 +426,165 @@ const makeReady = async (socket = mockSockets.at(-1)!) => {
 };
 
 describe('useLiveVoiceFollowUp browser-direct transport', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([-1_200_000, -60_000, 60_000, 1_200_000])(
+    'uses server-relative expiry despite initial skew %s and later clock changes',
+    async skew => {
+      jest.useFakeTimers();
+      const serverNow = Date.now();
+      jest.setSystemTime(serverNow + skew);
+      mockCreateSession.mockResolvedValueOnce({
+        ...sessionResponse(serverNow + 1000),
+        expires_in_ms: 1000,
+      });
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      act(() => jest.setSystemTime(Date.now() - skew * 4));
+      await act(async () => jest.advanceTimersByTime(999));
+      expect(screen.getByTestId('state')).toHaveTextContent('listening');
+      await act(async () => jest.advanceTimersByTime(2));
+      expect(screen.getByTestId('state')).toHaveTextContent('ended');
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      mockCreateSession.mockResolvedValueOnce({
+        ...sessionResponse(serverNow + 901_000),
+        expires_in_ms: 900_000,
+      });
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'microphone' })),
+      );
+      expect(mockCreateSession).toHaveBeenCalledTimes(2);
+      expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['close', 'error', 'goAway', 'heartbeat', 'upstream'])(
+    'handles delayed session responses on %s without expired resumption or early admission',
+    async terminal => {
+      jest.useFakeTimers();
+      const response = createDeferred<
+        ReturnType<typeof sessionResponse> & { expires_in_ms: number }
+      >();
+      mockCreateSession.mockReturnValueOnce(response.promise);
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await act(async () => jest.advanceTimersByTime(4_000));
+      await act(async () =>
+        response.resolve({
+          ...sessionResponse(Date.now() + 16_000),
+          // Sampled by the server at t=2s, delivered at t=4s: true expiry t=20s.
+          expires_in_ms: 18_000,
+          heartbeat_interval_ms: 16_000,
+        }),
+      );
+      act(() => mockSockets[0].open());
+      await makeReady();
+      act(() =>
+        mockSockets[0].message(
+          serverEvent({
+            resumptionHandle: 'possibly-expired',
+            resumable: true,
+          }),
+        ),
+      );
+      // Earliest possible expiry t=18s, receipt upper bound t=22s.
+      if (terminal === 'heartbeat')
+        mockHeartbeatSession.mockRejectedValueOnce(
+          new Error('expired binding'),
+        );
+      await act(async () => jest.advanceTimersByTime(16_000));
+      if (terminal === 'close') act(() => mockSockets[0].serverClose());
+      else if (terminal === 'error') act(() => mockSockets[0].fail());
+      else if (terminal === 'goAway')
+        act(() => mockSockets[0].message(serverEvent({ goAway: true })));
+      else if (terminal === 'upstream')
+        act(() => mockSockets[0].message(serverEvent({ upstreamError: true })));
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      expect(mockSockets).toHaveLength(1);
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      act(() =>
+        mockActivateAudio.mock.calls[0][0].onInputFrame(
+          new Int16Array(640).fill(1500).buffer,
+        ),
+      );
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      await act(async () => jest.advanceTimersByTime(1_999));
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(2));
+      expect(mockCreateSession).toHaveBeenCalledTimes(2);
+      expect(mockSockets).toHaveLength(2);
+      expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+      expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+      act(() => mockSockets[1].open());
+      await makeReady(mockSockets[1]);
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_voice_follow_up_session_end',
+        expect.objectContaining({ end_reason: 'timeout' }),
+      );
+      expect(mockTrackEvent).not.toHaveBeenCalledWith(
+        'learner_voice_follow_up_result',
+        expect.objectContaining({ outcome: 'failed' }),
+      );
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_renewal_attempt',
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
+  it('does not clear the credential cooldown when the device clock jumps forward', async () => {
+    jest.useFakeTimers();
+    mockCreateSession.mockResolvedValueOnce({
+      ...sessionResponse(),
+      expires_in_ms: 1000,
+    });
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    fireEvent.click(screen.getByRole('button', { name: 'end' }));
+    act(() => jest.setSystemTime(Date.now() + 3_600_000));
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' })),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    await act(async () => jest.advanceTimersByTime(1001));
+    mockCreateSession.mockResolvedValueOnce({
+      ...sessionResponse(),
+      expires_in_ms: 900_000,
+    });
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' })),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY, 900_001, '1000'])(
+    'rejects an invalid server-relative lifetime %s',
+    async lifetime => {
+      mockCreateSession.mockResolvedValueOnce({
+        ...sessionResponse(),
+        expires_in_ms: lifetime,
+      });
+      render(<Harness />);
+      await startAndOpen();
+      act(() => mockSockets[0].message(serverEvent({ setupComplete: true })));
+      expect(screen.getByTestId('state')).toHaveTextContent('ended');
+      expect(screen.getByTestId('error')).toHaveTextContent('server_error');
+    },
+  );
   it.each(['checking', 'warming', 'unavailable'])(
     'rejects input before readiness (%s) without media or analytics',
     async readiness => {
@@ -1042,7 +1206,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     },
   );
 
-  it('silently expires a controlled session and rotates only on the next explicit input', async () => {
+  it('silently expires an idle controlled session and rotates only on the next explicit input', async () => {
     jest.useFakeTimers();
     mockControlledAdmission();
     mockCreateSession.mockImplementationOnce((_shifu, _outline, request) =>
@@ -1069,6 +1233,457 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockCreateSession).toHaveBeenCalledTimes(2);
     expect(mockOperationStatus).toHaveBeenCalledTimes(1);
     expect(mockRequestMicrophone).not.toHaveBeenCalled();
+  });
+
+  it('pauses both directions on explicit microphone-off and resumes only on input', async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    expect(screen.getByTestId('muted')).toHaveTextContent('false');
+    fireEvent.click(screen.getByRole('button', { name: 'mute' }));
+    expect(mockAudio.pauseOutput).toHaveBeenCalledTimes(1);
+    expect(mockAudio.stopMicrophone).toHaveBeenCalled();
+    expect(mockSockets[0].close).not.toHaveBeenCalled();
+    expect(screen.getByTestId('paused')).toHaveTextContent('true');
+    expect(screen.getByTestId('open')).toHaveTextContent('true');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_pause',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        reason: 'microphone_off',
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'pause' }));
+    expect(screen.getByTestId('open')).toHaveTextContent('false');
+    expect(mockAudio.pauseOutput).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('paused')).toHaveTextContent('false'),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('muted')).toHaveTextContent('true');
+  });
+
+  it.each([false, true])(
+    'keeps first microphone input pending until setup is ready (preview=%s)',
+    async previewMode => {
+      render(<Harness previewMode={previewMode} />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() =>
+        expect(mockAudio.attachMicrophone).toHaveBeenCalled(),
+      );
+      const { onInputFrame } = mockActivateAudio.mock.calls[0][0];
+      const speech = new Int16Array(640).fill(1500).buffer;
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      act(() => mockSockets[0].open());
+      act(() => onInputFrame(speech));
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      expect(mockSockets[0].send).toHaveBeenCalledTimes(1);
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_microphone_result',
+        ),
+      ).toHaveLength(0);
+      await makeReady();
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(false);
+      const sendsAfterSetup = mockSockets[0].send.mock.calls.length;
+      act(() => onInputFrame(speech));
+      expect(screen.getByTestId('input-active')).toHaveTextContent('true');
+      expect(mockSockets[0].send).toHaveBeenCalledTimes(sendsAfterSetup + 1);
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_microphone_result',
+        ),
+      ).toEqual(
+        previewMode
+          ? []
+          : [
+              [
+                'learner_voice_follow_up_microphone_result',
+                {
+                  shifu_bid: 'course-1',
+                  outline_bid: 'lesson-1',
+                  learning_mode: 'read',
+                  surface: 'read_content',
+                  enabled: true,
+                  outcome: 'success',
+                  error_code: 'none',
+                },
+              ],
+            ],
+      );
+    },
+  );
+
+  it.each(['mute', 'pause', 'end'])(
+    'cancels pending microphone readiness on %s without a late success',
+    async action => {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() =>
+        expect(mockAudio.attachMicrophone).toHaveBeenCalled(),
+      );
+      act(() => mockSockets[0].open());
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: action })),
+      );
+      await act(async () =>
+        mockSockets[0].message(serverEvent({ setupComplete: true })),
+      );
+      expect(screen.getByTestId('muted')).toHaveTextContent('true');
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name, payload]) =>
+            name === 'learner_voice_follow_up_microphone_result' &&
+            payload.enabled,
+        ),
+      ).toEqual([
+        [
+          'learner_voice_follow_up_microphone_result',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            enabled: true,
+            outcome: 'cancelled',
+            error_code: 'none',
+          },
+        ],
+      ]);
+      expect(mockAudio.setMuted).not.toHaveBeenCalledWith(false);
+    },
+  );
+
+  it('does not clear a pending permission when setup finishes first', async () => {
+    const permission = createDeferred<MediaStream>();
+    mockRequestMicrophone.mockReturnValueOnce(permission.promise);
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    expect(screen.getByTestId('microphone-pending')).toHaveTextContent('true');
+    expect(mockAudio.attachMicrophone).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_microphone_result',
+      ),
+    ).toHaveLength(0);
+    await act(async () =>
+      permission.resolve({
+        getTracks: () => [{ stop: jest.fn() }],
+      } as unknown as MediaStream),
+    );
+    expect(screen.getByTestId('microphone-pending')).toHaveTextContent('false');
+    expect(mockAudio.setMuted).toHaveBeenLastCalledWith(false);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_microphone_result',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it.each(['goAway', 'close'])(
+    'gates active microphone capture during resumable %s without new adoption events',
+    async reason => {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() => expect(mockSockets).toHaveLength(1));
+      act(() => mockSockets[0].open());
+      await makeReady();
+      const { onInputFrame } = mockActivateAudio.mock.calls[0][0];
+      const speech = new Int16Array(640).fill(1500).buffer;
+      act(() => {
+        onInputFrame(speech);
+        mockSockets[0].message(
+          serverEvent({ resumptionHandle: 'safe-handle', resumable: true }),
+        );
+        if (reason === 'goAway')
+          mockSockets[0].message(serverEvent({ goAway: true }));
+        else mockSockets[0].serverClose();
+      });
+      expect(mockSockets).toHaveLength(2);
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      act(() => mockSockets[1].open());
+      act(() => onInputFrame(speech));
+      expect(mockSockets[1].send).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      await makeReady(mockSockets[1]);
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(false);
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      act(() => onInputFrame(speech));
+      expect(mockSockets[1].send).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('input-active')).toHaveTextContent('true');
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_microphone_result',
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
+  it('tracks actual input activity with a short release and resets it on microphone-off', async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    const { onInputFrame } = mockActivateAudio.mock.calls[0][0];
+    const speech = new Int16Array(640).fill(1500).buffer;
+    const silence = new ArrayBuffer(1280);
+    act(() => onInputFrame(speech));
+    expect(screen.getByTestId('input-active')).toHaveTextContent('true');
+    act(() => onInputFrame(silence));
+    expect(screen.getByTestId('input-active')).toHaveTextContent('true');
+    act(() => {
+      for (let i = 0; i < 6; i++) onInputFrame(silence);
+    });
+    expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+    act(() => onInputFrame(speech));
+    fireEvent.click(screen.getByRole('button', { name: 'mute' }));
+    expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+    act(() => onInputFrame(speech));
+    expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+  });
+
+  it.each([false, true])(
+    'renews active voice without reacquiring audio (preview=%s)',
+    async previewMode => {
+      jest.useFakeTimers();
+      const watermark = createDeferred<void>();
+      mockCreateSession.mockResolvedValueOnce(
+        sessionResponse(Date.now() + 1000),
+      );
+      render(<Harness previewMode={previewMode} />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() => expect(mockSockets).toHaveLength(1));
+      act(() => mockSockets[0].open());
+      await makeReady();
+      const oldInput = mockActivateAudio.mock.calls[0][0].onInputFrame;
+      const staleMessage = mockSockets[0].onmessage;
+      mockAudio.interruptPlayback.mockReturnValueOnce(watermark.promise);
+      mockCreateSession.mockResolvedValueOnce({
+        ...sessionResponse(),
+        session_bid: 'session-2',
+      });
+      await act(async () => jest.advanceTimersByTime(1001));
+      expect(mockSockets[0].close).toHaveBeenCalled();
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      expect(mockAudio.stop).not.toHaveBeenCalled();
+      expect(mockAudio.setCallbacks).not.toHaveBeenCalled();
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
+      await act(async () => watermark.resolve());
+      expect(mockCreateSession).toHaveBeenCalledTimes(2);
+      expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+      expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+      expect(mockAudio.setCallbacks).toHaveBeenCalledTimes(1);
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      act(() =>
+        mockAudio.setCallbacks.mock.calls[0][0].onInputFrame(
+          new Int16Array(640).fill(1500).buffer,
+        ),
+      );
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
+      act(() => mockSockets[1].open());
+      await makeReady(mockSockets[1]);
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(false);
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      expect(screen.getByTestId('muted')).toHaveTextContent('false');
+      const before = mockSockets[1].send.mock.calls.length;
+      act(() => {
+        oldInput(new ArrayBuffer(1280));
+        staleMessage?.(new MessageEvent('message', { data: '{}' }));
+      });
+      expect(mockSockets[1].send).toHaveBeenCalledTimes(before);
+      act(() =>
+        mockAudio.setCallbacks.mock.calls[0][0].onInputFrame(
+          new ArrayBuffer(1280),
+        ),
+      );
+      expect(mockSockets[1].send).toHaveBeenCalledTimes(before + 1);
+      expect(mockReleaseExclusive).not.toHaveBeenCalled();
+      if (previewMode) expect(mockTrackEvent).not.toHaveBeenCalled();
+      else {
+        const common = {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+        };
+        expect(
+          mockTrackEvent.mock.calls.filter(
+            ([name]) => name === 'learner_voice_follow_up_attempt',
+          ),
+        ).toHaveLength(1);
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'learner_voice_follow_up_renewal_attempt',
+          common,
+        );
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'learner_voice_follow_up_renewal_result',
+          { ...common, outcome: 'success', error_code: 'none' },
+        );
+        expect(
+          mockTrackEvent.mock.calls.filter(
+            ([name]) => name === 'learner_voice_follow_up_microphone_result',
+          ),
+        ).toHaveLength(1);
+        expect(
+          mockTrackEvent.mock.calls.filter(
+            ([name]) => name === 'learner_voice_follow_up_session_end',
+          ),
+        ).toHaveLength(1);
+      }
+    },
+  );
+
+  it.each(['pause', 'mute', 'unmount'] as const)(
+    'honors %s while automatic renewal is waiting for the old playback flush',
+    async action => {
+      jest.useFakeTimers();
+      const watermark = createDeferred<void>();
+      mockCreateSession.mockResolvedValueOnce(
+        sessionResponse(Date.now() + 1000),
+      );
+      const { unmount } = render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() => expect(mockSockets).toHaveLength(1));
+      act(() => mockSockets[0].open());
+      await makeReady();
+      mockAudio.interruptPlayback.mockReturnValueOnce(watermark.promise);
+      mockCreateSession.mockResolvedValueOnce({
+        ...sessionResponse(),
+        session_bid: 'session-2',
+      });
+      await act(async () => jest.advanceTimersByTime(1001));
+      if (action === 'unmount') unmount();
+      else fireEvent.click(screen.getByRole('button', { name: action }));
+      await act(async () => watermark.resolve());
+      expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+      if (action === 'unmount') {
+        expect(mockAudio.stop).toHaveBeenCalled();
+        expect(mockCreateSession).toHaveBeenCalledTimes(1);
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'learner_voice_follow_up_renewal_result',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            outcome: 'cancelled',
+            error_code: 'none',
+          },
+        );
+      } else {
+        expect(mockAudio.stopMicrophone).toHaveBeenCalled();
+        act(() => mockSockets[1].open());
+        await makeReady(mockSockets[1]);
+        expect(screen.getByTestId('paused')).toHaveTextContent('true');
+        expect(screen.getByTestId('muted')).toHaveTextContent('true');
+        const before = mockSockets[1].send.mock.calls.length;
+        act(() =>
+          mockAudio.setCallbacks.mock.calls[0][0].onInputFrame(
+            new ArrayBuffer(1280),
+          ),
+        );
+        expect(mockSockets[1].send).toHaveBeenCalledTimes(before);
+      }
+    },
+  );
+
+  it('renews through controlled ownership admission rather than bypassing its receipt', async () => {
+    jest.useFakeTimers();
+    mockControlledAdmission();
+    mockCreateSession.mockImplementationOnce((_shifu, _outline, request) =>
+      Promise.resolve({
+        ...sessionResponse(Date.now() + 1000),
+        request_bid: request.request_bid,
+        admission_revision: 'revision-1',
+        rotation_enabled: true,
+        operation_status: 'issued',
+      }),
+    );
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    await act(async () => jest.advanceTimersByTime(1001));
+    expect(mockOperationStatus).toHaveBeenCalledTimes(1);
+    expect(mockCreateSession.mock.calls[1][2]).toEqual(
+      expect.objectContaining({
+        replace_session_bid: 'session-1',
+        expected_admission_revision: 'revision-1',
+      }),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+    expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends a failed automatic renewal without repeated attempts or microphone reacquisition', async () => {
+    jest.useFakeTimers();
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('analytics unavailable');
+    });
+    mockCreateSession.mockResolvedValueOnce(sessionResponse(Date.now() + 1000));
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    mockCreateSession.mockRejectedValueOnce(
+      new Error('private provider failure'),
+    );
+    await act(async () => jest.advanceTimersByTime(1001));
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockAudio.stop).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('muted')).toHaveTextContent('true');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_renewal_result',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        outcome: 'failed',
+        error_code: 'session_create_failed',
+      },
+    );
+    await act(async () => jest.advanceTimersByTime(60_000));
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
   });
 
   it('pauses microphone and output immediately while retaining the socket and heartbeat', async () => {
@@ -1876,7 +2491,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     await startAndOpen();
     await makeReady();
     fireEvent.click(screen.getByRole('button', { name: 'pause' }));
-    act(() => jest.setSystemTime(expiresAt + 1));
+    jest.spyOn(performance, 'now').mockReturnValue(performance.now() + 1001);
     mockCreateSession.mockResolvedValueOnce({
       ...sessionResponse(),
       session_bid: 'session-2',
@@ -1911,7 +2526,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       await startAndOpen();
       await makeReady();
       fireEvent.click(screen.getByRole('button', { name: 'pause' }));
-      act(() => jest.setSystemTime(expiresAt + 1));
+      jest.spyOn(performance, 'now').mockReturnValue(performance.now() + 1001);
       mockReadiness = readiness;
       rerender(<Harness onTextResult={onTextResult} />);
       mockTrackEvent.mockClear();
@@ -3444,11 +4059,18 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       jest.advanceTimersByTime(issuedAt + 30_000 - Date.now()),
     );
     expect(screen.getByTestId('warning')).toHaveTextContent('false');
+    mockCreateSession.mockResolvedValueOnce({
+      ...sessionResponse(),
+      session_bid: 'session-2',
+    });
     await act(async () =>
       jest.advanceTimersByTime(issuedAt + 60_001 - Date.now()),
     );
-    expect(screen.getByTestId('state')).toHaveTextContent('ended');
-    expect(screen.getByTestId('end-reason')).toHaveTextContent('timeout');
+    expect(mockSockets).toHaveLength(3);
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('state')).toHaveTextContent('connecting');
+    expect(screen.getByTestId('muted')).toHaveTextContent('false');
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
   });
 
   it.each(['invalidated', 'awaiting_response'])(

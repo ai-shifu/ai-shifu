@@ -2,7 +2,7 @@
 title: Embedded Gemini Live Follow-Up Analytics
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-09-06
+last_reviewed: 2026-09-07
 canonical: true
 ---
 
@@ -139,6 +139,62 @@ request IDs, ownership revisions, nor credential counts enter analytics.
 
 ## Complete feature-owned payload
 
+### Minimal controls and continuous voice revision (2026-09-07)
+
+The visible controls are microphone and Send only. A later accepted microphone
+or text action also recovers a failed connection; there is no separate Retry or
+End action. Microphone-off now pauses capture and playback and adds the bounded
+pause reason `microphone_off`. Its one explicit off-result is retained; implicit
+editing/collapse cleanup does not add an off-result. Voice activity animation
+is local visual feedback, not a telemetry stream.
+
+When an enabled microphone's connected session expires while visible and not
+paused, one automatic successor is started after final played history is saved.
+It reuses the authorized audio resource, never replays sent input, and does not
+emit a microphone-operation event. A paused/idle session still expires silently
+and waits for the next explicit input. Automatic renewal failure is terminal;
+there is no infinite retry loop or idle token minting.
+
+Credential lifetime includes an uncertainty window bounded by the monotonic
+request start and response receipt. A transport/heartbeat failure after the
+earliest possible expiry does not resume the possibly expired credential or
+become a connection-failure event: input stays pending until the latest possible
+expiry, then the ordinary timeout end and eligible renewal occur once. No new
+admission can bypass the old risk lifetime, and the waiting interval emits no
+extra adoption event.
+
+During finalization/issuance/setup, retained input is gated and the microphone
+button shows its pending spinner with `aria-busy`, not an enabled speech pulse.
+It remains stoppable without a new action. Only confirmed successor readiness
+releases that gate; this belongs to the existing renewal result, not another
+microphone operation, exposure event, or new payload field.
+
+The same pending gate covers initial setup and same-token socket resumption.
+In this release, an explicit microphone-on success settles only when permission,
+capture attachment, playback activation, and Gemini setup are all ready, not
+merely when the device stream attaches. Cancellation before that boundary emits
+one cancelled on-result, never a later success; explicit off remains separate.
+Socket resumption neither starts another on-operation nor emits another result.
+Consumers must separate pre/post-release microphone-success cohorts because the
+older producer measured device attachment alone. Event names, payload fields,
+eligibility, deduplication, and fail-open behavior are unchanged.
+
+To distinguish user connection adoption from continuous-voice maintenance,
+automatic successors emit `learner_voice_follow_up_renewal_attempt` and
+`learner_voice_follow_up_renewal_result`, with exactly the corresponding normal
+attempt/result payloads. Normal attempts/results remain explicit-input-only.
+Both families use one per-generation attempt and one terminal result, original
+guest/member eligibility and dimensions, preview/classroom exclusion, and
+fail-open delivery. Session-end remains once per connected physical session.
+The aggregate consumer reports renewal success/renewal-attempt separately from
+explicit connection success/attempt in UTC daily/seven-day windows. Fixture:
+one explicit successful connection plus two automatic successors (one successful,
+one failed) means explicit success 1/1, renewal success 1/2, one microphone-on
+operation, and two connected session ends after teardown. No exact row joins.
+Consumers must split session-end/exchange and pause reports at this revision's
+actual deployment timestamp; renewal events start then, without backfill or
+dual write. This section supersedes earlier no-automatic-rollover wording.
+
 Common fields are exactly `shifu_bid` and `outline_bid` (stable, high-cardinality
 pseudonymous course/lesson IDs for aggregate grouping), `learning_mode=read|listen`,
 and `surface=read_content|listen_player` (low-cardinality non-personal enums).
@@ -148,7 +204,7 @@ All other fields are low-cardinality non-personal scalars:
   only; neither a retry countdown nor internal credential timing is collected.
 - `submission_method=keyboard|button`; `interrupted` is boolean.
 - `enabled` is the requested boolean microphone state.
-- `reason=panel_closed|page_hidden|audio_replaced` for pause events only.
+- `reason=panel_closed|page_hidden|audio_replaced|microphone_off` for pause events only.
 - `outcome=success|failed|cancelled`.
 - `error_code=none|microphone_denied|microphone_unavailable|microphone_busy|audio_unavailable|session_create_failed|session_expired|capacity_exceeded|origin_rejected|configuration_error|network_error|websocket_failed|server_error|unknown`.
 - `duration_ms` is a finite nonnegative integer measured to transport teardown,

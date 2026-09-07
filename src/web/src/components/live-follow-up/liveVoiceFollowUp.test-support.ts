@@ -9,6 +9,7 @@ export const mockLiveVoiceController = (
   paused: false,
   state: 'ended',
   muted: true,
+  inputActive: false,
   warning: false,
   microphonePending: false,
   microphoneError: null,

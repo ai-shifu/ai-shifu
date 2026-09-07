@@ -33,15 +33,76 @@ The first release supports reading mode, listen mode, and teacher preview;
 classroom remains excluded. It is available to every teacher only when
 `GEMINI_LIVE_ENABLED=true`. The issued token's absolute 15-minute expiry is an
 internal connection boundary, including provisioning and connection time, not
-a user-facing countdown or error. Expiry retains the panel, history, and draft;
-the next deliberate input establishes a new connection after bounded final
-history persistence. Never replay an already-sent question or mint idle tokens.
+a user-facing countdown or error. Expiry retains the panel, history, and draft.
+As amended on 2026-09-07, an active, visible, explicitly enabled microphone
+automatically carries into a new connection after bounded final history
+persistence, reusing the authorized audio graph. Paused/idle sessions wait for
+the next deliberate input. Never replay an already-sent question or mint idle tokens.
 Usage and transcripts reported after the media plane moves into the
 browser are explicitly client-reported and untrusted. They are bounded,
 persisted only with `billable=0`, and must never drive settlement, permissions,
 auditing, or another correctness-sensitive decision.
 
 ## Progress
+
+- [x] 2026-09-07: Review `r3946564559` expires per-worker Redis ledgers at
+      their latest credential deadline in both admission writers, preventing
+      retired-worker key growth without early risk release. Real Redis tests
+      cover both writers, shorter/later existing deadlines, rollback safety,
+      and natural expiration without a subsequent admission. All 237 focused
+      backend route/admission/capacity/store/token tests pass. Existing orphan
+      keys that are never revisited are not swept by this patch; no dev data or
+      configuration is modified.
+- [x] 2026-09-07: Review `r3946490434` bounds server-relative expiry with both
+      request-start and response-receipt monotonic times. Only the conservative
+      request-start bound proves a credential may resume; receipt is the safe
+      admission upper bound, not continued-validity evidence. Transport errors,
+      close, GoAway and heartbeat failure inside this uncertainty window keep
+      input pending and suppress stale resumption, then renew once after the old
+      credential is certainly expired. No premature capacity release or extra
+      connection-failure/adoption telemetry. All 358 focused Live tests,
+      230 frontend suites / 2,414 tests, TypeScript and full pre-commit pass.
+- [x] 2026-09-07: Review `r3946439345` extends pending/muted capture gating to
+      initial setup and same-token GoAway/unexpected-close resumption. Only
+      socket/playback-ready input can pulse or upload. Explicit microphone-on
+      success waits for capture and connection readiness; cancellation cannot
+      report a late success, and resumption adds no microphone adoption event.
+      Update the consumer's release-cohort timing definition without new fields
+      or UI copy. All 353 focused Live tests, 230 frontend suites / 2,409 tests,
+      TypeScript and the complete all-files pre-commit gate pass.
+- [x] 2026-09-07: Review `r3946346006` adds Redis-relative `expires_in_ms` to
+      credential responses. Browser expiry/resumption/capacity deadlines use
+      `performance.now()` so initial device skew and later wall-clock changes
+      cannot move a new-server credential's lifetime. Keep a one-time absolute
+      fallback for older servers; deploy the matching backend for skew safety.
+      Frontend tests cover +/-20-minute initial skew, subsequent time jumps,
+      invalid lifetimes, monotonic cooldowns and frozen callback dispatch.
+      345 focused Live tests, all 230 frontend suites / 2,401 tests, TypeScript,
+      and 231 backend route/admission/capacity/store/token tests pass, including
+      fail-closed clock unavailability after issuance without token disclosure.
+- [x] 2026-09-07: Review `r3946346009` gates retained microphone frames for the
+      whole finalization/issuance/setup handoff. The microphone itself shows
+      its pending spinner (no explanatory text), remains stoppable, and resumes
+      existing capture only after the successor socket and playback are ready.
+      No activity pulse or accepted audio is implied during this wait. All
+      335 focused Live tests pass, including pre/post-readiness input checks.
+- [x] 2026-09-07: Implement the user-approved minimal controls: no
+      status/help/retry/end UI, explicit microphone-off pauses both directions,
+      input-level activity animates the microphone, and an actively enabled
+      microphone carries into a fresh session at expiry without reacquisition.
+      Paused/idle sessions renew only on the next input. Keep bounded admission,
+      finalization, generation isolation, and failure-only feedback.
+- [x] 2026-09-07: All 335 focused Live frontend tests and TypeScript pass.
+      Coverage includes renewal success/failure/cancellation, no repeated
+      permission request, paused handoff, old callback isolation, local speaking
+      animation/reduced motion, exact analytics, and five-locale copy removal.
+- [x] 2026-09-07: Full frontend checks pass (230 suites / 2,391 tests), as do
+      lint (existing warnings), architecture boundaries, repository harness,
+      five-language translation checks and the all-files pre-commit gate.
+- [ ] 2026-09-07: Update PR #2744 and synchronize current-head review. The PR
+      currently conflicts with main; no conflict resolution or merge is claimed.
+      Real Gemini/physical browser acceptance
+      remains required; this change does not deploy or alter configuration.
 
 - [x] 2026-09-06: Restrict Live background preparation to HTTP app instances.
   Celery bootstrap passes a process-local `serving_http=False` factory role
@@ -737,6 +798,20 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Decision Log
 
+- Decision (2026-09-07, user approved): only microphone and Send remain in the
+  original input. Render errors only; remove Retry, End, and status/help copy.
+  Explicit mic-off pauses input and output without closing the panel or socket.
+  Editing still stops capture without pausing a pending typed reply. Detect
+  activity locally from PCM energy with a short release; respect reduced motion.
+- Decision (2026-09-07, user approved): automatically renew at actual expiry
+  only while connected, visible, unpaused, and microphone-enabled. Keep the
+  native audio graph and stream; drain old playback progress before rebinding
+  callbacks, persist old played history before minting, and never replay input.
+  No new audio permission or automatic mic reactivation is allowed. Existing
+  readiness/admission/capacity controls apply; failures terminate the automatic
+  attempt. Paused/idle expiry waits for the next user input. Renewal analytics
+  are separate from explicit connection adoption. This supersedes the earlier
+  no-automatic-rollover decision, not the server's credential risk limits.
 - Decision (2026-09-05): once a terminal spoken turn already has final input,
   subsequent final-only input starts its successor, including identical or
   text-overlapping questions. Only a missing final input can reconcile into
@@ -943,6 +1018,20 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   - Why: adoption can be measured without collecting conversation or secrets.
 
 ## Outcomes & Retrospective
+
+The 2026-09-07 minimal-controls revision removes normal status/help text and
+Retry/End buttons across five locales. Explicit microphone-off pauses both
+directions. An active microphone is carried across natural expiry without
+another native activation or permission request, while old played checkpoints
+and history finalize before successor admission. Cancelled/failed handoffs
+release resources; silent/paused sessions do not mint idle tokens. Local
+regression evidence after review fixes is 230 frontend suites / 2,414 tests,
+358 focused Live tests, and 237 backend tests. Initial, resumed and retained
+capture stays visibly pending and silent until socket/playback readiness;
+new-server relative lifetimes and monotonic request/receipt expiry bounds
+prevent device-clock-driven expiry, late-response expired resumption, and early
+admission. This is not real-device or Gemini
+handoff acceptance, and does not deploy to dev or production.
 
 The 2026-09-05 pause/input implementation and its verified review corrections
 are pushed through `6f28f2916`; its executed CI checks passed. Actual pinned
@@ -1295,13 +1384,13 @@ Only the current explicit microphone action can grant capture; text still
 works without microphone permission. Keep original listen-panel audio intent:
 an open Ask panel keeps course audio paused, including during replacement.
 
-No lifetime warning, countdown, or token-expiry retry clock returns to the UI.
-Show only compact connection progress or a genuine bounded error/retry state.
-Natural expiry still cleans up silently; the next explicit input can acquire a
-fresh session. There is no idle pre-minting or automatic continuous-microphone
-rollover in this first cut. Finite capacity, network, and persistence failures
-may still require a retry; do not hide them by discarding drafts or claiming a
-successful connection. Busy retry availability is internal state, not a clock.
+No lifetime warning, countdown, status/help copy, Retry, or End action returns
+to the UI. Show only genuine bounded errors. Natural expiry of an active
+microphone automatically renews using the existing authorized audio resource;
+paused/idle expiry waits for explicit input. There is no idle pre-minting.
+Finite capacity, network, and persistence failures may still require another
+microphone click or text submission; do not discard drafts or claim success.
+Busy retry availability remains internal state, not a clock or a separate action.
 
 #### Analytics and compatibility gates
 
@@ -1553,6 +1642,7 @@ and optional `voices: [{voice_id, style}]`. Settings store
 `POST /api/learn/shifu/{shifu_bid}/live-follow-up/{outline_bid}/session`
 returns `session_bid`, `ephemeral_token`, the fixed constrained
 `websocket_url`, prompt-free `setup`, optional `history`, `expires_at`,
+Redis-relative remaining `expires_in_ms` (used for monotonic browser deadlines),
 `new_session_expires_at`, and `heartbeat_interval_ms`.
 
 `POST /api/learn/live-follow-up/session/{session_bid}/heartbeat` validates the

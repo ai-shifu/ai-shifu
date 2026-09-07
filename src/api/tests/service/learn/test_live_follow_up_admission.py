@@ -392,10 +392,91 @@ def test_reservation_uses_redis_time_and_exact_credential_deadline(
             client.zscore(key, result.lease.lease_id)
             == (result.issued_at_ms + 900_000) / 1000
         )
+    assert (
+        result.issued_at_ms + 900_000
+        <= client.pexpiretime(keys[1])
+        <= result.issued_at_ms + 900_001
+    )
     assert 1_199_000 <= client.pttl(keys[4]) <= 1_200_000
     assert client.get(keys[9]) is None
     _complete(ready_app, request, result)
     assert client.get(keys[9]) == '{"fixture_binding": true}'
+
+
+@pytest.mark.parametrize("compatibility_writer", [False, True])
+@pytest.mark.parametrize("existing_remaining_ms", [1_000, 1_200_000])
+def test_worker_ledger_expiry_preserves_the_latest_lease_across_writers(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+    compatibility_writer: bool,
+    existing_remaining_ms: int,
+) -> None:
+    client = real_redis.client
+    request = _request(client)
+    worker_key = _keys(ready_app, request)[1]
+    existing_expiry = _now_ms(client) + existing_remaining_ms
+    client.zadd(worker_key, {"previous-credential": existing_expiry / 1000})
+    client.pexpireat(worker_key, existing_expiry)
+    if compatibility_writer:
+        lease = capacity.acquire_live_follow_up_capacity(
+            ready_app,
+            user_bid=request.user_bid,
+            worker_id="worker-1",
+            now=_now_ms(client) / 1000,
+        )
+    else:
+        result = _begin(ready_app, request)
+        assert result.lease is not None
+        lease = result.lease
+    latest_score = max(
+        score for _, score in client.zrange(worker_key, 0, -1, withscores=True)
+    )
+    expiry = client.pexpiretime(worker_key)
+    assert latest_score * 1000 <= expiry <= latest_score * 1000 + 1
+    assert client.zcard(worker_key) == 2
+    # Rolling back the undisclosed newcomer must not delete an older credential.
+    capacity.release_live_follow_up_capacity(ready_app, lease=lease)
+    assert client.zscore(worker_key, "previous-credential") == existing_expiry / 1000
+    assert client.pexpiretime(worker_key) == expiry
+
+
+@pytest.mark.parametrize("compatibility_writer", [False, True])
+def test_retired_worker_ledger_expires_without_another_admission(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+    monkeypatch: pytest.MonkeyPatch,
+    compatibility_writer: bool,
+) -> None:
+    client = real_redis.client
+    request = _request(client)
+    # Shorten only the fixture credential lifetime; exercise real Redis TTL
+    # expiration without a 15-minute test or another admission to prune the set.
+    if compatibility_writer:
+        monkeypatch.setattr(
+            capacity, "LIVE_FOLLOW_UP_CAPACITY_RESERVATION_SECONDS", 0.1
+        )
+        lease = capacity.acquire_live_follow_up_capacity(
+            ready_app,
+            user_bid=request.user_bid,
+            worker_id="retired-worker",
+            now=_now_ms(client) / 1000,
+        )
+    else:
+        monkeypatch.setattr(
+            admission,
+            "_ADMISSION_SCRIPT",
+            admission._ADMISSION_SCRIPT.replace(
+                "local expiry = now + 900000", "local expiry = now + 100"
+            ),
+        )
+        result = _begin(ready_app, request, worker="retired-worker")
+        assert result.lease is not None
+        lease = result.lease
+    worker_key = _keys(ready_app, request, worker="retired-worker")[1]
+    assert client.zscore(worker_key, lease.lease_id) is not None
+    assert 0 < client.pttl(worker_key) <= 101
+    time.sleep(0.15)
+    assert not client.exists(worker_key)
 
 
 def test_exact_idempotent_duplicate_returns_metadata_without_new_risk_or_rate(

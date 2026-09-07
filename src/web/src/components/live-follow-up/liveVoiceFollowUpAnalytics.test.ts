@@ -18,6 +18,8 @@ import {
   LIVE_VOICE_FOLLOW_UP_END_REASONS,
   LIVE_VOICE_FOLLOW_UP_ERROR_CODES,
   LIVE_VOICE_FOLLOW_UP_RESULT_EVENT,
+  LIVE_VOICE_FOLLOW_UP_RENEWAL_ATTEMPT_EVENT,
+  LIVE_VOICE_FOLLOW_UP_RENEWAL_RESULT_EVENT,
   LIVE_VOICE_FOLLOW_UP_SESSION_END_EVENT,
 } from './liveVoiceFollowUpAnalytics';
 
@@ -108,6 +110,56 @@ const expectNoProhibitedFields = (payload: Record<string, unknown>) => {
 };
 
 describe('live voice follow-up analytics contract', () => {
+  it('keeps automatic renewal out of explicit connection adoption counts', () => {
+    expect(LIVE_VOICE_FOLLOW_UP_RENEWAL_ATTEMPT_EVENT).toBe(
+      'learner_voice_follow_up_renewal_attempt',
+    );
+    expect(LIVE_VOICE_FOLLOW_UP_RENEWAL_RESULT_EVENT).toBe(
+      'learner_voice_follow_up_renewal_result',
+    );
+    const fixture = [
+      [
+        LIVE_VOICE_FOLLOW_UP_ATTEMPT_EVENT,
+        buildLiveVoiceFollowUpAttemptAnalytics(baseInput),
+      ],
+      [
+        LIVE_VOICE_FOLLOW_UP_RESULT_EVENT,
+        buildLiveVoiceFollowUpResultAnalytics({
+          ...baseInput,
+          outcome: 'success',
+          errorCode: 'none',
+        }),
+      ],
+      ...(['success', 'failed'] as const).flatMap(outcome => [
+        [
+          LIVE_VOICE_FOLLOW_UP_RENEWAL_ATTEMPT_EVENT,
+          buildLiveVoiceFollowUpAttemptAnalytics(baseInput),
+        ],
+        [
+          LIVE_VOICE_FOLLOW_UP_RENEWAL_RESULT_EVENT,
+          buildLiveVoiceFollowUpResultAnalytics({
+            ...baseInput,
+            outcome,
+            errorCode: outcome === 'success' ? 'none' : 'network_error',
+          }),
+        ],
+      ]),
+    ] as Array<[string, Record<string, unknown>]>;
+    const count = (name: string, outcome?: string) =>
+      fixture.filter(
+        ([event, data]) =>
+          event === name && (!outcome || data.outcome === outcome),
+      ).length;
+    expect(
+      count(LIVE_VOICE_FOLLOW_UP_RESULT_EVENT, 'success') /
+        count(LIVE_VOICE_FOLLOW_UP_ATTEMPT_EVENT),
+    ).toBe(1);
+    expect(
+      count(LIVE_VOICE_FOLLOW_UP_RENEWAL_RESULT_EVENT, 'success') /
+        count(LIVE_VOICE_FOLLOW_UP_RENEWAL_ATTEMPT_EVENT),
+    ).toBe(0.5);
+    fixture.forEach(([, data]) => expectNoProhibitedFields(data));
+  });
   it('allowlists pause reasons and resume dimensions without private input', () => {
     expect(LIVE_VOICE_FOLLOW_UP_PAUSE_EVENT).toBe(
       'learner_voice_follow_up_pause',
@@ -119,6 +171,7 @@ describe('live voice follow-up analytics contract', () => {
       'panel_closed',
       'page_hidden',
       'audio_replaced',
+      'microphone_off',
     ]);
     const extra = {
       ...baseInput,

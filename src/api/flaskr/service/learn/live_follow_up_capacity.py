@@ -48,6 +48,9 @@ if not user_acquired then
 end
 redis.call('ZADD', KEYS[1], ARGV[2], ARGV[3])
 redis.call('ZADD', KEYS[2], ARGV[2], ARGV[3])
+-- This compatibility writer shares the worker ledger with V2 admission.
+local worker_last = redis.call('ZRANGE', KEYS[2], -1, -1, 'WITHSCORES')
+redis.call('PEXPIREAT', KEYS[2], math.ceil(tonumber(worker_last[2])*1000))
 return 1
 """
 
