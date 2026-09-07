@@ -40,6 +40,7 @@ class PhoneAuthProvider(AuthProvider):
             identifier,
             request.metadata.get("ip"),
             request.metadata.get("captcha_ticket"),
+            require_captcha=bool(request.metadata.get("require_captcha", True)),
         )
         metadata = {"ip": request.metadata.get("ip")}
         return ChallengeResponse(

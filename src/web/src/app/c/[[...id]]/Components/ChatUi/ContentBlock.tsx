@@ -1,1 +1,1 @@
-export { default } from '@/c-components/ChatUi/ContentBlock';
+export { default } from '@/components/ChatUi/ContentBlock';

@@ -12,7 +12,7 @@ import { Volume2, Pause, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
-import type { AudioSegment } from '@/c-utils/audio-utils';
+import type { AudioSegment } from '@/lib/audio-utils';
 import {
   createAudioContext,
   decodeAudioBufferFromBase64,

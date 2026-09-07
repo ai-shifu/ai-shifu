@@ -1,8 +1,8 @@
 'use client';
 
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
-import { getBoolEnv } from '@/c-utils/envUtils';
+import { useEnvStore } from '@/store';
+import { EnvStoreState } from '@/types/store';
+import { getBoolEnv } from '@/lib/envUtils';
 import {
   environment,
   getDynamicApiBaseUrl,

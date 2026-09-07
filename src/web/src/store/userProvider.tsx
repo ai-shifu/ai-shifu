@@ -2,13 +2,10 @@
 
 import { useEffect } from 'react';
 
-import {
-  inMiniProgram,
-  inWechat,
-  wechatLogin,
-} from '@/c-constants/uiConstants';
-import { useEnvStore, useSystemStore } from '@/c-store';
-import { parseUrlParams } from '@/c-utils/urlUtils';
+import { inMiniProgram, inWechat, wechatLogin } from '@/constants/uiConstants';
+import { useEnvStore } from './envStore';
+import { useSystemStore } from './useSystemStore';
+import { parseUrlParams } from '@/lib/urlUtils';
 import { useUserStore } from '@/store/useUserStore';
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({

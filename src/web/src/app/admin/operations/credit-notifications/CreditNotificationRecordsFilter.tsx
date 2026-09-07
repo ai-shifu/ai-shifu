@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import {
   Select,
   SelectContent,

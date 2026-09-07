@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Card, CardContent } from '@/components/ui/Card';

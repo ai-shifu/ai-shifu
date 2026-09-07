@@ -3,9 +3,9 @@ import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
+import { useTracking } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store';
+import { EnvStoreState } from '@/types/store';
 import { toast } from '@/hooks/useToast';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
 import {

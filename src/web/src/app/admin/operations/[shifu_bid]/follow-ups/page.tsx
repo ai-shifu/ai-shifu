@@ -19,7 +19,7 @@ import {
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';

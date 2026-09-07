@@ -27,8 +27,8 @@ import ShifuPermissionDialog from '@/components/shifu-setting/ShifuPermissionDia
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import CreatorRedemptionCodeDialog from './orders/CreatorRedemptionCodeDialog';
 import { useUserStore } from '@/store';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
+import { useTracking } from '@/hooks/useTracking';
+import { getCourseCreatorUrl } from '@/lib/urlUtils';
 import { useCreatorOnboardingStatus } from '@/hooks/useOnboarding';
 import {
   canManageArchive as canManageArchiveForShifu,

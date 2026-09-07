@@ -23,8 +23,10 @@ hard frontend constraints close to `src/web/`.
   stores, or shared libs.
 - Keep browser-harness changes aligned with the Playwright smoke suite and the
   local Docker dev stack.
-- Treat legacy `c-*` directories as maintained compatibility surfaces until a
-  planned migration removes them.
+- Organize shared learner and teacher code by responsibility under `api`,
+  `assets`, `components`, `constants`, `hooks`, `lib`, `store`, and `types`.
+  Keep course orchestration helpers in `lib/shifu` and preserve existing
+  request, state, and UI compatibility contracts when moving code.
 - Every new user-facing Cook Web capability or interaction path must add or
   extend its Umami event family contract, producer, and focused tests in the
   same change. At minimum, capture a meaningful feature exposure, accepted use,
@@ -77,7 +79,8 @@ hard frontend constraints close to `src/web/`.
 - Do not spread form values, API responses, configuration objects, user-authored
   content, complete URLs, queries, referrers, or raw errors into an Umami event
   or identity payload. Size sanitization is not privacy sanitization.
-- Do not treat legacy `c-*` paths as dead code that can be broken casually.
+- Do not reintroduce parallel source directories for learner and teacher
+  implementations when shared modules already own the behavior.
 - Do not add new complex-work checklists outside ExecPlans.
 
 ## Commands

@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-import { useCourseStore } from '@/c-store';
+import { useCourseStore } from '@/store';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 
 interface CourseHeaderSummaryProps {

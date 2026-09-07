@@ -1,6 +1,6 @@
 import styles from './TrialNodeBottomArea.module.scss';
 import { memo, useEffect, useRef, useCallback, useState } from 'react';
-import { shifu } from '@/c-service/Shifu';
+import { shifu } from '@/lib/shifu/Shifu';
 import { useTranslation } from 'react-i18next';
 
 export const TRAIL_NODE_POSITION = {

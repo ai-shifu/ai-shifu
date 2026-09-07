@@ -25,7 +25,7 @@ jest.mock('sse.js', () => ({
   SSE: jest.fn(() => mockSource),
 }));
 
-jest.mock('@/c-utils/envUtils', () => ({
+jest.mock('@/lib/envUtils', () => ({
   getResolvedBaseURL: jest.fn(() => 'https://api.example.com'),
 }));
 

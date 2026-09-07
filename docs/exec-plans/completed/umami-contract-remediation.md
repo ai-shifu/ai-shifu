@@ -163,9 +163,9 @@ gate also passed.
 
 The canonical analytics rules live in
 `docs/references/frontend-product-analytics.md`. Shared producer enrichment is
-in `src/web/src/c-common/hooks/useTracking.ts`; raw Umami identity,
+in `src/web/src/hooks/useTracking.ts`; raw Umami identity,
 queueing, pageview sanitation, and event delivery are in
-`src/web/src/c-common/tools/tracking.ts`; SPA pageview ownership is in
+`src/web/src/lib/tracking.ts`; SPA pageview ownership is in
 `src/web/src/components/analytics/UmamiLoader.tsx`.
 
 Feature-owned typed builders live near their producers or under

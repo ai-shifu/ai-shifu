@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
 
-import { useEnvStore } from '@/c-store/envStore';
+import { useEnvStore } from '@/store/envStore';
 import ChatLayout from './layout';
 
 let mockPathname = '/c/course-1';

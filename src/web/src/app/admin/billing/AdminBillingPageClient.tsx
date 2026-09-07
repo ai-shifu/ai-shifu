@@ -3,7 +3,7 @@
 import React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';

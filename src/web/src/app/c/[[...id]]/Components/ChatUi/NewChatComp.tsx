@@ -18,17 +18,17 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { runWithConcurrency } from '@/lib/runWithConcurrency';
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store/envStore';
+import { useTracking } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store/envStore';
 import { useUserStore } from '@/store';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
-import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
-import { resolveWideLogoSource } from '@/c-components/logo/logoSource';
+import AskIcon from '@/assets/newchat/light/icon_ask.svg';
+import { resolveWideLogoSource } from '@/components/logo/logoSource';
 import { resolveOfficialSiteUrl } from '@/config/environment';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
@@ -45,7 +45,7 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
   upsertAudioComplete,
-} from '@/c-utils/audio-utils';
+} from '@/lib/audio-utils';
 import {
   Dialog,
   DialogContent,
@@ -54,7 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useSystemStore } from '@/store/useSystemStore';
 import {
   buildAskListByAnchorElementBid,
   hasStreamingAskMessage,
@@ -97,7 +97,7 @@ import {
 } from './lessonPdfState';
 import { useLessonPdfPrint } from './useLessonPdfPrint';
 import LessonPdfPreparingOverlay from './LessonPdfPreparingOverlay';
-import { buildCoursePageUrl } from '@/c-utils/urlUtils';
+import { buildCoursePageUrl } from '@/lib/urlUtils';
 import type {
   ChapterNavigationHandler,
   ChapterUpdateHandler,

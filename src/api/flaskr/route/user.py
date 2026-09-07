@@ -2,6 +2,7 @@
 
 import contextlib
 from collections.abc import Callable
+from dataclasses import dataclass
 from functools import wraps
 from typing import ParamSpec, TypeVar
 
@@ -10,6 +11,7 @@ from flask import Flask, Response, current_app, make_response, request
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _translations, set_language
 from flaskr.service.common.dtos import OAuthStartDTO, UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -22,7 +24,11 @@ from flaskr.service.profile.funcs import (
 )
 from flaskr.service.referral.service import extract_referral_post_auth_fields
 from flaskr.service.user.auth import get_provider
-from flaskr.service.user.auth.base import OAuthCallbackRequest, VerificationRequest
+from flaskr.service.user.auth.base import (
+    ChallengeRequest,
+    OAuthCallbackRequest,
+    VerificationRequest,
+)
 from flaskr.service.user.auth.providers.google import (
     resolve_state_return_origin,
 )
@@ -72,8 +78,6 @@ from flaskr.service.user.user import (
 )
 from flaskr.service.user.utils import (
     ensure_admin_creator_and_demo_permissions,
-    send_email_code,
-    send_sms_code,
 )
 from flaskr.service.user.verification_codes import consume_verification_code
 from flaskr.util.uuid import generate_id
@@ -90,6 +94,35 @@ _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = (
     "fr-FR",
     "ar-SA",
     "th-TH",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _VerificationLoginConfig:
+    provider_name: str
+    source: str
+    identifier_field: str
+    code_field: str
+    normalize_identifier: Callable[[str | None], str]
+
+
+def _normalize_email_identifier(email: str | None) -> str:
+    return str(email or "").strip().lower()
+
+
+_SMS_LOGIN_CONFIG = _VerificationLoginConfig(
+    provider_name="phone",
+    source="sms",
+    identifier_field="mobile",
+    code_field="sms_code",
+    normalize_identifier=normalize_phone_identifier,
+)
+_EMAIL_LOGIN_CONFIG = _VerificationLoginConfig(
+    provider_name="email",
+    source="email",
+    identifier_field="email",
+    code_field="code",
+    normalize_identifier=_normalize_email_identifier,
 )
 
 
@@ -582,13 +615,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         captcha_ticket = payload.get("captcha_ticket", None)
         if not mobile:
             raise_param_error("mobile")
-        if "X-Forwarded-For" in request.headers:
-            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
-        else:
-            client_ip = request.remote_addr
-        return make_common_response(
-            send_sms_code(app, mobile, client_ip, captcha_ticket)
+        challenge = get_provider("phone").send_challenge(
+            app,
+            ChallengeRequest(
+                identifier=mobile,
+                metadata={
+                    "ip": _request_client_ip(),
+                    "captcha_ticket": captcha_ticket,
+                    "require_captcha": True,
+                },
+            ),
         )
+        return make_common_response({"expire_in": challenge.expire_in})
 
     @app.route(path_prefix + "/console_send_sms_code", methods=["POST"])
     @bypass_token_validation
@@ -606,13 +644,17 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         mobile = normalize_phone_identifier(payload.get("mobile", None))
         if not mobile:
             raise_param_error("mobile")
-        if "X-Forwarded-For" in request.headers:
-            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
-        else:
-            client_ip = request.remote_addr
-        return make_common_response(
-            send_sms_code(app, mobile, client_ip, require_captcha=False)
+        challenge = get_provider("phone").send_challenge(
+            app,
+            ChallengeRequest(
+                identifier=mobile,
+                metadata={
+                    "ip": _request_client_ip(),
+                    "require_captcha": False,
+                },
+            ),
         )
+        return make_common_response({"expire_in": challenge.expire_in})
 
     @app.route(path_prefix + "/send_email_code", methods=["POST"])
     @bypass_token_validation
@@ -624,68 +666,70 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
            - user
         """
-        email = request.get_json().get("email", None)
-        language = request.get_json().get("language", None)
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        email = _normalize_email_identifier(payload.get("email", None))
+        language = payload.get("language", None)
         if not email:
             raise_param_error("email")
+        challenge = get_provider("email").send_challenge(
+            app,
+            ChallengeRequest(
+                identifier=email,
+                metadata={
+                    "ip": _request_client_ip(),
+                    "language": language,
+                },
+            ),
+        )
+        return make_common_response({"expire_in": challenge.expire_in})
 
-        # Best-effort language override for the email subject.
-        if language:
-            with contextlib.suppress(Exception):
-                set_language(language)
-
-        if "X-Forwarded-For" in request.headers:
-            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
-        else:
-            client_ip = request.remote_addr
-
-        return make_common_response(send_email_code(app, email, client_ip, language))
-
-    def _handle_sms_login() -> Response:
+    def _handle_verification_login(config: _VerificationLoginConfig) -> Response:
         with app.app_context():
             payload = request.get_json(silent=True)
             payload = payload if isinstance(payload, dict) else {}
-            mobile = normalize_phone_identifier(payload.get("mobile", None))
-            sms_code = payload.get("sms_code", None)
+            identifier = config.normalize_identifier(
+                payload.get(config.identifier_field, None)
+            )
+            verification_code = payload.get(config.code_field, None)
             course_id = payload.get("course_id", None)
             language = payload.get("language", None)
             login_context = payload.get("login_context", None)
             referral_fields = _extract_referral_post_auth_fields(payload)
             current_user = getattr(request, "user", None)
-            # Only pass an anonymous/guest token through SMS login so temporary
-            # learning records can be claimed. If a real authenticated account
-            # reaches the login page and verifies another phone number, this
-            # endpoint must behave as login, not implicit phone rebinding.
+            # Only a guest may pass its ID through so temporary learning data
+            # can be claimed. Real accounts log in without rebinding identity.
             user_id = None
             if current_user is not None and not (
                 getattr(current_user, "mobile", "")
                 or getattr(current_user, "email", "")
             ):
                 user_id = current_user.user_id
-            if not mobile:
-                raise_param_error("mobile")
-            if not sms_code:
-                raise_param_error("sms_code")
-            provider = get_provider("phone")
-            auth_result = provider.verify(
-                app,
-                VerificationRequest(
-                    identifier=mobile,
-                    code=sms_code,
-                    metadata={
-                        "user_id": user_id,
-                        "course_id": course_id,
-                        "language": language,
-                        "login_context": login_context,
-                    },
-                ),
-            )
-            db.session.commit()
+            if not identifier:
+                raise_param_error(config.identifier_field)
+            if not verification_code:
+                raise_param_error(config.code_field)
+            provider = get_provider(config.provider_name)
+            with unit_of_work():
+                auth_result = provider.verify(
+                    app,
+                    VerificationRequest(
+                        identifier=identifier,
+                        code=verification_code,
+                        metadata={
+                            "user_id": user_id,
+                            "course_id": course_id,
+                            "language": language,
+                            "login_context": login_context,
+                        },
+                    ),
+                )
             run_post_auth_extensions(
                 app,
                 PostAuthContext(
                     user_id=auth_result.user.user_id,
-                    source="sms",
+                    source=config.source,
                     login_context=login_context,
                     created_new_user=bool(auth_result.is_new_user),
                     creator_granted_now=bool(
@@ -707,7 +751,19 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
            - user
         """
-        return _handle_sms_login()
+        return _handle_verification_login(_SMS_LOGIN_CONFIG)
+
+    @app.route(path_prefix + "/login_email", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def login_email_api() -> Response:
+        """Login through email verification code for web clients.
+
+        ---
+        tags:
+           - user
+        """
+        return _handle_verification_login(_EMAIL_LOGIN_CONFIG)
 
     @app.route(path_prefix + "/device/authorize", methods=["POST"])
     @bypass_token_validation

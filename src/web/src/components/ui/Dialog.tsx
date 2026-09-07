@@ -5,7 +5,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { cn } from '@/lib/utils';
 
 const Dialog = DialogPrimitive.Root;

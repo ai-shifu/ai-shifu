@@ -1,7 +1,7 @@
 import {
   normalizeLegacyBlockCompatItem,
   normalizeLegacyBlockCompatList,
-} from '@/c-utils/chatUiCompat';
+} from '@/lib/chatUiCompat';
 export {
   appendCustomButtonAfterContent,
   extractCustomButtonAfterContentInnerHtml,
@@ -9,6 +9,6 @@ export {
   inheritCustomButtonAfterContent,
   stripCustomButtonAfterContent,
   syncCustomButtonAfterContent,
-} from '@/c-utils/customButtonAfterContent';
+} from '@/lib/customButtonAfterContent';
 
 export { normalizeLegacyBlockCompatItem, normalizeLegacyBlockCompatList };

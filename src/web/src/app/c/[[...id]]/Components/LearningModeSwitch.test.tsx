@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LearningModeSwitch from './LearningModeSwitch';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useSystemStore } from '@/store/useSystemStore';
 import {
   events,
   EVENT_NAMES as BZ_EVENT_NAMES,
@@ -34,13 +34,13 @@ jest.mock('@/i18n', () => ({
   },
 }));
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (
     selector?: (state: typeof mockCourseStoreState) => unknown,
   ) => (selector ? selector(mockCourseStoreState) : mockCourseStoreState),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

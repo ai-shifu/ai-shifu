@@ -19,11 +19,11 @@ import {
   isListenLessonFeedbackPromptReady,
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
-import type { ChatContentItem } from '@/c-types/chatUi';
+import type { ChatContentItem } from '@/types/chatUi';
 
 const mockTrackEvent = jest.fn();
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -158,16 +158,16 @@ jest.mock('./AskBlock', () => ({
     mockAskBlock(props),
 }));
 
-jest.mock('@/c-utils/lesson-feedback-interaction-defaults', () => ({
+jest.mock('@/lib/lesson-feedback-interaction-defaults', () => ({
   lessonFeedbackInteractionDefaultValueOptions: {},
 }));
 
-jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
+jest.mock('@/lib/lesson-feedback-interaction', () => ({
   isLessonFeedbackInteractionContent: (content?: string) =>
     mockIsLessonFeedbackInteractionContent(content),
 }));
 
-jest.mock('@/c-utils/system-interaction', () => ({
+jest.mock('@/lib/system-interaction', () => ({
   isSystemInteractionContent: (content?: string) =>
     content?.includes('_sys_') ?? false,
   localizeSystemInteractionContent: (
@@ -180,7 +180,7 @@ jest.mock('@/c-utils/system-interaction', () => ({
     ),
 }));
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   SYS_INTERACTION_TYPE: {},
 }));
 

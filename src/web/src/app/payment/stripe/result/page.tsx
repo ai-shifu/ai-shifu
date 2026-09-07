@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
-import { getPaymentDetail, syncStripeCheckout } from '@/c-api/order';
+import { getPaymentDetail, syncStripeCheckout } from '@/api/order';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   buildLearnerPaymentResultAnalytics,
   buildLearnerPaymentStatusAnalytics,

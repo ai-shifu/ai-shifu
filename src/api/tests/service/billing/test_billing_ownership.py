@@ -15,6 +15,8 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
@@ -176,4 +178,73 @@ def test_resolve_usage_creator_bid_falls_back_to_debug_creator_user_bid(
             },
         )
         == "creator-debug-direct-1"
+    )
+
+
+@pytest.mark.parametrize(
+    ("extra", "usage_scene", "usage_type", "expected"),
+    [
+        (
+            {"billing_source": "model_gateway"},
+            BILL_USAGE_SCENE_PROD,
+            BILL_USAGE_TYPE_LLM,
+            "gateway-user",
+        ),
+        ({}, BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM, None),
+        ({"billing_source": "other"}, BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM, None),
+        (
+            {"billing_source": "model_gateway"},
+            BILL_USAGE_SCENE_PREVIEW,
+            BILL_USAGE_TYPE_LLM,
+            None,
+        ),
+        (
+            {"billing_source": "model_gateway"},
+            BILL_USAGE_SCENE_PROD,
+            BILL_USAGE_TYPE_TTS,
+            None,
+        ),
+    ],
+)
+def test_gateway_usage_resolves_only_server_marked_account_usage(
+    billing_ownership_app: Flask,
+    extra: dict,
+    usage_scene: int,
+    usage_type: int,
+    expected: str | None,
+) -> None:
+    payload = {
+        "user_bid": "gateway-user",
+        "shifu_bid": "",
+        "extra": extra,
+        "usage_scene": usage_scene,
+        "usage_type": usage_type,
+    }
+    assert resolve_usage_creator_bid(billing_ownership_app, payload) == expected
+    assert (
+        resolve_usage_creator_bid(billing_ownership_app, BillUsageRecord(**payload))
+        == expected
+    )
+
+
+def test_course_ownership_takes_priority_over_gateway_marker(
+    billing_ownership_app: Flask,
+) -> None:
+    with billing_ownership_app.app_context():
+        dao.db.session.add(
+            PublishedShifu(shifu_bid="course-priority", created_user_bid="course-owner")
+        )
+        dao.db.session.commit()
+    assert (
+        resolve_usage_creator_bid(
+            billing_ownership_app,
+            {
+                "user_bid": "learner",
+                "shifu_bid": "course-priority",
+                "usage_scene": BILL_USAGE_SCENE_PROD,
+                "usage_type": BILL_USAGE_TYPE_LLM,
+                "extra": {"billing_source": "model_gateway"},
+            },
+        )
+        == "course-owner"
     )

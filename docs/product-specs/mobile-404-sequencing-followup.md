@@ -24,7 +24,7 @@ canonical: true
 ## Candidate Files
 - `src/web/src/app/c/[[...id]]/layout.tsx`
 - `src/web/src/store/userProvider.tsx`
-- `src/web/src/c-api/course.ts`
+- `src/web/src/api/course.ts`
 
 ## Acceptance Criteria
 - New users opening `/c/:id` on mobile do not hit false `/404` under weak network.

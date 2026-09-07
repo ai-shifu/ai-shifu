@@ -29,10 +29,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import { useToast } from '@/hooks/useToast';
-import { copyText } from '@/c-utils/textutils';
+import { copyText } from '@/lib/textutils';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { normalizeModelOptions } from '@/store/modelOptions';

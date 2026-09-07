@@ -5,9 +5,9 @@ import {
   isProfileOnboardingStatus,
   skipProfileOnboarding,
   type ProfileOnboardingStatus,
-} from '@/c-api/user';
+} from '@/api/user';
 import type { LearnerProfileDialogProps } from '@/components/profile-onboarding/LearnerProfileDialog';
-import { debugWarn } from '@/c-utils/debugConsole';
+import { debugWarn } from '@/lib/debugConsole';
 import { toast } from '@/hooks/useToast';
 import {
   resolveLearnerErrorMessage,

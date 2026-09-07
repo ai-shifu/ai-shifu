@@ -44,8 +44,8 @@ import {
   formatAdminCredits,
   formatAdminPrice,
 } from '@/app/admin/lib/numberFormat';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import { resolveBillingOrderStatusLabel } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';

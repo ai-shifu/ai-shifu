@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import MainButtonM from '@/c-components/m/MainButtonM';
+import MainButtonM from '@/components/m/MainButtonM';
 
 interface MiniProgramPayGuideProps {
   open: boolean;

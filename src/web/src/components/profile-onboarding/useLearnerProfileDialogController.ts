@@ -12,7 +12,7 @@ import {
   updateLearnerProfile,
   type ProfileOnboardingSessionIntent,
 } from '@/api/learnerProfile';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import { useToast } from '@/hooks/useToast';
 import {
   readProfileAssistantDraft,

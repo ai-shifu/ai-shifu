@@ -16,8 +16,8 @@ import {
   inWechat,
   inMiniProgram,
   wechatLogin,
-} from '@/c-constants/uiConstants';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+} from '@/constants/uiConstants';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
 import { EVENT_NAMES, events } from './events';
 
 import {
@@ -25,23 +25,23 @@ import {
   useCourseStore,
   useUiLayoutStore,
   useSystemStore,
-} from '@/c-store';
+} from '@/store';
 import { useUserStore } from '@/store';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
+import { useDisclosure } from '@/hooks/useDisclosure';
 import { useLessonTree, type LessonTreeLesson } from './hooks/useLessonTree';
 import {
   applyLessonSelection,
   resolveRequestedLessonId,
 } from './lessonNavigation';
-import { updateWxcode } from '@/c-api/user';
-import { shifu } from '@/c-service/Shifu';
-import type { EnvStoreState } from '@/c-types/store';
+import { updateWxcode } from '@/api/user';
+import { shifu } from '@/lib/shifu/Shifu';
+import type { EnvStoreState } from '@/types/store';
 import {
   buildLoginRedirectPath,
   getLessonIdFromQuery,
   removeParamFromUrl,
   replaceCurrentUrlWithLessonId,
-} from '@/c-utils/urlUtils';
+} from '@/lib/urlUtils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AppContext } from './Components/AppContext';
@@ -60,7 +60,7 @@ import { isWechatCodeFlowEnabled } from './Components/Pay/wechatJsapi';
 import { useCourseProfileOnboardingGate } from './hooks/useCourseProfileOnboardingGate';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
-import { debugWarn } from '@/c-utils/debugConsole';
+import { debugWarn } from '@/lib/debugConsole';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
   ssr: false,

@@ -488,6 +488,17 @@ Default: "phone".""",
         group="legal",
     ),
     # LLM Configuration
+    "MODEL_GATEWAY_CLIENT_ALLOWLIST": EnvVar(
+        name="MODEL_GATEWAY_CLIENT_ALLOWLIST",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated client IDs allowed to list and invoke gateway models. "
+            "Requests must send X-AI-Shifu-Client-ID and a user Bearer token. "
+            "Empty denies all clients; IDs are case-sensitive with no wildcard matching."
+        ),
+        group="llm",
+    ),
     "OPENAI_API_KEY": EnvVar(
         name="OPENAI_API_KEY",
         default="",

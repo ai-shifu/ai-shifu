@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import ContentBlock from '@/c-components/ChatUi/ContentBlock';
+import ContentBlock from '@/components/ChatUi/ContentBlock';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
 
@@ -25,16 +25,16 @@ jest.mock('react-use', () => ({
   useLongPress: () => ({}),
 }));
 
-jest.mock('@/c-utils/audio-utils', () => ({
+jest.mock('@/lib/audio-utils', () => ({
   getAudioTrackByPosition: jest.fn(() => null),
   hasAudioContentInTrack: jest.fn(() => false),
 }));
 
-jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
+jest.mock('@/lib/lesson-feedback-interaction', () => ({
   isLessonFeedbackInteractionContent: jest.fn(() => false),
 }));
 
-jest.mock('@/c-utils/system-interaction', () => ({
+jest.mock('@/lib/system-interaction', () => ({
   isPaySystemInteractionContent: jest.fn((content?: string) =>
     Boolean(content?.includes('_sys_pay')),
   ),

@@ -5,7 +5,7 @@ import {
   FRAME_LAYOUT_MOBILE,
   FRAME_LAYOUT_PAD_INTENSIVE,
   FRAME_LAYOUT_PC,
-} from '@/c-constants/uiConstants';
+} from '@/constants/uiConstants';
 
 let mockFrameLayout = FRAME_LAYOUT_PC;
 let mockPreviewMode = false;
@@ -32,7 +32,7 @@ jest.mock('next/dynamic', () => () => {
   return MockChatComponents;
 });
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   useCourseStore: (selector: (state: any) => unknown) =>
     selector({
       courseAvatar: '',
@@ -42,7 +42,7 @@ jest.mock('@/c-store', () => ({
     selector({ frameLayout: mockFrameLayout }),
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: any) => unknown) =>
     selector({
       learningMode: mockLearningMode,

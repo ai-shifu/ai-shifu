@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { LearningMode } from '@/c-types/store';
+import type { LearningMode } from '@/types/store';
 
 export type { LearningMode };
 

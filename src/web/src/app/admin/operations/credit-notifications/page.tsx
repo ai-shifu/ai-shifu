@@ -23,9 +23,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useTracking } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import { toast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';

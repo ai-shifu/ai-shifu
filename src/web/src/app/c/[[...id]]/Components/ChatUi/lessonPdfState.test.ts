@@ -1,15 +1,15 @@
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import {
   isLessonPdfContentReady,
   shouldExcludeLessonPdfInteraction,
 } from './lessonPdfState';
 
-jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
+jest.mock('@/lib/lesson-feedback-interaction', () => ({
   isLessonFeedbackInteractionContent: (content?: string) =>
     content?.includes('sys_lesson_feedback_score') ?? false,
 }));
 
-jest.mock('@/c-utils/system-interaction', () => ({
+jest.mock('@/lib/system-interaction', () => ({
   isSystemInteractionContent: (content?: string) =>
     /_sys_(next_chapter|pay|login)/.test(content ?? ''),
 }));

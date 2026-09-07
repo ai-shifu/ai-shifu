@@ -8,6 +8,9 @@ describe('login analytics payloads', () => {
     expect(buildLoginAttemptAnalytics('password')).toEqual({
       login_method: 'password',
     });
+    expect(buildLoginAttemptAnalytics('email')).toEqual({
+      login_method: 'email',
+    });
   });
 
   it('adds only a bounded failure category to failed results', () => {

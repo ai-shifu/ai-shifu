@@ -26,8 +26,8 @@ import type {
   AdminReferralCampaignItem,
 } from '@/app/admin/operations/operation-promotion-types';
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import {
   Select,
   SelectContent,

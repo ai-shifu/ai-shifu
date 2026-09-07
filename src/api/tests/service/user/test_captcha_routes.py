@@ -229,6 +229,28 @@ def test_console_send_sms_code_does_not_require_captcha_ticket(
     assert body["data"]["expire_in"] > 0
 
 
+def test_console_send_sms_code_accepts_configured_universal_code_without_provider(
+    test_client: object, app: object, monkeypatch: object
+) -> None:
+    import flaskr.service.user.utils as user_utils
+
+    monkeypatch.setattr(
+        user_utils,
+        "send_sms_code_ali",
+        lambda _app, _mobile, _code: None,
+    )
+    monkeypatch.setitem(app.config, "UNIVERSAL_VERIFICATION_CODE", "1024")
+
+    response, body = _post_json(
+        test_client,
+        "/api/user/console_send_sms_code",
+        {"mobile": "13800138004"},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 0
+
+
 def test_console_send_sms_code_normalizes_cn_prefix(
     test_client: object, app: object, monkeypatch: object
 ) -> None:

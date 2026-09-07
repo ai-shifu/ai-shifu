@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { toast, toastOnce } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
-import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
+import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/api/studyV2';
 import {
   buildBaseParams,
   createDeferred,
@@ -12,7 +12,7 @@ import {
   type RunRequestBody,
 } from './useChatLogicHook.testUtils';
 import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
-import { useLessonRunContentStore } from '@/c-store/useLessonRunContentStore';
+import { useLessonRunContentStore } from '@/store/useLessonRunContentStore';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -49,7 +49,7 @@ jest.mock('@/hooks/useToast', () => ({
   fail: jest.fn(),
 }));
 
-jest.mock('@/c-assets/newchat/light/icon_ask.svg', () => ({
+jest.mock('@/assets/newchat/light/icon_ask.svg', () => ({
   __esModule: true,
   default: {
     src: '/ask.svg',
@@ -66,7 +66,7 @@ declare global {
   var __chatHookIsCurrentUserCourseOwner__: boolean | null | undefined;
 }
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (() => {
     globalThis.__chatHookMockUpdateResetedChapterId__ = jest.fn();
     globalThis.__chatHookMockUpdateResetedLessonId__ = jest.fn();
@@ -126,7 +126,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/c-api/studyV2', () => {
+jest.mock('@/api/studyV2', () => {
   return {
     BLOCK_TYPE: {
       CONTENT: 'content',

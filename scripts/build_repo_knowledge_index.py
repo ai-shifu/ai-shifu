@@ -131,7 +131,7 @@ def build_execplan_records(subdir: str, status: str) -> list[DocRecord]:
     records: list[DocRecord] = [
         DocRecord(
             path=path,
-            title=extract_title(path),
+            title=parse_frontmatter(path).get("title") or extract_title(path),
             category=f"exec-plan-{subdir}",
             status=status,
             owner_surface="repo",

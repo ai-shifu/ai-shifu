@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import Loading from '@/components/loading';
 import MobileUnsupportedDialog from '@/components/MobileUnsupportedDialog';
-import { getLessonIdFromQuery } from '@/c-utils/urlUtils';
+import { getLessonIdFromQuery } from '@/lib/urlUtils';
 
 const ShifuRoot = dynamic(() => import('@/components/shifu-root'), {
   ssr: false,
