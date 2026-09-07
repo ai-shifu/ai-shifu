@@ -740,6 +740,7 @@ export const useLiveVoiceFollowUp = ({
       // Keep the already authorized microphone and running AudioContext only
       // for an active expiry handoff. Old callbacks stay attached through the
       // flush, so its played watermark cannot leak into the successor's turn 1.
+      if (preserveAudio) audio?.setMuted(true);
       const stoppedAudio = preserveAudio
         ? audio?.interruptPlayback().catch(() => {})
         : audio?.stop().catch(() => {});
@@ -1021,6 +1022,7 @@ export const useLiveVoiceFollowUp = ({
         open: true,
         state: 'connecting',
         muted: mutedRef.current,
+        microphonePending: !!retainedAudio && !mutedRef.current,
         anchorElementBid: normalizedAnchor,
       });
       requestExclusive(() => {
@@ -1053,6 +1055,10 @@ export const useLiveVoiceFollowUp = ({
         if (setupTimerRef.current !== null) {
           window.clearTimeout(setupTimerRef.current);
           setupTimerRef.current = null;
+        }
+        if (retainedAudio) {
+          audioRef.current?.setMuted(mutedRef.current);
+          setViewState(previous => ({ ...previous, microphonePending: false }));
         }
         // Resumption also waits for setup, but must not emit another result.
         if (currentAttempt.connectedAt !== null) {
@@ -1105,6 +1111,7 @@ export const useLiveVoiceFollowUp = ({
             currentAttempt?.generation !== generation ||
             mutedRef.current ||
             pausedRef.current ||
+            (retainedAudio && !setupReadyRef.current) ||
             frame.byteLength > MAX_INPUT_AUDIO_FRAME_BYTES
           ) {
             return;
@@ -1187,7 +1194,9 @@ export const useLiveVoiceFollowUp = ({
             return;
           }
           audioRef.current = audio;
-          audio.setMuted(mutedRef.current);
+          audio.setMuted(
+            mutedRef.current || (!!retainedAudio && !setupReadyRef.current),
+          );
           if (pausedRef.current) void audio.pauseOutput();
           attemptRef.current.audioActivated = true;
           markConnectedIfReady();

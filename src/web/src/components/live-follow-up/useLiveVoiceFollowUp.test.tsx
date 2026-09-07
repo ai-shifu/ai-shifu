@@ -396,6 +396,9 @@ const Harness = ({
       <span data-testid='warning'>{String(controller.warning)}</span>
       <span data-testid='muted'>{String(controller.muted)}</span>
       <span data-testid='input-active'>{String(controller.inputActive)}</span>
+      <span data-testid='microphone-pending'>
+        {String(controller.microphonePending)}
+      </span>
       <span data-testid='error'>{controller.errorCode || ''}</span>
       <span data-testid='microphone-error'>
         {controller.microphoneError || ''}
@@ -1157,13 +1160,31 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       expect(mockCreateSession).toHaveBeenCalledTimes(1);
       expect(mockAudio.stop).not.toHaveBeenCalled();
       expect(mockAudio.setCallbacks).not.toHaveBeenCalled();
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
       await act(async () => watermark.resolve());
       expect(mockCreateSession).toHaveBeenCalledTimes(2);
       expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
       expect(mockActivateAudio).toHaveBeenCalledTimes(1);
       expect(mockAudio.setCallbacks).toHaveBeenCalledTimes(1);
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      act(() =>
+        mockAudio.setCallbacks.mock.calls[0][0].onInputFrame(
+          new Int16Array(640).fill(1500).buffer,
+        ),
+      );
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
       act(() => mockSockets[1].open());
       await makeReady(mockSockets[1]);
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(false);
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
       expect(screen.getByTestId('muted')).toHaveTextContent('false');
       const before = mockSockets[1].send.mock.calls.length;
       act(() => {
