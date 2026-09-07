@@ -10,6 +10,7 @@
     "generatedBlockNotFound": "Generated block not found",
     "invalidAction": "Invalid action",
     "lessonFeedbackCommentPlaceholder": "Optional: leave your feedback",
+    "liveFollowUpCapacityExceeded": "Voice conversation capacity has been reached. Please try again later.",
     "llmStreamInterrupted": "The generation connection was interrupted. Please refresh and try again.",
     "nextChapterButton": "Next",
     "outputInProgress": "Content is still generating. Please wait before retrying.",

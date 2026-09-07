@@ -44,7 +44,7 @@ _application_state = _ApplicationState()
 app: Flask | None = None
 
 
-def create_app() -> Flask:
+def create_app(*, serving_http: bool = True) -> Flask:
     """Create and configure the Flask application."""
     if _application_state.app is not None:
         return _application_state.app
@@ -52,6 +52,8 @@ def create_app() -> Flask:
 
     pymysql.install_as_MySQLdb()
     flask_app = Flask(__name__, instance_relative_config=True)
+    # Record the process role before plugins/routes can schedule HTTP work.
+    flask_app.extensions["serving_http"] = serving_http
     CORS(
         flask_app,
         resources={
@@ -67,6 +69,7 @@ def create_app() -> Flask:
         supports_credentials=True,
     )
     from flaskr.common import Config, init_log
+    from flaskr.common.http import init_sensitive_body_policy
     from flaskr.common.observability import init_observability
 
     flask_app.config = Config(flask_app.config, flask_app)
@@ -75,6 +78,8 @@ def create_app() -> Flask:
     init_observability(flask_app)
     # init log
     init_log(flask_app)
+    # Logging skips opted-in bodies; enforce their limits before auth JSON parsing.
+    init_sensitive_body_policy(flask_app)
     flask_app = enable_plugin_manager(flask_app)
     flask_app.logger.info("ai-shifu-api mode: %s", flask_app.config.get("MODE", "api"))
     # init database

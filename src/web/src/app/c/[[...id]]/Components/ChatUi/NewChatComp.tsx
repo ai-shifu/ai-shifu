@@ -106,6 +106,18 @@ import type {
   LessonUpdateHandler,
   NextLessonIdGetter,
 } from './useChatLogicHook.types';
+import type { LiveVoiceFollowUpHistoryTurn } from '@/components/live-follow-up/useLiveVoiceFollowUp';
+import {
+  finalizeLiveAskTurn,
+  upsertLiveAskTranscript,
+  type LiveAskTranscriptUpdate,
+} from './liveFollowUpAskHistory';
+import { useLiveVoiceFollowUp } from '@/components/live-follow-up/useLiveVoiceFollowUp';
+import {
+  hasLiveVoiceFollowUpHistory,
+  resolveFollowUpPresentationMode,
+  resolveLiveVoiceFollowUpAvailability,
+} from './liveVoiceFollowUpMode';
 
 // Max concurrent listen-mode audio backfill requests. Entering listen mode used
 // to fire TTS synthesis for every missing block at once (Promise.all), which
@@ -122,6 +134,7 @@ interface NewChatComponentsProps {
   lessonTitle?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
   onPurchased: () => void;
   chapterUpdate: ChapterUpdateHandler;
   updateSelectedLesson: LessonSelectionUpdater;
@@ -148,6 +161,7 @@ export const NewChatComponents = ({
   lessonTitle = '',
   lessonStatus = '',
   lessonHasContentUpdate = false,
+  followUpMode = 'text',
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -307,6 +321,77 @@ export const NewChatComponents = ({
   const previousListenModeActiveRef = useRef(isListenModeActive);
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
+  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
+  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const setAskList = useAskStateStore(state => state.setAskList);
+  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
+  const storedAskListByAnchorElementBid = useAskStateStore(
+    state => state.askListByAnchorElementBid,
+  );
+  const handleLiveTurnCommitted = useCallback(
+    (turn: LiveVoiceFollowUpHistoryTurn) => {
+      setAskList(
+        turn.anchorElementBid,
+        previous => finalizeLiveAskTurn(previous, turn),
+        turn.outlineBid,
+      );
+    },
+    [setAskList],
+  );
+  const handleLiveTranscript = useCallback(
+    (update: LiveAskTranscriptUpdate) => {
+      setAskList(
+        update.anchorElementBid,
+        previous => upsertLiveAskTranscript(previous, update),
+        update.outlineBid,
+      );
+    },
+    [setAskList],
+  );
+  const handleLiveSessionFinished = useCallback(
+    (session: {
+      sessionBid: string;
+      outlineBid: string;
+      anchorElementBid: string;
+    }) => {
+      setAskList(
+        session.anchorElementBid,
+        previous =>
+          previous.filter(
+            message =>
+              message.live_session_bid !== session.sessionBid ||
+              !message.isStreaming,
+          ),
+        session.outlineBid,
+      );
+    },
+    [setAskList],
+  );
+  const liveVoiceFollowUp = useLiveVoiceFollowUp({
+    shifuBid,
+    outlineBid: resolvedLessonId,
+    previewMode,
+    learningMode: isListenModeActive ? 'listen' : 'read',
+    sessionScope: isClassroomMode
+      ? 'classroom'
+      : isListenModeActive
+        ? 'listen'
+        : 'read',
+    onTurnCommitted: handleLiveTurnCommitted,
+    onTurnFinalized: handleLiveTurnCommitted,
+    onTranscript: handleLiveTranscript,
+    onSessionFinished: handleLiveSessionFinished,
+  });
+  const {
+    configured: isLiveVoiceFollowUpConfigured,
+    supported: isLiveVoiceFollowUpSupported,
+  } = resolveLiveVoiceFollowUpAvailability({
+    followUpMode,
+    isClassroomMode,
+  });
+  const isFollowUpUnavailable = followUpMode === 'disabled';
+  const closeLiveVoiceFollowUp = liveVoiceFollowUp.close;
+  const liveVoiceAnchor = liveVoiceFollowUp.anchorElementBid;
   const promptContextKey = `${resolvedLessonId}:${
     isClassroomMode ? 'classroom' : isListenModeActive ? 'listen' : 'read'
   }`;
@@ -319,13 +404,6 @@ export const NewChatComponents = ({
     !isPreviewReadMode;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
-  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
-  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
-  const setAskList = useAskStateStore(state => state.setAskList);
-  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
-  const storedAskListByAnchorElementBid = useAskStateStore(
-    state => state.askListByAnchorElementBid,
-  );
 
   useEffect(() => {
     listenAudioBackfillLessonIdRef.current = resolvedLessonId;
@@ -555,8 +633,15 @@ export const NewChatComponents = ({
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
         askButtonMarkup,
+        followUpDisabled: isFollowUpUnavailable,
       }),
-    [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
+    [
+      askButtonMarkup,
+      isFollowUpUnavailable,
+      items,
+      mobileStyle,
+      scopedAskListByAnchorElementBid,
+    ],
   );
   const readModeItemsRef = useRef(readModeItems);
   readModeItemsRef.current = readModeItems;
@@ -1250,9 +1335,20 @@ export const NewChatComponents = ({
   // Memoize callbacks to prevent unnecessary re-renders
   const handleClickAskButton = useCallback(
     (blockBid: string) => {
+      if (isLiveVoiceFollowUpConfigured) {
+        if (!isLiveVoiceFollowUpSupported) return;
+        if (liveVoiceAnchor && liveVoiceAnchor !== blockBid)
+          closeLiveVoiceFollowUp();
+      }
       toggleAskExpanded(blockBid);
     },
-    [toggleAskExpanded],
+    [
+      isLiveVoiceFollowUpConfigured,
+      isLiveVoiceFollowUpSupported,
+      liveVoiceAnchor,
+      closeLiveVoiceFollowUp,
+      toggleAskExpanded,
+    ],
   );
 
   useEffect(() => {
@@ -1373,6 +1469,13 @@ export const NewChatComponents = ({
               onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
               pausePlaybackWhen={reGenerateConfirm.open}
               disableInteractionEdits={isOutputInProgress}
+              followUpMode={resolveFollowUpPresentationMode({
+                configured: isLiveVoiceFollowUpConfigured,
+                supported: isLiveVoiceFollowUpSupported,
+              })}
+              liveVoice={
+                isLiveVoiceFollowUpSupported ? liveVoiceFollowUp : undefined
+              }
               pendingAudioBackfillElementBids={
                 pendingListenAudioBackfillElementBids
               }
@@ -1479,6 +1582,13 @@ export const NewChatComponents = ({
                   const baseKey = item.element_bid || `${item.type}-${idx}`;
                   const parentKey = item.parent_element_bid || baseKey;
                   if (item.type === ChatContentItemType.ASK) {
+                    if (
+                      !isLiveVoiceFollowUpSupported &&
+                      isLiveVoiceFollowUpConfigured &&
+                      !hasLiveVoiceFollowUpHistory(item.ask_list)
+                    ) {
+                      return null;
+                    }
                     return (
                       <div
                         data-lesson-print-follow-up='true'
@@ -1492,12 +1602,22 @@ export const NewChatComponents = ({
                       >
                         <AskBlock
                           isExpanded={item.isAskExpanded}
+                          readonlyHistory={
+                            isLiveVoiceFollowUpConfigured &&
+                            !isLiveVoiceFollowUpSupported
+                          }
+                          followUpMode={followUpMode}
+                          liveVoice={
+                            isLiveVoiceFollowUpSupported
+                              ? liveVoiceFollowUp
+                              : undefined
+                          }
                           printMode={isPreparingLessonPdf}
                           shifu_bid={shifuBid}
                           outline_bid={resolvedLessonId}
                           preview_mode={previewMode}
                           element_bid={item.parent_element_bid || ''}
-                          onToggleAskExpanded={toggleAskExpanded}
+                          onToggleAskExpanded={handleClickAskButton}
                           askList={(item.ask_list || []) as any[]}
                         />
                       </div>
@@ -1554,9 +1674,11 @@ export const NewChatComponents = ({
                               : undefined
                           }
                           readonly={item.readonly}
-                          disableAskButton={isInteractionFollowUp}
+                          disableAskButton={
+                            isInteractionFollowUp || isFollowUpUnavailable
+                          }
                           onRefresh={onRefresh}
-                          onToggleAskExpanded={toggleAskExpanded}
+                          onToggleAskExpanded={handleClickAskButton}
                           askButtonVariant={
                             shouldRenderMobileAskAction ? 'content' : 'default'
                           }

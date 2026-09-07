@@ -10,6 +10,7 @@
     "generatedBlockNotFound": "لم يتم العثور على الكتلة المُنشأة",
     "invalidAction": "عملية غير صالحة",
     "lessonFeedbackCommentPlaceholder": "اختياري: أخبرنا باقتراحك",
+    "liveFollowUpCapacityExceeded": "تم بلوغ الحد الأقصى للمحادثات الصوتية. يرجى المحاولة مرة أخرى لاحقًا.",
     "llmStreamInterrupted": "انقطع الاتصال أثناء الإنشاء، يرجى التحديث ثم المحاولة مرة أخرى",
     "nextChapterButton": "الفصل التالي",
     "outputInProgress": "يجري إخراج المحتوى، يرجى الانتظار حتى ينتهي ثم المحاولة مرة أخرى",

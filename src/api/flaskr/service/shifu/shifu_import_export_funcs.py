@@ -8,11 +8,14 @@ from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.learn.api import (
+    is_live_follow_up_model,
+    normalize_live_follow_up_course_config,
+)
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
-    normalize_ask_provider_config,
     serialize_ask_provider_config,
 )
 from flaskr.service.shifu.shifu_history_manager import (
@@ -27,14 +30,31 @@ from markdown_flow import MarkdownFlow
 from werkzeug.datastructures import FileStorage
 
 
-def _extract_import_ask_provider_config(shifu_data: dict) -> str:
+def _extract_import_ask_provider_config(
+    shifu_data: dict,
+    outline_items_data: list[dict],
+) -> str:
     """Extract and normalize ask_provider_config from import payload.
 
     Keep legacy imports compatible by defaulting to "{}" when missing.
     """
-    if "ask_provider_config" not in shifu_data:
+    normalized, error_field = normalize_live_follow_up_course_config(
+        course_model=shifu_data.get("llm", ""),
+        course_follow_up_model=shifu_data.get("ask_llm", ""),
+        provider_config=shifu_data.get("ask_provider_config", {}),
+        outline_models=tuple(item.get("llm", "") for item in outline_items_data),
+        outline_follow_up_models=tuple(
+            item.get("ask_llm", "") for item in outline_items_data
+        ),
+    )
+    if error_field is not None:
+        raise_error("server.shifu.importFileInvalid")
+    has_live_follow_up = is_live_follow_up_model(shifu_data.get("ask_llm", "")) or any(
+        is_live_follow_up_model(item.get("ask_llm", "")) for item in outline_items_data
+    )
+    if "ask_provider_config" not in shifu_data and not has_live_follow_up:
         return "{}"
-    return serialize_ask_provider_config(shifu_data.get("ask_provider_config"))
+    return serialize_ask_provider_config(normalized)
 
 
 def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
@@ -75,6 +95,24 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                 DraftOutlineItem.id.in_(outline_item_ids),
                 DraftOutlineItem.deleted == 0,
             ).all()
+        normalized_provider_config, live_contract_error = (
+            normalize_live_follow_up_course_config(
+                course_model=shifu_draft.llm,
+                course_follow_up_model=shifu_draft.ask_llm,
+                provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
+                outline_models=tuple(item.llm for item in outline_items),
+                outline_follow_up_models=tuple(item.ask_llm for item in outline_items),
+            )
+        )
+        if live_contract_error is not None:
+            field = (
+                live_contract_error
+                if live_contract_error == "model"
+                else f"ask_provider_config.{live_contract_error}"
+                if live_contract_error in {"provider", "mode"}
+                else f"ask_provider_config.config.{live_contract_error}"
+            )
+            raise_param_error(field)
 
         # Build export data
         export_data = {
@@ -97,9 +135,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                 if shifu_draft.ask_llm_temperature
                 else 0.0,
                 "ask_llm_system_prompt": shifu_draft.ask_llm_system_prompt,
-                "ask_provider_config": normalize_ask_provider_config(
-                    getattr(shifu_draft, "ask_provider_config", "")
-                ),
+                "ask_provider_config": normalized_provider_config,
                 "price": float(shifu_draft.price) if shifu_draft.price else 0.0,
             },
             "outline_items": [
@@ -175,8 +211,15 @@ def import_shifu(
 
         shifu_data = import_data["shifu"]
         outline_items_data = import_data["outline_items"]
+        if not isinstance(shifu_data, dict) or not isinstance(outline_items_data, list):
+            raise_error("server.shifu.importFileInvalid")
+        if any(not isinstance(item, dict) for item in outline_items_data):
+            raise_error("server.shifu.importFileInvalid")
         structure_data = import_data.get("structure")
-        ask_provider_config = _extract_import_ask_provider_config(shifu_data)
+        ask_provider_config = _extract_import_ask_provider_config(
+            shifu_data,
+            outline_items_data,
+        )
 
         now_time = now_utc()
 

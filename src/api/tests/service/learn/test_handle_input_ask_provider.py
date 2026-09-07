@@ -4,6 +4,8 @@ import importlib
 import sys
 import types
 
+import pytest
+
 
 def _install_litellm_stub() -> None:
     if "litellm" in sys.modules:
@@ -18,6 +20,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
+    litellm_stub.get_supported_openai_params = lambda **_kwargs: []
     litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
@@ -214,6 +217,47 @@ class _Context:
 
     def append_langfuse_output(self, value: str) -> None:
         self.langfuse_outputs.append(value)
+
+
+def test_live_follow_up_is_rejected_before_legacy_text_path_side_effects(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
+
+    monkeypatch.setattr(
+        module,
+        "get_follow_up_info_v2",
+        lambda *_args, **_kwargs: types.SimpleNamespace(ask_model=GEMINI_LIVE_MODEL_ID),
+    )
+    monkeypatch.setattr(
+        module,
+        "build_follow_up_conversation_context",
+        lambda *_args, **_kwargs: pytest.fail(
+            "Live model entered legacy text conversation building"
+        ),
+    )
+
+    with pytest.raises(AppError):
+        list(
+            module.handle_input_ask(
+                app=app,
+                context=_Context(),
+                user_info=types.SimpleNamespace(user_id="user-1"),
+                attend_id="attend-1",
+                user_input="must stay voice-only",
+                outline_item_info=types.SimpleNamespace(
+                    shifu_bid="shifu-1",
+                    bid="outline-1",
+                    title="Outline",
+                    position=1,
+                ),
+                trace_args={},
+                trace=_DummyTrace(),
+            )
+        )
 
 
 def _setup_handle_input_ask_patches(

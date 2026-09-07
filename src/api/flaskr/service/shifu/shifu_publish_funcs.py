@@ -22,6 +22,11 @@ from flaskr.common.shifu_context import (
 )
 from flaskr.dao import db
 from flaskr.service.common import raise_error
+from flaskr.service.common.models import raise_param_error
+from flaskr.service.learn.api import (
+    is_live_follow_up_model,
+    normalize_live_follow_up_course_config,
+)
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.shifu.consts import (
@@ -33,7 +38,10 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.shifu.shifu_draft_funcs import get_latest_shifu_draft
+from flaskr.service.shifu.shifu_draft_funcs import (
+    get_latest_shifu_draft,
+    serialize_ask_provider_config,
+)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_outline_funcs import (
     ShifuOutlineTreeNode,
@@ -110,6 +118,25 @@ def publish_shifu_draft(
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
+        outline_items = load_existing_outline_items(shifu_id, include_content=True)
+        normalized_provider_config, live_contract_error = (
+            normalize_live_follow_up_course_config(
+                course_model=shifu_draft.llm,
+                course_follow_up_model=shifu_draft.ask_llm,
+                provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
+                outline_models=tuple(item.llm for item in outline_items),
+                outline_follow_up_models=tuple(item.ask_llm for item in outline_items),
+            )
+        )
+        if live_contract_error is not None:
+            field = (
+                live_contract_error
+                if live_contract_error == "model"
+                else f"ask_provider_config.{live_contract_error}"
+                if live_contract_error in {"provider", "mode"}
+                else f"ask_provider_config.config.{live_contract_error}"
+            )
+            raise_param_error(field)
         PublishedShifu.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         PublishedOutlineItem.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         shifu_published = PublishedShifu()
@@ -129,8 +156,8 @@ def publish_shifu_draft(
         shifu_published.ask_llm = shifu_draft.ask_llm
         shifu_published.ask_llm_temperature = shifu_draft.ask_llm_temperature
         shifu_published.ask_llm_system_prompt = shifu_draft.ask_llm_system_prompt
-        shifu_published.ask_provider_config = (
-            getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+        shifu_published.ask_provider_config = serialize_ask_provider_config(
+            normalized_provider_config
         )
         # TTS Configuration
         shifu_published.tts_enabled = shifu_draft.tts_enabled
@@ -151,7 +178,6 @@ def publish_shifu_draft(
         db.session.flush()
         # Block publishing a structurally broken outline instead of silently
         # dropping orphaned/colliding nodes from the published result.
-        outline_items = load_existing_outline_items(shifu_id, include_content=True)
         assert_outline_items_publishable(app, shifu_id, outline_items)
         outline_tree = build_outline_tree_from_items(app, outline_items)
 
@@ -382,8 +408,12 @@ def _generate_summaries(
     outline_summary_map = {}
 
     # Get model configuration
-    model_name = shifu.ask_llm or shifu.llm
-    temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
+    if is_live_follow_up_model(shifu.ask_llm):
+        model_name = shifu.llm
+        temperature = shifu.llm_temperature or 0.3
+    else:
+        model_name = shifu.ask_llm or shifu.llm
+        temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
     if not model_name:
         model_name = app.config.get("DEFAULT_LLM_MODEL", "")
 

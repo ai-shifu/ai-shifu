@@ -1,30 +1,26 @@
-"""Serialize shared API responses and UTC timestamps."""
+"""Register shared API handlers and re-export HTTP response helpers."""
 
-import datetime
-import decimal
-import json
 import traceback
-from collections.abc import Callable
-from functools import wraps
-from typing import ParamSpec, TypeVar
 
 from flask import Flask, Response, jsonify, request
 from werkzeug.exceptions import HTTPException
 
+from flaskr.common.http import (
+    by_pass_login_func,
+    bypass_token_validation,
+    fmt,
+    make_common_response,
+)
 from flaskr.common.shifu_context import clear_shifu_context
 from flaskr.i18n import _, _translations, clear_language, set_language
 from flaskr.service.common import AppError
 
-P = ParamSpec("P")
-R = TypeVar("R")
-
-by_pass_login_func = [
-    "flasgger.apispec_1",
-    "flasgger.apidocs",
-    "flasgger.static",
-    "login",
-    "invoke",
-    "update_lesson",
+__all__ = [
+    "by_pass_login_func",
+    "bypass_token_validation",
+    "fmt",
+    "make_common_response",
+    "register_common_handler",
 ]
 
 
@@ -64,18 +60,6 @@ def _extract_request_language() -> str | None:
     return _resolve_supported_language(raw_language)
 
 
-# Decorator that exempts a route from token validation
-def bypass_token_validation(func: Callable[P, R]) -> Callable[P, R]:
-    """Mark a route as exempt from token validation."""
-    by_pass_login_func.append(func.__name__)
-
-    @wraps(func)
-    def wrapper(*args: object, **kwargs: object) -> R:
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
 def register_common_handler(app: Flask) -> Flask:
     """Register the common routes on the Flask application."""
 
@@ -111,29 +95,3 @@ def register_common_handler(app: Flask) -> Flask:
         clear_language()
 
     return app
-
-
-def fmt(o: object) -> object:
-    """Serialize a value for the shared API response envelope."""
-    if isinstance(o, datetime.datetime):
-        # Single serialization choke point for datetimes returned by APIs.
-        # Stored values are UTC (see now_utc()); treat naive values as UTC and
-        # convert aware values to UTC, always emitting ISO 8601 with a 'Z'
-        # suffix. Display-time timezone conversion is a pure frontend concern.
-        if o.tzinfo is None:
-            o = o.replace(tzinfo=datetime.UTC)
-        return o.astimezone(datetime.UTC).isoformat().replace("+00:00", "Z")
-    if isinstance(o, datetime.date):
-        return o.isoformat()
-    if isinstance(o, decimal.Decimal):
-        return str(o)
-    return o.__json__()
-
-
-def make_common_response(data: object) -> str:
-    """Build common response."""
-    if data is None:
-        data = {}
-    return json.dumps(
-        {"code": 0, "message": "success", "data": data}, default=fmt, ensure_ascii=False
-    )

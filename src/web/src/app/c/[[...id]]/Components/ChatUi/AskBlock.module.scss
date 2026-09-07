@@ -1,3 +1,19 @@
+.liveInput {
+  position: relative;
+
+  // Use MarkdownFlowInput's public textarea class hook to reserve an adornment
+  // beside its existing 24px Send button. No nested DOM mutation is needed.
+  .liveTextarea {
+    padding-inline-end: 40px;
+  }
+
+  .liveMicrophone {
+    position: absolute;
+    inset-inline-end: 40px;
+    bottom: 1px;
+  }
+}
+
 .askBlock {
   background: rgba(235, 235, 235, 0.5);
   border-radius: 8px;

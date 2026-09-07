@@ -6,7 +6,7 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from flask import Flask
 from flaskr.common.swagger import register_schema_to_swagger
@@ -184,6 +184,11 @@ class ShifuDetailDto(BaseModel):
         description='Ask provider config, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
         required=False,
     )
+    follow_up_mode: Literal["text", "live_voice"] = Field(
+        default="text",
+        description="Resolved follow-up interaction mode",
+        required=False,
+    )
 
     def __init__(
         self,
@@ -217,6 +222,7 @@ class ShifuDetailDto(BaseModel):
         ask_temperature: float = 0.0,
         ask_system_prompt: str = "",
         ask_provider_config: dict[str, object] | None = None,
+        follow_up_mode: Literal["text", "live_voice"] = "text",
     ) -> None:
         """Build the shifu detail payload."""
         super().__init__(
@@ -250,6 +256,7 @@ class ShifuDetailDto(BaseModel):
             ask_temperature=ask_temperature,
             ask_system_prompt=ask_system_prompt,
             ask_provider_config=ask_provider_config or {},
+            follow_up_mode=follow_up_mode,
         )
 
     def __json__(self) -> dict:
@@ -285,6 +292,7 @@ class ShifuDetailDto(BaseModel):
             "ask_temperature": self.ask_temperature,
             "ask_system_prompt": self.ask_system_prompt,
             "ask_provider_config": self.ask_provider_config,
+            "follow_up_mode": self.follow_up_mode,
         }
 
 

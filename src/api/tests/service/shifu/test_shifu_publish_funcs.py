@@ -1,11 +1,16 @@
 """Verify shifu publish funcs behavior."""
 
+import json
 import sys
 import types
 from datetime import datetime
+from decimal import Decimal
 
+import pytest
 from flask import Flask
 from flaskr.dao import db
+from flaskr.service.common.models import AppError
+from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
@@ -27,6 +32,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
+    litellm_stub.get_supported_openai_params = lambda **_kwargs: []
     litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
@@ -343,3 +349,152 @@ def test_publish_shifu_draft_preserves_outline_updated_at(
     assert outline_load_calls == [
         (("publish-preserve-outline-updated-at",), {"include_content": True})
     ]
+
+
+def test_publish_rejects_invalid_live_contract_before_retiring_current_version(
+    app: object,
+) -> None:
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    shifu_bid = "publish-reject-invalid-live-contract"
+    with app.app_context():
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=shifu_bid,
+                    title="Invalid Live draft",
+                    llm="gpt-main",
+                    ask_llm=GEMINI_LIVE_MODEL_ID,
+                    ask_provider_config=json.dumps(
+                        {
+                            "provider": "dify",
+                            "mode": "provider_only",
+                            "config": {"live_voice": "Kore"},
+                        }
+                    ),
+                ),
+                PublishedShifu(
+                    shifu_bid=shifu_bid,
+                    title="Current published course",
+                    llm="gpt-main",
+                    deleted=0,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    with pytest.raises(AppError):
+        module.publish_shifu_draft(
+            app,
+            user_id="teacher-1",
+            shifu_id=shifu_bid,
+            base_url="https://example.com",
+            sync_summary=True,
+        )
+
+    with app.app_context():
+        current = PublishedShifu.query.filter_by(
+            shifu_bid=shifu_bid,
+            deleted=0,
+        ).one()
+        assert current.title == "Current published course"
+
+
+def test_publish_live_follow_up_defaults_official_voice(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    shifu_bid = "publish-live-default-voice"
+    monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *_args: None)
+    with app.app_context():
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=shifu_bid,
+                    title="Valid Live draft",
+                    llm="gpt-main",
+                    llm_temperature=Decimal("0.4"),
+                    ask_llm=GEMINI_LIVE_MODEL_ID,
+                    ask_provider_config="{}",
+                ),
+                DraftOutlineItem(
+                    outline_item_bid="publish-live-default-voice-lesson",
+                    shifu_bid=shifu_bid,
+                    title="Lesson",
+                    position="1",
+                    type=401,
+                    hidden=0,
+                    content="# Lesson",
+                ),
+            ]
+        )
+        db.session.commit()
+
+    module.publish_shifu_draft(
+        app,
+        user_id="teacher-1",
+        shifu_id=shifu_bid,
+        base_url="https://example.com",
+        sync_summary=True,
+    )
+
+    with app.app_context():
+        published = PublishedShifu.query.filter_by(
+            shifu_bid=shifu_bid,
+            deleted=0,
+        ).one()
+        assert json.loads(published.ask_provider_config) == {
+            "provider": "llm",
+            "mode": "provider_only",
+            "config": {"live_voice": "Kore"},
+        }
+
+
+def test_live_follow_up_never_drives_text_summary_generation(
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    captured: dict[str, object] = {}
+
+    def get_summary(_app: object, **kwargs: object) -> str:
+        captured.update(kwargs)
+        return "summary"
+
+    monkeypatch.setattr(module, "_get_summary", get_summary)
+    section = types.SimpleNamespace(bid="lesson-1", title="Lesson")
+    tree = types.SimpleNamespace(
+        outline_items=[
+            types.SimpleNamespace(
+                bid="chapter-1",
+                title="Chapter",
+                children=[section],
+            )
+        ]
+    )
+    outline = types.SimpleNamespace(
+        outline_item_bid="lesson-1",
+        content="",
+        summary="",
+        ask_enabled_status=0,
+    )
+    shifu = types.SimpleNamespace(
+        llm="gpt-main",
+        llm_temperature=Decimal("0.4"),
+        ask_llm=GEMINI_LIVE_MODEL_ID,
+        ask_llm_temperature=Decimal("0.1"),
+    )
+
+    result = module._generate_summaries(
+        Flask("live-summary-model-test"),
+        tree,
+        {"lesson-1": outline},
+        "Summary: {all_script_content}",
+        shifu,
+    )
+
+    assert captured["model_name"] == "gpt-main"
+    assert captured["temperature"] == Decimal("0.4")
+    assert result["lesson-1"]["content"] == "summary"

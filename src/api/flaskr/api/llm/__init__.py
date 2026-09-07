@@ -1,15 +1,15 @@
 """LLM invocation wrappers built on LiteLLM."""
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import logging
 import os
 import time
-from collections.abc import Callable, Generator
 from dataclasses import dataclass, field, replace
-from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -21,7 +21,12 @@ os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
 import litellm
 from flask import Flask, current_app
-from litellm.types.utils import ModelResponseStream
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
+    from datetime import datetime
+
+    from litellm.types.utils import ModelResponseStream
 
 from flaskr.api.langfuse import (
     LangfuseObservationHandle,
@@ -52,6 +57,13 @@ from flaskr.service.metering.consts import (
     normalize_usage_scene,
 )
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
+
+from .live_catalog import (
+    GEMINI_LIVE_MODEL_ALLOWLIST,
+    get_gemini_live_voice_options,
+    is_gemini_live_enabled,
+    is_live_follow_up_model,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +116,7 @@ class ProviderConfig:
     custom_llm_provider: str | None = None
     model_loader: (
         Callable[
-            ["ProviderConfig", dict[str, str], str | None], list[str | tuple[str, str]]
+            [ProviderConfig, dict[str, str], str | None], list[str | tuple[str, str]]
         ]
         | None
     ) = None
@@ -124,6 +136,8 @@ class ProviderState:
 MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
 PROVIDER_STATES: dict[str, ProviderState] = {}
 MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
+MODEL_SUPPORTED_GENERATION_METHODS: dict[str, frozenset[str]] = {}
+_GEMINI_CAPABILITY_DISCOVERED_MODELS: set[str] = set()
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
 _INCOMPLETE_FINISH_REASONS = frozenset({"content_filter", "length"})
 
@@ -598,34 +612,73 @@ def _load_gemini_models(
     api_key = params.get("api_key")
     if not api_key:
         return models
+    for discovered_model in _GEMINI_CAPABILITY_DISCOVERED_MODELS:
+        MODEL_SUPPORTED_GENERATION_METHODS.pop(discovered_model, None)
+    _GEMINI_CAPABILITY_DISCOVERED_MODELS.clear()
 
     # If a custom proxy is provided, try the generic OpenAI-compatible fetcher first.
     if base_url and "generativelanguage.googleapis.com" not in base_url:
         try:
             models.extend(_fetch_provider_models(api_key, base_url))
-        except Exception as exc:
-            _log_warning(f"load gemini models via custom base error: {exc}")
+        except Exception:
+            # Provider exceptions may contain a request URL with the API key.
+            _log_warning("load gemini models via custom base failed")
         else:
-            return models
+            # A transparent Gemini proxy can return a successful native
+            # ListModels envelope, which has no OpenAI `data[].id` entries.
+            # Continue through native discovery to retain Bidi capabilities.
+            if models:
+                return models
 
     # Default to Google Gemini ListModels endpoint (v1beta).
-    google_base = base_url or "https://generativelanguage.googleapis.com"
-    url = f"{google_base.rstrip('/')}/v1beta/models?key={api_key}"
+    google_base = (
+        (base_url or "https://generativelanguage.googleapis.com").strip().rstrip("/")
+    )
+    versioned_base = (
+        google_base if google_base.endswith("/v1beta") else f"{google_base}/v1beta"
+    )
+    url = f"{versioned_base}/models"
     try:
-        response = requests.get(url, timeout=20)
-        response.raise_for_status()
-        data = response.json()
-        for item in data.get("models", []):
-            name = item.get("name", "") or ""
-            if name.startswith("models/"):
-                name = name.split("/", 1)[1]
-            methods = item.get("supportedGenerationMethods", []) or []
-            if methods and "generateContent" not in methods:
-                continue
-            if name:
-                models.append(name)
-    except Exception as exc:
-        _log_warning(f"load gemini models error: {exc}")
+        page_token = ""
+        seen_page_tokens: set[str] = set()
+        for _page_index in range(10):
+            query_params = {"key": api_key, "pageSize": 1000}
+            if page_token:
+                query_params["pageToken"] = page_token
+            response = requests.get(url, params=query_params, timeout=20)
+            response.raise_for_status()
+            data = response.json()
+            for item in data.get("models", []):
+                name = item.get("name", "") or ""
+                if name.startswith("models/"):
+                    name = name.split("/", 1)[1]
+                methods = frozenset(
+                    str(method).strip()
+                    for method in (item.get("supportedGenerationMethods", []) or [])
+                    if str(method).strip()
+                )
+                if methods and not methods.intersection(
+                    {"generateContent", "bidiGenerateContent"}
+                ):
+                    continue
+                if name:
+                    MODEL_SUPPORTED_GENERATION_METHODS[name] = methods
+                    _GEMINI_CAPABILITY_DISCOVERED_MODELS.add(name)
+                    if name not in models:
+                        models.append(name)
+            next_page_token = data.get("nextPageToken")
+            if not isinstance(next_page_token, str) or not next_page_token:
+                break
+            if next_page_token in seen_page_tokens:
+                _log_warning("load gemini models stopped on repeated page token")
+                break
+            seen_page_tokens.add(next_page_token)
+            page_token = next_page_token
+        else:
+            _log_warning("load gemini models stopped at the page limit")
+    except Exception:
+        # Never attach the exception: requests errors can include query params.
+        _log_warning("load gemini models failed")
     return models
 
 
@@ -2005,12 +2058,66 @@ def _attach_credit_multipliers(
 
 
 def get_current_models(app: Flask) -> list[dict[str, object]]:
-    """Return current models."""
+    """Return text-generation models available to the primary model picker."""
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():
         litellm_models.extend(state.models)
-    available_models = list(dict.fromkeys(litellm_models))
+    available_models = [
+        model
+        for model in dict.fromkeys(litellm_models)
+        if not is_live_follow_up_model(model)
+        and (
+            not MODEL_SUPPORTED_GENERATION_METHODS.get(model)
+            or "generateContent" in MODEL_SUPPORTED_GENERATION_METHODS[model]
+        )
+    ]
     return _build_model_options(app, available_models)
+
+
+def is_live_follow_up_model_available(model: object) -> bool:
+    """Return whether an allowlisted Live model was capability-discovered."""
+    normalized_model = str(model or "").strip()
+    if not is_gemini_live_enabled() or not is_live_follow_up_model(normalized_model):
+        return False
+    gemini_state = PROVIDER_STATES.get("gemini")
+    if not gemini_state or not gemini_state.enabled:
+        return False
+    if normalized_model not in gemini_state.models:
+        return False
+    return "bidiGenerateContent" in MODEL_SUPPORTED_GENERATION_METHODS.get(
+        normalized_model, frozenset()
+    )
+
+
+def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
+    """Return model options with stable follow-up interaction capabilities."""
+    options = [
+        {
+            **option,
+            "interaction_mode": "text",
+            "allowed_roles": ["main", "follow_up"],
+            "billing_mode": "billable",
+            "voices": [],
+        }
+        for option in get_current_models(app)
+    ]
+    for model in GEMINI_LIVE_MODEL_ALLOWLIST:
+        if not is_live_follow_up_model_available(model):
+            continue
+        options.append(
+            {
+                "model": model,
+                "display_name": "Gemini 3.1 Flash Live Preview",
+                "credit_multiplier": None,
+                "credit_multiplier_label": None,
+                "is_default": False,
+                "interaction_mode": "live_voice",
+                "allowed_roles": ["follow_up"],
+                "billing_mode": "free_preview",
+                "voices": get_gemini_live_voice_options(),
+            }
+        )
+    return options
 
 
 def get_allowed_models() -> list[str]:

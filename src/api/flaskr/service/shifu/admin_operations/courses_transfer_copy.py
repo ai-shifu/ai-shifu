@@ -18,6 +18,9 @@ from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.service.learn.api import (
+    normalize_live_follow_up_course_config,
+)
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin_operations.courses_shared import (
     OPERATOR_TARGET_CONTACT_MAX_LENGTH,
@@ -38,6 +41,7 @@ from flaskr.service.shifu.models import (
 from flaskr.service.shifu.shifu_draft_funcs import (
     check_text_with_risk_control,
     get_latest_shifu_draft,
+    serialize_ask_provider_config,
 )
 from flaskr.service.shifu.shifu_history_manager import (
     HistoryItem,
@@ -497,6 +501,26 @@ def copy_operator_course(
             new_course_name,
         )
         source_outlines = _load_latest_active_draft_outlines(normalized_shifu_bid)
+        normalized_provider_config, live_contract_error = (
+            normalize_live_follow_up_course_config(
+                course_model=source_draft.llm,
+                course_follow_up_model=source_draft.ask_llm,
+                provider_config=getattr(source_draft, "ask_provider_config", "{}"),
+                outline_models=tuple(item.llm for item in source_outlines),
+                outline_follow_up_models=tuple(
+                    item.ask_llm for item in source_outlines
+                ),
+            )
+        )
+        if live_contract_error is not None:
+            field = (
+                live_contract_error
+                if live_contract_error == "model"
+                else f"ask_provider_config.{live_contract_error}"
+                if live_contract_error in {"provider", "mode"}
+                else f"ask_provider_config.config.{live_contract_error}"
+            )
+            raise_param_error(field)
         outline_bid_map: dict[str, str] = {
             str(item.outline_item_bid or "").strip(): generate_id(app)
             for item in source_outlines
@@ -539,6 +563,9 @@ def copy_operator_course(
         new_draft.created_user_bid = target_user_bid
         new_draft.updated_user_bid = action_user_bid
         new_draft.deleted = 0
+        new_draft.ask_provider_config = serialize_ask_provider_config(
+            normalized_provider_config
+        )
         db.session.add(new_draft)
         db.session.flush()
 

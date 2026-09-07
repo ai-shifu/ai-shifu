@@ -3,6 +3,7 @@
 import re
 
 from flask import Flask
+from flaskr.service.learn.live_follow_up_config import resolve_course_follow_up_model
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
@@ -234,7 +235,10 @@ def get_follow_up_info_v2(
     shifu_ask_provider_config = normalize_ask_provider_config(
         getattr(shifu_info, "ask_provider_config", "{}")
     )
-    ask_model = shifu_info.ask_llm or shifu_info.llm
+    ask_model = resolve_course_follow_up_model(
+        shifu_info.llm,
+        shifu_info.ask_llm,
+    )
 
     for p in path:
         if p.type == "outline":

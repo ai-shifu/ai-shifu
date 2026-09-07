@@ -92,6 +92,7 @@ export default function ModelList({
     label: t('common.core.default'),
     creditMultiplier: defaultModelOption?.creditMultiplier ?? null,
     creditMultiplierLabel: defaultModelOption?.creditMultiplierLabel || '',
+    disabled: defaultModelOption?.disabled,
   };
   const selectedOption =
     showDefaultOption && displayValue === DEFAULT_MODEL_OPTION_VALUE
@@ -143,6 +144,7 @@ export default function ModelList({
             textValue={defaultOption.label}
             indicatorClassName={MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME}
             className='pl-3 pr-0'
+            disabled={defaultOption.disabled}
           >
             <ModelOptionLabel
               label={defaultOption.label}
@@ -158,6 +160,7 @@ export default function ModelList({
               textValue={item.label}
               indicatorClassName={MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME}
               className='pl-3 pr-0'
+              disabled={item.disabled}
             >
               <ModelOptionLabel
                 label={item.label}

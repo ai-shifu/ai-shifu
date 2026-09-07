@@ -523,6 +523,334 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(
     assert models == llm.DEEPSEEK_FALLBACK_MODELS
 
 
+def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
+    monkeypatch: object,
+) -> None:
+    def fake_get(*args: object, **kwargs: object) -> object:
+        _ = args, kwargs
+        return FakeModelsResponse(
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-3.7-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-3.1-flash-live-preview",
+                        "supportedGenerationMethods": ["bidiGenerateContent"],
+                    },
+                    {
+                        "name": "models/text-embedding-005",
+                        "supportedGenerationMethods": ["embedContent"],
+                    },
+                ]
+            }
+        )
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+    )
+
+    models = llm._load_gemini_models(
+        config,
+        {"api_key": "test-key"},
+        None,
+    )
+
+    assert models == [
+        "gemini-3.7-flash",
+        "gemini-3.1-flash-live-preview",
+    ]
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.7-flash"] == {
+        "generateContent"
+    }
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.1-flash-live-preview"] == {
+        "bidiGenerateContent"
+    }
+
+
+def test_gemini_model_loader_discovers_capabilities_on_later_pages(
+    monkeypatch: object,
+) -> None:
+    requests_seen: list[dict[str, object]] = []
+
+    def fake_get(
+        _url: str,
+        *,
+        params: dict[str, object],
+        timeout: int,
+    ) -> object:
+        requests_seen.append({"params": dict(params), "timeout": timeout})
+        if params.get("pageToken") == "second-page":
+            return FakeModelsResponse(
+                {
+                    "models": [
+                        {
+                            "name": "models/gemini-3.1-flash-live-preview",
+                            "supportedGenerationMethods": ["bidiGenerateContent"],
+                        }
+                    ]
+                }
+            )
+        return FakeModelsResponse(
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-3.7-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    }
+                ],
+                "nextPageToken": "second-page",
+            }
+        )
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+    )
+
+    models = llm._load_gemini_models(config, {"api_key": "test-key"}, None)
+
+    assert models == [
+        "gemini-3.7-flash",
+        "gemini-3.1-flash-live-preview",
+    ]
+    assert requests_seen == [
+        {"params": {"key": "test-key", "pageSize": 1000}, "timeout": 20},
+        {
+            "params": {
+                "key": "test-key",
+                "pageSize": 1000,
+                "pageToken": "second-page",
+            },
+            "timeout": 20,
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ("base_url", "expected_url"),
+    [
+        (
+            "https://generativelanguage.googleapis.com/v1beta/",
+            "https://generativelanguage.googleapis.com/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/v1beta",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/v1beta/",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+    ],
+)
+@pytest.mark.parametrize("openai_probe_fails", [True, False])
+def test_gemini_native_proxy_preserves_version_prefix_and_capabilities(
+    monkeypatch: pytest.MonkeyPatch,
+    base_url: str,
+    expected_url: str,
+    openai_probe_fails: bool,
+) -> None:
+    native_requests: list[str] = []
+    live_model = "gemini-3.1-flash-live-preview"
+
+    def fake_get(url: str, **kwargs: object) -> object:
+        if "headers" in kwargs and openai_probe_fails:
+            message = "OpenAI authentication unsupported"
+            raise RuntimeError(message)
+        if "params" in kwargs:
+            native_requests.append(url)
+            assert kwargs["params"] == {"key": "test-key", "pageSize": 1000}
+        return FakeModelsResponse(
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-3.7-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": f"models/{live_model}",
+                        "supportedGenerationMethods": ["bidiGenerateContent"],
+                    },
+                ]
+            }
+        )
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
+    )
+    assert llm._load_gemini_models(config, {"api_key": "test-key"}, base_url) == [
+        "gemini-3.7-flash",
+        live_model,
+    ]
+    assert native_requests == [expected_url]
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS[live_model] == {"bidiGenerateContent"}
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.7-flash"] == {
+        "generateContent"
+    }
+
+
+def test_gemini_openai_proxy_preserves_text_discovery_without_native_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests_seen: list[str] = []
+
+    def fake_get(url: str, **kwargs: object) -> object:
+        requests_seen.append(url)
+        assert kwargs["headers"] == {
+            "Authorization": "Bearer test-key",
+            "Content-Type": "application/json",
+        }
+        return FakeModelsResponse({"data": [{"id": "gemini-3.7-flash"}]})
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
+    )
+    assert llm._load_gemini_models(
+        config, {"api_key": "test-key"}, "https://gemini-proxy.example.com/v1"
+    ) == ["gemini-3.7-flash"]
+    assert requests_seen == ["https://gemini-proxy.example.com/v1/models"]
+    assert "gemini-3.7-flash" not in llm.MODEL_SUPPORTED_GENERATION_METHODS
+
+
+def test_gemini_model_loader_never_logs_api_key_from_request_errors(
+    monkeypatch: object,
+) -> None:
+    secret = "gemini-super-secret"
+    warnings: list[str] = []
+
+    def raise_request_error(*_args: object, **_kwargs: object) -> object:
+        message = f"timeout at https://example.invalid/models?key={secret}"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(llm.requests, "get", raise_request_error)
+    monkeypatch.setattr(llm, "_log_warning", warnings.append)
+    config = llm.ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+    )
+
+    assert llm._load_gemini_models(config, {"api_key": secret}, None) == []
+    assert warnings == ["load gemini models failed"]
+    assert secret not in "".join(warnings)
+
+
+def test_gemini_compatible_proxy_clears_stale_capability_metadata(
+    monkeypatch: object,
+) -> None:
+    proxy_model = "proxy-model-without-capability-metadata"
+    monkeypatch.setattr(
+        llm,
+        "MODEL_SUPPORTED_GENERATION_METHODS",
+        {proxy_model: frozenset({"bidiGenerateContent"})},
+    )
+    monkeypatch.setattr(
+        llm,
+        "_GEMINI_CAPABILITY_DISCOVERED_MODELS",
+        {proxy_model},
+    )
+    monkeypatch.setattr(
+        llm,
+        "_fetch_provider_models",
+        lambda *_args, **_kwargs: [proxy_model],
+    )
+    config = llm.ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+    )
+
+    models = llm._load_gemini_models(
+        config,
+        {"api_key": "test-key"},
+        "https://gemini-proxy.example.com/v1",
+    )
+
+    assert models == [proxy_model]
+    assert proxy_model not in llm.MODEL_SUPPORTED_GENERATION_METHODS
+
+
+def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
+    monkeypatch: object,
+) -> None:
+    live_model = "gemini-3.1-flash-live-preview"
+    other_bidi_only_model = "gemini-future-bidi-preview"
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "gemini": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test-key"},
+                models=[
+                    "gemini-3.7-flash",
+                    live_model,
+                    other_bidi_only_model,
+                    "openai-compatible-without-capabilities",
+                ],
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_SUPPORTED_GENERATION_METHODS",
+        {
+            "gemini-3.7-flash": frozenset({"generateContent"}),
+            live_model: frozenset({"bidiGenerateContent"}),
+            other_bidi_only_model: frozenset({"bidiGenerateContent"}),
+        },
+    )
+    monkeypatch.setattr(
+        llm,
+        "_build_model_options",
+        lambda _app, models: [
+            {"model": model, "display_name": model} for model in models
+        ],
+    )
+
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: False)
+    assert [item["model"] for item in llm.get_current_models(object())] == [
+        "gemini-3.7-flash",
+        "openai-compatible-without-capabilities",
+    ]
+    assert [item["model"] for item in llm.get_follow_up_models(object())] == [
+        "gemini-3.7-flash",
+        "openai-compatible-without-capabilities",
+    ]
+
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
+    follow_up_models = llm.get_follow_up_models(object())
+    assert [item["model"] for item in follow_up_models] == [
+        "gemini-3.7-flash",
+        "openai-compatible-without-capabilities",
+        live_model,
+    ]
+    assert follow_up_models[0]["interaction_mode"] == "text"
+    assert follow_up_models[0]["allowed_roles"] == ["main", "follow_up"]
+    assert follow_up_models[0]["billing_mode"] == "billable"
+    assert follow_up_models[2]["interaction_mode"] == "live_voice"
+    assert follow_up_models[2]["allowed_roles"] == ["follow_up"]
+    assert follow_up_models[2]["billing_mode"] == "free_preview"
+    assert len(follow_up_models[2]["voices"]) == 30
+    assert {voice["voice_id"] for voice in follow_up_models[2]["voices"]} >= {
+        "Kore",
+        "Puck",
+    }
+
+
 def test_qwen_prefixed_model_routes_without_fetched_alias(
     monkeypatch: object, app: object
 ) -> None:

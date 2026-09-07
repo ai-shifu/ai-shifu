@@ -1,6 +1,9 @@
 import { useUserStore } from '@/store';
 import { getStringEnv } from '@/lib/envUtils';
-import { getDynamicApiBaseUrl } from '@/config/environment';
+import {
+  getCachedDynamicApiBaseUrl,
+  getDynamicApiBaseUrl,
+} from '@/config/environment';
 import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
 import { toast } from '@/hooks/useToast';
 import i18n from 'i18next';
@@ -24,6 +27,14 @@ export type RequestConfig = RequestInit & {
   data?: any;
   skipErrorToast?: boolean;
   creditInsufficientAudience?: CreditInsufficientAudience;
+};
+
+type PreparedRequest = {
+  url: string;
+  config: RequestConfig;
+  tokenUsed: string;
+  requestId: string;
+  harnessRunId?: string;
 };
 
 export type StreamRequestConfig = RequestInit & {
@@ -449,16 +460,7 @@ export class Request {
     this.defaultConfig = defaultConfig;
   }
 
-  private async prepareConfig(
-    url: string,
-    config: RequestConfig,
-  ): Promise<{
-    url: string;
-    config: RequestConfig;
-    tokenUsed: string;
-    requestId: string;
-    harnessRunId?: string;
-  }> {
+  private mergeConfig(config: RequestConfig): RequestConfig {
     const mergedConfig = {
       ...this.defaultConfig,
       ...config,
@@ -474,6 +476,15 @@ export class Request {
       delete (mergedConfig.headers as Record<string, string>)['Content-Type'];
     }
 
+    return mergedConfig;
+  }
+
+  private async prepareConfig(
+    url: string,
+    config: RequestConfig,
+  ): Promise<PreparedRequest> {
+    const mergedConfig = this.mergeConfig(config);
+
     // Handle URL
     let fullUrl = url;
     if (!url.startsWith('http')) {
@@ -487,7 +498,36 @@ export class Request {
       }
     }
 
-    // Add authentication and trace headers
+    return this.prepareResolvedConfig(fullUrl, mergedConfig);
+  }
+
+  private prepareKeepaliveConfig(
+    url: string,
+    config: RequestConfig,
+  ): PreparedRequest {
+    let fullUrl = url;
+    if (!url.startsWith('http')) {
+      if (typeof window !== 'undefined') {
+        const siteHost = getCachedDynamicApiBaseUrl();
+        if (siteHost === undefined) {
+          // Lifecycle writes require configuration loaded by an earlier request.
+          // Starting an async lookup here could lose the write during pagehide.
+          throw new ErrorWithCode(getRequestFallbackMessage(), -1);
+        }
+        fullUrl = (siteHost || window.location.origin || '') + url;
+      } else {
+        fullUrl = (getStringEnv('baseURL') || '') + url;
+      }
+    }
+    return this.prepareResolvedConfig(fullUrl, this.mergeConfig(config));
+  }
+
+  private prepareResolvedConfig(
+    fullUrl: string,
+    mergedConfig: RequestConfig,
+  ): PreparedRequest {
+    // Read authentication, language, and trace headers at send time, not when
+    // runtime configuration was cached (a login or language change may follow).
     const token = useUserStore.getState().getToken() || '';
     const authHeaders: Record<string, string> = token
       ? {
@@ -525,7 +565,9 @@ export class Request {
         tokenUsed: resolvedTokenUsed,
         requestId: resolvedRequestId,
         harnessRunId: resolvedHarnessRunId,
-      } = await this.prepareConfig(url, config);
+      } = (config.keepalive ?? this.defaultConfig.keepalive)
+        ? this.prepareKeepaliveConfig(url, config)
+        : await this.prepareConfig(url, config);
       fullUrl = resolvedFullUrl;
       tokenUsed = resolvedTokenUsed;
       requestId = resolvedRequestId;

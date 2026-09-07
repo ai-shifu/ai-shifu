@@ -11,6 +11,7 @@ interface ProjectReadModeItemsParams {
   askListByAnchorElementBid: Record<string, ProjectAskMessage[]>;
   mobileStyle: boolean;
   askButtonMarkup: string;
+  followUpDisabled?: boolean;
 }
 
 interface ProjectListenModeItemsParams {
@@ -212,7 +213,11 @@ const projectListenAnswerFeedbackItems = (
 
   return askList
     .filter(
-      message => message?.type === 'answer' && Boolean(message.content?.trim()),
+      message =>
+        message?.type === 'answer' &&
+        Boolean(message.content?.trim()) &&
+        message.interaction_mode !== 'live_voice' &&
+        message.payload?.interaction_mode !== 'live_voice',
     )
     .map((message, index) => {
       const fallbackElementBid = `answer-${item.parent_element_bid || 'feedback'}-${index}`;
@@ -246,6 +251,7 @@ export const projectReadModeItems = ({
   askListByAnchorElementBid,
   mobileStyle,
   askButtonMarkup,
+  followUpDisabled = false,
 }: ProjectReadModeItemsParams) => {
   const hiddenContentElementBids = getHiddenContentElementBids(items);
   const projectableItems = items
@@ -301,8 +307,9 @@ export const projectReadModeItems = ({
       mobileStyle,
       askButtonMarkup,
       shouldShowButton:
-        Boolean(item.isHistory) ||
-        finalizedParentElementBids.has(item.element_bid),
+        !followUpDisabled &&
+        (Boolean(item.isHistory) ||
+          finalizedParentElementBids.has(item.element_bid)),
     });
 
     nextItems.push(projectedItem);
