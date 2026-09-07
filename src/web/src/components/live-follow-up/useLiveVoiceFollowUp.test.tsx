@@ -570,6 +570,35 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockCreateSession).toHaveBeenCalledTimes(2);
   });
 
+  it('retains a paused owner beyond its authorization window and revalidates before input', async () => {
+    jest.useFakeTimers();
+    enableTakeover();
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await act(async () => {});
+    act(() => mockSockets[0].open());
+    await makeReady();
+    fireEvent.click(screen.getByRole('button', { name: 'pause' }));
+    await act(async () => jest.advanceTimersByTime(60_000));
+    expect(mockEndSession).not.toHaveBeenCalled();
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockAudio.setAuthorizationDeadline).toHaveBeenLastCalledWith(0);
+    const validation = createDeferred<object>();
+    mockHeartbeatSession.mockReturnValueOnce(validation.promise);
+    mockSockets[0].send.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    await act(async () => {});
+    expect(mockSockets[0].send).not.toHaveBeenCalled();
+    await act(async () => validation.resolve({}));
+    expect(mockSockets[0].send).toHaveBeenCalled();
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockEndSession).not.toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_resume',
+      expect.any(Object),
+    );
+  });
+
   it('ownership loss stops media without surfacing a retry control or automatically taking back', async () => {
     jest.useFakeTimers();
     enableTakeover();
@@ -2802,6 +2831,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     await startAndOpen();
     await makeReady();
     fireEvent.click(screen.getByRole('button', { name: 'pause' }));
+    expect(mockAudio.setAuthorizationDeadline).not.toHaveBeenCalledWith(0);
     mockHeartbeatSession.mockReturnValueOnce(validation.promise);
     fireEvent.click(screen.getByRole('button', { name: 'text' }));
     fireEvent.click(screen.getByRole('button', { name: 'text' }));

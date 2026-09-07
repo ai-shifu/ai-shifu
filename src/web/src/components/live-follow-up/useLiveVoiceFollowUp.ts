@@ -961,9 +961,11 @@ export const useLiveVoiceFollowUp = ({
               audio.resumeOutput(),
               sessionRef.current
                 ? Promise.race([
-                    heartbeatLiveFollowUpSession(
-                      sessionRef.current.session_bid,
-                    ),
+                    ownershipRef.current
+                      ? ownershipRef.current.resume()
+                      : heartbeatLiveFollowUpSession(
+                          sessionRef.current.session_bid,
+                        ),
                     new Promise<never>((_, reject) => {
                       resumeTimer = window.setTimeout(
                         () =>
@@ -1737,6 +1739,7 @@ export const useLiveVoiceFollowUp = ({
               },
             );
             ownershipRef.current = ownership;
+            if (pausedRef.current) ownership.pause();
             await ownership.start(session.previous_admission_revision);
             if (attemptRef.current?.generation !== generation) {
               ownership.stop();
@@ -2132,6 +2135,11 @@ export const useLiveVoiceFollowUp = ({
         return;
       }
       pausedRef.current = true;
+      if (ownershipRef.current) {
+        ownershipDeadlineRef.current = 0;
+        audioRef.current?.setAuthorizationDeadline(0);
+        ownershipRef.current.pause();
+      }
       // Setup may finish while paused. Only an already-connected pause owns a
       // matching resume event; connection readiness alone cannot establish it.
       attempt.connectedPausePending = attempt.connectedAt !== null;

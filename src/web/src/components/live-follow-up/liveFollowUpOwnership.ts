@@ -10,6 +10,9 @@ const AUTHORIZATION_MS = 10_000;
 /** Cooperative browser fencing, not revocation of a disclosed Google token. */
 export class LiveFollowUpOwnership {
   private stopped = false;
+  private paused = false;
+  private generation = 0;
+  private validatedGeneration = -1;
   private pending: Promise<void> | null = null;
   private poll: ReturnType<typeof setTimeout> | undefined;
   private expiry: ReturnType<typeof setTimeout> | undefined;
@@ -39,30 +42,38 @@ export class LiveFollowUpOwnership {
 
   private armExpiry(deadline: number) {
     clearTimeout(this.expiry);
+    const generation = this.generation;
     this.expiry = setTimeout(
-      () => this.fail(new LiveFollowUpControlError('admission_unavailable')),
+      () => {
+        if (!this.paused && generation === this.generation)
+          this.fail(new LiveFollowUpControlError('admission_unavailable'));
+      },
       Math.max(0, deadline - performance.now()),
     );
   }
 
   check(): Promise<void> {
-    if (this.stopped) return Promise.resolve();
+    if (this.stopped || this.paused) return Promise.resolve();
     if (this.pending) return this.pending;
     clearTimeout(this.poll);
     const started = performance.now();
+    const generation = this.generation;
     this.pending = heartbeatLiveFollowUpSession(this.sessionBid)
       .then(() => {
-        if (this.stopped) return;
+        if (this.stopped || this.paused || generation !== this.generation)
+          return;
         const deadline = started + AUTHORIZATION_MS;
         if (performance.now() >= deadline) {
           this.fail(new LiveFollowUpControlError('admission_unavailable'));
           return;
         }
         this.armExpiry(deadline);
+        this.validatedGeneration = generation;
         this.onValid(deadline);
       })
       .catch(error => {
-        if (this.stopped) return;
+        if (this.stopped || this.paused || generation !== this.generation)
+          return;
         // Business/authorization failures are terminal, transport failures can
         // retry only inside the last server-validated authorization deadline.
         const status =
@@ -81,11 +92,40 @@ export class LiveFollowUpOwnership {
           this.fail(error);
       })
       .finally(() => {
+        if (generation !== this.generation) return;
         this.pending = null;
-        if (!this.stopped)
+        if (!this.stopped && !this.paused)
           this.poll = setTimeout(() => void this.check(), INTERVAL_MS);
       });
     return this.pending;
+  }
+
+  /** Media must be fenced by the caller before suspending authorization. */
+  pause() {
+    if (this.stopped || this.paused) return;
+    this.paused = true;
+    this.generation += 1;
+    this.pending = null;
+    clearTimeout(this.poll);
+    clearTimeout(this.expiry);
+  }
+
+  async resume(): Promise<void> {
+    if (this.stopped)
+      throw new LiveFollowUpControlError('admission_unavailable');
+    this.paused = false;
+    this.generation += 1;
+    this.pending = null;
+    const generation = this.generation;
+    this.armExpiry(performance.now() + AUTHORIZATION_MS);
+    await this.check();
+    if (
+      this.stopped ||
+      this.paused ||
+      generation !== this.generation ||
+      this.validatedGeneration !== generation
+    )
+      throw new LiveFollowUpControlError('admission_unavailable');
   }
 
   private fail(error: unknown) {

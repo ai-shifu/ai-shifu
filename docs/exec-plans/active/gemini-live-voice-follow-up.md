@@ -45,6 +45,13 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Suspend ownership polling/expiry during intentional media
+      pause; fence audio immediately and invalidate pending heartbeat callbacks.
+      Explicit resume obtains fresh bounded authorization before accepting
+      input, preserving same-session reuse without trusting stale validation.
+      Cover long pauses, stale in-flight errors, denied/offline resume, and the
+      controller's no-send-before-validation behavior. Existing pause/resume
+      analytics and real credential lifetime remain unchanged.
 - [x] 2026-09-07: Address review of expiry-window owner conflicts, cross-session
       transcript ordering, and abandoned provisioning slots. Renew an expired
       owner only through the existing revision-checked admission flow; fence

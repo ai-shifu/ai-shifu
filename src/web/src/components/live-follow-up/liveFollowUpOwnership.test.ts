@@ -99,4 +99,54 @@ describe('Live ownership fencing', () => {
       globalThis.BroadcastChannel = previous;
     }
   });
+
+  it('suspends paused deadlines and requires a fresh check before resuming', async () => {
+    await guard.start();
+    guard.pause();
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(lost).not.toHaveBeenCalled();
+    expect(heartbeat).toHaveBeenCalledTimes(1);
+    await guard.resume();
+    expect(valid).toHaveBeenLastCalledWith(70_000);
+    await jest.advanceTimersByTimeAsync(3_000);
+    expect(heartbeat).toHaveBeenCalledTimes(3);
+  });
+
+  it('ignores an old pending heartbeat after pause and resume', async () => {
+    await guard.start();
+    let rejectOld!: (error: unknown) => void;
+    heartbeat.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectOld = reject;
+        }),
+    );
+    await jest.advanceTimersByTimeAsync(3_000);
+    guard.pause();
+    await jest.advanceTimersByTimeAsync(60_000);
+    await guard.resume();
+    rejectOld(new LiveFollowUpControlError('ownership_conflict'));
+    await jest.advanceTimersByTimeAsync(3_000);
+    expect(lost).not.toHaveBeenCalled();
+    expect(heartbeat).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not resume a paused session that another page owns', async () => {
+    await guard.start();
+    guard.pause();
+    heartbeat.mockRejectedValueOnce(
+      new LiveFollowUpControlError('ownership_conflict'),
+    );
+    await expect(guard.resume()).rejects.toThrow();
+    expect(lost).toHaveBeenCalledTimes(1);
+    expect(valid).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not treat a failed resume request as a valid authorization', async () => {
+    await guard.start();
+    guard.pause();
+    heartbeat.mockRejectedValueOnce(new Error('offline'));
+    await expect(guard.resume()).rejects.toThrow();
+    expect(valid).toHaveBeenCalledTimes(1);
+  });
 });
