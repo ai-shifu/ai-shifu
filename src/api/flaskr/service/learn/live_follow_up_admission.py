@@ -105,6 +105,16 @@ end
 local head = read(KEYS[4])
 local op = read(KEYS[5])
 
+if args.action == 'owner' then
+    if head and head.identity ~= args.identity then return rejected('ownership_conflict') end
+    local state = head and head.state or 'missing'
+    if state == 'pending' and head.deadline_ms <= now then state = 'retired' end
+    local result = {operation_status=state, rotation_enabled=args.rotation_enabled,
+        admission_revision=head and head.admission_revision or cjson.null}
+    if state == 'pending' then result.retry_after_ms = math.min(500, head.deadline_ms-now) end
+    return cjson.encode(result)
+end
+
 if args.action == 'receipt' then
     local receipt = read(KEYS[11])
     if not receipt or receipt.identity ~= args.identity then return cjson.encode({found=false}) end
@@ -143,6 +153,7 @@ if args.action == 'retire' then
     if head and head.session_bid == args.session_bid
         and head.admission_revision == args.admission_revision then
         head.state = 'retired'
+        redis.call('ZREM', KEYS[12], KEYS[4])
         write(KEYS[4], head, math.max(head.expires_at_ms + 300000, now + 1200000))
         if op and owner_matches(head, op) and op.operation_status == 'pending' then
             op.operation_status = 'cancelled'
@@ -168,6 +179,7 @@ if args.action == 'complete' or args.action == 'fail' then
         if op.operation_status ~= 'pending' then return cjson.encode({committed=false}) end
         op.operation_status = 'failed'
         head.state = 'retired'
+        redis.call('ZREM', KEYS[12], KEYS[4])
         if args.undisclosed then
             redis.call('ZREM', KEYS[1], op.lease_id)
             redis.call('ZREM', KEYS[2], op.lease_id)
@@ -200,9 +212,18 @@ redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now/1000)
 redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', now/1000)
 redis.call('ZREMRANGEBYSCORE', KEYS[6], '-inf', now-60000)
 redis.call('ZREMRANGEBYSCORE', KEYS[7], '-inf', now-60000)
+redis.call('ZREMRANGEBYSCORE', KEYS[12], '-inf', now)
 
 local predecessor = args.replace_session_bid ~= ''
-if predecessor then
+if args.takeover then
+    if not args.rotation_enabled or args.legacy then return rejected('admission_unavailable') end
+    local revision = head and head.admission_revision or ''
+    if revision ~= args.expected_admission_revision
+        or (head and head.identity ~= args.identity) then return rejected('ownership_conflict') end
+    if head and head.state == 'pending' and head.deadline_ms > now then
+        return rejected('pending', math.min(500, head.deadline_ms-now))
+    end
+elseif predecessor then
     if not head or head.session_bid ~= args.replace_session_bid
         or head.admission_revision ~= args.expected_admission_revision
         or head.identity ~= args.identity then return rejected('ownership_conflict') end
@@ -223,9 +244,10 @@ local function quota(key, limit, multiplier, window)
         delay = math.max(delay, tonumber(item[2])*multiplier + window-now)
     end
 end
-quota(KEYS[1], 24, 1000, 0)
-quota(KEYS[2], 6, 1000, 0)
-quota(KEYS[3], args.rotation_enabled and not args.legacy and 3 or 1, 1000, 0)
+quota(KEYS[1], args.rotation_enabled and 96 or 24, 1000, 0)
+if not args.rotation_enabled then quota(KEYS[2], 6, 1000, 0) end
+quota(KEYS[3], args.rotation_enabled and not args.legacy and 8 or 1, 1000, 0)
+if not redis.call('ZSCORE', KEYS[12], KEYS[4]) then quota(KEYS[12], 24, 1, 0) end
 quota(KEYS[6], 4, 1, 60000)
 quota(KEYS[7], 24, 1, 60000)
     local legacy_lease = redis.call('GET', KEYS[9])
@@ -247,6 +269,7 @@ head = {session_bid=args.session_bid, admission_revision=args.admission_revision
 redis.call('ZADD', KEYS[1], expiry/1000, args.lease_id)
 redis.call('ZADD', KEYS[2], expiry/1000, args.lease_id)
 redis.call('ZADD', KEYS[3], expiry/1000, args.lease_id)
+redis.call('ZADD', KEYS[12], expiry, KEYS[4])
 -- Retired workers receive no future admissions to prune their ledger. Preserve
 -- its longest lease even if the Redis clock has moved backwards since issuance.
 local worker_last = redis.call('ZRANGE', KEYS[2], -1, -1, 'WITHSCORES')
@@ -284,6 +307,7 @@ class AdmissionRequest:
     surface: str
     replace_session_bid: str = ""
     expected_admission_revision: str = ""
+    takeover: bool = False
 
 
 @dataclass(frozen=True)
@@ -307,6 +331,9 @@ def _identity(user_bid: str, origin: str) -> str:
 def _target(request: AdmissionRequest) -> str:
     values = asdict(request)
     values.pop("request_bid")
+    # Preserve existing operation hashes across compatible worker upgrades.
+    if not values["takeover"]:
+        values.pop("takeover")
     return _digest(json.dumps(values, sort_keys=True, separators=(",", ":")))
 
 
@@ -331,6 +358,7 @@ def _keys(
         legacy_user_key,
         f"{session_prefix}:session:{_digest(session_bid)}",
         f"{prefix}:v2:receipt:{_digest(session_bid)}",
+        f"{prefix}:v3:active",
     )
 
 
@@ -350,6 +378,7 @@ def _run(
         "identity": _identity(request.user_bid, request.origin),
         "session_bid": session_bid,
         "rotation_enabled": False,
+        "takeover": request.takeover,
         **values,
     }
     try:
@@ -500,6 +529,24 @@ def admission_status(
     """Read an existing operation, including after UUID mint validity expires."""
     request_timestamp_ms(request.request_bid)
     return _run(app, request, action="status", rotation_enabled=rotation_enabled)
+
+
+def discover_admission_owner(
+    app: Flask, *, user_bid: str, origin: str, rotation_enabled: bool
+) -> dict[str, object]:
+    """Discover only the authenticated same-Origin owner's non-secret revision."""
+    request = AdmissionRequest(
+        request_bid="",
+        user_bid=user_bid,
+        origin=origin,
+        shifu_bid="",
+        outline_bid="",
+        anchor_element_bid="",
+        preview_mode=False,
+        learning_mode="",
+        surface="",
+    )
+    return _run(app, request, action="owner", rotation_enabled=rotation_enabled)
 
 
 def complete_admission(

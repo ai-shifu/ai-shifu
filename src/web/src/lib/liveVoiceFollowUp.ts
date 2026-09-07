@@ -56,7 +56,7 @@ export type LiveFollowUpSessionRequest = {
   preview_mode: boolean;
   learning_mode: LiveFollowUpLearningMode;
   surface: LiveFollowUpSurface;
-  operation?: 'create';
+  operation?: 'create' | 'takeover';
   request_bid?: string;
   replace_session_bid?: string;
   expected_admission_revision?: string;
@@ -102,10 +102,28 @@ export type LiveFollowUpOperationResult = {
   session_bid?: string;
   admission_revision?: string;
   ownership_current?: boolean;
-  error_code?: Exclude<LiveFollowUpControlReason, 'pending' | 'response_lost'>;
+  error_code?: Exclude<LiveFollowUpControlReason, 'response_lost'>;
   retry_after_ms?: number;
   server_time?: string;
 };
+
+export type LiveFollowUpOwner = {
+  operation_status: 'missing' | 'pending' | 'issued' | 'retired' | 'rejected';
+  admission_revision: string | null;
+  rotation_enabled: boolean;
+  retry_after_ms?: number;
+  error_code?: LiveFollowUpControlReason;
+};
+
+export const getLiveFollowUpOwner = (): Promise<LiveFollowUpOwner> =>
+  request.post(
+    '/api/learn/live-follow-up/owner',
+    {},
+    {
+      skipErrorToast: true,
+      credentials: 'include',
+    },
+  ) as Promise<LiveFollowUpOwner>;
 
 export type GeminiLiveSetupMessage = {
   setup: Record<string, unknown>;
@@ -136,6 +154,8 @@ export type LiveFollowUpSession = {
   admission_revision?: string;
   operation_status?: 'issued';
   rotation_enabled?: boolean;
+  ownership_timeout_ms?: number;
+  previous_admission_revision?: string;
 };
 
 export type LiveFollowUpTurnReport = {
@@ -201,6 +221,10 @@ export const getLiveFollowUpOperationStatus = (
       // Deliberately invalid as a legacy create: an old server must never mint
       // another credential when recovering a lost response via status lookup.
       target: {
+        ...(target.operation === 'takeover' && {
+          operation: 'takeover',
+          expected_admission_revision: target.expected_admission_revision ?? '',
+        }),
         anchor_element_bid: target.anchor_element_bid,
         preview_mode: target.preview_mode,
         learning_mode: target.learning_mode,

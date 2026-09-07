@@ -1,6 +1,7 @@
 import {
   createLiveFollowUpSession,
   getLiveFollowUpOperationStatus,
+  getLiveFollowUpOwner,
   type LiveFollowUpOperationResult,
   type LiveFollowUpSessionRequest,
 } from '@/lib/liveVoiceFollowUp';
@@ -14,6 +15,7 @@ jest.mock('@/lib/liveVoiceFollowUp', () => ({
   ...jest.requireActual('@/lib/liveVoiceFollowUp'),
   createLiveFollowUpSession: jest.fn(),
   getLiveFollowUpOperationStatus: jest.fn(),
+  getLiveFollowUpOwner: jest.fn(),
 }));
 jest.mock('@/lib/request', () => ({
   __esModule: true,
@@ -62,6 +64,11 @@ describe('Live follow-up controlled admission', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    jest.mocked(getLiveFollowUpOwner).mockResolvedValue({
+      operation_status: 'missing',
+      admission_revision: null,
+      rotation_enabled: false,
+    });
     admission = new LiveFollowUpSessionAdmission();
     create.mockImplementation(async (_course, _outline, payload) =>
       issued(payload.request_bid),
@@ -80,6 +87,132 @@ describe('Live follow-up controlled admission', () => {
     );
     expect(parseInt(id.replaceAll('-', '').slice(0, 12), 16)).toBe(timestamp);
     expect(createLiveFollowUpRequestBid(timestamp)).not.toBe(id);
+  });
+
+  it('a fresh page takes over with server-discovered revision, never an old token', async () => {
+    jest.mocked(getLiveFollowUpOwner).mockResolvedValue({
+      operation_status: 'issued',
+      admission_revision: 'old-revision',
+      rotation_enabled: true,
+    });
+    const reason = jest.fn();
+    const session = await admission.create(
+      'course-1',
+      'outline-1',
+      target,
+      current,
+      reason,
+    );
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][2]).toEqual({
+      ...target,
+      operation: 'takeover',
+      expected_admission_revision: 'old-revision',
+      request_bid: expect.any(String),
+    });
+    expect(status).not.toHaveBeenCalled();
+    expect(reason).toHaveBeenCalledWith('takeover');
+    expect(session.previous_admission_revision).toBe('old-revision');
+    expect(JSON.stringify(admission)).not.toMatch(/secret|prompt|history/);
+  });
+
+  it('waits only for the original pending issuance and never follows a new owner', async () => {
+    jest.useFakeTimers();
+    try {
+      jest
+        .mocked(getLiveFollowUpOwner)
+        .mockResolvedValueOnce({
+          operation_status: 'pending',
+          admission_revision: 'old',
+          rotation_enabled: true,
+        })
+        .mockResolvedValueOnce({
+          operation_status: 'issued',
+          admission_revision: 'new',
+          rotation_enabled: true,
+        });
+      const pending = admission.create(
+        'course-1',
+        'outline-1',
+        target,
+        current,
+      );
+      const rejected = expect(pending).rejects.toHaveProperty(
+        'reason',
+        'ownership_conflict',
+      );
+      await jest.advanceTimersByTimeAsync(500);
+      await rejected;
+      expect(create).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not retry a rejected takeover or mint after cancellation during discovery', async () => {
+    let active = true;
+    jest.mocked(getLiveFollowUpOwner).mockImplementationOnce(async () => {
+      active = false;
+      return {
+        operation_status: 'issued',
+        admission_revision: 'old',
+        rotation_enabled: true,
+      };
+    });
+    await expect(
+      admission.create('course-1', 'outline-1', target, () => active),
+    ).rejects.toHaveProperty('name', 'AbortError');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('automatic renewal cannot seize the new owner discovered after another page takes over', async () => {
+    await admission.create('course-1', 'outline-1', target, current);
+    jest.mocked(getLiveFollowUpOwner).mockResolvedValue({
+      operation_status: 'issued',
+      admission_revision: 'another-page',
+      rotation_enabled: true,
+    });
+    status.mockResolvedValueOnce(statusResult({ ownership_current: false }));
+    await expect(
+      admission.create(
+        'course-1',
+        'outline-1',
+        target,
+        current,
+        undefined,
+        false,
+      ),
+    ).rejects.toHaveProperty('reason', 'ownership_conflict');
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it('queries metadata once after a lost takeover response without repeating issuance', async () => {
+    jest.mocked(getLiveFollowUpOwner).mockResolvedValue({
+      operation_status: 'issued',
+      admission_revision: 'previous-revision',
+      rotation_enabled: true,
+    });
+    create.mockRejectedValueOnce(new Error('lost response'));
+    status.mockResolvedValueOnce({
+      request_bid: 'metadata-only',
+      operation_status: 'issued',
+      ownership_current: true,
+      rotation_enabled: true,
+    });
+    await expect(
+      admission.create('course', 'outline', target, current),
+    ).rejects.toThrow('lost response');
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenCalledWith(
+      'course',
+      'outline',
+      create.mock.calls[0][2].request_bid,
+      expect.objectContaining({
+        operation: 'takeover',
+        expected_admission_revision: 'previous-revision',
+      }),
+    );
   });
 
   it('creates once with no status, token cache, or caller-supplied ownership', async () => {
@@ -294,6 +427,7 @@ describe('Live follow-up controlled admission', () => {
       () => new Promise(resolve => (resolveFirst = resolve)),
     );
     const first = admission.create('course-1', 'outline-1', target, current);
+    await Promise.resolve();
     status.mockResolvedValueOnce(statusResult());
     const second = await admission.create(
       'course-2',
