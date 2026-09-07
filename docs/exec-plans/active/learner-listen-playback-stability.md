@@ -20,9 +20,12 @@ refer to the stream that was actually playing, never the first stream.
   first audio item while a restore request is pending.
 - [x] Locally verified the supplied multi-stream lesson, including refresh and
   mode round trips, with the learner test environment.
-- [ ] Run repository verification, commit, push, and open the replacement PRs.
-- [ ] Publish an approved release of `markdown-flow-ui`, then update the
-  application dependency pin before either branch merges into `main`.
+- [x] Published `markdown-flow-ui` 0.2.25, updated the application release pin,
+  and merged the library and application changes.
+- [x] Reproduced and fixed a production mode-round-trip race where historical
+  text returned before its audio backfill and the application discarded the
+  still-valid checkpoint.
+- [ ] Run verification and publish the production race fix.
 
 ## Decision Log
 
@@ -42,6 +45,12 @@ refer to the stream that was actually playing, never the first stream.
   - Why: Timeline UI, arbitrary seek, subtitle positioning, interaction-card
     positioning, and playback-source ordering were unrelated experimental
     changes and remain excluded.
+- Decision: Treat a restored element without playable audio as pending audio
+  backfill, not as a stale checkpoint.
+  - Why: Returning from reading mode can restore persisted text before its
+    narration is reattached. The element identity remains valid during that
+    interval, and allowing normal startup would both erase the checkpoint and
+    play the first sentence.
 
 ## Context and Orientation
 

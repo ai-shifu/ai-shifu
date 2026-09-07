@@ -1053,10 +1053,29 @@ const ListenModeSlideRenderer = ({
   }, [lessonId, previewMode, shifuBid, trackEvent, variant]);
 
   const playbackRestoreScopeKey = `${shifuBid}:${lessonId}`;
+  const playbackRestoreTargetState = useMemo(() => {
+    if (!playbackRestoreRequest) {
+      return { exists: false, isPlayable: false };
+    }
+
+    const matchingElements = elementList.filter(
+      element => element.blockBid === playbackRestoreRequest.audioKey,
+    );
+
+    return {
+      exists: matchingElements.length > 0,
+      isPlayable: matchingElements.some(
+        element =>
+          element.is_speakable &&
+          Boolean(element.audio_url || element.audio_segments?.length),
+      ),
+    };
+  }, [elementList, playbackRestoreRequest]);
   const isPlaybackRestoreReady =
     variant !== 'listen' ||
     (Boolean(shifuBid && lessonId) &&
-      resolvedPlaybackRestoreScope === playbackRestoreScopeKey);
+      resolvedPlaybackRestoreScope === playbackRestoreScopeKey &&
+      (!playbackRestoreRequest || playbackRestoreTargetState.isPlayable));
 
   useEffect(() => {
     if (
@@ -1069,13 +1088,10 @@ const ListenModeSlideRenderer = ({
       return;
     }
 
-    const hasMatchingAudio = elementList.some(
-      element =>
-        element.blockBid === playbackRestoreRequest.audioKey &&
-        element.is_speakable &&
-        Boolean(element.audio_url || element.audio_segments?.length),
-    );
-    if (hasMatchingAudio) {
+    // Returning from reading mode can restore the historical element before
+    // its audio backfill completes. The checkpoint is still valid in that
+    // state, so keep both the request and the startup gate until audio arrives.
+    if (playbackRestoreTargetState.exists) {
       return;
     }
 
@@ -1084,10 +1100,10 @@ const ListenModeSlideRenderer = ({
       currentRequest?.id === playbackRestoreRequest.id ? null : currentRequest,
     );
   }, [
-    elementList,
     isLoading,
     lessonId,
     playbackRestoreRequest,
+    playbackRestoreTargetState.exists,
     shifuBid,
     variant,
   ]);
