@@ -25,6 +25,9 @@ refer to the stream that was actually playing, never the first stream.
 - [x] Reproduced and fixed a production mode-round-trip race where historical
   text returned before its audio backfill and the application discarded the
   still-valid checkpoint.
+- [x] Limited restore waiting to audio items whose backfill remains eligible;
+  terminal failures and ineligible items now release the player and clear the
+  unusable checkpoint.
 - [ ] Run verification and publish the production race fix.
 
 ## Decision Log
@@ -56,6 +59,10 @@ refer to the stream that was actually playing, never the first stream.
   - Why: Player teardown resets its media time before the unmount checkpoint is
     delivered. A same-key zero is lifecycle noise, while a different-key zero
     still means regenerated playback replaced the previously stored audio.
+- Decision: Derive restore waiting from the application backfill lifecycle,
+  including its terminal failure set, instead of from element presence alone.
+  - Why: Persisted text can legitimately wait for narration, but failed or
+    ineligible narration must not leave the player permanently disabled.
 
 ## Context and Orientation
 

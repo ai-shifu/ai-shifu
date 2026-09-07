@@ -402,6 +402,31 @@ export const getMissingListenModeAudioBlockBids = (
   return missingBids;
 };
 
+export const getPendingListenModeAudioBackfillElementBids = (
+  items: ChatContentItem[],
+  failedRequestBids: ReadonlySet<string> = new Set(),
+) => {
+  const pendingRequestBids = new Set(
+    getMissingListenModeAudioBlockBids(items).filter(
+      requestBid => !failedRequestBids.has(requestBid),
+    ),
+  );
+
+  return new Set(
+    items.flatMap(item => {
+      if (!isListenModeAudioBackfillCandidate(item)) {
+        return [];
+      }
+
+      const requestBid = resolveListenModeAudioBackfillRequestBid(item);
+      const elementBid = item.element_bid?.trim();
+      return requestBid && elementBid && pendingRequestBids.has(requestBid)
+        ? [elementBid]
+        : [];
+    }),
+  );
+};
+
 export const resolveListenModeTtsReadyElementBids = (
   items: ChatContentItem[],
 ) => {

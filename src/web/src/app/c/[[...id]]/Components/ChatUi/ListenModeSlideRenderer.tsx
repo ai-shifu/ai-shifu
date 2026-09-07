@@ -37,6 +37,7 @@ import {
 } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import {
+  hasPlayableListenAudioForItem,
   resolveListenSlideAudioSource,
   resolveListenSlideElementType,
   resolveListenSlideSubtitleCues,
@@ -172,6 +173,8 @@ const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
 };
 
 type ListenSlidePresentationVariant = 'listen' | 'classroom';
+const EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS: ReadonlySet<string> =
+  new Set();
 
 interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
@@ -196,6 +199,7 @@ interface ListenModeSlideRendererProps {
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
   pausePlaybackWhen?: boolean;
   disableInteractionEdits?: boolean;
+  pendingAudioBackfillElementBids?: ReadonlySet<string>;
 }
 
 interface ListenSlidePresentationProfile {
@@ -746,6 +750,7 @@ const ListenModeSlideRenderer = ({
   onMobileViewModeChange,
   pausePlaybackWhen = false,
   disableInteractionEdits = false,
+  pendingAudioBackfillElementBids = EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
@@ -1055,22 +1060,21 @@ const ListenModeSlideRenderer = ({
   const playbackRestoreScopeKey = `${shifuBid}:${lessonId}`;
   const playbackRestoreTargetState = useMemo(() => {
     if (!playbackRestoreRequest) {
-      return { exists: false, isPlayable: false };
+      return { exists: false, isPlayable: false, isPendingBackfill: false };
     }
 
-    const matchingElements = elementList.filter(
-      element => element.blockBid === playbackRestoreRequest.audioKey,
+    const matchingItems = items.filter(
+      item => item.element_bid === playbackRestoreRequest.audioKey,
     );
 
     return {
-      exists: matchingElements.length > 0,
-      isPlayable: matchingElements.some(
-        element =>
-          element.is_speakable &&
-          Boolean(element.audio_url || element.audio_segments?.length),
+      exists: matchingItems.length > 0,
+      isPlayable: matchingItems.some(hasPlayableListenAudioForItem),
+      isPendingBackfill: pendingAudioBackfillElementBids.has(
+        playbackRestoreRequest.audioKey,
       ),
     };
-  }, [elementList, playbackRestoreRequest]);
+  }, [items, pendingAudioBackfillElementBids, playbackRestoreRequest]);
   const isPlaybackRestoreReady =
     variant !== 'listen' ||
     (Boolean(shifuBid && lessonId) &&
@@ -1091,7 +1095,14 @@ const ListenModeSlideRenderer = ({
     // Returning from reading mode can restore the historical element before
     // its audio backfill completes. The checkpoint is still valid in that
     // state, so keep both the request and the startup gate until audio arrives.
-    if (playbackRestoreTargetState.exists) {
+    if (playbackRestoreTargetState.isPlayable) {
+      return;
+    }
+
+    if (
+      playbackRestoreTargetState.exists &&
+      playbackRestoreTargetState.isPendingBackfill
+    ) {
       return;
     }
 
@@ -1104,6 +1115,8 @@ const ListenModeSlideRenderer = ({
     lessonId,
     playbackRestoreRequest,
     playbackRestoreTargetState.exists,
+    playbackRestoreTargetState.isPlayable,
+    playbackRestoreTargetState.isPendingBackfill,
     shifuBid,
     variant,
   ]);

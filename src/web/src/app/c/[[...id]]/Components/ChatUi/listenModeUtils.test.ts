@@ -2,6 +2,7 @@ import {
   buildSlidePageMapping,
   canRequestListenModeTtsForItem,
   getMissingListenModeAudioBlockBids,
+  getPendingListenModeAudioBackfillElementBids,
   hasPlayableListenAudioForItem,
   isListenModeAudioBackfillCandidate,
   isListenModeAudioBackfillReady,
@@ -131,6 +132,44 @@ describe('listenModeUtils', () => {
     ]);
 
     expect(missingBids).toEqual(['generated-block-1', 'generated-block-2']);
+  });
+
+  it('tracks pending backfill by element bid until its request fails', () => {
+    const items = [
+      createContentItem({
+        element_bid: 'text-position-0',
+        generated_block_bid: 'generated-block-1',
+        is_speakable: true,
+      }),
+    ];
+
+    expect(getPendingListenModeAudioBackfillElementBids(items)).toEqual(
+      new Set(['text-position-0']),
+    );
+    expect(
+      getPendingListenModeAudioBackfillElementBids(
+        items,
+        new Set(['generated-block-1']),
+      ),
+    ).toEqual(new Set());
+  });
+
+  it('does not keep ineligible or playable elements pending backfill', () => {
+    const items = [
+      createContentItem({
+        element_bid: 'visual-only',
+        is_speakable: false,
+      }),
+      createContentItem({
+        element_bid: 'already-playable',
+        is_speakable: true,
+        audioUrl: 'https://example.com/audio.mp3',
+      }),
+    ];
+
+    expect(getPendingListenModeAudioBackfillElementBids(items)).toEqual(
+      new Set(),
+    );
   });
 
   it('does not re-request a generated block when a sibling already has audio', () => {
