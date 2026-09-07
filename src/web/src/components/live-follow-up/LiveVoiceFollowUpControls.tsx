@@ -42,6 +42,7 @@ export const LiveVoiceFollowUpMicrophoneButton = ({
           : t('module.chat.liveVoiceStopMicrophone')
       }
       aria-pressed={!muted}
+      aria-busy={pending}
       disabled={
         muted &&
         ((controller.readiness !== 'ready' &&

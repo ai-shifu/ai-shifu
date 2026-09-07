@@ -155,6 +155,12 @@ emit a microphone-operation event. A paused/idle session still expires silently
 and waits for the next explicit input. Automatic renewal failure is terminal;
 there is no infinite retry loop or idle token minting.
 
+During finalization/issuance/setup, retained input is gated and the microphone
+button shows its pending spinner with `aria-busy`, not an enabled speech pulse.
+It remains stoppable without a new action. Only confirmed successor readiness
+releases that gate; this belongs to the existing renewal result, not another
+microphone operation, exposure event, or new payload field.
+
 To distinguish user connection adoption from continuous-voice maintenance,
 automatic successors emit `learner_voice_follow_up_renewal_attempt` and
 `learner_voice_follow_up_renewal_result`, with exactly the corresponding normal

@@ -45,6 +45,12 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Review `r3946346009` gates retained microphone frames for the
+      whole finalization/issuance/setup handoff. The microphone itself shows
+      its pending spinner (no explanatory text), remains stoppable, and resumes
+      existing capture only after the successor socket and playback are ready.
+      No activity pulse or accepted audio is implied during this wait. All
+      335 focused Live tests pass, including pre/post-readiness input checks.
 - [x] 2026-09-07: Implement the user-approved minimal controls: no
       status/help/retry/end UI, explicit microphone-off pauses both directions,
       input-level activity animates the microphone, and an actively enabled
