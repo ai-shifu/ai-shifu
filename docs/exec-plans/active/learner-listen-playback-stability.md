@@ -137,8 +137,34 @@ and resumes its normal audio lifecycle.
 | Field                  | Type   | Allowed values                   | Cardinality | Privacy class | Why required            |
 | ---------------------- | ------ | -------------------------------- | ----------- | ------------- | ----------------------- |
 | `generated_step_count` | number | positive integer                 | bounded     | non-personal  | available timeline size |
+| `shifu_bid`            | string | course machine ID                | high        | pseudonymous  | course-level grouping   |
 | `surface`              | string | `learner_listen`                 | 1           | non-personal  | fixed product surface   |
 | `target_step_index`    | number | zero-based generated slide index | bounded     | non-personal  | selected location       |
+
+### `learner_listen_slide_timeline_exposed`
+
+- Business question: What share of eligible listen sessions uses generated
+  slide navigation?
+- Metric definition: Count unique timeline exposures as the eligible
+  denominator and accepted `learner_listen_slide_navigate` events as usage.
+- Actor and surface: All learners rendered on `learner_listen`, including
+  guests and members; preview mode and timelines with fewer than two generated
+  slides are excluded.
+- Trigger: Once per in-page course/lesson scope when at least two generated
+  slide markers become available.
+- Count unit and deduplication: One exposure per course and lesson for the
+  lifetime of the loaded page; further generated slides and mode round trips do
+  not emit another exposure.
+- Consumers: Learner navigation reporting owned by the learning team.
+- Compatibility: New additive event; no backfill.
+- Verification: Renderer tests cover eligibility, deduplication, exact
+  allowlisted payloads, preview exclusion, and fail-open tracking.
+
+| Field                  | Type   | Allowed values    | Cardinality | Privacy class | Why required            |
+| ---------------------- | ------ | ----------------- | ----------- | ------------- | ----------------------- |
+| `generated_step_count` | number | integer >= 2      | bounded     | non-personal  | available timeline size |
+| `shifu_bid`            | string | course machine ID | high        | pseudonymous  | course-level grouping   |
+| `surface`              | string | `learner_listen`  | 1           | non-personal  | fixed product surface   |
 
 ## Validation and Acceptance
 

@@ -33,9 +33,14 @@ describe('markdown-flow-ui Slide package contract', () => {
     const packageJson = JSON.parse(
       readFileSync(path.join(slidePackageRoot, 'package.json'), 'utf8'),
     ) as { version?: string };
+    const appPackageJson = JSON.parse(
+      readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'),
+    ) as { dependencies?: { 'markdown-flow-ui'?: string } };
     const playerSource = readPublishedSource('Player');
 
-    expect(packageJson.version).toBe('0.2.25');
+    expect(packageJson.version).toBe(
+      appPackageJson.dependencies?.['markdown-flow-ui'],
+    );
     expect(playerSource).toContain('customActionList.length + 6');
     expect(playerSource).not.toContain('FilePenLine');
     expect(playerSource).not.toContain('notesLabel');

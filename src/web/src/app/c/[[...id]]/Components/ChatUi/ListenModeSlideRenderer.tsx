@@ -177,6 +177,7 @@ const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
 type ListenSlidePresentationVariant = 'listen' | 'classroom';
 const EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS: ReadonlySet<string> =
   new Set();
+const trackedSlideTimelineExposureScopes = new Set<string>();
 
 interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
@@ -184,6 +185,7 @@ interface ListenModeSlideRendererProps {
   chatRef: React.RefObject<HTMLDivElement>;
   variant?: ListenSlidePresentationVariant;
   isLoading?: boolean;
+  isGenerating?: boolean;
   sectionTitle?: string;
   courseName?: string;
   courseAvatar?: string;
@@ -748,6 +750,7 @@ const ListenModeSlideRenderer = ({
   chatRef,
   variant = 'listen',
   isLoading = false,
+  isGenerating = false,
   sectionTitle,
   courseName = '',
   courseAvatar = '',
@@ -1164,6 +1167,31 @@ const ListenModeSlideRenderer = ({
     () => elementList.filter(element => Boolean(element.is_marker)).length,
     [elementList],
   );
+  useEffect(() => {
+    if (
+      variant !== 'listen' ||
+      previewMode ||
+      markerStepCount < 2 ||
+      !shifuBid ||
+      !lessonId
+    ) {
+      return;
+    }
+
+    const exposureScope = `${shifuBid}:${lessonId}`;
+    if (trackedSlideTimelineExposureScopes.has(exposureScope)) {
+      return;
+    }
+    trackedSlideTimelineExposureScopes.add(exposureScope);
+
+    void Promise.resolve(
+      trackEvent('learner_listen_slide_timeline_exposed', {
+        generated_step_count: markerStepCount,
+        shifu_bid: shifuBid,
+        surface: 'learner_listen',
+      }),
+    ).catch(() => {});
+  }, [lessonId, markerStepCount, previewMode, shifuBid, trackEvent, variant]);
   const handleSlideProgressNavigate = useCallback(
     (_element: unknown, targetStepIndex: number) => {
       if (variant !== 'listen' || previewMode) {
@@ -1173,12 +1201,13 @@ const ListenModeSlideRenderer = ({
       void Promise.resolve(
         trackEvent('learner_listen_slide_navigate', {
           generated_step_count: markerStepCount,
+          shifu_bid: shifuBid,
           surface: 'learner_listen',
           target_step_index: targetStepIndex,
         }),
       ).catch(() => {});
     },
-    [markerStepCount, previewMode, trackEvent, variant],
+    [markerStepCount, previewMode, shifuBid, trackEvent, variant],
   );
   const renderedElementList = useMemo(
     () =>
@@ -2416,7 +2445,7 @@ const ListenModeSlideRenderer = ({
           playerCustomActionPauseOnActive={pausePlayerCustomActionOnActive}
           playerCustomActions={enableCustomActions ? playerCustomActions : null}
           playerEnabled={!shouldRenderEmptyPpt && isPlaybackRestoreReady}
-          isSlideProgressGenerating={variant === 'listen' && isLoading}
+          isSlideProgressGenerating={variant === 'listen' && isGenerating}
           showSlideProgress={variant === 'listen'}
         />
         {shouldRenderManualFullscreenButton ? (

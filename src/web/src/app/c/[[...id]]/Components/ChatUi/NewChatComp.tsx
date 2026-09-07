@@ -1456,6 +1456,7 @@ export const NewChatComponents = ({
               mobileStyle={mobileStyle}
               chatRef={chatRef as React.RefObject<HTMLDivElement>}
               isLoading={isLoading}
+              isGenerating={isOutputInProgress}
               courseAvatar={courseAvatar}
               courseName={courseName}
               sectionTitle={lessonTitle}

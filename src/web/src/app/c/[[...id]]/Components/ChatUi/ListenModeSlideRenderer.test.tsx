@@ -242,7 +242,7 @@ describe('ListenModeSlideRenderer', () => {
         items={[]}
         mobileStyle={false}
         chatRef={createChatRef()}
-        isLoading
+        isGenerating
         variant='listen'
       />,
     );
@@ -268,7 +268,7 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
-  it('tracks generated slide timeline navigation without blocking it', () => {
+  it('tracks timeline exposure and repeated navigation without sensitive fields', () => {
     mockTrackEvent.mockRejectedValueOnce(new Error('tracking unavailable'));
     render(
       <ListenModeSlideRenderer
@@ -291,15 +291,44 @@ describe('ListenModeSlideRenderer', () => {
         targetStepIndex: number,
       ) => void;
     };
-    expect(() => slideProps.onSlideProgressNavigate?.({}, 2)).not.toThrow();
     expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_listen_slide_timeline_exposed',
+      {
+        generated_step_count: 4,
+        shifu_bid: 'course-1',
+        surface: 'learner_listen',
+      },
+    );
+    expect(() => {
+      slideProps.onSlideProgressNavigate?.({}, 2);
+      slideProps.onSlideProgressNavigate?.({}, 2);
+    }).not.toThrow();
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      2,
       'learner_listen_slide_navigate',
       {
         generated_step_count: 4,
+        shifu_bid: 'course-1',
         surface: 'learner_listen',
         target_step_index: 2,
       },
     );
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      3,
+      'learner_listen_slide_navigate',
+      {
+        generated_step_count: 4,
+        shifu_bid: 'course-1',
+        surface: 'learner_listen',
+        target_step_index: 2,
+      },
+    );
+    for (const [, payload] of mockTrackEvent.mock.calls) {
+      expect(payload).not.toHaveProperty('content');
+      expect(payload).not.toHaveProperty('email');
+      expect(payload).not.toHaveProperty('url');
+      expect(payload).not.toHaveProperty('user_bid');
+    }
 
     mockTrackEvent.mockClear();
     render(
@@ -308,6 +337,8 @@ describe('ListenModeSlideRenderer', () => {
         mobileStyle={false}
         chatRef={createChatRef()}
         previewMode
+        shifuBid='preview-course'
+        lessonId='preview-lesson'
         variant='listen'
       />,
     );
