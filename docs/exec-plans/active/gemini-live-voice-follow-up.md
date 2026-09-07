@@ -45,6 +45,13 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Reproduce the healthy-session failure at the first ownership
+      heartbeat after the 20-second setup budget. Clear the startup deadline
+      upon successful readiness; actual socket resumption still arms a fresh
+      budget. Cover one minute of healthy heartbeats both before and after
+      same-token resumption, result/end-event deduplication, and missing setup
+      still timing out while ownership heartbeats succeed. No UI, credential
+      capacity, history, or analytics schema change.
 - [x] 2026-09-07: Implement refresh takeover without stored credentials:
       authenticated owner discovery, revision-CAS takeover, 24 logical owners,
       8/user and 96/global outstanding credentials, unchanged 4/user and

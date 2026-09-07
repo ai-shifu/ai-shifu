@@ -1105,6 +1105,10 @@ export const useLiveVoiceFollowUp = ({
           });
           return;
         }
+        // Ownership heartbeats also call this after connection success. The
+        // startup deadline must not become a lifetime limit on healthy media.
+        // openGeminiSocket arms a fresh budget for each actual resumption.
+        connectionDeadline = null;
         if (setupTimerRef.current !== null) {
           window.clearTimeout(setupTimerRef.current);
           setupTimerRef.current = null;
