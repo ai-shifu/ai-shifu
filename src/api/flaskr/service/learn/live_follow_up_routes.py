@@ -454,6 +454,7 @@ def _session_response(
     history: tuple[GeminiLiveHistoryTurn, ...],
     admission: AdmissionResult,
     rotation_enabled: bool,
+    expires_in_ms: int,
 ) -> Response:
     return _make_live_response(
         {
@@ -471,6 +472,7 @@ def _session_response(
             ),
             "history": build_gemini_live_history_message(history),
             "expires_at": to_utc_iso(token.expires_at),
+            "expires_in_ms": expires_in_ms,
             "new_session_expires_at": to_utc_iso(token.new_session_expires_at),
             "heartbeat_interval_ms": (
                 LIVE_FOLLOW_UP_SESSION_HEARTBEAT_INTERVAL_SECONDS * 1000
@@ -908,6 +910,11 @@ def register_live_follow_up_routes(
                 admission_revision=str(admission.data["admission_revision"]),
             )
             _complete_session_admission(app, admission_request, admission, session)
+            # Use the same Redis clock as credential issuance and risk leases,
+            # not the HTTP worker's or learner device's wall clock.
+            expires_in_ms = max(
+                0, math.ceil((token.expires_at.timestamp() - admission_time()) * 1000)
+            )
         except (LiveFollowUpCapacityError, LiveFollowUpSessionStoreError):
             if admission is not None and admission_request is not None:
                 with contextlib.suppress(Exception):
@@ -941,6 +948,7 @@ def register_live_follow_up_routes(
             history=history,
             admission=admission,
             rotation_enabled=rotation,
+            expires_in_ms=expires_in_ms,
         )
 
     def require_direct_session(

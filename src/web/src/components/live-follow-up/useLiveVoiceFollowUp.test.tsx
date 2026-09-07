@@ -426,6 +426,82 @@ const makeReady = async (socket = mockSockets.at(-1)!) => {
 };
 
 describe('useLiveVoiceFollowUp browser-direct transport', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([-1_200_000, -60_000, 60_000, 1_200_000])(
+    'uses server-relative expiry despite initial skew %s and later clock changes',
+    async skew => {
+      jest.useFakeTimers();
+      const serverNow = Date.now();
+      jest.setSystemTime(serverNow + skew);
+      mockCreateSession.mockResolvedValueOnce({
+        ...sessionResponse(serverNow + 1000),
+        expires_in_ms: 1000,
+      });
+      render(<Harness />);
+      await startAndOpen();
+      await makeReady();
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      act(() => jest.setSystemTime(Date.now() - skew * 4));
+      await act(async () => jest.advanceTimersByTime(999));
+      expect(screen.getByTestId('state')).toHaveTextContent('listening');
+      await act(async () => jest.advanceTimersByTime(2));
+      expect(screen.getByTestId('state')).toHaveTextContent('ended');
+      expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      mockCreateSession.mockResolvedValueOnce({
+        ...sessionResponse(serverNow + 901_000),
+        expires_in_ms: 900_000,
+      });
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: 'microphone' })),
+      );
+      expect(mockCreateSession).toHaveBeenCalledTimes(2);
+      expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not clear the credential cooldown when the device clock jumps forward', async () => {
+    jest.useFakeTimers();
+    mockCreateSession.mockResolvedValueOnce({
+      ...sessionResponse(),
+      expires_in_ms: 1000,
+    });
+    render(<Harness />);
+    await startAndOpen();
+    await makeReady();
+    fireEvent.click(screen.getByRole('button', { name: 'end' }));
+    act(() => jest.setSystemTime(Date.now() + 3_600_000));
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' })),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    await act(async () => jest.advanceTimersByTime(1001));
+    mockCreateSession.mockResolvedValueOnce({
+      ...sessionResponse(),
+      expires_in_ms: 900_000,
+    });
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' })),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY, 900_001, '1000'])(
+    'rejects an invalid server-relative lifetime %s',
+    async lifetime => {
+      mockCreateSession.mockResolvedValueOnce({
+        ...sessionResponse(),
+        expires_in_ms: lifetime,
+      });
+      render(<Harness />);
+      await startAndOpen();
+      act(() => mockSockets[0].message(serverEvent({ setupComplete: true })));
+      expect(screen.getByTestId('state')).toHaveTextContent('ended');
+      expect(screen.getByTestId('error')).toHaveTextContent('server_error');
+    },
+  );
   it.each(['checking', 'warming', 'unavailable'])(
     'rejects input before readiness (%s) without media or analytics',
     async readiness => {
@@ -2158,7 +2234,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     await startAndOpen();
     await makeReady();
     fireEvent.click(screen.getByRole('button', { name: 'pause' }));
-    act(() => jest.setSystemTime(expiresAt + 1));
+    jest.spyOn(performance, 'now').mockReturnValue(performance.now() + 1001);
     mockCreateSession.mockResolvedValueOnce({
       ...sessionResponse(),
       session_bid: 'session-2',
@@ -2193,7 +2269,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       await startAndOpen();
       await makeReady();
       fireEvent.click(screen.getByRole('button', { name: 'pause' }));
-      act(() => jest.setSystemTime(expiresAt + 1));
+      jest.spyOn(performance, 'now').mockReturnValue(performance.now() + 1001);
       mockReadiness = readiness;
       rerender(<Harness onTextResult={onTextResult} />);
       mockTrackEvent.mockClear();

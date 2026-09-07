@@ -30,6 +30,7 @@ from flaskr.service.learn.live_follow_up_admission import (
 )
 from flaskr.service.learn.live_follow_up_capacity import (
     LiveFollowUpCapacityLease,
+    LiveFollowUpCapacityUnavailableError,
 )
 from flaskr.service.learn.live_follow_up_persistence import (
     LiveFollowUpPersistenceError,
@@ -354,6 +355,9 @@ def test_explicitly_disabled_or_initialized_service_does_not_retry(
 
 
 def _stub_session_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        routes, "admission_time", lambda: _admission().issued_at_ms / 1000 + 5
+    )
     monkeypatch.setattr(routes, "is_gemini_live_rotation_enabled", lambda: False)
     monkeypatch.setattr(
         routes, "legacy_request_bid", lambda: "01990000-0000-7000-8000-000000000001"
@@ -587,6 +591,7 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
     assert body["ephemeral_token"] == "auth_tokens/ephemeral"
     assert body["websocket_url"] == GEMINI_LIVE_CONSTRAINED_ENDPOINT
     assert body["heartbeat_interval_ms"] == 15_000
+    assert 894_999 <= body["expires_in_ms"] <= 895_001
     assert "ws_path" not in body
     assert response.headers.get("Set-Cookie") is None
     assert response.headers["Cache-Control"] == "no-store"
@@ -618,6 +623,42 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
         stored[0].binding.expires_at_epoch
         == (issued_at + timedelta(minutes=15)).timestamp()
     )
+
+
+def test_relative_lifetime_clock_failure_keeps_issued_operation_without_disclosing_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    _stub_session_validation(monkeypatch)
+    monkeypatch.setattr(
+        routes,
+        "mint_gemini_live_ephemeral_token",
+        lambda **kwargs: _token(kwargs["current_time"]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "admission_time",
+        Mock(side_effect=LiveFollowUpCapacityUnavailableError("private redis details")),
+    )
+    complete = Mock(return_value=True)
+    monkeypatch.setattr(routes, "complete_admission", complete)
+    monkeypatch.setattr(
+        routes,
+        "admission_status",
+        lambda *_a, **_k: {**_admission().data, "operation_status": "issued"},
+    )
+    response = _post_session(
+        app,
+        _valid_payload(
+            operation="create",
+            request_bid=_admission().data["request_bid"],
+        ),
+    )
+    data = response.get_json()["data"]
+    complete.assert_called_once()
+    assert data["operation_status"] == "issued"
+    assert "ephemeral_token" not in data
+    assert "private redis details" not in response.get_data(as_text=True)
 
 
 @pytest.mark.parametrize(

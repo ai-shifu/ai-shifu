@@ -318,6 +318,14 @@ export const useLiveVoiceFollowUp = ({
   const generationRef = useRef(0);
   const websocketRef = useRef<WebSocket | null>(null);
   const sessionRef = useRef<LiveFollowUpSession | null>(null);
+  const sessionDeadlineRef = useRef<number | null>(null);
+  const remainingSessionMs = useCallback(
+    () =>
+      sessionDeadlineRef.current === null
+        ? Number.POSITIVE_INFINITY
+        : sessionDeadlineRef.current - performance.now(),
+    [],
+  );
   const admissionRef = useRef<LiveFollowUpSessionAdmission | null>(null);
   if (!admissionRef.current)
     admissionRef.current = new LiveFollowUpSessionAdmission();
@@ -395,7 +403,8 @@ export const useLiveVoiceFollowUp = ({
     ) {
       admissionBlockedUntilRef.current = Math.max(
         admissionBlockedUntilRef.current,
-        Date.now() + Math.min(MAX_CONTROL_RETRY_DELAY_MS, error.retryAfterMs),
+        performance.now() +
+          Math.min(MAX_CONTROL_RETRY_DELAY_MS, error.retryAfterMs),
       );
     }
   }, []);
@@ -687,6 +696,7 @@ export const useLiveVoiceFollowUp = ({
       const session = sessionRef.current;
       const accumulator = accumulatorRef.current;
       sessionRef.current = null;
+      sessionDeadlineRef.current = null;
       accumulatorRef.current = null;
       const audio = audioRef.current;
       audioRef.current = null;
@@ -830,8 +840,8 @@ export const useLiveVoiceFollowUp = ({
       attemptRef.current = null;
       if (!unmountedRef.current) {
         const retryAvailableAt =
-          retryable && admissionBlockedUntilRef.current > Date.now()
-            ? admissionBlockedUntilRef.current
+          retryable && admissionBlockedUntilRef.current > performance.now()
+            ? Date.now() + admissionBlockedUntilRef.current - performance.now()
             : null;
         setViewState(previous => ({
           ...previous,
@@ -868,7 +878,7 @@ export const useLiveVoiceFollowUp = ({
       if (
         attemptRef.current &&
         sessionRef.current &&
-        Date.parse(sessionRef.current.expires_at) <= Date.now()
+        remainingSessionMs() <= 0
       ) {
         // A foreground click may beat the expiry timer after browser freezing.
         finishAttempt({ reason: 'timeout', keepOpen: true });
@@ -963,7 +973,7 @@ export const useLiveVoiceFollowUp = ({
         }
         return true;
       }
-      if (admissionBlockedUntilRef.current > Date.now()) {
+      if (admissionBlockedUntilRef.current > performance.now()) {
         lastTargetRef.current = { anchorElementBid: normalizedAnchor, surface };
         setViewState(previous => ({
           ...previous,
@@ -971,7 +981,8 @@ export const useLiveVoiceFollowUp = ({
           anchorElementBid: normalizedAnchor,
           state: 'ended',
           retryable: false,
-          retryAvailableAt: admissionBlockedUntilRef.current,
+          retryAvailableAt:
+            Date.now() + admissionBlockedUntilRef.current - performance.now(),
         }));
         return false;
       }
@@ -1074,17 +1085,13 @@ export const useLiveVoiceFollowUp = ({
         flushPendingTextRef.current();
       };
 
-      const startSessionTimers = (
-        currentAttempt: ActiveAttempt,
-        expiresAt: string,
-      ) => {
+      const startSessionTimers = (currentAttempt: ActiveAttempt) => {
         if (currentAttempt.serverReadyAt !== null) {
           return true;
         }
         const now = Date.now();
-        const expiresAtMs = Date.parse(expiresAt);
-        const remainingMs = expiresAtMs - now;
-        if (!Number.isFinite(expiresAtMs) || remainingMs <= 0) {
+        const remainingMs = remainingSessionMs();
+        if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
           finishAttempt({
             reason: 'timeout',
             keepOpen: true,
@@ -1378,7 +1385,7 @@ export const useLiveVoiceFollowUp = ({
             const currentAttempt = attemptRef.current;
             if (currentAttempt?.generation === generation) {
               currentAttempt.serverVoiceState = 'listening';
-              if (!startSessionTimers(currentAttempt, session.expires_at)) {
+              if (!startSessionTimers(currentAttempt)) {
                 return;
               }
               markConnectedIfReady();
@@ -1452,7 +1459,7 @@ export const useLiveVoiceFollowUp = ({
           }
 
           if (message.goAway) {
-            if (Date.parse(session.expires_at) <= Date.now()) {
+            if (remainingSessionMs() <= 0) {
               expireSessionRef.current(generation);
               return;
             }
@@ -1487,7 +1494,7 @@ export const useLiveVoiceFollowUp = ({
           ) {
             return;
           }
-          if (Date.parse(session.expires_at) <= Date.now()) {
+          if (remainingSessionMs() <= 0) {
             expireSessionRef.current(generation);
             return;
           }
@@ -1509,7 +1516,7 @@ export const useLiveVoiceFollowUp = ({
           ) {
             return;
           }
-          if (Date.parse(session.expires_at) <= Date.now()) {
+          if (remainingSessionMs() <= 0) {
             expireSessionRef.current(generation);
             return;
           }
@@ -1520,7 +1527,7 @@ export const useLiveVoiceFollowUp = ({
             !unexpectedResumptionUsed &&
             !textTransitionRef.current &&
             RECOVERABLE_WEBSOCKET_CLOSE_CODES.has(event.code) &&
-            Date.parse(session.expires_at) > Date.now()
+            remainingSessionMs() > 0
           ) {
             unexpectedResumptionUsed = true;
             reconnectingRef.current = true;
@@ -1541,7 +1548,18 @@ export const useLiveVoiceFollowUp = ({
 
       void sessionPromise
         .then(session => {
-          const expiresAt = Date.parse(session.expires_at);
+          // Only the old-server compatibility path consults wall time, once.
+          // All subsequent checks, timers, and cooldowns use monotonic time.
+          const lifetime =
+            session.expires_in_ms === undefined
+              ? Date.parse(session.expires_at) - Date.now()
+              : typeof session.expires_in_ms === 'number' &&
+                  Number.isFinite(session.expires_in_ms) &&
+                  session.expires_in_ms >= 0 &&
+                  session.expires_in_ms <= 900_000
+                ? session.expires_in_ms
+                : Number.NaN;
+          const expiresAt = performance.now() + lifetime;
           if (
             session.rotation_enabled !== true &&
             generationRef.current === generation &&
@@ -1563,7 +1581,10 @@ export const useLiveVoiceFollowUp = ({
                   ? {
                       ...previous,
                       retryable: false,
-                      retryAvailableAt: admissionBlockedUntilRef.current,
+                      retryAvailableAt:
+                        Date.now() +
+                        admissionBlockedUntilRef.current -
+                        performance.now(),
                     }
                   : previous,
               );
@@ -1575,6 +1596,7 @@ export const useLiveVoiceFollowUp = ({
             return;
           }
           sessionRef.current = session;
+          sessionDeadlineRef.current = expiresAt;
           if (
             connectionDeadline !== null &&
             performance.now() >= connectionDeadline
@@ -1617,7 +1639,7 @@ export const useLiveVoiceFollowUp = ({
               }
             } catch (error) {
               if (attemptRef.current?.generation !== generation) return;
-              if (Date.parse(session.expires_at) <= Date.now()) {
+              if (remainingSessionMs() <= 0) {
                 expireSessionRef.current(generation);
                 return;
               }
@@ -1675,7 +1697,7 @@ export const useLiveVoiceFollowUp = ({
               // throttle explicit retries without promising available capacity.
               admissionBlockedUntilRef.current = Math.max(
                 admissionBlockedUntilRef.current,
-                Date.now() + CAPACITY_RETRY_BACKOFF_MS,
+                performance.now() + CAPACITY_RETRY_BACKOFF_MS,
               );
             }
             finishAttempt({
@@ -1707,6 +1729,7 @@ export const useLiveVoiceFollowUp = ({
       outlineBid,
       previewMode,
       reportAttemptResult,
+      remainingSessionMs,
       requestExclusive,
       scheduleCommitFlush,
       shifuBid,
@@ -1718,8 +1741,7 @@ export const useLiveVoiceFollowUp = ({
   expireSessionRef.current = generation => {
     const attempt = attemptRef.current;
     if (!attempt || attempt.generation !== generation) return;
-    const expiresAt = Date.parse(sessionRef.current?.expires_at ?? '');
-    const remaining = expiresAt + CREDENTIAL_RESERVATION_MARGIN_MS - Date.now();
+    const remaining = remainingSessionMs() + CREDENTIAL_RESERVATION_MARGIN_MS;
     if (Number.isFinite(remaining) && remaining > 0) {
       if (timeoutTimerRef.current !== null)
         window.clearTimeout(timeoutTimerRef.current);
@@ -2052,7 +2074,7 @@ export const useLiveVoiceFollowUp = ({
   );
 
   const retry = useCallback(() => {
-    if (admissionBlockedUntilRef.current > Date.now()) {
+    if (admissionBlockedUntilRef.current > performance.now()) {
       return;
     }
     if (lastTargetRef.current) {
@@ -2073,7 +2095,7 @@ export const useLiveVoiceFollowUp = ({
             : previous,
         );
       },
-      Math.max(0, deadline - Date.now()),
+      Math.max(0, admissionBlockedUntilRef.current - performance.now()),
     );
     return () => window.clearTimeout(timeout);
   }, [viewState.retryAvailableAt]);
