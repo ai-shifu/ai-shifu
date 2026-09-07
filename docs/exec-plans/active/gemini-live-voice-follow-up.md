@@ -45,6 +45,12 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Rebase the feature PR onto current main, preserving merge
+      history, Live controls/RTL/analytics, and upstream listening-audio
+      backfill/checkpoint behavior. Restore shared tracking/logging imports
+      from the original migration resolution and regenerate knowledge indexes.
+      Include the healthy-session timeout fix already delivered to dev;
+      this rebase does not deploy main changes to dev or production.
 - [x] 2026-09-07: Reproduce the healthy-session failure at the first ownership
       heartbeat after the 20-second setup budget. Clear the startup deadline
       upon successful readiness; actual socket resumption still arms a fresh
