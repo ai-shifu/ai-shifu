@@ -25,6 +25,10 @@ describe('listen playback checkpoints', () => {
 
   it('does not retain completed or near-zero checkpoints', () => {
     writeListenPlaybackCheckpoint(scope, {
+      audioKey: 'previous-stream-element',
+      timeMs: 4_000,
+    });
+    writeListenPlaybackCheckpoint(scope, {
       audioKey: 'first-stream-element',
       timeMs: 1_000,
     });

@@ -52,7 +52,12 @@ export const writeListenPlaybackCheckpoint = (
   scope: LessonScope,
   checkpoint: ListenPlaybackCheckpoint,
 ) => {
-  if (!canUseStorage(scope) || checkpoint.timeMs < MINIMUM_POSITION_MS) {
+  if (!canUseStorage(scope)) {
+    return;
+  }
+
+  if (checkpoint.timeMs < MINIMUM_POSITION_MS) {
+    clearListenPlaybackCheckpoint(scope);
     return;
   }
 

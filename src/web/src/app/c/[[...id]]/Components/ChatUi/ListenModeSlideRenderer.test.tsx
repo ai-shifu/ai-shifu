@@ -321,6 +321,77 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
+  it('discards a checkpoint that no longer matches settled lesson audio', async () => {
+    writeListenPlaybackCheckpoint(
+      { courseId: 'course-1', lessonId: 'lesson-1' },
+      { audioKey: 'removed-stream', timeMs: 12_000 },
+    );
+
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        isLoading
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | { playbackRestoreRequest?: { audioKey: string } | null }
+        | undefined;
+      expect(slideProps?.playbackRestoreRequest?.audioKey).toBe(
+        'removed-stream',
+      );
+    });
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Regenerated stream',
+            element_bid: 'regenerated-stream',
+            is_speakable: true,
+            audioTracks: [
+              {
+                position: 0,
+                audioUrl: '/audio/regenerated-stream.mp3',
+                isAudioStreaming: false,
+              },
+            ],
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        isLoading={false}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+      />,
+    );
+
+    await waitFor(() => {
+      const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | {
+            playbackRestoreRequest?: { audioKey: string } | null;
+            playerEnabled?: boolean;
+          }
+        | undefined;
+      expect(slideProps?.playbackRestoreRequest).toBeNull();
+      expect(slideProps?.playerEnabled).toBe(true);
+    });
+    expect(
+      readListenPlaybackCheckpoint({
+        courseId: 'course-1',
+        lessonId: 'lesson-1',
+      }),
+    ).toBeNull();
+  });
+
   it('clears the saved checkpoint when its logical audio item completes', () => {
     writeListenPlaybackCheckpoint(
       { courseId: 'course-1', lessonId: 'lesson-1' },
@@ -369,7 +440,21 @@ describe('ListenModeSlideRenderer', () => {
 
     render(
       <ListenModeSlideRenderer
-        items={[]}
+        items={[
+          {
+            type: 'content',
+            content: 'Later stream',
+            element_bid: 'later-stream',
+            is_speakable: true,
+            audioTracks: [
+              {
+                position: 0,
+                audioUrl: '/audio/later-stream.mp3',
+                isAudioStreaming: false,
+              },
+            ],
+          },
+        ]}
         mobileStyle={false}
         chatRef={createChatRef()}
         shifuBid='course-1'

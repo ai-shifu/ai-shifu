@@ -103,7 +103,7 @@ and resumes its normal audio lifecycle.
 - UI public contract: `SlideProps.onPlaybackCheckpoint` and
   `SlideProps.playbackRestoreRequest` in `markdown-flow-ui`.
 - Application persistence: browser `localStorage`, best-effort only; no server
-  state or analytics event is introduced.
+  state is introduced.
 - Release ordering: merge and publish the UI library first, then replace the
   application's temporary type augmentation with the released package types
   and exact release pin.

@@ -1058,6 +1058,40 @@ const ListenModeSlideRenderer = ({
     (Boolean(shifuBid && lessonId) &&
       resolvedPlaybackRestoreScope === playbackRestoreScopeKey);
 
+  useEffect(() => {
+    if (
+      variant !== 'listen' ||
+      isLoading ||
+      !shifuBid ||
+      !lessonId ||
+      !playbackRestoreRequest
+    ) {
+      return;
+    }
+
+    const hasMatchingAudio = elementList.some(
+      element =>
+        element.blockBid === playbackRestoreRequest.audioKey &&
+        element.is_speakable &&
+        Boolean(element.audio_url || element.audio_segments?.length),
+    );
+    if (hasMatchingAudio) {
+      return;
+    }
+
+    clearListenPlaybackCheckpoint({ courseId: shifuBid, lessonId });
+    setPlaybackRestoreRequest(currentRequest =>
+      currentRequest?.id === playbackRestoreRequest.id ? null : currentRequest,
+    );
+  }, [
+    elementList,
+    isLoading,
+    lessonId,
+    playbackRestoreRequest,
+    shifuBid,
+    variant,
+  ]);
+
   const handlePlaybackCheckpoint = useCallback(
     ({
       audioKey,
