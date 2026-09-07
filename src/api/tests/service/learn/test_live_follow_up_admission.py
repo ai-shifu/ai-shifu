@@ -1333,7 +1333,8 @@ def test_evicting_redis_policy_still_records_credential_capacity(
     request = _request(client)
     result = _begin(ready_app, request)
     assert result.lease is not None
-    assert client.exists(*_keys(ready_app, request)[:7]) > 0
+    expected_keys = _keys(ready_app, request)[:7]
+    assert client.exists(*expected_keys) == len(expected_keys)
     duplicate = _begin(ready_app, request)
     assert duplicate.lease is None
     assert duplicate.data["session_bid"] == result.data["session_bid"]
