@@ -387,6 +387,7 @@ def test_reservation_uses_redis_time_and_exact_credential_deadline(
     assert before <= result.issued_at_ms <= after
     assert result.deadline_ms == result.issued_at_ms + 15_000
     keys = _keys(ready_app, request, result)
+    assert client.zscore(keys[11], keys[3]) == result.deadline_ms
     for key in keys[:3]:
         assert (
             client.zscore(key, result.lease.lease_id)
@@ -656,6 +657,40 @@ def test_global_owner_slots_are_replaced_not_added_and_risk_limit_is_96(
     successor = _successor(client, requests[1], results[1])
     assert _begin(ready_app, successor).data["error_code"] == "capacity_exceeded"
     assert client.zcard(keys[0]) == 96
+
+
+def test_abandoned_owner_slots_expire_without_releasing_credential_risk(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = real_redis.client
+    requests = [_request(client, user_bid=f"abandoned-{index}") for index in range(24)]
+    results = [_begin(ready_app, request) for request in requests]
+    keys = _keys(ready_app, requests[0], results[0])
+    for request, result in zip(requests, results, strict=True):
+        owner_keys = _keys(ready_app, request, result)
+        assert client.zscore(keys[11], owner_keys[3]) == result.deadline_ms
+    # Advance only the atomic script's clock, keeping real Redis risk records.
+    monkeypatch.setattr(
+        admission,
+        "_ADMISSION_SCRIPT",
+        admission._ADMISSION_SCRIPT.replace(
+            "local function read(key)", "now = now + 16000\nlocal function read(key)"
+        ),
+    )
+    client.delete(keys[6])  # The global rate limit is independent of owner expiry.
+    successor = _request(client, user_bid="healthy-successor")
+    result = _begin(ready_app, successor)
+    assert result.lease is not None
+    assert client.zcard(keys[11]) == 1
+    assert client.zcard(keys[0]) == 25
+    _complete(ready_app, successor, result)
+    successor_keys = _keys(ready_app, successor, result)
+    assert client.zscore(keys[11], successor_keys[3]) == result.issued_at_ms + 900000
+    for request, abandoned in zip(requests, results, strict=True):
+        risk_keys = _keys(ready_app, request, abandoned)
+        assert client.zscore(risk_keys[2], abandoned.lease.lease_id) is not None
 
 
 def test_owner_discovery_is_origin_bound_and_non_mutating(

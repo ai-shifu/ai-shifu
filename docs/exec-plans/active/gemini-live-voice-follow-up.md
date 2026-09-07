@@ -45,6 +45,14 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Address review of expiry-window owner conflicts, cross-session
+      transcript ordering, and abandoned provisioning slots. Renew an expired
+      owner only through the existing revision-checked admission flow; fence
+      all turn/finalize/end writes by shared progress identity; reserve logical
+      owner slots through the 15-second operation deadline and extend them on
+      completion. Credential-risk ledgers retain their full real lifetime.
+      Add regression coverage for genuine takeover exclusion, shared locks,
+      and real-Redis abandoned-owner capacity without risk release.
 - [x] 2026-09-07: Rebase the feature PR onto current main, preserving merge
       history, Live controls/RTL/analytics, and upstream listening-audio
       backfill/checkpoint behavior. Restore shared tracking/logging imports

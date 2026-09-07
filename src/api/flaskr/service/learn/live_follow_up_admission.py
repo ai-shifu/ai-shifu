@@ -173,6 +173,7 @@ if args.action == 'complete' or args.action == 'fail' then
         redis.call('SET', KEYS[10], args.session_payload, 'PXAT', op.expires_at_ms + 30000)
         op.operation_status = 'issued'
         head.state = 'issued'
+        redis.call('ZADD', KEYS[12], op.expires_at_ms, KEYS[4])
     else
         -- Only the originating worker can prove that its response was never
         -- disclosed. A timed-out/crashed worker leaves its reservation intact.
@@ -269,7 +270,9 @@ head = {session_bid=args.session_bid, admission_revision=args.admission_revision
 redis.call('ZADD', KEYS[1], expiry/1000, args.lease_id)
 redis.call('ZADD', KEYS[2], expiry/1000, args.lease_id)
 redis.call('ZADD', KEYS[3], expiry/1000, args.lease_id)
-redis.call('ZADD', KEYS[12], expiry, KEYS[4])
+-- Pending ownership lasts only through provisioning; uncertain credentials
+-- remain in the independent risk ledgers until their real expiry.
+redis.call('ZADD', KEYS[12], op.deadline_ms, KEYS[4])
 -- Retired workers receive no future admissions to prune their ledger. Preserve
 -- its longest lease even if the Redis clock has moved backwards since issuance.
 local worker_last = redis.call('ZRANGE', KEYS[2], -1, -1, 'WITHSCORES')
