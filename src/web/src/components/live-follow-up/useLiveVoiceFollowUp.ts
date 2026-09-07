@@ -1720,7 +1720,10 @@ export const useLiveVoiceFollowUp = ({
                 const replaced =
                   error instanceof LiveFollowUpControlError &&
                   error.reason === 'ownership_conflict';
-                if (!replaced && credentialMayHaveExpired()) {
+                // An expired Redis owner is also reported as a conflict.
+                // Renewal still checks the original revision before minting,
+                // so a genuinely newer owner cannot be reclaimed here.
+                if (credentialMayHaveExpired()) {
                   expireSessionRef.current(generation);
                   return;
                 }

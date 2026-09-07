@@ -588,6 +588,56 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockCreateSession).toHaveBeenCalledTimes(1);
   });
 
+  it.each([false, true])(
+    'renews an expired owner without reclaiming a newer revision (%s)',
+    async replaced => {
+      jest.useFakeTimers();
+      enableTakeover();
+      const response = createDeferred<any>();
+      mockCreateSession.mockReturnValueOnce(response.promise);
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await act(async () => {});
+      await act(async () => jest.advanceTimersByTime(4_000));
+      await act(async () =>
+        response.resolve({
+          ...sessionResponse(Date.now() + 16_000),
+          session_bid: 'session-1',
+          admission_revision: 'revision-1',
+          request_bid: mockCreateSession.mock.calls[0][2].request_bid,
+          rotation_enabled: true,
+          expires_in_ms: 19_000,
+          ownership_timeout_ms: 10_000,
+          heartbeat_interval_ms: 3_000,
+        }),
+      );
+      act(() => mockSockets[0].open());
+      await makeReady();
+      for (let step = 0; step < 5; step++) {
+        await act(async () => jest.advanceTimersByTime(3_000));
+      }
+      // True expiry falls between conservative t=19s and receipt t=23s.
+      mockHeartbeatSession.mockRejectedValueOnce(
+        new LiveFollowUpControlError('ownership_conflict'),
+      );
+      if (replaced)
+        mockOwner.mockResolvedValue({
+          operation_status: 'issued',
+          admission_revision: 'another-owner',
+          rotation_enabled: true,
+        });
+      // Heartbeat at t=22s rejects before the local receipt deadline.
+      await act(async () => jest.advanceTimersByTime(3_000));
+      expect(mockCreateSession).toHaveBeenCalledTimes(replaced ? 1 : 2);
+      expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+      if (!replaced) {
+        act(() => mockSockets[1].open());
+        await makeReady();
+        expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+      }
+    },
+  );
+
   it.each([-1_200_000, -60_000, 60_000, 1_200_000])(
     'uses server-relative expiry despite initial skew %s and later clock changes',
     async skew => {
