@@ -107,7 +107,6 @@ from flaskr.service.learn.preview_permissions import require_shifu_preview_permi
 from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
 from flaskr.service.shifu.api import get_effective_ask_provider_config
 from flaskr.service.shifu.consts import ASK_MODE_DISABLE
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.api import is_allowed_oauth_origin, load_user_aggregate
 from flaskr.util.datetime import to_utc_iso
 from flaskr.util.prompt_loader import load_prompt_template
@@ -303,16 +302,6 @@ def _resolve_live_config(
     return follow_up_info, voice
 
 
-def _load_use_learner_language(*, shifu_bid: str, preview_mode: bool) -> bool:
-    model = DraftShifu if preview_mode else PublishedShifu
-    row = (
-        model.query.filter(model.shifu_bid == shifu_bid, model.deleted == 0)
-        .order_by(model.id.desc())
-        .first()
-    )
-    return bool(getattr(row, "use_learner_language", 0))
-
-
 def _build_conversation(
     app: Flask,
     *,
@@ -333,10 +322,8 @@ def _build_conversation(
         # Live must not inherit the course's text-output and formatting rules.
         course_system_prompt=None,
         fallback_system_prompt=load_prompt_template("live_follow_up"),
-        use_learner_language=_load_use_learner_language(
-            shifu_bid=binding.shifu_bid,
-            preview_mode=binding.preview_mode,
-        ),
+        # Live conversations must not be forced into the interface language.
+        use_learner_language=False,
         runtime_language=binding.language,
         anchor_element_bid=binding.anchor_element_bid,
         max_history_messages=20,

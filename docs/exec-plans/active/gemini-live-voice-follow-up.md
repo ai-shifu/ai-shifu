@@ -1,5 +1,16 @@
 # Gemini Live Voice Follow-Up
 
+## 2026-09-07: Do not force Live output into the interface language
+
+Live no longer reads the course's learner-language output switch or appends
+the shared builder's mandatory response-language instruction. Request language
+remains session metadata, but is not injected into learner profile variables
+by this path. Teacher-authored follow-up prompts and saved history are preserved;
+no new language-selection prompt is added. Ordinary text follow-ups and lesson
+output retain their existing learner-language behavior. Regression tests cover
+Chinese, English and French request locales across read/listen and preview/live
+surfaces, alongside the shared text-context language contract.
+
 ## 2026-09-07: Accepted eviction-policy compatibility tradeoff
 
 At the user's explicit request, admission no longer requires Redis
