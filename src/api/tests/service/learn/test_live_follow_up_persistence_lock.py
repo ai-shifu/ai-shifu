@@ -66,6 +66,26 @@ def test_lock_timeout_never_enters_persistence(
     assert connection.execute.call_count == 1
 
 
+def test_takeover_sessions_share_progress_lock_but_other_progress_does_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _connection(monkeypatch)
+    app = Flask("live-lock-test")
+    sessions = [
+        SimpleNamespace(session_bid="old-session", progress_record_bid="progress-1"),
+        SimpleNamespace(session_bid="new-session", progress_record_bid="progress-1"),
+        SimpleNamespace(session_bid="other-session", progress_record_bid="progress-2"),
+    ]
+    names = []
+    for session in sessions:
+        with persistence.live_follow_up_persistence_lock(
+            app, session.progress_record_bid
+        ):
+            names.append(connection.execute.call_args.args[1]["name"])
+    assert names[0] == names[1]
+    assert names[1] != names[2]
+
+
 @pytest.mark.parametrize("error", [RuntimeError, KeyboardInterrupt])
 def test_body_failure_releases_connection_owned_lock(
     monkeypatch: pytest.MonkeyPatch, error: type[BaseException]

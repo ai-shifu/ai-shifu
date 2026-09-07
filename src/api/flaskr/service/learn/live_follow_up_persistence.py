@@ -50,14 +50,20 @@ class LiveFollowUpPersistenceError(RuntimeError):
 
 
 @contextlib.contextmanager
-def live_follow_up_persistence_lock(app: Flask, session_bid: str) -> Iterator[None]:
+def live_follow_up_persistence_lock(
+    app: Flask, progress_record_bid: str
+) -> Iterator[None]:
     """Serialize reservation, durable writes, and acknowledgement across workers.
 
     A connection-scoped MySQL lock cannot expire mid-write and is released on
     worker disconnect. Once acquired, a leftover Redis claim can safely be
     replaced. This follows the onboarding publication lock's database boundary.
     """
-    lock_name = "ai-shifu:live:" + hashlib.sha256(session_bid.encode()).hexdigest()[:48]
+    # Replacement sessions share ordering maxima within the progress record.
+    # Session-specific locks cannot fence their concurrent history allocations.
+    lock_name = (
+        "ai-shifu:live:" + hashlib.sha256(progress_record_bid.encode()).hexdigest()[:48]
+    )
     with db.engine.connect() as connection:
         try:
             acquired = connection.execute(

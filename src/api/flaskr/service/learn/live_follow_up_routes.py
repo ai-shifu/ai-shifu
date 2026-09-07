@@ -1152,7 +1152,9 @@ def register_live_follow_up_routes(
             )
         touch_direct_session(session, finalizing=True)
         try:
-            with live_follow_up_persistence_lock(app, session_bid):
+            with live_follow_up_persistence_lock(
+                app, session.binding.progress_record_bid
+            ):
                 session = require_direct_session(session_bid, allow_finalization=True)
                 if turn.turn_index <= session.turn_state.last_committed_index:
                     result = load_persisted_live_follow_up_turn(
@@ -1218,7 +1220,9 @@ def register_live_follow_up_routes(
         # Retain its binding now, without granting any later request admission.
         touch_direct_session(session, finalizing=True)
         try:
-            with live_follow_up_persistence_lock(app, session_bid):
+            with live_follow_up_persistence_lock(
+                app, session.binding.progress_record_bid
+            ):
                 # Admission applies to this already-validated, bounded batch.
                 # Reload its cursor under the DB lock using the admission time,
                 # not a new deadline check after each potentially slow write.
@@ -1311,7 +1315,9 @@ def register_live_follow_up_routes(
             admitted_at = admission_time()
             touch_direct_session(session, finalizing=True)
         try:
-            with live_follow_up_persistence_lock(app, session_bid):
+            with live_follow_up_persistence_lock(
+                app, session.binding.progress_record_bid
+            ):
                 if session.admission:
                     session = load_live_follow_up_session(
                         app,

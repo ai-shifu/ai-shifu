@@ -1463,8 +1463,9 @@ def test_direct_writes_recover_abandoned_claims_only_under_database_lock(
     events: list[str] = []
 
     @contextmanager
-    def database_lock(_app: Flask, _session_bid: str) -> object:
+    def database_lock(_app: Flask, progress_record_bid: str) -> object:
         nonlocal locked
+        assert progress_record_bid == session.binding.progress_record_bid
         locked = True
         events.append("locked")
         try:
@@ -1517,6 +1518,14 @@ def test_end_consumes_binding_but_retains_capacity_until_token_expiry(
     app = _route_app(monkeypatch)
     _stub_active_direct_session(monkeypatch)
     consumed: list[str] = []
+    lock_keys: list[str] = []
+
+    @contextmanager
+    def progress_lock(_app: Flask, progress_record_bid: str) -> object:
+        lock_keys.append(progress_record_bid)
+        yield
+
+    monkeypatch.setattr(routes, "live_follow_up_persistence_lock", progress_lock)
     monkeypatch.setattr(
         routes,
         "consume_live_follow_up_session",
@@ -1532,6 +1541,7 @@ def test_end_consumes_binding_but_retains_capacity_until_token_expiry(
     body = json.loads(response.get_data(as_text=True))["data"]
     assert body == {"session_bid": "session-1", "reason": "ended_by_user"}
     assert consumed == ["session-1"]
+    assert lock_keys == ["progress-1"]
 
 
 def _v2_payload(**overrides: object) -> dict[str, object]:
