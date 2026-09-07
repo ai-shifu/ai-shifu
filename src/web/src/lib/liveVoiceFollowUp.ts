@@ -128,6 +128,8 @@ export type LiveFollowUpSession = {
   setup: GeminiLiveSetupMessage;
   history: GeminiLiveHistoryMessage | null;
   expires_at: string;
+  // Relative to the server response; new servers always provide this field.
+  expires_in_ms?: number;
   new_session_expires_at: string;
   heartbeat_interval_ms: number;
   request_bid?: string;

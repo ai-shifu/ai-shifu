@@ -45,6 +45,16 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Review `r3946346006` adds Redis-relative `expires_in_ms` to
+      credential responses. Browser expiry/resumption/capacity deadlines use
+      `performance.now()` so initial device skew and later wall-clock changes
+      cannot move a new-server credential's lifetime. Keep a one-time absolute
+      fallback for older servers; deploy the matching backend for skew safety.
+      Frontend tests cover +/-20-minute initial skew, subsequent time jumps,
+      invalid lifetimes, monotonic cooldowns and frozen callback dispatch.
+      345 focused Live tests, all 230 frontend suites / 2,401 tests, TypeScript,
+      and 231 backend route/admission/capacity/store/token tests pass, including
+      fail-closed clock unavailability after issuance without token disclosure.
 - [x] 2026-09-07: Review `r3946346009` gates retained microphone frames for the
       whole finalization/issuance/setup handoff. The microphone itself shows
       its pending spinner (no explanatory text), remains stoppable, and resumes
@@ -990,8 +1000,10 @@ directions. An active microphone is carried across natural expiry without
 another native activation or permission request, while old played checkpoints
 and history finalize before successor admission. Cancelled/failed handoffs
 release resources; silent/paused sessions do not mint idle tokens. Local
-regression evidence is 230 frontend suites / 2,391 tests plus 335 focused Live
-tests after the final pause-state check. This is not real-device or Gemini
+regression evidence after review fixes is 230 frontend suites / 2,401 tests,
+345 focused Live tests, and 231 backend tests. Retained capture stays visibly
+pending and silent until successor readiness; new-server relative lifetimes
+and monotonic browser deadlines prevent device-clock-driven expiry. This is not real-device or Gemini
 handoff acceptance, and does not deploy to dev or production.
 
 The 2026-09-05 pause/input implementation and its verified review corrections
@@ -1603,6 +1615,7 @@ and optional `voices: [{voice_id, style}]`. Settings store
 `POST /api/learn/shifu/{shifu_bid}/live-follow-up/{outline_bid}/session`
 returns `session_bid`, `ephemeral_token`, the fixed constrained
 `websocket_url`, prompt-free `setup`, optional `history`, `expires_at`,
+Redis-relative remaining `expires_in_ms` (used for monotonic browser deadlines),
 `new_session_expires_at`, and `heartbeat_interval_ms`.
 
 `POST /api/learn/live-follow-up/session/{session_bid}/heartbeat` validates the
