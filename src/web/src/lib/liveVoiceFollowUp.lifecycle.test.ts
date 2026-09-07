@@ -13,7 +13,7 @@ jest.mock('@/hooks/useToast', () => ({
   toast: (...args: unknown[]) => mockToast(...args),
   toastOnce: jest.fn(),
 }));
-jest.mock('@/c-utils/debugConsole', () => ({
+jest.mock('@/lib/debugConsole', () => ({
   debugInfo: jest.fn(),
   debugWarn: jest.fn(),
   debugError: jest.fn(),
