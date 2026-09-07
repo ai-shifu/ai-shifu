@@ -247,6 +247,10 @@ head = {session_bid=args.session_bid, admission_revision=args.admission_revision
 redis.call('ZADD', KEYS[1], expiry/1000, args.lease_id)
 redis.call('ZADD', KEYS[2], expiry/1000, args.lease_id)
 redis.call('ZADD', KEYS[3], expiry/1000, args.lease_id)
+-- Retired workers receive no future admissions to prune their ledger. Preserve
+-- its longest lease even if the Redis clock has moved backwards since issuance.
+local worker_last = redis.call('ZRANGE', KEYS[2], -1, -1, 'WITHSCORES')
+redis.call('PEXPIREAT', KEYS[2], math.ceil(tonumber(worker_last[2])*1000))
 redis.call('PEXPIREAT', KEYS[3], expiry)
 -- Keep the old user STRING as a compatibility guard, never as the V2 ledger.
 redis.call('SET', KEYS[9], args.lease_id, 'PXAT', expiry)
