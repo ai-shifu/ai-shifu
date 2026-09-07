@@ -26,6 +26,10 @@ describe('Live follow-up AudioWorklet', () => {
     globalThis,
     'sampleRate',
   );
+  const originalCurrentTime = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'currentTime',
+  );
   let processors: Record<string, WorkletProcessorConstructor>;
 
   beforeEach(() => {
@@ -48,6 +52,7 @@ describe('Live follow-up AudioWorklet', () => {
         },
       },
       sampleRate: { configurable: true, value: 48000 },
+      currentTime: { configurable: true, writable: true, value: 0 },
     });
     jest.isolateModules(() => {
       jest.requireActual('../../../public/worklets/live-follow-up-audio.js');
@@ -68,6 +73,33 @@ describe('Live follow-up AudioWorklet', () => {
     restore('AudioWorkletProcessor', originalAudioWorkletProcessor);
     restore('registerProcessor', originalRegisterProcessor);
     restore('sampleRate', originalSampleRate);
+    restore('currentTime', originalCurrentTime);
+  });
+
+  it('silences queued playback and capture at authorization expiry without page callbacks', () => {
+    const playback = new processors['live-follow-up-playback']();
+    const capture = new processors['live-follow-up-capture']();
+    for (const processor of [playback, capture])
+      processor.port.onmessage!({
+        data: { type: 'authorization', deadline: 10 },
+      });
+    playback.port.onmessage!({
+      data: {
+        type: 'audio',
+        turnIndex: 1,
+        buffer: new Int16Array(1000).fill(12000).buffer,
+      },
+    });
+    Object.defineProperty(globalThis, 'currentTime', {
+      configurable: true,
+      value: 10,
+    });
+    const output = new Float32Array(128).fill(1);
+    playback.process([], [[output]]);
+    capture.process([[new Float32Array(2048).fill(1)]], []);
+    expect(Array.from(output).every(value => value === 0)).toBe(true);
+    expect(playback.samples).toEqual([]);
+    expect(capture.port.postMessage).not.toHaveBeenCalled();
   });
 
   it('waits for the turn finish marker and flushes progress before completion', () => {

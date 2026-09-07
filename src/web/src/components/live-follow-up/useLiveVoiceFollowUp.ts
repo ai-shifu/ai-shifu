@@ -46,6 +46,7 @@ import {
   type LiveVoiceFollowUpErrorCode,
   type LiveVoiceFollowUpOutcome,
   type LiveVoiceFollowUpPauseReason,
+  type LiveVoiceConnectionReason,
 } from './liveVoiceFollowUpAnalytics';
 import {
   LiveVoiceAudioUnavailableError,
@@ -53,6 +54,7 @@ import {
 } from './liveVoiceFollowUpAudio';
 import { LiveFollowUpTurnWriter } from './liveFollowUpTurnWriter';
 import { LiveFollowUpSessionAdmission } from './liveFollowUpSessionAdmission';
+import { LiveFollowUpOwnership } from './liveFollowUpOwnership';
 import {
   useLiveFollowUpReadiness,
   type LiveReadinessState,
@@ -124,6 +126,8 @@ export type LiveVoiceFollowUpHistoryTurn = {
 };
 
 type ActiveAttempt = StartTarget & {
+  connectionReason: LiveVoiceConnectionReason;
+  attemptReported: boolean;
   automaticRenewal: boolean;
   shifuBid: string;
   outlineBid: string;
@@ -224,6 +228,7 @@ type FinishAttemptOptions = {
 };
 
 type RetainedAudio = {
+  reason?: 'expiry' | 'connection_lost';
   audio: LiveVoiceFollowUpAudio;
   ready: Promise<void>;
   muted: boolean;
@@ -377,6 +382,13 @@ export const useLiveVoiceFollowUp = ({
   const setupTimerRef = useRef<number | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
   const heartbeatRequestTimerRef = useRef<number | null>(null);
+  const ownershipRef = useRef<LiveFollowUpOwnership | null>(null);
+  const ownershipDeadlineRef = useRef(0);
+  const takeoverPolicyRef = useRef(false);
+  const connectionLossRenewalUsedRef = useRef(false);
+  const renewLostConnectionRef = useRef<(generation: number) => boolean>(
+    () => false,
+  );
   const unmountedRef = useRef(false);
   const sessionScopeKey = `${shifuBid}:${outlineBid}:${sessionScope}:${previewMode ? 'preview' : 'learner'}`;
   const previousSessionScopeKeyRef = useRef(sessionScopeKey);
@@ -419,6 +431,24 @@ export const useLiveVoiceFollowUp = ({
     }
   }, []);
 
+  const reportAttemptStarted = useCallback(
+    (attempt: ActiveAttempt) => {
+      if (attempt.attemptReported) return;
+      attempt.attemptReported = true;
+      if (attempt.analyticsEnabled)
+        trackSafely(
+          attempt.automaticRenewal
+            ? LIVE_VOICE_FOLLOW_UP_RENEWAL_ATTEMPT_EVENT
+            : LIVE_VOICE_FOLLOW_UP_ATTEMPT_EVENT,
+          buildLiveVoiceFollowUpAttemptAnalytics(
+            attempt,
+            attempt.connectionReason,
+          ),
+        );
+    },
+    [trackSafely],
+  );
+
   const reportAttemptResult = useCallback(
     (
       attempt: ActiveAttempt,
@@ -429,6 +459,7 @@ export const useLiveVoiceFollowUp = ({
         return;
       }
       attempt.attemptResultReported = true;
+      reportAttemptStarted(attempt);
       if (!attempt.analyticsEnabled) {
         return;
       }
@@ -443,10 +474,11 @@ export const useLiveVoiceFollowUp = ({
           surface: attempt.surface,
           outcome,
           errorCode,
+          connectionReason: attempt.connectionReason,
         }),
       );
     },
-    [trackSafely],
+    [trackSafely, reportAttemptStarted],
   );
 
   const reportSessionEnd = useCallback(
@@ -480,6 +512,9 @@ export const useLiveVoiceFollowUp = ({
   );
 
   const clearTimers = useCallback(() => {
+    ownershipRef.current?.stop();
+    ownershipRef.current = null;
+    ownershipDeadlineRef.current = 0;
     for (const timerRef of [
       timeoutTimerRef,
       setupTimerRef,
@@ -1001,6 +1036,10 @@ export const useLiveVoiceFollowUp = ({
       const target = { anchorElementBid: normalizedAnchor, surface };
       lastTargetRef.current = target;
       const attempt: ActiveAttempt = {
+        connectionReason: retainedAudio
+          ? (retainedAudio.reason ?? 'expiry')
+          : 'user_start',
+        attemptReported: false,
         automaticRenewal: !!retainedAudio,
         ...target,
         shifuBid,
@@ -1019,6 +1058,7 @@ export const useLiveVoiceFollowUp = ({
         hadExchange: false,
       };
       attemptRef.current = attempt;
+      if (!retainedAudio) connectionLossRenewalUsedRef.current = false;
       mutedRef.current = retainedAudio?.muted ?? true;
       pausedRef.current = false;
       setupReadyRef.current = false;
@@ -1027,19 +1067,7 @@ export const useLiveVoiceFollowUp = ({
       let connectionDeadline: number | null = null;
       let sessionRequestStartedAt = performance.now();
 
-      if (analyticsEnabled) {
-        trackSafely(
-          retainedAudio
-            ? LIVE_VOICE_FOLLOW_UP_RENEWAL_ATTEMPT_EVENT
-            : LIVE_VOICE_FOLLOW_UP_ATTEMPT_EVENT,
-          buildLiveVoiceFollowUpAttemptAnalytics({
-            shifuBid,
-            outlineBid,
-            learningMode,
-            surface,
-          }),
-        );
-      }
+      if (retainedAudio) reportAttemptStarted(attempt);
       setViewState({
         ...initialState,
         open: true,
@@ -1058,7 +1086,9 @@ export const useLiveVoiceFollowUp = ({
           currentAttempt?.generation !== generation ||
           !setupReadyRef.current ||
           !currentAttempt.audioActivated ||
-          currentAttempt.serverVoiceState === null
+          currentAttempt.serverVoiceState === null ||
+          (sessionRef.current?.ownership_timeout_ms &&
+            performance.now() >= ownershipDeadlineRef.current)
         ) {
           return;
         }
@@ -1132,6 +1162,8 @@ export const useLiveVoiceFollowUp = ({
             mutedRef.current ||
             pausedRef.current ||
             !setupReadyRef.current ||
+            (sessionRef.current?.ownership_timeout_ms &&
+              performance.now() >= ownershipDeadlineRef.current) ||
             websocket?.readyState !== WebSocket.OPEN ||
             frame.byteLength > MAX_INPUT_AUDIO_FRAME_BYTES
           ) {
@@ -1213,6 +1245,8 @@ export const useLiveVoiceFollowUp = ({
             return;
           }
           audioRef.current = audio;
+          if (sessionRef.current?.ownership_timeout_ms)
+            audio.setAuthorizationDeadline(ownershipDeadlineRef.current);
           audio.setMuted(mutedRef.current || !setupReadyRef.current);
           if (pausedRef.current) void audio.pauseOutput();
           attemptRef.current.audioActivated = true;
@@ -1246,6 +1280,7 @@ export const useLiveVoiceFollowUp = ({
             ) {
               return;
             }
+            if (resuming && renewLostConnectionRef.current(generation)) return;
             finishAttempt({
               reason: 'connection_error',
               keepOpen: true,
@@ -1279,32 +1314,45 @@ export const useLiveVoiceFollowUp = ({
               attemptRef.current?.generation === generation &&
               (connectionDeadline === null ||
                 performance.now() < connectionDeadline),
+            reason => {
+              if (
+                attemptRef.current?.generation !== generation ||
+                attempt.attemptReported
+              )
+                return;
+              attempt.connectionReason = reason;
+              reportAttemptStarted(attempt);
+            },
+            !retainedAudio,
           );
         };
-        sessionPromise = lastFinalizationRef.current
-          ? lastFinalizationRef.current.then(async saved => {
-              if (!saved) {
-                if (attemptRef.current?.generation !== generation)
-                  throw new Error('Live session startup cancelled');
-                // One click may wait for the existing closing budget OR
-                // retry an already failed one, never chain both budgets.
-                if (!retryPreviousFinalization)
-                  throw new Error('Previous Live history was not saved');
-                const recovery = retryFinalizationRef.current?.();
-                if (recovery) {
-                  lastFinalizationRef.current = recovery;
-                  lastFinalizationFailedRef.current = false;
-                  void recovery.then(recovered => {
-                    if (lastFinalizationRef.current === recovery)
-                      lastFinalizationFailedRef.current = !recovered;
-                  });
+        // New takeovers snapshot durable server history; a dead old page cannot
+        // be required to complete its last HTTP report before the learner speaks.
+        sessionPromise =
+          !takeoverPolicyRef.current && lastFinalizationRef.current
+            ? lastFinalizationRef.current.then(async saved => {
+                if (!saved) {
+                  if (attemptRef.current?.generation !== generation)
+                    throw new Error('Live session startup cancelled');
+                  // One click may wait for the existing closing budget OR
+                  // retry an already failed one, never chain both budgets.
+                  if (!retryPreviousFinalization)
+                    throw new Error('Previous Live history was not saved');
+                  const recovery = retryFinalizationRef.current?.();
+                  if (recovery) {
+                    lastFinalizationRef.current = recovery;
+                    lastFinalizationFailedRef.current = false;
+                    void recovery.then(recovered => {
+                      if (lastFinalizationRef.current === recovery)
+                        lastFinalizationFailedRef.current = !recovered;
+                    });
+                  }
+                  if (!(await recovery))
+                    throw new Error('Previous Live history was not saved');
                 }
-                if (!(await recovery))
-                  throw new Error('Previous Live history was not saved');
-              }
-              return createSession();
-            })
-          : createSession();
+                return createSession();
+              })
+            : createSession();
       } catch (error) {
         sessionPromise = Promise.reject(error);
       }
@@ -1427,6 +1475,8 @@ export const useLiveVoiceFollowUp = ({
           if (
             ingest.audioTurnIndex !== null &&
             !pausedRef.current &&
+            (!session.ownership_timeout_ms ||
+              performance.now() < ownershipDeadlineRef.current) &&
             !attemptAccumulator.suppressPlayback(ingest.audioTurnIndex)
           ) {
             outputTurnIndexRef.current = ingest.audioTurnIndex;
@@ -1487,6 +1537,7 @@ export const useLiveVoiceFollowUp = ({
             }
             const handle = resumptionHandleRef.current;
             if (!handle) {
+              if (renewLostConnectionRef.current(generation)) return;
               finishAttempt({
                 reason: 'connection_error',
                 keepOpen: true,
@@ -1523,6 +1574,7 @@ export const useLiveVoiceFollowUp = ({
           // The close event carries the protocol status. Wait for it before
           // deciding whether an established session can resume safely.
           if (setupReadyRef.current && resumptionHandleRef.current) return;
+          if (renewLostConnectionRef.current(generation)) return;
           finishAttempt({
             reason: 'connection_error',
             keepOpen: true,
@@ -1558,6 +1610,11 @@ export const useLiveVoiceFollowUp = ({
             openGeminiSocket(session, handle);
             return;
           }
+          if (
+            RECOVERABLE_WEBSOCKET_CLOSE_CODES.has(event.code) &&
+            renewLostConnectionRef.current(generation)
+          )
+            return;
           finishAttempt({
             reason: 'connection_closed',
             keepOpen: true,
@@ -1569,7 +1626,11 @@ export const useLiveVoiceFollowUp = ({
       };
 
       void sessionPromise
-        .then(session => {
+        .then(async session => {
+          if (attemptRef.current?.generation === generation)
+            takeoverPolicyRef.current =
+              session.rotation_enabled === true &&
+              !!session.ownership_timeout_ms;
           // Only the old-server compatibility path consults wall time, once.
           // All subsequent checks, timers, and cooldowns use monotonic time.
           const lifetime =
@@ -1637,6 +1698,44 @@ export const useLiveVoiceFollowUp = ({
               retryable: true,
               pendingOutcome: 'failed',
             });
+            return;
+          }
+          if (session.ownership_timeout_ms && session.admission_revision) {
+            audioRef.current?.setAuthorizationDeadline(0);
+            const ownership = new LiveFollowUpOwnership(
+              session.session_bid,
+              session.admission_revision,
+              deadline => {
+                if (attemptRef.current?.generation !== generation) return;
+                ownershipDeadlineRef.current = deadline;
+                audioRef.current?.setAuthorizationDeadline(deadline);
+                markConnectedIfReady();
+              },
+              error => {
+                if (attemptRef.current?.generation !== generation) return;
+                const replaced =
+                  error instanceof LiveFollowUpControlError &&
+                  error.reason === 'ownership_conflict';
+                if (!replaced && credentialMayHaveExpired()) {
+                  expireSessionRef.current(generation);
+                  return;
+                }
+                finishAttempt({
+                  reason: replaced ? 'replaced' : 'connection_error',
+                  keepOpen: true,
+                  errorCode: replaced ? null : 'server_error',
+                  retryable: true,
+                  pendingOutcome: replaced ? 'cancelled' : 'failed',
+                });
+              },
+            );
+            ownershipRef.current = ownership;
+            await ownership.start(session.previous_admission_revision);
+            if (attemptRef.current?.generation !== generation) {
+              ownership.stop();
+              return;
+            }
+            openGeminiSocket(session, null);
             return;
           }
           openGeminiSocket(session, null);
@@ -1759,6 +1858,7 @@ export const useLiveVoiceFollowUp = ({
       outlineBid,
       previewMode,
       reportAttemptResult,
+      reportAttemptStarted,
       remainingSessionMs,
       requestExclusive,
       scheduleCommitFlush,
@@ -1772,7 +1872,11 @@ export const useLiveVoiceFollowUp = ({
     const attempt = attemptRef.current;
     if (!attempt || attempt.generation !== generation) return;
     const remaining = remainingSessionMs() + CREDENTIAL_RESERVATION_MARGIN_MS;
-    if (Number.isFinite(remaining) && remaining > 0) {
+    if (
+      sessionRef.current?.rotation_enabled !== true &&
+      Number.isFinite(remaining) &&
+      remaining > 0
+    ) {
       // Transport ended in the response-latency uncertainty window. Do not
       // resume a possibly expired token or mint before its risk lease drains.
       setupReadyRef.current = false;
@@ -1824,6 +1928,32 @@ export const useLiveVoiceFollowUp = ({
     });
     if (audio && !start(attempt, audio))
       void audio.audio.stop().catch(() => {});
+  };
+
+  renewLostConnectionRef.current = generation => {
+    const attempt = attemptRef.current;
+    if (
+      !attempt ||
+      attempt.generation !== generation ||
+      attempt.connectedAt === null ||
+      connectionLossRenewalUsedRef.current ||
+      sessionRef.current?.rotation_enabled !== true ||
+      mutedRef.current ||
+      pausedRef.current ||
+      document.hidden ||
+      !audioRef.current ||
+      readinessRef.current.readiness !== 'ready'
+    )
+      return false;
+    connectionLossRenewalUsedRef.current = true;
+    const audio = finishAttempt({
+      reason: 'connection_closed',
+      keepOpen: true,
+      preserveAudio: true,
+    });
+    if (audio && !start(attempt, { ...audio, reason: 'connection_lost' }))
+      void audio.audio.stop().catch(() => {});
+    return true;
   };
 
   const stopMicrophone = useCallback(
@@ -2064,6 +2194,8 @@ export const useLiveVoiceFollowUp = ({
       !attempt ||
       !accumulator ||
       !setupReadyRef.current ||
+      (sessionRef.current?.ownership_timeout_ms &&
+        performance.now() >= ownershipDeadlineRef.current) ||
       !attempt.audioActivated
     )
       return;

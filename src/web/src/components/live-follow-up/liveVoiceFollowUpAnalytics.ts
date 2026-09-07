@@ -70,6 +70,11 @@ export const buildLiveVoiceFollowUpMicrophoneAnalytics = (
 });
 
 export type LiveVoiceFollowUpOutcome = 'success' | 'failed' | 'cancelled';
+export type LiveVoiceConnectionReason =
+  | 'user_start'
+  | 'takeover'
+  | 'expiry'
+  | 'connection_lost';
 
 export const LIVE_VOICE_FOLLOW_UP_ERROR_CODES = [
   'none',
@@ -160,16 +165,20 @@ export const normalizeLiveVoiceFollowUpEndReason = (
     : 'server_end';
 };
 
-export const buildLiveVoiceFollowUpAttemptAnalytics = ({
-  shifuBid,
-  outlineBid,
-  learningMode,
-  surface,
-}: LiveVoiceFollowUpBaseAnalyticsInput) => ({
+export const buildLiveVoiceFollowUpAttemptAnalytics = (
+  {
+    shifuBid,
+    outlineBid,
+    learningMode,
+    surface,
+  }: LiveVoiceFollowUpBaseAnalyticsInput,
+  connectionReason?: LiveVoiceConnectionReason,
+) => ({
   shifu_bid: shifuBid,
   outline_bid: outlineBid,
   learning_mode: learningMode,
   surface,
+  ...(connectionReason && { connection_reason: connectionReason }),
 });
 
 export const buildLiveVoiceFollowUpResultAnalytics = ({
@@ -179,9 +188,11 @@ export const buildLiveVoiceFollowUpResultAnalytics = ({
   surface,
   outcome,
   errorCode,
+  connectionReason,
 }: LiveVoiceFollowUpBaseAnalyticsInput & {
   outcome: LiveVoiceFollowUpOutcome;
   errorCode: LiveVoiceFollowUpErrorCode;
+  connectionReason?: LiveVoiceConnectionReason;
 }) => ({
   shifu_bid: shifuBid,
   outline_bid: outlineBid,
@@ -189,6 +200,7 @@ export const buildLiveVoiceFollowUpResultAnalytics = ({
   surface,
   outcome,
   error_code: errorCode,
+  ...(connectionReason && { connection_reason: connectionReason }),
 });
 
 export const buildLiveVoiceFollowUpSessionEndAnalytics = ({

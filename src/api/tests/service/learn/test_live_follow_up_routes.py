@@ -135,6 +135,51 @@ def _route_app(monkeypatch: pytest.MonkeyPatch, *, enabled: bool = True) -> Flas
     return app
 
 
+def test_owner_endpoint_only_discovers_authenticated_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _route_app(monkeypatch)
+    discover = Mock(
+        return_value={
+            "operation_status": "issued",
+            "admission_revision": "revision",
+            "rotation_enabled": True,
+        }
+    )
+    monkeypatch.setattr(routes, "discover_admission_owner", discover)
+    monkeypatch.setattr(routes, "is_gemini_live_rotation_enabled", lambda: True)
+    response = app.test_client().post(
+        "/api/learn/live-follow-up/owner",
+        json={},
+        base_url="https://learn.example.com",
+        headers={"Origin": "https://learn.example.com"},
+    )
+    assert response.get_json()["data"] == discover.return_value
+    discover.assert_called_once_with(
+        app,
+        user_bid="user-1",
+        origin="https://learn.example.com",
+        rotation_enabled=True,
+    )
+    discover.reset_mock()
+    with pytest.raises(AppError):
+        app.test_client().post(
+            "/api/learn/live-follow-up/owner",
+            json={},
+            base_url="https://learn.example.com",
+            headers={"Origin": "https://attacker.invalid"},
+        )
+    monkeypatch.setattr(routes, "_request_user_bid", lambda: "")
+    with pytest.raises(AppError):
+        app.test_client().post(
+            "/api/learn/live-follow-up/owner",
+            json={},
+            base_url="https://learn.example.com",
+            headers={"Origin": "https://learn.example.com"},
+        )
+    discover.assert_not_called()
+
+
 def test_register_warms_guard_and_probe_returns_only_readiness(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -590,7 +635,8 @@ def test_session_mints_constrained_token_and_returns_no_internal_ws_or_cookie(
     assert body["session_bid"] == "session-1"
     assert body["ephemeral_token"] == "auth_tokens/ephemeral"
     assert body["websocket_url"] == GEMINI_LIVE_CONSTRAINED_ENDPOINT
-    assert body["heartbeat_interval_ms"] == 15_000
+    assert body["heartbeat_interval_ms"] == 3_000
+    assert body["ownership_timeout_ms"] == 10_000
     assert 894_999 <= body["expires_in_ms"] <= 895_001
     assert "ws_path" not in body
     assert response.headers.get("Set-Cookie") is None

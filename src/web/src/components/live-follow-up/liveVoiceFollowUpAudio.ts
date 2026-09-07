@@ -76,6 +76,7 @@ export class LiveVoiceFollowUpAudio {
   private outputGeneration = 0;
   private pausePromise: Promise<void> | null = null;
   private resumePromise: Promise<void> | null = null;
+  private authorizationDeadline: number | null = null;
 
   private constructor(
     private readonly context: AudioContext,
@@ -207,6 +208,18 @@ export class LiveVoiceFollowUpAudio {
     this.capture?.port.postMessage({ type: 'muted', muted });
   }
 
+  setAuthorizationDeadline(deadline: number) {
+    this.authorizationDeadline = deadline;
+    // AudioWorklet keeps enforcing silence even if the page thread is stalled.
+    const remaining = Math.max(0, deadline - performance.now());
+    const message = {
+      type: 'authorization',
+      deadline: this.context.currentTime + remaining / 1000,
+    };
+    this.playback.port.postMessage(message);
+    this.capture?.port.postMessage(message);
+  }
+
   /** Transfer an already activated graph only after the old playback flush. */
   setCallbacks(callbacks: LiveVoiceAudioCallbacks) {
     this.callbacks = callbacks;
@@ -235,6 +248,8 @@ export class LiveVoiceFollowUpAudio {
         },
       );
       this.silentGain = this.context.createGain();
+      if (this.authorizationDeadline !== null)
+        this.setAuthorizationDeadline(this.authorizationDeadline);
       this.silentGain.gain.value = 0;
       this.capture.port.onmessage = event => {
         if (event.data instanceof ArrayBuffer)

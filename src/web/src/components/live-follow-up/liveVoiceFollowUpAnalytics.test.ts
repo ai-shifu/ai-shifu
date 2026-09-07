@@ -110,6 +110,60 @@ const expectNoProhibitedFields = (payload: Record<string, unknown>) => {
 };
 
 describe('live voice follow-up analytics contract', () => {
+  it('groups explicit takeover and automatic recovery without leaking ownership or content', () => {
+    const fixture = (
+      ['user_start', 'takeover', 'expiry', 'connection_lost'] as const
+    ).map(reason => ({
+      attempt: buildLiveVoiceFollowUpAttemptAnalytics(baseInput, reason),
+      result: buildLiveVoiceFollowUpResultAnalytics({
+        ...baseInput,
+        connectionReason: reason,
+        outcome: 'success',
+        errorCode: 'none',
+      }),
+    }));
+    for (const [index, reason] of [
+      'user_start',
+      'takeover',
+      'expiry',
+      'connection_lost',
+    ].entries()) {
+      expect(fixture[index].attempt).toEqual({
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'listen',
+        surface: 'listen_player',
+        connection_reason: reason,
+      });
+      expect(fixture[index].result).toEqual({
+        ...fixture[index].attempt,
+        outcome: 'success',
+        error_code: 'none',
+      });
+      expectNoProhibitedFields(fixture[index].attempt);
+      expectNoProhibitedFields(fixture[index].result);
+    }
+    const recovery = fixture.filter(
+      row => row.attempt.connection_reason === 'connection_lost',
+    );
+    expect(
+      recovery.filter(row => row.result.outcome === 'success'),
+    ).toHaveLength(1);
+    for (const outcome of ['failed', 'cancelled'] as const) {
+      expect(
+        buildLiveVoiceFollowUpResultAnalytics({
+          ...baseInput,
+          connectionReason: 'takeover',
+          outcome,
+          errorCode: 'network_error',
+        }),
+      ).toEqual({
+        ...fixture[1].attempt,
+        outcome,
+        error_code: 'network_error',
+      });
+    }
+  });
   it('keeps automatic renewal out of explicit connection adoption counts', () => {
     expect(LIVE_VOICE_FOLLOW_UP_RENEWAL_ATTEMPT_EVENT).toBe(
       'learner_voice_follow_up_renewal_attempt',

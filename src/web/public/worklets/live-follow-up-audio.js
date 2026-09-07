@@ -1,4 +1,4 @@
-/* global AudioWorkletProcessor, registerProcessor, sampleRate */
+/* global AudioWorkletProcessor, registerProcessor, sampleRate, currentTime */
 
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
@@ -49,12 +49,18 @@ class LiveFollowUpCaptureProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.muted = false;
+    this.authorizedUntil = Infinity;
     this.pending = [];
     this.resampler = new StreamingLinearResampler(
       sampleRate,
       INPUT_SAMPLE_RATE,
     );
     this.port.onmessage = event => {
+      if (event.data?.type === 'authorization') {
+        this.authorizedUntil = Number.isFinite(event.data.deadline)
+          ? event.data.deadline
+          : 0;
+      }
       if (event.data?.type === 'muted') {
         const muted = Boolean(event.data.muted);
         if (muted && !this.muted) {
@@ -68,7 +74,13 @@ class LiveFollowUpCaptureProcessor extends AudioWorkletProcessor {
 
   process(inputs) {
     const input = inputs[0]?.[0];
-    if (!input || this.muted) {
+    if (
+      !input ||
+      this.muted ||
+      (this.authorizedUntil !== Infinity && currentTime >= this.authorizedUntil)
+    ) {
+      this.pending = [];
+      this.resampler.reset();
       return true;
     }
 
@@ -89,6 +101,7 @@ class LiveFollowUpCaptureProcessor extends AudioWorkletProcessor {
 class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
+    this.authorizedUntil = Infinity;
     this.samples = [];
     this.turnIndexes = [];
     this.readOffset = 0;
@@ -100,6 +113,12 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
     this.finishedTurns = new Set();
     this.progressSamplesSincePost = 0;
     this.port.onmessage = event => {
+      if (event.data?.type === 'authorization') {
+        this.authorizedUntil = Number.isFinite(event.data.deadline)
+          ? event.data.deadline
+          : 0;
+        return;
+      }
       if (event.data?.type === 'flush_and_clear') {
         this.flushPlaybackProgress();
         this.samples = [];
@@ -249,6 +268,13 @@ class LiveFollowUpPlaybackProcessor extends AudioWorkletProcessor {
     }
 
     output.fill(0);
+    if (
+      this.authorizedUntil !== Infinity &&
+      currentTime >= this.authorizedUntil
+    ) {
+      this.port.onmessage({ data: { type: 'clear' } });
+      return true;
+    }
     const logicalLength = this.samples.length - this.readOffset;
     for (let index = 0; index < output.length; index += 1) {
       if (this.position >= logicalLength) {

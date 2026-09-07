@@ -56,6 +56,7 @@ from flaskr.service.learn.live_follow_up_admission import (
     begin_admission,
     complete_admission,
     current_admission,
+    discover_admission_owner,
     fail_admission,
     legacy_request_bid,
     live_follow_up_readiness,
@@ -473,6 +474,7 @@ def _session_response(
             "history": build_gemini_live_history_message(history),
             "expires_at": to_utc_iso(token.expires_at),
             "expires_in_ms": expires_in_ms,
+            "ownership_timeout_ms": 10_000,
             "new_session_expires_at": to_utc_iso(token.new_session_expires_at),
             "heartbeat_interval_ms": (
                 LIVE_FOLLOW_UP_SESSION_HEARTBEAT_INTERVAL_SECONDS * 1000
@@ -497,6 +499,7 @@ def _admission_request(
     surface = str(payload.get("surface") or "").strip().lower()
     predecessor = str(payload.get("replace_session_bid") or "").strip()
     revision = str(payload.get("expected_admission_revision") or "").strip()
+    takeover = payload.get("operation") == "takeover"
     if (
         not anchor
         or len(anchor) > 64
@@ -507,7 +510,8 @@ def _admission_request(
         or (not preview and surface == "teacher_preview")
         or len(predecessor) > 64
         or len(revision) > 128
-        or bool(predecessor) != bool(revision)
+        or (not takeover and bool(predecessor) != bool(revision))
+        or (takeover and (predecessor or "expected_admission_revision" not in payload))
     ):
         raise_param_error("live_follow_up")
     try:
@@ -526,6 +530,7 @@ def _admission_request(
         surface=surface,
         replace_session_bid=predecessor,
         expected_admission_revision=revision,
+        takeover=takeover,
     )
 
 
@@ -762,9 +767,33 @@ def register_live_follow_up_routes(
             return _status_response(
                 app, payload=payload, shifu_bid=shifu_bid, outline_bid=outline_bid
             )
-        if operation_kind != "create":
+        if operation_kind not in {"create", "takeover"}:
             raise_param_error("live_follow_up")
         return create_session_with_course_context(shifu_bid, outline_bid, payload)
+
+    @app.route(path_prefix + "/live-follow-up/owner", methods=["POST"])
+    @sensitive_body(max_bytes=_MAX_DIRECT_TURN_REPORT_BYTES)
+    def discover_live_follow_up_owner_api() -> Response:
+        user_bid = _request_user_bid()
+        if not user_bid:
+            raise_error("server.user.userNotLogin")
+        origin = _require_allowed_origin(app)
+        try:
+            return _make_live_response(
+                discover_admission_owner(
+                    app,
+                    user_bid=user_bid,
+                    origin=origin,
+                    rotation_enabled=is_gemini_live_rotation_enabled(),
+                )
+            )
+        except LiveFollowUpCapacityError:
+            return _make_live_response(
+                {
+                    "operation_status": "rejected",
+                    "error_code": "admission_unavailable",
+                }
+            )
 
     @with_shifu_context()
     def create_session_with_course_context(

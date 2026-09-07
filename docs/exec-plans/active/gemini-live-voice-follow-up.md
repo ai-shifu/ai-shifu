@@ -45,6 +45,62 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Implement refresh takeover without stored credentials:
+      authenticated owner discovery, revision-CAS takeover, 24 logical owners,
+      8/user and 96/global outstanding credentials, unchanged 4/user and
+      24/global rolling-minute mint limits, no direct-media worker quota.
+      Add foreground ownership fencing and one bounded connection-loss renewal.
+- [x] 2026-09-07: Verify 242 focused backend tests with real Redis, including
+      concurrent CAS, retained credential risk and separate capacity ledgers;
+      231 frontend suites / 2,428 tests and TypeScript pass. Automatic renewal
+      validates its own operation still owns the observed revision, so only
+      explicit input can take another page's ownership. AudioWorklet capture
+      and playback enforce an absolute audio-clock authorization deadline even
+      when main-thread callbacks are delayed. Browser and deployment gates
+      below remain separate from these unit/integration results.
+- [x] 2026-09-07: Chrome control-plane Playwright integration passes using the
+      production admission/ownership modules, native refresh/BroadcastChannel
+      and a deterministic HTTP fixture: fresh page stays idle, refresh mints
+      while the prior credential is valid, and another page fences the old one.
+      This is not full AskBlock, real Gemini, Safari/iOS or mobile acceptance.
+      A lost takeover response performs metadata-only status inspection and
+      never repeats issuance; 223 focused admission/controller tests pass after
+      adding this regression.
+- [ ] 2026-09-07: Verify backend/Redis, frontend, analytics and browser contracts;
+      deliver through PR review, then deploy compatible API/web to dev and
+      enable rotation after a controlled admission drain. Production is excluded.
+
+### Refresh takeover amendment (2026-09-07)
+
+This amendment supersedes Phase 4's three-token/24-global/worker quotas and
+its requirement that a refreshing page retain the predecessor. Only explicit
+input discovers the authenticated user's same-Origin ownership revision and
+CAS-replaces it. Concurrent contenders have one winner; stale callers never
+automatically reclaim ownership. Pending provisioning retains its original
+15-second deadline, and each start retains one 20-second budget. No token or
+resumption handle is stored outside browser memory. Replacements retain all
+disclosed or uncertain credential risk until fixed expiry. No database schema
+change, Course Prompt inclusion, replay, additional UI or production enablement.
+
+The current user owner and outstanding credential reservations are separate.
+All compatible writers maintain a global logical-owner ledger; replacing a
+user does not consume another owner slot. Rotation-off denies early takeover
+but continues accounting. Deployment must drain pre-upgrade admissions before
+enabling the new policy; never clear ledgers to manufacture capacity.
+
+An explicit connection's analytics reason is user_start or takeover; automatic
+renewal uses expiry or connection_lost. Attempts/results retain their existing
+event families and eligibility. Only the accepted operation emits events;
+metadata lookups, transport retries and duplicate operations emit none. Update
+the canonical analytics consumer fixture alongside producers.
+
+New-protocol successors build context from committed server history without
+waiting for old-page finalization. Late legal reports remain independently
+idempotent. Automatic successors must still own the observed revision; they
+cannot reclaim another page's session, even before the next heartbeat arrives.
+Ownership checks run every three seconds; capture/playback fail closed after
+ten seconds from the start of the last successful check, not its response.
+
 - [x] 2026-09-07: Review `r3946564559` expires per-worker Redis ledgers at
       their latest credential deadline in both admission writers, preventing
       retired-worker key growth without early risk release. Real Redis tests

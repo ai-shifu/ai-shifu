@@ -570,14 +570,53 @@ def test_concurrent_predecessor_cas_has_one_winner_across_workers(
     assert client.zcard(_keys(ready_app, original, first)[0]) == 2
 
 
-def test_three_credentials_per_user_remain_counted_after_retirement(
+def test_refresh_discovers_and_cas_takes_over_without_old_page_state(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+) -> None:
+    client = real_redis.client
+    original = _request(client)
+    first = _begin(ready_app, original)
+    _complete(ready_app, original, first)
+    owner = admission.discover_admission_owner(
+        ready_app,
+        user_bid=original.user_bid,
+        origin=original.origin,
+        rotation_enabled=True,
+    )
+    assert set(owner) == {"operation_status", "admission_revision", "rotation_enabled"}
+    assert owner["operation_status"] == "issued"
+    requests = [
+        replace(
+            _request(client),
+            takeover=True,
+            expected_admission_revision=owner["admission_revision"],
+        )
+        for _ in range(5)
+    ]
+    with ThreadPoolExecutor(max_workers=5) as workers:
+        results = list(
+            workers.map(lambda request: _begin(ready_app, request), requests)
+        )
+    assert sum(result.lease is not None for result in results) == 1
+    keys = _keys(ready_app, original, first)
+    assert client.zcard(keys[0]) == 2
+    assert client.zcard(keys[11]) == 1
+    _retire(ready_app, original, first)
+    assert client.zcard(keys[11]) == 1
+    assert client.zcard(keys[0]) == 2
+
+
+def test_eight_credentials_per_user_remain_counted_after_retirement(
     ready_app: Flask,
     real_redis: RedisHarness,
 ) -> None:
     client = real_redis.client
     request = _request(client)
     first = None
-    for index in range(3):
+    for index in range(8):
+        # Isolate outstanding-token risk from the independently tested minute window.
+        client.delete(_keys(ready_app, request)[5])
         result = _begin(ready_app, request, worker=f"worker-{index}")
         _complete(ready_app, request, result)
         _retire(ready_app, request, result)
@@ -588,19 +627,106 @@ def test_three_credentials_per_user_remain_counted_after_retirement(
     assert rejected.data["error_code"] == "capacity_exceeded"
     assert 899_000 <= rejected.data["retry_after_ms"] <= 900_000
     assert first is not None
-    assert client.zcard(_keys(ready_app, request, first)[2]) == 3
+    assert client.zcard(_keys(ready_app, request, first)[2]) == 8
 
 
-def test_worker_limit_is_six_outstanding_credentials(
+def test_global_owner_slots_are_replaced_not_added_and_risk_limit_is_96(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+) -> None:
+    client = real_redis.client
+    requests = [_request(client, user_bid=f"owner-{index}") for index in range(24)]
+    results = [_begin(ready_app, request) for request in requests]
+    for request, result in zip(requests, results, strict=True):
+        _complete(ready_app, request, result)
+    keys = _keys(ready_app, requests[0], results[0])
+    client.delete(keys[6])  # Isolate logical capacity from the minute-rate limit.
+    assert _begin(ready_app, _request(client)).data["error_code"] == "capacity_exceeded"
+    successor = _successor(client, requests[0], results[0])
+    assert _begin(ready_app, successor).lease is not None
+    assert client.zcard(keys[11]) == 24
+    assert client.zcard(keys[0]) == 25
+    client.zadd(
+        keys[0],
+        {
+            f"outstanding-{index}": (_now_ms(client) + 900000) / 1000
+            for index in range(71)
+        },
+    )
+    successor = _successor(client, requests[1], results[1])
+    assert _begin(ready_app, successor).data["error_code"] == "capacity_exceeded"
+    assert client.zcard(keys[0]) == 96
+
+
+def test_owner_discovery_is_origin_bound_and_non_mutating(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+) -> None:
+    client = real_redis.client
+    request = _request(client)
+    result = _begin(ready_app, request)
+    owner = admission.discover_admission_owner(
+        ready_app,
+        user_bid=request.user_bid,
+        origin=request.origin,
+        rotation_enabled=True,
+    )
+    assert owner["operation_status"] == "pending"
+    assert owner["retry_after_ms"] <= 500
+    rejected = admission.discover_admission_owner(
+        ready_app,
+        user_bid=request.user_bid,
+        origin="https://other.invalid",
+        rotation_enabled=True,
+    )
+    assert rejected["error_code"] == "ownership_conflict"
+    assert "admission_revision" not in rejected
+    other = admission.discover_admission_owner(
+        ready_app, user_bid="other-user", origin=request.origin, rotation_enabled=True
+    )
+    assert other["operation_status"] == "missing"
+    assert client.zcard(_keys(ready_app, request, result)[0]) == 1
+
+
+def test_takeover_waits_pending_deadline_and_cannot_bypass_rotation_off(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+) -> None:
+    client = real_redis.client
+    request = _request(client)
+    result = _begin(ready_app, request)
+    takeover = replace(
+        _request(client),
+        takeover=True,
+        expected_admission_revision=result.data["admission_revision"],
+    )
+    assert _begin(ready_app, takeover).data["error_code"] == "pending"
+    assert (
+        _begin(ready_app, takeover, rotation=False).data["error_code"]
+        == "admission_unavailable"
+    )
+    keys = _keys(ready_app, request, result)
+    head = _read_json(client, keys[3])
+    head["deadline_ms"] = _now_ms(client) - 1
+    client.set(keys[3], json.dumps(head), keepttl=True)
+    newer = _begin(ready_app, takeover)
+    assert newer.lease is not None
+    assert (
+        admission.complete_admission(ready_app, request, result, session_payload="{}")
+        is False
+    )
+    assert client.zcard(keys[0]) == 2
+
+
+def test_rotation_has_no_media_worker_quota(
     ready_app: Flask,
     real_redis: RedisHarness,
 ) -> None:
     client = real_redis.client
     for index in range(6):
         assert _begin(ready_app, _request(client, user_bid=f"user-{index}")).lease
-    rejected = _begin(ready_app, _request(client, user_bid="overflow-user"))
-    assert rejected.lease is None
-    assert rejected.data["error_code"] == "capacity_exceeded"
+    admitted = _begin(ready_app, _request(client, user_bid="overflow-user"))
+    assert admitted.lease is not None
 
 
 def test_global_limit_is_twenty_four_outstanding_credentials(
@@ -1040,7 +1166,7 @@ def test_legacy_and_v2_share_existing_worker_and_global_risk_sets(
             worker_id="shared-worker",
             now=_now_ms(client) / 1000,
         )
-    result = _begin(ready_app, _request(client), worker="shared-worker")
+    result = _begin(ready_app, _request(client), worker="shared-worker", rotation=False)
     assert result.lease is None
     assert result.data["error_code"] == "capacity_exceeded"
 
@@ -1073,10 +1199,10 @@ def test_busy_delay_accounts_for_every_blocking_risk_and_rate_quota(
     keys = _keys(ready_app, request)
     now = _now_ms(client)
     client.zadd(
-        keys[0], {f"global-risk-{index}": (now + 90_000) / 1000 for index in range(24)}
+        keys[0], {f"global-risk-{index}": (now + 90_000) / 1000 for index in range(96)}
     )
     client.zadd(
-        keys[2], {f"user-risk-{index}": (now + 120_000) / 1000 for index in range(3)}
+        keys[2], {f"user-risk-{index}": (now + 120_000) / 1000 for index in range(8)}
     )
     client.zadd(keys[5], {f"user-attempt-{index}": now for index in range(4)})
     result = _begin(ready_app, request)
@@ -1254,6 +1380,7 @@ def test_concurrent_workers_cannot_overshoot_risk_and_mint_limits(
                     ready_app,
                     pair[1],
                     worker="shared-worker" if limit == 6 else f"worker-{pair[0]}",
+                    rotation=limit != 6,
                 ),
                 enumerate(requests),
             )

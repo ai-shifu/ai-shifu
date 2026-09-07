@@ -49,6 +49,33 @@ mode, and surface uses only the IDs/enums below.
 
 ## Population, triggers, and deduplication
 
+### Refresh takeover revision (2026-09-07)
+
+The four connection attempt/result producers (explicit and renewal) add
+`connection_reason=user_start|takeover|expiry|connection_lost`. Explicit input
+starts audio activation and metadata-only owner discovery in the click stack;
+once discovery classifies the action it emits its one attempt, before minting.
+An earlier activation/discovery failure or cancellation emits the attempt with
+`user_start` immediately before its terminal result, never omitting the pair.
+Typed submission can therefore precede connection-attempt telemetry. No content,
+request ID, ownership revision or credential is included. Other event payloads
+are unchanged. Automatic loss recovery retains its existing authorized audio
+resource, adds no microphone-operation event and permits only one fresh token
+until another explicit input starts a connection. Expiry renewals use `expiry`.
+
+The consumer adds UTC daily/seven-day connection success counts grouped by
+connection_reason. Discovery and same-operation HTTP polling add no attempt.
+A takeover supersedes the old local session once with end_reason=replaced;
+crashed pages cannot guarantee delivery of their terminal event. Ratios remain
+aggregate counts, not exact joins. Split reports at actual rollout; no backfill,
+dual-write or reclassification of older events lacking this field.
+
+New takeovers use a snapshot of history committed when the server builds the
+session, rather than waiting for another page's final report. Older accepted
+reports may finish independently without extending ownership, replaying audio
+or adding model context to the new session. This supersedes the prior strict
+history-finalization-before-mint rule for the new takeover-capable protocol.
+
 Formal guest and member learners in reading/listening are eligible. Teacher
 preview and classroom are excluded. Capture originating dimensions per
 operation; navigation cannot reclassify preview activity as learner activity.
@@ -83,8 +110,8 @@ with terminal cancellation events: closing before ready cannot prove abandonment
 | Event                                       | Exact trigger                                                                                                    | Additional fields beyond common fields      |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | `learner_voice_follow_up_readiness`         | First visible committed state per eligible opening, then once per distinct readiness state within that opening    | `state`, `initial`                          |
-| `learner_voice_follow_up_attempt`           | Once after local guards accept a new connection, before activation/session POST                                  | none                                        |
-| `learner_voice_follow_up_result`            | Once per attempt: setup and playback ready, pre-connection failure, or cancellation                              | `outcome`, `error_code`                     |
+| `learner_voice_follow_up_attempt`           | Once after discovery classifies accepted input, before minting; an earlier failure emits the attempt before its result | `connection_reason`                     |
+| `learner_voice_follow_up_result`            | Once per attempt: setup and playback ready, pre-connection failure, or cancellation                              | `connection_reason`, `outcome`, `error_code` |
 | `learner_voice_follow_up_session_end`       | Once per connected session after teardown and bounded local turn reconciliation, independent of HTTP persistence | `duration_ms`, `had_exchange`, `end_reason` |
 | `learner_voice_follow_up_text_submit`       | Once per locally accepted explicit text submit, before sending/queueing; not a delivery acknowledgement          | `submission_method`, `interrupted`          |
 | `learner_voice_follow_up_microphone_result` | Once when an explicit on/off operation settles; editing/navigation may cancel a pending on operation             | `enabled`, `outcome`, `error_code`          |
@@ -200,6 +227,8 @@ pseudonymous course/lesson IDs for aggregate grouping), `learning_mode=read|list
 and `surface=read_content|listen_player` (low-cardinality non-personal enums).
 All other fields are low-cardinality non-personal scalars:
 
+- `connection_reason=user_start|takeover|expiry|connection_lost` for explicit
+  and renewal connection attempt/result events only.
 - `state=checking|warming|unavailable|ready` and boolean `initial` for readiness
   only; neither a retry countdown nor internal credential timing is collected.
 - `submission_method=keyboard|button`; `interrupted` is boolean.

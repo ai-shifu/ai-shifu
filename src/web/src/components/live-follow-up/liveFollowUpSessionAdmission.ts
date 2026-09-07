@@ -1,6 +1,7 @@
 import {
   createLiveFollowUpSession,
   getLiveFollowUpOperationStatus,
+  getLiveFollowUpOwner,
   LIVE_FOLLOW_UP_CAPACITY_ERROR_CODE,
   LiveFollowUpControlError,
   type LiveFollowUpOperationResult,
@@ -52,6 +53,8 @@ export class LiveFollowUpSessionAdmission {
     outlineBid: string,
     payload: LiveFollowUpSessionRequest,
     isCurrent: () => boolean,
+    onReason?: (reason: 'user_start' | 'takeover') => void,
+    allowTakeover = true,
   ): Promise<LiveFollowUpSession> {
     const serial = ++this.serial;
     const assertCurrent = () => {
@@ -63,6 +66,7 @@ export class LiveFollowUpSessionAdmission {
       }
     };
     assertCurrent();
+    const deadline = performance.now() + 20_000;
     let previous = this.lastRequest;
     // A lost legacy response cannot be looked up on an old server. Waiting out
     // the bounded operation retention also outlives every possible credential.
@@ -79,7 +83,53 @@ export class LiveFollowUpSessionAdmission {
       learning_mode: payload.learning_mode,
       surface: payload.surface,
     };
-    if (previous) {
+    // Server discovery survives refresh without keeping bearer credentials or
+    // requiring the previous page to successfully send its lifecycle cleanup.
+    let owner = await getLiveFollowUpOwner();
+    assertCurrent();
+    if (!owner) throw new LiveFollowUpControlError('admission_unavailable');
+    const observedRevision = owner.admission_revision;
+    if (!allowTakeover && owner.rotation_enabled) {
+      if (!previous) throw new LiveFollowUpControlError('ownership_conflict');
+      const own = await getLiveFollowUpOperationStatus(
+        previous.shifuBid,
+        previous.outlineBid,
+        previous.requestBid,
+        previous.target,
+      );
+      assertCurrent();
+      if (
+        !own ||
+        own.request_bid !== previous.requestBid ||
+        !own.ownership_current ||
+        own.admission_revision !== observedRevision
+      ) {
+        throw new LiveFollowUpControlError('ownership_conflict');
+      }
+    }
+    onReason?.(
+      owner.rotation_enabled && observedRevision ? 'takeover' : 'user_start',
+    );
+    while (owner.rotation_enabled && owner.operation_status === 'pending') {
+      if (performance.now() + 500 >= deadline)
+        throw new LiveFollowUpControlError('pending');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      assertCurrent();
+      owner = await getLiveFollowUpOwner();
+      assertCurrent();
+      if (!owner || owner.admission_revision !== observedRevision) {
+        throw new LiveFollowUpControlError('ownership_conflict');
+      }
+    }
+    if (owner.operation_status === 'rejected') {
+      throw new LiveFollowUpControlError(
+        owner.error_code ?? 'admission_unavailable',
+      );
+    }
+    if (owner.rotation_enabled) {
+      target.operation = 'takeover';
+      target.expected_admission_revision = owner.admission_revision ?? '';
+    } else if (previous) {
       const status = await getLiveFollowUpOperationStatus(
         previous.shifuBid,
         previous.outlineBid,
@@ -115,6 +165,8 @@ export class LiveFollowUpSessionAdmission {
     // ambiguous HTTP failure never retries creation or replays learner input.
     for (let correction = 0; correction < 2; correction += 1) {
       assertCurrent();
+      if (performance.now() >= deadline)
+        throw new LiveFollowUpControlError('admission_unavailable');
       const requestBid = createLiveFollowUpRequestBid(
         Date.now() + this.clockOffsetMs,
       );
@@ -127,9 +179,9 @@ export class LiveFollowUpSessionAdmission {
       };
       const result = await createLiveFollowUpSession(shifuBid, outlineBid, {
         ...target,
-        operation: 'create',
+        operation: target.operation ?? 'create',
         request_bid: requestBid,
-      }).catch((error: unknown) => {
+      }).catch(async (error: unknown) => {
         if (
           serial === this.serial &&
           error instanceof Error &&
@@ -139,6 +191,20 @@ export class LiveFollowUpSessionAdmission {
           // Legacy capacity rejection is known to happen before token minting.
           // Keep the previous owner; an unknown transport failure is different.
           this.lastRequest = previous;
+        } else if (
+          owner.rotation_enabled &&
+          serial === this.serial &&
+          isCurrent() &&
+          performance.now() < deadline
+        ) {
+          // A lost response may already have disclosed a credential. Inspect
+          // metadata only; never repeat minting or cache/recover bearer tokens.
+          await getLiveFollowUpOperationStatus(
+            shifuBid,
+            outlineBid,
+            requestBid,
+            target,
+          ).catch(() => undefined);
         }
         throw error;
       });
@@ -148,7 +214,12 @@ export class LiveFollowUpSessionAdmission {
         if (serial === this.serial && result.request_bid === undefined) {
           this.lastRequest = null;
         }
-        return result;
+        return owner.rotation_enabled
+          ? {
+              ...result,
+              previous_admission_revision: target.expected_admission_revision,
+            }
+          : result;
       }
       assertCurrent();
       if (!result || result.request_bid !== requestBid) {

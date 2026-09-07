@@ -20,6 +20,7 @@ import {
 const mockTrackEvent = jest.fn();
 const mockCreateSession = jest.fn();
 const mockOperationStatus = jest.fn();
+const mockOwner = jest.fn();
 const mockHeartbeatSession = jest.fn();
 const mockCommitTurn = jest.fn();
 const mockFinalizeSession = jest.fn();
@@ -47,6 +48,7 @@ const mockAudio = {
   enqueueOutput: jest.fn(),
   finishOutput: jest.fn(),
   setMuted: jest.fn(),
+  setAuthorizationDeadline: jest.fn(),
   attachMicrophone: jest.fn(),
   stopMicrophone: jest.fn(),
   interruptPlayback: jest.fn().mockResolvedValue(undefined),
@@ -82,6 +84,7 @@ jest.mock('@/lib/liveVoiceFollowUp', () => ({
   LiveFollowUpControlError: jest.requireActual('@/lib/liveVoiceFollowUp')
     .LiveFollowUpControlError,
   createLiveFollowUpSession: (...args: unknown[]) => mockCreateSession(...args),
+  getLiveFollowUpOwner: () => mockOwner(),
   getLiveFollowUpOperationStatus: (...args: unknown[]) =>
     mockOperationStatus(...args),
   heartbeatLiveFollowUpSession: (...args: unknown[]) =>
@@ -428,6 +431,103 @@ const makeReady = async (socket = mockSockets.at(-1)!) => {
 describe('useLiveVoiceFollowUp browser-direct transport', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  const enableTakeover = () => {
+    mockControlledAdmission();
+    mockOwner.mockImplementation(async () => ({
+      operation_status: 'issued',
+      admission_revision: `revision-${mockCreateSession.mock.calls.length}`,
+      rotation_enabled: true,
+    }));
+    mockCreateSession.mockImplementation(
+      async (_course, _outline, payload) => ({
+        ...sessionResponse(),
+        session_bid: `session-${mockCreateSession.mock.calls.length}`,
+        admission_revision: `revision-${mockCreateSession.mock.calls.length}`,
+        request_bid: payload.request_bid,
+        rotation_enabled: true,
+        ownership_timeout_ms: 10_000,
+        heartbeat_interval_ms: 3_000,
+      }),
+    );
+  };
+
+  it('starts a fresh page via owner discovery without microphone permission for keyboard', async () => {
+    enableTakeover();
+    render(<Harness />);
+    expect(mockOwner).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'text' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    expect(mockCreateSession.mock.calls[0][2]).toMatchObject({
+      operation: 'takeover',
+      expected_admission_revision: 'revision-0',
+    });
+    expect(mockRequestMicrophone).not.toHaveBeenCalled();
+    act(() => mockSockets[0].open());
+    await makeReady();
+    expect(mockSockets[0].send).toHaveBeenCalledWith(
+      JSON.stringify({ realtimeInput: { text: 'Typed question' } }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_result',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        connection_reason: 'takeover',
+        outcome: 'success',
+        error_code: 'none',
+      },
+    );
+  });
+
+  it('renews one lost active connection without another permission request or repeated renewal', async () => {
+    enableTakeover();
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    act(() => mockSockets[0].onclose?.({ code: 1006 } as CloseEvent));
+    await waitFor(() => expect(mockSockets).toHaveLength(2));
+    act(() => mockSockets[1].open());
+    await makeReady();
+    expect(mockRequestMicrophone).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_renewal_attempt',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'read',
+        surface: 'read_content',
+        connection_reason: 'connection_lost',
+      },
+    );
+    act(() => mockSockets[1].onclose?.({ code: 1006 } as CloseEvent));
+    await waitFor(() =>
+      expect(screen.getByTestId('state')).toHaveTextContent('ended'),
+    );
+    expect(mockCreateSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('ownership loss stops media without surfacing a retry control or automatically taking back', async () => {
+    jest.useFakeTimers();
+    enableTakeover();
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await act(async () => {});
+    act(() => mockSockets[0].open());
+    await makeReady();
+    mockHeartbeatSession.mockRejectedValue(
+      new LiveFollowUpControlError('ownership_conflict'),
+    );
+    await act(async () => jest.advanceTimersByTime(3_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('end-reason')).toHaveTextContent('replaced');
+    expect(mockAudio.stop).toHaveBeenCalled();
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+  });
+
   it.each([-1_200_000, -60_000, 60_000, 1_200_000])(
     'uses server-relative expiry despite initial skew %s and later clock changes',
     async skew => {
@@ -604,6 +704,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       expect(mockCreateSession).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole('button', { name: 'text' }));
       expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+      await act(async () => {});
       expect(mockCreateSession).toHaveBeenCalledTimes(1);
       expect(mockRequestMicrophone).not.toHaveBeenCalled();
     },
@@ -630,6 +731,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'learner_voice_follow_up_result',
       {
+        connection_reason: 'user_start',
         shifu_bid: 'course-1',
         outline_bid: 'lesson-1',
         learning_mode: 'read',
@@ -693,15 +795,6 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       expect(mockCreateSession).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent.mock.calls).toEqual([
         [
-          'learner_voice_follow_up_attempt',
-          {
-            shifu_bid: 'course-1',
-            outline_bid: 'lesson-1',
-            learning_mode: 'read',
-            surface: 'read_content',
-          },
-        ],
-        [
           'learner_voice_follow_up_text_submit',
           {
             shifu_bid: 'course-1',
@@ -713,8 +806,19 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
           },
         ],
         [
+          'learner_voice_follow_up_attempt',
+          {
+            connection_reason: 'user_start',
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+          },
+        ],
+        [
           'learner_voice_follow_up_result',
           {
+            connection_reason: 'user_start',
             shifu_bid: 'course-1',
             outline_bid: 'lesson-1',
             learning_mode: 'read',
@@ -935,7 +1039,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     ).toEqual(
       Array.from({ length: 3 }, () => [
         'learner_voice_follow_up_attempt',
-        common,
+        { ...common, connection_reason: 'user_start' },
       ]),
     );
     expect(
@@ -945,15 +1049,30 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     ).toEqual([
       [
         'learner_voice_follow_up_result',
-        { ...common, outcome: 'failed', error_code: 'network_error' },
+        {
+          connection_reason: 'user_start',
+          ...common,
+          outcome: 'failed',
+          error_code: 'network_error',
+        },
       ],
       [
         'learner_voice_follow_up_result',
-        { ...common, outcome: 'failed', error_code: 'network_error' },
+        {
+          connection_reason: 'user_start',
+          ...common,
+          outcome: 'failed',
+          error_code: 'network_error',
+        },
       ],
       [
         'learner_voice_follow_up_result',
-        { ...common, outcome: 'success', error_code: 'none' },
+        {
+          connection_reason: 'user_start',
+          ...common,
+          outcome: 'success',
+          error_code: 'none',
+        },
       ],
     ]);
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
@@ -1547,11 +1666,16 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
         ).toHaveLength(1);
         expect(mockTrackEvent).toHaveBeenCalledWith(
           'learner_voice_follow_up_renewal_attempt',
-          common,
+          { ...common, connection_reason: 'expiry' },
         );
         expect(mockTrackEvent).toHaveBeenCalledWith(
           'learner_voice_follow_up_renewal_result',
-          { ...common, outcome: 'success', error_code: 'none' },
+          {
+            connection_reason: 'expiry',
+            ...common,
+            outcome: 'success',
+            error_code: 'none',
+          },
         );
         expect(
           mockTrackEvent.mock.calls.filter(
@@ -1596,6 +1720,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
         expect(mockTrackEvent).toHaveBeenCalledWith(
           'learner_voice_follow_up_renewal_result',
           {
+            connection_reason: 'expiry',
             shifu_bid: 'course-1',
             outline_bid: 'lesson-1',
             learning_mode: 'read',
@@ -1673,6 +1798,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'learner_voice_follow_up_renewal_result',
       {
+        connection_reason: 'expiry',
         shifu_bid: 'course-1',
         outline_bid: 'lesson-1',
         learning_mode: 'read',
@@ -3027,6 +3153,11 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
   });
 
   beforeEach(() => {
+    mockOwner.mockResolvedValue({
+      operation_status: 'missing',
+      admission_revision: null,
+      rotation_enabled: false,
+    });
     mockReadiness = 'ready';
     jest.useRealTimers();
     jest.clearAllMocks();
@@ -3056,12 +3187,14 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     mockParseServerMessage.mockReturnValue(null);
   });
 
-  it('starts microphone and token provisioning in the real click stack', async () => {
+  it('activates audio and discovers ownership in the real click stack before minting', async () => {
     render(<Harness />);
 
     fireEvent.click(screen.getByRole('button', { name: 'start' }));
 
     expect(mockActivateAudio).toHaveBeenCalledTimes(1);
+    expect(mockOwner).toHaveBeenCalledTimes(1);
+    await act(async () => {});
     expect(mockCreateSession).toHaveBeenCalledWith('course-1', 'lesson-1', {
       anchor_element_bid: 'element-1',
       preview_mode: false,
@@ -3074,6 +3207,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'learner_voice_follow_up_attempt',
       {
+        connection_reason: 'user_start',
         shifu_bid: 'course-1',
         outline_bid: 'lesson-1',
         learning_mode: 'read',
@@ -3126,6 +3260,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       [
         'learner_voice_follow_up_result',
         {
+          connection_reason: 'user_start',
           shifu_bid: 'course-1',
           outline_bid: 'lesson-1',
           learning_mode: 'read',
@@ -3202,6 +3337,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'learner_voice_follow_up_result',
       {
+        connection_reason: 'user_start',
         shifu_bid: 'course-1',
         outline_bid: 'lesson-1',
         learning_mode: 'read',
@@ -3253,6 +3389,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
         [
           'learner_voice_follow_up_result',
           {
+            connection_reason: 'user_start',
             shifu_bid: 'course-1',
             outline_bid: 'lesson-1',
             learning_mode: 'read',
@@ -4395,6 +4532,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'learner_voice_follow_up_result',
       {
+        connection_reason: 'user_start',
         shifu_bid: 'course-1',
         outline_bid: 'lesson-1',
         learning_mode: 'read',
@@ -4524,6 +4662,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'learner_voice_follow_up_result',
       {
+        connection_reason: 'user_start',
         shifu_bid: 'course-1',
         outline_bid: 'lesson-1',
         learning_mode: 'read',
@@ -4708,6 +4847,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).toHaveBeenLastCalledWith(
       'learner_voice_follow_up_attempt',
       {
+        connection_reason: 'user_start',
         shifu_bid: 'course-1',
         outline_bid: 'lesson-2',
         learning_mode: 'read',
@@ -4823,6 +4963,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'learner_voice_follow_up_result',
       {
+        connection_reason: 'user_start',
         shifu_bid: 'course-1',
         outline_bid: 'lesson-1',
         learning_mode: 'read',
@@ -5004,6 +5145,8 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     mockCreateSession.mockReturnValueOnce(pendingSession.promise);
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'start' }));
+    await act(async () => {});
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'close' }));
 
     await act(async () => {
