@@ -51,6 +51,11 @@ refer to the stream that was actually playing, never the first stream.
     narration is reattached. The element identity remains valid during that
     interval, and allowing normal startup would both erase the checkpoint and
     play the first sentence.
+- Decision: Ignore a near-zero checkpoint for the same logical audio key when
+  a valid later position is already stored.
+  - Why: Player teardown resets its media time before the unmount checkpoint is
+    delivered. A same-key zero is lifecycle noise, while a different-key zero
+    still means regenerated playback replaced the previously stored audio.
 
 ## Context and Orientation
 
