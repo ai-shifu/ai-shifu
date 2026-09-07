@@ -161,6 +161,16 @@ It remains stoppable without a new action. Only confirmed successor readiness
 releases that gate; this belongs to the existing renewal result, not another
 microphone operation, exposure event, or new payload field.
 
+The same pending gate covers initial setup and same-token socket resumption.
+In this release, an explicit microphone-on success settles only when permission,
+capture attachment, playback activation, and Gemini setup are all ready, not
+merely when the device stream attaches. Cancellation before that boundary emits
+one cancelled on-result, never a later success; explicit off remains separate.
+Socket resumption neither starts another on-operation nor emits another result.
+Consumers must separate pre/post-release microphone-success cohorts because the
+older producer measured device attachment alone. Event names, payload fields,
+eligibility, deduplication, and fail-open behavior are unchanged.
+
 To distinguish user connection adoption from continuous-voice maintenance,
 automatic successors emit `learner_voice_follow_up_renewal_attempt` and
 `learner_voice_follow_up_renewal_result`, with exactly the corresponding normal

@@ -334,6 +334,7 @@ export const useLiveVoiceFollowUp = ({
   const audioActivationAbortRef = useRef<AbortController | null>(null);
   const audioReadyRef = useRef<Promise<LiveVoiceFollowUpAudio> | null>(null);
   const microphoneAbortRef = useRef<AbortController | null>(null);
+  const microphoneSetupReadyRef = useRef<(() => void) | null>(null);
   const mutedRef = useRef(true);
   const inputActivityRef = useRef({ active: false, quietFrames: 0 });
   const expireSessionRef = useRef<(generation: number) => void>(() => {});
@@ -1067,10 +1068,11 @@ export const useLiveVoiceFollowUp = ({
           window.clearTimeout(setupTimerRef.current);
           setupTimerRef.current = null;
         }
-        if (retainedAudio) {
-          audioRef.current?.setMuted(mutedRef.current);
+        audioRef.current?.setMuted(mutedRef.current || pausedRef.current);
+        if (!mutedRef.current) {
           setViewState(previous => ({ ...previous, microphonePending: false }));
         }
+        microphoneSetupReadyRef.current?.();
         // Resumption also waits for setup, but must not emit another result.
         if (currentAttempt.connectedAt !== null) {
           flushPendingTextRef.current();
@@ -1118,7 +1120,8 @@ export const useLiveVoiceFollowUp = ({
             currentAttempt?.generation !== generation ||
             mutedRef.current ||
             pausedRef.current ||
-            (retainedAudio && !setupReadyRef.current) ||
+            !setupReadyRef.current ||
+            websocket?.readyState !== WebSocket.OPEN ||
             frame.byteLength > MAX_INPUT_AUDIO_FRAME_BYTES
           ) {
             return;
@@ -1141,10 +1144,8 @@ export const useLiveVoiceFollowUp = ({
             }
           }
           if (
-            !setupReadyRef.current ||
-            websocket?.readyState !== WebSocket.OPEN ||
             websocket.bufferedAmount + frame.byteLength * 2 >
-              MAX_BUFFERED_INPUT_AUDIO_BYTES
+            MAX_BUFFERED_INPUT_AUDIO_BYTES
           )
             return;
           sendWebSocketPayload(websocket, encodeGeminiLiveAudioMessage(frame));
@@ -1201,9 +1202,7 @@ export const useLiveVoiceFollowUp = ({
             return;
           }
           audioRef.current = audio;
-          audio.setMuted(
-            mutedRef.current || (!!retainedAudio && !setupReadyRef.current),
-          );
+          audio.setMuted(mutedRef.current || !setupReadyRef.current);
           if (pausedRef.current) void audio.pauseOutput();
           attemptRef.current.audioActivated = true;
           markConnectedIfReady();
@@ -1317,6 +1316,13 @@ export const useLiveVoiceFollowUp = ({
           }
         }
         setupReadyRef.current = false;
+        audioRef.current?.setMuted(true);
+        inputActivityRef.current = { active: false, quietFrames: 0 };
+        setViewState(previous => ({
+          ...previous,
+          inputActive: false,
+          microphonePending: previous.microphonePending || !mutedRef.current,
+        }));
         armConnectionTimeout(resumptionHandle !== null);
         const websocket = new WebSocket(
           resolveGeminiLiveWebSocketUrl(
@@ -1869,11 +1875,36 @@ export const useLiveVoiceFollowUp = ({
             }
             audio.attachMicrophone(stream);
             mutedRef.current = false;
+            audio.setMuted(!setupReadyRef.current);
             setViewState(previous => ({
               ...previous,
               muted: false,
-              microphonePending: false,
+              microphonePending: !setupReadyRef.current,
             }));
+            if (!setupReadyRef.current) {
+              await new Promise<void>((resolve, reject) => {
+                const cleanup = () => {
+                  if (microphoneSetupReadyRef.current === complete)
+                    microphoneSetupReadyRef.current = null;
+                  abort.signal.removeEventListener('abort', cancel);
+                };
+                const complete = () => {
+                  cleanup();
+                  resolve();
+                };
+                const cancel = () => {
+                  cleanup();
+                  reject(
+                    new DOMException('Microphone cancelled', 'AbortError'),
+                  );
+                };
+                microphoneSetupReadyRef.current = complete;
+                abort.signal.addEventListener('abort', cancel, { once: true });
+                if (abort.signal.aborted) cancel();
+              });
+            }
+            if (abort.signal.aborted || attemptRef.current !== attempt)
+              throw new DOMException('Microphone cancelled', 'AbortError');
             report('success', 'none');
           } catch (error) {
             release();
