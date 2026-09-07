@@ -1,5 +1,24 @@
 # Gemini Live Voice Follow-Up
 
+## 2026-09-07: Accepted eviction-policy compatibility tradeoff
+
+At the user's explicit request, admission no longer requires Redis
+`maxmemory-policy=noeviction`. Readiness and credential issuance accept
+`volatile-lru` and other policies. This supersedes the non-eviction deployment
+gate described in the historical implementation notes below. Redis generation
+validation, the 15-minute recovery quarantine, ownership checks, capacity
+limits, issuance limits and Redis-error fail-closed behavior remain unchanged.
+
+This does not make an evicting Redis a durable credential ledger. Eviction can
+remove ownership or risk records before Google credentials expire, causing
+disconnects or undercounted outstanding credentials. Capacity guarantees now
+depend on record retention; this is an explicitly accepted operational risk,
+not a claim of equivalent safety. No production Redis settings, existing
+records, token lifetimes or billing behavior are changed by this patch.
+
+Regression coverage exercises readiness and issuance with noeviction,
+volatile-lru and allkeys-lru, while retaining restart recovery coverage.
+
 ## Purpose / Big Picture
 
 Courses whose effective follow-up model is

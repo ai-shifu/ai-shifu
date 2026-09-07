@@ -617,7 +617,8 @@ Default: "phone".""",
         type=bool,
         description=(
             "Allow bounded Gemini Live credential rotation. Requires compatible "
-            "workers, non-evicting Redis and the credential-drain recovery gate."
+            "workers, Redis and the credential-drain recovery gate. Eviction "
+            "can invalidate credential capacity accounting."
         ),
         group="llm",
         required=False,

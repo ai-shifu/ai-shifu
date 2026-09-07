@@ -173,21 +173,22 @@ def test_startup_readiness_initializes_once_without_reserving_credentials(
     assert _begin(admission_app, _request(client)).lease is not None
 
 
-def test_readiness_fails_closed_on_unsafe_policy_or_restart(
+@pytest.mark.parametrize("policy", ["noeviction", "volatile-lru", "allkeys-lru"])
+def test_readiness_accepts_eviction_policy_but_preserves_restart_guard(
     admission_app: Flask,
     real_redis: RedisHarness,
+    policy: str,
 ) -> None:
     admission_app.config["GEMINI_LIVE_ENABLED"] = True
     client = real_redis.client
-    client.config_set("maxmemory-policy", "allkeys-lru")
-    assert admission.live_follow_up_readiness(admission_app)["status"] == "unavailable"
-    assert client.dbsize() == 0
-    client.config_set("maxmemory-policy", "noeviction")
+    client.config_set("maxmemory-policy", policy)
     assert admission.live_follow_up_readiness(admission_app)["status"] == "warming"
     key = client.keys("*")[0]
     marker = json.loads(client.get(key))
     marker["safe_after_ms"] = 0
     client.set(key, json.dumps(marker))
+    assert admission.live_follow_up_readiness(admission_app)["status"] == "ready"
+    assert _begin(admission_app, _request(client)).lease is not None
     real_redis.stop()
     real_redis.start()
     client.set(key, json.dumps(marker))
@@ -1321,17 +1322,21 @@ def test_surviving_old_marker_after_redis_restart_triggers_generation_quarantine
     assert restored["safe_after_ms"] > _now_ms(client) + 899_000
 
 
-def test_evicting_redis_policy_is_rejected_without_mutating_capacity(
+@pytest.mark.parametrize("policy", ["volatile-lru", "allkeys-lru"])
+def test_evicting_redis_policy_still_records_credential_capacity(
     ready_app: Flask,
     real_redis: RedisHarness,
+    policy: str,
 ) -> None:
     client = real_redis.client
-    client.config_set("maxmemory-policy", "allkeys-lru")
+    client.config_set("maxmemory-policy", policy)
     request = _request(client)
     result = _begin(ready_app, request)
-    assert result.lease is None
-    assert result.data["error_code"] == "admission_unavailable"
-    assert client.exists(*_keys(ready_app, request)[:7]) == 0
+    assert result.lease is not None
+    assert client.exists(*_keys(ready_app, request)[:7]) > 0
+    duplicate = _begin(ready_app, request)
+    assert duplicate.lease is None
+    assert duplicate.data["session_bid"] == result.data["session_bid"]
 
 
 def test_redis_unavailability_fails_closed_before_issuance(
