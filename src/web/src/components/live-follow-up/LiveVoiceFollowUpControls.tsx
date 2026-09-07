@@ -29,7 +29,13 @@ export const LiveVoiceFollowUpMicrophoneButton = ({
       type='button'
       variant='ghost'
       size='icon'
-      className={cn('h-8 w-8 shrink-0 rounded-full', className)}
+      className={cn(
+        'h-8 w-8 shrink-0 rounded-full',
+        !muted &&
+          controller.inputActive &&
+          'motion-safe:animate-pulse bg-primary/15 ring-2 ring-primary/40',
+        className,
+      )}
       aria-label={
         muted
           ? t('module.chat.liveVoiceStartMicrophone')
@@ -37,13 +43,14 @@ export const LiveVoiceFollowUpMicrophoneButton = ({
       }
       aria-pressed={!muted}
       disabled={
-        (controller.readiness !== 'ready' &&
+        muted &&
+        ((controller.readiness !== 'ready' &&
           !(ownsTarget && controller.state !== 'ended')) ||
-        pending ||
-        (ownsTarget &&
-          (controller.textPending ||
-            controller.retryAvailableAt !== null ||
-            controller.state === 'reconnecting'))
+          pending ||
+          (ownsTarget &&
+            (controller.textPending ||
+              controller.retryAvailableAt !== null ||
+              controller.state === 'reconnecting')))
       }
       onClick={() =>
         muted
@@ -62,83 +69,33 @@ export const LiveVoiceFollowUpMicrophoneButton = ({
   );
 };
 
-/** Status only: AskBlock owns the layout, messages, and keyboard. */
+/** Failures only: normal connection and pause states need no extra UI. */
 export const LiveVoiceFollowUpControls = ({
   controller,
   target,
 }: LiveVoiceControlsProps) => {
   const { t } = useTranslation();
   const ownsTarget = controller.anchorElementBid === target.anchorElementBid;
-  const state = ownsTarget ? controller.state : 'ended';
-  const muted = !ownsTarget || controller.muted;
   const error = ownsTarget && controller.errorCode;
-  const retryAt = ownsTarget ? controller.retryAvailableAt : null;
-  const notReady = state === 'ended' && controller.readiness !== 'ready';
-  const status = notReady
-    ? controller.readiness === 'unavailable'
-      ? t('module.chat.liveVoiceServiceUnavailable')
-      : t('module.chat.liveVoiceServicePreparing')
-    : ownsTarget && controller.paused
-      ? t('module.chat.liveVoicePaused')
-      : state === 'listening' && muted
-        ? t('module.chat.liveVoiceReady')
-        : state === 'ended'
-          ? null
-          : t(`module.chat.liveVoiceState.${state}`);
-  const showRetry =
-    !notReady && ownsTarget && (controller.retryable || retryAt !== null);
-  if (
-    !status &&
-    !error &&
-    !showRetry &&
-    !(ownsTarget && controller.microphoneError)
-  )
+  const unavailable =
+    controller.readiness === 'unavailable' &&
+    !(ownsTarget && controller.state !== 'ended');
+  if (!error && !unavailable && !(ownsTarget && controller.microphoneError))
     return null;
   return (
     <div className='mt-2 space-y-1 text-xs text-muted-foreground'>
-      <div className='flex min-w-0 items-center gap-2'>
-        {status ? (
-          <span
-            className='min-w-0 flex-1'
-            role='status'
-            aria-live='polite'
-          >
-            {status}
-          </span>
-        ) : (
-          <span className='flex-1' />
-        )}
-        {state !== 'ended' ? (
-          <Button
-            type='button'
-            variant='ghost'
-            size='sm'
-            onClick={controller.end}
-          >
-            {t('module.chat.liveVoiceEnd')}
-          </Button>
-        ) : showRetry ? (
-          <Button
-            type='button'
-            variant='ghost'
-            size='sm'
-            disabled={!controller.retryable}
-            onClick={controller.retry}
-          >
-            {t('module.chat.liveVoiceRetry')}
-          </Button>
-        ) : null}
-      </div>
-      {error && !notReady ? (
+      {error || unavailable ? (
         <p
           role='alert'
           className='text-destructive'
         >
-          {error === 'capacity_exceeded'
-            ? t('module.chat.liveVoiceCapacityExceeded')
-            : error === 'server_error'
-              ? t('module.chat.liveVoiceServiceUnavailable')
-              : t('module.chat.liveVoiceConnectionFailed')}
+          {unavailable
+            ? t('module.chat.liveVoiceServiceUnavailable')
+            : error === 'capacity_exceeded'
+              ? t('module.chat.liveVoiceCapacityExceeded')
+              : error === 'server_error'
+                ? t('module.chat.liveVoiceServiceUnavailable')
+                : t('module.chat.liveVoiceConnectionFailed')}
         </p>
       ) : null}
       {ownsTarget && controller.microphoneError ? (
