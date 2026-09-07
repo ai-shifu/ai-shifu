@@ -481,6 +481,66 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     );
   });
 
+  it('keeps healthy heartbeats alive beyond setup and successful resumption deadlines', async () => {
+    jest.useFakeTimers();
+    enableTakeover();
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await act(async () => {});
+    act(() => mockSockets[0].open());
+    await makeReady();
+    for (let step = 0; step < 20; step++) {
+      await act(async () => jest.advanceTimersByTime(3_000));
+      expect(screen.getByTestId('state')).toHaveTextContent('listening');
+    }
+    act(() =>
+      mockSockets[0].message(
+        serverEvent({
+          resumptionHandle: 'test-resumption-handle',
+          resumable: true,
+        }),
+      ),
+    );
+    act(() => mockSockets[0].serverClose(1006));
+    expect(mockSockets).toHaveLength(2);
+    act(() => mockSockets[1].open());
+    await makeReady();
+    for (let step = 0; step < 20; step++) {
+      await act(async () => jest.advanceTimersByTime(3_000));
+      expect(screen.getByTestId('state')).toHaveTextContent('listening');
+    }
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockEndSession).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === 'learner_voice_follow_up_result',
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === 'learner_voice_follow_up_session_end',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('still times out missing Gemini setup despite successful ownership heartbeats', async () => {
+    jest.useFakeTimers();
+    enableTakeover();
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await act(async () => {});
+    act(() => mockSockets[0].open());
+    for (let step = 0; step < 6; step++) {
+      await act(async () => jest.advanceTimersByTime(3_000));
+      expect(screen.getByTestId('state')).toHaveTextContent('connecting');
+    }
+    await act(async () => jest.advanceTimersByTime(2_000));
+    expect(screen.getByTestId('state')).toHaveTextContent('ended');
+    expect(screen.getByTestId('error')).not.toBeEmptyDOMElement();
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+  });
+
   it('renews one lost active connection without another permission request or repeated renewal', async () => {
     enableTakeover();
     render(<Harness />);
