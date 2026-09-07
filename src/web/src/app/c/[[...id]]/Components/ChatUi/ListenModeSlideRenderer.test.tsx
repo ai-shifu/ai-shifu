@@ -88,6 +88,10 @@ jest.mock('markdown-flow-ui/slide', () => {
         playerClassName?: string;
         fullscreenHeader?: { content?: React.ReactNode };
         onPlayerVisibilityChange?: (visible: boolean) => void;
+        onSlideProgressNavigate?: (
+          element: unknown,
+          targetStepIndex: number,
+        ) => void;
         playerCustomActions?:
           | React.ReactNode
           | ((context: SlideCustomActionContext) => React.ReactNode);
@@ -230,6 +234,91 @@ describe('ListenModeSlideRenderer', () => {
     } else {
       delete (HTMLElement.prototype as Partial<HTMLElement>).requestFullscreen;
     }
+  });
+
+  it('shows slide navigation and its generating state only in listen mode', () => {
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        isLoading
+        variant='listen'
+      />,
+    );
+
+    expect(getMockSlide().mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        isSlideProgressGenerating: true,
+        showSlideProgress: true,
+      }),
+    );
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        variant='classroom'
+      />,
+    );
+
+    expect(getMockSlide().mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ showSlideProgress: false }),
+    );
+  });
+
+  it('tracks generated slide timeline navigation without blocking it', () => {
+    mockTrackEvent.mockRejectedValueOnce(new Error('tracking unavailable'));
+    render(
+      <ListenModeSlideRenderer
+        items={Array.from({ length: 3 }, (_, index) => ({
+          type: 'content',
+          content: `Slide ${index + 1}`,
+          element_bid: `slide-${index + 1}`,
+        }))}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      onSlideProgressNavigate?: (
+        element: unknown,
+        targetStepIndex: number,
+      ) => void;
+    };
+    expect(() => slideProps.onSlideProgressNavigate?.({}, 2)).not.toThrow();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_listen_slide_navigate',
+      {
+        generated_step_count: 4,
+        surface: 'learner_listen',
+        target_step_index: 2,
+      },
+    );
+
+    mockTrackEvent.mockClear();
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        previewMode
+        variant='listen'
+      />,
+    );
+    const previewSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      onSlideProgressNavigate?: (
+        element: unknown,
+        targetStepIndex: number,
+      ) => void;
+    };
+    previewSlideProps.onSlideProgressNavigate?.({}, 1);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   it('does not show the audio preparation text for normal loading', () => {

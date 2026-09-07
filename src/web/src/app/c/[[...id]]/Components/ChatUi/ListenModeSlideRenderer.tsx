@@ -1164,6 +1164,22 @@ const ListenModeSlideRenderer = ({
     () => elementList.filter(element => Boolean(element.is_marker)).length,
     [elementList],
   );
+  const handleSlideProgressNavigate = useCallback(
+    (_element: unknown, targetStepIndex: number) => {
+      if (variant !== 'listen' || previewMode) {
+        return;
+      }
+
+      void Promise.resolve(
+        trackEvent('learner_listen_slide_navigate', {
+          generated_step_count: markerStepCount,
+          surface: 'learner_listen',
+          target_step_index: targetStepIndex,
+        }),
+      ).catch(() => {});
+    },
+    [markerStepCount, previewMode, trackEvent, variant],
+  );
   const renderedElementList = useMemo(
     () =>
       elementList.map(element => {
@@ -2382,6 +2398,7 @@ const ListenModeSlideRenderer = ({
           }}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
           onPlaybackCheckpoint={handlePlaybackCheckpoint}
+          onSlideProgressNavigate={handleSlideProgressNavigate}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
@@ -2399,6 +2416,8 @@ const ListenModeSlideRenderer = ({
           playerCustomActionPauseOnActive={pausePlayerCustomActionOnActive}
           playerCustomActions={enableCustomActions ? playerCustomActions : null}
           playerEnabled={!shouldRenderEmptyPpt && isPlaybackRestoreReady}
+          isSlideProgressGenerating={variant === 'listen' && isLoading}
+          showSlideProgress={variant === 'listen'}
         />
         {shouldRenderManualFullscreenButton ? (
           <button

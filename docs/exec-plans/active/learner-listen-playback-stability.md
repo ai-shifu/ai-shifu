@@ -10,25 +10,28 @@ refer to the stream that was actually playing, never the first stream.
 ## Progress
 
 - [x] Created clean branches from `origin/main` for `ai-shifu` and
-  `markdown-flow-ui`, excluding the earlier experimental timeline, seek, and
-  layout work.
+      `markdown-flow-ui`, excluding the earlier experimental timeline, seek, and
+      layout work.
 - [x] Added a UI-library checkpoint/restore contract based on stable logical
-  audio keys rather than temporary audio URLs or custom-action references.
+      audio keys rather than temporary audio URLs or custom-action references.
 - [x] Added application-local persistence scoped by course and lesson, using
-  the versioned `course_listen_playback_checkpoint:v1` schema.
+      the versioned `course_listen_playback_checkpoint:v1` schema.
 - [x] Prevented either default-audio initialization path from selecting the
-  first audio item while a restore request is pending.
+      first audio item while a restore request is pending.
 - [x] Locally verified the supplied multi-stream lesson, including refresh and
-  mode round trips, with the learner test environment.
+      mode round trips, with the learner test environment.
 - [x] Published `markdown-flow-ui` 0.2.25, updated the application release pin,
-  and merged the library and application changes.
+      and merged the library and application changes.
 - [x] Reproduced and fixed a production mode-round-trip race where historical
-  text returned before its audio backfill and the application discarded the
-  still-valid checkpoint.
+      text returned before its audio backfill and the application discarded the
+      still-valid checkpoint.
 - [x] Limited restore waiting to audio items whose backfill remains eligible;
-  terminal failures and ineligible items now release the player and clear the
-  unusable checkpoint.
-- [ ] Run verification and publish the production race fix.
+      terminal failures and ineligible items now release the player and clear
+      the unusable checkpoint.
+- [x] Published the production mode-round-trip fix through PR #2775 and synced
+      it into the generated-slide timeline branch before further development.
+- [ ] Complete and verify generated-slide timeline navigation in the UI library
+      and application integration branches.
 
 ## Decision Log
 
@@ -75,14 +78,21 @@ and resumes its normal audio lifecycle.
 
 ## Product Contract
 
-1. There is no lesson-wide timeline and no arbitrary cross-item seek UI.
-2. Checkpoints are emitted at pause, logical-item completion, low-frequency
+1. Listen mode shows a lesson-wide generated-slide timeline. Each available
+   slide is a selectable marker; future slides are absent until generated.
+   The first release omits persistent page-count copy; active output is
+   explicitly labelled `Generating`.
+2. Selecting a generated slide switches the visual immediately and stops the
+   previous slide audio. Ready target audio starts from its beginning; missing
+   target audio waits in place and starts when generated. Partially generated
+   visuals remain selected and continue rendering.
+3. Checkpoints are emitted at pause, logical-item completion, low-frequency
    progress, and unmount. They never clear merely because one segment ends.
-3. A checkpoint is keyed by the logical audio item and course/lesson scope.
-4. Returning to listen mode or reloading restores the matching audio item and
+4. A checkpoint is keyed by the logical audio item and course/lesson scope.
+5. Returning to listen mode or reloading restores the matching audio item and
    attempts normal playback. A browser may still reject unmuted autoplay after
    a full reload, in which case the restored position remains ready to play.
-5. No player, subtitle, or interaction layout code is changed by this work.
+6. Existing player-button behavior is unchanged by slide navigation.
 
 ### `learner_listen_resume_requested`
 
@@ -102,10 +112,33 @@ and resumes its normal audio lifecycle.
 - Verification: Renderer tests cover the trigger and allowlisted payload;
   tracking uses `useTracking` and failures are ignored.
 
-| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
-| --- | --- | --- | --- | --- | --- |
-| `shifu_bid` | string | course machine ID | high | pseudonymous | course-level grouping |
-| `surface` | string | `learner_listen` | 1 | non-personal | fixed product surface |
+| Field       | Type   | Allowed values    | Cardinality | Privacy class | Why required          |
+| ----------- | ------ | ----------------- | ----------- | ------------- | --------------------- |
+| `shifu_bid` | string | course machine ID | high        | pseudonymous  | course-level grouping |
+| `surface`   | string | `learner_listen`  | 1           | non-personal  | fixed product surface |
+
+### `learner_listen_slide_navigate`
+
+- Business question: Do learners use generated-slide markers to revisit or
+  advance among available lesson slides?
+- Metric definition: Count successful timeline selections and compare them
+  with listen sessions that expose more than one generated slide.
+- Actor and surface: Learners on `learner_listen`; guests and members are
+  included, preview mode is excluded.
+- Trigger: After the UI library accepts a marker selection for a different
+  generated slide and requests navigation to it.
+- Count unit and deduplication: One event per accepted marker selection; no
+  deduplication across deliberate repeated selections.
+- Consumers: Learner navigation reporting owned by the learning team.
+- Compatibility: New additive event; no backfill.
+- Verification: Renderer tests cover the exact event name, allowlisted payload,
+  preview exclusion, and fail-open analytics behavior.
+
+| Field                  | Type   | Allowed values                   | Cardinality | Privacy class | Why required            |
+| ---------------------- | ------ | -------------------------------- | ----------- | ------------- | ----------------------- |
+| `generated_step_count` | number | positive integer                 | bounded     | non-personal  | available timeline size |
+| `surface`              | string | `learner_listen`                 | 1           | non-personal  | fixed product surface   |
+| `target_step_index`    | number | zero-based generated slide index | bounded     | non-personal  | selected location       |
 
 ## Validation and Acceptance
 
@@ -128,3 +161,12 @@ and resumes its normal audio lifecycle.
 - Release ordering: merge and publish the UI library first, then replace the
   application's temporary type augmentation with the released package types
   and exact release pin.
+
+## Follow-up Optimization: Visual Page Finder
+
+After the marker-navigation release, evaluate a visual page finder consisting
+of desktop marker hover previews and a cross-device `View all pages` panel.
+The panel should use thumbnails for visual slides and typed preview cards for
+text, HTML, SVG, and interaction slides. Its design must define streaming
+refresh, caching, mobile discovery, and rendering-cost limits before
+implementation; it does not block the current release.
