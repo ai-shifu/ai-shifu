@@ -2,8 +2,9 @@
 
 Redis is the admission authority, not a media proxy. Logical ownership may move,
 but every disclosed or uncertain credential continues consuming risk capacity.
-The guarded Redis instance must use noeviction. Privileged same-process RESTORE
-is an operationally prohibited action unless admission is disabled and drained.
+Eviction policies are accepted, but eviction can erase risk/ownership records
+before credentials expire; capacity guarantees require retained records.
+Privileged same-process RESTORE remains prohibited unless admission is drained.
 """
 
 from __future__ import annotations
@@ -43,10 +44,8 @@ _ERROR_UNAVAILABLE = "admission_unavailable"
 # preflight outside Lua would leave a restart/restore race before admission.
 _RECOVERY_GUARD = r"""
 local server = redis.call('INFO', 'server')
-local memory = redis.call('INFO', 'memory')
 local generation = string.match(server, 'run_id:([^\r\n]+)')
-local policy = string.match(memory, 'maxmemory_policy:([^\r\n]+)')
-if not generation or policy ~= 'noeviction' then return rejected('admission_unavailable') end
+if not generation then return rejected('admission_unavailable') end
 local marker = read(accounting_key)
 if not marker or marker.generation ~= generation then
     marker = {generation=generation, safe_after_ms=now + 900000}
