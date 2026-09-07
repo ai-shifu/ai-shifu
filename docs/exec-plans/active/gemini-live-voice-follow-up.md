@@ -45,6 +45,14 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Review `r3946439345` extends pending/muted capture gating to
+      initial setup and same-token GoAway/unexpected-close resumption. Only
+      socket/playback-ready input can pulse or upload. Explicit microphone-on
+      success waits for capture and connection readiness; cancellation cannot
+      report a late success, and resumption adds no microphone adoption event.
+      Update the consumer's release-cohort timing definition without new fields
+      or UI copy. All 353 focused Live tests, 230 frontend suites / 2,409 tests,
+      TypeScript and the complete all-files pre-commit gate pass.
 - [x] 2026-09-07: Review `r3946346006` adds Redis-relative `expires_in_ms` to
       credential responses. Browser expiry/resumption/capacity deadlines use
       `performance.now()` so initial device skew and later wall-clock changes
@@ -1000,9 +1008,10 @@ directions. An active microphone is carried across natural expiry without
 another native activation or permission request, while old played checkpoints
 and history finalize before successor admission. Cancelled/failed handoffs
 release resources; silent/paused sessions do not mint idle tokens. Local
-regression evidence after review fixes is 230 frontend suites / 2,401 tests,
-345 focused Live tests, and 231 backend tests. Retained capture stays visibly
-pending and silent until successor readiness; new-server relative lifetimes
+regression evidence after review fixes is 230 frontend suites / 2,409 tests,
+353 focused Live tests, and 231 backend tests. Initial, resumed and retained
+capture stays visibly pending and silent until socket/playback readiness;
+new-server relative lifetimes
 and monotonic browser deadlines prevent device-clock-driven expiry. This is not real-device or Gemini
 handoff acceptance, and does not deploy to dev or production.
 

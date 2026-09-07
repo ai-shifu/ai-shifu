@@ -1187,6 +1187,180 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(screen.getByTestId('muted')).toHaveTextContent('true');
   });
 
+  it.each([false, true])(
+    'keeps first microphone input pending until setup is ready (preview=%s)',
+    async previewMode => {
+      render(<Harness previewMode={previewMode} />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() =>
+        expect(mockAudio.attachMicrophone).toHaveBeenCalled(),
+      );
+      const { onInputFrame } = mockActivateAudio.mock.calls[0][0];
+      const speech = new Int16Array(640).fill(1500).buffer;
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      act(() => mockSockets[0].open());
+      act(() => onInputFrame(speech));
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      expect(mockSockets[0].send).toHaveBeenCalledTimes(1);
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_microphone_result',
+        ),
+      ).toHaveLength(0);
+      await makeReady();
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(false);
+      const sendsAfterSetup = mockSockets[0].send.mock.calls.length;
+      act(() => onInputFrame(speech));
+      expect(screen.getByTestId('input-active')).toHaveTextContent('true');
+      expect(mockSockets[0].send).toHaveBeenCalledTimes(sendsAfterSetup + 1);
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_microphone_result',
+        ),
+      ).toEqual(
+        previewMode
+          ? []
+          : [
+              [
+                'learner_voice_follow_up_microphone_result',
+                {
+                  shifu_bid: 'course-1',
+                  outline_bid: 'lesson-1',
+                  learning_mode: 'read',
+                  surface: 'read_content',
+                  enabled: true,
+                  outcome: 'success',
+                  error_code: 'none',
+                },
+              ],
+            ],
+      );
+    },
+  );
+
+  it.each(['mute', 'pause', 'end'])(
+    'cancels pending microphone readiness on %s without a late success',
+    async action => {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() =>
+        expect(mockAudio.attachMicrophone).toHaveBeenCalled(),
+      );
+      act(() => mockSockets[0].open());
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name: action })),
+      );
+      await act(async () =>
+        mockSockets[0].message(serverEvent({ setupComplete: true })),
+      );
+      expect(screen.getByTestId('muted')).toHaveTextContent('true');
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name, payload]) =>
+            name === 'learner_voice_follow_up_microphone_result' &&
+            payload.enabled,
+        ),
+      ).toEqual([
+        [
+          'learner_voice_follow_up_microphone_result',
+          {
+            shifu_bid: 'course-1',
+            outline_bid: 'lesson-1',
+            learning_mode: 'read',
+            surface: 'read_content',
+            enabled: true,
+            outcome: 'cancelled',
+            error_code: 'none',
+          },
+        ],
+      ]);
+      expect(mockAudio.setMuted).not.toHaveBeenCalledWith(false);
+    },
+  );
+
+  it('does not clear a pending permission when setup finishes first', async () => {
+    const permission = createDeferred<MediaStream>();
+    mockRequestMicrophone.mockReturnValueOnce(permission.promise);
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(1));
+    act(() => mockSockets[0].open());
+    await makeReady();
+    expect(screen.getByTestId('microphone-pending')).toHaveTextContent('true');
+    expect(mockAudio.attachMicrophone).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_microphone_result',
+      ),
+    ).toHaveLength(0);
+    await act(async () =>
+      permission.resolve({
+        getTracks: () => [{ stop: jest.fn() }],
+      } as unknown as MediaStream),
+    );
+    expect(screen.getByTestId('microphone-pending')).toHaveTextContent('false');
+    expect(mockAudio.setMuted).toHaveBeenLastCalledWith(false);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'learner_voice_follow_up_microphone_result',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it.each(['goAway', 'close'])(
+    'gates active microphone capture during resumable %s without new adoption events',
+    async reason => {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await waitFor(() => expect(mockSockets).toHaveLength(1));
+      act(() => mockSockets[0].open());
+      await makeReady();
+      const { onInputFrame } = mockActivateAudio.mock.calls[0][0];
+      const speech = new Int16Array(640).fill(1500).buffer;
+      act(() => {
+        onInputFrame(speech);
+        mockSockets[0].message(
+          serverEvent({ resumptionHandle: 'safe-handle', resumable: true }),
+        );
+        if (reason === 'goAway')
+          mockSockets[0].message(serverEvent({ goAway: true }));
+        else mockSockets[0].serverClose();
+      });
+      expect(mockSockets).toHaveLength(2);
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(true);
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'true',
+      );
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      act(() => mockSockets[1].open());
+      act(() => onInputFrame(speech));
+      expect(mockSockets[1].send).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('input-active')).toHaveTextContent('false');
+      await makeReady(mockSockets[1]);
+      expect(mockAudio.setMuted).toHaveBeenLastCalledWith(false);
+      expect(screen.getByTestId('microphone-pending')).toHaveTextContent(
+        'false',
+      );
+      act(() => onInputFrame(speech));
+      expect(mockSockets[1].send).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('input-active')).toHaveTextContent('true');
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'learner_voice_follow_up_microphone_result',
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
   it('tracks actual input activity with a short release and resets it on microphone-off', async () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
