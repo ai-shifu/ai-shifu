@@ -81,7 +81,7 @@ export class LiveVoiceFollowUpAudio {
     private readonly context: AudioContext,
     private readonly playback: AudioWorkletNode,
     private readonly outputGain: GainNode,
-    private readonly callbacks: LiveVoiceAudioCallbacks,
+    private callbacks: LiveVoiceAudioCallbacks,
   ) {}
 
   static requestMicrophone(signal: AbortSignal): Promise<MediaStream> {
@@ -186,7 +186,7 @@ export class LiveVoiceFollowUpAudio {
           callbacks,
         );
         playback.port.onmessage = event => {
-          audio.handlePlaybackMessage(event.data, callbacks);
+          audio.handlePlaybackMessage(event.data, audio.callbacks);
         };
 
         playback.connect(outputGain);
@@ -205,6 +205,11 @@ export class LiveVoiceFollowUpAudio {
 
   setMuted(muted: boolean) {
     this.capture?.port.postMessage({ type: 'muted', muted });
+  }
+
+  /** Transfer an already activated graph only after the old playback flush. */
+  setCallbacks(callbacks: LiveVoiceAudioCallbacks) {
+    this.callbacks = callbacks;
   }
 
   attachMicrophone(stream: MediaStream) {

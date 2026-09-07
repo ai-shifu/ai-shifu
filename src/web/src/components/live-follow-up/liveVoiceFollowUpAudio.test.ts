@@ -171,6 +171,49 @@ describe('LiveVoiceFollowUpAudio', () => {
     expect(gains[0].disconnect).toHaveBeenCalledTimes(1);
   });
 
+  it('hands off callbacks after the old playback checkpoint without reacquiring or closing audio', async () => {
+    const {
+      audio,
+      port,
+      acknowledgeFlush,
+      trackStop,
+      context,
+      getUserMedia,
+      onPlaybackProgress,
+    } = await createPausableAudio();
+    audio.attachMicrophone({
+      getTracks: () => [{ stop: trackStop }],
+    } as unknown as MediaStream);
+    const cleared = audio.interruptPlayback();
+    port.onmessage?.(
+      new MessageEvent('message', {
+        data: { type: 'playback_progress', turnIndex: 1, playedBytes: 16 },
+      }),
+    );
+    acknowledgeFlush();
+    await cleared;
+    const nextProgress = jest.fn();
+    audio.setCallbacks({
+      onInputFrame: jest.fn(),
+      onPlaybackProgress: nextProgress,
+      onPlaybackComplete: jest.fn(),
+    });
+    port.onmessage?.(
+      new MessageEvent('message', {
+        data: { type: 'playback_progress', turnIndex: 1, playedBytes: 4 },
+      }),
+    );
+    expect(onPlaybackProgress.mock.calls).toEqual([[1, 16]]);
+    expect(nextProgress.mock.calls).toEqual([[1, 4]]);
+    expect(trackStop).not.toHaveBeenCalled();
+    expect(context.close).not.toHaveBeenCalled();
+    expect(context.resume).toHaveBeenCalledTimes(1);
+    expect(getUserMedia).not.toHaveBeenCalled();
+    const stopped = audio.stop();
+    acknowledgeFlush();
+    await stopped;
+  });
+
   it('pauses immediately and resumes playback in the click stack without opening the microphone', async () => {
     const {
       audio,

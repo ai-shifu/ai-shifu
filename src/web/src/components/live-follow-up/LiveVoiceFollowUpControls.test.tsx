@@ -31,7 +31,7 @@ it('removes idle instructions and the inline privacy notice', () => {
 });
 
 it.each(['checking', 'warming', 'unavailable'] as const)(
-  'gates microphone and retry with honest service status (%s)',
+  'retains admission gates but shows only actual failures (%s)',
   readiness => {
     const controller = mockLiveVoiceController({
       readiness,
@@ -59,10 +59,9 @@ it.each(['checking', 'warming', 'unavailable'] as const)(
     expect(
       screen.queryByRole('button', { name: 'module.chat.liveVoiceRetry' }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(
-      readiness === 'unavailable'
-        ? 'module.chat.liveVoiceServiceUnavailable'
-        : 'module.chat.liveVoiceServicePreparing',
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'module.chat.liveVoiceServiceUnavailable',
     );
     expect(
       screen.queryByText('module.chat.liveVoiceConnectionFailed'),
@@ -103,19 +102,14 @@ it('does not call microphone-off listening and keeps errors in the original inpu
       target={target}
     />,
   );
-  expect(screen.getByRole('status')).toHaveTextContent(
-    'module.chat.liveVoiceReady',
-  );
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(screen.getByRole('alert')).toHaveTextContent(
     'module.chat.liveVoiceMicrophoneOptional',
   );
-  fireEvent.click(
-    screen.getByRole('button', { name: 'module.chat.liveVoiceEnd' }),
-  );
-  expect(controller.end).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
 
-it('retains the credential cooldown and explicit retry without another transport', () => {
+it('retains the credential cooldown and recovers through the microphone rather than a retry button', () => {
   const controller = mockLiveVoiceController({
     anchorElementBid: 'anchor',
     errorCode: 'network_error',
@@ -134,8 +128,8 @@ it('retains the credential cooldown and explicit retry without another transport
     </>,
   );
   expect(
-    screen.getByRole('button', { name: 'module.chat.liveVoiceRetry' }),
-  ).toBeDisabled();
+    screen.queryByRole('button', { name: 'module.chat.liveVoiceRetry' }),
+  ).not.toBeInTheDocument();
   expect(
     screen.getByRole('button', {
       name: 'module.chat.liveVoiceStartMicrophone',
@@ -148,18 +142,21 @@ it('retains the credential cooldown and explicit retry without another transport
     screen.queryByText('module.chat.liveVoiceRetryAvailableAt'),
   ).not.toBeInTheDocument();
   rerender(
-    <LiveVoiceFollowUpControls
+    <LiveVoiceFollowUpMicrophoneButton
       controller={{ ...controller, retryAvailableAt: null, retryable: true }}
       target={target}
     />,
   );
   fireEvent.click(
-    screen.getByRole('button', { name: 'module.chat.liveVoiceRetry' }),
+    screen.getByRole('button', {
+      name: 'module.chat.liveVoiceStartMicrophone',
+    }),
   );
-  expect(controller.retry).toHaveBeenCalledTimes(1);
+  expect(controller.startMicrophone).toHaveBeenCalledWith(target);
+  expect(controller.retry).not.toHaveBeenCalled();
 });
 
-it('shows a paused hint without enabling capture or resuming on panel render', () => {
+it('shows no paused hint and resumes only through deliberate input', () => {
   const controller = mockLiveVoiceController({
     anchorElementBid: 'anchor',
     open: true,
@@ -178,9 +175,7 @@ it('shows a paused hint without enabling capture or resuming on panel render', (
       />
     </>,
   );
-  expect(screen.getByRole('status')).toHaveTextContent(
-    'module.chat.liveVoicePaused',
-  );
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(controller.start).not.toHaveBeenCalled();
   expect(controller.startMicrophone).not.toHaveBeenCalled();
   expect(controller.sendText).not.toHaveBeenCalled();
@@ -191,10 +186,9 @@ it('shows a paused hint without enabling capture or resuming on panel render', (
   expect(microphone).toHaveAttribute('aria-pressed', 'false');
   fireEvent.click(microphone);
   expect(controller.startMicrophone).toHaveBeenCalledWith(target);
-  fireEvent.click(
-    screen.getByRole('button', { name: 'module.chat.liveVoiceEnd' }),
-  );
-  expect(controller.end).toHaveBeenCalledTimes(1);
+  expect(
+    screen.queryByRole('button', { name: 'module.chat.liveVoiceEnd' }),
+  ).not.toBeInTheDocument();
 });
 
 it('does not expose internal session expiry or warnings', () => {
@@ -269,4 +263,88 @@ it('does not duplicate the microphone below the input', () => {
       name: 'module.chat.liveVoiceStartMicrophone',
     }),
   ).not.toBeInTheDocument();
+});
+
+it('does not label an active usable connection as failed because its background readiness probe failed', () => {
+  const { container } = render(
+    <LiveVoiceFollowUpControls
+      controller={mockLiveVoiceController({
+        anchorElementBid: 'anchor',
+        state: 'listening',
+        readiness: 'unavailable',
+      })}
+      target={target}
+    />,
+  );
+  expect(container).toBeEmptyDOMElement();
+});
+
+it.each([
+  'connecting',
+  'listening',
+  'speaking',
+  'reconnecting',
+  'ended',
+] as const)(
+  'shows no extra information or session actions in normal state %s',
+  state => {
+    const { container } = render(
+      <LiveVoiceFollowUpControls
+        controller={mockLiveVoiceController({
+          anchorElementBid: 'anchor',
+          state,
+          retryable: true,
+        })}
+        target={target}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  },
+);
+
+it.each(['checking', 'warming', 'ready'] as const)(
+  'does not announce preparation (%s)',
+  readiness => {
+    const { container } = render(
+      <LiveVoiceFollowUpControls
+        controller={mockLiveVoiceController({ readiness })}
+        target={target}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  },
+);
+
+it('animates only audible input, respects reduced motion, and always permits active microphone-off', () => {
+  const controller = mockLiveVoiceController({
+    anchorElementBid: 'anchor',
+    muted: false,
+    state: 'reconnecting',
+    inputActive: true,
+  });
+  const { rerender } = render(
+    <LiveVoiceFollowUpMicrophoneButton
+      controller={controller}
+      target={target}
+    />,
+  );
+  const microphone = screen.getByRole('button');
+  expect(microphone).toHaveClass('motion-safe:animate-pulse');
+  expect(microphone).toBeEnabled();
+  fireEvent.click(microphone);
+  expect(controller.stopMicrophone).toHaveBeenCalledWith(true);
+  rerender(
+    <LiveVoiceFollowUpMicrophoneButton
+      controller={{ ...controller, inputActive: false }}
+      target={target}
+    />,
+  );
+  expect(microphone).not.toHaveClass('motion-safe:animate-pulse');
+  rerender(
+    <LiveVoiceFollowUpMicrophoneButton
+      controller={{ ...controller, muted: true }}
+      target={target}
+    />,
+  );
+  expect(microphone).not.toHaveClass('motion-safe:animate-pulse');
 });

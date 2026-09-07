@@ -7,6 +7,10 @@ export const LIVE_VOICE_FOLLOW_UP_ATTEMPT_EVENT =
   'learner_voice_follow_up_attempt' as const;
 export const LIVE_VOICE_FOLLOW_UP_RESULT_EVENT =
   'learner_voice_follow_up_result' as const;
+export const LIVE_VOICE_FOLLOW_UP_RENEWAL_ATTEMPT_EVENT =
+  'learner_voice_follow_up_renewal_attempt' as const;
+export const LIVE_VOICE_FOLLOW_UP_RENEWAL_RESULT_EVENT =
+  'learner_voice_follow_up_renewal_result' as const;
 export const LIVE_VOICE_FOLLOW_UP_SESSION_END_EVENT =
   'learner_voice_follow_up_session_end' as const;
 export const LIVE_VOICE_FOLLOW_UP_TEXT_SUBMIT_EVENT =
@@ -22,6 +26,7 @@ export const LIVE_VOICE_FOLLOW_UP_PAUSE_REASONS = [
   'panel_closed',
   'page_hidden',
   'audio_replaced',
+  'microphone_off',
 ] as const;
 
 export type LiveVoiceFollowUpPauseReason =
