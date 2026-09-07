@@ -45,6 +45,14 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-07: Review `r3946564559` expires per-worker Redis ledgers at
+      their latest credential deadline in both admission writers, preventing
+      retired-worker key growth without early risk release. Real Redis tests
+      cover both writers, shorter/later existing deadlines, rollback safety,
+      and natural expiration without a subsequent admission. All 237 focused
+      backend route/admission/capacity/store/token tests pass. Existing orphan
+      keys that are never revisited are not swept by this patch; no dev data or
+      configuration is modified.
 - [x] 2026-09-07: Review `r3946490434` bounds server-relative expiry with both
       request-start and response-receipt monotonic times. Only the conservative
       request-start bound proves a credential may resume; receipt is the safe
@@ -1018,7 +1026,7 @@ another native activation or permission request, while old played checkpoints
 and history finalize before successor admission. Cancelled/failed handoffs
 release resources; silent/paused sessions do not mint idle tokens. Local
 regression evidence after review fixes is 230 frontend suites / 2,414 tests,
-358 focused Live tests, and 231 backend tests. Initial, resumed and retained
+358 focused Live tests, and 237 backend tests. Initial, resumed and retained
 capture stays visibly pending and silent until socket/playback readiness;
 new-server relative lifetimes and monotonic request/receipt expiry bounds
 prevent device-clock-driven expiry, late-response expired resumption, and early
