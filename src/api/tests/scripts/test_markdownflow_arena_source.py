@@ -262,6 +262,26 @@ def test_revalidate_rejects_revoked_permission_and_republished_snapshot(
     assert source.revalidate_sources(app, "owner", cases) == set()
 
 
+@pytest.mark.parametrize("invalid_root", [None, [], ["outline"], 7, "course", True])
+def test_non_object_published_tree_is_skipped_and_revocation_check_fails_closed(
+    snapshot_db: tuple[Flask, Session], invalid_root: object
+) -> None:
+    app, session = snapshot_db
+    _, _, published = _course(session)
+    cases = source.prepare_cases(
+        source.snapshot_courses(app, TEST_OWNER_PHONE), 1, 7, {}
+    )
+    published.struct = json.dumps(invalid_root)
+    session.commit()
+
+    result = source.snapshot_courses(app, TEST_OWNER_PHONE)
+    assert result["courses"] == []
+    assert result["skipped"] == [
+        {"shifu_bid": "course", "reason": "invalid_published_structure"}
+    ]
+    assert source.revalidate_sources(app, "owner", cases) == set()
+
+
 def test_prepare_cases_is_reproducible_and_freezes_variables(
     snapshot_db: tuple[Flask, Session],
 ) -> None:

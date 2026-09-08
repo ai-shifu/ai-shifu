@@ -1002,9 +1002,31 @@ class FeishuPublisher:
         }
         result = []
         for row in rows:
-            reviewers = row.get(self.fields["reviewer"]) or []
-            reviewer_id = reviewers[0].get("id") if len(reviewers) == 1 else None
+            if not isinstance(row, dict):
+                continue
+            vote_id = row.get("record_id")
+            # Rows without a native record identity cannot be audited or deduplicated.
+            if not isinstance(vote_id, str) or not vote_id.strip():
+                continue
+            reviewers = row.get(self.fields["reviewer"])
+            reviewer_id = (
+                reviewers[0].get("id")
+                if isinstance(reviewers, list)
+                and len(reviewers) == 1
+                and isinstance(reviewers[0], dict)
+                else None
+            )
+            if not isinstance(reviewer_id, str) or not reviewer_id.strip():
+                reviewer_id = None
             matchup_record_id = row.get(self.fields["matchup_record_id"])
+            if not isinstance(matchup_record_id, str):
+                matchup_record_id = None
+            choice = row.get(self.fields["choice"])
+            if not isinstance(choice, str):
+                choice = None
+            run_id = row.get(self.fields["run_id"])
+            if not isinstance(run_id, str):
+                run_id = None
             try:
                 timestamp = datetime.fromisoformat(
                     str(row.get(self.fields["voted_at"]))
@@ -1018,12 +1040,12 @@ class FeishuPublisher:
                 created_at = None
             result.append(
                 {
-                    "vote_id": row["record_id"],
-                    "run_id": row.get(self.fields["run_id"]),
+                    "vote_id": vote_id,
+                    "run_id": run_id,
                     "matchup_id": matchup_ids.get(matchup_record_id),
                     "matchup_record_id": matchup_record_id,
                     "reviewer_id": reviewer_id,
-                    "choice": row.get(self.fields["choice"]),
+                    "choice": choice,
                     "created_at": created_at,
                 }
             )

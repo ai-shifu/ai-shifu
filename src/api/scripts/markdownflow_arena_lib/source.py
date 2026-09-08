@@ -154,7 +154,11 @@ def _load_published_lessons(session: Session, shifu_bid: str) -> list[dict]:
     if record is None:
         return []
     structure = json.loads(record.struct)
-    if structure.get("type") != "shifu" or structure.get("bid") != shifu_bid:
+    if (
+        not isinstance(structure, dict)
+        or structure.get("type") != "shifu"
+        or structure.get("bid") != shifu_bid
+    ):
         message = "Published structure has an invalid course root"
         raise ArenaError(message)
     paths = _outline_paths(structure)

@@ -546,6 +546,72 @@ def test_fetch_votes_keeps_individual_actors_and_duplicate_clicks(
     assert "Private name" not in json.dumps(votes)
 
 
+@pytest.mark.parametrize(
+    "reviewers",
+    [
+        None,
+        "x",
+        1,
+        {"id": "ou_other_shape"},
+        ["x"],
+        [None],
+        [{}],
+        [{"id": None}],
+        [{"id": 7}],
+        [{"id": " "}],
+        [{"id": "ou_first"}, {"id": "ou_second"}],
+    ],
+)
+def test_fetch_votes_keeps_malformed_actor_rows_unscorable(
+    publisher: FeishuPublisher, reviewers: object
+) -> None:
+    publisher.cli.records.return_value = [
+        {
+            "record_id": "recMalformed",
+            publisher.fields["reviewer"]: reviewers,
+            publisher.fields["voted_at"]: "2026-09-08T01:00:00Z",
+            "created_by": [{"id": "ou_owner"}],
+        },
+        {
+            "record_id": "recValid",
+            publisher.fields["reviewer"]: [{"id": "ou_clicker"}],
+        },
+    ]
+    votes = publisher.fetch_votes()
+    assert [vote["vote_id"] for vote in votes] == ["recMalformed", "recValid"]
+    assert votes[0]["reviewer_id"] is None
+    assert votes[1]["reviewer_id"] == "ou_clicker"
+
+
+@pytest.mark.parametrize(
+    "row", [{}, {"record_id": None}, {"record_id": []}, {"record_id": " "}, None]
+)
+def test_fetch_votes_skips_rows_without_a_native_record_identity(
+    publisher: FeishuPublisher, row: object
+) -> None:
+    publisher.cli.records.return_value = [row, {"record_id": "recNext"}]
+    assert [vote["vote_id"] for vote in publisher.fetch_votes()] == ["recNext"]
+
+
+def test_fetch_votes_normalizes_unhashable_comparison_fields(
+    publisher: FeishuPublisher,
+) -> None:
+    publisher.cli.records.return_value = [
+        {
+            "record_id": "recMalformed",
+            publisher.fields["reviewer"]: [{"id": "ou_clicker"}],
+            publisher.fields["matchup_record_id"]: ["recPair"],
+            publisher.fields["run_id"]: {},
+            publisher.fields["choice"]: ["a"],
+        }
+    ]
+    vote = publisher.fetch_votes()[0]
+    assert vote["matchup_record_id"] is None
+    assert vote["matchup_id"] is None
+    assert vote["choice"] is None
+    assert vote["run_id"] is None
+
+
 def test_failed_permission_verification_never_opens_link(
     publisher: FeishuPublisher, monkeypatch: pytest.MonkeyPatch
 ) -> None:
