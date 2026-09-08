@@ -1,3 +1,6 @@
+# Assertions are pytest checks, never production runtime guards.
+# ruff: noqa: S101
+
 """Verify private published snapshot selection and reproducible arena case inputs."""
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ from markdownflow_arena_lib.state import ArenaError  # noqa: E402
 
 @pytest.fixture
 def snapshot_db(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Flask, Session]]:
+    """Provide snapshot db for the isolated test fixture."""
     engine = create_engine("sqlite://")
     for model in (
         AiCourseAuth,
@@ -131,6 +135,7 @@ def _course(
 def test_snapshot_uses_published_row_ids_and_nearest_parent_without_writes(
     snapshot_db: tuple[Flask, Session],
 ) -> None:
+    """Verify snapshot uses published row ids and nearest parent without writes."""
     app, session = snapshot_db
     course, lesson, published = _course(session)
     # A newer business-ID row that is absent from the published structure cannot
@@ -199,6 +204,7 @@ def test_snapshot_uses_published_row_ids_and_nearest_parent_without_writes(
 def test_view_permissions_never_widen_publish_only(
     snapshot_db: tuple[Flask, Session], permission: str, status: int, allowed: bool
 ) -> None:
+    """Verify view permissions never widen publish only."""
     app, session = snapshot_db
     _course(session, owner="other-owner")
     session.add(
@@ -217,6 +223,7 @@ def test_view_permissions_never_widen_publish_only(
 def test_broken_published_tree_never_falls_back_to_draft(
     snapshot_db: tuple[Flask, Session],
 ) -> None:
+    """Verify broken published tree never falls back to draft."""
     app, session = snapshot_db
     _course(session)
     lesson = session.scalar(
@@ -236,6 +243,7 @@ def test_broken_published_tree_never_falls_back_to_draft(
 def test_revalidate_rejects_revoked_permission_and_republished_snapshot(
     snapshot_db: tuple[Flask, Session],
 ) -> None:
+    """Verify revalidate rejects revoked permission and republished snapshot."""
     app, session = snapshot_db
     _course(session, owner="another-owner")
     grant = AiCourseAuth(
@@ -265,6 +273,7 @@ def test_revalidate_rejects_revoked_permission_and_republished_snapshot(
 def test_non_object_published_tree_is_skipped_and_revocation_check_fails_closed(
     snapshot_db: tuple[Flask, Session], invalid_root: object
 ) -> None:
+    """Verify non object published tree is skipped and revocation check fails closed."""
     app, session = snapshot_db
     _, _, published = _course(session)
     cases = source.prepare_cases(
@@ -284,6 +293,7 @@ def test_non_object_published_tree_is_skipped_and_revocation_check_fails_closed(
 def test_prepare_cases_is_reproducible_and_freezes_variables(
     snapshot_db: tuple[Flask, Session],
 ) -> None:
+    """Verify prepare cases is reproducible and freezes variables."""
     app, session = snapshot_db
     _course(session)
     snapshot = source.snapshot_courses(app, TEST_OWNER_PHONE)
@@ -301,6 +311,7 @@ def test_prepare_cases_is_reproducible_and_freezes_variables(
 
 
 def test_prepare_skips_missing_variables_preserved_and_interaction_blocks() -> None:
+    """Verify prepare skips missing variables preserved and interaction blocks."""
     snapshot = {
         "owner_user_bid": "owner",
         "courses": [
@@ -322,6 +333,7 @@ def test_prepare_skips_missing_variables_preserved_and_interaction_blocks() -> N
 
 
 def test_prepare_rejects_content_after_preserved_context() -> None:
+    """Verify prepare rejects content after preserved context."""
     snapshot = {
         "owner_user_bid": "owner",
         "courses": [
@@ -355,6 +367,7 @@ def test_prepare_rejects_content_after_preserved_context() -> None:
 def test_prepare_checks_next_interaction_input_without_requiring_assignment_target(
     interaction: str,
 ) -> None:
+    """Verify prepare checks next interaction input without requiring assignment target."""
     snapshot = {
         "owner_user_bid": "owner",
         "courses": [
@@ -382,6 +395,7 @@ def test_prepare_checks_next_interaction_input_without_requiring_assignment_targ
 def test_sampling_covers_distinct_courses_before_reusing_course(
     snapshot_db: tuple[Flask, Session],
 ) -> None:
+    """Verify sampling covers distinct courses before reusing course."""
     app, session = snapshot_db
     _course(session, bid="one")
     _course(session, bid="two")
@@ -402,6 +416,7 @@ def test_sampling_covers_distinct_courses_before_reusing_course(
 def test_slide_intent_uses_effective_inherited_published_prompt(
     snapshot_db: tuple[Flask, Session], level: str
 ) -> None:
+    """Verify slide intent uses effective inherited published prompt."""
     app, session = snapshot_db
     course, lesson, _published = _course(session)
     parent = session.scalar(
@@ -438,6 +453,7 @@ def test_slide_intent_uses_effective_inherited_published_prompt(
     ],
 )
 def test_non_slide_generation_is_skipped(content: str) -> None:
+    """Verify non slide generation is skipped."""
     snapshot = {
         "owner_user_bid": "owner",
         "courses": [
@@ -455,6 +471,7 @@ def test_non_slide_generation_is_skipped(content: str) -> None:
 
 
 def test_slide_only_sampling_preserves_course_coverage() -> None:
+    """Verify slide only sampling preserves course coverage."""
     snapshot = {
         "owner_user_bid": "owner",
         "courses": [
@@ -480,6 +497,7 @@ def test_slide_only_sampling_preserves_course_coverage() -> None:
 def test_missing_owner_fails_before_source_queries(
     snapshot_db: tuple[Flask, Session],
 ) -> None:
+    """Verify missing owner fails before source queries."""
     app, session = snapshot_db
     owner = session.scalar(select(UserInfo))
     owner.deleted = 1
@@ -491,6 +509,7 @@ def test_missing_owner_fails_before_source_queries(
 def test_duplicate_phone_uses_login_canonical_account_without_aggregating_access(
     snapshot_db: tuple[Flask, Session],
 ) -> None:
+    """Verify duplicate phone uses login canonical account without aggregating access."""
     app, session = snapshot_db
     session.add(UserInfo(user_bid="another", user_identify=TEST_OWNER_PHONE))
     session.add(
@@ -513,6 +532,7 @@ def test_duplicate_phone_uses_login_canonical_account_without_aggregating_access
 def test_owner_resolution_matches_existing_phone_login_repository(
     canonical_match: bool,
 ) -> None:
+    """Verify owner resolution matches existing phone login repository."""
     from flaskr.dao import db
     from flaskr.service.user.repository import load_user_aggregate_by_identifier
 
@@ -561,6 +581,7 @@ def test_owner_resolution_matches_existing_phone_login_repository(
 def test_owner_resolution_never_skips_orphaned_first_phone_credential(
     snapshot_db: tuple[Flask, Session], deleted_user: bool
 ) -> None:
+    """Verify owner resolution never skips orphaned first phone credential."""
     app, session = snapshot_db
     session.scalar(select(UserInfo)).user_identify = "unrelated"
     if deleted_user:
@@ -587,6 +608,7 @@ def test_owner_resolution_never_skips_orphaned_first_phone_credential(
 def test_owner_resolution_never_expands_provider_or_phone_spellings(
     snapshot_db: tuple[Flask, Session], provider: str, identifier: str
 ) -> None:
+    """Verify owner resolution never expands provider or phone spellings."""
     app, session = snapshot_db
     session.scalar(select(UserInfo)).user_identify = "unrelated"
     session.add(
@@ -600,6 +622,7 @@ def test_owner_resolution_never_expands_provider_or_phone_spellings(
 def test_current_draft_ownership_overrides_previous_published_owner(
     snapshot_db: tuple[Flask, Session],
 ) -> None:
+    """Verify current draft ownership overrides previous published owner."""
     app, session = snapshot_db
     _course(session)
     draft = session.scalar(select(DraftShifu))
@@ -609,6 +632,7 @@ def test_current_draft_ownership_overrides_previous_published_owner(
 
 
 def test_read_session_never_flushes_or_commits_and_isolates_pending_changes() -> None:
+    """Verify read session never flushes or commits and isolates pending changes."""
     from flaskr.dao import db
 
     app = Flask("arena-source-read-session")

@@ -1,3 +1,6 @@
+# Assertions are pytest checks, never production runtime guards.
+# ruff: noqa: S101
+
 """Verify offline rendering, failed-model cells, and untrusted content boundaries."""
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ from markdownflow_arena_lib.state import ArenaError, artifact_id
 
 @pytest.fixture
 def report_manifest(tmp_path: Path) -> dict:
+    """Provide report manifest for the isolated test fixture."""
     models = [
         {"requested": f"model-{index}", "model": f"provider/model-{index}"}
         for index in range(5)
@@ -56,6 +60,7 @@ def report_manifest(tmp_path: Path) -> dict:
 def test_report_has_all_columns_pages_and_failure_cells(
     report_manifest: dict, tmp_path: Path
 ) -> None:
+    """Verify report has all columns pages and failure cells."""
     result = write_report(report_manifest, tmp_path)
     output = Path(result["path"])
     content = output.read_text()
@@ -79,6 +84,7 @@ def test_report_has_all_columns_pages_and_failure_cells(
 def test_report_rebuild_replaces_previous_page(
     report_manifest: dict, tmp_path: Path
 ) -> None:
+    """Verify report rebuild replaces previous page."""
     result = write_report(report_manifest, tmp_path)
     before = Path(result["path"]).read_bytes()
     assert write_report(report_manifest, tmp_path)["path"] == result["path"]
@@ -89,6 +95,7 @@ def test_report_rebuild_replaces_previous_page(
 def test_report_rejects_unverified_image_and_preserves_previous_report(
     report_manifest: dict, tmp_path: Path, attack: str
 ) -> None:
+    """Verify report rejects unverified image and preserves previous report."""
     output = tmp_path / "comparison.html"
     output.write_text("Previous verified report")
     artifact = next(iter(report_manifest["artifacts"].values()))
@@ -104,6 +111,7 @@ def test_report_rejects_unverified_image_and_preserves_previous_report(
 def test_recorded_performance_aggregates_calls_without_inventing_missing_values() -> (
     None
 ):
+    """Verify recorded performance aggregates calls without inventing missing values."""
     from markdownflow_arena_lib.report import performance
 
     metrics = performance(
@@ -155,6 +163,7 @@ def test_recorded_performance_aggregates_calls_without_inventing_missing_values(
 
 @pytest.mark.parametrize("value", [None, True, -1, float("nan"), float("inf"), "200"])
 def test_invalid_performance_is_unknown(value: object) -> None:
+    """Verify invalid performance is unknown."""
     from markdownflow_arena_lib.report import performance
 
     metrics = performance(
@@ -175,6 +184,7 @@ def test_invalid_performance_is_unknown(value: object) -> None:
 
 
 def test_zero_usage_is_recorded_but_zero_duration_has_no_speed() -> None:
+    """Verify zero usage is recorded but zero duration has no speed."""
     from markdownflow_arena_lib.report import performance
 
     metrics = performance(
@@ -199,6 +209,7 @@ def test_zero_usage_is_recorded_but_zero_duration_has_no_speed() -> None:
 def test_blind_headers_have_stable_codes_and_reveal_after_the_last_row(
     report_manifest: dict, tmp_path: Path
 ) -> None:
+    """Verify blind headers have stable codes and reveal after the last row."""
     import re
 
     result = write_report(report_manifest, tmp_path)
@@ -223,6 +234,7 @@ def test_report_command_accepts_historical_model_roster_without_backend_calls(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """Verify report command accepts historical model roster without backend calls."""
     import json
     import sys
 

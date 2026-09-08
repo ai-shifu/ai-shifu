@@ -1,3 +1,6 @@
+# Assertions are pytest checks, never production runtime guards.
+# ruff: noqa: S101
+
 """Exercise resumable local stages without repeating paid model calls."""
 
 from __future__ import annotations
@@ -49,6 +52,7 @@ class Backend:
         ]
 
     def call(self, operation: str, **payload: object) -> object:
+        """Record the operation and return a controlled backend result."""
         self.calls.append((operation, payload))
         if operation == "snapshot":
             return {"snapshot": {"owner_user_bid": "owner"}, "cases": self.cases}
@@ -82,6 +86,7 @@ class Renderer:
         self.fail = False
 
     def render(self, _artifact: Path, output_dir: Path) -> dict:
+        """Capture a controlled local result without invoking a browser."""
         self.calls += 1
         if self.fail:
             msg = "Test renderer failure"
@@ -124,6 +129,7 @@ def test_browser_renderer_receives_pipeline_timeout(
 
 @pytest.fixture
 def arena(tmp_path: Path) -> ArenaPipeline:
+    """Provide arena for the isolated test fixture."""
     manifest = {
         "run_id": "test-run",
         "config": validate_config({"owner_phone": "10000000000", "case_count": 3}),
@@ -141,6 +147,7 @@ def arena(tmp_path: Path) -> ArenaPipeline:
 
 
 def test_smoke_then_resume_does_not_regenerate(arena: ArenaPipeline) -> None:
+    """Verify smoke then resume does not regenerate."""
     arena.run(smoke_only=True)
     assert arena.manifest["report"]["complete_count"] == 10
     frozen = copy.deepcopy(arena.manifest["cases"])
@@ -155,6 +162,7 @@ def test_smoke_then_resume_does_not_regenerate(arena: ArenaPipeline) -> None:
 def test_renderer_failure_resumes_without_chargeable_retries(
     arena: ArenaPipeline,
 ) -> None:
+    """Verify renderer failure resumes without chargeable retries."""
     arena.renderer.fail = True
     with pytest.raises(ArenaError):
         arena.run(smoke_only=True)
@@ -167,6 +175,7 @@ def test_renderer_failure_resumes_without_chargeable_retries(
 def test_report_failure_resumes_without_chargeable_retries(
     arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify report failure resumes without chargeable retries."""
     original = pipeline_module.write_report
 
     def fail(*_args: object) -> dict:
@@ -229,6 +238,7 @@ def test_failed_first_artifact_write_recovers_from_saved_manifest(
 def test_worker_generation_cannot_override_local_identity_history_or_paths(
     arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch, attack: str
 ) -> None:
+    """Verify worker generation cannot override local identity history or paths."""
     arena.initialize()
     case, model = arena.manifest["cases"][0], arena.manifest["models"][0]
     trusted_id = artifact_id(case, model)
@@ -299,6 +309,7 @@ def test_worker_generation_cannot_override_local_identity_history_or_paths(
 def test_generation_accepts_only_typed_payload_fields(
     arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch, field: str, value: object
 ) -> None:
+    """Verify generation accepts only typed payload fields."""
     arena.initialize()
     case, model = arena.manifest["cases"][0], arena.manifest["models"][0]
     result = arena.backend.call("generate", case=case, model=model)
@@ -313,6 +324,7 @@ def test_generation_accepts_only_typed_payload_fields(
 def test_artifact_persistence_rejects_nonlocal_ids_before_any_write(
     arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
+    """Verify artifact persistence rejects nonlocal ids before any write."""
     outside = arena.run_dir.parent / f"{arena.run_dir.name}-outside"
     value = {
         "relative": f"../../{outside.name}",
@@ -333,6 +345,7 @@ def test_artifact_persistence_rejects_nonlocal_ids_before_any_write(
 def test_artifact_persistence_rejects_symlink_escape_before_any_write(
     arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch, symlink_level: str
 ) -> None:
+    """Verify artifact persistence rejects symlink escape before any write."""
     key = "art_" + "a" * 24
     outside = arena.run_dir.parent / f"{arena.run_dir.name}-outside"
     outside.mkdir()
@@ -394,6 +407,7 @@ def test_cli_failure_reports_resumable_directory(
 
 
 def test_permission_revocation_stops_all_new_work(arena: ArenaPipeline) -> None:
+    """Verify permission revocation stops all new work."""
     arena.run(smoke_only=True)
     arena.backend.allowed = False
     with pytest.raises(ArenaError, match="prompt access"):
@@ -403,6 +417,7 @@ def test_permission_revocation_stops_all_new_work(arena: ArenaPipeline) -> None:
 
 
 def test_failed_smoke_and_input_mismatch_never_publish(arena: ArenaPipeline) -> None:
+    """Verify failed smoke and input mismatch never publish."""
     arena.backend.failed_model = REQUESTED_MODELS[0]
     with pytest.raises(ArenaError, match="Smoke"):
         arena.run()
@@ -414,6 +429,7 @@ def test_failed_smoke_and_input_mismatch_never_publish(arena: ArenaPipeline) -> 
 
 
 def test_modified_render_is_rebuilt_without_generation(arena: ArenaPipeline) -> None:
+    """Verify modified render is rebuilt without generation."""
     arena.run(smoke_only=True)
     artifact = next(iter(arena.manifest["artifacts"].values()))
     Path(artifact["render"]["pages"][0]).write_bytes(b"modified")
@@ -423,6 +439,7 @@ def test_modified_render_is_rebuilt_without_generation(arena: ArenaPipeline) -> 
 
 
 def test_explicit_retry_retains_failed_attempts(arena: ArenaPipeline) -> None:
+    """Verify explicit retry retains failed attempts."""
     arena.backend.failed_model = REQUESTED_MODELS[0]
     with pytest.raises(ArenaError, match="Smoke"):
         arena.run(smoke_only=True)
@@ -440,6 +457,7 @@ def test_explicit_retry_retains_failed_attempts(arena: ArenaPipeline) -> None:
 
 
 def test_private_atomic_state_and_exclusive_lock(tmp_path: Path) -> None:
+    """Verify private atomic state and exclusive lock."""
     path = tmp_path / "private" / "manifest.json"
     write_json(path, {"frozen": True})
     assert read_json(path) == {"frozen": True}
@@ -454,6 +472,7 @@ def test_private_atomic_state_and_exclusive_lock(tmp_path: Path) -> None:
 
 
 def test_exact_versions_are_required() -> None:
+    """Verify exact versions are required."""
     with pytest.raises(ArenaError, match="five explicitly"):
         validate_config({"owner_phone": "10000000000", "models": ["gemini-3.7-flash"]})
     with pytest.raises(ArenaError, match="preserve"):
@@ -461,6 +480,7 @@ def test_exact_versions_are_required() -> None:
 
 
 def test_no_slides_output_is_not_rendered_or_retried(arena: ArenaPipeline) -> None:
+    """Verify no slides output is not rendered or retried."""
     arena.initialize()
     arena.generate(arena.manifest["cases"][:2])
     artifact = next(iter(arena.manifest["artifacts"].values()))
@@ -474,6 +494,7 @@ def test_no_slides_output_is_not_rendered_or_retried(arena: ArenaPipeline) -> No
 
 
 def test_report_only_does_not_call_backend(arena: ArenaPipeline) -> None:
+    """Verify report only does not call backend."""
     arena.run(smoke_only=True)
     before = list(arena.backend.calls)
     arena.report()

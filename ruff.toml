@@ -254,9 +254,6 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # Behavior-named tests already describe the contract under test, and duplicate
 # function or method docstrings make failure output harder to scan.
 "src/api/tests/**" = ["D102", "D103", "S101", "S105", "S106", "S603", "S607", "T20"]
-# Preserve the same test-only allowances after moving these tests out of the API.
-# The standalone tool's runtime modules still use the full production rules.
-"scripts/markdownflow-arena/arena_tests/**" = ["D102", "D103", "S101", "S105", "S106"]
 # `app.py`, `celery_app.py` and `gunicorn.conf.py` are process entrypoints run
 # by path and never imported, so making `src/api` a package would only shadow
 # the top-level `flaskr` import path. `src/api/scripts` is a real package

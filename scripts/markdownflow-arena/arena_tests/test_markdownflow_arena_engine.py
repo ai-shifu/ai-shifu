@@ -1,3 +1,6 @@
+# Assertions are pytest checks, never production runtime guards.
+# ruff: noqa: S101
+
 """Verify model resolution, isolated rendering, and honest completion outcomes."""
 
 from __future__ import annotations
@@ -44,6 +47,7 @@ def _case() -> dict:
 
 @pytest.fixture
 def runtime(monkeypatch: pytest.MonkeyPatch) -> dict:
+    """Provide runtime for the isolated test fixture."""
     runtime = engine._runtime()
     runtime.update(
         {
@@ -61,6 +65,7 @@ def runtime(monkeypatch: pytest.MonkeyPatch) -> dict:
 def test_resolves_unique_exact_suffix_and_preserves_provider_prefix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify resolves unique exact suffix and preserves provider prefix."""
     monkeypatch.setattr(
         engine,
         "_model_catalog",
@@ -97,6 +102,7 @@ def test_resolves_unique_exact_suffix_and_preserves_provider_prefix(
 def test_missing_ambiguous_and_duplicate_models_fail_without_fallback(
     monkeypatch: pytest.MonkeyPatch, requested: list[str]
 ) -> None:
+    """Verify missing ambiguous and duplicate models fail without fallback."""
     monkeypatch.setattr(
         engine,
         "_model_catalog",
@@ -127,6 +133,7 @@ def test_generation_classifies_terminal_metadata_and_renders_with_real_adapter(
     partial: bool,
     expected: str,
 ) -> None:
+    """Verify generation classifies terminal metadata and renders with real adapter."""
     del runtime
 
     def complete(*_args: object, **kwargs: object) -> object:
@@ -151,6 +158,7 @@ def test_generation_classifies_terminal_metadata_and_renders_with_real_adapter(
 def test_cross_model_requests_share_frozen_messages_without_preview_state(
     runtime: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify cross model requests share frozen messages without preview state."""
     from flaskr.service.learn import context_v2
 
     forbidden = MagicMock(
@@ -192,6 +200,8 @@ def test_generated_metadata_preserves_frozen_rendering_locale(
     locale: str,
     finish_reason: str | None,
 ) -> None:
+    """Verify generated metadata preserves frozen rendering locale."""
+
     def complete(*_args: object, **kwargs: object) -> object:
         yield SimpleNamespace(result="A localized teaching explanation.")
         kwargs["completion_observer"]({"finish_reason": finish_reason})
@@ -217,6 +227,7 @@ def test_generated_metadata_preserves_frozen_rendering_locale(
 def test_stream_failure_preserves_partial_private_output_and_omits_raw_error(
     runtime: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify stream failure preserves partial private output and omits raw error."""
     del runtime
 
     def fail(*_args: object, **_kwargs: object) -> object:
@@ -235,6 +246,7 @@ def test_stream_failure_preserves_partial_private_output_and_omits_raw_error(
 def test_tampered_inputs_fail_before_runtime_import(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify tampered inputs fail before runtime import."""
     runtime = MagicMock()
     monkeypatch.setattr(engine, "_runtime", runtime)
     case = _case()
@@ -247,6 +259,7 @@ def test_tampered_inputs_fail_before_runtime_import(
 def test_html_and_text_elements_survive_real_markdownflow_stream(
     runtime: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify html and text elements survive real markdownflow stream."""
     del runtime
 
     def complete(*_args: object, **kwargs: object) -> object:
@@ -266,6 +279,7 @@ def test_html_and_text_elements_survive_real_markdownflow_stream(
 def test_shared_observer_captures_finish_only_chunk_without_provider_secrets(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify shared observer captures finish only chunk without provider secrets."""
     from flaskr.api import llm
 
     # The backend fixture replaces paid calls; this test deliberately exercises
@@ -348,6 +362,7 @@ def test_shared_observer_captures_finish_only_chunk_without_provider_secrets(
 def test_trace_finalization_failure_preserves_successful_paid_output(
     runtime: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify trace finalization failure preserves successful paid output."""
     runtime["finalize_trace"].side_effect = RuntimeError("private tracing error")
 
     def complete(*_args: object, **kwargs: object) -> object:
@@ -369,6 +384,7 @@ def test_trace_finalization_failure_preserves_successful_paid_output(
 def test_completion_observer_failure_does_not_change_completion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify completion observer failure does not change completion."""
     from flaskr.api import llm
 
     monkeypatch.setattr(llm, "chat_llm", production_chat_llm)
@@ -419,6 +435,7 @@ def test_completion_observer_failure_does_not_change_completion(
 def test_manual_observation_restores_production_functions_on_interruption(
     monkeypatch: pytest.MonkeyPatch, termination: str
 ) -> None:
+    """Verify manual observation restores production functions on interruption."""
     from flaskr.api import llm
 
     resolver = MagicMock(return_value=({"api_key": "test"}, "actual", "openai"))
@@ -469,6 +486,7 @@ def test_manual_observation_restores_production_functions_on_interruption(
 def test_model_resolution_preserves_configured_glm_case_and_full_provider_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify model resolution preserves configured glm case and full provider path."""
     monkeypatch.setattr(
         engine, "_model_catalog", lambda _app: [{"model": "qwen/ZHIPU/GLM-5.3-Flash"}]
     )

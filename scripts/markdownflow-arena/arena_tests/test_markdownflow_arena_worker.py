@@ -1,3 +1,6 @@
+# Assertions are pytest checks, never production runtime guards.
+# ruff: noqa: S101
+
 """Keep worker authorization bound to the configured owner and errors private."""
 
 from __future__ import annotations
@@ -116,6 +119,7 @@ def test_worker_response_round_trips_large_chinese_and_small_plain_data(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
+    """Verify worker response round trips large chinese and small plain data."""
     data = {"snapshot": {"document": "中文课程提示词\n" * (100_000 if large else 1)}}
     monkeypatch.setattr(worker, "execute", lambda _request: data)
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
@@ -150,6 +154,7 @@ def _compressed_envelope(content: bytes) -> dict:
 def test_worker_backend_rejects_incomplete_or_corrupt_gzip_without_retry(
     corruption: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Verify worker backend rejects incomplete or corrupt gzip without retry."""
     envelope = _compressed_envelope(json.dumps({"content": "完整内容"}).encode())
     compressed = base64.b64decode(envelope["data"])
     if corruption == "truncated":
@@ -172,6 +177,7 @@ def test_worker_backend_rejects_incomplete_or_corrupt_gzip_without_retry(
 def test_worker_backend_limits_decompression_before_loading_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Verify worker backend limits decompression before loading json."""
     assert pipeline.MAX_WORKER_RESPONSE_BYTES == 64 * 1024 * 1024
     monkeypatch.setattr(pipeline, "MAX_WORKER_RESPONSE_BYTES", 128)
     envelope = _compressed_envelope(json.dumps({"content": "a" * 10_000}).encode())
@@ -201,6 +207,7 @@ def test_worker_backend_limits_decompression_before_loading_json(
 def test_worker_backend_rejects_invalid_protocol_without_repeating_paid_call(
     response: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Verify worker backend rejects invalid protocol without repeating paid call."""
     command = Mock(return_value=subprocess.CompletedProcess([], 0, response, ""))
     monkeypatch.setattr(pipeline.subprocess, "run", command)
     backend = pipeline.WorkerBackend({"worker_timeout_seconds": 10}, tmp_path)
@@ -212,6 +219,7 @@ def test_worker_backend_rejects_invalid_protocol_without_repeating_paid_call(
 def test_worker_backend_reports_unicode_transport_truncation_without_retry(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Verify worker backend reports unicode transport truncation without retry."""
     command = Mock(
         side_effect=UnicodeDecodeError("utf-8", b"\xe8", 0, 1, "unexpected end")
     )
@@ -225,6 +233,7 @@ def test_worker_backend_reports_unicode_transport_truncation_without_retry(
 def test_worker_backend_accepts_legacy_plain_response(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Verify worker backend accepts legacy plain response."""
     command = Mock(
         return_value=subprocess.CompletedProcess(
             [], 0, '{"ok": true, "data": {"content": "legacy"}}', ""
