@@ -18,6 +18,7 @@ from markdownflow_arena_lib.scoring import summarize_votes  # noqa: E402
 from markdownflow_arena_lib.state import (  # noqa: E402
     REQUESTED_MODELS,
     ArenaError,
+    artifact_id,
     build_matchups,
     publication_render_fingerprint,
     read_json,
@@ -256,6 +257,133 @@ def test_failed_first_artifact_write_recovers_from_saved_manifest(
     assert all(
         Path(item["artifact_path"]).is_file() for item in saved["artifacts"].values()
     )
+
+
+@pytest.mark.parametrize("attack", ["relative_path", "absolute_path", "other_identity"])
+def test_worker_generation_cannot_override_local_identity_history_or_paths(
+    arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch, attack: str
+) -> None:
+    arena.initialize()
+    case, model = arena.manifest["cases"][0], arena.manifest["models"][0]
+    trusted_id = artifact_id(case, model)
+    previous = {
+        "artifact_id": trusted_id,
+        "case_id": case["case_id"],
+        "model": model,
+        "generation_status": "truncated",
+        "content": "Previous paid output",
+        "attempts": [{"content": "Earlier paid output"}],
+    }
+    arena.manifest["artifacts"][trusted_id] = copy.deepcopy(previous)
+    outside = arena.run_dir.parent / f"{arena.run_dir.name}-untrusted-output"
+    malicious_id = {
+        "relative_path": f"../../{outside.name}",
+        "absolute_path": str(outside),
+        "other_identity": "art_" + "0" * 24,
+    }[attack]
+    original_call = arena.backend.call
+
+    def forged_result(operation: str, **payload: object) -> object:
+        result = original_call(operation, **payload)
+        if operation == "generate":
+            result.update(
+                {
+                    "artifact_id": malicious_id,
+                    "case_id": "different-case",
+                    "model": {"model": "different-model"},
+                    "artifact_path": str(outside / "artifact.json"),
+                    "artifact_sha256": "untrusted",
+                    "render": {"pdf": str(outside / "malicious.pdf")},
+                    "generation_status": "untrusted",
+                    "attempts": [{"content": "Overwrite local audit history"}],
+                }
+            )
+        return result
+
+    monkeypatch.setattr(arena.backend, "call", forged_result)
+    arena.generate([case], retry_failed=True)
+    artifact = arena.manifest["artifacts"][trusted_id]
+    assert artifact["artifact_id"] == trusted_id
+    assert artifact["case_id"] == case["case_id"]
+    assert artifact["model"] == model
+    assert artifact["generation_status"] == "complete"
+    assert artifact["attempts"] == [
+        *previous["attempts"],
+        {key: value for key, value in previous.items() if key != "attempts"},
+    ]
+    assert "render" not in artifact
+    expected = arena.run_dir / "artifacts" / trusted_id / "artifact.json"
+    assert Path(artifact["artifact_path"]) == expected
+    assert read_json(expected)["artifact_id"] == trusted_id
+    assert not outside.exists()
+    assert len(list((arena.run_dir / "artifacts").glob("*/artifact.json"))) == 4
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("status", ["complete"]),
+        ("input_hash", 123),
+        ("content", None),
+        ("elements", {}),
+        ("elements", ["not-an-element-object"]),
+        ("metadata", []),
+    ],
+)
+def test_generation_accepts_only_typed_payload_fields(
+    arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch, field: str, value: object
+) -> None:
+    arena.initialize()
+    case, model = arena.manifest["cases"][0], arena.manifest["models"][0]
+    result = arena.backend.call("generate", case=case, model=model)
+    result[field] = value
+    monkeypatch.setattr(arena.backend, "call", lambda *_args, **_kwargs: result)
+    with pytest.raises(ArenaError, match=r"Worker|frozen input"):
+        arena._generate(case, model)
+    assert not (arena.run_dir / "artifacts").exists()
+
+
+@pytest.mark.parametrize("kind", ["relative", "absolute", "invalid_format"])
+def test_artifact_persistence_rejects_nonlocal_ids_before_any_write(
+    arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    outside = arena.run_dir.parent / f"{arena.run_dir.name}-outside"
+    value = {
+        "relative": f"../../{outside.name}",
+        "absolute": str(outside),
+        "invalid_format": "art_not-a-valid-id",
+    }[kind]
+    writes = []
+    monkeypatch.setattr(
+        pipeline_module, "write_json", lambda *args: writes.append(args)
+    )
+    with pytest.raises(ArenaError, match="artifact ID"):
+        arena._persist_artifact({"artifact_id": value})
+    assert writes == []
+    assert not outside.exists()
+
+
+@pytest.mark.parametrize("symlink_level", ["artifacts", "artifact"])
+def test_artifact_persistence_rejects_symlink_escape_before_any_write(
+    arena: ArenaPipeline, monkeypatch: pytest.MonkeyPatch, symlink_level: str
+) -> None:
+    key = "art_" + "a" * 24
+    outside = arena.run_dir.parent / f"{arena.run_dir.name}-outside"
+    outside.mkdir()
+    artifacts = arena.run_dir / "artifacts"
+    if symlink_level == "artifacts":
+        artifacts.symlink_to(outside, target_is_directory=True)
+    else:
+        artifacts.mkdir()
+        (artifacts / key).symlink_to(outside, target_is_directory=True)
+    writes = []
+    monkeypatch.setattr(
+        pipeline_module, "write_json", lambda *args: writes.append(args)
+    )
+    with pytest.raises(ArenaError, match="escapes"):
+        arena._persist_artifact({"artifact_id": key})
+    assert writes == []
+    assert list(outside.iterdir()) == []
 
 
 @pytest.mark.parametrize(

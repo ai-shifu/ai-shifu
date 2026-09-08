@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+import copy
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import zlib
@@ -248,17 +250,52 @@ class ArenaPipeline:
 
     def _generate(self, case: dict, model: dict) -> dict:
         result = self.backend.call("generate", case=case, model=model)
-        if result.get("input_hash") != case["input_hash"]:
+        if not isinstance(result, dict):
+            msg = "Worker returned an invalid generation result"
+            raise ArenaError(msg)
+        if (
+            not isinstance(result.get("input_hash"), str)
+            or result["input_hash"] != case["input_hash"]
+        ):
             msg = "Generated result did not preserve the frozen input"
             raise ArenaError(msg)
-        if result.get("status") not in {"complete", "generation_failed", "truncated"}:
+        if not isinstance(result.get("status"), str) or result["status"] not in {
+            "complete",
+            "generation_failed",
+            "truncated",
+        }:
             msg = "Worker returned an invalid generation status"
             raise ArenaError(msg)
-        return result
+        if (
+            not isinstance(result.get("content"), str)
+            or not isinstance(result.get("elements"), list)
+            or any(not isinstance(element, dict) for element in result["elements"])
+            or not isinstance(result.get("metadata"), dict)
+        ):
+            msg = "Worker returned malformed generation content"
+            raise ArenaError(msg)
+        # A worker owns generation payload only. Identity, attempt history, and
+        # filesystem paths remain bound to the local frozen manifest.
+        return copy.deepcopy(
+            {
+                key: result[key]
+                for key in ("status", "input_hash", "content", "elements", "metadata")
+            }
+        )
 
     def _persist_artifact(self, artifact: dict) -> Path:
         """Repair an interrupted artifact write from its checkpointed paid result."""
-        path = self.run_dir / "artifacts" / artifact["artifact_id"] / "artifact.json"
+        artifact_key = artifact.get("artifact_id")
+        if not isinstance(artifact_key, str) or not re.fullmatch(
+            r"art_[a-f0-9]{24}", artifact_key
+        ):
+            msg = "Artifact identity is not a local arena artifact ID"
+            raise ArenaError(msg)
+        artifact_root = self.run_dir.resolve() / "artifacts"
+        path = artifact_root / artifact_key / "artifact.json"
+        if not path.resolve().is_relative_to(artifact_root):
+            msg = "Artifact path escapes the private run artifact directory"
+            raise ArenaError(msg)
         payload = {
             key: artifact[key]
             for key in (
@@ -318,7 +355,8 @@ class ArenaPipeline:
                 artifact = state["artifacts"][key]
                 try:
                     result = future.result()
-                    artifact.update(result)
+                    for field in ("input_hash", "content", "elements", "metadata"):
+                        artifact[field] = result[field]
                     artifact["generation_status"] = result["status"]
                     artifact["status"] = (
                         "generated"
