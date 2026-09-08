@@ -10,6 +10,11 @@ rendering paths directly.
 
 ## Progress
 
+- [x] 2026-09-08 UTC: Addressed two follow-up reviews by canonicalizing approved
+  asset URLs with the browser URL parser and bounding aggregate report images to
+  64 MiB / 1,000 pages. Oversized reports preserve prior HTML and paid results.
+  Passed 174 Python tests and 11 renderer unit tests.
+
 - [x] 2026-09-08 UTC: Fixed four current PR review findings: removed the
   feature-wide Ruff exception, documented tests with file-local pytest assertion
   allowances, checked negated/conditional numbered slide tasks, retained positive

@@ -261,3 +261,37 @@ def test_report_command_accepts_historical_model_roster_without_backend_calls(
     )
     assert markdownflow_arena.main() == 0
     assert json.loads(capsys.readouterr().out)["report"]["model_count"] == 4
+
+
+@pytest.mark.parametrize("limit", ["bytes", "pages"])
+def test_report_limits_aggregate_images_without_replacing_previous_output(
+    report_manifest: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, limit: str
+) -> None:
+    """Bound a multi-image report and keep its previous successful file on failure."""
+    from markdownflow_arena_lib import report
+
+    output = tmp_path / "comparison.html"
+    output.write_text("Previous verified report")
+    artifact = next(iter(report_manifest["artifacts"].values()))
+    if limit == "bytes":
+        size = Path(artifact["render"]["pages"][0]).stat().st_size
+        monkeypatch.setattr(report, "MAX_REPORT_IMAGE_BYTES", size)
+    else:
+        monkeypatch.setattr(report, "MAX_REPORT_PAGES", 1)
+    with pytest.raises(ArenaError, match="aggregate image budget"):
+        write_report(report_manifest, tmp_path)
+    assert output.read_text() == "Previous verified report"
+    assert not list(tmp_path.glob(".comparison-*"))
+
+
+def test_report_accepts_exact_image_budget(
+    report_manifest: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep every page when the aggregate fits the configured implementation bound."""
+    from markdownflow_arena_lib import report
+
+    artifact = next(iter(report_manifest["artifacts"].values()))
+    size = sum(Path(p).stat().st_size for p in artifact["render"]["pages"])
+    monkeypatch.setattr(report, "MAX_REPORT_IMAGE_BYTES", size)
+    monkeypatch.setattr(report, "MAX_REPORT_PAGES", 2)
+    assert write_report(report_manifest, tmp_path)["page_count"] == 2

@@ -77,7 +77,10 @@ not-yet-generated, and text-only outputs have explicit cells. The report uses no
 remote assets, forms, votes, external publication, or model preference scores.
 Generated slide markup is rendered by the official component before capture;
 untrusted prompts are escaped in the report and images are verified against
-local recorded hashes. PDFs remain available in private render directories.
+local recorded hashes. A single report accepts at most 64 MiB of aggregate PNG
+bytes and 1,000 pages; exceeding either bound raises a clear error and preserves
+the previous HTML and all generation/render checkpoints. Use smaller batches
+for larger experiments. PDFs remain available in private render directories.
 
 Schema version 2 freezes slide-only runs. `run --resume` rechecks current prompt
 access and exact model routes, reuses completed generation, and retries local
