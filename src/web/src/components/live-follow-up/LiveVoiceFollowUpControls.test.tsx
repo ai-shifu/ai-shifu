@@ -61,10 +61,10 @@ it.each(['checking', 'warming', 'unavailable'] as const)(
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'module.chat.liveVoiceServiceUnavailable',
+      'module.chat.liveVoiceErrors.server_error',
     );
     expect(
-      screen.queryByText('module.chat.liveVoiceConnectionFailed'),
+      screen.queryByText('module.chat.liveVoiceErrors.network_error'),
     ).not.toBeInTheDocument();
     expect(controller.startMicrophone).not.toHaveBeenCalled();
   },
@@ -136,7 +136,7 @@ it('retains the credential cooldown and recovers through the microphone rather t
     }),
   ).toBeDisabled();
   expect(screen.getByRole('alert')).toHaveTextContent(
-    'module.chat.liveVoiceConnectionFailed',
+    'module.chat.liveVoiceErrors.network_error',
   );
   expect(
     screen.queryByText('module.chat.liveVoiceRetryAvailableAt'),
@@ -347,4 +347,57 @@ it('animates only audible input, respects reduced motion, and always permits act
     />,
   );
   expect(microphone).not.toHaveClass('motion-safe:animate-pulse');
+});
+
+it.each([
+  'microphone_denied',
+  'microphone_unavailable',
+  'microphone_busy',
+  'audio_unavailable',
+  'session_create_failed',
+  'session_expired',
+  'capacity_exceeded',
+  'origin_rejected',
+  'configuration_error',
+  'network_error',
+  'websocket_failed',
+  'server_error',
+  'unknown',
+] as const)(
+  'shows the specific %s error even when readiness is unavailable',
+  errorCode => {
+    render(
+      <LiveVoiceFollowUpControls
+        target={target}
+        controller={mockLiveVoiceController({
+          anchorElementBid: 'anchor',
+          readiness: 'unavailable',
+          state: 'ended',
+          errorCode,
+        })}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      `module.chat.liveVoiceErrors.${errorCode} (${errorCode})`,
+    );
+  },
+);
+
+it('shows the stable reason and close code but no raw provider description', () => {
+  render(
+    <LiveVoiceFollowUpControls
+      target={target}
+      controller={mockLiveVoiceController({
+        anchorElementBid: 'anchor',
+        errorCode: 'network_error',
+        errorDiagnostic: { stage: 'websocket', websocketCloseCode: 1006 },
+      })}
+    />,
+  );
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'network_error; WebSocket 1006',
+  );
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'module.chat.liveVoiceErrorStages.websocket',
+  );
 });

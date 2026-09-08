@@ -13,6 +13,7 @@ import {
   parseGeminiLiveServerMessage,
   resolveGeminiLiveWebSocketUrl,
   type LiveFollowUpLearningMode,
+  type LiveFollowUpControlReason,
   type LiveFollowUpSession,
   type LiveFollowUpState,
   type LiveFollowUpSurface,
@@ -61,6 +62,7 @@ import {
 } from './useLiveFollowUpReadiness';
 
 const GEMINI_LIVE_SETUP_TIMEOUT_MS = 20_000;
+const GEMINI_LIVE_ERROR_CLOSE_TIMEOUT_MS = 250;
 // Redis rounds its matching absolute credential expiry up to a millisecond.
 const CREDENTIAL_RESERVATION_MARGIN_MS = 1;
 const CAPACITY_RETRY_BACKOFF_MS = 30_000;
@@ -161,6 +163,12 @@ const recordCompletedExchange = (
   }
 };
 
+export type LiveVoiceErrorDiagnostic = {
+  reason?: LiveFollowUpControlReason;
+  stage: 'session_create' | 'resume' | 'heartbeat' | 'websocket';
+  websocketCloseCode?: number;
+};
+
 export type LiveVoiceFollowUpViewState = {
   open: boolean;
   paused: boolean;
@@ -173,6 +181,7 @@ export type LiveVoiceFollowUpViewState = {
   anchorElementBid: string | null;
   warning: boolean;
   errorCode: LiveVoiceFollowUpErrorCode | null;
+  errorDiagnostic?: LiveVoiceErrorDiagnostic | null;
   retryable: boolean;
   retryAvailableAt: number | null;
   endReason: LiveVoiceFollowUpEndReason | null;
@@ -222,6 +231,7 @@ type FinishAttemptOptions = {
   reason: LiveVoiceFollowUpEndReason;
   keepOpen: boolean;
   errorCode?: LiveVoiceFollowUpErrorCode | null;
+  errorDiagnostic?: LiveVoiceErrorDiagnostic | null;
   retryable?: boolean;
   pendingOutcome?: LiveVoiceFollowUpOutcome;
   preserveAudio?: boolean;
@@ -246,6 +256,7 @@ const initialState: LiveVoiceFollowUpViewState = {
   anchorElementBid: null,
   warning: false,
   errorCode: null,
+  errorDiagnostic: null,
   retryable: false,
   retryAvailableAt: null,
   endReason: null,
@@ -380,6 +391,7 @@ export const useLiveVoiceFollowUp = ({
   >(null);
   const timeoutTimerRef = useRef<number | null>(null);
   const setupTimerRef = useRef<number | null>(null);
+  const errorCloseTimerRef = useRef<number | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
   const heartbeatRequestTimerRef = useRef<number | null>(null);
   const ownershipRef = useRef<LiveFollowUpOwnership | null>(null);
@@ -518,6 +530,7 @@ export const useLiveVoiceFollowUp = ({
     for (const timerRef of [
       timeoutTimerRef,
       setupTimerRef,
+      errorCloseTimerRef,
       heartbeatTimerRef,
       heartbeatRequestTimerRef,
       commitTimerRef,
@@ -872,6 +885,7 @@ export const useLiveVoiceFollowUp = ({
       reason,
       keepOpen,
       errorCode = null,
+      errorDiagnostic = null,
       retryable = false,
       pendingOutcome = 'cancelled',
       preserveAudio = false,
@@ -900,6 +914,7 @@ export const useLiveVoiceFollowUp = ({
           textPending: false,
           warning: false,
           errorCode,
+          errorDiagnostic: errorCode ? errorDiagnostic : null,
           retryable: retryable && retryAvailableAt === null,
           retryAvailableAt,
           endReason: reason,
@@ -1005,6 +1020,13 @@ export const useLiveVoiceFollowUp = ({
               ) {
                 applyControlRetry(error);
                 finishAttempt({
+                  errorDiagnostic: {
+                    stage: 'resume',
+                    reason:
+                      error instanceof LiveFollowUpControlError
+                        ? error.reason
+                        : undefined,
+                  },
                   reason: 'connection_error',
                   keepOpen: true,
                   errorCode:
@@ -1368,6 +1390,11 @@ export const useLiveVoiceFollowUp = ({
         session: LiveFollowUpSession,
         resumptionHandle: string | null,
       ) => {
+        if (errorCloseTimerRef.current !== null) {
+          window.clearTimeout(errorCloseTimerRef.current);
+          errorCloseTimerRef.current = null;
+        }
+        let terminalSocketError = false;
         const previous = websocketRef.current;
         if (previous) {
           previous.onopen = null;
@@ -1442,6 +1469,7 @@ export const useLiveVoiceFollowUp = ({
               reason: 'connection_error',
               keepOpen: true,
               errorCode: 'server_error',
+              errorDiagnostic: { stage: 'websocket' },
               retryable: true,
               pendingOutcome: 'failed',
             });
@@ -1581,13 +1609,26 @@ export const useLiveVoiceFollowUp = ({
           // deciding whether an established session can resume safely.
           if (setupReadyRef.current && resumptionHandleRef.current) return;
           if (renewLostConnectionRef.current(generation)) return;
-          finishAttempt({
-            reason: 'connection_error',
-            keepOpen: true,
-            errorCode: 'websocket_failed',
-            retryable: true,
-            pendingOutcome: 'failed',
-          });
+          // Browsers normally deliver close after error. Keep its diagnostic
+          // available, but do not leave a failed connection pending indefinitely.
+          terminalSocketError = true;
+          if (errorCloseTimerRef.current !== null) return;
+          errorCloseTimerRef.current = window.setTimeout(() => {
+            errorCloseTimerRef.current = null;
+            if (
+              attemptRef.current?.generation !== generation ||
+              websocketRef.current !== websocket
+            )
+              return;
+            finishAttempt({
+              reason: 'connection_error',
+              keepOpen: true,
+              errorCode: 'websocket_failed',
+              errorDiagnostic: { stage: 'websocket' },
+              retryable: true,
+              pendingOutcome: 'failed',
+            });
+          }, GEMINI_LIVE_ERROR_CLOSE_TIMEOUT_MS);
         };
         websocket.onclose = event => {
           if (
@@ -1595,6 +1636,10 @@ export const useLiveVoiceFollowUp = ({
             websocketRef.current !== websocket
           ) {
             return;
+          }
+          if (errorCloseTimerRef.current !== null) {
+            window.clearTimeout(errorCloseTimerRef.current);
+            errorCloseTimerRef.current = null;
           }
           if (credentialMayHaveExpired()) {
             expireSessionRef.current(generation);
@@ -1622,9 +1667,17 @@ export const useLiveVoiceFollowUp = ({
           )
             return;
           finishAttempt({
-            reason: 'connection_closed',
+            reason: terminalSocketError
+              ? 'connection_error'
+              : 'connection_closed',
             keepOpen: true,
-            errorCode: 'network_error',
+            errorCode: terminalSocketError
+              ? 'websocket_failed'
+              : 'network_error',
+            errorDiagnostic: {
+              stage: 'websocket',
+              websocketCloseCode: event.code,
+            },
             retryable: true,
             pendingOutcome: 'failed',
           });
@@ -1733,6 +1786,13 @@ export const useLiveVoiceFollowUp = ({
                   reason: replaced ? 'replaced' : 'connection_error',
                   keepOpen: true,
                   errorCode: replaced ? null : 'server_error',
+                  errorDiagnostic: {
+                    stage: 'heartbeat',
+                    reason:
+                      error instanceof LiveFollowUpControlError
+                        ? error.reason
+                        : undefined,
+                  },
                   retryable: true,
                   pendingOutcome: replaced ? 'cancelled' : 'failed',
                 });
@@ -1800,6 +1860,13 @@ export const useLiveVoiceFollowUp = ({
               } else {
                 applyControlRetry(error);
                 finishAttempt({
+                  errorDiagnostic: {
+                    stage: 'heartbeat',
+                    reason:
+                      error instanceof LiveFollowUpControlError
+                        ? error.reason
+                        : undefined,
+                  },
                   reason: 'connection_error',
                   keepOpen: true,
                   errorCode:
@@ -1839,6 +1906,13 @@ export const useLiveVoiceFollowUp = ({
               );
             }
             finishAttempt({
+              errorDiagnostic: {
+                stage: 'session_create',
+                reason:
+                  error instanceof LiveFollowUpControlError
+                    ? error.reason
+                    : undefined,
+              },
               reason: 'connection_error',
               keepOpen: true,
               errorCode:
