@@ -780,6 +780,46 @@ def test_attachment_replacement_refuses_to_delete_unrecognized_user_files(
     publisher.cli.run.assert_not_called()
 
 
+def test_attachment_propagation_delay_retries_reads_without_reuploading(
+    publisher: FeishuPublisher, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    page = tmp_path / "page.png"
+    page.write_bytes(b"PNG content")
+    progress = {"reads": 0, "filename": None}
+
+    def rows(_matchup_id: str, field: str) -> list[dict]:
+        if field != publisher.fields["a_images"]:
+            return []
+        progress["reads"] += 1
+        if progress["reads"] <= 2:
+            return []
+        return [{"name": progress["filename"], "file_token": "uploadedToken"}]
+
+    def upload(args: list[str], **_kwargs: object) -> dict:
+        assert args[1] == "+record-upload-attachment"
+        progress["filename"] = args[args.index("--file") + 1]
+        return {}
+
+    monkeypatch.setattr(publisher, "_attachment_rows", rows)
+    publisher.cli.run.side_effect = upload
+    publisher._attachments("pair1", "rec1", "a", {"render": {"pages": [str(page)]}})
+    publisher.cli.run.assert_called_once()
+    assert progress["reads"] == 3
+    assert publisher.state["pending"] == {}
+
+
+def test_changed_local_artwork_bytes_are_rejected_before_remote_replacement(
+    publisher: FeishuPublisher, tmp_path: Path
+) -> None:
+    page = tmp_path / "page.png"
+    page.write_bytes(b"changed after rendering")
+    artifact = {"render": {"pages": [str(page)], "sha256": {str(page): "0" * 64}}}
+    with pytest.raises(ValueError, match="no longer match"):
+        publisher._attachments("pair1", "rec1", "a", artifact)
+    publisher.cli.run.assert_not_called()
+    publisher.cli.records.assert_not_called()
+
+
 def test_failed_artifact_cannot_be_published_even_with_old_render(
     publisher: FeishuPublisher,
 ) -> None:

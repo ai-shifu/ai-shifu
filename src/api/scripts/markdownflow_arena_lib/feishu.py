@@ -853,7 +853,12 @@ class FeishuPublisher:
                         "Arena artwork must be an existing absolute PNG or PDF path"
                     )
                     raise ValueError(message)
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()[:20]
+                actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+                expected_hash = render.get("sha256", {}).get(str(path))
+                if expected_hash is not None and actual_hash != expected_hash:
+                    message = "Artwork bytes no longer match the verified render"
+                    raise ValueError(message)
+                digest = actual_hash[:20]
                 neutral = f"{side.upper()}-{index:03d}-{digest}{path.suffix.lower()}"
                 plans.append((path, neutral))
             wanted = {name for _, name in plans}
