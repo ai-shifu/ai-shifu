@@ -146,7 +146,16 @@ class BrowserRenderer:
                 str(REPO_ROOT / "src/web/scripts/markdownflow-arena/render.mjs"),
             ]
         )
-        command.extend(["--input", str(artifact_path), "--output", str(output_dir)])
+        command.extend(
+            [
+                "--input",
+                str(artifact_path),
+                "--output",
+                str(output_dir),
+                "--timeout-seconds",
+                str(self.config["renderer_timeout_seconds"]),
+            ]
+        )
         for host in self.config["renderer_asset_hosts"]:
             command.extend(["--asset-host", host])
         try:

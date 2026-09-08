@@ -208,7 +208,12 @@ def generate_case(app: Flask, case: dict, model: dict) -> dict:
     runtime = _runtime()
     started = time.monotonic()
     run_id = uuid.uuid4().hex
-    metadata = {"run_id": run_id, "model": model["model"], "versions": _versions()}
+    metadata = {
+        "run_id": run_id,
+        "model": model["model"],
+        "versions": _versions(),
+        "locale": case["output_language"],
+    }
     output = {
         "status": "generation_failed",
         "content": "",

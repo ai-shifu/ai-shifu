@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -100,6 +101,28 @@ class Renderer:
             "height": 1600,
             "renderer_version": "fixture-v1",
         }
+
+
+@pytest.mark.parametrize("timeout", [30, 300, 1200])
+def test_browser_renderer_receives_pipeline_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, timeout: int
+) -> None:
+    """Keep the browser deadline aligned with the operator's process deadline."""
+    artifact_path, output_dir = tmp_path / "artifact.json", tmp_path / "render"
+    result = Renderer().render(artifact_path, output_dir)
+
+    def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+        assert command[command.index("--timeout-seconds") + 1] == str(timeout)
+        assert kwargs["timeout"] == timeout
+        return subprocess.CompletedProcess(
+            command, 0, stdout="Diagnostic line\n" + json.dumps(result) + "\n\n"
+        )
+
+    monkeypatch.setattr(pipeline_module.subprocess, "run", run)
+    renderer = pipeline_module.BrowserRenderer(
+        {"renderer_asset_hosts": [], "renderer_timeout_seconds": timeout}
+    )
+    assert renderer.render(artifact_path, output_dir) == result
 
 
 class Publisher:

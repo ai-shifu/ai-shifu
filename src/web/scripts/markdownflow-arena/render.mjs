@@ -15,6 +15,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { cachedImageForRequest, loadAssetCache } from './assets.mjs';
+import { rendererTimeoutMs } from './protocol.mjs';
 import {
   classifyError,
   isAllowedAsset,
@@ -80,11 +82,13 @@ function fetchAsset(url, address) {
   });
 }
 
-async function waitForReady(page, blocked, failed) {
+async function waitForReady(page, blocked, failed, pendingRequests) {
   await page.locator('#capture').waitFor({ state: 'visible', timeout: 30000 });
-  await page.waitForLoadState('networkidle', { timeout: 30000 });
+  // Nested srcdoc documents can keep Playwright's aggregate load state busy
+  // after every asset finishes. Check real request completion plus rendered
+  // fonts, images, diagrams and stable frame geometry instead.
   // The renderer creates nested documents after the React commit. Wait for
-  // fonts/images and two identical geometry snapshots across all frames.
+  // fonts/images and three identical geometry snapshots across all frames.
   let previous;
   let stable = 0;
   for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -116,6 +120,7 @@ async function waitForReady(page, blocked, failed) {
     const signature = JSON.stringify(states);
     stable =
       signature === previous &&
+      pendingRequests.size === 0 &&
       !states.some(state => state.pending || state.diagramPending)
         ? stable + 1
         : 0;
@@ -181,6 +186,90 @@ async function assertNoClippedContent(page, mode, capture) {
     }
     const clipped = await frame.evaluate(
       ({ mainFrame, mode, capturedKind }) => {
+        const onlyBackgroundOverflow = node => {
+          if (
+            [node, ...node.querySelectorAll('*')].some(child =>
+              ['::before', '::after'].some(
+                pseudo =>
+                  !['none', 'normal'].includes(
+                    getComputedStyle(child, pseudo).content,
+                  ),
+              ),
+            )
+          )
+            return false;
+          const bounds = node.getBoundingClientRect();
+          const outside = rect =>
+            rect.left < bounds.left - 1 ||
+            rect.top < bounds.top - 1 ||
+            rect.right > bounds.right + 1 ||
+            rect.bottom > bounds.bottom + 1;
+          const overflow = [...node.querySelectorAll('*')].filter(child => {
+            const rect = child.getBoundingClientRect();
+            // SVG paint definitions have zero boxes at the document origin.
+            // Do not extend this exception to rendered paths or stroked lines.
+            if (
+              child instanceof SVGElement &&
+              child.closest(
+                'defs, linearGradient, radialGradient, stop, marker',
+              ) &&
+              rect.width === 0 &&
+              rect.height === 0
+            )
+              return false;
+            return outside(rect);
+          });
+          if (
+            !overflow.length ||
+            !overflow.every(child => {
+              if (
+                !(child instanceof HTMLDivElement) ||
+                child.children.length ||
+                child.textContent.trim() ||
+                child.tabIndex >= 0 ||
+                [...child.attributes].some(attr =>
+                  /^on|^(?:role|tabindex|contenteditable|draggable)$/i.test(
+                    attr.name,
+                  ),
+                )
+              )
+                return false;
+              const style = getComputedStyle(child);
+              return (
+                style.position === 'absolute' &&
+                style.pointerEvents === 'none' &&
+                /^blur\([\d.]+px\)$/.test(style.filter) &&
+                style.filter !== 'blur(0px)' &&
+                style.backgroundImage === 'none' &&
+                style.boxShadow === 'none' &&
+                ['Top', 'Right', 'Bottom', 'Left'].every(
+                  side => parseFloat(style[`border${side}Width`]) === 0,
+                ) &&
+                ['::before', '::after'].every(pseudo =>
+                  ['none', 'normal'].includes(
+                    getComputedStyle(child, pseudo).content,
+                  ),
+                )
+              );
+            })
+          )
+            return false;
+          // Empty blurred background shapes may intentionally cross a rounded
+          // card's clipping edge. Never exempt overflowing text or other media.
+          const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+          while (walker.nextNode()) {
+            if (!walker.currentNode.textContent.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(walker.currentNode);
+            if (
+              [...range.getClientRects()].some(
+                rect => rect.width > 0 && rect.height > 0 && outside(rect),
+              )
+            )
+              return false;
+          }
+          return true;
+        };
         const visibleEmojiFits = node => {
           // Emoji line boxes can exceed a centered figure while the entire
           // font bounding box still fits. Only exempt a single plain glyph;
@@ -274,13 +363,14 @@ async function assertNoClippedContent(page, mode, capture) {
             ['auto', 'scroll'].includes(style.overflowY);
           const capturedBody =
             capturedKind === 'body' && node === document.body;
-          if (visibleEmojiFits(node)) return false;
-          return (
+          const overflow =
             (!capturedSlideScroller &&
               !capturedBody &&
               clips(style.overflowY) &&
               node.scrollHeight > node.clientHeight + 2) ||
-            (clips(style.overflowX) && node.scrollWidth > node.clientWidth + 2)
+            (clips(style.overflowX) && node.scrollWidth > node.clientWidth + 2);
+          return (
+            overflow && !visibleEmojiFits(node) && !onlyBackgroundOverflow(node)
           );
         });
       },
@@ -307,6 +397,8 @@ export async function render(options) {
     JSON.parse(await readFile(options.input, 'utf8')),
   );
   const output = path.resolve(options.output);
+  const timeout = rendererTimeoutMs(options['timeout-seconds']);
+  const assetCache = await loadAssetCache(options['asset-cache']);
   const routePrefix = `/${randomBytes(24).toString('hex')}/`;
   const allowedHosts = new Set(options['asset-host'] ?? []);
   const publicAddresses = new Map();
@@ -390,10 +482,10 @@ export async function render(options) {
         ? { executablePath: options['browser-path'] }
         : {}),
     });
-    deadline = setTimeout(stop, 90000);
+    deadline = setTimeout(stop, timeout);
     process.once('SIGTERM', stop);
     process.once('SIGINT', stop);
-    const width = artifact.mode === 'slides' ? 1280 : 1200;
+    const width = 1280;
     const height = artifact.mode === 'slides' ? 720 : 1600;
     const context = await browser.newContext({
       viewport: { width, height },
@@ -406,6 +498,10 @@ export async function render(options) {
       acceptDownloads: false,
       permissions: [],
     });
+    const pendingRequests = new Set();
+    context.on('request', request => pendingRequests.add(request));
+    context.on('requestfinished', request => pendingRequests.delete(request));
+    context.on('requestfailed', request => pendingRequests.delete(request));
     const blocked = new Set();
     const failed = new Set();
     let entryLoaded = false;
@@ -428,6 +524,18 @@ export async function render(options) {
         !request.isNavigationRequest()
       ) {
         await route.continue();
+        return;
+      }
+      const cachedImage = cachedImageForRequest(request, assetCache.assets);
+      if (cachedImage) {
+        await route.fulfill({
+          status: 200,
+          ...cachedImage,
+          headers: {
+            'access-control-allow-origin': '*',
+            'cache-control': 'no-store',
+          },
+        });
         return;
       }
       if (isAllowedAsset(request, allowedHosts)) {
@@ -473,7 +581,7 @@ export async function render(options) {
         ({ artifact: data, step: index }) => window.renderArena(data, index),
         { artifact, step },
       );
-      await waitForReady(page, blocked, failed);
+      await waitForReady(page, blocked, failed, pendingRequests);
       const capture =
         artifact.mode === 'slides'
           ? await slideCaptureTarget(page, width, height)
@@ -560,6 +668,7 @@ export async function render(options) {
         ),
       ).version,
       chromium_version: browser.version(),
+      ...(assetCache.sha256 ? { asset_cache_sha256: assetCache.sha256 } : {}),
     };
     await writeFile(
       path.join(output, 'render.json'),
@@ -590,7 +699,9 @@ if (
         input: { type: 'string' },
         output: { type: 'string' },
         'asset-host': { type: 'string', multiple: true },
+        'asset-cache': { type: 'string' },
         'browser-path': { type: 'string' },
+        'timeout-seconds': { type: 'string' },
       },
     });
     if (!values.input || !values.output)

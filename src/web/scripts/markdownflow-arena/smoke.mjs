@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseRendererOutput } from './protocol.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const browserArgs = process.env.ARENA_BROWSER_PATH
@@ -28,6 +30,11 @@ const fixtures = {
 const artifacts = Object.fromEntries(
   Object.entries(fixtures).map(([key, content]) => [key, { content }]),
 );
+const decoration =
+  '<div style="position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;background:#bfdbfe;filter:blur(32px);pointer-events:none"></div>';
+artifacts['decorative-overflow'] = {
+  content: `<article style="position:relative;width:400px;height:300px;overflow:hidden;border-radius:24px;background:#eff6ff">${decoration}<svg width="20" height="20"><defs><linearGradient id="tint"><stop stop-color="blue"/></linearGradient><marker id="arrow" markerWidth="10" markerHeight="10" refX="5" refY="5"><polygon points="0,0 10,5 0,10"/></marker></defs><circle cx="10" cy="10" r="8" fill="url(#tint)"/></svg><p style="padding:32px">Every word remains visible.</p></article>`,
+};
 artifacts.slides = {
   content: '# Page one\n\n# Page two',
   elements: [
@@ -96,8 +103,9 @@ for (const [name, artifact] of Object.entries(artifacts)) {
     { encoding: 'utf8', timeout: 120000 },
   );
   assert.equal(child.status, 0, `${name}: ${child.stdout} ${child.stderr}`);
-  const result = JSON.parse(child.stdout.trim());
+  const result = parseRendererOutput(child.stdout);
   assert.equal(result.status, 'complete');
+  assert.equal(result.width, 1280);
   assert.ok(
     result.pages.length >= (name === 'reading' ? 3 : name === 'slides' ? 2 : 1),
   );
@@ -120,6 +128,63 @@ for (const [name, artifact] of Object.entries(artifacts)) {
   }
 }
 const blockedInput = path.join(output, 'blocked.json');
+const cacheImage = path.join(output, 'cached.png');
+const { default: sharp } = await import('sharp');
+const cacheBytes = await sharp({
+  create: { width: 40, height: 30, channels: 3, background: '#123456' },
+})
+  .png()
+  .toBuffer();
+await writeFile(cacheImage, cacheBytes);
+const cacheManifest = path.join(output, 'assets.json');
+await writeFile(
+  cacheManifest,
+  JSON.stringify({
+    version: 1,
+    assets: {
+      'https://images.invalid/original.png': {
+        path: cacheImage,
+        sha256: createHash('sha256').update(cacheBytes).digest('hex'),
+      },
+    },
+  }),
+);
+const cachedInput = path.join(output, 'cached.json');
+await writeFile(
+  cachedInput,
+  JSON.stringify({
+    content: '![Original](https://images.invalid/original.png)',
+    elements: Array.from({ length: 3 }, (_, index) => ({
+      type: 'image',
+      content: `![Original ${index + 1}](https://images.invalid/original.png)`,
+      is_marker: true,
+      is_new: true,
+      is_renderable: true,
+    })),
+  }),
+);
+const cached = spawnSync(
+  process.execPath,
+  [
+    path.join(directory, 'render.mjs'),
+    '--input',
+    cachedInput,
+    '--output',
+    path.join(output, 'cached'),
+    '--asset-cache',
+    cacheManifest,
+    ...browserArgs,
+  ],
+  { encoding: 'utf8', timeout: 60000 },
+);
+assert.equal(cached.status, 0, cached.stdout);
+const cachedResult = parseRendererOutput(cached.stdout);
+assert.equal(cachedResult.status, 'complete');
+assert.equal(cachedResult.pages.length, 3);
+for (const page of cachedResult.pages) {
+  const { channels } = await sharp(page).stats();
+  assert.ok(channels.some(channel => channel.min < 100));
+}
 await writeFile(
   blockedInput,
   JSON.stringify({ content: '![Blocked](http://127.0.0.1:9876/private.png)' }),
@@ -138,7 +203,7 @@ const blocked = spawnSync(
 );
 assert.equal(blocked.status, 1);
 assert.equal(
-  JSON.parse(blocked.stdout.trim()).error_code,
+  parseRendererOutput(blocked.stdout).error_code,
   'blocked_external_resource',
 );
 for (const [name, content] of Object.entries({
@@ -148,6 +213,10 @@ for (const [name, content] of Object.entries({
     '<section style="height:30000px">Start<p style="position:absolute;top:29500px">Hidden tail</p></section>',
   'emoji-clipped':
     '<figure style="margin:0;height:40px;width:276px;overflow:hidden;display:flex;align-items:center;justify-content:center"><span style="font-size:86.4px;line-height:129.6px">🐕</span></figure>',
+  'decorative-with-content': `<article style="position:relative;width:400px;height:300px;overflow:hidden">${decoration.replace('</div>', 'Hidden words</div>')}</article>`,
+  'decorative-with-svg': `<article style="position:relative;width:400px;height:300px;overflow:hidden">${decoration.replace('</div>', '<svg width="100" height="100"><circle cx="50" cy="50" r="40"/></svg></div>')}</article>`,
+  'decorative-with-stroked-line': `<article style="position:relative;width:400px;height:300px;overflow:hidden">${decoration}<svg width="300" height="200" style="overflow:visible"><line x1="20" y1="340" x2="250" y2="340" stroke="black" stroke-width="4"/></svg></article>`,
+  'decorative-with-image': `<article style="position:relative;width:400px;height:300px;overflow:hidden">${decoration.replace('</div>', `<img src="data:image/png;base64,${cacheBytes.toString('base64')}" width="160" height="160"></div>`)}</article>`,
 })) {
   const input = path.join(output, `${name}.json`);
   await writeFile(input, JSON.stringify({ content }));
@@ -164,6 +233,6 @@ for (const [name, content] of Object.entries({
     { encoding: 'utf8', timeout: 60000 },
   );
   assert.equal(child.status, 1, `${name}: ${child.stdout}`);
-  assert.equal(JSON.parse(child.stdout.trim()).error_code, 'content_clipped');
+  assert.equal(parseRendererOutput(child.stdout).error_code, 'content_clipped');
 }
 process.stdout.write(`${JSON.stringify({ status: 'complete', output })}\n`);

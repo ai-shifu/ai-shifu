@@ -183,6 +183,36 @@ def test_cross_model_requests_share_frozen_messages_without_preview_state(
     assert runtime["set_language"].call_args.args == ("en-US",)
 
 
+@pytest.mark.parametrize("locale", ["zh-CN", "en-US", "fr-FR", "ar-SA", "th-TH"])
+@pytest.mark.parametrize("finish_reason", ["stop", "length", None])
+def test_generated_metadata_preserves_frozen_rendering_locale(
+    runtime: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    locale: str,
+    finish_reason: str | None,
+) -> None:
+    def complete(*_args: object, **kwargs: object) -> object:
+        yield SimpleNamespace(result="A localized teaching explanation.")
+        kwargs["completion_observer"]({"finish_reason": finish_reason})
+
+    monkeypatch.setattr(engine, "_chat_llm", complete)
+    case = _case()
+    case["output_language"] = locale
+    case["variables"].update({"language": locale, "sys_user_language": locale})
+    case["input_hash"] = case_input_hash(case)
+    result = engine.generate_case(Flask(__name__), case, {"model": "test-model"})
+    assert result["metadata"]["locale"] == locale
+    assert (
+        result["status"]
+        == {
+            "stop": "complete",
+            "length": "truncated",
+            None: "generation_failed",
+        }[finish_reason]
+    )
+    assert runtime["set_language"].call_args.args == ("en-US",)
+
+
 def test_stream_failure_preserves_partial_private_output_and_omits_raw_error(
     runtime: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:

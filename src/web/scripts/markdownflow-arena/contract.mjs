@@ -1,7 +1,7 @@
 import { isIP } from 'node:net';
 
 export const RENDERER_VERSION = '2';
-export const MAX_PAGES = 120;
+export const MAX_PAGES = 50;
 
 export class RenderError extends Error {
   constructor(code) {
@@ -50,7 +50,9 @@ export function normalizeArtifact(value) {
     elements,
     mode: markerCount ? 'slides' : 'reading',
     stepCount: markerCount || 1,
-    locale: ['en-US', 'fr-FR', 'zh-CN'].includes(value.metadata?.locale)
+    locale: ['en-US', 'fr-FR', 'zh-CN', 'ar-SA', 'th-TH'].includes(
+      value.metadata?.locale,
+    )
       ? value.metadata.locale
       : 'zh-CN',
   };

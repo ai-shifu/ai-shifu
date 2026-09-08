@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { createHash } from 'node:crypto';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { cachedImageForRequest, loadAssetCache } from './assets.mjs';
 import {
   normalizeArtifact,
+  MAX_PAGES,
   isAllowedAsset,
   isPublicAddress,
   classifyError,
@@ -33,21 +39,42 @@ test('passes only visual fields and removes identity, audio, and credentials', (
   assert.equal(JSON.stringify(normalized).includes('private'), false);
 });
 
-test('rejects empty artifacts and excessive slide counts', () => {
+test('rejects empty artifacts and invalid elements', () => {
   assert.throws(() => normalizeArtifact({ content: ' ' }));
   assert.throws(() =>
     normalizeArtifact({ content: '# Hi', elements: [{ content: {} }] }),
   );
-  assert.throws(() =>
-    normalizeArtifact({
-      content: '# Hi',
-      elements: Array.from({ length: 121 }, () => ({
-        content: '# Hi',
-        is_marker: true,
-      })),
-    }),
-  );
   assert.equal(normalizeArtifact({ content: '# Hi' }).mode, 'reading');
+});
+
+test('accepts 50 slide pages and rejects 51 to match the attachment cell limit', () => {
+  assert.equal(MAX_PAGES, 50);
+  const artifact = count => ({
+    content: '# Hi',
+    elements: Array.from({ length: count }, () => ({
+      content: '# Hi',
+      is_marker: true,
+    })),
+  });
+  assert.equal(normalizeArtifact(artifact(50)).stepCount, 50);
+  assert.throws(() => normalizeArtifact(artifact(51)), {
+    code: 'too_many_pages',
+  });
+});
+
+test('preserves every supported frozen locale and defaults unsupported values', () => {
+  for (const locale of ['zh-CN', 'en-US', 'fr-FR', 'ar-SA', 'th-TH']) {
+    assert.equal(
+      normalizeArtifact({ content: '# Hi', metadata: { locale } }).locale,
+      locale,
+    );
+  }
+  for (const locale of [undefined, null, '', 'ar', 'th', 'de-DE']) {
+    assert.equal(
+      normalizeArtifact({ content: '# Hi', metadata: { locale } }).locale,
+      'zh-CN',
+    );
+  }
 });
 
 test('adapts production ElementDTO types to the Slide component contract', () => {
@@ -113,4 +140,58 @@ test('private destinations and raw errors cannot cross the renderer boundary', (
   assert.equal(isPublicAddress('8.8.8.8'), true);
   assert.equal(isPublicAddress('2606:4700:4700::1111'), true);
   assert.equal(classifyError(new Error('model secret')), 'render_failed');
+});
+
+test('verified image cache matches only exact GET image requests', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'arena-assets-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const filename = path.join(directory, 'image.png');
+  const bytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWZkAAAAASUVORK5CYII=',
+    'base64',
+  );
+  await writeFile(filename, bytes);
+  const url = 'https://images.invalid/original.png';
+  const manifest = {
+    version: 1,
+    assets: {
+      [url]: {
+        path: filename,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      },
+    },
+  };
+  const manifestPath = path.join(directory, 'cache.json');
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  const cache = await loadAssetCache(manifestPath);
+  const request = (
+    address = url,
+    type = 'image',
+    method = 'GET',
+    navigation = false,
+  ) => ({
+    url: () => address,
+    resourceType: () => type,
+    method: () => method,
+    isNavigationRequest: () => navigation,
+  });
+  assert.deepEqual(cachedImageForRequest(request(), cache.assets).body, bytes);
+  for (const item of [
+    request(url + '?other'),
+    request(url, 'script'),
+    request(url, 'image', 'POST'),
+    request(url, 'image', 'GET', true),
+  ])
+    assert.equal(cachedImageForRequest(item, cache.assets), undefined);
+  await writeFile(filename, Buffer.from('changed private bytes'));
+  await assert.rejects(loadAssetCache(manifestPath), {
+    code: 'asset_cache_hash_mismatch',
+  });
+  manifest.assets[url].sha256 = createHash('sha256')
+    .update('changed private bytes')
+    .digest('hex');
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await assert.rejects(loadAssetCache(manifestPath), {
+    code: 'invalid_asset_cache_image',
+  });
 });
