@@ -4,6 +4,7 @@ import { Loader2, Mic, MicOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { liveVoiceErrorPresentation } from './liveVoiceErrorPresentation';
 import type {
   LiveVoiceFollowUpController,
   LiveVoiceFollowUpTarget,
@@ -90,18 +91,40 @@ export const LiveVoiceFollowUpControls = ({
           role='alert'
           className='text-destructive'
         >
-          {unavailable
-            ? t('module.chat.liveVoiceServiceUnavailable')
-            : error === 'capacity_exceeded'
-              ? t('module.chat.liveVoiceCapacityExceeded')
-              : error === 'server_error'
-                ? t('module.chat.liveVoiceServiceUnavailable')
-                : t('module.chat.liveVoiceConnectionFailed')}
+          {error ? (
+            <LiveVoiceErrorMessage
+              error={error}
+              diagnostic={controller.errorDiagnostic}
+            />
+          ) : (
+            <LiveVoiceErrorMessage error='server_error' />
+          )}
         </p>
       ) : null}
       {ownsTarget && controller.microphoneError ? (
-        <p role='alert'>{t('module.chat.liveVoiceMicrophoneOptional')}</p>
+        <p role='alert'>
+          <LiveVoiceErrorMessage error={controller.microphoneError} />{' '}
+          {t('module.chat.liveVoiceMicrophoneOptional')}
+        </p>
       ) : null}
     </div>
+  );
+};
+
+const LiveVoiceErrorMessage = ({
+  error,
+  diagnostic,
+}: {
+  error: unknown;
+  diagnostic?: LiveVoiceFollowUpController['errorDiagnostic'];
+}) => {
+  const { t } = useTranslation();
+  const detail = liveVoiceErrorPresentation(error, diagnostic);
+  return (
+    <>
+      {detail.stageKey ? `${t(detail.stageKey)}: ` : ''}
+      {t(detail.messageKey)} ({detail.code}
+      {detail.closeCode !== null ? `; WebSocket ${detail.closeCode}` : ''})
+    </>
   );
 };

@@ -403,6 +403,11 @@ const Harness = ({
         {String(controller.microphonePending)}
       </span>
       <span data-testid='error'>{controller.errorCode || ''}</span>
+      <span data-testid='diagnostic'>
+        {controller.errorDiagnostic
+          ? JSON.stringify(controller.errorDiagnostic)
+          : ''}
+      </span>
       <span data-testid='microphone-error'>
         {controller.microphoneError || ''}
       </span>
@@ -568,6 +573,16 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       expect(screen.getByTestId('state')).toHaveTextContent('ended'),
     );
     expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+      '"websocketCloseCode":1006',
+    );
+    const staleClose = mockSockets[1].onclose;
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(3));
+    expect(screen.getByTestId('diagnostic')).toBeEmptyDOMElement();
+    act(() => staleClose?.({ code: 1008 } as CloseEvent));
+    expect(screen.getByTestId('diagnostic')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('state')).toHaveTextContent('connecting');
   });
 
   it('retains a paused owner beyond its authorization window and revalidates before input', async () => {
@@ -616,6 +631,36 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockAudio.stop).toHaveBeenCalled();
     expect(mockCreateSession).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['rejected', 'expired'] as const)(
+    'preserves the admission reason when ownership authorization is %s',
+    async failure => {
+      jest.useFakeTimers();
+      enableTakeover();
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await act(async () => {});
+      act(() => mockSockets[0].open());
+      await makeReady();
+      if (failure === 'rejected') {
+        mockHeartbeatSession.mockRejectedValue(
+          new LiveFollowUpControlError('admission_unavailable'),
+        );
+      } else {
+        mockHeartbeatSession.mockReturnValue(new Promise(() => {}));
+      }
+      await act(async () => jest.advanceTimersByTime(10_000));
+      expect(screen.getByTestId('error')).toHaveTextContent('server_error');
+      expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+        JSON.stringify({
+          stage: 'heartbeat',
+          reason: 'admission_unavailable',
+        }),
+      );
+      expect(mockAudio.stop).toHaveBeenCalled();
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it.each([false, true])(
     'renews an expired owner without reclaiming a newer revision (%s)',
@@ -922,6 +967,9 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
         fireEvent.click(screen.getByRole('button', { name: 'text' })),
       );
       expect(screen.getByTestId('error')).toHaveTextContent(errorCode);
+      expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+        JSON.stringify({ stage: 'session_create', reason }),
+      );
       expect(screen.getByTestId('retry-at')).toHaveTextContent(
         String(requestedAt + 2_000),
       );
@@ -4919,6 +4967,57 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     },
   );
 
+  it('keeps the close code after error and reports only one terminal outcome', async () => {
+    jest.useFakeTimers();
+    render(<Harness />);
+    await startAndOpen();
+    act(() => mockSockets[0].fail());
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    act(() => mockSockets[0].serverClose(1008));
+    expect(screen.getByTestId('error')).toHaveTextContent('websocket_failed');
+    expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+      '"websocketCloseCode":1008',
+    );
+    const events = [...mockTrackEvent.mock.calls];
+    expect(
+      events.filter(([name]) => name === 'learner_voice_follow_up_result'),
+    ).toHaveLength(1);
+    await act(async () => jest.advanceTimersByTime(250));
+    expect(mockTrackEvent.mock.calls).toEqual(events);
+  });
+
+  it('bounds missing close events even after repeated error events', async () => {
+    jest.useFakeTimers();
+    render(<Harness />);
+    await startAndOpen();
+    act(() => mockSockets[0].fail());
+    await act(async () => jest.advanceTimersByTime(200));
+    act(() => mockSockets[0].fail());
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    await act(async () => jest.advanceTimersByTime(50));
+    expect(screen.getByTestId('error')).toHaveTextContent('websocket_failed');
+    expect(screen.getByTestId('diagnostic')).not.toHaveTextContent(
+      'websocketCloseCode',
+    );
+    expect(mockSockets[0].onclose).toBeNull();
+  });
+
+  it('cancels a pending error fallback on navigation', async () => {
+    jest.useFakeTimers();
+    const { rerender } = render(<Harness />);
+    await startAndOpen();
+    act(() => mockSockets[0].fail());
+    rerender(
+      <Harness
+        outlineBid='lesson-2'
+        anchorElementBid='element-2'
+      />,
+    );
+    await act(async () => jest.advanceTimersByTime(250));
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('diagnostic')).toBeEmptyDOMElement();
+  });
+
   it('clears failed conversation state on navigation without bypassing credential admission', async () => {
     jest.useFakeTimers();
     const expiresAt = Date.now() + 15 * 60_000;
@@ -4936,7 +5035,10 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       );
     });
     fireEvent.click(screen.getByRole('button', { name: 'mute' }));
-    await act(async () => mockSockets[0].fail());
+    await act(async () => {
+      mockSockets[0].fail();
+      jest.advanceTimersByTime(250);
+    });
     expect(screen.getByTestId('transcripts')).toHaveTextContent(
       'Private question',
     );
