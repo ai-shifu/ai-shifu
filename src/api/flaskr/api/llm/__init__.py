@@ -773,7 +773,10 @@ _LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, objec
         "additional_drop_params": ["enable_thinking"],
     },
     ("gemini", "gemini-3.7-flash"): {"reasoning_effort": "low"},
-    ("gemini", "gemini-3.8-flash"): {"reasoning_effort": "low"},
+    ("gemini", "gemini-3.8-flash"): {
+        "reasoning_effort": "low",
+        "allowed_openai_params": ["reasoning_effort"],
+    },
     ("gemini", "gemini-2.5-pro"): {"reasoning_effort": "minimal"},
     ("openai", "gpt-5-pro"): {"reasoning_effort": "high"},
     ("openai", "gpt-5-pro-2025-10-06"): {"reasoning_effort": "high"},

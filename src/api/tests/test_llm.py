@@ -1498,7 +1498,10 @@ def test_gemini_exact_minimum_patches(
 
     assert prepared["reasoning_effort"] == expected_effort
     assert ("temperature" in prepared) is expects_temperature
-    assert "allowed_openai_params" not in prepared
+    if str(model_id).lower() == "gemini-3.8-flash":
+        assert prepared["allowed_openai_params"] == ["reasoning_effort"]
+    else:
+        assert "allowed_openai_params" not in prepared
 
 
 @pytest.mark.parametrize(
