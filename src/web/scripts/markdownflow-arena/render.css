@@ -1,0 +1,40 @@
+html,
+body {
+  margin: 0;
+  color: #171717;
+  background: white;
+  font-family: Inter, 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+  font-size: 18px;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.arena-reading {
+  width: 1200px;
+  padding: 48px 64px;
+}
+.arena-slide {
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+}
+.arena-slide > section {
+  width: 100%;
+  height: 100%;
+}
+
+/* Screenshot chrome is excluded consistently from every candidate. */
+.content-render-iframe-sandbox > button {
+  display: none !important;
+}
+
+*,
+*::before,
+*::after {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+  caret-color: transparent !important;
+}

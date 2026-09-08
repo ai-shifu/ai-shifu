@@ -1,0 +1,47 @@
+{
+  "__namespace__": "module.arena",
+  "base_name": "MarkdownFlow 模型比拼",
+  "category_labels": {
+    "slides": "演示文稿",
+    "text": "文字内容",
+    "visual": "图表与公式"
+  },
+  "choices": {
+    "a": "A 更好",
+    "b": "B 更好",
+    "both_bad": "都不好",
+    "tie": "差不多"
+  },
+  "fields": {
+    "a_images": "A 图片",
+    "a_pdf": "A 完整 PDF",
+    "b_images": "B 图片",
+    "b_pdf": "B 完整 PDF",
+    "case_id": "片段编号",
+    "category": "类型",
+    "choice": "选择",
+    "instructions": "评审说明",
+    "matchup_id": "对局编号",
+    "matchup_record_id": "对局记录编号",
+    "reviewer": "评审者",
+    "run_id": "轮次编号",
+    "summary": "统计结果",
+    "summary_id": "汇总编号",
+    "task_description": "任务说明",
+    "voted_at": "投票时间"
+  },
+  "instructions": "请先查看 A、B 的全部图片，再点击一个选项。每人每局只计算第一次有效选择。模型身份对评审隐藏。",
+  "review_tasks": {
+    "slides": "比较两份演示文稿的讲解是否清楚、结构是否连贯、版面是否易读。请看完全部页面，再选择整体更好的一份。",
+    "text": "比较两份学习内容的表达是否清楚、结构是否易读、是否帮助理解。请结合全部图片选择整体更好的一份。",
+    "visual": "比较两份学习内容中的图表、公式与文字是否清楚、准确、易于理解，版面是否便于阅读。请结合全部图片选择整体更好的一份。"
+  },
+  "tables": {
+    "matchups": "待评审对局",
+    "summary": "管理与统计",
+    "votes": "原始投票"
+  },
+  "workflow_action_title": "记录选择",
+  "workflow_title": "记录投票",
+  "workflow_trigger_title": "点击投票按钮"
+}

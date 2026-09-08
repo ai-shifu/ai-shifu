@@ -1,0 +1,47 @@
+{
+  "__namespace__": "module.arena",
+  "base_name": "Comparaison de modèles MarkdownFlow",
+  "category_labels": {
+    "slides": "Présentations",
+    "text": "Contenu textuel",
+    "visual": "Graphiques et formules"
+  },
+  "choices": {
+    "a": "A est meilleur",
+    "b": "B est meilleur",
+    "both_bad": "Les deux sont mauvais",
+    "tie": "Équivalents"
+  },
+  "fields": {
+    "a_images": "Images A",
+    "a_pdf": "PDF complet A",
+    "b_images": "Images B",
+    "b_pdf": "PDF complet B",
+    "case_id": "Identifiant d’extrait",
+    "category": "Catégorie",
+    "choice": "Choix",
+    "instructions": "Consignes d’évaluation",
+    "matchup_id": "Identifiant de comparaison",
+    "matchup_record_id": "Identifiant de fiche",
+    "reviewer": "Évaluateur",
+    "run_id": "Identifiant de session",
+    "summary": "Statistiques",
+    "summary_id": "Identifiant de synthèse",
+    "task_description": "Description de la tâche",
+    "voted_at": "Date du vote"
+  },
+  "instructions": "Consultez toutes les images de A et B, puis choisissez une option. Seul votre premier choix valide par comparaison est comptabilisé. L’identité des modèles est masquée.",
+  "review_tasks": {
+    "slides": "Comparez la clarté des explications, la cohérence et la lisibilité des deux présentations. Consultez toutes les pages avant de choisir la meilleure version dans son ensemble.",
+    "text": "Comparez la clarté des explications, la lisibilité et l’aide à la compréhension des deux versions. Consultez toutes les images et choisissez la meilleure version dans son ensemble.",
+    "visual": "Comparez la clarté, l’exactitude et la lisibilité des graphiques, des formules et du texte des deux versions. Consultez toutes les images et choisissez la meilleure version dans son ensemble."
+  },
+  "tables": {
+    "matchups": "Comparaisons à évaluer",
+    "summary": "Gestion et statistiques",
+    "votes": "Votes bruts"
+  },
+  "workflow_action_title": "Enregistrer le choix",
+  "workflow_title": "Enregistrer le vote",
+  "workflow_trigger_title": "Cliquer sur un bouton de vote"
+}
