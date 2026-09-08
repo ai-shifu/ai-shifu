@@ -68,11 +68,12 @@ end
 local function write(key, value, expiry)
     redis.call('SET', key, cjson.encode(value), 'PXAT', math.ceil(expiry))
 end
-local function rejected(code, delay)
+local function rejected(code, delay, scopes)
     local value = {operation_status='rejected', error_code=code,
         request_bid=args.request_bid, rotation_enabled=args.rotation_enabled,
         server_time_ms=now}
     if delay and delay > 0 then value.retry_after_ms = math.ceil(delay) end
+    if scopes then value.capacity_scopes = scopes end
     return cjson.encode(value)
 end
 """
@@ -237,26 +238,29 @@ elseif head and head.expires_at_ms > now and head.state ~= 'retired'
 end
 
 local delay = 0
-local function quota(key, limit, multiplier, window)
+local capacity_scopes = {}
+local function quota(key, limit, multiplier, window, scope)
     local count = redis.call('ZCARD', key)
     if count >= limit then
+        table.insert(capacity_scopes, scope)
         local item = redis.call('ZRANGE', key, count-limit, count-limit, 'WITHSCORES')
         delay = math.max(delay, tonumber(item[2])*multiplier + window-now)
     end
 end
-quota(KEYS[1], args.rotation_enabled and 96 or 24, 1000, 0)
-if not args.rotation_enabled then quota(KEYS[2], 6, 1000, 0) end
-quota(KEYS[3], args.rotation_enabled and not args.legacy and 8 or 1, 1000, 0)
-if not redis.call('ZSCORE', KEYS[12], KEYS[4]) then quota(KEYS[12], 24, 1, 0) end
-quota(KEYS[6], 4, 1, 60000)
-quota(KEYS[7], 24, 1, 60000)
+quota(KEYS[1], args.rotation_enabled and args.global_credential_limit or 24, 1000, 0, 'global_credentials')
+if not args.rotation_enabled then quota(KEYS[2], 6, 1000, 0, 'worker_credentials') end
+quota(KEYS[3], args.rotation_enabled and not args.legacy and args.user_credential_limit or 1, 1000, 0, 'user_credentials')
+if not redis.call('ZSCORE', KEYS[12], KEYS[4]) then quota(KEYS[12], args.active_session_limit, 1, 0, 'active_sessions') end
+quota(KEYS[6], args.user_mint_rate_limit, 1, 60000, 'user_mint_rate')
+quota(KEYS[7], args.global_mint_rate_limit, 1, 60000, 'global_mint_rate')
     local legacy_lease = redis.call('GET', KEYS[9])
 if legacy_lease and not redis.call('ZSCORE', KEYS[3], legacy_lease) then
     local remaining = redis.call('PTTL', KEYS[9])
     if remaining < 0 then return rejected('admission_unavailable') end
+    if remaining > 0 then table.insert(capacity_scopes, 'legacy_user_credential') end
     delay = math.max(delay, remaining)
 end
-if delay > 0 then return rejected('capacity_exceeded', delay) end
+if delay > 0 then return rejected('capacity_exceeded', delay, capacity_scopes) end
 
 local expiry = now + 900000
 op = {request_bid=args.request_bid, session_bid=args.session_bid,
@@ -364,6 +368,28 @@ def _keys(
     )
 
 
+_CAPACITY_LIMITS = {
+    "global_credential_limit": ("GEMINI_LIVE_GLOBAL_CREDENTIAL_LIMIT", 96),
+    "user_credential_limit": ("GEMINI_LIVE_USER_CREDENTIAL_LIMIT", 8),
+    "active_session_limit": ("GEMINI_LIVE_ACTIVE_SESSION_LIMIT", 24),
+    "user_mint_rate_limit": ("GEMINI_LIVE_USER_MINT_RATE_LIMIT", 4),
+    "global_mint_rate_limit": ("GEMINI_LIVE_GLOBAL_MINT_RATE_LIMIT", 24),
+}
+
+
+def _capacity_limits(app: Flask) -> dict[str, int]:
+    """Keep invalid configuration from disabling a shared admission bound."""
+    limits = {}
+    for argument, (name, default) in _CAPACITY_LIMITS.items():
+        configured = app.config.get(name, default)
+        try:
+            value = int(str(configured))
+        except (TypeError, ValueError):
+            value = default
+        limits[argument] = value if value > 0 else default
+    return limits
+
+
 def _run(
     app: Flask,
     request: AdmissionRequest,
@@ -382,6 +408,7 @@ def _run(
         "rotation_enabled": False,
         "takeover": request.takeover,
         **values,
+        **_capacity_limits(app),
     }
     try:
         keys = _keys(app, request, worker_id=worker_id, session_bid=session_bid)
@@ -519,6 +546,12 @@ def begin_admission(
         lease_id=lease.lease_id,
         admission_revision=secrets.token_urlsafe(32),
     )
+    if data.get("error_code") == "capacity_exceeded":
+        app.logger.info(
+            "Gemini Live capacity rejected scopes=%s retry_after_ms=%s",
+            data.get("capacity_scopes", []),
+            data.get("retry_after_ms"),
+        )
     reserved = data.pop("reserved", False)
     issued_at = int(data.pop("issued_at_ms", 0))
     deadline = int(data.pop("deadline_ms", 0))

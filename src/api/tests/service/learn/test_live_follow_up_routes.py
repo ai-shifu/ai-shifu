@@ -1662,6 +1662,8 @@ def test_v2_admission_rejection_is_bounded_data_without_provider_call(
         "rotation_enabled": True,
         "retry_after_ms": 1000,
     }
+    if error_code == "capacity_exceeded":
+        expected["capacity_scopes"] = ["user_credentials", "user_mint_rate"]
     monkeypatch.setattr(
         routes, "begin_admission", lambda *_a, **_k: AdmissionResult(expected)
     )

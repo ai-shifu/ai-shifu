@@ -1,3 +1,4 @@
+import { LIVE_FOLLOW_UP_CAPACITY_SCOPES } from '@/lib/liveVoiceCapacityScopes';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import {
@@ -401,3 +402,28 @@ it('shows the stable reason and close code but no raw provider description', () 
     'module.chat.liveVoiceErrorStages.websocket',
   );
 });
+
+it.each(LIVE_FOLLOW_UP_CAPACITY_SCOPES)(
+  'shows capacity scope %s in the existing alert',
+  scope => {
+    render(
+      <LiveVoiceFollowUpControls
+        controller={mockLiveVoiceController({
+          anchorElementBid: 'anchor',
+          errorCode: 'capacity_exceeded',
+          errorDiagnostic: {
+            stage: 'session_create',
+            reason: 'capacity_exceeded',
+            capacityScopes: [scope],
+          },
+        })}
+        target={target}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      `module.chat.liveVoiceCapacityScopes.${scope}`,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('(capacity_exceeded)');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  },
+);

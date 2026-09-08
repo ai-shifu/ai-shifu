@@ -21,6 +21,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Ratings SQL Optimization](./active/creator-dashboard-ratings-sql-optimization.md)
 - [Creator Dashboard Request Splitting](./active/creator-dashboard-request-splitting.md)
 - [Credit Notification Email Delivery](./active/credit-notification-email-delivery.md)
+- [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live Voice Follow-Up](./active/gemini-live-voice-follow-up.md)
 - [Gemini TTS Provider](./active/gemini-tts.md)
 - [Learner listen playback stability](./active/learner-listen-playback-stability.md)

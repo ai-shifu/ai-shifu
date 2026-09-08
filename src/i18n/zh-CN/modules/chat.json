@@ -39,6 +39,15 @@
   "listenPlaybackSpeedLabel": "播放倍速",
   "liveVoiceAI": "AI 老师",
   "liveVoiceCapacityExceeded": "当前语音会话较忙，请稍后重试。",
+  "liveVoiceCapacityScopes": {
+    "active_sessions": "全站活跃语音会话数量已达上限。",
+    "global_credentials": "全站未过期语音凭证数量已达上限。",
+    "global_mint_rate": "全站发起语音会话的频率已达上限。",
+    "legacy_user_credential": "你之前的语音凭证尚未过期，暂时不能创建新会话。",
+    "user_credentials": "你的未过期语音凭证数量已达上限。",
+    "user_mint_rate": "你发起语音会话的频率过高。",
+    "worker_credentials": "当前服务进程的语音凭证数量已达上限。"
+  },
   "liveVoiceClose": "关闭",
   "liveVoiceConnectionFailed": "语音会话连接失败，请重试。",
   "liveVoiceEmpty": "准备好后，直接开口说话。",
