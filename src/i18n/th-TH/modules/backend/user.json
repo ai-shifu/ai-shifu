@@ -5,7 +5,7 @@
     "checkCodeExpired": "รหัสยืนยันแบบรูปภาพหมดอายุแล้ว",
     "deviceAuthAlreadyHandled": "คำขออนุญาตนี้ได้รับการดำเนินการแล้ว",
     "deviceAuthTooManyRequests": "มีคำขออนุญาตมากเกินไป กรุณาลองใหม่ภายหลัง",
-    "deviceCodeInvalid": "รหัสจับคู่ไม่ถูกต้องหรือหมดอายุแล้ว กรุณาเริ่มการอนุญาตใหม่จากบรรทัดคำสั่ง",
+    "deviceCodeInvalid": "รหัสจับคู่ไม่ถูกต้องหรือหมดอายุแล้ว กรุณากลับไปที่แอปที่คุณใช้งานเมื่อสักครู่แล้วขออนุญาตอีกครั้ง",
     "emailSendFailed": "ส่งอีเมลไม่สำเร็จ",
     "emailSendTooFrequent": "ส่งอีเมลถี่เกินไป",
     "emailVerificationExpiry": "รหัสยืนยันจะหมดอายุใน {expiry_duration}",
