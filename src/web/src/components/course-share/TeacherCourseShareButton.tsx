@@ -148,7 +148,7 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
           {...props}
           surface='teacher_header'
           showLabel
-          label={t('common.core.shareCourse')}
+          label={t('common.core.shareCourseLink')}
           variant='ghost'
           size='default'
           className='w-full justify-start gap-2'

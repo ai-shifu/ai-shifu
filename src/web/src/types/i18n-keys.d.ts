@@ -53,6 +53,7 @@ export type I18nKey =
   | 'common.core.share'
   | 'common.core.shareContentCopied'
   | 'common.core.shareCourse'
+  | 'common.core.shareCourseLink'
   | 'common.core.shareCourseMessage'
   | 'common.core.shareFailed'
   | 'common.core.shifu'

@@ -83,7 +83,7 @@ test('shows only two actions in a non-modal anchored popover', () => {
   const popup = screen.getByRole('dialog');
   expect(within(popup).getAllByRole('button')).toHaveLength(2);
   expect(
-    within(popup).getByRole('button', { name: zh.shareCourse }),
+    within(popup).getByRole('button', { name: zh.shareCourseLink }),
   ).toBeVisible();
   expect(screen.getByRole('button', { name: zh.posterCopy })).toBeVisible();
   expect(screen.queryByText(props.courseTitle)).not.toBeInTheDocument();
@@ -171,7 +171,7 @@ test.each(['success', 'cancelled'])(
     open();
     fireEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', {
-        name: zh.shareCourse,
+        name: zh.shareCourseLink,
       }),
     );
     expect(share).toHaveBeenCalledTimes(1);
@@ -198,7 +198,7 @@ test('ordinary share failure closes with existing error feedback', async () => {
   open();
   fireEvent.click(
     within(screen.getByRole('dialog')).getByRole('button', {
-      name: zh.shareCourse,
+      name: zh.shareCourseLink,
     }),
   );
   await closed();
@@ -223,7 +223,7 @@ test('pending sharing blocks prompt copying and reopening until completion', asy
   open();
   fireEvent.click(
     within(screen.getByRole('dialog')).getByRole('button', {
-      name: zh.shareCourse,
+      name: zh.shareCourseLink,
     }),
   );
   expect(screen.getByRole('button', { name: zh.posterCopy })).toBeDisabled();
