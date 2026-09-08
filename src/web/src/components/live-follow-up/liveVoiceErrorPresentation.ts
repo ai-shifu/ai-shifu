@@ -1,3 +1,4 @@
+import type { I18nKey } from '@/types/i18n-keys';
 import type { LiveVoiceFollowUpErrorCode } from './liveVoiceFollowUpAnalytics';
 import type { LiveVoiceErrorDiagnostic } from './useLiveVoiceFollowUp';
 
@@ -24,7 +25,7 @@ const errorMessages = {
 } satisfies Record<
   | Exclude<LiveVoiceFollowUpErrorCode, 'none'>
   | NonNullable<LiveVoiceErrorDiagnostic['reason']>,
-  string
+  I18nKey
 >;
 
 const stageMessages = {
@@ -32,7 +33,7 @@ const stageMessages = {
   resume: 'module.chat.liveVoiceErrorStages.resume',
   heartbeat: 'module.chat.liveVoiceErrorStages.heartbeat',
   websocket: 'module.chat.liveVoiceErrorStages.websocket',
-} satisfies Record<LiveVoiceErrorDiagnostic['stage'], string>;
+} satisfies Record<LiveVoiceErrorDiagnostic['stage'], I18nKey>;
 
 /** Only bounded machine codes can enter presentation; never render raw errors. */
 export const liveVoiceErrorPresentation = (
