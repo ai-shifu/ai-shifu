@@ -1472,6 +1472,8 @@ def test_gemini_uses_native_mapping_and_does_not_override_temperature(
     [
         ("gemini-3.7-flash", "low", False),
         ("GEMINI-3.7-FLASH", "low", False),
+        ("gemini-3.8-flash", "low", False),
+        ("GEMINI-3.8-FLASH", "low", False),
         ("gemini-2.5-pro", "minimal", True),
     ],
 )
@@ -1496,7 +1498,10 @@ def test_gemini_exact_minimum_patches(
 
     assert prepared["reasoning_effort"] == expected_effort
     assert ("temperature" in prepared) is expects_temperature
-    assert "allowed_openai_params" not in prepared
+    if str(model_id).lower() == "gemini-3.8-flash":
+        assert prepared["allowed_openai_params"] == ["reasoning_effort"]
+    else:
+        assert "allowed_openai_params" not in prepared
 
 
 @pytest.mark.parametrize(
@@ -1856,6 +1861,11 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 custom_llm_provider="gemini",
                 reasoning_effort="none",
             ),
+            "gemini_38_flash": litellm.get_optional_params(
+                model="gemini-3.8-flash",
+                custom_llm_provider="gemini",
+                **prepared("gemini", "gemini", "gemini-3.8-flash"),
+            ),
             "gemini_25_pro": litellm.get_optional_params(
                 model="gemini-2.5-pro",
                 custom_llm_provider="gemini",
@@ -1984,6 +1994,10 @@ def test_litellm_198_native_adapter_contracts() -> None:
         "includeThoughts": False,
     }
     assert contracts["gemini_37_flash"]["thinkingConfig"] == {
+        "thinkingLevel": "low",
+        "includeThoughts": True,
+    }
+    assert contracts["gemini_38_flash"]["thinkingConfig"] == {
         "thinkingLevel": "low",
         "includeThoughts": True,
     }
