@@ -52,9 +52,11 @@ Chromium's aggregate `networkidle` state for nested iframe documents.
 30–1200); the Python caller forwards the configured timeout to this option.
 
 Outbound access is disabled by default. The trusted run configuration can pass
-repeated `--asset-host cdn.example` flags to permit HTTPS GET requests for images,
-fonts, stylesheets, and scripts from exact public hostnames. Model output must
-never supply this allowlist. Redirects, private destinations, API requests,
+repeated `--asset-url https://cdn.example/fixed.png` flags to permit HTTPS GET requests for images,
+fonts, stylesheets, and scripts from exact operator-approved URLs, including their paths and queries. Model output must
+never supply this allowlist. A changed path or query is blocked even on an
+approved hostname. The old `--asset-host` option fails closed; migrate each
+needed asset to an explicit URL or the verified offline cache. Redirects, private destinations, API requests,
 WebSockets, popups, downloads, and extra navigation are blocked. An unavailable
 or blocked resource fails the artifact instead of producing an incomplete
 comparison. HTML uses the library's iframe renderer inside the disposable
@@ -78,7 +80,7 @@ Pass `--asset-cache /absolute/private/assets.json` with this private format:
 
 Only exact GET image requests are fulfilled from verified PNG/JPEG bytes. The
 cache never performs a network request, forwards cookies, permits scripts, or
-widens the existing asset-host/DNS rules. Files are limited to 20 MB each and
+widens the exact-URL/DNS rules. Files are limited to 20 MB each and
 100 MB total. A changed hash or unsupported image fails the render. The result
 records `asset_cache_sha256` for the cache manifest used. Keep the manifest and
 images private and supply this option only from trusted run configuration.

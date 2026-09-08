@@ -1,6 +1,6 @@
 import { isIP } from "node:net";
 
-export const RENDERER_VERSION = "2";
+export const RENDERER_VERSION = "3";
 export const MAX_PAGES = 50;
 
 export class RenderError extends Error {
@@ -88,7 +88,7 @@ export function isPublicAddress(address) {
   return false;
 }
 
-export function isAllowedAsset(request, allowedHosts) {
+export function isAllowedAsset(request, allowedUrls) {
   let url;
   try {
     url = new URL(request.url());
@@ -101,7 +101,8 @@ export function isAllowedAsset(request, allowedHosts) {
     !url.username &&
     !url.password &&
     (!url.port || url.port === "443") &&
-    allowedHosts.has(url.hostname) &&
+    allowedUrls.has(request.url()) &&
+    !request.isNavigationRequest() &&
     ["image", "font", "stylesheet", "script"].includes(request.resourceType())
   );
 }

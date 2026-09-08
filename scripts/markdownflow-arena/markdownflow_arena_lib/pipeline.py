@@ -155,8 +155,8 @@ class BrowserRenderer:
                 str(self.config["renderer_timeout_seconds"]),
             ]
         )
-        for host in self.config["renderer_asset_hosts"]:
-            command.extend(["--asset-host", host])
+        for url in self.config["renderer_asset_urls"]:
+            command.extend(["--asset-url", url])
         try:
             process = subprocess.run(
                 command,

@@ -400,7 +400,29 @@ export async function render(options) {
   const timeout = rendererTimeoutMs(options["timeout-seconds"]);
   const assetCache = await loadAssetCache(options["asset-cache"]);
   const routePrefix = `/${randomBytes(24).toString("hex")}/`;
-  const allowedHosts = new Set(options["asset-host"] ?? []);
+  if (options["asset-host"]?.length) {
+    throw new RenderError("asset_host_allowlist_removed_use_exact_urls");
+  }
+  const allowedUrls = new Set(options["asset-url"] ?? []);
+  const allowedHosts = new Set();
+  for (const value of allowedUrls) {
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new RenderError("invalid_asset_url");
+    }
+    if (
+      url.href !== value ||
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.hash ||
+      (url.port && url.port !== "443")
+    )
+      throw new RenderError("invalid_asset_url");
+    allowedHosts.add(url.hostname);
+  }
   const publicAddresses = new Map();
   for (const host of allowedHosts) {
     if (new URL(`https://${host}`).hostname !== host)
@@ -541,7 +563,7 @@ export async function render(options) {
         });
         return;
       }
-      if (isAllowedAsset(request, allowedHosts)) {
+      if (isAllowedAsset(request, allowedUrls)) {
         try {
           const asset = await fetchAsset(
             url,
@@ -699,6 +721,7 @@ if (
         input: { type: "string" },
         output: { type: "string" },
         "asset-host": { type: "string", multiple: true },
+        "asset-url": { type: "string", multiple: true },
         "asset-cache": { type: "string" },
         "browser-path": { type: "string" },
         "timeout-seconds": { type: "string" },

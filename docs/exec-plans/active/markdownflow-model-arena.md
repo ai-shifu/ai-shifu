@@ -10,6 +10,13 @@ rendering paths directly.
 
 ## Progress
 
+- [x] 2026-09-08 UTC: Fixed four current PR review findings: removed the
+  feature-wide Ruff exception, documented tests with file-local pytest assertion
+  allowances, checked negated/conditional numbered slide tasks, retained positive
+  commands with negative layout constraints, and limited remote assets to exact
+  operator-approved URLs. Passed 169 Python tests, 10 renderer unit tests, the Chromium smoke
+  suite, and the repository-wide gate.
+
 - [x] 2026-09-08 UTC: Replaced Doubao Turbo with the configured
   `ark/doubao-seed-2-0-lite-260428` and added `qwen/ZHIPU/GLM-5.3-Flash`.
   Verified exact routes and current access for the three frozen slide cases.
@@ -53,6 +60,12 @@ rendering paths directly.
   PNG pages and does not depend on PDF identity or external attachment state.
 
 ## Decision Log
+
+- Remote renderer access requires exact HTTPS URLs (including query strings),
+  never hostname-wide permission. Nonempty legacy host allowlists fail closed;
+  empty lists stay compatible. Offline verified image caches remain supported.
+- Review fixes do not rebuild private reports or change the user's manual HTML
+  deletions. They affect future manual script runs only.
 
 - User requested a standalone, manually invoked script that reuses main-flow
   code. All orchestration, capture, local copy, dependencies, and tests live under

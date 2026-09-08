@@ -16,5 +16,5 @@
     "sys_user_language": "zh-CN",
     "sys_user_nickname": "Test learner"
   },
-  "renderer_asset_hosts": []
+  "renderer_asset_urls": []
 }

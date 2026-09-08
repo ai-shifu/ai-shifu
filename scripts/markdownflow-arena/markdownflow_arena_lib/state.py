@@ -12,6 +12,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -138,13 +139,34 @@ def validate_config(config: dict) -> dict:
     if not isinstance(result["variables"], dict):
         msg = "variables must be an explicit frozen object"
         raise ArenaError(msg)
-    result.setdefault("renderer_asset_hosts", [])
-    if not isinstance(result["renderer_asset_hosts"], list) or any(
-        not isinstance(host, str) or not re.fullmatch(r"[a-zA-Z0-9.-]+", host)
-        for host in result["renderer_asset_hosts"]
-    ):
-        msg = "renderer_asset_hosts must contain explicit hostnames"
+    if result.get("renderer_asset_hosts", []) != []:
+        msg = (
+            "renderer_asset_hosts is no longer supported; use exact renderer_asset_urls"
+        )
         raise ArenaError(msg)
+    result.pop("renderer_asset_hosts", None)
+    result.setdefault("renderer_asset_urls", [])
+    if not isinstance(result["renderer_asset_urls"], list):
+        msg = "renderer_asset_urls must be a list of exact HTTPS URLs"
+        raise ArenaError(msg)
+    for value in result["renderer_asset_urls"]:
+        try:
+            url = urlsplit(value) if isinstance(value, str) else None
+            valid = (
+                url is not None
+                and url.scheme == "https"
+                and url.hostname
+                and not url.username
+                and not url.password
+                and not url.fragment
+                and url.port in {None, 443}
+                and not any(character.isspace() for character in value)
+            )
+        except ValueError:
+            valid = False
+        if not valid:
+            msg = "renderer_asset_urls must contain exact public HTTPS asset URLs"
+            raise ArenaError(msg)
     return result
 
 

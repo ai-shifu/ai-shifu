@@ -116,13 +116,21 @@ def test_browser_renderer_receives_pipeline_timeout(
     def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
         assert command[command.index("--timeout-seconds") + 1] == str(timeout)
         assert kwargs["timeout"] == timeout
+        assert (
+            command[command.index("--asset-url") + 1]
+            == "https://cdn.example/fixed.png?v=1"
+        )
+        assert "--asset-host" not in command
         return subprocess.CompletedProcess(
             command, 0, stdout="Diagnostic line\n" + json.dumps(result) + "\n\n"
         )
 
     monkeypatch.setattr(pipeline_module.subprocess, "run", run)
     renderer = pipeline_module.BrowserRenderer(
-        {"renderer_asset_hosts": [], "renderer_timeout_seconds": timeout}
+        {
+            "renderer_asset_urls": ["https://cdn.example/fixed.png?v=1"],
+            "renderer_timeout_seconds": timeout,
+        }
     )
     assert renderer.render(artifact_path, output_dir) == result
 
@@ -499,3 +507,30 @@ def test_report_only_does_not_call_backend(arena: ArenaPipeline) -> None:
     before = list(arena.backend.calls)
     arena.report()
     assert arena.backend.calls == before
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "cdn.example",
+        "http://cdn.example/a.png",
+        "https://u:p@cdn.example/a",
+        "https://cdn.example/a#fragment",
+        "https://cdn.example:444/a",
+        "https://cdn.example:bad/a",
+        42,
+    ],
+)
+def test_asset_urls_reject_unsafe_configuration(value: object) -> None:
+    """Fail closed for non-HTTPS or ambiguous operator asset entries."""
+    with pytest.raises(ArenaError, match="renderer_asset_urls"):
+        validate_config({"owner_phone": "10000000000", "renderer_asset_urls": [value]})
+
+
+def test_legacy_asset_hosts_require_explicit_url_migration() -> None:
+    """Keep offline manifests resumable without accepting broad network access."""
+    config = {"owner_phone": "10000000000", "renderer_asset_hosts": []}
+    assert validate_config(config)["renderer_asset_urls"] == []
+    config["renderer_asset_hosts"] = ["cdn.example"]
+    with pytest.raises(ArenaError, match="exact renderer_asset_urls"):
+        validate_config(config)

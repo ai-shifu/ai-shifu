@@ -93,18 +93,22 @@ test("adapts production ElementDTO types to the Slide component contract", () =>
   assert.equal(normalized.stepCount, 2);
 });
 
-test("external access is restricted to explicit HTTPS asset hosts and GET", () => {
+test("external access is restricted to exact HTTPS asset URLs and GET", () => {
   const request = (url, type = "image", method = "GET") => ({
     url: () => url,
     resourceType: () => type,
     method: () => method,
+    isNavigationRequest: () => false,
   });
-  const hosts = new Set(["cdn.example"]);
+  const hosts = new Set(["https://cdn.example/a.png"]);
   assert.equal(
     isAllowedAsset(request("https://cdn.example/a.png"), hosts),
     true,
   );
   for (const url of [
+    "https://cdn.example/a.png?private=generated-content",
+    "https://cdn.example/private-generated-content.png",
+    "https://cdn.example/a.png#private",
     "http://cdn.example/a",
     "https://cdn.example:444/a",
     "https://user:pass@cdn.example/a",
@@ -114,11 +118,39 @@ test("external access is restricted to explicit HTTPS asset hosts and GET", () =
     assert.equal(isAllowedAsset(request(url), hosts), false);
   }
   assert.equal(
-    isAllowedAsset(request("https://cdn.example/a", "fetch"), hosts),
+    isAllowedAsset(request("https://cdn.example/a.png", "fetch"), hosts),
     false,
   );
   assert.equal(
-    isAllowedAsset(request("https://cdn.example/a", "image", "POST"), hosts),
+    isAllowedAsset(
+      request("https://cdn.example/a.png", "image", "POST"),
+      hosts,
+    ),
+    false,
+  );
+  assert.equal(
+    isAllowedAsset(
+      {
+        ...request("https://cdn.example/a.png"),
+        isNavigationRequest: () => true,
+      },
+      hosts,
+    ),
+    false,
+  );
+  const versioned = new Set(["https://cdn.example/lib.js?v=1"]);
+  assert.equal(
+    isAllowedAsset(
+      request("https://cdn.example/lib.js?v=1", "script"),
+      versioned,
+    ),
+    true,
+  );
+  assert.equal(
+    isAllowedAsset(
+      request("https://cdn.example/lib.js?v=1&private=content", "script"),
+      versioned,
+    ),
     false,
   );
 });

@@ -61,8 +61,11 @@ run through `chat_llm`; no production callback extension is installed.
 
 `renderer_command` optionally selects Node/Chromium and an offline image cache;
 see the [renderer guide](../../scripts/markdownflow-arena/renderer/README.md).
-`renderer_asset_hosts` is an explicit allowlist for source course assets. Model
-output does not authorize additional remote hosts. Workers and renderers have
+`renderer_asset_urls` lists exact operator-approved HTTPS asset URLs, including
+paths and queries. Model output cannot authorize extra paths, query parameters,
+or remote hosts. Nonempty legacy `renderer_asset_hosts` configurations fail
+closed and must be migrated to exact URLs or the verified offline image cache;
+empty legacy lists remain compatible. Workers and renderers have
 bounded configurable timeouts. Credentials stay in the operator environment.
 
 ## Local output and recovery
