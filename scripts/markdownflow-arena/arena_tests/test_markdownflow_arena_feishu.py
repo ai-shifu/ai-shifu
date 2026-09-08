@@ -72,6 +72,41 @@ def test_cli_uses_stdin_and_never_shell_interpolation(
     assert kwargs["timeout"] == 120
 
 
+def test_missing_remote_attachment_invalidates_ready_before_repair(
+    publisher: FeishuPublisher,
+    tmp_path: Path,
+) -> None:
+    page = tmp_path / "page.png"
+    page.write_bytes(b"verified image bytes")
+    publisher.state["publication_ready_at"] = {"pair1": "2026-01-01T00:00:00Z"}
+    publisher._attachment_rows = Mock(return_value=[])
+    publisher._base = Mock(side_effect=LarkCliError("Synthetic upload failure"))
+    with pytest.raises(LarkCliError, match="Synthetic upload"):
+        publisher._attachments("pair1", "rec1", "a", {"render": {"pages": [str(page)]}})
+    assert publisher.get_publication_ready_at("pair1") is None
+
+
+def test_intact_verified_pdf_survives_local_metadata_only_change(
+    publisher: FeishuPublisher,
+    tmp_path: Path,
+) -> None:
+    pdf = tmp_path / "complete.pdf"
+    pdf.write_bytes(b"new creation time with the same verified PNG pages")
+    old_name = "A-001-" + "a" * 20 + ".pdf"
+    ready = "2026-01-01T00:00:00Z"
+    publisher.state["publication_ready_at"] = {"pair1": ready}
+    publisher.state["publication_attachment_names"] = {"pair1": {"a_pdf": [old_name]}}
+    publisher._attachment_rows = Mock(
+        side_effect=lambda _matchup_id, field: (
+            [{"name": old_name}] if field == publisher.fields["a_pdf"] else []
+        )
+    )
+    publisher._base = Mock()
+    publisher._attachments("pair1", "rec1", "a", {"render": {"pdf": str(pdf)}})
+    assert publisher.get_publication_ready_at("pair1") == ready
+    publisher._base.assert_not_called()
+
+
 def test_cli_shortcut_json_uses_private_relative_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -700,7 +735,13 @@ def test_chinese_copy_preserves_the_requested_table_and_button_names(
 def test_matchup_publication_uses_explicit_blind_allowlist(
     publisher: FeishuPublisher, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    record = Mock(return_value="recPair")
+    def save_record(table: str, machine_id: str, _values: dict) -> str:
+        publisher.state.setdefault("records", {}).setdefault(table, {})[machine_id] = (
+            "recPair"
+        )
+        return "recPair"
+
+    record = Mock(side_effect=save_record)
     attachments = Mock()
     monkeypatch.setattr(publisher, "_record", record)
     monkeypatch.setattr(publisher, "_attachments", attachments)

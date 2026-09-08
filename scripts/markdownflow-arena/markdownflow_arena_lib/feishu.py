@@ -861,6 +861,26 @@ class FeishuPublisher:
             wanted = {name for _, name in plans}
             name = self.fields[field_key]
             current = self._attachment_rows(matchup_id, name)
+            current_names = {item["name"] for item in current}
+            verified_names = self.state.setdefault(
+                "publication_attachment_names", {}
+            ).setdefault(matchup_id, {})
+            previous_names = verified_names.get(field_key)
+            if (
+                field_key.endswith("_pdf")
+                and self.get_publication_ready_at(matchup_id)
+                and previous_names
+                and current_names == set(previous_names)
+                and len(current) == len(previous_names)
+            ):
+                # Intact PDFs for the same PNG revision remain valid even if
+                # a local PDF was recreated with a different creation timestamp.
+                continue
+            if current_names != wanted or len(current) != len(wanted):
+                # A remote edit can invalidate an otherwise unchanged local render.
+                # Exclude votes during repair, just as for a new visual revision.
+                self.state.setdefault("publication_ready_at", {}).pop(matchup_id, None)
+                self.save_state()
             stale = [item for item in current if item["name"] not in wanted]
             removal_key = f"attachment-remove:{record_id}:{field_key}"
             if stale:
@@ -938,6 +958,8 @@ class FeishuPublisher:
                 for key in list(self.state.get("pending", {})):
                     if key.startswith(prefix):
                         self._done(key)
+            verified_names[field_key] = sorted(wanted)
+            self.save_state()
 
     def publish_matchup(self, matchup: dict, artifact_a: dict, artifact_b: dict) -> str:
         """Upload only explicitly selected public fields and neutral artwork names."""
@@ -969,7 +991,15 @@ class FeishuPublisher:
         values[self.fields["category"]] = self.copy["category_labels"][category]
         values[self.fields["run_id"]] = self.state["run_id"]
         values[self.fields["instructions"]] = self.copy["instructions"]
+        previous_record_id = (
+            self.state.get("records", {}).get("matchups", {}).get(matchup["matchup_id"])
+        )
         record_id = self._record("matchups", matchup["matchup_id"], values)
+        if previous_record_id != record_id:
+            self.state.setdefault("publication_ready_at", {}).pop(
+                matchup["matchup_id"], None
+            )
+            self.save_state()
         self._attachments(matchup["matchup_id"], record_id, "a", artifact_a)
         self._attachments(matchup["matchup_id"], record_id, "b", artifact_b)
         revisions[matchup["matchup_id"]] = fingerprint

@@ -9,10 +9,14 @@ Base. Reviewers vote using native buttons; separate raw records retain distinct 
 
 ## Progress
 
+- [x] 2026-09-08 UTC: Resume now reconciles remote matchup records and attachment
+  names/counts even when local renders are unchanged. Missing artwork invalidates
+  its voting window before repair; intact verified PDFs retain their window.
+
 - [x] 2026-09-08 UTC: Moved the evaluator outside application code following the
   user's clarification; retained direct reuse of the production model and
   MarkdownFlow paths with process-local observation.
-- [x] 2026-09-08 UTC: Passed 212 standalone tests and 108 unchanged production
+- [x] 2026-09-08 UTC: Passed 215 standalone tests and 108 unchanged production
   LLM tests, independent npm installation, renderer fixtures, and all ten locale
   cases. Verified no remaining diff in `src/api`, `src/web`, or `src/i18n`.
 
@@ -142,7 +146,7 @@ page count matches its image count. The frozen batch used markdown-flow-ui
 repository's current 0.2.26 pin. Completed model output was never regenerated
 to recover rendering or publication.
 
-After standalone extraction, 212 tool tests and 108 unchanged production LLM
+After standalone extraction, 215 tool tests and 108 unchanged production LLM
 tests passed. The model observer delegates to the original production wrapper
 and is verified to restore its spies on completion, failure, and generator
 close. Renderer unit tests,

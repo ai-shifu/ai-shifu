@@ -702,6 +702,19 @@ def test_pdf_metadata_change_does_not_republish_or_reset_valid_votes(
     assert result["valid_vote_count"] == 1
 
 
+def test_resume_rechecks_remote_publication_without_repeating_generation(
+    arena: ArenaPipeline,
+) -> None:
+    arena.run(smoke_only=True)
+    generated = sum(op == "generate" for op, _ in arena.backend.calls)
+    pair = arena.manifest["matchups"][0]
+    arena.publisher.fail_upload = True
+    with pytest.raises(ArenaError, match="Test upload failure"):
+        arena.run(smoke_only=True)
+    assert "published_at" not in pair
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == generated
+
+
 def test_failed_revision_upload_durably_invalidates_ready_state_before_retry(
     arena: ArenaPipeline,
 ) -> None:

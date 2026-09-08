@@ -474,12 +474,9 @@ class ArenaPipeline:
             if a.get("status") != "complete" or b.get("status") != "complete":
                 continue
             fingerprint = publication_render_fingerprint(a, b)
-            if (
-                pair.get("record_id")
-                and _timestamp(pair.get("published_at"))
-                and pair.get("publication_render_fingerprint") == fingerprint
-            ):
-                continue
+            # The shared Base is editable. Even an unchanged local render needs
+            # remote reconciliation; the publisher reuses intact attachments
+            # and their original ready time without generating or uploading again.
             # A revision replacement is not reviewable until both sides have
             # been verified remotely. Persist this before any remote write so
             # a failed upload or later summarize cannot count stale votes.

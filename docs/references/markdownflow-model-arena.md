@@ -97,7 +97,11 @@ settings. When that visible revision changes, the same matchup record and A/B
 assignment are retained, old generated attachments are replaced, and its ready
 time advances after the complete new attachments are verified. Earlier votes
 remain in the raw table but do not score against the new revision. PDF metadata
-alone does not change the visible revision.
+alone does not change the visible revision. Resume rechecks remote records and
+attachment names/counts even when the local render is unchanged. Missing or
+replaced attachments invalidate the ready window before repair; intact
+previously verified PDFs are retained. These checks do not download and hash
+remote attachment contents.
 Every run and publication rechecks prompt access against the configured owner.
 Revocation stops new work; it does not retroactively recall previously downloaded
 attachments. Keep previously shared content under the organization's retention
