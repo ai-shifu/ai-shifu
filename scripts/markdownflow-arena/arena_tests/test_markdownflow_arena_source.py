@@ -671,3 +671,49 @@ def test_read_session_never_flushes_or_commits_and_isolates_pending_changes() ->
         assert all(
             statement.lstrip().upper().startswith("SELECT") for statement in statements
         )
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "Do not create slide 1: introduction",
+        "不要创建幻灯片 1：介绍",
+        "Only create slide 1: when instructed",
+        "If requested, create slide 1: introduction",
+        "如果需要，生成幻灯片 1：介绍",
+        "Create slides only if requested.",
+        "仅在要求时生成幻灯片 1：介绍",
+        "Create slides only upon request.",
+        "Create slides, if requested.",
+    ],
+)
+def test_negated_or_conditional_numbered_slides_are_skipped(content: str) -> None:
+    """Reject numbered slide commands whose generation is forbidden or conditional."""
+    test_non_slide_generation_is_skipped(content)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "Create slides, but do not overcrowd them",
+        "生成幻灯片，不要堆叠文字",
+        "Create slides but do not overcrowd them",
+        "Create only two slides with concise text",
+        "生成幻灯片但不要堆叠文字",
+        "Slide 1: introduction",
+        "幻灯片 1：介绍",
+        "不要堆叠文字，生成幻灯片",
+    ],
+)
+def test_affirmative_slides_keep_negative_layout_constraints(content: str) -> None:
+    """Accept real slide tasks without discarding their layout restrictions."""
+    for document, inherited in [(content, ""), ("Explain the topic", content)]:
+        snapshot = {
+            "owner_user_bid": "owner",
+            "courses": [
+                {"source": {}, "document": document, "document_prompt": inherited}
+            ],
+        }
+        cases = source.prepare_cases(snapshot, 1, 0, {})
+        assert len(cases) == 1
+        assert cases[0]["category"] == "slides"

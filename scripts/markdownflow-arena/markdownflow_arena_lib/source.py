@@ -349,19 +349,37 @@ def case_input_hash(case: dict) -> str:
 
 def requests_slides(content: str, inherited_prompt: str = "") -> bool:
     """Require slide-generation intent, rather than generic HTML or visual content."""
-    if re.search(r"(?:画面|幻灯片|slide)\s*\d+\s*[:\uFF1A]", content, re.IGNORECASE):
-        return True
     verbs = r"(?:生成|制作|创建|输出|设计|呈现|展示|绘制|使用|用|做|create|generate|make|render|present|use)"
     slides = r"(?:幻灯片|PPT|slides?\b)"
+    numbered = r"(?:画面|幻灯片|slide)\s*\d+\s*[:\uFF1A]"
+    conditional = (
+        r"(?:只有|仅当|仅在|只在|如果|当要求|\bonly\s+(?:on|upon)\b|\bwhen\b|\bif\b)"
+    )
+    negated = r"(?:不要|不生成|不创建|禁止|\bnot\b|\bnever\b)"
     for text in (content, inherited_prompt):
-        for line in text.splitlines():
-            if re.search(
-                r"(?:只有|仅当|不要|不生成|不创建|\bonly\b|\bnot\b|\bwhen\b|\bif\b)",
-                line,
-                re.IGNORECASE,
-            ):
-                continue
-            if re.search(verbs + r"[^\n。.!?]{0,60}" + slides, line, re.IGNORECASE):
+        for sentence in re.split(r"[\n。.!?;\uFF1B]", text):
+            clauses = re.split(r"[,\uFF0C]", sentence)
+            conditional_prefix = False
+            for index, clause in enumerate(clauses):
+                conditional_prefix |= bool(
+                    re.search(conditional, clause, re.IGNORECASE)
+                )
+                match = re.search(
+                    verbs + r"[^\n。.!?]{0,60}" + slides,
+                    clause,
+                    re.IGNORECASE,
+                ) or re.search(numbered, clause, re.IGNORECASE)
+                if not match or conditional_prefix:
+                    continue
+                # A condition after a comma still qualifies the slide command.
+                if index + 1 < len(clauses) and re.match(
+                    r"\s*(?:" + conditional + r")", clauses[index + 1], re.IGNORECASE
+                ):
+                    continue
+                # Negative layout constraints after an affirmative command do
+                # not negate slide generation. Check only its command prefix.
+                if re.search(negated, clause[: match.end()], re.IGNORECASE):
+                    continue
                 return True
     return False
 
