@@ -1786,6 +1786,13 @@ export const useLiveVoiceFollowUp = ({
                   reason: replaced ? 'replaced' : 'connection_error',
                   keepOpen: true,
                   errorCode: replaced ? null : 'server_error',
+                  errorDiagnostic: {
+                    stage: 'heartbeat',
+                    reason:
+                      error instanceof LiveFollowUpControlError
+                        ? error.reason
+                        : undefined,
+                  },
                   retryable: true,
                   pendingOutcome: replaced ? 'cancelled' : 'failed',
                 });

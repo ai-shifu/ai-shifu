@@ -632,6 +632,36 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     expect(mockCreateSession).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['rejected', 'expired'] as const)(
+    'preserves the admission reason when ownership authorization is %s',
+    async failure => {
+      jest.useFakeTimers();
+      enableTakeover();
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'microphone' }));
+      await act(async () => {});
+      act(() => mockSockets[0].open());
+      await makeReady();
+      if (failure === 'rejected') {
+        mockHeartbeatSession.mockRejectedValue(
+          new LiveFollowUpControlError('admission_unavailable'),
+        );
+      } else {
+        mockHeartbeatSession.mockReturnValue(new Promise(() => {}));
+      }
+      await act(async () => jest.advanceTimersByTime(10_000));
+      expect(screen.getByTestId('error')).toHaveTextContent('server_error');
+      expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+        JSON.stringify({
+          stage: 'heartbeat',
+          reason: 'admission_unavailable',
+        }),
+      );
+      expect(mockAudio.stop).toHaveBeenCalled();
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it.each([false, true])(
     'renews an expired owner without reclaiming a newer revision (%s)',
     async replaced => {
