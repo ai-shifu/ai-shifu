@@ -13,6 +13,7 @@ import {
   parseGeminiLiveServerMessage,
   resolveGeminiLiveWebSocketUrl,
   type LiveFollowUpLearningMode,
+  type LiveFollowUpControlReason,
   type LiveFollowUpSession,
   type LiveFollowUpState,
   type LiveFollowUpSurface,
@@ -161,6 +162,12 @@ const recordCompletedExchange = (
   }
 };
 
+export type LiveVoiceErrorDiagnostic = {
+  reason?: LiveFollowUpControlReason;
+  stage: 'session_create' | 'resume' | 'heartbeat' | 'websocket';
+  websocketCloseCode?: number;
+};
+
 export type LiveVoiceFollowUpViewState = {
   open: boolean;
   paused: boolean;
@@ -173,6 +180,7 @@ export type LiveVoiceFollowUpViewState = {
   anchorElementBid: string | null;
   warning: boolean;
   errorCode: LiveVoiceFollowUpErrorCode | null;
+  errorDiagnostic?: LiveVoiceErrorDiagnostic | null;
   retryable: boolean;
   retryAvailableAt: number | null;
   endReason: LiveVoiceFollowUpEndReason | null;
@@ -222,6 +230,7 @@ type FinishAttemptOptions = {
   reason: LiveVoiceFollowUpEndReason;
   keepOpen: boolean;
   errorCode?: LiveVoiceFollowUpErrorCode | null;
+  errorDiagnostic?: LiveVoiceErrorDiagnostic | null;
   retryable?: boolean;
   pendingOutcome?: LiveVoiceFollowUpOutcome;
   preserveAudio?: boolean;
@@ -246,6 +255,7 @@ const initialState: LiveVoiceFollowUpViewState = {
   anchorElementBid: null,
   warning: false,
   errorCode: null,
+  errorDiagnostic: null,
   retryable: false,
   retryAvailableAt: null,
   endReason: null,
@@ -872,6 +882,7 @@ export const useLiveVoiceFollowUp = ({
       reason,
       keepOpen,
       errorCode = null,
+      errorDiagnostic = null,
       retryable = false,
       pendingOutcome = 'cancelled',
       preserveAudio = false,
@@ -900,6 +911,7 @@ export const useLiveVoiceFollowUp = ({
           textPending: false,
           warning: false,
           errorCode,
+          errorDiagnostic: errorCode ? errorDiagnostic : null,
           retryable: retryable && retryAvailableAt === null,
           retryAvailableAt,
           endReason: reason,
@@ -1005,6 +1017,13 @@ export const useLiveVoiceFollowUp = ({
               ) {
                 applyControlRetry(error);
                 finishAttempt({
+                  errorDiagnostic: {
+                    stage: 'resume',
+                    reason:
+                      error instanceof LiveFollowUpControlError
+                        ? error.reason
+                        : undefined,
+                  },
                   reason: 'connection_error',
                   keepOpen: true,
                   errorCode:
@@ -1442,6 +1461,7 @@ export const useLiveVoiceFollowUp = ({
               reason: 'connection_error',
               keepOpen: true,
               errorCode: 'server_error',
+              errorDiagnostic: { stage: 'websocket' },
               retryable: true,
               pendingOutcome: 'failed',
             });
@@ -1585,6 +1605,7 @@ export const useLiveVoiceFollowUp = ({
             reason: 'connection_error',
             keepOpen: true,
             errorCode: 'websocket_failed',
+            errorDiagnostic: { stage: 'websocket' },
             retryable: true,
             pendingOutcome: 'failed',
           });
@@ -1625,6 +1646,10 @@ export const useLiveVoiceFollowUp = ({
             reason: 'connection_closed',
             keepOpen: true,
             errorCode: 'network_error',
+            errorDiagnostic: {
+              stage: 'websocket',
+              websocketCloseCode: event.code,
+            },
             retryable: true,
             pendingOutcome: 'failed',
           });
@@ -1800,6 +1825,13 @@ export const useLiveVoiceFollowUp = ({
               } else {
                 applyControlRetry(error);
                 finishAttempt({
+                  errorDiagnostic: {
+                    stage: 'heartbeat',
+                    reason:
+                      error instanceof LiveFollowUpControlError
+                        ? error.reason
+                        : undefined,
+                  },
                   reason: 'connection_error',
                   keepOpen: true,
                   errorCode:
@@ -1839,6 +1871,13 @@ export const useLiveVoiceFollowUp = ({
               );
             }
             finishAttempt({
+              errorDiagnostic: {
+                stage: 'session_create',
+                reason:
+                  error instanceof LiveFollowUpControlError
+                    ? error.reason
+                    : undefined,
+              },
               reason: 'connection_error',
               keepOpen: true,
               errorCode:

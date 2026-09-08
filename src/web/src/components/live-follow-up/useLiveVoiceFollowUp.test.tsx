@@ -403,6 +403,11 @@ const Harness = ({
         {String(controller.microphonePending)}
       </span>
       <span data-testid='error'>{controller.errorCode || ''}</span>
+      <span data-testid='diagnostic'>
+        {controller.errorDiagnostic
+          ? JSON.stringify(controller.errorDiagnostic)
+          : ''}
+      </span>
       <span data-testid='microphone-error'>
         {controller.microphoneError || ''}
       </span>
@@ -568,6 +573,16 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       expect(screen.getByTestId('state')).toHaveTextContent('ended'),
     );
     expect(mockCreateSession).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+      '"websocketCloseCode":1006',
+    );
+    const staleClose = mockSockets[1].onclose;
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    await waitFor(() => expect(mockSockets).toHaveLength(3));
+    expect(screen.getByTestId('diagnostic')).toBeEmptyDOMElement();
+    act(() => staleClose?.({ code: 1008 } as CloseEvent));
+    expect(screen.getByTestId('diagnostic')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('state')).toHaveTextContent('connecting');
   });
 
   it('retains a paused owner beyond its authorization window and revalidates before input', async () => {
@@ -922,6 +937,9 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
         fireEvent.click(screen.getByRole('button', { name: 'text' })),
       );
       expect(screen.getByTestId('error')).toHaveTextContent(errorCode);
+      expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+        JSON.stringify({ stage: 'session_create', reason }),
+      );
       expect(screen.getByTestId('retry-at')).toHaveTextContent(
         String(requestedAt + 2_000),
       );
