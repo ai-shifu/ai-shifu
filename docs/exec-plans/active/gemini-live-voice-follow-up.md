@@ -1,5 +1,35 @@
 # Gemini Live Voice Follow-Up
 
+## 2026-09-07: Do not force Live output into the interface language
+
+Live no longer reads the course's learner-language output switch or appends
+the shared builder's mandatory response-language instruction. Request language
+remains session metadata, but is not injected into learner profile variables
+by this path. Teacher-authored follow-up prompts and saved history are preserved;
+no new language-selection prompt is added. Ordinary text follow-ups and lesson
+output retain their existing learner-language behavior. Regression tests cover
+Chinese, English and French request locales across read/listen and preview/live
+surfaces, alongside the shared text-context language contract.
+
+## 2026-09-07: Accepted eviction-policy compatibility tradeoff
+
+At the user's explicit request, admission no longer requires Redis
+`maxmemory-policy=noeviction`. Readiness and credential issuance accept
+`volatile-lru` and other policies. This supersedes the non-eviction deployment
+gate described in the historical implementation notes below. Redis generation
+validation, the 15-minute recovery quarantine, ownership checks, capacity
+limits, issuance limits and Redis-error fail-closed behavior remain unchanged.
+
+This does not make an evicting Redis a durable credential ledger. Eviction can
+remove ownership or risk records before Google credentials expire, causing
+disconnects or undercounted outstanding credentials. Capacity guarantees now
+depend on record retention; this is an explicitly accepted operational risk,
+not a claim of equivalent safety. No production Redis settings, existing
+records, token lifetimes or billing behavior are changed by this patch.
+
+Regression coverage exercises readiness and issuance with noeviction,
+volatile-lru and allkeys-lru, while retaining restart recovery coverage.
+
 ## Purpose / Big Picture
 
 Courses whose effective follow-up model is
@@ -208,7 +238,8 @@ ten seconds from the start of the last successful check, not its response.
 
 - [x] 2026-09-06: Initialize the shared recovery guard at API startup, expose
   non-minting readiness for deployment/UI, and gate new Live input until ready.
-  Preserve Redis generation/noeviction checks and the full recovery window.
+  Preserve Redis generation checks and the full recovery window. The original
+  noeviction check was removed by the 2026-09-07 compatibility decision above.
   Remove idle input instructions and the repeated inline privacy notice;
   keep privacy policies, active status and actionable errors. Validate startup,
   multi-worker idempotence, recovery, input/analytics gating and five locales.
@@ -1524,12 +1555,13 @@ already-issued Google credentials do not depend on this new admission gate.
 A surviving marker is not sufficient after restoring an older snapshot. Verify
 the shared Redis instance/recovery generation on admission; restart, failover,
 or restore invalidates it and triggers the same conservative window even when
-the marker survives. Risk/owner/operation keys must not be individually evicted:
-verify non-evicting storage on admission. The new binary always applies this
-generation/noeviction gate, even while rotation is off; otherwise accounting
-loss could hide still-valid V2 credentials during rollback. First bootstrap or
+the marker survives. Retaining risk/owner/operation keys is necessary for
+accurate accounting, but eviction policy is no longer checked on admission.
+The binary always applies the generation gate, even while rotation is off.
+Eviction of individual records can hide still-valid V2 credentials and is an
+accepted limitation of using an evicting Redis policy. First bootstrap or
 a missing/changed Redis run ID starts a shared 15-minute quarantine. Redis
-generation and eviction policy are checked inside the admission Lua operation.
+generation is checked inside the admission Lua operation.
 A same-process privileged DEBUG RELOAD/RESTORE or selective administrative key
 deletion cannot be detected reliably from run ID; prohibit those operations
 while admission is enabled. Operators must disable admission and establish a
@@ -1537,9 +1569,11 @@ fresh recovery epoch/quarantine before such restoration. This implementation
 does not claim arbitrary privileged partial-restore detection. If these
 properties cannot be established, keep Live admission disabled and report the
 operational gate; do not silently change Redis deployment settings here.
-Non-eviction must hold continuously while credentials are valid, not just at
-the instant of a check; a temporary privileged policy change also requires
-disabled admission and a complete drain/recovery window before reopening.
+Non-evicting storage remains recommended, not a prerequisite. When record
+retention cannot be assured, the configured credential limits are not a hard
+bound on outstanding Google credentials. Known accounting loss requires
+disabled admission and a complete drain/recovery window before reopening;
+do not delete risk records or shorten credential lifetimes to regain capacity.
 
 Implementation uses `live_follow_up_admission.py` alongside the existing
 `live_follow_up_capacity.py`,

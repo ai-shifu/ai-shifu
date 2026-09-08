@@ -606,7 +606,9 @@ Default: "phone".""",
         type=bool,
         description=(
             "Expose the allowlisted Gemini Live model for voice follow-up sessions. "
-            "Keep disabled until the WebSocket infrastructure is ready."
+            "Keep disabled until compatible workers and the Redis recovery gate "
+            "are ready. Redis eviction can invalidate credential capacity "
+            "accounting even when credential rotation is disabled."
         ),
         group="llm",
         required=False,
@@ -617,7 +619,8 @@ Default: "phone".""",
         type=bool,
         description=(
             "Allow bounded Gemini Live credential rotation. Requires compatible "
-            "workers, non-evicting Redis and the credential-drain recovery gate."
+            "workers, Redis and the credential-drain recovery gate. Eviction "
+            "can invalidate credential capacity accounting."
         ),
         group="llm",
         required=False,

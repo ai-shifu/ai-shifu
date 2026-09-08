@@ -110,7 +110,11 @@ Live readiness is separate from ordinary HTTP health. On startup, every
 enabled API worker schedules a single background task to resolve the effective
 (environment or DB-backed) flag and
 initializes the shared Redis recovery guard without minting
-a credential. Redis must use `noeviction`. A missing accounting marker or a
+a credential. Redis eviction policies are not an admission prerequisite.
+`noeviction` is recommended for retaining credential-risk records: with an
+evicting policy, records may disappear before Google credentials expire,
+undercounting outstanding credentials or interrupting ownership. Capacity
+guarantees depend on record retention. A missing accounting marker or a
 changed Redis run ID starts the full shared 15-minute safety window; repeated
 worker starts and probes do not reset or shorten it. Do not delete accounting
 records to bypass this window.

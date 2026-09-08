@@ -15,6 +15,7 @@ from flaskr.util.prompt_loader import load_prompt_template
 
 @pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("learning_mode", ["read", "listen"])
+@pytest.mark.parametrize("language", ["zh-CN", "en-US", "fr-FR"])
 @pytest.mark.parametrize(
     "ask_prompt",
     ["", " \n ", "FOLLOW-UP\n{shifu_system_message}", "Follow-up instructions only."],
@@ -23,6 +24,7 @@ def test_live_context_omits_course_prompt_and_preserves_follow_up_context(
     monkeypatch: pytest.MonkeyPatch,
     preview_mode: bool,
     learning_mode: str,
+    language: str,
     ask_prompt: str,
 ) -> None:
     """Both learner and preview sessions omit course-prompt lookup and fallback."""
@@ -38,7 +40,7 @@ def test_live_context_omits_course_prompt_and_preserves_follow_up_context(
         origin="https://learn.example.com",
         model=routes.GEMINI_LIVE_MODEL_ID,
         voice_name="Kore",
-        language="zh-CN",
+        language=language,
         learning_mode=learning_mode,
         expires_at_epoch=900,
     )
@@ -51,10 +53,6 @@ def test_live_context_omits_course_prompt_and_preserves_follow_up_context(
 
     def reject_course_prompt(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Live must not load or inherit the course system prompt")
-
-    def load_language(**kwargs: object) -> bool:
-        captured["language_scope"] = kwargs
-        return True
 
     def load_history(**kwargs: object) -> list[dict[str, str]]:
         captured["history_scope"] = kwargs
@@ -81,7 +79,6 @@ def test_live_context_omits_course_prompt_and_preserves_follow_up_context(
         "load_user_aggregate",
         lambda _bid: SimpleNamespace(user_id="user-1", user_bid="user-1", identify=""),
     )
-    monkeypatch.setattr(routes, "_load_use_learner_language", load_language)
     monkeypatch.setattr(
         context,
         "get_user_profiles",
@@ -112,12 +109,9 @@ def test_live_context_omits_course_prompt_and_preserves_follow_up_context(
         assert '"Synthetic learner background"' in instruction
         if ask_prompt.strip():
             assert instruction.startswith("FOLLOW-UP\n")
-    assert instruction.endswith("IMPORTANT: You MUST respond in 简体中文.")
-    assert captured["profiles"]["sys_user_language"] == "zh-CN"
-    assert captured["language_scope"] == {
-        "shifu_bid": "course-1",
-        "preview_mode": preview_mode,
-    }
+    assert "IMPORTANT: You MUST respond in" not in instruction
+    assert "sys_user_language" not in captured["profiles"]
+    assert "language" not in captured["profiles"]
     assert captured["history_scope"]["anchor_element_bid"] == "anchor-1"
     assert captured["history_scope"]["progress_record_bid"] == "progress-1"
     assert captured["history_scope"]["max_history_messages"] == 20
