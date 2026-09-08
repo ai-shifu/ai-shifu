@@ -1,0 +1,2 @@
+# Reuse the application's pinned runtime in a separate operator environment.
+-r ../../src/api/requirements.txt

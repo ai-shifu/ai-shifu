@@ -1,0 +1,20 @@
+{
+  "name": "markdownflow-model-arena",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node renderer/render.mjs",
+    "test": "node --test renderer/*.test.mjs",
+    "smoke": "node renderer/smoke.mjs",
+    "smoke:locales": "node renderer/locale.smoke.mjs"
+  },
+  "dependencies": {
+    "markdown-flow-ui": "0.2.26",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "esbuild": "0.25.12",
+    "@playwright/test": "1.59.1",
+    "sharp": "0.34.4"
+  }
+}

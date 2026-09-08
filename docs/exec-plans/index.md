@@ -25,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Gemini Live Voice Follow-Up](./active/gemini-live-voice-follow-up.md)
 - [Gemini TTS Provider](./active/gemini-tts.md)
 - [Learner listen playback stability](./active/learner-listen-playback-stability.md)
+- [Local MarkdownFlow slide comparison ExecPlan](./active/markdownflow-model-arena.md)
 - [Notification Channel Foundation](./active/notification-channel-foundation.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
 - [Official Client Model Gateway](./active/official-client-model-gateway.md)
