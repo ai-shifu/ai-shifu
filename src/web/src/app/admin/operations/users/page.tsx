@@ -66,6 +66,7 @@ import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import { formatOperatorUtcDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
+import UserCancellationDialog from './UserCancellationDialog';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationUserCourseItem,
@@ -389,6 +390,8 @@ export default function AdminOperationUsersPage() {
     null,
   );
   const [grantDialogUser, setGrantDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [cancellationDialogUser, setCancellationDialogUser] =
     useState<AdminOperationUserItem | null>(null);
   const [draftFilters, setDraftFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
@@ -813,6 +816,10 @@ export default function AdminOperationUsersPage() {
     {
       value: 'paid',
       label: resolveStatusLabel('paid'),
+    },
+    {
+      value: 'cancelled',
+      label: resolveStatusLabel('cancelled'),
     },
   ];
 
@@ -1494,6 +1501,18 @@ export default function AdminOperationUsersPage() {
                                   disabled: !canGrantBenefitsToUser(user),
                                   onClick: () => setGrantDialogUser(user),
                                 },
+                                {
+                                  key: 'cancel-account',
+                                  label: tOperationsUsers(
+                                    'actions.cancelAccount',
+                                  ),
+                                  disabled:
+                                    user.user_status === 'cancelled' ||
+                                    user.user_role === 'operator' ||
+                                    user.user_roles.includes('operator'),
+                                  onClick: () =>
+                                    setCancellationDialogUser(user),
+                                },
                               ]}
                             />
                           </div>
@@ -1643,6 +1662,18 @@ export default function AdminOperationUsersPage() {
               }
             }}
             onGranted={handleGrantSuccess}
+          />
+          <UserCancellationDialog
+            open={Boolean(cancellationDialogUser)}
+            user={cancellationDialogUser}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setCancellationDialogUser(null);
+            }}
+            onCancelled={() => {
+              setCancellationDialogUser(null);
+              void fetchUsers(pageIndex, appliedFilters, quickFilter);
+              void fetchUserOverview();
+            }}
           />
         </div>
       </TooltipProvider>

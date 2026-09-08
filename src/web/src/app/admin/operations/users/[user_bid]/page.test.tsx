@@ -466,6 +466,24 @@ describe('AdminOperationUserDetailPage', () => {
     expect(pageContainer).not.toHaveClass('overflow-auto');
   });
 
+  test('shows cancellation audit fields for a cancelled account', async () => {
+    mockGetAdminOperationUserDetail.mockResolvedValue({
+      ...detailResponse,
+      user_status: 'cancelled',
+      cancelled_at: '2026-09-08T04:30:00Z',
+      cancellation_reason: 'Verified support request',
+      cancellation_operator_user_bid: 'operator-1',
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    expect(await screen.findByText('Verified support request')).toBeVisible();
+    expect(screen.getByText('operator-1')).toBeVisible();
+    expect(
+      screen.getByText('module.operationsUser.detail.cancelledAt'),
+    ).toBeVisible();
+  });
+
   test('formats credits without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
     mockGetAdminOperationUserDetail.mockResolvedValue({

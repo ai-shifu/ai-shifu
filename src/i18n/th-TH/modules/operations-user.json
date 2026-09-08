@@ -1,8 +1,37 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "ยกเลิกบัญชี",
     "grantCredits": "มอบเครดิต/แพ็กเกจ",
     "moreForUser": "การดำเนินการเพิ่มเติมของ {user}"
+  },
+  "cancellation": {
+    "back": "กลับ",
+    "confirm": "ยืนยันการยกเลิก",
+    "confirmDescription": "บัญชี {user} จะถูกยกเลิกอย่างถาวร",
+    "confirmTitle": "ยืนยันการยกเลิกบัญชี",
+    "continue": "ดำเนินการต่อ",
+    "description": "ระบบจะตรวจสอบคอร์ส การสมัครสมาชิก เครดิต และเซสชัน",
+    "errors": {
+      "blocked": "ยังมีรายการที่ต้องดำเนินการ",
+      "cancel": "ยกเลิกบัญชีไม่สำเร็จ",
+      "load": "โหลดข้อมูลการยกเลิกไม่ได้",
+      "prepare": "เตรียมการยกเลิกไม่สำเร็จ",
+      "transfer": "โอนคอร์สไม่สำเร็จ"
+    },
+    "irreversible": "โปรไฟล์และข้อมูลเข้าสู่ระบบจะถูกลบ โดยเก็บประวัติธุรกิจที่จำเป็นไว้",
+    "reasonPlaceholder": "ระบุเหตุผล (5–500 ตัวอักษร)",
+    "summary": {
+      "credits": "เครดิตคงเหลือ: {count} (ไม่คืนเงิน)",
+      "drafts": "เก็บและระงับคอร์สฉบับร่าง: {count}",
+      "renewals": "ระบบจะยกเลิกการต่ออายุอัตโนมัติเมื่อดำเนินการต่อ: {count}",
+      "sessions": "เซสชันที่จะออกจากระบบ: {count}",
+      "target": "บัญชีเป้าหมาย: {user} ({identifier})"
+    },
+    "title": "ยกเลิกบัญชี",
+    "transfer": "โอนทั้งหมด",
+    "transferPlaceholder": "โทรศัพท์หรืออีเมลผู้รับผิดชอบใหม่",
+    "transferRequired": "โอนคอร์สที่เผยแพร่ {count} คอร์สก่อน"
   },
   "courseSummary": {
     "dialog": {
@@ -20,6 +49,9 @@
   },
   "detail": {
     "basicInfo": "ข้อมูลพื้นฐาน",
+    "cancellationOperator": "ผู้ดำเนินการยกเลิกบัญชี",
+    "cancellationReason": "เหตุผลในการยกเลิกบัญชี",
+    "cancelledAt": "เวลาที่ยกเลิกบัญชี",
     "createdCourses": "หลักสูตรที่สร้าง",
     "creditExpireAtHint": "หากมีวันหมดอายุหลายรายการ จะแสดงวันที่หมดอายุเร็วที่สุดก่อน",
     "creditExpireAtHintAriaLabel": "ดูคำอธิบายเวลาหมดอายุเครดิต",
@@ -350,6 +382,7 @@
     "unknown": "ไม่ทราบ"
   },
   "statusLabels": {
+    "cancelled": "ยกเลิกแล้ว",
     "paid": "ชำระเงินแล้ว",
     "registered": "สมัครแล้ว",
     "unknown": "ไม่ทราบ",

@@ -16,6 +16,7 @@ const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const originalLocation = window.location;
 const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
+const mockCancellationDialogPrefix = 'cancellation-dialog-';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
 const formatUtcBoundary = (date: Date) =>
@@ -164,6 +165,26 @@ jest.mock('./UserCreditGrantDialog', () => ({
     ) : null,
 }));
 
+jest.mock('./UserCancellationDialog', () => ({
+  __esModule: true,
+  default: ({
+    open,
+    user,
+  }: {
+    open: boolean;
+    user: { user_bid: string } | null;
+  }) =>
+    open ? (
+      <div
+        data-testid={`${mockCancellationDialogPrefix}${user?.user_bid || ''}`}
+      />
+    ) : null,
+}));
+
+jest.mock('@/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: jest.fn() }),
+}));
+
 jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserState) => unknown) =>
@@ -205,6 +226,9 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
   DialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   DialogDescription: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DialogFooter: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
 }));
@@ -716,6 +740,58 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(await screen.findByText('grant-dialog-user-1')).toBeInTheDocument();
+  });
+
+  test('opens account cancellation for an eligible user', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-regular',
+          mobile: '',
+          email: 'user-regular@example.com',
+          nickname: 'Regular User',
+          user_status: 'registered',
+          user_role: 'regular',
+          user_roles: ['regular'],
+          login_methods: ['email'],
+          registration_source: 'email',
+          language: 'en-US',
+          learning_course_count: 0,
+          learning_courses: [],
+          created_course_count: 0,
+          created_courses: [],
+          total_paid_amount: '0',
+          available_credits: '0',
+          subscription_credits: '0',
+          topup_credits: '0',
+          credits_expire_at: '',
+          has_active_subscription: false,
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.cancelAccount',
+      }),
+    );
+
+    expect(
+      await screen.findByTestId('cancellation-dialog-user-regular'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText('module.operationsUser.statusLabels.cancelled')
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   test('disables the grant action for unsupported target roles', async () => {

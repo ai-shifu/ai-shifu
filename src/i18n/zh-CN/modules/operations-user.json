@@ -1,8 +1,37 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "注销账户",
     "grantCredits": "发放积分/套餐",
     "moreForUser": "{user} 的更多操作"
+  },
+  "cancellation": {
+    "back": "返回",
+    "confirm": "确认注销",
+    "confirmDescription": "即将注销账户 {user}，注销后无法恢复。",
+    "confirmTitle": "确认注销账户",
+    "continue": "继续",
+    "description": "系统将检查课程、订阅、积分及登录状态。",
+    "errors": {
+      "blocked": "仍有事项需要处理",
+      "cancel": "注销失败",
+      "load": "无法加载注销信息",
+      "prepare": "注销准备失败",
+      "transfer": "课程转移失败"
+    },
+    "irreversible": "账户资料和登录凭据将被清除，历史业务记录会按规则保留。",
+    "reasonPlaceholder": "请输入注销原因（5–500 字）",
+    "summary": {
+      "credits": "可用积分：{count}（不退款）",
+      "drafts": "保留并冻结草稿课程：{count}",
+      "renewals": "继续后将自动取消续费：{count}",
+      "sessions": "将退出登录会话：{count}",
+      "target": "目标账户：{user}（{identifier}）"
+    },
+    "title": "注销账户",
+    "transfer": "一键转移",
+    "transferPlaceholder": "新负责人的手机号或邮箱",
+    "transferRequired": "需先转移 {count} 门已发布课程"
   },
   "courseSummary": {
     "dialog": {
@@ -20,6 +49,9 @@
   },
   "detail": {
     "basicInfo": "基础信息",
+    "cancellationOperator": "注销操作人",
+    "cancellationReason": "注销原因",
+    "cancelledAt": "注销时间",
     "createdCourses": "创作课程",
     "creditExpireAtHint": "多个有效期优先展示最早到期时间",
     "creditExpireAtHintAriaLabel": "查看积分到期时间说明",
@@ -350,6 +382,7 @@
     "unknown": "未知"
   },
   "statusLabels": {
+    "cancelled": "已注销",
     "paid": "付费",
     "registered": "已注册",
     "unknown": "未知",

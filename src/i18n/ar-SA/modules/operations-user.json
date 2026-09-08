@@ -1,8 +1,37 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "إلغاء الحساب",
     "grantCredits": "منح الأرصدة/الباقة",
     "moreForUser": "المزيد من إجراءات {user}"
+  },
+  "cancellation": {
+    "back": "رجوع",
+    "confirm": "تأكيد الإلغاء",
+    "confirmDescription": "سيتم إلغاء الحساب {user} نهائيًا.",
+    "confirmTitle": "تأكيد إلغاء الحساب",
+    "continue": "متابعة",
+    "description": "سيتم فحص الدورات والاشتراكات والرصيد والجلسات.",
+    "errors": {
+      "blocked": "لا تزال هناك عناصر تتطلب إجراءً",
+      "cancel": "فشل إلغاء الحساب",
+      "load": "تعذر تحميل معلومات الإلغاء",
+      "prepare": "فشل إعداد الإلغاء",
+      "transfer": "فشل نقل الدورات"
+    },
+    "irreversible": "سيتم مسح الملف وبيانات الدخول مع الاحتفاظ بسجل الأعمال المطلوب.",
+    "reasonPlaceholder": "أدخل سبب الإلغاء (5–500 حرف)",
+    "summary": {
+      "credits": "الرصيد المتاح: {count} (غير مسترد)",
+      "drafts": "المسودات المحفوظة والمجمّدة: {count}",
+      "renewals": "سيتم إلغاء التجديدات تلقائيًا عند المتابعة: {count}",
+      "sessions": "الجلسات التي ستُلغى: {count}",
+      "target": "الحساب المستهدف: {user} ({identifier})"
+    },
+    "title": "إلغاء الحساب",
+    "transfer": "نقل الكل",
+    "transferPlaceholder": "هاتف أو بريد المسؤول الجديد",
+    "transferRequired": "انقل {count} دورات منشورة أولًا"
   },
   "courseSummary": {
     "dialog": {
@@ -20,6 +49,9 @@
   },
   "detail": {
     "basicInfo": "المعلومات الأساسية",
+    "cancellationOperator": "مشغّل إلغاء الحساب",
+    "cancellationReason": "سبب إلغاء الحساب",
+    "cancelledAt": "وقت إلغاء الحساب",
     "createdCourses": "الدورات المنشأة",
     "creditExpireAtHint": "عند وجود عدة تواريخ انتهاء، اعرض التاريخ الأقرب أولًا",
     "creditExpireAtHintAriaLabel": "عرض شرح وقت انتهاء الأرصدة",
@@ -350,6 +382,7 @@
     "unknown": "غير معروف"
   },
   "statusLabels": {
+    "cancelled": "ملغى",
     "paid": "مدفوع",
     "registered": "مسجّل",
     "unknown": "غير معروف",

@@ -1,8 +1,37 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "Cancel account",
     "grantCredits": "Grant Credits/Package",
     "moreForUser": "More actions for {user}"
+  },
+  "cancellation": {
+    "back": "Back",
+    "confirm": "Cancel account",
+    "confirmDescription": "Account {user} will be cancelled permanently.",
+    "confirmTitle": "Confirm account cancellation",
+    "continue": "Continue",
+    "description": "Courses, subscriptions, credits, and sessions will be checked.",
+    "errors": {
+      "blocked": "Some items still require action",
+      "cancel": "Cancellation failed",
+      "load": "Unable to load cancellation details",
+      "prepare": "Unable to prepare cancellation",
+      "transfer": "Course transfer failed"
+    },
+    "irreversible": "Profile and login credentials will be erased while required business history is retained.",
+    "reasonPlaceholder": "Enter a cancellation reason (5–500 characters)",
+    "summary": {
+      "credits": "Available credits: {count} (no refund)",
+      "drafts": "Draft courses retained and frozen: {count}",
+      "renewals": "Renewals cancelled automatically on continue: {count}",
+      "sessions": "Sessions to revoke: {count}",
+      "target": "Target account: {user} ({identifier})"
+    },
+    "title": "Cancel account",
+    "transfer": "Transfer all",
+    "transferPlaceholder": "New owner phone or email",
+    "transferRequired": "Transfer {count} published courses first"
   },
   "courseSummary": {
     "dialog": {
@@ -20,6 +49,9 @@
   },
   "detail": {
     "basicInfo": "Basic Information",
+    "cancellationOperator": "Cancellation operator",
+    "cancellationReason": "Cancellation reason",
+    "cancelledAt": "Cancelled at",
     "createdCourses": "Created Courses",
     "creditExpireAtHint": "When multiple validity periods exist, the earliest expiry is shown first.",
     "creditExpireAtHintAriaLabel": "View credits expiry explanation",
@@ -350,6 +382,7 @@
     "unknown": "Unknown"
   },
   "statusLabels": {
+    "cancelled": "Cancelled",
     "paid": "Paid",
     "registered": "Registered",
     "unknown": "Unknown",

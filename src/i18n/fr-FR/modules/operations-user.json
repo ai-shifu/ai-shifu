@@ -1,8 +1,37 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "Résilier le compte",
     "grantCredits": "Attribuer crédits/forfait",
     "moreForUser": "Plus d’actions pour {user}"
+  },
+  "cancellation": {
+    "back": "Retour",
+    "confirm": "Confirmer la résiliation",
+    "confirmDescription": "Le compte {user} sera définitivement résilié.",
+    "confirmTitle": "Confirmer la résiliation",
+    "continue": "Continuer",
+    "description": "Les cours, abonnements, crédits et sessions seront vérifiés.",
+    "errors": {
+      "blocked": "Des éléments restent à traiter",
+      "cancel": "Échec de la résiliation",
+      "load": "Impossible de charger les informations",
+      "prepare": "Échec de la préparation",
+      "transfer": "Échec du transfert"
+    },
+    "irreversible": "Le profil et les identifiants seront effacés; l’historique requis sera conservé.",
+    "reasonPlaceholder": "Saisissez le motif (5 à 500 caractères)",
+    "summary": {
+      "credits": "Crédits disponibles : {count} (non remboursés)",
+      "drafts": "Cours brouillons conservés et gelés : {count}",
+      "renewals": "Renouvellements annulés automatiquement en continuant : {count}",
+      "sessions": "Sessions à fermer : {count}",
+      "target": "Compte cible : {user} ({identifier})"
+    },
+    "title": "Résilier le compte",
+    "transfer": "Tout transférer",
+    "transferPlaceholder": "Téléphone ou e-mail du nouveau responsable",
+    "transferRequired": "Transférez d’abord {count} cours publiés"
   },
   "courseSummary": {
     "dialog": {
@@ -20,6 +49,9 @@
   },
   "detail": {
     "basicInfo": "Informations de base",
+    "cancellationOperator": "Opérateur de résiliation",
+    "cancellationReason": "Motif de résiliation",
+    "cancelledAt": "Résilié le",
     "createdCourses": "Cours créés",
     "creditExpireAtHint": "Lorsque plusieurs périodes de validité existent, l’expiration la plus proche est affichée en premier.",
     "creditExpireAtHintAriaLabel": "Voir l’explication d’expiration des crédits",
@@ -350,6 +382,7 @@
     "unknown": "Inconnu"
   },
   "statusLabels": {
+    "cancelled": "Résilié",
     "paid": "Payé",
     "registered": "Inscrit",
     "unknown": "Inconnu",

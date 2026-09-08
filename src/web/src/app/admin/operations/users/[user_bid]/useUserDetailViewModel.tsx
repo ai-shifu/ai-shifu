@@ -199,8 +199,8 @@ export default function useUserDetailViewModel({
     ),
     [tOperationsUsers],
   );
-  const basicInfoItems = useMemo(
-    () => [
+  const basicInfoItems = useMemo(() => {
+    const items = [
       {
         key: 'contact',
         label: contactLabel,
@@ -231,21 +231,44 @@ export default function useUserDetailViewModel({
         label: tOperationsUsers('table.createdAt'),
         value: formatOperatorUtcDateTime(detail.created_at),
       },
-    ],
-    [
-      contactLabel,
-      contactValue,
-      defaultUserName,
-      detail.created_at,
-      detail.last_login_at,
-      detail.nickname,
-      detail.registration_source,
-      detail.user_role,
-      resolveRegistrationSourceLabel,
-      resolveRoleLabel,
-      tOperationsUsers,
-    ],
-  );
+    ];
+    if (detail.user_status === 'cancelled') {
+      items.push(
+        {
+          key: 'cancelledAt',
+          label: tOperationsUsers('detail.cancelledAt'),
+          value: formatOperatorUtcDateTime(detail.cancelled_at || ''),
+        },
+        {
+          key: 'cancellationReason',
+          label: tOperationsUsers('detail.cancellationReason'),
+          value: detail.cancellation_reason || EMPTY_VALUE,
+        },
+        {
+          key: 'cancellationOperator',
+          label: tOperationsUsers('detail.cancellationOperator'),
+          value: detail.cancellation_operator_user_bid || EMPTY_VALUE,
+        },
+      );
+    }
+    return items;
+  }, [
+    contactLabel,
+    contactValue,
+    defaultUserName,
+    detail.cancelled_at,
+    detail.cancellation_operator_user_bid,
+    detail.cancellation_reason,
+    detail.created_at,
+    detail.last_login_at,
+    detail.nickname,
+    detail.registration_source,
+    detail.user_status,
+    detail.user_role,
+    resolveRegistrationSourceLabel,
+    resolveRoleLabel,
+    tOperationsUsers,
+  ]);
   const overviewItems = useMemo(
     () => [
       {

@@ -27,31 +27,33 @@ execution service with a different actor and identity-verification policy.
 ## Progress
 
 - [x] 2026-09-08 12:28 CST: Created `feat/admin-user-account-cancellation`
-  from the latest `main` and confirmed a clean worktree.
+      from the latest `main` and confirmed a clean worktree.
 - [x] 2026-09-08 12:28 CST: Inventoried the user aggregate, authentication
-  credentials, sessions, operator user list, course ownership, learning,
-  billing, order, credit, referral, notification, TTS, and profile references.
+      credentials, sessions, operator user list, course ownership, learning,
+      billing, order, credit, referral, notification, TTS, and profile references.
 - [x] 2026-09-08 12:28 CST: Defined the proposed cancellation boundary,
-  operator workflow, blockers, audit model, and retention categories in this
-  plan.
+      operator workflow, blockers, audit model, and retention categories in this
+      plan.
 - [x] 2026-09-08 12:45 CST: Confirmed a two-PR delivery, required database
-  migration, automatic renewal cancellation, new-account identifier reuse,
-  non-blocking credit forfeiture, published-course batch transfer, and frozen
-  preservation of draft-only courses.
+      migration, automatic renewal cancellation, new-account identifier reuse,
+      non-blocking credit forfeiture, published-course batch transfer, and frozen
+      preservation of draft-only courses.
 - [x] 2026-09-08 13:50 CST: Kept unsettled payments as a conservative blocker
-  and kept the free-form cancellation reason out of the routine list column
-  while exposing it through the detail contract.
+      and kept the free-form cancellation reason out of the routine list column
+      while exposing it through the detail contract.
 - [x] 2026-09-08 13:50 CST: Added the cancellation persistence model and
-  migration.
+      migration.
 - [x] 2026-09-08 13:50 CST: Implemented preflight, renewal preparation,
-  published-course transfer, credit forfeiture, session revocation,
-  de-identification, identifier release, and idempotent cancellation.
+      published-course transfer, credit forfeiture, session revocation,
+      de-identification, identifier release, and idempotent cancellation.
 - [x] 2026-09-08 13:50 CST: Added operator routes, cancelled-user list/detail
-  contracts, localized errors, and focused backend regression coverage.
-- [ ] Add the User Management action, confirmation dialog, i18n, API client,
-  analytics contract, and frontend tests.
-- [ ] Update the canonical operator user-management specification and run the
-  required focused and repository checks.
+      contracts, localized errors, and focused backend regression coverage.
+- [x] 2026-09-08 15:30 CST: Added the User Management action, two-stage
+      confirmation dialog, inline published-course transfer, automatic renewal
+      preparation, cancelled filter, i18n, API client, privacy-safe analytics,
+      audit detail fields, and focused frontend tests.
+- [ ] Run the final repository checks, publish the stacked frontend PR, and
+      validate both backend and frontend PRs together on dev02.
 
 ## Surprises & Discoveries
 
@@ -158,6 +160,26 @@ PR 2 remains intentionally separate: it will add the operator dialogs,
 cancelled filter UI, analytics contract, and frontend tests. Later work may
 add self-service cancellation and jurisdiction-specific retention jobs.
 
+### Operator cancellation analytics contract
+
+- Business question: how often operators start account cancellation and what
+  share of accepted final attempts succeeds.
+- Metric: opened workflows and terminal outcomes per operator over 7 and 30
+  days; attempts are counted per accepted final-confirmation click.
+- Events: `operator_user_cancellation_opened`,
+  `operator_user_cancellation_attempt`, and
+  `operator_user_cancellation_result`.
+- Population: authenticated operators on the user-list surface; learners,
+  teachers outside operations, guests, and previews are excluded.
+- Deduplication: one opened event per dialog open; submit re-entry is disabled;
+  every accepted attempt emits exactly one success or failed result.
+- Payload: `surface` is always `user_list`; result also has `outcome` in
+  `success|failed`. No user BID, contact, reason, title, URL, or raw error is
+  collected. Shared tracking identity provides the operator correlation.
+- Consumer: operator workflow adoption and failure-rate monitoring. The
+  database cancellation audit remains the correctness source of truth.
+- Compatibility: additive event family with no legacy consumer.
+
 ## Context and Orientation
 
 The canonical product description for the current operator user list is
@@ -189,7 +211,7 @@ Data falls into four cancellation classes:
 
 1. **Disable immediately:** active authentication, all sessions, API key,
    notification eligibility, and any background work that can initiate new
-  user-facing processing.
+   user-facing processing.
 2. **Erase or de-identify:** canonical phone/email identity, credential
    identifiers and provider raw profiles, nickname, learner profile, avatar,
    birthday, and global profile variable values. Course-owned cloned voices
@@ -385,35 +407,27 @@ analytics family only to understand whether the operations workflow is usable:
 
 #### `operator_user_cancellation_v1`
 
-- Business question: Of cancellation dialogs opened by eligible operators,
-  how often are valid attempts completed, blocked by policy, explicitly
-  abandoned, or failed technically?
-- Metric definition: count distinct cancellation workflow IDs by terminal
-  outcome over a selected time window; compare with distinct dialog-open
-  workflow IDs. This is operational UX telemetry, not the audit source.
-- Event names: `operator_user_cancellation_opened`,
-  `operator_user_cancellation_attempted`, and
-  `operator_user_cancellation_result`.
-- Actor and surface: authenticated operator on `operations_user_list`.
-- Trigger: opened after preview resolves; attempted after local validation and
-  before the request; result once per accepted attempt on success, policy
-  conflict, technical failure, or explicit dialog cancellation.
-- Population: operator sessions only; exclude denied/non-operator renders.
-- Count unit and deduplication: one generated workflow ID per dialog lifecycle,
-  at most one attempt in flight and one terminal result per attempt.
-- Correlation: pseudonymous workflow ID only; shared analytics identity already
-  identifies the actor. Do not send target user BID.
-- Consumers: Operations product review and failure monitoring queries.
-- Compatibility: new v1 event family.
-- Verification: exact triggers, result deduplication, failure isolation, and
-  and negative assertions for reason, target identity, login identifier,
-  nickname, URLs, raw errors, and preview payload.
-
-Allowed payload fields are `surface=operations_user_list`, `workflow_id`,
-`result` (`success`, `blocked`, `conflict`, `failed`, `cancelled`),
-`blocker_category` (`none`, `operator`, `self`, `course_owner`,
-`active_subscription`, `unsettled_payment`, `already_cancelled`, `other`), and
-bounded numeric `warning_count`. `reason` and all target data are prohibited.
+- Business question: how often operators start account cancellation and what
+  share of accepted final attempts succeeds.
+- Events and exact triggers: `operator_user_cancellation_opened` fires once
+  when the row action opens the dialog;
+  `operator_user_cancellation_attempt` fires once when an enabled final
+  confirmation is accepted; `operator_user_cancellation_result` fires exactly
+  once for that request with `success` or `failed`.
+- Eligible population: authenticated operators using User Management. Exclude
+  guests, non-operators, automated calls, previews, and test harness fixtures.
+- Deduplication: one opened event per dialog open; the final button is disabled
+  while pending so a single accepted click has one attempt and one terminal
+  result.
+- Stable payload: every event contains only `surface=user_list`; the result
+  additionally contains `outcome=success|failed`. Never include target
+  `user_bid`, phone/email, nickname, reason, course title, URLs/referrers,
+  preview data, raw errors, or provider data.
+- Failure isolation: tracking failure must not block preview, transfer, renewal
+  preparation, final cancellation, navigation, or retry.
+- Consumer and compatibility: an operations adoption/failure dashboard; the
+  database cancellation audit remains the correctness source of truth. The
+  event family is additive and has no legacy producer to migrate.
 
 ## Concrete Steps
 
