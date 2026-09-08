@@ -203,7 +203,7 @@ export function CourseShareMenu(props: CourseShareButtonProps) {
           onClick={() => void copyPrompt()}
         >
           <Copy
-            className='h-4 w-4 text-primary'
+            className='h-4 w-4'
             aria-hidden='true'
           />
           {t('common.core.posterCopy')}
