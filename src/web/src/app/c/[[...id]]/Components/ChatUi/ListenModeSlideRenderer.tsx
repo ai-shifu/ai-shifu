@@ -1167,11 +1167,19 @@ const ListenModeSlideRenderer = ({
     () => elementList.filter(element => Boolean(element.is_marker)).length,
     [elementList],
   );
+  const generatedTimelineStepCount = useMemo(
+    () =>
+      elementList.filter(
+        element =>
+          Boolean(element.is_marker) && element.blockBid !== 'empty-ppt',
+      ).length,
+    [elementList],
+  );
   useEffect(() => {
     if (
       variant !== 'listen' ||
       previewMode ||
-      markerStepCount < 2 ||
+      generatedTimelineStepCount < 2 ||
       !shifuBid ||
       !lessonId
     ) {
@@ -1186,28 +1194,35 @@ const ListenModeSlideRenderer = ({
 
     void Promise.resolve(
       trackEvent('learner_listen_slide_timeline_exposed', {
-        generated_step_count: markerStepCount,
+        generated_step_count: generatedTimelineStepCount,
         shifu_bid: shifuBid,
         surface: 'learner_listen',
       }),
     ).catch(() => {});
-  }, [lessonId, markerStepCount, previewMode, shifuBid, trackEvent, variant]);
+  }, [
+    generatedTimelineStepCount,
+    lessonId,
+    previewMode,
+    shifuBid,
+    trackEvent,
+    variant,
+  ]);
   const handleSlideProgressNavigate = useCallback(
     (_element: unknown, targetStepIndex: number) => {
-      if (variant !== 'listen' || previewMode) {
+      if (variant !== 'listen' || previewMode || !shifuBid) {
         return;
       }
 
       void Promise.resolve(
         trackEvent('learner_listen_slide_navigate', {
-          generated_step_count: markerStepCount,
+          generated_step_count: generatedTimelineStepCount,
           shifu_bid: shifuBid,
           surface: 'learner_listen',
           target_step_index: targetStepIndex,
         }),
       ).catch(() => {});
     },
-    [markerStepCount, previewMode, shifuBid, trackEvent, variant],
+    [generatedTimelineStepCount, previewMode, shifuBid, trackEvent, variant],
   );
   const renderedElementList = useMemo(
     () =>

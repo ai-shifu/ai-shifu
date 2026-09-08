@@ -294,7 +294,7 @@ describe('ListenModeSlideRenderer', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'learner_listen_slide_timeline_exposed',
       {
-        generated_step_count: 4,
+        generated_step_count: 3,
         shifu_bid: 'course-1',
         surface: 'learner_listen',
       },
@@ -307,7 +307,7 @@ describe('ListenModeSlideRenderer', () => {
       2,
       'learner_listen_slide_navigate',
       {
-        generated_step_count: 4,
+        generated_step_count: 3,
         shifu_bid: 'course-1',
         surface: 'learner_listen',
         target_step_index: 2,
@@ -317,7 +317,7 @@ describe('ListenModeSlideRenderer', () => {
       3,
       'learner_listen_slide_navigate',
       {
-        generated_step_count: 4,
+        generated_step_count: 3,
         shifu_bid: 'course-1',
         surface: 'learner_listen',
         target_step_index: 2,
@@ -349,6 +349,46 @@ describe('ListenModeSlideRenderer', () => {
       ) => void;
     };
     previewSlideProps.onSlideProgressNavigate?.({}, 1);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Only generated slide',
+            element_bid: 'only-slide',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='single-slide-course'
+        lessonId='single-slide-lesson'
+        variant='listen'
+      />,
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    render(
+      <ListenModeSlideRenderer
+        items={Array.from({ length: 2 }, (_, index) => ({
+          type: 'content',
+          content: `Unscoped slide ${index + 1}`,
+          element_bid: `unscoped-slide-${index + 1}`,
+        }))}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='unscoped-lesson'
+        variant='listen'
+      />,
+    );
+    const unscopedSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      onSlideProgressNavigate?: (
+        element: unknown,
+        targetStepIndex: number,
+      ) => void;
+    };
+    unscopedSlideProps.onSlideProgressNavigate?.({}, 1);
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
