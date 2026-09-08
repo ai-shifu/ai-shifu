@@ -2,9 +2,17 @@
 
 A manually executed script that compares the four specified models on real
 published slide-generation prompts. It writes one offline `comparison.html`:
-one model per column, one frozen prompt set per row, with every captured slide
+one anonymously labeled model (A–D) per column, one frozen prompt set per row, with every captured slide
 page visible. Click an image to enlarge it or expand a row's prompt details.
 Images are embedded, so the page opens directly from disk without a server.
+
+Model columns use a stable shuffled order per batch. Names and exact routes are
+hidden until the reader clicks the reveal button at the bottom of the page. Each
+cell shows recorded generation time, model-call time, input/output/cache tokens,
+and average output tokens per second, including failed work. The speed is output
+tokens divided by total model-call time (including waiting and retries), not pure
+decoding speed. Missing or invalid measurements display as unrecorded; partial
+usage across multiple calls is not presented as a complete total.
 
 The script calls the main application implementation for generation and rendering:
 

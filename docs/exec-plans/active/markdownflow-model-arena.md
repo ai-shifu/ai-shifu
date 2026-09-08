@@ -10,6 +10,11 @@ rendering paths directly.
 
 ## Progress
 
+- [x] 2026-09-08 UTC: Added stable anonymous A–D columns with manual reveal at
+  the page bottom, plus per-work recorded timing, usage, cache, and output rate.
+  Passed 142 tests, the repository gate, and browser checks for hiding, reveal,
+  refresh reset, stable alignment, and twelve performance panels.
+
 - [x] 2026-09-08 UTC: Implemented authorized published snapshots, exact provider
   routes, isolated generation, complete capture, and resumable private artifacts.
 - [x] 2026-09-08 UTC: Moved all evaluation implementation into
@@ -47,7 +52,9 @@ rendering paths directly.
   sample to slide generation. External publishers and score modules are removed.
 - Preserve original published prompts, including required narration, rather than
   injecting new slide-only instructions. Only slide elements are compared.
-- Display model identities directly. Preserve failed/missing cells and every page.
+- User requested anonymous model codes, with identities revealed only by the
+  page-bottom button. Preserve failed/missing cells, every page, and recorded
+  performance data; do not invent missing values.
 - Schema 2 supports slide-only runs. A report-only command reads the slide subset
   of schema 1 without remote calls; generation resume does not migrate mixed runs.
 - Keep existing paid outputs and external resources untouched. The local page is

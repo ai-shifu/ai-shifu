@@ -12,3 +12,13 @@ dialog.querySelector('.close').addEventListener('click', () => dialog.close());
 dialog.addEventListener('click', (event) => {
   if (event.target === dialog) dialog.close();
 });
+
+const revealButton = document.querySelector('#reveal-models');
+revealButton.addEventListener('click', () => {
+  document.querySelectorAll('.model-name').forEach((name) => {
+    name.hidden = false;
+  });
+  revealButton.setAttribute('aria-expanded', 'true');
+  revealButton.textContent = revealButton.dataset.revealedLabel;
+  revealButton.disabled = true;
+});

@@ -65,8 +65,8 @@ bounded configurable timeouts. Credentials stay in the operator environment.
 
 ## Local output and recovery
 
-`comparison.html` embeds every verified slide PNG. Each model has a labeled column
-with its exact route; each prompt set occupies one row with all slide pages,
+`comparison.html` embeds every verified slide PNG. Each model has a stable, shuffled A–D column. Names and exact routes appear
+only after clicking the reveal button at the bottom; each prompt set occupies one row with all slide pages,
 expandable source instructions, and click-to-enlarge images. Failed, truncated,
 not-yet-generated, and text-only outputs have explicit cells. The report uses no
 remote assets, forms, votes, external publication, or model preference scores.
@@ -101,3 +101,10 @@ reports, escaped prompts, and modified-image rejection. Browser checks cover the
 four-column layout, complete image decoding, prompt expansion, and zooming.
 Main application integration coverage is retained; this does not replace every
 learner-facing end-to-end test.
+
+The performance panel in every cell uses saved call metadata, including failed
+and truncated requests. It shows generation elapsed time, summed model-call
+latency, input/output tokens, cache-hit tokens, and output tokens divided by
+summed model-call seconds. This rate includes waiting and retries, so it is not
+pure decoding throughput. Missing values remain unrecorded; a multi-call total
+requires valid data from every call. No additional model requests are made.

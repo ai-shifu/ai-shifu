@@ -99,3 +99,117 @@ def test_report_rejects_unverified_image_and_preserves_previous_report(
     with pytest.raises(ArenaError):
         write_report(report_manifest, tmp_path)
     assert output.read_text() == "Previous verified report"
+
+
+def test_recorded_performance_aggregates_calls_without_inventing_missing_values() -> (
+    None
+):
+    from markdownflow_arena_lib.report import performance
+
+    metrics = performance(
+        {
+            "metadata": {
+                "elapsed_ms": 5000,
+                "requests": [
+                    {
+                        "latency_ms": 1000,
+                        "usage": {"input": 100, "output": 20},
+                        "input_cache_tokens": 0,
+                    },
+                    {
+                        "latency_ms": 2000,
+                        "usage": {"input": 200, "output": 40},
+                        "input_cache_tokens": 50,
+                    },
+                ],
+            }
+        }
+    )
+    assert metrics == {
+        "elapsed": 5,
+        "latency": 3,
+        "input": 300,
+        "output": 60,
+        "cache": 50,
+        "speed": 20,
+    }
+    missing = performance(
+        {
+            "metadata": {
+                "requests": [
+                    {"latency_ms": 1000, "usage": {"input": 100, "output": 20}},
+                    {"latency_ms": 2000, "usage": None},
+                ]
+            }
+        }
+    )
+    assert missing == {
+        "elapsed": None,
+        "latency": 3,
+        "input": None,
+        "output": None,
+        "cache": None,
+        "speed": None,
+    }
+
+
+@pytest.mark.parametrize("value", [None, True, -1, float("nan"), float("inf"), "200"])
+def test_invalid_performance_is_unknown(value: object) -> None:
+    from markdownflow_arena_lib.report import performance
+
+    metrics = performance(
+        {
+            "metadata": {
+                "elapsed_ms": value,
+                "requests": [
+                    {
+                        "latency_ms": value,
+                        "usage": {"input": value, "output": value},
+                        "input_cache_tokens": value,
+                    }
+                ],
+            }
+        }
+    )
+    assert all(metric is None for metric in metrics.values())
+
+
+def test_zero_usage_is_recorded_but_zero_duration_has_no_speed() -> None:
+    from markdownflow_arena_lib.report import performance
+
+    metrics = performance(
+        {
+            "metadata": {
+                "elapsed_ms": 0,
+                "requests": [
+                    {
+                        "latency_ms": 0,
+                        "usage": {"input": 0, "output": 0},
+                        "input_cache_tokens": 0,
+                    }
+                ],
+            }
+        }
+    )
+    assert metrics["output"] == 0
+    assert metrics["elapsed"] == 0
+    assert metrics["speed"] is None
+
+
+def test_blind_headers_have_stable_codes_and_reveal_after_the_last_row(
+    report_manifest: dict, tmp_path: Path
+) -> None:
+    import re
+
+    result = write_report(report_manifest, tmp_path)
+    content = Path(result["path"]).read_text()
+    assert re.findall(r'<span class="model-code">(.*?)</span>', content) == list("ABCD")
+    hidden_names = r'<span class="model-name" hidden>(.*?)</span>'
+    names = re.findall(hidden_names, content)
+    assert len(names) == 4
+    assert content.count('<dl class="performance">') == 4
+    assert 'aria-expanded="false"' in content
+    assert content.index('id="reveal-models"') > content.index("</main>")
+    report_manifest["models"].reverse()
+    write_report(report_manifest, tmp_path)
+    assert re.findall(hidden_names, Path(result["path"]).read_text()) == names
