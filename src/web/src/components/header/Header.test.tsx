@@ -377,7 +377,7 @@ describe('Header publish success link', () => {
     fireEvent.click(shareButton);
     fireEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', {
-        name: 'common.core.shareCourse',
+        name: 'common.core.shareCourseLink',
       }),
     );
 
@@ -405,7 +405,7 @@ describe('Header publish success link', () => {
     );
     fireEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', {
-        name: 'common.core.shareCourse',
+        name: 'common.core.shareCourseLink',
       }),
     );
 
@@ -441,7 +441,7 @@ describe('Header publish success link', () => {
       );
       fireEvent.click(
         within(screen.getByRole('dialog')).getByRole('button', {
-          name: 'common.core.shareCourse',
+          name: 'common.core.shareCourseLink',
         }),
       );
 
