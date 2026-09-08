@@ -244,12 +244,12 @@ local function quota(key, limit, multiplier, window)
         delay = math.max(delay, tonumber(item[2])*multiplier + window-now)
     end
 end
-quota(KEYS[1], args.rotation_enabled and 96 or 24, 1000, 0)
+quota(KEYS[1], args.rotation_enabled and args.global_credential_limit or 24, 1000, 0)
 if not args.rotation_enabled then quota(KEYS[2], 6, 1000, 0) end
-quota(KEYS[3], args.rotation_enabled and not args.legacy and 8 or 1, 1000, 0)
-if not redis.call('ZSCORE', KEYS[12], KEYS[4]) then quota(KEYS[12], 24, 1, 0) end
-quota(KEYS[6], 4, 1, 60000)
-quota(KEYS[7], 24, 1, 60000)
+quota(KEYS[3], args.rotation_enabled and not args.legacy and args.user_credential_limit or 1, 1000, 0)
+if not redis.call('ZSCORE', KEYS[12], KEYS[4]) then quota(KEYS[12], args.active_session_limit, 1, 0) end
+quota(KEYS[6], args.user_mint_rate_limit, 1, 60000)
+quota(KEYS[7], args.global_mint_rate_limit, 1, 60000)
     local legacy_lease = redis.call('GET', KEYS[9])
 if legacy_lease and not redis.call('ZSCORE', KEYS[3], legacy_lease) then
     local remaining = redis.call('PTTL', KEYS[9])
@@ -364,6 +364,28 @@ def _keys(
     )
 
 
+_CAPACITY_LIMITS = {
+    "global_credential_limit": ("GEMINI_LIVE_GLOBAL_CREDENTIAL_LIMIT", 96),
+    "user_credential_limit": ("GEMINI_LIVE_USER_CREDENTIAL_LIMIT", 8),
+    "active_session_limit": ("GEMINI_LIVE_ACTIVE_SESSION_LIMIT", 24),
+    "user_mint_rate_limit": ("GEMINI_LIVE_USER_MINT_RATE_LIMIT", 4),
+    "global_mint_rate_limit": ("GEMINI_LIVE_GLOBAL_MINT_RATE_LIMIT", 24),
+}
+
+
+def _capacity_limits(app: Flask) -> dict[str, int]:
+    """Keep invalid configuration from disabling a shared admission bound."""
+    limits = {}
+    for argument, (name, default) in _CAPACITY_LIMITS.items():
+        configured = app.config.get(name, default)
+        try:
+            value = int(str(configured))
+        except (TypeError, ValueError):
+            value = default
+        limits[argument] = value if value > 0 else default
+    return limits
+
+
 def _run(
     app: Flask,
     request: AdmissionRequest,
@@ -382,6 +404,7 @@ def _run(
         "rotation_enabled": False,
         "takeover": request.takeover,
         **values,
+        **_capacity_limits(app),
     }
     try:
         keys = _keys(app, request, worker_id=worker_id, session_bid=session_bid)

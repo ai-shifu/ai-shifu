@@ -1471,3 +1471,55 @@ def test_corrupt_accounting_marker_fails_closed_without_capacity_side_effects(
     with pytest.raises(capacity.LiveFollowUpCapacityUnavailableError):
         _begin(ready_app, request)
     assert client.exists(*keys[:7]) == 0
+
+
+@pytest.mark.parametrize(
+    ("name", "key_index", "default", "score_unit"),
+    [
+        ("GEMINI_LIVE_GLOBAL_CREDENTIAL_LIMIT", 0, 96, "expiry_seconds"),
+        ("GEMINI_LIVE_USER_CREDENTIAL_LIMIT", 2, 8, "expiry_seconds"),
+        ("GEMINI_LIVE_ACTIVE_SESSION_LIMIT", 11, 24, "expiry_ms"),
+        ("GEMINI_LIVE_USER_MINT_RATE_LIMIT", 5, 4, "rate"),
+        ("GEMINI_LIVE_GLOBAL_MINT_RATE_LIMIT", 6, 24, "rate"),
+    ],
+)
+@pytest.mark.parametrize("at_limit", [False, True])
+def test_configured_capacity_accepts_old_boundary_and_rejects_new_boundary(
+    ready_app: Flask,
+    real_redis: RedisHarness,
+    name: str,
+    key_index: int,
+    default: int,
+    score_unit: str,
+    *,
+    at_limit: bool,
+) -> None:
+    """Environment overrides retain atomic capacity and retry-after behavior."""
+    limit = default * 2
+    ready_app.config[name] = str(limit)
+    client = real_redis.client
+    request = _request(client)
+    now = _now_ms(client)
+    score = now if score_unit == "rate" else now + 900_000
+    if score_unit == "expiry_seconds":
+        score /= 1000
+    client.zadd(
+        _keys(ready_app, request)[key_index],
+        {f"reserved-{index}": score for index in range(limit if at_limit else default)},
+    )
+    result = _begin(ready_app, request, rotation=True)
+    if at_limit:
+        assert result.lease is None
+        assert result.data["error_code"] == "capacity_exceeded"
+        assert result.data["retry_after_ms"] > 0
+    else:
+        assert result.lease is not None
+
+
+@pytest.mark.parametrize("value", [0, -1, None, "", "invalid", "1.5", True])
+def test_invalid_capacity_configuration_keeps_default_bounds(value: object) -> None:
+    """Invalid overrides cannot remove credential or rate limits."""
+    app = Flask(__name__)
+    for argument, (name, default) in admission._CAPACITY_LIMITS.items():
+        app.config[name] = value
+        assert admission._capacity_limits(app)[argument] == default
