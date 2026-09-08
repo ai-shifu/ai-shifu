@@ -1187,6 +1187,7 @@ def test_existing_legacy_credential_blocks_v2_admission_for_same_user(
     result = _begin(ready_app, request)
     assert result.lease is None
     assert result.data["error_code"] == "capacity_exceeded"
+    assert result.data["capacity_scopes"] == ["legacy_user_credential"]
     assert client.zcard(_keys(ready_app, request)[0]) == 1
 
 
@@ -1205,6 +1206,8 @@ def test_legacy_and_v2_share_existing_worker_and_global_risk_sets(
     result = _begin(ready_app, _request(client), worker="shared-worker", rotation=False)
     assert result.lease is None
     assert result.data["error_code"] == "capacity_exceeded"
+
+    assert result.data["capacity_scopes"] == ["worker_credentials"]
 
 
 def test_rolling_window_prunes_exactly_expired_attempts_before_admission(
@@ -1229,7 +1232,9 @@ def test_rolling_window_prunes_exactly_expired_attempts_before_admission(
 def test_busy_delay_accounts_for_every_blocking_risk_and_rate_quota(
     ready_app: Flask,
     real_redis: RedisHarness,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    caplog.set_level("INFO")
     client = real_redis.client
     request = _request(client)
     keys = _keys(ready_app, request)
@@ -1244,7 +1249,23 @@ def test_busy_delay_accounts_for_every_blocking_risk_and_rate_quota(
     result = _begin(ready_app, request)
     assert result.lease is None
     assert result.data["error_code"] == "capacity_exceeded"
+    assert result.data["capacity_scopes"] == [
+        "global_credentials",
+        "user_credentials",
+        "user_mint_rate",
+    ]
     assert 119_000 <= result.data["retry_after_ms"] <= 120_000
+
+    message = next(
+        record.getMessage()
+        for record in caplog.records
+        if "Gemini Live capacity rejected" in record.getMessage()
+    )
+    for scope in result.data["capacity_scopes"]:
+        assert scope in message
+    assert str(result.data["retry_after_ms"]) in message
+    assert request.user_bid not in message
+    assert request.origin not in message
 
 
 def test_retirement_receipt_survives_consumed_history_binding_and_keeps_cursor(
@@ -1511,9 +1532,18 @@ def test_configured_capacity_accepts_old_boundary_and_rejects_new_boundary(
     if at_limit:
         assert result.lease is None
         assert result.data["error_code"] == "capacity_exceeded"
+        scopes = {
+            0: "global_credentials",
+            2: "user_credentials",
+            11: "active_sessions",
+            5: "user_mint_rate",
+            6: "global_mint_rate",
+        }
+        assert result.data["capacity_scopes"] == [scopes[key_index]]
         assert result.data["retry_after_ms"] > 0
     else:
         assert result.lease is not None
+        assert "capacity_scopes" not in result.data
 
 
 @pytest.mark.parametrize("value", [0, -1, None, "", "invalid", "1.5", True])
