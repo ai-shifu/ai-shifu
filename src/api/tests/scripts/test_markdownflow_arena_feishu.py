@@ -402,6 +402,20 @@ def test_unknown_create_without_visible_record_never_blindly_retries(
     publisher.cli.run.assert_not_called()
 
 
+@pytest.mark.parametrize("table", ["matchups", "summary"])
+def test_empty_query_with_known_record_id_never_creates_a_duplicate(
+    publisher: FeishuPublisher, table: str
+) -> None:
+    publisher.state["records"] = {table: {"machine1": "recAlreadyCreated"}}
+    publisher.cli.records.return_value = []
+    with pytest.raises(LarkCliError, match="known arena record") as error:
+        publisher._record(table, "machine1", {})
+    assert error.value.subtype == "missing_known_record"
+    assert publisher.state["records"][table]["machine1"] == "recAlreadyCreated"
+    publisher.cli.run.assert_not_called()
+    publisher.save_state.assert_not_called()
+
+
 def test_record_create_parses_live_single_record_id_list(
     publisher: FeishuPublisher,
 ) -> None:

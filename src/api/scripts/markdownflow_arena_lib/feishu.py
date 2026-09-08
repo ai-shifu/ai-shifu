@@ -773,6 +773,9 @@ class FeishuPublisher:
                 payload=values,
             )
         else:
+            if self.state.get("records", {}).get(table, {}).get(machine_id):
+                message = "The known arena record is not visible in the latest query; reconcile its saved ID before retrying"
+                raise LarkCliError(message, subtype="missing_known_record")
             self._pending(key)
             data = self._base(
                 "+record-upsert",
