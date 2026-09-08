@@ -17,7 +17,7 @@ User-facing workflow and page behavior specifications live here.
 - [Operator Role Design](../product-specs/operator-role.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
 - [Operator User Management](../product-specs/operator-user-management.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-08` | Canonical: `true`
 - [Password Login Feature Design](../product-specs/password-login-design.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Teacher Analytics Dashboard (v1)](../product-specs/teacher-analytics-dashboard.md)

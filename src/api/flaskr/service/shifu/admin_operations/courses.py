@@ -282,6 +282,7 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     OPERATOR_USER_ROLE_LEARNER,
     OPERATOR_USER_ROLE_OPERATOR,
     OPERATOR_USER_ROLE_REGULAR,
+    OPERATOR_USER_STATUS_CANCELLED,
     OPERATOR_USER_STATUS_PAID,
     OPERATOR_USER_STATUS_REGISTERED,
     OPERATOR_USER_STATUS_TRIAL,
@@ -332,6 +333,7 @@ from flaskr.service.shifu.admin_operations.courses_transfer_copy import (
     _validate_operator_target_contact,
     copy_operator_course,
     transfer_operator_course_creator,
+    transfer_operator_published_courses,
 )
 from flaskr.service.shifu.admin_operations.courses_users import (
     _load_course_related_user_bids,

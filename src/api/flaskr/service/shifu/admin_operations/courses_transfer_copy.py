@@ -12,6 +12,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common.models import (
     raise_error,
@@ -48,10 +49,12 @@ from flaskr.service.shifu.shifu_history_manager import (
     save_outline_tree_history,
     save_shifu_history,
 )
+from flaskr.service.tts.models import TTSMiniMaxClonedVoice
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
 )
+from flaskr.service.user.models import UserInfo
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
     load_user_aggregate_by_identifier,
@@ -466,6 +469,121 @@ def transfer_operator_course_creator(
             "target_creator_user_bid": target_user_bid,
             "created_new_user": created_new_user,
             "granted_demo_permissions": granted_demo_permissions,
+        }
+
+
+def transfer_operator_published_courses(
+    app: Flask,
+    *,
+    previous_creator_user_bid: str,
+    contact_type: str,
+    identifier: str,
+    operator_user_bid: str,
+) -> dict[str, object]:
+    """Atomically transfer every published course owned by one user."""
+    with app.app_context():
+        source_user_bid = str(previous_creator_user_bid or "").strip()
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
+        if not source_user_bid:
+            raise_param_error("previous_creator_user_bid")
+        if not normalized_operator_user_bid:
+            raise_param_error("operator_user_bid")
+        source_user = UserInfo.query.filter(
+            UserInfo.user_bid == source_user_bid,
+            UserInfo.deleted == 0,
+        ).first()
+        if source_user is None:
+            raise_error("server.user.userNotFound")
+        if source_user_bid == normalized_operator_user_bid or bool(
+            source_user.is_operator
+        ):
+            raise_error("server.user.accountCancellationBlocked")
+
+        course_rows = (
+            PublishedShifu.query.filter(
+                PublishedShifu.created_user_bid == source_user_bid,
+                PublishedShifu.deleted == 0,
+            )
+            .order_by(PublishedShifu.id.desc())
+            .all()
+        )
+        course_bids: list[str] = []
+        latest_by_bid: dict[str, PublishedShifu] = {}
+        for course in course_rows:
+            shifu_bid = str(course.shifu_bid or "").strip()
+            if not shifu_bid or shifu_bid in latest_by_bid:
+                continue
+            if not _is_operator_visible_course(course):
+                continue
+            latest_by_bid[shifu_bid] = course
+            course_bids.append(shifu_bid)
+        if not course_bids:
+            return {
+                "previous_creator_user_bid": source_user_bid,
+                "target_creator_user_bid": "",
+                "transferred_course_count": 0,
+                "transferred_course_bids": [],
+                "created_new_user": False,
+            }
+
+        target_result = _prepare_operator_target_creator(
+            app,
+            contact_type=contact_type,
+            identifier=identifier,
+            previous_creator_user_bid=source_user_bid,
+        )
+        target_aggregate = target_result["target_aggregate"]
+        target_user_bid = str(target_result["target_user_bid"] or "")
+        created_new_user = bool(target_result["created_new_user"])
+        creator_granted_now = bool(target_result["creator_granted_now"])
+
+        for shifu_bid in course_bids:
+            _update_course_creator_bid(
+                shifu_bid,
+                target_user_bid,
+                updated_user_bid=normalized_operator_user_bid,
+            )
+            latest_course = latest_by_bid[shifu_bid]
+            if getattr(latest_course, "id", 0):
+                save_shifu_history(
+                    app,
+                    normalized_operator_user_bid,
+                    shifu_bid,
+                    int(latest_course.id),
+                )
+
+        TTSMiniMaxClonedVoice.query.filter(
+            TTSMiniMaxClonedVoice.owner_user_bid == source_user_bid,
+            TTSMiniMaxClonedVoice.shifu_bid.in_(course_bids),
+            TTSMiniMaxClonedVoice.deleted == 0,
+        ).update(
+            {TTSMiniMaxClonedVoice.owner_user_bid: target_user_bid},
+            synchronize_session=False,
+        )
+
+        with unit_of_work():
+            db.session.flush()
+        for shifu_bid in course_bids:
+            _clear_shifu_permission_cache(app, source_user_bid, shifu_bid)
+            _clear_shifu_permission_cache(app, target_user_bid, shifu_bid)
+            _clear_shifu_creator_cache(app, shifu_bid)
+        if creator_granted_now:
+            _get_legacy_admin_symbol(
+                "run_creator_granted_post_auth", run_creator_granted_post_auth
+            )(
+                app,
+                user_id=target_user_bid,
+                source="operator_transfer_creator",
+                login_context="admin",
+                created_new_user=created_new_user,
+                language=target_aggregate.user_language,
+            )
+        return {
+            "previous_creator_user_bid": source_user_bid,
+            "target_creator_user_bid": target_user_bid,
+            "transferred_course_count": len(course_bids),
+            "transferred_course_bids": course_bids,
+            "created_new_user": created_new_user,
         }
 
 

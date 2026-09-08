@@ -65,6 +65,15 @@ from flaskr.service.billing.referral_reward_grants import (
     grant_referral_reward_credits_to_user,
     load_referral_reward_summary,
 )
+from flaskr.service.billing.renewal_event_transitions import (
+    cancel_subscription_renewal_events,
+)
+from flaskr.service.billing.subscriptions import cancel_billing_subscription
+from flaskr.service.billing.wallets import (
+    persist_credit_wallet_snapshot,
+    refresh_credit_wallet_snapshot,
+    sync_credit_bucket_status,
+)
 from flaskr.service.common.models import raise_error
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 
@@ -132,6 +141,8 @@ __all__ = [
     "build_operator_credit_orders_overview",
     "build_operator_credit_orders_page",
     "build_provider_config_overrides",
+    "cancel_billing_subscription",
+    "cancel_subscription_renewal_events",
     "capture_reserved_operation_credits",
     "credit_decimal_to_number",
     "dry_run_credit_notifications",
@@ -150,7 +161,9 @@ __all__ = [
     "load_credit_notification_policy",
     "load_credit_notification_policy_for_operator",
     "load_referral_reward_summary",
+    "persist_credit_wallet_snapshot",
     "quantize_credit_amount",
+    "refresh_credit_wallet_snapshot",
     "release_reserved_operation_credits",
     "requeue_credit_notification",
     "reserve_operation_credits",
@@ -164,6 +177,7 @@ __all__ = [
     "resolve_provider_credential_context",
     "save_credit_notification_email_template",
     "save_credit_notification_policy",
+    "sync_credit_bucket_status",
     "sync_credit_notification_template",
     "to_decimal",
     "update_credit_notification_email_template_status",

@@ -4130,6 +4130,9 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "last_learning_at": None,
             "created_at": _z(datetime(2026, 4, 6, 8, 0, 0)),
             "updated_at": _z(datetime(2026, 4, 6, 12, 0, 0)),
+            "cancelled_at": None,
+            "cancellation_reason": "",
+            "cancellation_operator_user_bid": "",
         }
     ]
 
@@ -4217,6 +4220,9 @@ def test_admin_operation_user_detail_route_returns_payload(
         "last_learning_at": None,
         "created_at": _z(datetime(2026, 4, 10, 8, 0, 0)),
         "updated_at": _z(datetime(2026, 4, 10, 12, 0, 0)),
+        "cancelled_at": None,
+        "cancellation_reason": "",
+        "cancellation_operator_user_bid": "",
     }
 
 

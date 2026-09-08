@@ -26,6 +26,7 @@ from flaskr.service.shifu.admin_operations.user_support import (
     OPERATOR_USER_ROLE_LEARNER,
     OPERATOR_USER_ROLE_OPERATOR,
     OPERATOR_USER_ROLE_REGULAR,
+    OPERATOR_USER_STATUS_CANCELLED,
     OPERATOR_USER_STATUS_PAID,
     OPERATOR_USER_STATUS_REGISTERED,
     OPERATOR_USER_STATUS_TRIAL,
@@ -56,7 +57,7 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import AuthCredential, UserAccountCancellation
 from flaskr.service.user.models import UserInfo as UserEntity
 from sqlalchemy import and_, case, or_
 
@@ -228,7 +229,10 @@ def list_operator_users(
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
 
-        query = UserEntity.query.filter(UserEntity.deleted == 0)
+        query = UserEntity.query.filter(
+            UserEntity.deleted
+            == (1 if user_status == OPERATOR_USER_STATUS_CANCELLED else 0)
+        )
         if user_bid:
             query = query.filter(UserEntity.user_bid == user_bid)
         if user_query:
@@ -236,7 +240,9 @@ def list_operator_users(
         if nickname:
             query = query.filter(UserEntity.nickname.ilike(f"%{nickname}%"))
         if user_status:
-            if user_status == OPERATOR_USER_STATUS_UNREGISTERED:
+            if user_status == OPERATOR_USER_STATUS_CANCELLED:
+                pass
+            elif user_status == OPERATOR_USER_STATUS_UNREGISTERED:
                 query = query.filter(UserEntity.state == USER_STATE_UNREGISTERED)
             elif user_status == OPERATOR_USER_STATUS_REGISTERED:
                 query = query.filter(
@@ -377,6 +383,15 @@ def list_operator_users(
         total_paid_amount_map = load_operator_user_total_paid_amount_map(user_bids)
         last_learning_map = load_operator_user_last_learning_map(user_bids)
         credit_summary_map = load_operator_user_credit_summary_map(user_bids)
+        cancellation_map = {
+            row.user_bid: {
+                "reason": row.reason,
+                "operator_user_bid": row.operator_user_bid,
+            }
+            for row in UserAccountCancellation.query.filter(
+                UserAccountCancellation.user_bid.in_(user_bids)
+            ).all()
+        }
         items = [
             build_operator_user_summary(
                 user,
@@ -389,6 +404,7 @@ def list_operator_users(
                 credit_summary_map,
                 learning_course_count_map=learning_course_count_map,
                 created_course_count_map=created_course_count_map,
+                cancellation_map=cancellation_map,
             )
             for user in page_items
         ]
@@ -407,7 +423,10 @@ def get_operator_user_detail(
     """Return operator user detail."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
-        user = load_operator_user_or_raise(normalized_user_bid)
+        user = load_operator_user_or_raise(normalized_user_bid, include_cancelled=True)
+        cancellation = UserAccountCancellation.query.filter_by(
+            user_bid=normalized_user_bid
+        ).first()
 
         credential_rows = load_operator_user_auth_credentials([normalized_user_bid])
         contact_map = load_operator_user_contact_map(
@@ -443,4 +462,14 @@ def get_operator_user_detail(
             credit_summary_map,
             learning_courses_map=learning_courses_map,
             created_courses_map=created_courses_map,
+            cancellation_map=(
+                {
+                    normalized_user_bid: {
+                        "reason": cancellation.reason,
+                        "operator_user_bid": cancellation.operator_user_bid,
+                    }
+                }
+                if cancellation
+                else {}
+            ),
         )

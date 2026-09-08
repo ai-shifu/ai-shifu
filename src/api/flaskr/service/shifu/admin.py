@@ -211,6 +211,7 @@ from flaskr.service.shifu.admin_shared import (
     OPERATOR_USER_ROLE_LEARNER,
     OPERATOR_USER_ROLE_OPERATOR,
     OPERATOR_USER_ROLE_REGULAR,
+    OPERATOR_USER_STATUS_CANCELLED,
     OPERATOR_USER_STATUS_PAID,
     OPERATOR_USER_STATUS_REGISTERED,
     OPERATOR_USER_STATUS_TRIAL,
@@ -463,6 +464,7 @@ _OPERATOR_COURSE_COMPAT_EXPORTS = (
     "_clear_shifu_creator_cache",
     "_update_course_creator_bid",
     "transfer_operator_course_creator",
+    "transfer_operator_published_courses",
     "copy_operator_course",
     "_merge_courses",
     "_load_latest_course_versions",
@@ -532,6 +534,9 @@ _clear_shifu_permission_cache = _operator_courses._clear_shifu_permission_cache
 _clear_shifu_creator_cache = _operator_courses._clear_shifu_creator_cache
 _update_course_creator_bid = _operator_courses._update_course_creator_bid
 transfer_operator_course_creator = _operator_courses.transfer_operator_course_creator
+transfer_operator_published_courses = (
+    _operator_courses.transfer_operator_published_courses
+)
 copy_operator_course = _operator_courses.copy_operator_course
 _load_operator_course_detail_source = (
     _operator_courses._load_operator_course_detail_source
@@ -744,4 +749,5 @@ __all__ = (
     "load_existing_demo_shifu_ids",
     "run_creator_granted_post_auth",
     "transfer_operator_course_creator",
+    "transfer_operator_published_courses",
 )
