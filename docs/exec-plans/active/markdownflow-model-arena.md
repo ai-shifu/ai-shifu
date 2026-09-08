@@ -23,9 +23,20 @@ Base. Reviewers vote using native buttons; separate raw records retain distinct 
   provider routes and verified identical initial messages within each case.
 - [x] 2026-09-08 UTC: Provisioned the dedicated Feishu Base with ordinary
   organization editing, four enabled button workflows, and verified bindings.
-  Tables remain empty until the smoke artifacts are published.
-- [ ] Validate two real cases, then generate the twelve-case first round.
-- [ ] Complete repository checks and open a ready pull request.
+- [x] 2026-09-08 UTC: Published and verified the two-case smoke stage, then
+  completed all 48 first-round generation attempts: 47 complete and one truncated.
+- [x] 2026-09-08 UTC: Passed repository checks and opened a ready pull request;
+  the initial integration head passed all CI checks.
+- [x] 2026-09-08 UTC: Passed 318 backend and shared LLM regression tests after
+  review fixes for private artifact identity, malformed records, rendering locale
+  propagation, and coordinated renderer timeouts.
+- [x] 2026-09-08 UTC: Completed first-round rendering and attachment recovery:
+  45 complete works, 105 PNG pages, 105 PDF pages, and 63 published matchups.
+- [x] 2026-09-08 UTC: Passed the final repository-wide gate, ten renderer unit
+  tests, all renderer smoke fixtures, and ten real-browser locale checks against
+  the current pinned UI library. Final CI and review state are tracked on the PR.
+- [ ] Deferred by the user, 2026-09-08 UTC: Run the two-reviewer live voting trial
+  and inspect the workspace's remaining workflow quota after delivery.
 
 ## Surprises & Discoveries
 
@@ -52,6 +63,11 @@ Base. Reviewers vote using native buttons; separate raw records retain distinct 
   Count only votes after the complete matchup is ready, and retain its first
   ready time across an interrupted upload. Corrected visual revisions must
   refresh the existing record and begin a new ready window.
+- Real course images can finish loading in nested slide documents while
+  Playwright's page-level network-idle lifecycle remains pending. Renderer
+  readiness must check actual requests and each frame's images, fonts, diagrams,
+  and stable geometry. A hash-checked private image cache can preserve original
+  source bytes when the renderer host cannot directly fetch course images.
 - Workflow step titles are required by the live API even though the current
   skill schema labels them optional. Localized titles were added and the
   rejected creation was reconciled against an empty workflow listing.
@@ -99,16 +115,30 @@ Base. Reviewers vote using native buttons; separate raw records retain distinct 
 
 ## Outcomes & Retrospective
 
-The backend suite and shared LLM regression tests passed (195 tests at the
-initial integration checkpoint). Renderer smoke tests verified four pages of
-Chinese prose, diagram/math/SVG, executed HTML, and all pages of a two-slide
-work. Two clipping fixtures correctly fail instead of publishing incomplete
-content. Repository harness and architecture-boundary checks passed.
+The twelve-case first round completed all 48 model attempts. One result was
+truncated, and two introduced unavailable external images; these three works
+remain separate failures and do not enter normal comparisons. The 45 usable
+works produced 105 PNG pages and 105 PDF pages, all at width 1280, and 63
+matchups. Every usable work's first and last page was inspected, and every PDF
+page count matches its image count. The frozen batch used markdown-flow-ui
+0.2.25 throughout; separate compatibility and locale checks passed against the
+repository's current 0.2.26 pin. Completed model output was never regenerated
+to recover rendering or publication.
 
-Live provider discovery and Feishu user authentication are verified. The
-first-round Base has organization editing access, external anonymous access
-disabled, and four enabled voting workflows with verified button bindings.
-Artifact publication and ordinary-reviewer acceptance remain in progress. Existing web e2e tests ran:
+The final backend and shared LLM suite passed 318 tests. Renderer unit tests,
+pixel-checked scroll pagination, original-image cache fixtures, all supported
+locales in reading/slide modes, and real clipping rejection fixtures passed.
+Repository-wide lefthook, harness, and architecture-boundary checks passed.
+
+Live provider calls used all four exact requested routes with identical initial
+message hashes within each case. The Base has organization editing access,
+external anonymous access disabled, and four enabled workflows with verified
+button bindings. A network-interrupted PDF upload was reconciled using repeated
+attachment queries and complete record history before its single missing file
+was uploaded. Existing matchup IDs and A/B positions survive corrected renders.
+
+Two-person live voting acceptance is explicitly deferred by the user, and quota
+telemetry remains unknown. Existing web e2e tests ran:
 the independent Live takeover test passed with installed Chromium; tests that
 require the local app were blocked because its port was not serving. This is
 not a claim that the full existing e2e suite passed.

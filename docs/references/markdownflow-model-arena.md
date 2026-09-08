@@ -11,8 +11,11 @@ to twelve cases and all six model pairs for each case.
 - Install a Playwright Chromium browser (`npx playwright install chromium` in
   `src/web`) and use one host for every artifact in the round.
 - Authenticate the existing `lark-cli` user with Base, sharing, attachment, and
-  workflow permissions. The CLI must support raw `api` calls. Resuming a Base
-  from the earlier restricted setup also requires disabling its advanced permissions.
+  workflow permissions. The CLI must support raw `api` calls. To continue the
+  earlier restricted setup, use `--resume` with the same run's original directory
+  and manifest that already owns its Base token; the tool then disables that
+  Base's advanced permissions. Do not copy a Base token into a new configuration
+  or manifest to adopt another Base or batch.
 - Run the backend worker in the authorized production environment with the
   existing database, Redis, provider, and tracing configuration. The worker
   initializes only the required Flask services; it does not run migrations or
@@ -46,7 +49,11 @@ path to `src/web/scripts/markdownflow-arena/render.mjs`, and optionally
 `--browser-path` plus an installed Chromium executable. The renderer appends
 input/output arguments. `renderer_asset_hosts` explicitly permits HTTPS hosts
 needed by course images; the default is offline. Network errors fail rendering
-instead of silently producing incomplete work. See the renderer's README for
+instead of silently producing incomplete work. For an operator-verified set of
+original course images, `renderer_command` may include `--asset-cache` and the
+absolute path of a private cache manifest. The renderer verifies every cached
+image's SHA-256 and format, serves only the exact listed image URLs, and does not
+fetch them over the network. See the renderer's README for the cache format,
 page slicing, font, sandbox, and PDF behavior.
 
 ## Run and recover
