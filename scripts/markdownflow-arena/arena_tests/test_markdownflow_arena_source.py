@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import json
 import sys
-from collections import Counter
 from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -85,13 +84,13 @@ def _course(
         shifu_bid=bid,
         outline_item_bid=f"{bid}-lesson",
         title="Published lesson",
-        content="Explain vectors.\n\n---\n\nCreate an SVG diagram.",
+        content="Create a PPT about vectors.\n\n---\n\nCreate an SVG diagram.",
     )
     visual = PublishedOutlineItem(
         shifu_bid=bid,
         outline_item_bid=f"{bid}-visual",
         title="Visual lesson",
-        content="Create an SVG diagram of a vector.",
+        content="Create a PPT with an SVG diagram of a vector.",
     )
     session.add_all([parent, lesson, visual])
     session.flush()
@@ -292,7 +291,7 @@ def test_prepare_cases_is_reproducible_and_freezes_variables(
     first = source.prepare_cases(snapshot, 2, 123, variables)
     second = source.prepare_cases(snapshot, 2, 123, variables)
     assert first == second
-    assert {case["category"] for case in first} == {"text", "visual"}
+    assert {case["category"] for case in first} == {"slides"}
     variables["sys_user_background"] = "Changed later"
     assert first[0]["variables"]["sys_user_background"] == "Synthetic evaluator"
     altered = copy.deepcopy(first[0])
@@ -361,7 +360,7 @@ def test_prepare_checks_next_interaction_input_without_requiring_assignment_targ
         "courses": [
             {
                 "source": {"shifu_bid": "course", "outline_bid": "lesson"},
-                "document": f"Introduce the topic.\n\n{interaction}",
+                "document": f"Create a PPT about the topic.\n\n{interaction}",
                 "document_prompt": "",
                 "use_learner_language": False,
             }
@@ -389,7 +388,7 @@ def test_sampling_covers_distinct_courses_before_reusing_course(
     snapshot = source.snapshot_courses(app, TEST_OWNER_PHONE)
     cases = source.prepare_cases(snapshot, 2, 12, {})
     assert {case["source"]["shifu_bid"] for case in cases} == {"one", "two"}
-    assert {case["category"] for case in cases} == {"text", "visual"}
+    assert {case["category"] for case in cases} == {"slides"}
     assert all(case["block_index"] == 0 for case in cases)
     assert any(
         item["reason"] == "prior_context_required" for item in snapshot["skipped"]
@@ -399,16 +398,9 @@ def test_sampling_covers_distinct_courses_before_reusing_course(
     assert snapshot["skipped"] == original_skipped
 
 
-@pytest.mark.parametrize(
-    ("level", "prompt", "category"),
-    [
-        ("course", "Use PPT slides to teach the topic.", "slides"),
-        ("parent", "Explain with a diagram and a chart.", "visual"),
-        ("lesson", "请用 LaTeX 公式解释概念。", "visual"),
-    ],
-)
-def test_category_uses_effective_inherited_published_prompt(
-    snapshot_db: tuple[Flask, Session], level: str, prompt: str, category: str
+@pytest.mark.parametrize("level", ["course", "parent", "lesson"])
+def test_slide_intent_uses_effective_inherited_published_prompt(
+    snapshot_db: tuple[Flask, Session], level: str
 ) -> None:
     app, session = snapshot_db
     course, lesson, _published = _course(session)
@@ -417,92 +409,72 @@ def test_category_uses_effective_inherited_published_prompt(
             PublishedOutlineItem.outline_item_bid == "course-parent"
         )
     )
-    course.llm_system_prompt = ""
-    parent.llm_system_prompt = ""
-    lesson.llm_system_prompt = ""
+    course.llm_system_prompt = parent.llm_system_prompt = lesson.llm_system_prompt = ""
+    lesson.content = "Introduce vectors."
     {"course": course, "parent": parent, "lesson": lesson}[
         level
-    ].llm_system_prompt = prompt
+    ].llm_system_prompt = "Create PPT slides to teach the topic."
     session.commit()
-    snapshot = source.snapshot_courses(app, TEST_OWNER_PHONE)
-    cases = source.prepare_cases(snapshot, 2, 18, {})
+    cases = source.prepare_cases(
+        source.snapshot_courses(app, TEST_OWNER_PHONE), 2, 18, {}
+    )
     case = next(
         item
         for item in cases
         if item["source"]["outline_bid"] == lesson.outline_item_bid
     )
-    assert case["document_prompt"] == prompt
-    assert case["category"] == category
-    assert case["block_index"] == 0
-    assert "SVG" not in case["document"].split("---")[0]
+    assert case["category"] == "slides"
+    assert case["document_prompt"] == "Create PPT slides to teach the topic."
 
 
 @pytest.mark.parametrize(
-    ("content", "category"),
+    "content",
     [
-        ("用公式解释运动规律。", "visual"),
-        ("Use LaTeX to explain the relationship.", "visual"),
-        ("Explain $$E = mc^2$$.", "visual"),
-        ("Draw a diagram of the relationship.", "visual"),
-        ("Use a chart to show the trend.", "visual"),
-        ("制作概念示意图。", "visual"),
-        ("Explain the concept in plain words.", "text"),
+        "Draw a diagram.",
+        "Render <html>hello</html>.",
+        "Explain a formula.",
+        "Explain what PPT means.",
+        "Only create slides when explicitly instructed.",
     ],
 )
-def test_target_content_classifies_formulas_and_diagrams(
-    content: str, category: str
-) -> None:
+def test_non_slide_generation_is_skipped(content: str) -> None:
     snapshot = {
         "owner_user_bid": "owner",
         "courses": [
             {
-                "source": {"shifu_bid": "course", "outline_bid": "lesson"},
+                "source": {},
                 "document": content,
-                "document_prompt": "Teach the topic.",
+                "document_prompt": "",
                 "use_learner_language": False,
             }
         ],
     }
-    case = source.prepare_cases(snapshot, 1, 22, {})[0]
-    assert case["category"] == category
-    assert case["context"] == []
+    with pytest.raises(ArenaError, match="Only 0 eligible"):
+        source.prepare_cases(snapshot, 1, 0, {})
+    assert snapshot["skipped"][0]["reason"] == "not_slide_generation"
 
 
-def test_twelve_case_sampling_preserves_category_strata_and_course_coverage() -> None:
-    prompts = [
-        *("Explain the concept." for _ in range(5)),
-        *("请用公式呈现结论。" for _ in range(4)),
-        *("Present the topic as PPT slides." for _ in range(3)),
-    ]
+def test_slide_only_sampling_preserves_course_coverage() -> None:
     snapshot = {
         "owner_user_bid": "owner",
         "courses": [
             {
                 "source": {
-                    "shifu_bid": f"course-{course_index}",
-                    "outline_bid": f"lesson-{course_index}-{lesson_index}",
+                    "shifu_bid": f"course-{course}",
+                    "outline_bid": f"lesson-{course}-{lesson}",
                 },
-                "document": "Introduce the topic.\n\n---\n\nContinue the discussion.",
-                "document_prompt": prompt,
+                "document": "Create PPT slides about the topic.",
+                "document_prompt": "",
                 "use_learner_language": False,
             }
-            for course_index, prompt in enumerate(prompts)
-            for lesson_index in range(3)
+            for course in range(12)
+            for lesson in range(3)
         ],
     }
     cases = source.prepare_cases(snapshot, 12, 902, {})
     assert len({case["source"]["shifu_bid"] for case in cases}) == 12
-    assert Counter(case["category"] for case in cases) == {
-        "text": 5,
-        "visual": 4,
-        "slides": 3,
-    }
-    assert all(case["block_index"] == 0 and case["context"] == [] for case in cases)
+    assert {case["category"] for case in cases} == {"slides"}
     assert cases == source.prepare_cases(snapshot, 12, 902, {})
-    assert len(snapshot["skipped"]) == 36
-    assert {item["reason"] for item in snapshot["skipped"]} == {
-        "prior_context_required"
-    }
 
 
 def test_missing_owner_fails_before_source_queries(

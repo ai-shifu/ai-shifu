@@ -22,7 +22,9 @@ values are `zh-CN`, `en-US`, `fr-FR`, `ar-SA`, and `th-TH`; missing or unsupport
 values default to `zh-CN`. The host document and both rendering components receive
 the same language and direction: Arabic uses RTL and the other languages use LTR.
 
-Plain output uses `ContentRender` with typing disabled. Output with marker
+The slide-only evaluation pipeline rejects output without slide markers. The
+underlying capture harness also supports general component regression fixtures:
+plain output uses `ContentRender` with typing disabled. Output with marker
 elements uses `Slide` and captures every marker step, preserving its cumulative
 content and diff behavior. Reading pages are 1280 × 1600 pixels; slides are
 1280 × 720 pixels. Long reading output and each scrollable slide are tiled
@@ -34,7 +36,7 @@ other HTML iframes, fixed viewports, or model-authored nested scroll containers 
 reported as `content_clipped` and excluded from comparisons. The tool does not
 silently publish the visible portion of an incomplete HTML work.
 An artifact may contain at most 50 PNG pages, including tiles across all marker
-steps, matching the Feishu attachment cell limit. A 51st page fails the entire
+steps, bounding browser memory and the size of a local report. A 51st page fails the entire
 artifact with `too_many_pages`; pages are never silently dropped.
 
 The last stdout line is JSON with `status`, `pages` (absolute PNG paths), `pdf`,
@@ -42,7 +44,7 @@ The last stdout line is JSON with `status`, `pages` (absolute PNG paths), `pdf`,
 `markdownflow_ui_version`, and `chromium_version`. Errors
 return a nonzero status and `{ "status": "failed", "error_code": "..." }`,
 without model content, raw errors, or model identity. Only a successful result
-may be published or compared. Files are private and have neutral names.
+may be compared. Files are private and have neutral names.
 Readiness requires all tracked requests to finish and each frame's fonts,
 images, Mermaid diagrams, and geometry to stabilize. It does not depend on
 Chromium's aggregate `networkidle` state for nested iframe documents.

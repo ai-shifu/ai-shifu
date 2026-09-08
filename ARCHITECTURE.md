@@ -16,7 +16,7 @@ validation.
 - `src/i18n/`: Shared translation inventory consumed by backend and frontend.
 - `docker/`: Local dev, latest-image, and pinned-release runtime packaging.
 - `scripts/`: Repository maintenance, generation, and validation scripts.
-- `scripts/markdownflow-arena/`: Manually invoked model evaluation, with its own
+- `scripts/markdownflow-arena/`: Manually invoked local slide comparisons, with their own
   dependencies and tests; calls existing runtime components without application
   startup or source changes.
 - `.github/`: CI, release automation, issue templates, and Copilot

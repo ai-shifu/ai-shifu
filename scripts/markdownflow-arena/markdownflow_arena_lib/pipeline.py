@@ -1,4 +1,4 @@
-"""Orchestrate isolated generation, local rendering, and resumable publication."""
+"""Orchestrate isolated generation, local rendering, and an offline comparison page."""
 
 from __future__ import annotations
 
@@ -15,12 +15,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .scoring import _timestamp, summarize_votes
+from .report import write_report
 from .state import (
     ArenaError,
     artifact_id,
-    build_matchups,
-    publication_render_fingerprint,
     utc_now,
     write_json,
 )
@@ -209,7 +207,6 @@ class ArenaPipeline:
         run_dir: Path,
         backend: object,
         renderer: object,
-        publisher: object,
         save: Callable[[], None],
     ) -> None:
         """Bind recoverable stages to one exclusively locked run manifest."""
@@ -217,20 +214,20 @@ class ArenaPipeline:
         self.run_dir = run_dir
         self.backend = backend
         self.renderer = renderer
-        self.publisher = publisher
         self.save = save
 
     def initialize(self) -> None:
         """Freeze source and model identities once, and recheck access on every run."""
         state = self.manifest
-        config = state["config"]
-        self.publisher.preflight()
         if not state.get("cases"):
             result = self.backend.call("snapshot")
             write_json(self.run_dir / "snapshot.json", result["snapshot"])
             state["owner_user_bid"] = result["snapshot"]["owner_user_bid"]
             state["cases"] = result["cases"]
             self.save()
+        if any(case.get("category") != "slides" for case in state["cases"]):
+            msg = "This run contains non-slide cases; create a slide-only batch"
+            raise ArenaError(msg)
         allowed = set(
             self.backend.call(
                 "revalidate",
@@ -251,10 +248,6 @@ class ArenaPipeline:
                 raise ArenaError(msg)
         elif not state.get("models"):
             state["models"] = resolved
-        if not state.get("matchups"):
-            state["matchups"] = build_matchups(
-                state["run_id"], state["cases"], state["models"], config["seed"]
-            )
         state["status"] = "running"
         self.save()
 
@@ -414,6 +407,13 @@ class ArenaPipeline:
                 artifact = self.manifest["artifacts"].get(artifact_id(case, model), {})
                 if artifact.get("generation_status") != "complete":
                     continue
+                if not any(
+                    item.get("is_marker") is True
+                    for item in artifact.get("elements", [])
+                ):
+                    artifact["status"] = "no_slides"
+                    self.save()
+                    continue
                 path = (
                     Path(artifact["artifact_path"])
                     if artifact.get("artifact_path")
@@ -452,50 +452,6 @@ class ArenaPipeline:
                         artifact["error"] = str(error)
                 self.save()
 
-    def publish(self, cases: list[dict]) -> None:
-        """Publish only complete pairs after fresh source-access validation."""
-        allowed = set(
-            self.backend.call(
-                "revalidate",
-                owner_user_bid=self.manifest["owner_user_bid"],
-                cases=cases,
-            )
-        )
-        if allowed != {case["case_id"] for case in cases}:
-            msg = "Course prompt access changed before publication"
-            raise ArenaError(msg)
-        self.publisher.provision(self.manifest["run_id"])
-        selected = {case["case_id"] for case in cases}
-        for pair in self.manifest["matchups"]:
-            if pair["case_id"] not in selected:
-                continue
-            a = self.manifest["artifacts"].get(pair["a_artifact_id"], {})
-            b = self.manifest["artifacts"].get(pair["b_artifact_id"], {})
-            if a.get("status") != "complete" or b.get("status") != "complete":
-                continue
-            fingerprint = publication_render_fingerprint(a, b)
-            # The shared Base is editable. Even an unchanged local render needs
-            # remote reconciliation; the publisher reuses intact attachments
-            # and their original ready time without generating or uploading again.
-            # A revision replacement is not reviewable until both sides have
-            # been verified remotely. Persist this before any remote write so
-            # a failed upload or later summarize cannot count stale votes.
-            pair.pop("published_at", None)
-            pair.pop("publication_render_fingerprint", None)
-            self.save()
-            record_id = self.publisher.publish_matchup(pair, a, b)
-            # The publisher persists its first fully verified attachment time
-            # before returning. Reuse it after interruption, including older
-            # manifests that already saved a remote ID without a ready time.
-            published_at = self.publisher.get_publication_ready_at(pair["matchup_id"])
-            if not isinstance(published_at, str) or _timestamp(published_at) is None:
-                msg = "Publisher did not confirm when the complete matchup became reviewable"
-                raise ArenaError(msg)
-            pair["record_id"] = record_id
-            pair["published_at"] = published_at
-            pair["publication_render_fingerprint"] = fingerprint
-            self.save()
-
     def run(self, *, smoke_only: bool = False, retry_failed: bool = False) -> dict:
         """Validate the smoke batch before spending on the rest of a round."""
         self.initialize()
@@ -517,8 +473,9 @@ class ArenaPipeline:
                 state["status"] = "smoke_failed"
                 self.save()
                 msg = "Smoke generation or rendering failed; inspect private artifacts before retrying"
+                self.report()
                 raise ArenaError(msg)
-            self.publish(cases)
+            self.report()
         state["status"] = (
             "smoke_ready"
             if smoke_only
@@ -531,13 +488,11 @@ class ArenaPipeline:
         )
         state["updated_at"] = utc_now()
         self.save()
-        return self.summary()
+        return self.report()
 
-    def summary(self) -> dict:
-        """Read append-only votes and publish private aggregate statistics."""
-        result = summarize_votes(self.manifest, self.publisher.fetch_votes())
-        write_json(self.run_dir / "summary.json", result)
-        self.publisher.publish_summary(result)
-        self.manifest["last_summary_at"] = utc_now()
+    def report(self) -> dict:
+        """Rebuild the local page without a provider call or external publication."""
+        result = write_report(self.manifest, self.run_dir)
+        self.manifest["report"] = result
         self.save()
         return result

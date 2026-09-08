@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate published-course model comparisons and collect Feishu blind votes."""
+"""Generate slides from published courses and compare models in a local HTML page."""
 
 from __future__ import annotations
 
@@ -45,27 +45,27 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Explicitly retry failed or uncertain paid requests",
     )
-    summary = commands.add_parser("summarize", help="Recompute first-vote statistics")
-    summary.add_argument("--run-id", required=True)
-    summary.add_argument("--run-root", type=Path, default=DEFAULT_RUN_ROOT)
+    report = commands.add_parser(
+        "report", help="Build an offline HTML page from saved results"
+    )
+    report.add_argument("--run-dir", type=Path, required=True)
     commands.add_parser("worker", help="Run one isolated backend operation for run")
     return root
 
 
 def _resume_directory(args: argparse.Namespace) -> Path:
     """Resolve a manifest directory without accepting a path as a run ID."""
-    if args.command == "summarize":
-        if Path(args.run_id).name != args.run_id:
-            message = "run-id must be a manifest ID, not a path"
-            raise ArenaError(message)
-        return args.run_root.resolve() / args.run_id
+    if args.command == "report":
+        return args.run_dir.resolve()
     return args.resume.resolve()
 
 
-def _load_manifest(run_dir: Path) -> dict:
+def _load_manifest(run_dir: Path, *, legacy: bool = False) -> dict:
     """Reject a manifest whose schema cannot safely be resumed."""
     manifest = read_json(run_dir / "manifest.json")
-    if manifest.get("schema_version") != SCHEMA_VERSION:
+    if manifest.get("schema_version") not in (
+        {1, SCHEMA_VERSION} if legacy else {SCHEMA_VERSION}
+    ):
         message = "Unsupported manifest schema version"
         raise ArenaError(message)
     return manifest
@@ -93,43 +93,38 @@ def main() -> int:
                 "cases": [],
                 "models": [],
                 "artifacts": {},
-                "matchups": [],
-                "feishu": {},
             }
         else:
             run_dir = _resume_directory(args)
-            manifest = _load_manifest(run_dir)
+            manifest = _load_manifest(run_dir, legacy=args.command == "report")
             config = validate_config(manifest["config"])
         with run_lock(run_dir):
             # Re-read after locking so another completed operation is not lost.
             manifest_path = run_dir / "manifest.json"
             if manifest_path.exists():
-                manifest = _load_manifest(run_dir)
+                manifest = _load_manifest(run_dir, legacy=args.command == "report")
 
             def save() -> None:
                 write_json(manifest_path, manifest)
 
             save()
-            from markdownflow_arena_lib.feishu import FeishuPublisher
             from markdownflow_arena_lib.pipeline import (
                 ArenaPipeline,
                 BrowserRenderer,
                 WorkerBackend,
             )
 
-            publisher = FeishuPublisher(config["feishu"], manifest["feishu"], save)
             pipeline = ArenaPipeline(
                 manifest,
                 run_dir,
                 WorkerBackend(config, run_dir),
                 BrowserRenderer(config),
-                publisher,
                 save,
             )
             try:
                 summary = (
-                    pipeline.summary()
-                    if args.command == "summarize"
+                    pipeline.report()
+                    if args.command == "report"
                     else pipeline.run(
                         smoke_only=args.smoke_only,
                         retry_failed=args.retry_failed,
@@ -146,15 +141,7 @@ def main() -> int:
                         "run_id": manifest["run_id"],
                         "status": manifest["status"],
                         "run_directory": str(run_dir),
-                        "valid_votes": summary["valid_vote_count"],
-                        "published_matchups": sum(
-                            bool(item.get("record_id")) for item in manifest["matchups"]
-                        ),
-                        "feishu": {
-                            key: value
-                            for key, value in manifest["feishu"].items()
-                            if key.endswith("url")
-                        },
+                        "report": summary,
                     },
                     ensure_ascii=False,
                 )

@@ -1,4 +1,4 @@
-"""Own private, atomic run manifests and stable blind comparison identities."""
+"""Own private, atomic run manifests and stable comparison identities."""
 
 from __future__ import annotations
 
@@ -10,14 +10,13 @@ import os
 import re
 import tempfile
 from datetime import UTC, datetime
-from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 REQUESTED_MODELS = (
     "gemini-3.8-flash",
     "doubao-seed-2-1-turbo-260628",
@@ -137,10 +136,6 @@ def validate_config(config: dict) -> dict:
     if not isinstance(result["variables"], dict):
         msg = "variables must be an explicit frozen object"
         raise ArenaError(msg)
-    result.setdefault("feishu", {"locale": "zh-CN"})
-    if not isinstance(result["feishu"], dict):
-        msg = "feishu must be an object"
-        raise ArenaError(msg)
     result.setdefault("renderer_asset_hosts", [])
     if not isinstance(result["renderer_asset_hosts"], list) or any(
         not isinstance(host, str) or not re.fullmatch(r"[a-zA-Z0-9.-]+", host)
@@ -172,57 +167,3 @@ def artifact_id(case: dict, model: dict) -> str:
     return stable_id(
         [case["input_hash"], case["case_id"], model["model"]], prefix="art_"
     )
-
-
-def publication_render_fingerprint(artifact_a: dict, artifact_b: dict) -> str:
-    """Identify the visible revision without depending on PDF creation metadata."""
-    sides = []
-    for artifact in (artifact_a, artifact_b):
-        render = artifact.get("render", {})
-        pages = render.get("pages", [])
-        hashes = render.get("sha256", {})
-        page_hashes = [hashes.get(page) for page in pages]
-        if not page_hashes or any(
-            not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)
-            for value in page_hashes
-        ):
-            message = "Verified render page hashes are required for publication"
-            raise ArenaError(message)
-        sides.append(
-            {
-                "artifact_id": artifact["artifact_id"],
-                "input_hash": artifact.get("input_hash"),
-                "page_hashes": page_hashes,
-                "width": render.get("width"),
-                "height": render.get("height"),
-                "renderer_version": render.get("renderer_version"),
-            }
-        )
-    return hashlib.sha256(
-        json.dumps(sides, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-
-
-def build_matchups(
-    run_id: str, cases: list[dict], models: list[dict], seed: int
-) -> list[dict]:
-    """Create all pairs with deterministic, independent A/B assignments."""
-    pairs = []
-    for case in cases:
-        for first, second in combinations(models, 2):
-            ids = [artifact_id(case, first), artifact_id(case, second)]
-            pair_id = stable_id([run_id, case["case_id"], sorted(ids)], prefix="match_")
-            flip = int(hashlib.sha256(f"{seed}:{pair_id}".encode()).hexdigest(), 16) % 2
-            if flip:
-                ids.reverse()
-            pairs.append(
-                {
-                    "matchup_id": pair_id,
-                    "case_id": case["case_id"],
-                    "task_description": case.get("task_description", ""),
-                    "category": case.get("category", "prose"),
-                    "a_artifact_id": ids[0],
-                    "b_artifact_id": ids[1],
-                }
-            )
-    return pairs

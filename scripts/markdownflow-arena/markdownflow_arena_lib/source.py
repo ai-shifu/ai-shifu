@@ -347,18 +347,23 @@ def case_input_hash(case: dict) -> str:
     return _digest({key: case.get(key) for key in fields})
 
 
-def _category(content: str) -> str:
-    if re.search(
-        r"(?:<html|<sandbox|幻灯片|PPT|slides?\b)", content, flags=re.IGNORECASE
-    ):
-        return "slides"
-    if re.search(
-        r"(?:mermaid|\bsvg\b|图表|流程图|可视化|示意图|图解|公式|latex|\bdiagram\b|\bchart\b|\$\$)",
-        content,
-        flags=re.IGNORECASE,
-    ):
-        return "visual"
-    return "text"
+def requests_slides(content: str, inherited_prompt: str = "") -> bool:
+    """Require slide-generation intent, rather than generic HTML or visual content."""
+    if re.search(r"(?:画面|幻灯片|slide)\s*\d+\s*[:\uFF1A]", content, re.IGNORECASE):
+        return True
+    verbs = r"(?:生成|制作|创建|输出|设计|呈现|展示|绘制|使用|用|做|create|generate|make|render|present|use)"
+    slides = r"(?:幻灯片|PPT|slides?\b)"
+    for text in (content, inherited_prompt):
+        for line in text.splitlines():
+            if re.search(
+                r"(?:只有|仅当|不要|不生成|不创建|\bonly\b|\bnot\b|\bwhen\b|\bif\b)",
+                line,
+                re.IGNORECASE,
+            ):
+                continue
+            if re.search(verbs + r"[^\n。.!?]{0,60}" + slides, line, re.IGNORECASE):
+                return True
+    return False
 
 
 def prepare_cases(snapshot: dict, count: int, seed: int, variables: dict) -> list[dict]:
@@ -442,7 +447,10 @@ def prepare_cases(snapshot: dict, count: int, seed: int, variables: dict) -> lis
             if missing:
                 skip(lesson, block.index, "missing_variables", missing)
                 continue
-            category = _category(lesson["document_prompt"] + "\n" + block.content)
+            if not requests_slides(block.content, lesson["document_prompt"]):
+                skip(lesson, block.index, "not_slide_generation")
+                continue
+            category = "slides"
             case = {
                 **copy.deepcopy(lesson),
                 "owner_user_bid": snapshot["owner_user_bid"],
@@ -453,7 +461,7 @@ def prepare_cases(snapshot: dict, count: int, seed: int, variables: dict) -> lis
                 "output_language": language,
                 "temperature": 0.3,
                 "category": category,
-                "task_description": "Render the frozen published lesson segment.",
+                "task_description": "Render the frozen published slide generation.",
             }
             case["input_hash"] = case_input_hash(case)
             case["case_id"] = _digest(

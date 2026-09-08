@@ -1,27 +1,31 @@
-# MarkdownFlow model arena
+# MarkdownFlow slide comparison
 
-A manually executed evaluation script. Nothing in the application imports,
-starts, schedules, or installs this tool. Its Python entry point, browser
-renderer, npm dependencies, translations, and tests live in this directory.
-It adds no API endpoint, database migration, background job, application package
-dependency, or production model-call hook.
+A manually executed script that compares the four specified models on real
+published slide-generation prompts. It writes one offline `comparison.html`:
+one model per column, one frozen prompt set per row, with every captured slide
+page visible. Click an image to enlarge it or expand a row's prompt details.
+Images are embedded, so the page opens directly from disk without a server.
 
-The evaluation deliberately exercises the existing course permission rules,
-exact published rows, prompt composition, `MdflowContextV2`,
-`PreviewElementRunAdapter`, `chat_llm`, and the official `markdown-flow-ui`
-reading/slide components. These are dependencies of the script, rather than a
-second implementation of the learning flow. The script freezes the comparison
-inputs and owns only sampling, orchestration, capture, publication, and scoring.
+The script calls the main application implementation for generation and rendering:
 
-| Stage                | Existing code exercised                                                                                  |
-| -------------------- | -------------------------------------------------------------------------------------------------------- |
-| Source authorization | Production course/user models and authoring permission normalization, using independent consistent reads |
-| Prompt preparation   | `build_course_prompt` and `render_course_prompt_identity_variables`                                      |
-| Generation           | `MdflowContextV2.process` and the original `chat_llm` provider/retry/metering path                       |
-| Element conversion   | `RunScriptPreviewContextV2` and `PreviewElementRunAdapter`                                               |
-| Visual output        | Official `ContentRender` and `Slide` components from the pinned UI package                               |
+| Stage              | Existing implementation                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| Authorization      | Production course/user models and permission normalization, using consistent independent reads |
+| Prompt preparation | `build_course_prompt` and `render_course_prompt_identity_variables`                            |
+| Generation         | `MdflowContextV2.process` and the original `chat_llm` routing, retries, tracing, and metering  |
+| Element conversion | `RunScriptPreviewContextV2` and `PreviewElementRunAdapter`                                     |
+| Slide rendering    | The official `Slide` component from the pinned `markdown-flow-ui` package                      |
 
-Install the renderer dependencies here, independently of Cook Web:
+The tool owns sampling, isolated worker processes, checkpoints, image capture,
+and the comparison page. It adds no API endpoint, application dependency, service,
+scheduled job, Feishu operation, voting, or scoring. Application source and builds
+remain independent of this directory.
+
+## Setup and manual execution
+
+Use a Python environment with `requirements.txt` installed. Backend operations
+need an explicitly configured environment with course and model access; no
+application server needs to start. Install browser dependencies separately:
 
 ```sh
 cd scripts/markdownflow-arena
@@ -29,31 +33,34 @@ npm ci
 npx playwright install chromium
 ```
 
-Use a Python environment with the repository's backend requirements, or install
-`requirements.txt` into a dedicated virtual environment. Backend operations must
-run in an explicitly configured environment with course and provider access.
-No server needs to be started. From the repository root:
+Copy `example.json` to a private path and configure the authorized owner's phone,
+fixed learner variables, and any backend transport. From the repository root:
 
 ```sh
 python scripts/markdownflow-arena/markdownflow_arena.py run --config /private/path/arena.json
 python scripts/markdownflow-arena/markdownflow_arena.py run --resume /private/path/arena_RUN_ID
-python scripts/markdownflow-arena/markdownflow_arena.py summarize --run-id arena_RUN_ID --run-root /private/path
+python scripts/markdownflow-arena/markdownflow_arena.py report --run-dir /private/path/arena_RUN_ID
 ```
 
-Copy `example.json` to a private location before configuring a batch. Full
-instructions and the Feishu contract are in the
-[operator guide](../../docs/references/markdownflow-model-arena.md).
-The [renderer guide](renderer/README.md) describes complete-page capture,
-offline image caching, fonts, and browser limits.
+`run` defaults to twelve slide cases and starts with two smoke cases. It samples
+only published generation blocks with explicit slide intent in their target or
+effective inherited prompt. It skips prose, formula/diagram-only tasks, missing
+variables, and blocks needing earlier conversation. It preserves the original
+prompts: surrounding narration is not rewritten, but only slide elements are
+rendered and compared. A model returning only text is shown as “no slides”.
+Truncated or failed work stays visible as a status in its model's cell.
 
-Every model call runs in a separate worker process. The script temporarily
-observes the production wrapper's existing provider iterator to retain finish
-reasons and usage, including terminal chunks without text. The observer delegates
-unchanged to the real functions and restores them on completion, failure, or
-generator close. It never patches a running application service. Normal routing,
-retry, tracing, and metering behavior still comes from `chat_llm`.
+`report` uses only saved results, makes no backend/model/network calls, and does
+not change frozen prompts or outputs. It also reads legacy mixed-batch manifests,
+selecting their slide rows; `run --resume` requires the current slide-only schema.
+Completed model calls survive render/report failures. Use `--retry-failed` only
+when intentionally authorizing another request for a failed or uncertain result.
 
-Run the tests manually, using a Python environment with pytest installed:
+The HTML contains private course titles and expandable prompts. Keep it with the
+private run artifacts. See the [operator guide](../../docs/references/markdownflow-model-arena.md)
+for configuration, exact routes, isolation, and recovery.
+
+## Verification
 
 ```sh
 python -m pytest -q scripts/markdownflow-arena/arena_tests
@@ -63,9 +70,8 @@ npm run smoke
 npm run smoke:locales
 ```
 
-These tests use the real MarkdownFlow context, element adapter, production
-model wrapper, and browser components with controlled inputs. The provider
-stream and database fixtures are synthetic; tests do not make paid requests.
-Real runs complement this coverage with current permissions, configured model
-routes, and full course outputs. An evaluation result is not a substitute for
-all learner-facing end-to-end tests.
+Tests exercise the real MarkdownFlow context, preview adapter, production model
+wrapper, and official browser components with controlled fixtures. Real runs
+also exercise configured model routes and published course inputs. This supplies
+integration coverage for those main-flow paths, while the full learner-facing
+end-to-end suite remains separate.

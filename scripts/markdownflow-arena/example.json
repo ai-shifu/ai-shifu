@@ -15,9 +15,5 @@
     "sys_user_language": "zh-CN",
     "sys_user_nickname": "Test learner"
   },
-  "renderer_asset_hosts": [],
-  "feishu": {
-    "permission_mode": "organization_editable",
-    "locale": "zh-CN"
-  }
+  "renderer_asset_hosts": []
 }

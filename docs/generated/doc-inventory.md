@@ -43,7 +43,7 @@
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live Voice Follow-Up | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-tts.md` | Gemini TTS Provider | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/learner-listen-playback-stability.md` | Learner listen playback stability | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/markdownflow-model-arena.md` | MarkdownFlow model arena | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/observability-artifacts-consistency-frontend-trace.md` | Observability Artifacts, Consistency Probes, and Frontend Trace IDs | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/official-client-model-gateway.md` | Official Client Model Gateway | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -108,6 +108,6 @@
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/i18n.md` | Internationalization (i18n) Guide | `reference` | `reference` | `repo` | `-` | `true` |
-| `docs/references/markdownflow-model-arena.md` | MarkdownFlow model arena operator guide | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/references/markdownflow-model-arena.md` | Local MarkdownFlow slide comparisons | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration Contract | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/scripts.md` | Scripts Overview | `reference` | `reference` | `repo` | `-` | `true` |
