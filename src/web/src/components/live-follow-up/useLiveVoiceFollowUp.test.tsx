@@ -4937,6 +4937,57 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
     },
   );
 
+  it('keeps the close code after error and reports only one terminal outcome', async () => {
+    jest.useFakeTimers();
+    render(<Harness />);
+    await startAndOpen();
+    act(() => mockSockets[0].fail());
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    act(() => mockSockets[0].serverClose(1008));
+    expect(screen.getByTestId('error')).toHaveTextContent('websocket_failed');
+    expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+      '"websocketCloseCode":1008',
+    );
+    const events = [...mockTrackEvent.mock.calls];
+    expect(
+      events.filter(([name]) => name === 'learner_voice_follow_up_result'),
+    ).toHaveLength(1);
+    await act(async () => jest.advanceTimersByTime(250));
+    expect(mockTrackEvent.mock.calls).toEqual(events);
+  });
+
+  it('bounds missing close events even after repeated error events', async () => {
+    jest.useFakeTimers();
+    render(<Harness />);
+    await startAndOpen();
+    act(() => mockSockets[0].fail());
+    await act(async () => jest.advanceTimersByTime(200));
+    act(() => mockSockets[0].fail());
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    await act(async () => jest.advanceTimersByTime(50));
+    expect(screen.getByTestId('error')).toHaveTextContent('websocket_failed');
+    expect(screen.getByTestId('diagnostic')).not.toHaveTextContent(
+      'websocketCloseCode',
+    );
+    expect(mockSockets[0].onclose).toBeNull();
+  });
+
+  it('cancels a pending error fallback on navigation', async () => {
+    jest.useFakeTimers();
+    const { rerender } = render(<Harness />);
+    await startAndOpen();
+    act(() => mockSockets[0].fail());
+    rerender(
+      <Harness
+        outlineBid='lesson-2'
+        anchorElementBid='element-2'
+      />,
+    );
+    await act(async () => jest.advanceTimersByTime(250));
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('diagnostic')).toBeEmptyDOMElement();
+  });
+
   it('clears failed conversation state on navigation without bypassing credential admission', async () => {
     jest.useFakeTimers();
     const expiresAt = Date.now() + 15 * 60_000;
@@ -4954,7 +5005,10 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       );
     });
     fireEvent.click(screen.getByRole('button', { name: 'mute' }));
-    await act(async () => mockSockets[0].fail());
+    await act(async () => {
+      mockSockets[0].fail();
+      jest.advanceTimersByTime(250);
+    });
     expect(screen.getByTestId('transcripts')).toHaveTextContent(
       'Private question',
     );
