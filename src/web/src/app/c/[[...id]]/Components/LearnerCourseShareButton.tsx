@@ -9,7 +9,7 @@ import { useCourseStore } from '@/store/useCourseStore';
 import { useSystemStore } from '@/store/useSystemStore';
 import { buildCoursePageUrl } from '@/lib/urlUtils';
 import {
-  CourseShareButton,
+  CourseShareMenu,
   type CourseShareButtonProps,
   type CourseShareSurface,
 } from '@/components/course-share';
@@ -61,7 +61,7 @@ export default function LearnerCourseShareButton({
   }
 
   return (
-    <CourseShareButton
+    <CourseShareMenu
       courseTitle={courseName}
       courseDescription={courseDescription}
       shifuBid={shifuBid}

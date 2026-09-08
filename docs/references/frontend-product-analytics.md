@@ -250,12 +250,23 @@ They are an example, not the start of an event registry.
   presented as exact row-level joins.
 - Consumer: aggregate course-sharing adoption and outcome analysis.
 
-Teacher entry now opens a popover: `course_share_click/result` still measure
-the actual ordinary share action inside that popover, not opening the popover.
-The additive `teacher_course_share_open` and `teacher_poster_prompt_copy/result`
+Teacher and learner entries now open a shared popover:
+`course_share_click/result` still measure the actual ordinary share action
+inside that popover, not opening the popover.
+The additive `teacher_course_share_open`, `teacher_poster_prompt_copy/result`,
+`learner_course_share_open`, and `learner_poster_prompt_copy/result`
 contracts live in `docs/exec-plans/active/course-sharing.md`. Consumers comparing
-historical teacher activity must distinguish share attempts from popover opens;
+historical activity must distinguish share attempts from popover opens;
 prompt-copy success is not proof of poster generation in an external assistant.
+Teacher event names and populations remain unchanged. Learner events include
+eligible guests and exclude preview and missing or stale course data; their
+surface is `learner_desktop_header`, `learner_mobile_header`, or
+`learner_mobile_fullscreen`. New events contain only `shifu_bid`
+and `surface`, with `success` or `failed` added as `outcome` on copy results.
+The weekly consumer compares aggregate attempts per open and outcomes by
+actor/surface, with no exact per-attempt joins. No checked-in query or dashboard
+requires migration; historical direct learner clicks remain ordinary-share
+attempts and must not be reinterpreted as opens of the new menu.
 
 ### Events and feature-owned payloads
 

@@ -13,7 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useToast } from '@/hooks/useToast';
+import { showDefaultToast, useToast } from '@/hooks/useToast';
 import {
   buildCourseShareContent,
   normalizeCourseShareUrl,
@@ -35,7 +35,6 @@ export type CourseShareButtonProps = {
   resolveShareUrl: () => string | null;
   surface: CourseShareSurface;
   showLabel?: boolean;
-  label?: string;
   variant?: ButtonProps['variant'];
   size?: ButtonProps['size'];
   className?: string;
@@ -52,7 +51,6 @@ export function CourseShareButton({
   resolveShareUrl,
   surface,
   showLabel = false,
-  label,
   variant = 'ghost',
   size = 'icon',
   className,
@@ -66,8 +64,7 @@ export function CourseShareButton({
   const { trackEvent } = useTracking();
   const sharingRef = useRef(false);
   const [sharing, setSharing] = useState(false);
-  const shareLabel = label ?? t('common.core.share');
-  const accessibleLabel = label ?? t('common.core.shareCourse');
+  const shareLabel = t('common.core.shareCourseLink');
 
   const track = (eventName: string, eventData: Record<string, unknown>) => {
     try {
@@ -125,7 +122,7 @@ export function CourseShareButton({
       trackResult(result.method, result.outcome);
 
       if (result.method === 'clipboard' && result.outcome === 'success') {
-        toast({ title: t('common.core.shareContentCopied') });
+        showDefaultToast(t('common.core.shareContentCopied'));
       } else if (result.outcome === 'failed') {
         toast({
           title: t('common.core.shareFailed'),
@@ -152,7 +149,7 @@ export function CourseShareButton({
       variant={variant}
       size={size}
       className={className}
-      aria-label={accessibleLabel}
+      aria-label={shareLabel}
       aria-busy={sharing}
       disabled={sharing || disabled}
       onClick={() => {
@@ -164,13 +161,13 @@ export function CourseShareButton({
     </Button>
   );
 
-  if (label && showLabel) return button;
+  if (showLabel) return button;
 
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent side={tooltipSide}>{accessibleLabel}</TooltipContent>
+        <TooltipContent side={tooltipSide}>{shareLabel}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

@@ -3,14 +3,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import { Button } from '@/components/ui/Button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/Popover';
-import { useToast } from '@/hooks/useToast';
+import { showDefaultToast, useToast } from '@/hooks/useToast';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   buildCourseShareContent,
   copyCourseShareText,
@@ -21,7 +27,7 @@ import {
   type CourseShareButtonProps,
 } from './CourseShareButton';
 
-export function TeacherCourseShareButton(props: CourseShareButtonProps) {
+export function CourseShareMenu(props: CourseShareButtonProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { trackEvent } = useTracking();
@@ -31,6 +37,18 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
   const copying = useRef(false);
   const opened = useRef(false);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const events =
+    props.surface === 'teacher_header'
+      ? {
+          open: 'teacher_course_share_open',
+          copy: 'teacher_poster_prompt_copy',
+          result: 'teacher_poster_prompt_result',
+        }
+      : {
+          open: 'learner_course_share_open',
+          copy: 'learner_poster_prompt_copy',
+          result: 'learner_poster_prompt_result',
+        };
   const clearDismiss = () => {
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
     dismissTimer.current = null;
@@ -40,11 +58,11 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
   const track = (name: string, outcome?: 'success' | 'failed') => {
     try {
       const payload = outcome
-        ? { shifu_bid: props.shifuBid, surface: 'teacher_header', outcome }
-        : { shifu_bid: props.shifuBid, surface: 'teacher_header' };
+        ? { shifu_bid: props.shifuBid, surface: props.surface, outcome }
+        : { shifu_bid: props.shifuBid, surface: props.surface };
       void Promise.resolve(trackEvent(name, payload)).catch(() => {});
     } catch {
-      // Analytics must never prevent a clipboard or dialog action.
+      // Analytics must never prevent a clipboard or menu action.
     }
   };
 
@@ -70,7 +88,7 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
           }),
         );
         setStatus('idle');
-        track('teacher_course_share_open');
+        track(events.open);
       } catch {
         toast({ title: t('common.core.shareFailed'), variant: 'destructive' });
         return;
@@ -92,7 +110,7 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
     clearDismiss();
     copying.current = true;
     setStatus('copying');
-    track('teacher_poster_prompt_copy');
+    track(events.copy);
     let success = false;
     try {
       success = await copyCourseShareText(prompt);
@@ -100,11 +118,11 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
       // Preserve a selectable fallback when clipboard access fails.
     }
     copying.current = false;
-    track('teacher_poster_prompt_result', success ? 'success' : 'failed');
+    track(events.result, success ? 'success' : 'failed');
     if (success) {
       setStatus('idle');
       changeOpen(false);
-      toast({ title: t('common.core.posterNextStep') });
+      showDefaultToast(t('common.core.posterNextStep'));
     } else {
       setStatus('failed');
       toast({
@@ -114,27 +132,42 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
     }
   };
 
+  const trigger = (
+    <PopoverTrigger asChild>
+      <Button
+        type='button'
+        variant={props.variant ?? 'ghost'}
+        size={props.size ?? 'icon'}
+        className={props.className}
+        aria-label={t('common.core.shareCourse')}
+        data-lesson-print-exclude='true'
+        onPointerEnter={clearDismiss}
+        onPointerLeave={leave}
+      >
+        <Share2 aria-hidden='true' />
+        {props.showLabel ? t('common.core.share') : null}
+      </Button>
+    </PopoverTrigger>
+  );
+
   return (
     <Popover
       open={open}
       onOpenChange={changeOpen}
       modal={false}
     >
-      <PopoverTrigger asChild>
-        <Button
-          type='button'
-          variant={props.variant}
-          size={props.size}
-          className={props.className}
-          aria-label={t('common.core.shareCourse')}
-          data-lesson-print-exclude='true'
-          onPointerEnter={clearDismiss}
-          onPointerLeave={leave}
-        >
-          <Share2 aria-hidden='true' />
-          {props.showLabel ? t('common.core.share') : null}
-        </Button>
-      </PopoverTrigger>
+      {props.showLabel ? (
+        trigger
+      ) : (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+            <TooltipContent side={props.tooltipSide ?? 'top'}>
+              {t('common.core.shareCourse')}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
       <PopoverContent
         align='end'
         sideOffset={4}
@@ -146,9 +179,7 @@ export function TeacherCourseShareButton(props: CourseShareButtonProps) {
       >
         <CourseShareButton
           {...props}
-          surface='teacher_header'
           showLabel
-          label={t('common.core.shareCourseLink')}
           variant='ghost'
           size='default'
           className='w-full justify-start gap-2'

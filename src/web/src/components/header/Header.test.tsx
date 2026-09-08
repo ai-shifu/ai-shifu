@@ -43,6 +43,7 @@ jest.mock('@/store', () => ({
 }));
 
 jest.mock('@/hooks/useToast', () => ({
+  showDefaultToast: (description: string) => mockToast({ description }),
   useToast: () => ({
     toast: mockToast,
   }),
