@@ -39,6 +39,15 @@
   "listenPlaybackSpeedLabel": "Playback speed",
   "liveVoiceAI": "AI teacher",
   "liveVoiceCapacityExceeded": "Voice conversations are busy right now. Please try again shortly.",
+  "liveVoiceCapacityScopes": {
+    "active_sessions": "The site-wide limit for active voice sessions has been reached.",
+    "global_credentials": "The site-wide limit for unexpired voice credentials has been reached.",
+    "global_mint_rate": "The site-wide rate limit for starting voice sessions has been reached.",
+    "legacy_user_credential": "Your previous voice credential has not expired. A new session cannot be created yet.",
+    "user_credentials": "You have reached the limit for unexpired voice credentials.",
+    "user_mint_rate": "You are starting voice sessions too frequently.",
+    "worker_credentials": "This server process has reached its voice credential limit."
+  },
   "liveVoiceClose": "Close",
   "liveVoiceConnectionFailed": "The voice conversation couldn't connect. Please try again.",
   "liveVoiceEmpty": "Start speaking when you are ready.",

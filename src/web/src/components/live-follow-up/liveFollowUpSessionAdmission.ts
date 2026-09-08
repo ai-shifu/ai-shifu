@@ -40,6 +40,7 @@ const controlFailure = (result: LiveFollowUpOperationResult) =>
   new LiveFollowUpControlError(
     result.error_code ?? 'admission_unavailable',
     result.retry_after_ms,
+    result.capacity_scopes,
   );
 
 /** Keeps only request identity across media teardown, never tokens or content. */
@@ -124,6 +125,8 @@ export class LiveFollowUpSessionAdmission {
     if (owner.operation_status === 'rejected') {
       throw new LiveFollowUpControlError(
         owner.error_code ?? 'admission_unavailable',
+        undefined,
+        owner.capacity_scopes,
       );
     }
     if (owner.rotation_enabled) {

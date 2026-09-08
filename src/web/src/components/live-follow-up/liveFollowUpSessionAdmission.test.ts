@@ -317,12 +317,14 @@ describe('Live follow-up controlled admission', () => {
       error_code: 'capacity_exceeded',
       rotation_enabled: true,
       retry_after_ms: 2000,
+      capacity_scopes: ['user_credentials', 'user_mint_rate'],
     }));
     await expect(
       admission.create('course-1', 'outline-1', target, current),
     ).rejects.toMatchObject({
       reason: 'capacity_exceeded',
       retryAfterMs: 2000,
+      capacityScopes: ['user_credentials', 'user_mint_rate'],
     });
     await admission.create('course-1', 'outline-1', target, current);
     expect(status.mock.calls[1][2]).toBe(firstId);

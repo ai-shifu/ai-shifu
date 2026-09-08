@@ -36,3 +36,5 @@ Configuration can be reapplied. Roll back overrides to defaults without deleting
 
 ## Interfaces and Dependencies
 New positive integer variables: GEMINI_LIVE_GLOBAL_CREDENTIAL_LIMIT, GEMINI_LIVE_USER_CREDENTIAL_LIMIT, GEMINI_LIVE_ACTIVE_SESSION_LIMIT, GEMINI_LIVE_USER_MINT_RATE_LIMIT, GEMINI_LIVE_GLOBAL_MINT_RATE_LIMIT. Capacity rejections additionally return capacity_scopes, an ordered array of stable machine enums: global_credentials, worker_credentials, user_credentials, active_sessions, user_mint_rate, global_mint_rate, and legacy_user_credential. Every simultaneously blocking scope is returned and logged server-side without user identifiers or Redis keys. The error_code and maximum retry_after_ms contract remain unchanged; other outcomes omit the new field. No Redis key schema changes.
+
+The existing frontend error alert renders all allowlisted capacity scopes using shared translations in all five locales. Missing or unknown scopes retain the generic capacity error. Diagnostics clear with the existing retry lifecycle and are excluded from Umami payloads.

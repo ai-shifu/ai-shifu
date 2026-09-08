@@ -14,6 +14,7 @@ import {
   resolveGeminiLiveWebSocketUrl,
   type LiveFollowUpLearningMode,
   type LiveFollowUpControlReason,
+  type LiveFollowUpCapacityScope,
   type LiveFollowUpSession,
   type LiveFollowUpState,
   type LiveFollowUpSurface,
@@ -164,6 +165,7 @@ const recordCompletedExchange = (
 };
 
 export type LiveVoiceErrorDiagnostic = {
+  capacityScopes?: LiveFollowUpCapacityScope[];
   reason?: LiveFollowUpControlReason;
   stage: 'session_create' | 'resume' | 'heartbeat' | 'websocket';
   websocketCloseCode?: number;
@@ -1022,6 +1024,11 @@ export const useLiveVoiceFollowUp = ({
                 finishAttempt({
                   errorDiagnostic: {
                     stage: 'resume',
+                    capacityScopes:
+                      error instanceof LiveFollowUpControlError &&
+                      error.capacityScopes.length
+                        ? error.capacityScopes
+                        : undefined,
                     reason:
                       error instanceof LiveFollowUpControlError
                         ? error.reason
@@ -1788,6 +1795,11 @@ export const useLiveVoiceFollowUp = ({
                   errorCode: replaced ? null : 'server_error',
                   errorDiagnostic: {
                     stage: 'heartbeat',
+                    capacityScopes:
+                      error instanceof LiveFollowUpControlError &&
+                      error.capacityScopes.length
+                        ? error.capacityScopes
+                        : undefined,
                     reason:
                       error instanceof LiveFollowUpControlError
                         ? error.reason
@@ -1862,6 +1874,11 @@ export const useLiveVoiceFollowUp = ({
                 finishAttempt({
                   errorDiagnostic: {
                     stage: 'heartbeat',
+                    capacityScopes:
+                      error instanceof LiveFollowUpControlError &&
+                      error.capacityScopes.length
+                        ? error.capacityScopes
+                        : undefined,
                     reason:
                       error instanceof LiveFollowUpControlError
                         ? error.reason
@@ -1908,6 +1925,11 @@ export const useLiveVoiceFollowUp = ({
             finishAttempt({
               errorDiagnostic: {
                 stage: 'session_create',
+                capacityScopes:
+                  error instanceof LiveFollowUpControlError &&
+                  error.capacityScopes.length
+                    ? error.capacityScopes
+                    : undefined,
                 reason:
                   error instanceof LiveFollowUpControlError
                     ? error.reason

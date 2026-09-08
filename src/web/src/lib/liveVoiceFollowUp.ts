@@ -1,3 +1,8 @@
+import {
+  normalizeLiveFollowUpCapacityScopes,
+  type LiveFollowUpCapacityScope,
+} from './liveVoiceCapacityScopes';
+export type { LiveFollowUpCapacityScope } from './liveVoiceCapacityScopes';
 import request from '@/lib/request';
 
 export const FOLLOW_UP_MODEL_CATALOG_API_PATH =
@@ -73,13 +78,19 @@ export type LiveFollowUpControlReason =
 
 export class LiveFollowUpControlError extends Error {
   readonly retryAfterMs?: number;
+  readonly capacityScopes: LiveFollowUpCapacityScope[];
 
   constructor(
     readonly reason: LiveFollowUpControlReason,
     retryAfterMs?: number,
+    capacityScopes?: unknown,
   ) {
     super('Live follow-up admission could not complete');
     this.name = 'LiveFollowUpControlError';
+    this.capacityScopes =
+      reason === 'capacity_exceeded'
+        ? normalizeLiveFollowUpCapacityScopes(capacityScopes)
+        : [];
     this.retryAfterMs =
       typeof retryAfterMs === 'number' &&
       Number.isFinite(retryAfterMs) &&
@@ -103,6 +114,7 @@ export type LiveFollowUpOperationResult = {
   admission_revision?: string;
   ownership_current?: boolean;
   error_code?: Exclude<LiveFollowUpControlReason, 'response_lost'>;
+  capacity_scopes?: LiveFollowUpCapacityScope[];
   retry_after_ms?: number;
   server_time?: string;
 };
@@ -113,6 +125,7 @@ export type LiveFollowUpOwner = {
   rotation_enabled: boolean;
   retry_after_ms?: number;
   error_code?: LiveFollowUpControlReason;
+  capacity_scopes?: LiveFollowUpCapacityScope[];
 };
 
 export const getLiveFollowUpOwner = (): Promise<LiveFollowUpOwner> =>
@@ -252,6 +265,7 @@ export const heartbeatLiveFollowUpSession = async (
     throw new LiveFollowUpControlError(
       result.error_code ?? 'admission_unavailable',
       result.retry_after_ms,
+      result.capacity_scopes,
     );
   }
   return result;

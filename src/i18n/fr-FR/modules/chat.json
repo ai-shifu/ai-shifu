@@ -39,6 +39,15 @@
   "listenPlaybackSpeedLabel": "Vitesse de lecture",
   "liveVoiceAI": "Enseignant IA",
   "liveVoiceCapacityExceeded": "Les conversations vocales sont momentanément saturées. Réessayez bientôt.",
+  "liveVoiceCapacityScopes": {
+    "active_sessions": "La limite globale des sessions vocales actives est atteinte.",
+    "global_credentials": "La limite globale des identifiants vocaux non expirés est atteinte.",
+    "global_mint_rate": "La fréquence maximale globale de création de sessions vocales est atteinte.",
+    "legacy_user_credential": "Votre identifiant vocal précédent n’a pas expiré. Impossible de créer une nouvelle session pour le moment.",
+    "user_credentials": "Vous avez atteint la limite d’identifiants vocaux non expirés.",
+    "user_mint_rate": "Vous démarrez des sessions vocales trop fréquemment.",
+    "worker_credentials": "Ce processus serveur a atteint sa limite d’identifiants vocaux."
+  },
   "liveVoiceClose": "Fermer",
   "liveVoiceConnectionFailed": "La conversation vocale n’a pas pu se connecter. Réessayez.",
   "liveVoiceEmpty": "Parlez lorsque vous êtes prêt.",

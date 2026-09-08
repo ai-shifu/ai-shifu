@@ -123,7 +123,11 @@ const LiveVoiceErrorMessage = ({
   return (
     <>
       {detail.stageKey ? `${t(detail.stageKey)}: ` : ''}
-      {t(detail.messageKey)} ({detail.code}
+      {t(detail.messageKey)}{' '}
+      {detail.capacityKeys.map(key => (
+        <span key={key}>{t(key)} </span>
+      ))}
+      ({detail.code}
       {detail.closeCode !== null ? `; WebSocket ${detail.closeCode}` : ''})
     </>
   );

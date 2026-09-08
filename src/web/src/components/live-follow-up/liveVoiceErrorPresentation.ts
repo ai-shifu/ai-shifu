@@ -1,3 +1,7 @@
+import {
+  normalizeLiveFollowUpCapacityScopes,
+  type LiveFollowUpCapacityScope,
+} from '@/lib/liveVoiceCapacityScopes';
 import type { I18nKey } from '@/types/i18n-keys';
 import type { LiveVoiceFollowUpErrorCode } from './liveVoiceFollowUpAnalytics';
 import type { LiveVoiceErrorDiagnostic } from './useLiveVoiceFollowUp';
@@ -35,6 +39,17 @@ const stageMessages = {
   websocket: 'module.chat.liveVoiceErrorStages.websocket',
 } satisfies Record<LiveVoiceErrorDiagnostic['stage'], I18nKey>;
 
+const capacityMessages = {
+  global_credentials: 'module.chat.liveVoiceCapacityScopes.global_credentials',
+  worker_credentials: 'module.chat.liveVoiceCapacityScopes.worker_credentials',
+  user_credentials: 'module.chat.liveVoiceCapacityScopes.user_credentials',
+  active_sessions: 'module.chat.liveVoiceCapacityScopes.active_sessions',
+  user_mint_rate: 'module.chat.liveVoiceCapacityScopes.user_mint_rate',
+  global_mint_rate: 'module.chat.liveVoiceCapacityScopes.global_mint_rate',
+  legacy_user_credential:
+    'module.chat.liveVoiceCapacityScopes.legacy_user_credential',
+} satisfies Record<LiveFollowUpCapacityScope, I18nKey>;
+
 /** Only bounded machine codes can enter presentation; never render raw errors. */
 export const liveVoiceErrorPresentation = (
   error: unknown,
@@ -48,6 +63,12 @@ export const liveVoiceErrorPresentation = (
   const closeCode = diagnostic?.websocketCloseCode;
   return {
     code,
+    capacityKeys:
+      code === 'capacity_exceeded'
+        ? normalizeLiveFollowUpCapacityScopes(diagnostic?.capacityScopes).map(
+            scope => capacityMessages[scope],
+          )
+        : [],
     messageKey: errorMessages[code],
     stageKey:
       diagnostic && Object.hasOwn(stageMessages, diagnostic.stage)

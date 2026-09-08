@@ -960,7 +960,7 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       const requestedAt = Date.now();
       const onTextResult = jest.fn();
       mockCreateSession.mockRejectedValueOnce(
-        new LiveFollowUpControlError(reason, 2_000),
+        new LiveFollowUpControlError(reason, 2_000, ['user_credentials']),
       );
       render(<Harness onTextResult={onTextResult} />);
       await act(async () =>
@@ -968,7 +968,12 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       );
       expect(screen.getByTestId('error')).toHaveTextContent(errorCode);
       expect(screen.getByTestId('diagnostic')).toHaveTextContent(
-        JSON.stringify({ stage: 'session_create', reason }),
+        JSON.stringify({
+          stage: 'session_create',
+          capacityScopes:
+            reason === 'capacity_exceeded' ? ['user_credentials'] : undefined,
+          reason,
+        }),
       );
       expect(screen.getByTestId('retry-at')).toHaveTextContent(
         String(requestedAt + 2_000),
@@ -4966,6 +4971,30 @@ describe('useLiveVoiceFollowUp browser-direct transport', () => {
       expect(mockTrackEvent.mock.calls).toEqual(events);
     },
   );
+
+  it('clears capacity details when retry starts', async () => {
+    mockCreateSession.mockRejectedValueOnce(
+      new LiveFollowUpControlError('capacity_exceeded', 0, [
+        'user_credentials',
+      ]),
+    );
+    render(<Harness />);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'text' })),
+    );
+    expect(screen.getByTestId('diagnostic')).toHaveTextContent(
+      'user_credentials',
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'retry' })),
+    );
+    expect(screen.getByTestId('diagnostic')).not.toHaveTextContent(
+      'capacityScopes',
+    );
+    expect(screen.getByTestId('error')).not.toHaveTextContent(
+      'capacity_exceeded',
+    );
+  });
 
   it('keeps the close code after error and reports only one terminal outcome', async () => {
     jest.useFakeTimers();
