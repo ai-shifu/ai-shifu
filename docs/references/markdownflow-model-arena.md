@@ -22,11 +22,13 @@ blocks requiring earlier conversation are skipped with reasons. Sampling uses a
 fixed seed and covers different courses before reusing one. Insufficient eligible
 cases fail clearly rather than filling the batch with other task types.
 
-The default is twelve cases with a two-case smoke stage. The exact four model IDs
-are `gemini-3.8-flash`, `doubao-seed-2-1-turbo-260628`,
-`deepseek-v4-flash-0731`, and `qwen3.8-flash`. Production catalog resolution must
+The default is twelve cases with a two-case smoke stage. The exact five model IDs
+are `gemini-3.8-flash`, `doubao-seed-2-0-lite-260428`,
+`deepseek-v4-flash-0731`, `qwen3.8-flash`, and `glm-5.3-flash`. Production catalog resolution must
 match each exactly, retaining provider prefixes and version suffixes; missing or
-ambiguous matches fail. Each model receives the same frozen document, target
+ambiguous matches fail. Vendor letter casing may differ (for example, the
+configured route `qwen/ZHIPU/GLM-5.3-Flash`); suffix comparison ignores letter
+case while preserving the complete configured ID and version. Each model receives the same frozen document, target
 block, inherited prompt, variables, locale, and context. Initial runtime message
 hashes are checked across successful model calls.
 
@@ -65,7 +67,7 @@ bounded configurable timeouts. Credentials stay in the operator environment.
 
 ## Local output and recovery
 
-`comparison.html` embeds every verified slide PNG. Each model has a stable, shuffled A–D column. Names and exact routes appear
+`comparison.html` embeds every verified slide PNG. Each model has a stable, shuffled A–E column. Names and exact routes appear
 only after clicking the reveal button at the bottom; each prompt set occupies one row with all slide pages,
 expandable source instructions, and click-to-enlarge images. Failed, truncated,
 not-yet-generated, and text-only outputs have explicit cells. The report uses no
@@ -76,8 +78,9 @@ local recorded hashes. PDFs remain available in private render directories.
 
 Schema version 2 freezes slide-only runs. `run --resume` rechecks current prompt
 access and exact model routes, reuses completed generation, and retries local
-rendering/report work separately. A smoke failure stops further model spending
-and produces a partial page for inspection. `--retry-failed` explicitly allows
+rendering/report work separately. A generation or rendering smoke failure stops further model spending
+and produces a partial page for inspection. A completed text-only answer is
+shown as missing slides and does not block the remaining comparison cases. `--retry-failed` explicitly allows
 repeating uncertain or failed paid requests, preserving earlier attempts.
 
 `report` requires no backend access: it rebuilds a page from already-owned local
@@ -98,7 +101,7 @@ Focused tests cover canonical-account permissions, published-version isolation,
 prompt inheritance, slide-only sampling, identical model inputs, process-local
 observer restoration, isolated execution, no-paid-retry recovery, complete offline
 reports, escaped prompts, and modified-image rejection. Browser checks cover the
-four-column layout, complete image decoding, prompt expansion, and zooming.
+five-column layout, complete image decoding, prompt expansion, and zooming.
 Main application integration coverage is retained; this does not replace every
 learner-facing end-to-end test.
 

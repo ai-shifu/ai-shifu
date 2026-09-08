@@ -26,7 +26,7 @@ def _model_catalog(app: Flask) -> list[dict]:
 
 
 def resolve_models(app: Flask, requested: list[str]) -> list[dict]:
-    """Resolve exact IDs or unique exact unprefixed IDs, without changing model versions."""
+    """Resolve exact routes or unique case-insensitive suffixes, preserving versions."""
     catalog = _model_catalog(app)
     resolved = []
     seen = set()
@@ -35,7 +35,9 @@ def resolve_models(app: Flask, requested: list[str]) -> list[dict]:
         matches = [item for item in catalog if item["model"] == name]
         if not matches and name and "/" not in name:
             matches = [
-                item for item in catalog if item["model"].rsplit("/", 1)[-1] == name
+                item
+                for item in catalog
+                if item["model"].rsplit("/", 1)[-1].casefold() == name.casefold()
             ]
         if len(matches) != 1:
             message = f"Model {name!r} is unavailable or ambiguous in the configured model catalog"

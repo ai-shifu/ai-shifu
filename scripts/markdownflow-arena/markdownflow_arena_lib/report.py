@@ -182,7 +182,7 @@ def write_report(manifest: dict, run_dir: Path) -> dict:
         f'<header><p class="eyebrow">MARKDOWNFLOW · MODEL COMPARISON</p><h1>{_escape(copy["title"])}</h1>'
         f'<p>{_escape(copy["intro"])}</p><p class="counts">{len(cases)} {_escape(copy["cases"])} · '
         f"{len(models)} {_escape(copy['models'])} · {page_count} {_escape(copy['pages'])}</p></header>"
-        f'<main><table id="comparison"><thead><tr>{headers}</tr></thead>{"".join(rows)}</table></main>'
+        f'<main><table id="comparison" style="min-width:{len(models) * 300}px"><thead><tr>{headers}</tr></thead>{"".join(rows)}</table></main>'
         f"<footer><p>{_escape(copy['performance_note'])}</p>"
         f'<button id="reveal-models" aria-controls="comparison" aria-expanded="false" '
         f'data-revealed-label="{_escape(copy["revealed"])}">{_escape(copy["reveal"])}</button></footer>'

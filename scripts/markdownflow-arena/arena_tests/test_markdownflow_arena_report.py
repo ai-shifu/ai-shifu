@@ -14,7 +14,7 @@ from markdownflow_arena_lib.state import ArenaError, artifact_id
 def report_manifest(tmp_path: Path) -> dict:
     models = [
         {"requested": f"model-{index}", "model": f"provider/model-{index}"}
-        for index in range(4)
+        for index in range(5)
     ]
     case = {
         "case_id": "slides",
@@ -60,10 +60,10 @@ def test_report_has_all_columns_pages_and_failure_cells(
     output = Path(result["path"])
     content = output.read_text()
     assert result["case_count"] == 1
-    assert result["model_count"] == 4
+    assert result["model_count"] == 5
     assert result["page_count"] == 2
-    assert result["unavailable_count"] == 3
-    assert content.count('<th scope="col">') == 4
+    assert result["unavailable_count"] == 4
+    assert content.count('<th scope="col">') == 5
     assert content.count("<tbody data-case=") == 1
     assert content.count('src="data:image/png;base64,') == 2
     assert 'href="http' not in content
@@ -203,13 +203,49 @@ def test_blind_headers_have_stable_codes_and_reveal_after_the_last_row(
 
     result = write_report(report_manifest, tmp_path)
     content = Path(result["path"]).read_text()
-    assert re.findall(r'<span class="model-code">(.*?)</span>', content) == list("ABCD")
+    assert re.findall(r'<span class="model-code">(.*?)</span>', content) == list(
+        "ABCDE"
+    )
     hidden_names = r'<span class="model-name" hidden>(.*?)</span>'
     names = re.findall(hidden_names, content)
-    assert len(names) == 4
-    assert content.count('<dl class="performance">') == 4
+    assert len(names) == 5
+    assert content.count('<dl class="performance">') == 5
     assert 'aria-expanded="false"' in content
     assert content.index('id="reveal-models"') > content.index("</main>")
     report_manifest["models"].reverse()
     write_report(report_manifest, tmp_path)
     assert re.findall(hidden_names, Path(result["path"]).read_text()) == names
+
+
+def test_report_command_accepts_historical_model_roster_without_backend_calls(
+    report_manifest: dict,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import json
+    import sys
+
+    import markdownflow_arena
+    from markdownflow_arena_lib.pipeline import WorkerBackend
+    from markdownflow_arena_lib.state import write_json
+
+    report_manifest["models"] = report_manifest["models"][:4]
+    report_manifest.update(
+        schema_version=1,
+        run_id="legacy",
+        status="partial",
+        config={"models": [model["requested"] for model in report_manifest["models"]]},
+    )
+    write_json(tmp_path / "manifest.json", report_manifest)
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        message = "Report must not call the backend"
+        raise AssertionError(message)
+
+    monkeypatch.setattr(WorkerBackend, "call", fail)
+    monkeypatch.setattr(
+        sys, "argv", ["markdownflow_arena", "report", "--run-dir", str(tmp_path)]
+    )
+    assert markdownflow_arena.main() == 0
+    assert json.loads(capsys.readouterr().out)["report"]["model_count"] == 4

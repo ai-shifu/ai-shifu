@@ -467,8 +467,11 @@ class ArenaPipeline:
                 for case in cases
                 for model in state["models"]
             ]
+            # A completed text-only answer is a comparison outcome, not a
+            # broken execution path. Keep its failure cell and test later cases.
             if index == 0 and any(
-                artifact.get("status") != "complete" for artifact in expected
+                artifact.get("status") not in {"complete", "no_slides"}
+                for artifact in expected
             ):
                 state["status"] = "smoke_failed"
                 self.save()

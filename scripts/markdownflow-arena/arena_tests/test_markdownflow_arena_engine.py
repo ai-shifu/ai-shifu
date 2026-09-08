@@ -464,3 +464,25 @@ def test_manual_observation_restores_production_functions_on_interruption(
     assert llm._iter_stream_with_precontent_retry is interrupted
     assert len(observed) == 1
     assert engine._completion_status(observed) == "generation_failed"
+
+
+def test_model_resolution_preserves_configured_glm_case_and_full_provider_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        engine, "_model_catalog", lambda _app: [{"model": "qwen/ZHIPU/GLM-5.3-Flash"}]
+    )
+    assert (
+        engine.resolve_models(Flask(__name__), ["glm-5.3-flash"])[0]["model"]
+        == "qwen/ZHIPU/GLM-5.3-Flash"
+    )
+    monkeypatch.setattr(
+        engine,
+        "_model_catalog",
+        lambda _app: [
+            {"model": "qwen/ZHIPU/GLM-5.3-Flash"},
+            {"model": "ernie/glm-5.3-flash"},
+        ],
+    )
+    with pytest.raises(ArenaError, match="ambiguous"):
+        engine.resolve_models(Flask(__name__), ["glm-5.3-flash"])

@@ -2,13 +2,21 @@
 
 ## Purpose / Big Picture
 
-A person manually runs a standalone script to compare the four specified models
+A person manually runs a standalone script to compare the five specified models
 on real authorized published slide-generation prompts. The output is one offline
 HTML page: one model per column, one prompt set per row, all slide pages visible.
 The script also provides integration coverage by calling the main generation and
 rendering paths directly.
 
 ## Progress
+
+- [x] 2026-09-08 UTC: Replaced Doubao Turbo with the configured
+  `ark/doubao-seed-2-0-lite-260428` and added `qwen/ZHIPU/GLM-5.3-Flash`.
+  Verified exact routes and current access for the three frozen slide cases.
+- [x] 2026-09-08 UTC: Completed six new calls and reused nine outputs. The
+  five-column page contains fourteen complete works and seventy-six PNG/PDF
+  pages with UI version 0.2.26; one GLM answer contains no slides. Initial
+  message hashes match across all five models in each case. Passed 144 tests.
 
 - [x] 2026-09-08 UTC: Added stable anonymous A–D columns with manual reveal at
   the page bottom, plus per-work recorded timing, usage, cache, and output rate.
@@ -35,7 +43,8 @@ rendering paths directly.
 
 - Generic HTML and conditional slide-format guidelines do not establish a slide
   generation task; selection now requires generation intent.
-- A model may finish normally but return only prose. Such output must be an
+- A model may finish normally but return only prose. This is a benchmark
+  outcome and does not block later cases. Such output must be an
   explicit missing-slide cell, not a successful slide render.
 - The original mixed batch has three usable slide cases, rather than twelve.
   Its cached results can be shown immediately; new runs request twelve eligible
@@ -97,7 +106,7 @@ operator documentation, tests, and the existing PR around this final scope.
 ## Validation and Acceptance
 
 The script samples only authorized published slide-generation tasks and invokes
-the four exact specified models. Identical inputs and process isolation remain
+the five exact specified models. Identical inputs and process isolation remain
 covered. Resume does not repeat successful model calls after local failures.
 The HTML has exactly one column per configured model, one row per slide case,
 and every verified slide image, with failures visible. No Feishu CLI, remote

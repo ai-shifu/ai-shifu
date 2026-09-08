@@ -30,7 +30,7 @@ class Backend:
     """Track chargeable calls separately from read-only source validation."""
 
     def __init__(self) -> None:
-        """Start with three fixed cases and four successful model routes."""
+        """Start with three fixed cases and five successful model routes."""
         self.calls = []
         self.allowed = True
         self.mismatch = False
@@ -142,14 +142,14 @@ def arena(tmp_path: Path) -> ArenaPipeline:
 
 def test_smoke_then_resume_does_not_regenerate(arena: ArenaPipeline) -> None:
     arena.run(smoke_only=True)
-    assert arena.manifest["report"]["complete_count"] == 8
+    assert arena.manifest["report"]["complete_count"] == 10
     frozen = copy.deepcopy(arena.manifest["cases"])
     arena.run()
-    assert arena.manifest["report"]["complete_count"] == 12
+    assert arena.manifest["report"]["complete_count"] == 15
     assert arena.manifest["cases"] == frozen
     arena.run()
-    assert sum(op == "generate" for op, _ in arena.backend.calls) == 12
-    assert arena.renderer.calls == 12
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == 15
+    assert arena.renderer.calls == 15
 
 
 def test_renderer_failure_resumes_without_chargeable_retries(
@@ -160,8 +160,8 @@ def test_renderer_failure_resumes_without_chargeable_retries(
         arena.run(smoke_only=True)
     arena.renderer.fail = False
     arena.run(smoke_only=True)
-    assert sum(op == "generate" for op, _ in arena.backend.calls) == 8
-    assert arena.manifest["report"]["complete_count"] == 8
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == 10
+    assert arena.manifest["report"]["complete_count"] == 10
 
 
 def test_report_failure_resumes_without_chargeable_retries(
@@ -178,8 +178,8 @@ def test_report_failure_resumes_without_chargeable_retries(
         arena.run(smoke_only=True)
     monkeypatch.setattr(pipeline_module, "write_report", original)
     arena.run(smoke_only=True)
-    assert sum(op == "generate" for op, _ in arena.backend.calls) == 8
-    assert arena.renderer.calls == 8
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == 10
+    assert arena.renderer.calls == 10
 
 
 def test_failed_first_artifact_write_recovers_from_saved_manifest(
@@ -201,7 +201,7 @@ def test_failed_first_artifact_write_recovers_from_saved_manifest(
     smoke = arena.manifest["cases"][:2]
     arena.generate(smoke)
     saved = read_json(arena.run_dir / "manifest.json")
-    assert len(failed_paths) == 8
+    assert len(failed_paths) == 10
     assert all(
         item["generation_status"] == "complete" for item in saved["artifacts"].values()
     )
@@ -218,8 +218,8 @@ def test_failed_first_artifact_write_recovers_from_saved_manifest(
         lambda: write_json(arena.run_dir / "manifest.json", saved),
     )
     resumed.run(smoke_only=True)
-    assert sum(operation == "generate" for operation, _ in arena.backend.calls) == 8
-    assert resumed.manifest["report"]["complete_count"] == 8
+    assert sum(operation == "generate" for operation, _ in arena.backend.calls) == 10
+    assert resumed.manifest["report"]["complete_count"] == 10
     assert all(
         Path(item["artifact_path"]).is_file() for item in saved["artifacts"].values()
     )
@@ -282,7 +282,7 @@ def test_worker_generation_cannot_override_local_identity_history_or_paths(
     assert Path(artifact["artifact_path"]) == expected
     assert read_json(expected)["artifact_id"] == trusted_id
     assert not outside.exists()
-    assert len(list((arena.run_dir / "artifacts").glob("*/artifact.json"))) == 4
+    assert len(list((arena.run_dir / "artifacts").glob("*/artifact.json"))) == 5
 
 
 @pytest.mark.parametrize(
@@ -398,15 +398,15 @@ def test_permission_revocation_stops_all_new_work(arena: ArenaPipeline) -> None:
     arena.backend.allowed = False
     with pytest.raises(ArenaError, match="prompt access"):
         arena.run()
-    assert sum(op == "generate" for op, _ in arena.backend.calls) == 8
-    assert arena.manifest["report"]["complete_count"] == 8
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == 10
+    assert arena.manifest["report"]["complete_count"] == 10
 
 
 def test_failed_smoke_and_input_mismatch_never_publish(arena: ArenaPipeline) -> None:
     arena.backend.failed_model = REQUESTED_MODELS[0]
     with pytest.raises(ArenaError, match="Smoke"):
         arena.run()
-    assert sum(op == "generate" for op, _ in arena.backend.calls) == 8
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == 10
     arena.backend.failed_model = None
     arena.backend.mismatch = True
     with pytest.raises(ArenaError, match="identical"):
@@ -418,8 +418,8 @@ def test_modified_render_is_rebuilt_without_generation(arena: ArenaPipeline) -> 
     artifact = next(iter(arena.manifest["artifacts"].values()))
     Path(artifact["render"]["pages"][0]).write_bytes(b"modified")
     arena.run(smoke_only=True)
-    assert arena.renderer.calls == 9
-    assert sum(op == "generate" for op, _ in arena.backend.calls) == 8
+    assert arena.renderer.calls == 11
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == 10
 
 
 def test_explicit_retry_retains_failed_attempts(arena: ArenaPipeline) -> None:
@@ -436,7 +436,7 @@ def test_explicit_retry_retains_failed_attempts(arena: ArenaPipeline) -> None:
         item["attempts"][0]["generation_status"] == "truncated" for item in retried
     )
     assert all(item["attempts"][0]["content"] == "An explanation." for item in retried)
-    assert sum(op == "generate" for op, _ in arena.backend.calls) == 10
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == 12
 
 
 def test_private_atomic_state_and_exclusive_lock(tmp_path: Path) -> None:
@@ -454,7 +454,7 @@ def test_private_atomic_state_and_exclusive_lock(tmp_path: Path) -> None:
 
 
 def test_exact_versions_are_required() -> None:
-    with pytest.raises(ArenaError, match="four explicitly"):
+    with pytest.raises(ArenaError, match="five explicitly"):
         validate_config({"owner_phone": "10000000000", "models": ["gemini-3.7-flash"]})
     with pytest.raises(ArenaError, match="preserve"):
         validate_config({"owner_phone": "10000000000", "model_routes": ["wrong"]})
@@ -467,11 +467,10 @@ def test_no_slides_output_is_not_rendered_or_retried(arena: ArenaPipeline) -> No
     artifact["elements"] = []
     arena.render(arena.manifest["cases"][:2])
     assert artifact["status"] == "no_slides"
-    assert arena.renderer.calls == 7
-    with pytest.raises(ArenaError, match="Smoke"):
-        arena.run(smoke_only=True)
-    assert sum(op == "generate" for op, _ in arena.backend.calls) == 8
-    assert arena.manifest["report"]["unavailable_count"] == 5
+    assert arena.renderer.calls == 9
+    arena.run(smoke_only=True)
+    assert sum(op == "generate" for op, _ in arena.backend.calls) == 10
+    assert arena.manifest["report"]["unavailable_count"] == 6
 
 
 def test_report_only_does_not_call_backend(arena: ArenaPipeline) -> None:

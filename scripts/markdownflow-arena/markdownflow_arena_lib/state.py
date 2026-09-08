@@ -19,9 +19,10 @@ if TYPE_CHECKING:
 SCHEMA_VERSION = 2
 REQUESTED_MODELS = (
     "gemini-3.8-flash",
-    "doubao-seed-2-1-turbo-260628",
+    "doubao-seed-2-0-lite-260428",
     "deepseek-v4-flash-0731",
     "qwen3.8-flash",
+    "glm-5.3-flash",
 )
 
 
@@ -86,7 +87,7 @@ def validate_config(config: dict) -> dict:
         raise ArenaError(msg)
     models = result.get("models", list(REQUESTED_MODELS))
     if models != list(REQUESTED_MODELS):
-        msg = "This arena requires the four explicitly selected model versions"
+        msg = "This arena requires the five explicitly selected model versions"
         raise ArenaError(msg)
     result["models"] = models
     for key, default, minimum, maximum in (
@@ -126,7 +127,8 @@ def validate_config(config: dict) -> dict:
         not isinstance(routes, list)
         or len(routes) != len(models)
         or any(
-            not isinstance(route, str) or route.rsplit("/", 1)[-1] != model
+            not isinstance(route, str)
+            or route.rsplit("/", 1)[-1].casefold() != model.casefold()
             for route, model in zip(routes, models, strict=True)
         )
     ):

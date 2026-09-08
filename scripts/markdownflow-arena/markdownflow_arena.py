@@ -97,7 +97,11 @@ def main() -> int:
         else:
             run_dir = _resume_directory(args)
             manifest = _load_manifest(run_dir, legacy=args.command == "report")
-            config = validate_config(manifest["config"])
+            config = (
+                manifest["config"]
+                if args.command == "report"
+                else validate_config(manifest["config"])
+            )
         with run_lock(run_dir):
             # Re-read after locking so another completed operation is not lost.
             manifest_path = run_dir / "manifest.json"

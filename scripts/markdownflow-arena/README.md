@@ -1,8 +1,8 @@
 # MarkdownFlow slide comparison
 
-A manually executed script that compares the four specified models on real
+A manually executed script that compares the five specified models on real
 published slide-generation prompts. It writes one offline `comparison.html`:
-one anonymously labeled model (A–D) per column, one frozen prompt set per row, with every captured slide
+one anonymously labeled model (A–E) per column, one frozen prompt set per row, with every captured slide
 page visible. Click an image to enlarge it or expand a row's prompt details.
 Images are embedded, so the page opens directly from disk without a server.
 
