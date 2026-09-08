@@ -155,7 +155,7 @@ const isToastVisible = (toastId: string) =>
     toast => toast.id === toastId && toast.open !== false,
   );
 
-function toast({ duration = 2000, ...props }: Toast) {
+function toast({ duration = 5000, ...props }: Toast) {
   const id = genId();
   const radixDuration = duration === 0 ? Number.POSITIVE_INFINITY : duration;
 
