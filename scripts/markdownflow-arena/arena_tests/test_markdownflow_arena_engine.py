@@ -11,13 +11,14 @@ from unittest.mock import MagicMock
 
 import pytest
 from flask import Flask
-from flaskr.api.llm import chat_llm as real_chat_llm
+from flaskr.api.llm import chat_llm as production_chat_llm
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from markdownflow_arena_lib import engine  # noqa: E402
+from markdownflow_arena_lib.observe import chat_llm as real_chat_llm  # noqa: E402
 from markdownflow_arena_lib.source import case_input_hash  # noqa: E402
 from markdownflow_arena_lib.state import ArenaError  # noqa: E402
 
@@ -267,6 +268,11 @@ def test_shared_observer_captures_finish_only_chunk_without_provider_secrets(
 ) -> None:
     from flaskr.api import llm
 
+    # The backend fixture replaces paid calls; this test deliberately exercises
+    # the real production wrapper with a deterministic provider stream.
+    production_call = MagicMock(wraps=production_chat_llm)
+    monkeypatch.setattr(llm, "chat_llm", production_call)
+
     chunks = [
         SimpleNamespace(
             id="1",
@@ -309,6 +315,8 @@ def test_shared_observer_captures_finish_only_chunk_without_provider_secrets(
         llm, "_iter_stream_with_precontent_retry", lambda *_args: iter(chunks)
     )
     monkeypatch.setattr(llm, "record_llm_usage", MagicMock())
+    original_iterator = llm._iter_stream_with_precontent_retry
+    original_resolver = llm.get_litellm_params_and_model
     span = MagicMock()
     observed = []
     with Flask(__name__).app_context():
@@ -323,6 +331,10 @@ def test_shared_observer_captures_finish_only_chunk_without_provider_secrets(
             )
         )
     assert responses[0].result == "Output"
+    production_call.assert_called_once()
+    assert "completion_observer" not in production_call.call_args.kwargs
+    assert llm._iter_stream_with_precontent_retry is original_iterator
+    assert llm.get_litellm_params_and_model is original_resolver
     assert observed[0]["finish_reason"] == "length"
     assert observed[0]["provider_model"] == "actual-model"
     assert observed[0]["usage"] == {"input": 4, "output": 3, "total": 7}
@@ -358,6 +370,8 @@ def test_completion_observer_failure_does_not_change_completion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from flaskr.api import llm
+
+    monkeypatch.setattr(llm, "chat_llm", production_chat_llm)
 
     chunks = [
         SimpleNamespace(
@@ -399,3 +413,54 @@ def test_completion_observer_failure_does_not_change_completion(
         )
     assert responses[0].result == "Output"
     record.assert_called_once()
+
+
+@pytest.mark.parametrize("termination", ["failure", "close"])
+def test_manual_observation_restores_production_functions_on_interruption(
+    monkeypatch: pytest.MonkeyPatch, termination: str
+) -> None:
+    from flaskr.api import llm
+
+    resolver = MagicMock(return_value=({"api_key": "test"}, "actual", "openai"))
+
+    def interrupted(*_args: object) -> object:
+        yield SimpleNamespace(
+            id="1",
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(content="Output"), finish_reason=None
+                )
+            ],
+            usage=None,
+        )
+        message = "Synthetic interrupted provider stream"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(llm, "chat_llm", production_chat_llm)
+    monkeypatch.setattr(llm, "get_litellm_params_and_model", resolver)
+    monkeypatch.setattr(llm, "_iter_stream_with_precontent_retry", interrupted)
+    monkeypatch.setattr(
+        llm, "_prepare_litellm_request_kwargs", lambda _p, _m, _c, values: values
+    )
+    observed = []
+    app = Flask(__name__)
+    with app.app_context():
+        stream = real_chat_llm(
+            app,
+            "owner",
+            MagicMock(),
+            "requested",
+            [],
+            completion_observer=observed.append,
+        )
+        assert next(stream).result == "Output"
+        if termination == "failure":
+            with pytest.raises(RuntimeError, match="Synthetic interrupted"):
+                list(stream)
+        else:
+            stream.close()
+    assert llm.chat_llm is production_chat_llm
+    assert llm.get_litellm_params_and_model is resolver
+    assert llm._iter_stream_with_precontent_retry is interrupted
+    assert len(observed) == 1
+    assert engine._completion_status(observed) == "generation_failed"

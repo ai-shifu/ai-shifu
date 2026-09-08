@@ -5,11 +5,20 @@ and places blind image/PDF comparisons in a dedicated Feishu Base. It is an
 operator CLI, with no additional learner or teacher web route. A round defaults
 to twelve cases and all six model pairs for each case.
 
+The entire tool lives under `scripts/markdownflow-arena/` and runs only when an
+operator invokes it. Application source, startup, npm dependencies, and shared
+translation registration are unchanged. It deliberately calls the main
+MarkdownFlow execution, model wrapper, and rendering components, so it also
+exercises those paths. The tool's README lists the reused boundaries and the
+remaining limits of this coverage.
+
 ## Prerequisites
 
-- Install the pinned backend requirements and Cook Web dependencies (`npm ci`).
+- Install the pinned backend requirements in an operator Python environment.
+  Install renderer dependencies with `npm ci` inside `scripts/markdownflow-arena`;
+  this does not change the Cook Web application dependencies.
 - Install a Playwright Chromium browser (`npx playwright install chromium` in
-  `src/web`) and use one host for every artifact in the round.
+  `scripts/markdownflow-arena`) and use one host for every artifact in the round.
 - Authenticate the existing `lark-cli` user with Base, sharing, attachment, and
   workflow permissions. The CLI must support raw `api` calls. To continue the
   earlier restricted setup, use `--resume` with the same run's original directory
@@ -21,7 +30,7 @@ to twelve cases and all six model pairs for each case.
   initializes only the required Flask services; it does not run migrations or
   expose routes. Snapshot extraction uses an independent read-only ORM session.
 
-Copy `src/api/scripts/markdownflow_arena.example.json` to a private file outside
+Copy `scripts/markdownflow-arena/example.json` to a private file outside
 version control, replace the example owner phone, and set fixed learner variables
 appropriate to the cases. Do not put provider credentials in this configuration;
 the worker uses the existing configured provider wrappers.
@@ -30,9 +39,11 @@ the worker uses the existing configured provider wrappers.
 `markdownflow_arena.py worker`. It can invoke a container transport such as
 `kubectl exec -i` with the checked-in worker deployed in a private temporary
 directory. JSON input travels over stdin, never shell interpolation. The remote
-worker must use the same code revision as the local coordinator, including the
-optional completion observer in the shared LLM wrapper, the shared `prompts/`
-templates, and the `i18n/` resources. Large worker responses use a versioned,
+worker must use the same code revision as the local coordinator, alongside the unchanged shared `prompts/` templates and application `i18n/`
+resources. The script calls the original `chat_llm` and observes its provider
+iterator only inside the isolated worker; the normal application needs no
+callback extension or deployment change. Tool-specific Feishu copy stays in
+`scripts/markdownflow-arena/i18n/`. Large worker responses use a versioned,
 bounded gzip envelope to survive container transports. Operator transport
 changes may update `config.backend_command` in the private manifest after a pod
 replacement; keep frozen cases, models, and outputs unchanged.
@@ -45,7 +56,7 @@ catalog; no model substitution or global deployment change occurs. Missing or
 ambiguous versions fail before generation.
 
 `renderer_command` is an optional argv array, for example `node`, the absolute
-path to `src/web/scripts/markdownflow-arena/render.mjs`, and optionally
+path to `scripts/markdownflow-arena/renderer/render.mjs`, and optionally
 `--browser-path` plus an installed Chromium executable. The renderer appends
 input/output arguments. `renderer_asset_hosts` explicitly permits HTTPS hosts
 needed by course images; the default is offline. Network errors fail rendering
@@ -61,9 +72,9 @@ page slicing, font, sandbox, and PDF behavior.
 From the repository root, using the Python environment with backend dependencies:
 
 ```bash
-python src/api/scripts/markdownflow_arena.py run --config /private/path/arena.json
-python src/api/scripts/markdownflow_arena.py run --resume /private/path/arena_RUN_ID
-python src/api/scripts/markdownflow_arena.py summarize --run-id arena_RUN_ID --run-root /private/path
+python scripts/markdownflow-arena/markdownflow_arena.py run --config /private/path/arena.json
+python scripts/markdownflow-arena/markdownflow_arena.py run --resume /private/path/arena_RUN_ID
+python scripts/markdownflow-arena/markdownflow_arena.py summarize --run-id arena_RUN_ID --run-root /private/path
 ```
 
 The default private run root is the ignored

@@ -15,7 +15,7 @@ window.renderArena = (artifact, step = 0) => {
   document.documentElement.dataset.mode = artifact.mode;
   if (artifact.mode === 'slides') {
     let markerIndex = -1;
-    const elements = artifact.elements.map(element => {
+    const elements = artifact.elements.map((element) => {
       if (element.is_marker) markerIndex += 1;
       return {
         ...element,
@@ -24,8 +24,8 @@ window.renderArena = (artifact, step = 0) => {
     });
     root.render(
       <div
-        id='capture'
-        className='arena-slide'
+        id="capture"
+        className="arena-slide"
         lang={artifact.locale}
         dir={direction}
       >
@@ -44,8 +44,8 @@ window.renderArena = (artifact, step = 0) => {
   } else {
     root.render(
       <div
-        id='capture'
-        className='arena-reading'
+        id="capture"
+        className="arena-reading"
         lang={artifact.locale}
         dir={direction}
       >

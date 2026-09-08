@@ -9,6 +9,13 @@ Base. Reviewers vote using native buttons; separate raw records retain distinct 
 
 ## Progress
 
+- [x] 2026-09-08 UTC: Moved the evaluator outside application code following the
+  user's clarification; retained direct reuse of the production model and
+  MarkdownFlow paths with process-local observation.
+- [x] 2026-09-08 UTC: Passed 212 standalone tests and 108 unchanged production
+  LLM tests, independent npm installation, renderer fixtures, and all ten locale
+  cases. Verified no remaining diff in `src/api`, `src/web`, or `src/i18n`.
+
 - [x] 2026-09-08 UTC: Inspected permissions, published structures, MarkdownFlow
   execution, rendering, and Feishu buttons/workflows; approved implementation.
 - [x] 2026-09-08 UTC: Created the task branch and assigned independent source,
@@ -79,8 +86,13 @@ Base. Reviewers vote using native buttons; separate raw records retain distinct 
 
 ## Decision Log
 
-- Use an operator tool under src/api/scripts, with a private local renderer
-  under src/web/scripts. Do not add a learner-facing route or public API.
+- The user clarified that this is a manually invoked standalone tool, while
+  still testing the main flow. Keep its entry point, dependencies, renderer,
+  translations, and tests in `scripts/markdownflow-arena/`. Restore all application
+  code and package manifests to their original state. Reuse the original
+  `chat_llm`, MarkdownFlow context, prompt composition, element adapter, and UI
+  components. Observe terminal chunks only inside the isolated worker, and
+  restore temporary observers on success, failure, or cancellation.
 - The private configuration identifies the requested owner by phone and binds
   the resolved user ID. Never commit the real phone, credentials, source
   prompts, course IDs, or Feishu resource links.
@@ -113,6 +125,11 @@ Base. Reviewers vote using native buttons; separate raw records retain distinct 
   attachment, workflow, and sharing verification remains required; ordinary-user
   voting verification is a disclosed follow-up rather than a delivery blocker.
 
+- The published-row snapshot needs independent consistent reads and exact version
+  freezing. It reuses production models and permission normalization without
+  invoking authoring cache writes or draft exports. The script is complementary
+  coverage for reused runtime components, not a replacement for full app e2e.
+
 ## Outcomes & Retrospective
 
 The twelve-case first round completed all 48 model attempts. One result was
@@ -125,7 +142,10 @@ page count matches its image count. The frozen batch used markdown-flow-ui
 repository's current 0.2.26 pin. Completed model output was never regenerated
 to recover rendering or publication.
 
-The final backend and shared LLM suite passed 318 tests. Renderer unit tests,
+After standalone extraction, 212 tool tests and 108 unchanged production LLM
+tests passed. The model observer delegates to the original production wrapper
+and is verified to restore its spies on completion, failure, and generator
+close. Renderer unit tests,
 pixel-checked scroll pagination, original-image cache fixtures, all supported
 locales in reading/slide modes, and real clipping rejection fixtures passed.
 Repository-wide lefthook, harness, and architecture-boundary checks passed.

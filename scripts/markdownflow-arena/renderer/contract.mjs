@@ -1,6 +1,6 @@
-import { isIP } from 'node:net';
+import { isIP } from "node:net";
 
-export const RENDERER_VERSION = '2';
+export const RENDERER_VERSION = "2";
 export const MAX_PAGES = 50;
 
 export class RenderError extends Error {
@@ -11,27 +11,27 @@ export class RenderError extends Error {
 }
 
 export function normalizeArtifact(value) {
-  if (!value || typeof value.content !== 'string' || !value.content.trim()) {
-    throw new RenderError('invalid_artifact');
+  if (!value || typeof value.content !== "string" || !value.content.trim()) {
+    throw new RenderError("invalid_artifact");
   }
   if (Buffer.byteLength(value.content) > 5_000_000) {
-    throw new RenderError('artifact_too_large');
+    throw new RenderError("artifact_too_large");
   }
   if (value.elements !== undefined && !Array.isArray(value.elements)) {
-    throw new RenderError('invalid_elements');
+    throw new RenderError("invalid_elements");
   }
   const elements = (value.elements ?? []).map((element, index) => {
-    if (!element || typeof element.content !== 'string') {
-      throw new RenderError('invalid_element');
+    if (!element || typeof element.content !== "string") {
+      throw new RenderError("invalid_element");
     }
     return {
       content: element.content,
       type:
-        typeof element.type === 'string'
+        typeof element.type === "string"
           ? element.type
-          : typeof element.element_type === 'string'
+          : typeof element.element_type === "string"
             ? element.element_type
-            : 'text',
+            : "text",
       sequence_number: element.sequence_number ?? index,
       is_marker: element.is_marker === true,
       is_new: element.is_new === true,
@@ -40,27 +40,27 @@ export function normalizeArtifact(value) {
       readonly: true,
     };
   });
-  const markerCount = elements.filter(element => element.is_marker).length;
+  const markerCount = elements.filter((element) => element.is_marker).length;
   if (Buffer.byteLength(JSON.stringify(elements)) > 5_000_000) {
-    throw new RenderError('artifact_too_large');
+    throw new RenderError("artifact_too_large");
   }
-  if (markerCount > MAX_PAGES) throw new RenderError('too_many_pages');
+  if (markerCount > MAX_PAGES) throw new RenderError("too_many_pages");
   return {
     content: value.content,
     elements,
-    mode: markerCount ? 'slides' : 'reading',
+    mode: markerCount ? "slides" : "reading",
     stepCount: markerCount || 1,
-    locale: ['en-US', 'fr-FR', 'zh-CN', 'ar-SA', 'th-TH'].includes(
+    locale: ["en-US", "fr-FR", "zh-CN", "ar-SA", "th-TH"].includes(
       value.metadata?.locale,
     )
       ? value.metadata.locale
-      : 'zh-CN',
+      : "zh-CN",
   };
 }
 
 export function isPublicAddress(address) {
   if (isIP(address) === 4) {
-    const [a, b, c] = address.split('.').map(Number);
+    const [a, b, c] = address.split(".").map(Number);
     return !(
       a === 0 ||
       a === 10 ||
@@ -96,16 +96,16 @@ export function isAllowedAsset(request, allowedHosts) {
     return false;
   }
   return (
-    request.method() === 'GET' &&
-    url.protocol === 'https:' &&
+    request.method() === "GET" &&
+    url.protocol === "https:" &&
     !url.username &&
     !url.password &&
-    (!url.port || url.port === '443') &&
+    (!url.port || url.port === "443") &&
     allowedHosts.has(url.hostname) &&
-    ['image', 'font', 'stylesheet', 'script'].includes(request.resourceType())
+    ["image", "font", "stylesheet", "script"].includes(request.resourceType())
   );
 }
 
 export function classifyError(error) {
-  return error instanceof RenderError ? error.code : 'render_failed';
+  return error instanceof RenderError ? error.code : "render_failed";
 }

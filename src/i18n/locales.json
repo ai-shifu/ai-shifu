@@ -31,7 +31,6 @@
     "component.menus",
     "component.navigation",
     "component.outlineTree",
-    "module.arena",
     "module.auth",
     "module.billing",
     "module.chapterSetting",

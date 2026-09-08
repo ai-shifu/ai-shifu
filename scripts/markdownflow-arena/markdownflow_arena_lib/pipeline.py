@@ -29,7 +29,8 @@ from .worker import WORKER_PROTOCOL_VERSION
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+TOOL_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = TOOL_ROOT.parents[1]
 API_ROOT = REPO_ROOT / "src" / "api"
 MAX_WORKER_RESPONSE_BYTES = 64 * 1024 * 1024
 
@@ -91,7 +92,7 @@ class WorkerBackend:
         """Submit a private JSON request without shell interpolation."""
         command = self.config.get("backend_command") or [
             sys.executable,
-            str(API_ROOT / "scripts" / "markdownflow_arena.py"),
+            str(TOOL_ROOT / "markdownflow_arena.py"),
             "worker",
         ]
         request = {"operation": operation, "config": self.config, **payload}
@@ -143,7 +144,7 @@ class BrowserRenderer:
             self.config.get("renderer_command")
             or [
                 "node",
-                str(REPO_ROOT / "src/web/scripts/markdownflow-arena/render.mjs"),
+                str(TOOL_ROOT / "renderer/render.mjs"),
             ]
         )
         command.extend(
@@ -164,7 +165,7 @@ class BrowserRenderer:
                 text=True,
                 capture_output=True,
                 check=False,
-                cwd=REPO_ROOT / "src/web",
+                cwd=TOOL_ROOT,
                 timeout=self.config["renderer_timeout_seconds"],
             )
         except subprocess.TimeoutExpired as error:

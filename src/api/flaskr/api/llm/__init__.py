@@ -1377,7 +1377,6 @@ def chat_llm(
     request_id: str | None = None,
     trace_id: str | None = None,
     usage_metadata: dict[str, object] | None = None,
-    completion_observer: Callable[[dict[str, object]], None] | None = None,
     **kwargs: object,
 ) -> Generator[LLMStreamResponse, None, None]:
     """Send a chat request through the configured LLM provider."""
@@ -1412,8 +1411,6 @@ def chat_llm(
     )
     response_text = ""
     reasoning_text = ""
-    finish_reason = None
-    partial_response = False
     usage = None
     input_cache_tokens = 0
     provider_name = ""
@@ -1443,7 +1440,6 @@ def chat_llm(
                     start_completion_time = now_utc()
                 if len(res.choices):
                     reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
-                    finish_reason = res.choices[0].finish_reason or finish_reason
                 if len(res.choices) and res.choices[0].delta.content:
                     response_text += res.choices[0].delta.content
                     yield LLMStreamResponse(
@@ -1465,7 +1461,6 @@ def chat_llm(
         except Exception as exc:
             if not (_is_litellm_repeated_stream_chunk_error(exc) and response_text):
                 raise
-            partial_response = True
             app.logger.warning(
                 "LiteLLM repeated streaming chunk detected; ending stream with partial response | model=%s | response_chars=%s | error=%s",
                 invoke_model,
@@ -1484,37 +1479,6 @@ def chat_llm(
     else:
         app.logger.info("chat_llm usage: %s", usage.__str__())
     latency_ms = int((time.monotonic() - start_time) * 1000)
-    if completion_observer is not None:
-        # This observer is optional diagnostics; failures must not alter existing
-        # completion, metering, or tracing behavior. Never expose provider secrets.
-        try:
-            completion_observer(
-                {
-                    "model": model,
-                    "provider": provider_name,
-                    "provider_model": invoke_model,
-                    "finish_reason": finish_reason,
-                    "partial_response": partial_response,
-                    "latency_ms": latency_ms,
-                    "usage": usage,
-                    "input_cache_tokens": input_cache_tokens,
-                    "parameters": {
-                        key: kwargs[key]
-                        for key in (
-                            "temperature",
-                            "max_tokens",
-                            "reasoning_effort",
-                            "top_p",
-                            "seed",
-                        )
-                        if key in kwargs
-                    },
-                }
-            )
-        except Exception as exc:
-            app.logger.warning(
-                "LLM completion observer failed | error_class=%s", type(exc).__name__
-            )
     resolved_usage_scene = normalize_usage_scene(usage_scene)
     if usage_context is None:
         usage_context = UsageContext(

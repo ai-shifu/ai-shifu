@@ -11,7 +11,7 @@ from unittest.mock import Mock
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from markdownflow_arena_lib.feishu import (  # noqa: E402

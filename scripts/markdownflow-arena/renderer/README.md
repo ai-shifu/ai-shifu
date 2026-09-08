@@ -4,10 +4,12 @@ This command runs the installed `markdown-flow-ui` production components in an
 ephemeral Chromium profile. It does not start Cook Web, load `.env`, or expose a
 product route. Use the same machine, package lock, and browser for an entire run.
 
+Run these commands from `scripts/markdownflow-arena`:
+
 ```sh
 npm ci
 npx playwright install chromium
-npm run arena:render -- --input /absolute/artifact.json --output /absolute/render
+npm run render -- --input /absolute/artifact.json --output /absolute/render
 ```
 
 Input is `{ "artifact_id": "opaque-id", "content": "...", "elements": [],
@@ -89,11 +91,11 @@ Playwright browser is preferred. In a restricted desktop sandbox, Chromium may
 require permission to launch outside that sandbox; keep Chromium's own sandbox
 enabled. The input/output files and the temporary HTTP server remain local.
 
-Run `npm run arena:test` for boundary tests and `npm run arena:smoke` for real
+Run `npm test` for boundary tests and `npm run smoke` for real
 browser fixtures: long Chinese text, Mermaid, formula, SVG image, executable
 HTML, multiple slide pages, scrollable slides, harmless emoji line-box overflow,
 a blocked local-network image, and genuinely clipped HTML/emoji. Outputs go to a
 temporary directory printed in the final JSON for visual inspection. Set
 `ARENA_BROWSER_PATH` only when the default Playwright browser is unavailable.
-Run `node scripts/markdownflow-arena/locale.smoke.mjs` to verify all five locales
+Run `node renderer/locale.smoke.mjs` to verify all five locales
 and RTL/LTR propagation through the installed reading and slide components.

@@ -274,13 +274,7 @@ class FeishuPublisher:
         if locale not in {"zh-CN", "en-US", "fr-FR", "ar-SA", "th-TH"}:
             message = "Unsupported arena locale"
             raise ValueError(message)
-        path = (
-            Path(__file__).resolve().parents[3]
-            / "i18n"
-            / locale
-            / "modules"
-            / "arena.json"
-        )
+        path = Path(__file__).resolve().parents[1] / "i18n" / f"{locale}.json"
         document = json.loads(path.read_text(encoding="utf-8"))
 
         def _(key: str) -> str:

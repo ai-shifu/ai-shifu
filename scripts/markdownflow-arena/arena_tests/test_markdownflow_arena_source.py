@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 # Synthetic fixture identifier; no test contains a real account phone.
 TEST_OWNER_PHONE = "10000000000"
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 

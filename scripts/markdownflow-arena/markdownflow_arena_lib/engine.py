@@ -59,7 +59,7 @@ def resolve_models(app: Flask, requested: list[str]) -> list[dict]:
 
 
 def _chat_llm(*args: object, **kwargs: object) -> Iterator:
-    from flaskr.api.llm import chat_llm
+    from .observe import chat_llm
 
     return chat_llm(*args, **kwargs)
 

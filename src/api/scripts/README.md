@@ -2,17 +2,6 @@
 
 This directory contains utility scripts for managing AI-Shifu configuration.
 
-## markdownflow_arena.py
-
-Runs authorized published course segments through fixed models and publishes
-blind image/PDF comparisons with four voting buttons to a dedicated Feishu Base.
-The default `feishu.permission_mode` is `organization_editable`: organization
-members with the link can edit all three tables. Source prompts and A/B model
-mappings remain in the private local run manifest.
-
-See the [arena operator guide](../../../docs/references/markdownflow-model-arena.md)
-for setup, running a round, recovery, and scoring.
-
 ## generate_env_examples.py
 
 Generates the environment configuration example file from the application's configuration definitions.

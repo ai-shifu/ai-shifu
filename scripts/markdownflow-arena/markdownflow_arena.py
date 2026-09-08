@@ -9,7 +9,9 @@ import sys
 import uuid
 from pathlib import Path
 
-API_ROOT = Path(__file__).resolve().parents[1]
+TOOL_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = TOOL_ROOT.parents[1]
+API_ROOT = REPO_ROOT / "src/api"
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
 
@@ -23,7 +25,7 @@ from markdownflow_arena_lib.state import (  # noqa: E402
     write_json,
 )
 
-DEFAULT_RUN_ROOT = API_ROOT.parents[1] / "artifacts/runs/markdownflow-arena"
+DEFAULT_RUN_ROOT = REPO_ROOT / "artifacts/runs/markdownflow-arena"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -46,7 +48,7 @@ def parser() -> argparse.ArgumentParser:
     summary = commands.add_parser("summarize", help="Recompute first-vote statistics")
     summary.add_argument("--run-id", required=True)
     summary.add_argument("--run-root", type=Path, default=DEFAULT_RUN_ROOT)
-    commands.add_parser("worker", help=argparse.SUPPRESS)
+    commands.add_parser("worker", help="Run one isolated backend operation for run")
     return root
 
 
