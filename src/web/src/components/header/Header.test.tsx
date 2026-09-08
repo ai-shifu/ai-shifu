@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import { AlertProvider } from '@/components/ui/UseAlert';
 import Header from './Header';
@@ -37,6 +43,7 @@ jest.mock('@/store', () => ({
 }));
 
 jest.mock('@/hooks/useToast', () => ({
+  showDefaultToast: (description: string) => mockToast({ description }),
   useToast: () => ({
     toast: mockToast,
   }),
@@ -369,6 +376,11 @@ describe('Header publish success link', () => {
     ).toBeDisabled();
 
     fireEvent.click(shareButton);
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: 'common.core.shareCourseLink',
+      }),
+    );
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
@@ -391,6 +403,11 @@ describe('Header publish success link', () => {
     renderHeader();
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.shareCourse' }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: 'common.core.shareCourseLink',
+      }),
     );
 
     await waitFor(() => {
@@ -422,6 +439,11 @@ describe('Header publish success link', () => {
       renderHeader();
       fireEvent.click(
         screen.getByRole('button', { name: 'common.core.shareCourse' }),
+      );
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', {
+          name: 'common.core.shareCourseLink',
+        }),
       );
 
       await waitFor(() => {
