@@ -23,6 +23,7 @@ import {
   isPublicAddress,
   MAX_PAGES,
   normalizeArtifact,
+  normalizeAssetUrls,
   RenderError,
   RENDERER_VERSION,
 } from "./contract.mjs";
@@ -403,26 +404,10 @@ export async function render(options) {
   if (options["asset-host"]?.length) {
     throw new RenderError("asset_host_allowlist_removed_use_exact_urls");
   }
-  const allowedUrls = new Set(options["asset-url"] ?? []);
-  const allowedHosts = new Set();
-  for (const value of allowedUrls) {
-    let url;
-    try {
-      url = new URL(value);
-    } catch {
-      throw new RenderError("invalid_asset_url");
-    }
-    if (
-      url.href !== value ||
-      url.protocol !== "https:" ||
-      url.username ||
-      url.password ||
-      url.hash ||
-      (url.port && url.port !== "443")
-    )
-      throw new RenderError("invalid_asset_url");
-    allowedHosts.add(url.hostname);
-  }
+  const allowedUrls = normalizeAssetUrls(options["asset-url"] ?? []);
+  const allowedHosts = new Set(
+    [...allowedUrls].map((value) => new URL(value).hostname),
+  );
   const publicAddresses = new Map();
   for (const host of allowedHosts) {
     if (new URL(`https://${host}`).hostname !== host)

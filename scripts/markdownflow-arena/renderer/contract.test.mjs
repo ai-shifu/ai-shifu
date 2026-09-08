@@ -7,6 +7,7 @@ import path from "node:path";
 import { cachedImageForRequest, loadAssetCache } from "./assets.mjs";
 import {
   normalizeArtifact,
+  normalizeAssetUrls,
   MAX_PAGES,
   isAllowedAsset,
   isPublicAddress,
@@ -226,4 +227,43 @@ test("verified image cache matches only exact GET image requests", async (t) => 
   await assert.rejects(loadAssetCache(manifestPath), {
     code: "invalid_asset_cache_image",
   });
+});
+
+test("operator URLs match Chromium normalization without accepting new queries", () => {
+  const urls = normalizeAssetUrls([
+    "https://CDN.example:443/image.png?v=1",
+    "https://cdn.example",
+  ]);
+  assert.deepEqual(
+    [...urls],
+    ["https://cdn.example/image.png?v=1", "https://cdn.example/"],
+  );
+  const request = (url) => ({
+    url: () => url,
+    method: () => "GET",
+    resourceType: () => "image",
+    isNavigationRequest: () => false,
+  });
+  assert.equal(
+    isAllowedAsset(request("https://cdn.example/image.png?v=1"), urls),
+    true,
+  );
+  assert.equal(
+    isAllowedAsset(
+      request("https://cdn.example/image.png?v=1&private=content"),
+      urls,
+    ),
+    false,
+  );
+  for (const value of [
+    "http://cdn.example/image.png",
+    "https://cdn.example:444/image.png",
+    "https://u:p@cdn.example/image.png",
+    "https://cdn.example/image.png#data",
+    "not-a-url",
+  ]) {
+    assert.throws(() => normalizeAssetUrls([value]), {
+      code: "invalid_asset_url",
+    });
+  }
 });

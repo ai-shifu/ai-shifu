@@ -55,7 +55,8 @@ Outbound access is disabled by default. The trusted run configuration can pass
 repeated `--asset-url https://cdn.example/fixed.png` flags to permit HTTPS GET requests for images,
 fonts, stylesheets, and scripts from exact operator-approved URLs, including their paths and queries. Model output must
 never supply this allowlist. A changed path or query is blocked even on an
-approved hostname. The old `--asset-host` option fails closed; migrate each
+approved hostname. URLs are canonicalized like browser requests, including
+removal of an explicit default HTTPS port. The old `--asset-host` option fails closed; migrate each
 needed asset to an explicit URL or the verified offline cache. Redirects, private destinations, API requests,
 WebSockets, popups, downloads, and extra navigation are blocked. An unavailable
 or blocked resource fails the artifact instead of producing an incomplete

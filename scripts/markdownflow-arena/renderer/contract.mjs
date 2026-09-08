@@ -88,6 +88,29 @@ export function isPublicAddress(address) {
   return false;
 }
 
+export function normalizeAssetUrls(values) {
+  const urls = new Set();
+  for (const value of values) {
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new RenderError("invalid_asset_url");
+    }
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.hash ||
+      (url.port && url.port !== "443")
+    )
+      throw new RenderError("invalid_asset_url");
+    // Match Chromium's canonical request URL without broadening paths or queries.
+    urls.add(url.href);
+  }
+  return urls;
+}
+
 export function isAllowedAsset(request, allowedUrls) {
   let url;
   try {

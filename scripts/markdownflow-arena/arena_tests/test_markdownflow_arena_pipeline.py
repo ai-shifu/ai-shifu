@@ -534,3 +534,14 @@ def test_legacy_asset_hosts_require_explicit_url_migration() -> None:
     config["renderer_asset_hosts"] = ["cdn.example"]
     with pytest.raises(ArenaError, match="exact renderer_asset_urls"):
         validate_config(config)
+
+
+@pytest.mark.parametrize(
+    "url", ["https://CDN.example:443/image.png?v=1", "https://cdn.example"]
+)
+def test_renderer_can_normalize_accepted_asset_urls(url: str) -> None:
+    """Retain valid operator URLs for Chromium-compatible canonical matching."""
+    config = validate_config(
+        {"owner_phone": "10000000000", "renderer_asset_urls": [url]}
+    )
+    assert config["renderer_asset_urls"] == [url]
