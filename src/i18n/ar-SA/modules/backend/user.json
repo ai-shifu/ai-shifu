@@ -5,7 +5,7 @@
     "checkCodeExpired": "انتهت صلاحية رمز التحقق المصور",
     "deviceAuthAlreadyHandled": "تمت معالجة طلب التفويض هذا بالفعل.",
     "deviceAuthTooManyRequests": "طلبات تفويض كثيرة جدًا. يرجى المحاولة لاحقًا.",
-    "deviceCodeInvalid": "رمز الاقتران غير صالح أو منتهي الصلاحية. أعد بدء التفويض من سطر الأوامر.",
+    "deviceCodeInvalid": "رمز الاقتران غير صالح أو منتهي الصلاحية. عد إلى التطبيق الذي كنت تستخدمه واطلب الوصول مرة أخرى.",
     "emailSendFailed": "فشل إرسال البريد الإلكتروني",
     "emailSendTooFrequent": "إرسال البريد الإلكتروني متكرر جدًا",
     "emailVerificationExpiry": "ستنتهي صلاحية رمز التحقق بعد {expiry_duration}.",
