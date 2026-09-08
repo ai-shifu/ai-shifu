@@ -88,6 +88,10 @@ jest.mock('markdown-flow-ui/slide', () => {
         playerClassName?: string;
         fullscreenHeader?: { content?: React.ReactNode };
         onPlayerVisibilityChange?: (visible: boolean) => void;
+        onSlideProgressNavigate?: (
+          element: unknown,
+          targetStepIndex: number,
+        ) => void;
         playerCustomActions?:
           | React.ReactNode
           | ((context: SlideCustomActionContext) => React.ReactNode);
@@ -230,6 +234,162 @@ describe('ListenModeSlideRenderer', () => {
     } else {
       delete (HTMLElement.prototype as Partial<HTMLElement>).requestFullscreen;
     }
+  });
+
+  it('shows slide navigation and its generating state only in listen mode', () => {
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        isGenerating
+        variant='listen'
+      />,
+    );
+
+    expect(getMockSlide().mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        isSlideProgressGenerating: true,
+        showSlideProgress: true,
+      }),
+    );
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        variant='classroom'
+      />,
+    );
+
+    expect(getMockSlide().mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ showSlideProgress: false }),
+    );
+  });
+
+  it('tracks timeline exposure and repeated navigation without sensitive fields', () => {
+    mockTrackEvent.mockRejectedValueOnce(new Error('tracking unavailable'));
+    render(
+      <ListenModeSlideRenderer
+        items={Array.from({ length: 3 }, (_, index) => ({
+          type: 'content',
+          content: `Slide ${index + 1}`,
+          element_bid: `slide-${index + 1}`,
+        }))}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+        lessonId='lesson-1'
+        variant='listen'
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      onSlideProgressNavigate?: (
+        element: unknown,
+        targetStepIndex: number,
+      ) => void;
+    };
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_listen_slide_timeline_exposed',
+      {
+        generated_step_count: 3,
+        shifu_bid: 'course-1',
+        surface: 'learner_listen',
+      },
+    );
+    expect(() => {
+      slideProps.onSlideProgressNavigate?.({}, 2);
+      slideProps.onSlideProgressNavigate?.({}, 2);
+    }).not.toThrow();
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      2,
+      'learner_listen_slide_navigate',
+      {
+        generated_step_count: 3,
+        shifu_bid: 'course-1',
+        surface: 'learner_listen',
+        target_step_index: 2,
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      3,
+      'learner_listen_slide_navigate',
+      {
+        generated_step_count: 3,
+        shifu_bid: 'course-1',
+        surface: 'learner_listen',
+        target_step_index: 2,
+      },
+    );
+    for (const [, payload] of mockTrackEvent.mock.calls) {
+      expect(payload).not.toHaveProperty('content');
+      expect(payload).not.toHaveProperty('email');
+      expect(payload).not.toHaveProperty('url');
+      expect(payload).not.toHaveProperty('user_bid');
+    }
+
+    mockTrackEvent.mockClear();
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        previewMode
+        shifuBid='preview-course'
+        lessonId='preview-lesson'
+        variant='listen'
+      />,
+    );
+    const previewSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      onSlideProgressNavigate?: (
+        element: unknown,
+        targetStepIndex: number,
+      ) => void;
+    };
+    previewSlideProps.onSlideProgressNavigate?.({}, 1);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Only generated slide',
+            element_bid: 'only-slide',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='single-slide-course'
+        lessonId='single-slide-lesson'
+        variant='listen'
+      />,
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    render(
+      <ListenModeSlideRenderer
+        items={Array.from({ length: 2 }, (_, index) => ({
+          type: 'content',
+          content: `Unscoped slide ${index + 1}`,
+          element_bid: `unscoped-slide-${index + 1}`,
+        }))}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        lessonId='unscoped-lesson'
+        variant='listen'
+      />,
+    );
+    const unscopedSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      onSlideProgressNavigate?: (
+        element: unknown,
+        targetStepIndex: number,
+      ) => void;
+    };
+    unscopedSlideProps.onSlideProgressNavigate?.({}, 1);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   it('does not show the audio preparation text for normal loading', () => {
