@@ -1,10 +1,13 @@
 """Unit tests for EnvVar dataclass."""
 
+from decimal import Decimal
+
 import pytest
 from flaskr.common.config import (
     ENV_VARS,
     EnvVar,
     parse_llm_model_max_output_tokens,
+    parse_nonnegative_cent_amount,
 )
 
 from tests.common.fixtures.mock_validators import (
@@ -14,6 +17,19 @@ from tests.common.fixtures.mock_validators import (
     mock_port_validator,
     range_validator,
 )
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-0.01", "0.501", "1e100"])
+def test_parse_nonnegative_cent_amount_rejects_invalid_money(value: str) -> None:
+    with pytest.raises(ValueError, match="finite nonnegative amount"):
+        parse_nonnegative_cent_amount(value)
+
+
+@pytest.mark.parametrize("value", ["0", "0.01", 0.5, Decimal("12.30")])
+def test_parse_nonnegative_cent_amount_accepts_exact_money(value: object) -> None:
+    assert parse_nonnegative_cent_amount(value) == Decimal(str(value)).quantize(
+        Decimal("0.01")
+    )
 
 
 class TestEnvVarInitialization:

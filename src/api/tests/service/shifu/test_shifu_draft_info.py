@@ -132,7 +132,9 @@ def test_global_course_price_policy_rejects_positive_amount_below_stripe_minimum
         shifu_draft_funcs._resolve_shifu_price(0.01)
 
 
-@pytest.mark.parametrize("price", [0.011, 0.501, float("nan"), float("inf")])
+@pytest.mark.parametrize(
+    "price", [0.011, 0.501, float("nan"), float("inf"), Decimal("1e100")]
+)
 def test_course_price_policy_rejects_values_that_cannot_be_stored_exactly(
     monkeypatch: pytest.MonkeyPatch, price: float
 ) -> None:

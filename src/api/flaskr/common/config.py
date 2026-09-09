@@ -7,6 +7,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from flask import Config as FlaskConfig
@@ -18,6 +19,28 @@ if TYPE_CHECKING:
 
 class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
+
+
+def parse_nonnegative_cent_amount(value: object) -> Decimal:
+    """Parse a finite, nonnegative monetary amount with exact cent precision."""
+    try:
+        amount = Decimal(str(value))
+        cent_amount = amount.quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        message = "must be a finite nonnegative amount with at most two decimals"
+        raise ValueError(message) from exc
+    if not amount.is_finite() or amount < 0 or amount != cent_amount:
+        message = "must be a finite nonnegative amount with at most two decimals"
+        raise ValueError(message)
+    return cent_amount
+
+
+def _is_valid_nonnegative_cent_amount(value: object) -> bool:
+    try:
+        parse_nonnegative_cent_amount(value)
+    except ValueError:
+        return False
+    return True
 
 
 @dataclass
@@ -1632,6 +1655,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="MIN_SHIFU_PRICE",
         default=0.5,
         type=float,
+        validator=_is_valid_nonnegative_cent_amount,
         description="Minimum positive price of shifu; zero is free",
         group="shifu",
     ),
@@ -1639,6 +1663,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="DEFAULT_SHIFU_PRICE",
         default=0.5,
         type=float,
+        validator=_is_valid_nonnegative_cent_amount,
         description="Default price assigned to a new shifu",
         group="shifu",
     ),

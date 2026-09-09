@@ -9,11 +9,12 @@ Date: 2025-08-07
 import json
 import math
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from time import perf_counter
 from typing import Any
 
 from flask import Flask
+from flaskr.common.config import parse_nonnegative_cent_amount
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
@@ -80,7 +81,12 @@ SUPPORTED_ASK_ENABLED_STATUSES = {
 
 def _resolve_shifu_price(shifu_price: float | Decimal | None) -> Decimal:
     """Resolve and validate a course price for the current deployment."""
-    minimum_paid_price = Decimal(str(get_config("MIN_SHIFU_PRICE")))
+    try:
+        minimum_paid_price = parse_nonnegative_cent_amount(
+            get_config("MIN_SHIFU_PRICE")
+        )
+    except ValueError:
+        raise_param_error("shifu_price")
     configured_default = get_config("DEFAULT_SHIFU_PRICE")
     raw_price = (
         configured_default
@@ -90,18 +96,15 @@ def _resolve_shifu_price(shifu_price: float | Decimal | None) -> Decimal:
         else shifu_price
     )
     try:
-        price = Decimal(str(raw_price))
-    except (InvalidOperation, ValueError):
+        price = parse_nonnegative_cent_amount(raw_price)
+    except ValueError:
         raise_param_error("shifu_price")
-    cent_price = price.quantize(Decimal("0.01")) if price.is_finite() else price
-    if not price.is_finite() or price != cent_price:
-        raise_param_error("shifu_price")
-    if price < 0 or (price > 0 and price < minimum_paid_price):
+    if price > 0 and price < minimum_paid_price:
         raise_error_with_args(
             "server.shifu.shifuPriceTooLow",
             min_shifu_price=minimum_paid_price,
         )
-    return cent_price
+    return price
 
 
 def normalize_ask_provider_config(raw_config: object) -> dict[str, object]:
