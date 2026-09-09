@@ -4132,6 +4132,8 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "updated_at": _z(datetime(2026, 4, 6, 12, 0, 0)),
             "cancelled_at": None,
             "cancellation_operator_user_bid": "",
+            "cancellation_operator_mobile": "",
+            "cancellation_operator_nickname": "",
         }
     ]
 
@@ -4222,6 +4224,8 @@ def test_admin_operation_user_detail_route_returns_payload(
         "cancelled_at": None,
         "cancellation_reason": "",
         "cancellation_operator_user_bid": "",
+        "cancellation_operator_mobile": "",
+        "cancellation_operator_nickname": "",
     }
 
 

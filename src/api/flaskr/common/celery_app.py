@@ -84,7 +84,11 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
     celery_app = Celery(
         resolved_flask_app.import_name,
         task_cls=FlaskTask,
-        include=("flaskr.service.billing.tasks", "flaskr.service.tts.tasks"),
+        include=(
+            "flaskr.service.billing.tasks",
+            "flaskr.service.tts.tasks",
+            "flaskr.service.user.tasks",
+        ),
     )
     celery_app.conf.update(_build_celery_config(resolved_flask_app))
     celery_app.flask_app = resolved_flask_app  # type: ignore[attr-defined]
@@ -132,7 +136,11 @@ def _build_celery_config(flask_app: Flask) -> dict[str, object]:
         "task_ignore_result": False,
         "broker_connection_retry_on_startup": True,
         "timezone": flask_app.config.get("TZ", "UTC"),
-        "imports": ("flaskr.service.billing.tasks",),
+        "imports": (
+            "flaskr.service.billing.tasks",
+            "flaskr.service.tts.tasks",
+            "flaskr.service.user.tasks",
+        ),
         "beat_schedule": _build_billing_beat_schedule(flask_app),
     }
 
@@ -253,6 +261,8 @@ def _load_flask_app() -> Flask:
 
 def _register_default_tasks() -> None:
     importlib.import_module("flaskr.service.billing.tasks")
+    importlib.import_module("flaskr.service.tts.tasks")
+    importlib.import_module("flaskr.service.user.tasks")
 
 
 def _to_bool(value: object) -> bool:

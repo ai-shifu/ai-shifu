@@ -4,6 +4,7 @@
     "accountAlreadyCancelled": "该账号已经注销",
     "accountCancellationBlocked": "请先处理注销检查中的阻塞项",
     "accountCancellationConflict": "该注销请求与其他账号冲突",
+    "accountCancellationNotFound": "未找到该注销任务",
     "accountCancellationPreviewStale": "账号信息已变化，请确认最新注销信息后重试",
     "checkCodeError": "图形验证码错误",
     "checkCodeExpired": "图形验证码已过期",

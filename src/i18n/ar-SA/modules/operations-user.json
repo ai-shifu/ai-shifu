@@ -1,8 +1,69 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "إلغاء الحساب",
     "grantCredits": "منح الأرصدة/الباقة",
     "moreForUser": "المزيد من إجراءات {user}"
+  },
+  "cancellation": {
+    "back": "رجوع",
+    "blockers": {
+      "operator": "يمتلك هذا الحساب صلاحيات تشغيل ولا يمكن إلغاؤه حاليًا.",
+      "paid_preorder_refund_required": "يحتوي هذا الحساب على {count} طلبات مسبقة مدفوعة بانتظار التفعيل. أكمل الاسترداد اليدوي قبل إلغاء الحساب.",
+      "published_course_transfer_required": "انقل الدورات المنشورة وعددها {count} قبل المتابعة.",
+      "self": "لا يمكن إلغاء حساب المشغل المستخدم حاليًا.",
+      "title": "لا يمكن متابعة الإلغاء",
+      "unknown": "توجد عناصر غير معالجة. حدّث الصفحة أو تواصل مع الدعم الفني.",
+      "unsettled_payment": "عالج الطلبات المعلقة وعددها {count} قبل إلغاء الحساب."
+    },
+    "confirm": "تأكيد الإلغاء",
+    "confirmDescription": "سيتم إلغاء الحساب {user} نهائيًا.",
+    "confirmPaidPreorder": "يحتوي هذا الحساب على {count} باقات مسبقة الدفع مدفوعة بانتظار التفعيل. أكد اكتمال الاسترداد اليدوي أو المعالجة اللازمة.",
+    "confirmTitle": "تأكيد إلغاء الحساب",
+    "continue": "إلغاء الحساب",
+    "description": "سيتم فحص الدورات والاشتراكات والرصيد والجلسات.",
+    "errors": {
+      "blocked": "لا تزال هناك عناصر تتطلب إجراءً",
+      "cancel": "فشل إلغاء الحساب",
+      "executionFailed": "فشلت مهمة إلغاء الحساب. يرجى المحاولة مرة أخرى.",
+      "load": "تعذر تحميل معلومات الإلغاء",
+      "prepare": "فشل إعداد الإلغاء",
+      "processingTimeout": "لا تزال مهمة إلغاء الحساب قيد المعالجة. حدّث قائمة المستخدمين لاحقًا.",
+      "transfer": "فشل نقل الدورات"
+    },
+    "irreversible": "سيتم مسح الملف وبيانات الدخول مع الاحتفاظ بسجل الأعمال المطلوب.",
+    "processing": "جارٍ إلغاء الحساب…",
+    "reasonCounter": "{count}/500",
+    "reasonHint": "سيتم حفظ هذا السبب في سجل تدقيق العمليات.",
+    "reasonLabel": "سبب الإلغاء",
+    "reasonPlaceholder": "أدخل سببًا محددًا، مثل «طلب المستخدم إلغاء الحساب»",
+    "reasonTooShort": "أدخل 5 أحرف على الأقل.",
+    "summary": {
+      "accountLabel": "حساب المستخدم",
+      "courseCounts": "مسودات {drafts} · منشورة {published}",
+      "coursesHint": "سيتم الاحتفاظ بمسودات الدورات وتجميدها، ويجب نقل مسؤول الدورات المنشورة أولًا.",
+      "coursesLabel": "الدورات",
+      "creditsExpireAtLabel": "صلاحية الرصيد",
+      "creditsHint": "سيتم مسح الرصيد دون استرداد.",
+      "creditsLabel": "رصيد الائتمان",
+      "creditsValue": "{count} (يُمسح دون استرداد)",
+      "draftsHint": "سيتم الاحتفاظ بمسودات الدورات وتجميدها.",
+      "draftsLabel": "مسودات الدورات",
+      "draftsValue": "{count} (تُحفظ وتُجمّد)",
+      "paidPackages": "الباقة المدفوعة:",
+      "preorders": "الباقة مسبقة الدفع المعلقة:",
+      "renewals": "سيتم إنهاء الاشتراكات النشطة عند إلغاء الحساب: {count}",
+      "sessionsHint": "سيتم إلغاء جميع جلسات الدخول النشطة فورًا.",
+      "sessionsLabel": "الجلسات النشطة",
+      "sessionsValue": "{count} (تُلغى جميعها)",
+      "subscriptions": "الاشتراك المتجدد تلقائيًا:"
+    },
+    "title": "إلغاء الحساب",
+    "transfer": "نقل الكل",
+    "transferEmailPlaceholder": "بريد المسؤول الجديد",
+    "transferPhonePlaceholder": "رقم هاتف المسؤول الجديد",
+    "transferPlaceholder": "هاتف أو بريد المسؤول الجديد",
+    "transferRequired": "انقل {count} دورات منشورة أولًا"
   },
   "courseSummary": {
     "dialog": {
@@ -20,6 +81,9 @@
   },
   "detail": {
     "basicInfo": "المعلومات الأساسية",
+    "cancellationOperator": "مشغّل إلغاء الحساب",
+    "cancellationReason": "سبب إلغاء الحساب",
+    "cancelledAt": "وقت إلغاء الحساب",
     "createdCourses": "الدورات المنشأة",
     "creditExpireAtHint": "عند وجود عدة تواريخ انتهاء، اعرض التاريخ الأقرب أولًا",
     "creditExpireAtHintAriaLabel": "عرض شرح وقت انتهاء الأرصدة",
@@ -350,6 +414,7 @@
     "unknown": "غير معروف"
   },
   "statusLabels": {
+    "cancelled": "ملغى",
     "paid": "مدفوع",
     "registered": "مسجّل",
     "unknown": "غير معروف",

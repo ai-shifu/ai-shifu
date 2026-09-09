@@ -110,8 +110,9 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
 )
 from flaskr.service.user.api import (
     cancel_account_subscription_renewals,
-    cancel_user_account,
     get_account_cancellation_preview,
+    get_account_cancellation_status,
+    request_user_account_cancellation,
 )
 from flaskr.util.datetime import parse_naive_utc
 from pydantic import ValidationError
@@ -2112,7 +2113,7 @@ def register_admin_operations_routes(
         if not isinstance(payload, dict):
             raise_param_error("payload")
         return make_common_response(
-            cancel_user_account(
+            request_user_account_cancellation(
                 app,
                 user_bid=user_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
@@ -2124,6 +2125,24 @@ def register_admin_operations_routes(
                 ),
                 preview_version=str(payload.get("preview_version", "") or ""),
                 reason=str(payload.get("reason", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/users/<user_bid>/cancellations/<cancellation_bid>",
+        methods=["GET"],
+    )
+    def admin_operation_user_cancellation_status(
+        user_bid: str, cancellation_bid: str
+    ) -> str:
+        """Return the durable account-cancellation task state."""
+        _require_operator()
+        return make_common_response(
+            get_account_cancellation_status(
+                app,
+                user_bid=user_bid,
+                cancellation_bid=cancellation_bid,
             )
         )
 

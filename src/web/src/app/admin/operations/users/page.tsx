@@ -66,6 +66,7 @@ import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import { formatOperatorUtcDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
+import UserCancellationDialog from './UserCancellationDialog';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationUserCourseItem,
@@ -326,6 +327,7 @@ const CourseListPreview = ({
  * t('module.operationsUser.table.updatedAt')
  * t('module.operationsUser.table.action')
  * t('module.operationsUser.actions.grantCredits')
+ * t('module.operationsUser.actions.cancelAccount')
  * t('module.operationsUser.actions.moreForUser')
  * t('module.operationsUser.courseSummary.empty')
  * t('module.operationsUser.courseSummary.dialog.learningTitle')
@@ -337,6 +339,7 @@ const CourseListPreview = ({
  * t('module.operationsUser.statusLabels.unregistered')
  * t('module.operationsUser.statusLabels.registered')
  * t('module.operationsUser.statusLabels.paid')
+ * t('module.operationsUser.statusLabels.cancelled')
  * t('module.operationsUser.statusLabels.unknown')
  * t('module.operationsCourse.statusLabels.published')
  * t('module.operationsCourse.statusLabels.unpublished')
@@ -389,6 +392,8 @@ export default function AdminOperationUsersPage() {
     null,
   );
   const [grantDialogUser, setGrantDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [cancellationDialogUser, setCancellationDialogUser] =
     useState<AdminOperationUserItem | null>(null);
   const [draftFilters, setDraftFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
@@ -813,6 +818,10 @@ export default function AdminOperationUsersPage() {
     {
       value: 'paid',
       label: resolveStatusLabel('paid'),
+    },
+    {
+      value: 'cancelled',
+      label: resolveStatusLabel('cancelled'),
     },
   ];
 
@@ -1494,6 +1503,18 @@ export default function AdminOperationUsersPage() {
                                   disabled: !canGrantBenefitsToUser(user),
                                   onClick: () => setGrantDialogUser(user),
                                 },
+                                {
+                                  key: 'cancel-account',
+                                  label: tOperationsUsers(
+                                    'actions.cancelAccount',
+                                  ),
+                                  disabled:
+                                    user.user_status === 'cancelled' ||
+                                    user.user_role === 'operator' ||
+                                    user.user_roles.includes('operator'),
+                                  onClick: () =>
+                                    setCancellationDialogUser(user),
+                                },
                               ]}
                             />
                           </div>
@@ -1643,6 +1664,19 @@ export default function AdminOperationUsersPage() {
               }
             }}
             onGranted={handleGrantSuccess}
+          />
+          <UserCancellationDialog
+            open={Boolean(cancellationDialogUser)}
+            user={cancellationDialogUser}
+            contactType={contactType}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setCancellationDialogUser(null);
+            }}
+            onCancelled={() => {
+              setCancellationDialogUser(null);
+              void fetchUsers(pageIndex, appliedFilters, quickFilter);
+              void fetchUserOverview();
+            }}
           />
         </div>
       </TooltipProvider>

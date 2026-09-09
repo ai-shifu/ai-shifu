@@ -177,6 +177,16 @@ const api = {
     'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/invitations',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
+  getAdminOperationUserCancellationPreview:
+    'GET /shifu/admin/operations/users/{user_bid}/cancellation-preview',
+  transferAdminOperationUserPublishedCourses:
+    'POST /shifu/admin/operations/users/{user_bid}/transfer-published-courses',
+  cancelAdminOperationUserSubscriptionRenewals:
+    'POST /shifu/admin/operations/users/{user_bid}/cancel-subscription-renewals',
+  cancelAdminOperationUser:
+    'POST /shifu/admin/operations/users/{user_bid}/cancel',
+  getAdminOperationUserCancellationStatus:
+    'GET /shifu/admin/operations/users/{user_bid}/cancellations/{cancellation_bid}',
   getAdminOperationUserCredits:
     'GET /shifu/admin/operations/users/{user_bid}/credits',
   getAdminOperationUserCreditUsageDetail:

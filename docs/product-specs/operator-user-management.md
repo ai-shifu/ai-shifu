@@ -97,6 +97,20 @@ renewal cancellation, and final cancellation.
 - The default list remains active-only. `user_status=cancelled` selects
   cancelled accounts, while detail responses expose the cancellation time,
   reason, and responsible operator for audit.
+- User Management exposes cancellation as a destructive row action for
+  non-operator, active accounts. One preparation dialog collects the required
+  reason, displays the impact, transfers all published courses inline when
+  necessary, and cancels active subscription renewals before presenting one
+  compact final confirmation. The user detail page, rather than the routine
+  list columns, displays the cancellation audit fields.
+- The operator UI emits the additive `operator_user_cancellation_opened`,
+  `operator_user_cancellation_attempt`, and
+  `operator_user_cancellation_result` Umami events. Their allowlisted payload
+  contains only `surface=user_list` and, for the result, a `success|failed`
+  outcome. Cancellation reasons, account identifiers, contacts, names, URLs,
+  preview data, and raw errors are never tracked. A terminal result is dropped
+  when the tracking transport's identity changes after the attempt, preventing
+  an operator's result from being attributed to a replacement or guest identity.
 
 ## Backend Plan
 

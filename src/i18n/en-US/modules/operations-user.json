@@ -1,8 +1,69 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "Cancel account",
     "grantCredits": "Grant Credits/Package",
     "moreForUser": "More actions for {user}"
+  },
+  "cancellation": {
+    "back": "Back",
+    "blockers": {
+      "operator": "This account has operator access and cannot currently be cancelled.",
+      "paid_preorder_refund_required": "This account has {count} paid preorders awaiting activation. Complete a manual refund before cancellation.",
+      "published_course_transfer_required": "Transfer the {count} published courses owned by this account before continuing.",
+      "self": "You cannot cancel the operator account currently signed in. Ask another operator to complete this action.",
+      "title": "Cancellation cannot continue",
+      "unknown": "This account has unresolved items. Refresh and try again or contact technical support.",
+      "unsettled_payment": "Resolve the {count} unsettled orders before cancelling this account."
+    },
+    "confirm": "Cancel account",
+    "confirmDescription": "Account {user} will be cancelled permanently.",
+    "confirmPaidPreorder": "This account has {count} paid prepaid plans awaiting activation. Confirm that manual refunds or related handling are complete.",
+    "confirmTitle": "Confirm account cancellation",
+    "continue": "Cancel account",
+    "description": "Courses, subscriptions, credits, and sessions will be checked.",
+    "errors": {
+      "blocked": "Some items still require action",
+      "cancel": "Cancellation failed",
+      "executionFailed": "The cancellation task failed. Please try again.",
+      "load": "Unable to load cancellation details",
+      "prepare": "Unable to prepare cancellation",
+      "processingTimeout": "The cancellation task is still processing. Refresh the user list later to check the result.",
+      "transfer": "Course transfer failed"
+    },
+    "irreversible": "Profile and login credentials will be erased while required business history is retained.",
+    "processing": "Cancelling…",
+    "reasonCounter": "{count}/500",
+    "reasonHint": "This reason is retained in the operation audit log.",
+    "reasonLabel": "Cancellation reason",
+    "reasonPlaceholder": "Enter a specific reason, such as “Cancellation requested by the user”",
+    "reasonTooShort": "Enter at least 5 characters.",
+    "summary": {
+      "accountLabel": "User account",
+      "courseCounts": "Draft {drafts} · Published {published}",
+      "coursesHint": "Draft courses are retained and frozen; published courses must be transferred first.",
+      "coursesLabel": "Courses",
+      "creditsExpireAtLabel": "Credit validity",
+      "creditsHint": "The credit balance will be cleared without a refund.",
+      "creditsLabel": "Credit balance",
+      "creditsValue": "{count} (cleared without refund)",
+      "draftsHint": "Draft courses will be retained and frozen after cancellation.",
+      "draftsLabel": "Draft courses",
+      "draftsValue": "{count} (retained and frozen)",
+      "paidPackages": "Paid plan:",
+      "preorders": "Pending prepaid plan:",
+      "renewals": "Active subscriptions terminated on cancellation: {count}",
+      "sessionsHint": "All active login sessions will be revoked immediately.",
+      "sessionsLabel": "Active sessions",
+      "sessionsValue": "{count} (all revoked on cancellation)",
+      "subscriptions": "Auto-renewing subscription:"
+    },
+    "title": "Cancel account",
+    "transfer": "Transfer all",
+    "transferEmailPlaceholder": "New owner email",
+    "transferPhonePlaceholder": "New owner phone number",
+    "transferPlaceholder": "New owner phone or email",
+    "transferRequired": "Transfer {count} published courses first"
   },
   "courseSummary": {
     "dialog": {
@@ -20,6 +81,9 @@
   },
   "detail": {
     "basicInfo": "Basic Information",
+    "cancellationOperator": "Cancellation operator",
+    "cancellationReason": "Cancellation reason",
+    "cancelledAt": "Cancelled at",
     "createdCourses": "Created Courses",
     "creditExpireAtHint": "When multiple validity periods exist, the earliest expiry is shown first.",
     "creditExpireAtHintAriaLabel": "View credits expiry explanation",
@@ -350,6 +414,7 @@
     "unknown": "Unknown"
   },
   "statusLabels": {
+    "cancelled": "Cancelled",
     "paid": "Paid",
     "registered": "Registered",
     "unknown": "Unknown",

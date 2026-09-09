@@ -426,6 +426,24 @@ def get_operator_user_detail(
         cancellation = UserAccountCancellation.query.filter_by(
             user_bid=normalized_user_bid
         ).first()
+        cancellation_operator = None
+        cancellation_operator_mobile = ""
+        if cancellation and cancellation.operator_user_bid:
+            cancellation_operator = UserEntity.query.filter_by(
+                user_bid=cancellation.operator_user_bid
+            ).first()
+            if cancellation_operator is not None:
+                operator_credentials = load_operator_user_auth_credentials(
+                    [cancellation.operator_user_bid]
+                )
+                operator_contact = load_operator_user_contact_map(
+                    [cancellation.operator_user_bid],
+                    users=[cancellation_operator],
+                    credential_rows=operator_credentials,
+                ).get(cancellation.operator_user_bid, {})
+                cancellation_operator_mobile = str(
+                    operator_contact.get("mobile", "") or ""
+                )
 
         credential_rows = load_operator_user_auth_credentials([normalized_user_bid])
         contact_map = load_operator_user_contact_map(
@@ -466,6 +484,12 @@ def get_operator_user_detail(
                     normalized_user_bid: {
                         "reason": cancellation.reason,
                         "operator_user_bid": cancellation.operator_user_bid,
+                        "operator_mobile": cancellation_operator_mobile,
+                        "operator_nickname": (
+                            cancellation_operator.nickname
+                            if cancellation_operator is not None
+                            else ""
+                        ),
                     }
                 }
                 if cancellation

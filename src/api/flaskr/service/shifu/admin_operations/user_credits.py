@@ -312,7 +312,10 @@ def get_operator_user_credits(
         )
         filters = filters or {}
 
-        user = _load_operator_user_or_raise(normalized_user_bid)
+        user = _load_operator_user_or_raise(
+            normalized_user_bid,
+            include_cancelled=True,
+        )
         credit_summary_map = _load_operator_user_credit_summary_map(
             [normalized_user_bid]
         )
@@ -546,7 +549,10 @@ def get_operator_user_credit_usage_detail(
         if not normalized_usage_bid:
             raise_param_error("usage_bid is required")
 
-        _load_operator_user_or_raise(normalized_user_bid)
+        _load_operator_user_or_raise(
+            normalized_user_bid,
+            include_cancelled=True,
+        )
         owner_ledger_rows = _load_operator_user_credit_usage_owner_ledger_rows(
             user_bid=normalized_user_bid,
             usage_bid=normalized_usage_bid,
