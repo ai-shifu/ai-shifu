@@ -48,6 +48,11 @@ execution service with a different actor and identity-verification policy.
   de-identification, identifier release, and idempotent cancellation.
 - [x] 2026-09-08 13:50 CST: Added operator routes, cancelled-user list/detail
   contracts, localized errors, and focused backend regression coverage.
+- [x] 2026-09-09 10:20 CST: Hardened cancellation review boundaries: open
+  credit reservations are terminally forfeited, cached sessions revalidate
+  account activity, cancelled lists exclude unrelated legacy soft deletions,
+  audit reasons remain detail-only, and batch course transfer is concurrency
+  safe with failure-tolerant post-commit work.
 - [ ] Add the User Management action, confirmation dialog, i18n, API client,
   analytics contract, and frontend tests.
 - [ ] Update the canonical operator user-management specification and run the
@@ -62,6 +67,11 @@ execution service with a different actor and identity-verification policy.
   session revocation therefore deletes database rows first and then evicts all
   token cache entries; cancellation must preserve that ordering and must not
   report clean success while known cached credentials remain usable.
+- Operation-credit holds are independently capturable or releasable after
+  reservation. Account cancellation must lock the user lifecycle before wallet
+  mutation, terminally consume every open hold, and make later capture/release
+  calls reject the cancelled owner; zeroing available buckets alone is not
+  sufficient.
 - The stable account key is copied across many independent domains rather than
   enforced by one cascading foreign key. Examples include course authoring,
   learning progress and generated content, orders, subscriptions, credit

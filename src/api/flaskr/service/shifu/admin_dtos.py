@@ -50,6 +50,7 @@ from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserCreditSummaryDTO,
     AdminOperationUserCreditUsageDetailDTO,
     AdminOperationUserCreditUsageDetailItemDTO,
+    AdminOperationUserDetailDTO,
     AdminOperationUserGrantBootstrapDTO,
     AdminOperationUserListDTO,
     AdminOperationUserOverviewDTO,

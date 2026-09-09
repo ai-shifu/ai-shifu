@@ -25,6 +25,8 @@ from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_HOLD,
     CREDIT_SOURCE_TYPE_MANUAL,
 )
 from flaskr.service.billing.models import (
@@ -261,6 +263,11 @@ def cancel_account_subscription_renewals(
                 )
             cancelled_count += 1
 
+        # Provider cancellation may commit through a nested application context.
+        # End the preview transaction before rebuilding state so MySQL does not
+        # reuse a repeatable-read snapshot from before the provider update.
+        db.session.rollback()
+
         return {
             "cancelled_subscription_count": cancelled_count,
             "preview": get_account_cancellation_preview(
@@ -271,6 +278,102 @@ def cancel_account_subscription_renewals(
 
 def _tombstone(prefix: str, business_id: object, max_length: int = 255) -> str:
     return f"cancelled:{prefix}:{business_id or ''!s}"[:max_length]
+
+
+def _forfeit_open_credit_reservations(
+    app: Flask,
+    *,
+    wallet: CreditWallet,
+    user_bid: str,
+    cancellation_bid: str,
+    operator_user_bid: str,
+) -> Decimal:
+    """Terminally consume open holds while the cancelled user row is locked."""
+    holds = (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.creator_bid == user_bid,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_HOLD,
+            CreditLedgerEntry.deleted == 0,
+        )
+        .with_for_update()
+        .all()
+    )
+    forfeited_total = Decimal(0)
+    for hold in holds:
+        capture_prefix = f"operation_reservation:{hold.ledger_bid}:capture:"
+        release_key = f"operation_reservation:{hold.ledger_bid}:release"
+        terminal = CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.creator_bid == user_bid,
+            CreditLedgerEntry.deleted == 0,
+            db.or_(
+                CreditLedgerEntry.idempotency_key.startswith(capture_prefix),
+                CreditLedgerEntry.idempotency_key == release_key,
+            ),
+        ).first()
+        if terminal is not None:
+            continue
+
+        amount = Decimal(str(hold.amount or 0))
+        metadata = hold.metadata_json if isinstance(hold.metadata_json, dict) else {}
+        breakdown = metadata.get("bucket_breakdown")
+        items = breakdown if isinstance(breakdown, list) else []
+        if not items and hold.wallet_bucket_bid:
+            items = [
+                {"wallet_bucket_bid": hold.wallet_bucket_bid, "amount": str(amount)}
+            ]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            bucket_bid = str(item.get("wallet_bucket_bid") or "").strip()
+            item_amount = Decimal(str(item.get("amount") or 0))
+            bucket = (
+                CreditWalletBucket.query.filter(
+                    CreditWalletBucket.wallet_bucket_bid == bucket_bid,
+                    CreditWalletBucket.deleted == 0,
+                )
+                .with_for_update()
+                .first()
+            )
+            if bucket is None or item_amount <= 0:
+                continue
+            bucket.reserved_credits = max(
+                Decimal(0), Decimal(str(bucket.reserved_credits or 0)) - item_amount
+            )
+            bucket.consumed_credits = (
+                Decimal(str(bucket.consumed_credits or 0)) + item_amount
+            )
+            sync_credit_bucket_status(bucket)
+
+        forfeited_total += amount
+        db.session.add(
+            CreditLedgerEntry(
+                ledger_bid=generate_id(app),
+                creator_bid=user_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=hold.wallet_bucket_bid or "",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid=cancellation_bid,
+                idempotency_key=f"{capture_prefix}account_cancellation:{cancellation_bid}",
+                amount=-amount,
+                balance_after=wallet.available_credits,
+                metadata_json={
+                    "reservation_bid": hold.ledger_bid,
+                    "reason": "account_cancellation",
+                    "operator_user_bid": operator_user_bid,
+                    "bucket_breakdown": items,
+                },
+            )
+        )
+    if forfeited_total > 0:
+        wallet.reserved_credits = max(
+            Decimal(0),
+            Decimal(str(wallet.reserved_credits or 0)) - forfeited_total,
+        )
+        wallet.lifetime_consumed_credits = (
+            Decimal(str(wallet.lifetime_consumed_credits or 0)) + forfeited_total
+        )
+    return forfeited_total
 
 
 def cancel_user_account(
@@ -394,6 +497,13 @@ def cancel_user_account(
                 CreditWallet.deleted == 0,
             ).first()
             if wallet is not None:
+                _forfeit_open_credit_reservations(
+                    app,
+                    wallet=wallet,
+                    user_bid=normalized_user_bid,
+                    cancellation_bid=normalized_cancellation_bid,
+                    operator_user_bid=normalized_operator_bid,
+                )
                 running_balance = Decimal(str(wallet.available_credits or 0))
                 for bucket in CreditWalletBucket.query.filter(
                     CreditWalletBucket.creator_bid == normalized_user_bid,

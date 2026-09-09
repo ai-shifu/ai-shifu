@@ -2,8 +2,9 @@
 
 ## Purpose / Big Picture
 
-Give teachers and learners one consistent way to share a course. The share
-action should open the browser or operating system's native share sheet when
+Give teachers and learners one consistent share menu with ordinary sharing
+and poster-prompt copying. The ordinary share action should open the browser
+or operating system's native share sheet when
 possible and otherwise copy a complete, localized recommendation containing
 the course name, the teacher-authored description, and the canonical course
 home URL.
@@ -15,6 +16,10 @@ mode continues to hide all sharing entry points.
 
 ## Progress
 
+- [x] 2026-09-08: Unify learner and teacher share menus, preserve localized
+      punctuation, and verify the shared default success toast (2 seconds).
+- [x] 2026-09-08: Cover learner menu analytics, preview exclusions,
+      and copy/share outcomes.
 - [x] 2026-08-29 06:36 CST: Reviewed the teacher and learner headers, course
       information flow, URL helpers, localization structure, tracking wrapper,
       and existing clipboard behavior.
@@ -54,6 +59,17 @@ mode continues to hide all sharing entry points.
 
 ## Decision Log
 
+- Decision: teacher and learner entry points use the same two-action share
+  menu and shared toast. Chinese clauses use punctuation rather than spaces.
+  - Why: both surfaces should offer the same sharing and poster-prompt actions
+    with consistent copy, feedback, and dismissal behavior.
+- Decision: retain the shared toast's neutral default style and 2000ms
+  duration for successful copying, including the next-step message.
+  - Why: this follows `components/ui/Toast.tsx` and `hooks/useToast.tsx` rather
+    than introducing a feature-specific feedback style or timer.
+- Decision: use the same menu for every rendered sharing entry.
+  - Why: `surface` identifies the analytics source, not a different interaction.
+    Entry-point placement and the global toaster remain unchanged.
 - Decision: share the stable course-home link regardless of publication,
   teacher permissions, or read-only state.
   - Why: sharing must remain separate from Publish, and the requested behavior
@@ -76,6 +92,13 @@ mode continues to hide all sharing entry points.
     populated the learner store.
 
 ## Outcomes & Retrospective
+
+The 2026-09-08 revision uses `CourseShareMenu` in authoring and the
+learner wrapper. Copy success reuses the existing
+neutral, top-center toast and 2000ms duration without modifying the toaster.
+Learner preview and course-data guards are preserved, and learner menu/copy
+analytics have their own event family. Existing entry-point placement and the
+global toaster are unchanged.
 
 The shared course action now serves the teacher header plus learner desktop,
 mobile, and mobile fullscreen headers. It produces exact localized native and
@@ -177,6 +200,98 @@ If i18n type generation changes unrelated output, inspect locale drift before
 accepting the generated file rather than hand-editing it.
 
 ## Interfaces and Dependencies
+
+### Shared poster prompt handoff (2026-09-08)
+
+The compact revision replaces the modal with a non-modal anchored popover
+containing only ordinary sharing and prompt copying. Successful copy and all
+ordinary-share terminal outcomes close it. Outside interaction, Escape and
+mouse departure (300ms grace period) dismiss it without an analytics event;
+these incidental dismissals are not adoption signals. Keyboard focus and touch
+remain usable without a forced inactivity timeout. Failed copying retains a
+selectable prompt and retry action, and does not auto-dismiss on mouse departure.
+No prompt preview action remains: `teacher_poster_guide_open` is retired before
+release, with no deployed consumer or history to migrate. The weekly consumer
+uses prompt-copy attempts per popover open, not preview expansion. Other event
+names, payloads, populations and count units below remain unchanged. Opening
+means a closed-to-open transition of the anchored choices, not a modal view.
+
+The teacher and eligible learner headers open the same share popover with the
+existing ordinary share action and a poster prompt containing the exact full recommendation,
+description, and canonical URL. The prompt is assembled locally and copied
+only on an explicit click. The learner wrapper always uses the shared menu;
+learner preview remains excluded. The `surface` value identifies the analytics
+source without changing the menu.
+Copy failure leaves selectable text. Opening or copying never publishes a course.
+
+Analytics contract (consumer: product team's weekly course-sharing analysis):
+
+- `teacher_course_share_open`: once per accepted closed-to-open transition.
+- `teacher_poster_prompt_copy`: once per accepted copy action, before copying.
+- `teacher_poster_prompt_result`: once per attempt after copy completion;
+  `outcome` is `success` or `failed`. This does not mean a poster was generated.
+- Population: teachers with an authoring share control, including drafts and
+  read-only courses. Learner/guest/learner-preview surfaces are excluded.
+  Local preview traffic is excluded by the analytics environment configuration.
+- Complete application payload: `shifu_bid` (stable pseudonymous course ID for
+  course grouping), `surface` (only `teacher_header`); result also has `outcome`.
+  No text, prompts, titles, URLs, or raw errors are collected.
+- Count unit: deliberate open or copy attempt. Re-renders do not count;
+  concurrent copies are blocked by a ref; later deliberate retries count again.
+- Metric: weekly copy attempts per popover open and success/failure counts per
+  course. Ratios are aggregate activity ratios, not unique-user conversion or
+  exact attempt joins (there is no correlation ID).
+- Compatibility: additive event family. Existing `course_share_click/result`
+  continue to mean actual ordinary share attempts, now from inside the teacher
+  popover. Historical teacher click totals should not be compared as entry-open
+  totals. No existing dashboard/query is modified.
+- Tracking is best-effort and never awaited before clipboard or native share.
+  Tests cover exact payloads, privacy, retry/re-entry, failure isolation, full
+  content copying, and ordinary share regression.
+
+Learner analytics extension (consumer: the same weekly course-sharing analysis):
+
+- Decision/metric: compare prompt-copy attempts per menu open and copy outcomes
+  across learner sharing entries, separately from teachers.
+- `learner_course_share_open`: once per accepted closed-to-open transition
+  after course data and a valid URL are available. No event on render.
+- `learner_poster_prompt_copy`: once per accepted copy attempt, before copying.
+- `learner_poster_prompt_result`: once per completed copy attempt, with
+  `outcome` restricted to `success` or `failed`. Cancellation does not apply to
+  clipboard copying; retries are new attempts and concurrent attempts are blocked.
+- Population: eligible learners, including guests when their share control is
+  visible. Preview, missing course data, and stale course-route combinations
+  are excluded. Local development traffic
+  follows the existing tracking filter.
+- Complete payload: `shifu_bid` plus `surface`, restricted to
+  `learner_desktop_header`, `learner_mobile_header`, or
+  `learner_mobile_fullscreen`; results additionally include `outcome`.
+  No titles, descriptions, prompts, URLs, user text, or raw errors are collected.
+- Compatibility: the teacher event family is unchanged. Existing
+  `course_share_click/result` keep their names, payloads, and ordinary-sharing
+  meaning. On learner surfaces they now fire from the menu action rather than
+  opening the menu. Consumers must distinguish historical direct-share clicks
+  from new menu opens; the new learner series begins with this revision. There
+  is no checked-in downstream query or dashboard to migrate.
+- Delivery is best-effort. Tracking failures cannot affect opening, copying,
+  fallback selection, retrying, or sharing. Copy success does not establish
+  external poster generation, and aggregate ratios are not exact attempt joins.
+
+Compact popover verification: focused regression tests cover automatic closure,
+outside interaction, Escape/focus return, pointer grace/re-entry, touch behavior,
+copy failure/retry, and concurrent actions. Local browser checks confirmed the
+anchored two-action layout, successful-copy dismissal, and pointer dismissal.
+
+Previous dialog verification: 51 focused tests passed across the teacher dialog, shared
+button, header, and formatting suites. TypeScript, lint (existing warnings),
+translation validation, and repository harness passed. A temporary local
+fixture rendered the actual teacher component with a user-supplied course
+description and was removed from the PR. Desktop and 390px browser layouts were
+visually checked; the copy action showed success. Exact clipboard content is
+covered by unit tests; the browser automation clipboard reader returned an
+empty value despite the successful browser write, so end-to-end clipboard
+readback is not claimed. No external assistant generation or production
+deployment was performed.
 
 The shared component accepts the course title, teacher-authored description,
 course bid, a synchronous URL resolver, display form, and one of these stable

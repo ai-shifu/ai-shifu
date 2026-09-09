@@ -13,7 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useToast } from '@/hooks/useToast';
+import { showDefaultToast, useToast } from '@/hooks/useToast';
 import {
   buildCourseShareContent,
   normalizeCourseShareUrl,
@@ -39,6 +39,9 @@ export type CourseShareButtonProps = {
   size?: ButtonProps['size'];
   className?: string;
   tooltipSide?: ComponentPropsWithoutRef<typeof TooltipContent>['side'];
+  onShareComplete?: () => void;
+  onShareStart?: () => void;
+  disabled?: boolean;
 };
 
 export function CourseShareButton({
@@ -52,14 +55,16 @@ export function CourseShareButton({
   size = 'icon',
   className,
   tooltipSide = 'top',
+  onShareComplete,
+  onShareStart,
+  disabled = false,
 }: CourseShareButtonProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { trackEvent } = useTracking();
   const sharingRef = useRef(false);
   const [sharing, setSharing] = useState(false);
-  const shareLabel = t('common.core.share');
-  const accessibleLabel = t('common.core.shareCourse');
+  const shareLabel = t('common.core.shareCourseLink');
 
   const track = (eventName: string, eventData: Record<string, unknown>) => {
     try {
@@ -82,12 +87,13 @@ export function CourseShareButton({
   };
 
   const handleShare = async () => {
-    if (sharingRef.current) {
+    if (sharingRef.current || disabled) {
       return;
     }
 
     sharingRef.current = true;
     setSharing(true);
+    onShareStart?.();
     track('course_share_click', {
       shifu_bid: shifuBid,
       surface,
@@ -116,7 +122,7 @@ export function CourseShareButton({
       trackResult(result.method, result.outcome);
 
       if (result.method === 'clipboard' && result.outcome === 'success') {
-        toast({ title: t('common.core.shareContentCopied') });
+        showDefaultToast(t('common.core.shareContentCopied'));
       } else if (result.outcome === 'failed') {
         toast({
           title: t('common.core.shareFailed'),
@@ -132,6 +138,7 @@ export function CourseShareButton({
     } finally {
       sharingRef.current = false;
       setSharing(false);
+      onShareComplete?.();
     }
   };
 
@@ -142,9 +149,9 @@ export function CourseShareButton({
       variant={variant}
       size={size}
       className={className}
-      aria-label={accessibleLabel}
+      aria-label={shareLabel}
       aria-busy={sharing}
-      disabled={sharing}
+      disabled={sharing || disabled}
       onClick={() => {
         void handleShare();
       }}
@@ -154,11 +161,13 @@ export function CourseShareButton({
     </Button>
   );
 
+  if (showLabel) return button;
+
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent side={tooltipSide}>{accessibleLabel}</TooltipContent>
+        <TooltipContent side={tooltipSide}>{shareLabel}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

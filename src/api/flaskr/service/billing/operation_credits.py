@@ -10,6 +10,7 @@ from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
@@ -40,6 +41,17 @@ if TYPE_CHECKING:
     from flask import Flask
 
 _ZERO = Decimal(0)
+
+
+def _lock_active_creator(creator_bid: str) -> None:
+    """Serialize reservation lifecycle changes with account cancellation."""
+    user = (
+        UserInfo.query.filter(UserInfo.user_bid == creator_bid)
+        .with_for_update()
+        .first()
+    )
+    if user is not None and user.deleted:
+        raise_error("server.user.accountAlreadyCancelled")
 
 
 @dataclass(slots=True, frozen=True)
@@ -135,6 +147,7 @@ def reserve_operation_credits(
         )
 
     with app.app_context():
+        _lock_active_creator(normalized_creator_bid)
         idempotency_key = _reserve_idempotency_key(
             normalized_operation_type,
             normalized_operation_bid,
@@ -244,6 +257,7 @@ def capture_reserved_operation_credits(
     with app.app_context():
         hold = _load_hold(normalized_reservation_bid)
         creator_bid = str(hold.creator_bid or "")
+        _lock_active_creator(creator_bid)
         idempotency_key = _capture_idempotency_key(
             normalized_reservation_bid,
             normalized_usage_bid,
@@ -326,6 +340,7 @@ def release_reserved_operation_credits(
     with app.app_context():
         hold = _load_hold(normalized_reservation_bid)
         creator_bid = str(hold.creator_bid or "")
+        _lock_active_creator(creator_bid)
         if _reservation_has_capture(creator_bid, normalized_reservation_bid):
             return OperationCreditReleaseResult(
                 status="already_captured",
