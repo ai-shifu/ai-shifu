@@ -80,6 +80,16 @@ const identifyState = {
   queuedCalls: [] as QueuedUmamiCall[],
 };
 
+/**
+ * Returns an opaque scope for the identity currently owned by the tracking
+ * transport. Long-running workflows can compare this value before emitting a
+ * terminal event so an identity replacement cannot receive another user's
+ * result. The value carries no user identifier and is meaningful only within
+ * the current page lifecycle.
+ */
+export const getTrackingIdentityGeneration = (): number =>
+  identifyState.generation;
+
 const truncateText = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {
     return value;

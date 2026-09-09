@@ -108,7 +108,9 @@ renewal cancellation, and final cancellation.
   `operator_user_cancellation_result` Umami events. Their allowlisted payload
   contains only `surface=user_list` and, for the result, a `success|failed`
   outcome. Cancellation reasons, account identifiers, contacts, names, URLs,
-  preview data, and raw errors are never tracked.
+  preview data, and raw errors are never tracked. A terminal result is dropped
+  when the tracking transport's identity changes after the attempt, preventing
+  an operator's result from being attributed to a replacement or guest identity.
 
 ## Backend Plan
 

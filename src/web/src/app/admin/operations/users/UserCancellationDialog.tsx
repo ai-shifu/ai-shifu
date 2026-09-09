@@ -22,8 +22,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
+import { getTrackingIdentityGeneration } from '@/lib/tracking';
 import { useTracking } from '@/hooks/useTracking';
-import { useUserStore } from '@/store/useUserStore';
 import type {
   AdminOperationUserCancellationPreview,
   AdminOperationUserCancellationStatus,
@@ -157,9 +157,6 @@ export default function UserCancellationDialog({
     const active = activeWorkflowRef.current;
     return active?.id === workflow.id && active.userBid === workflow.userBid;
   };
-
-  const currentOperatorUserId = () =>
-    useUserStore.getState().userInfo?.user_id || '';
 
   const trackCancellationEvent = (
     eventName:
@@ -313,7 +310,7 @@ export default function UserCancellationDialog({
     if (!user || !preview || preview.user.user_bid !== user.user_bid) return;
     const workflow = activeWorkflowRef.current;
     if (!workflow || workflow.userBid !== user.user_bid) return;
-    const operatorUserId = currentOperatorUserId();
+    const trackingIdentityGeneration = getTrackingIdentityGeneration();
     setBusy(true);
     const caseBid = workflowBidRef.current || cancellationBid();
     workflowBidRef.current = caseBid;
@@ -340,7 +337,7 @@ export default function UserCancellationDialog({
       if (result.status !== 'completed') {
         throw new Error(t('cancellation.errors.executionFailed'));
       }
-      if (currentOperatorUserId() === operatorUserId) {
+      if (getTrackingIdentityGeneration() === trackingIdentityGeneration) {
         trackCancellationEvent('operator_user_cancellation_result', {
           surface: 'user_list',
           outcome: 'success',
@@ -352,7 +349,7 @@ export default function UserCancellationDialog({
       workflowBidRef.current = '';
     } catch (value) {
       if (!isCurrentWorkflow(workflow)) return;
-      if (currentOperatorUserId() === operatorUserId) {
+      if (getTrackingIdentityGeneration() === trackingIdentityGeneration) {
         trackCancellationEvent('operator_user_cancellation_result', {
           surface: 'user_list',
           outcome: 'failed',

@@ -9,7 +9,7 @@ import type {
 } from '../operation-user-types';
 
 const mockTrackEvent = jest.fn();
-let mockOperatorUserId = '';
+let mockTrackingIdentityGeneration = 0;
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -21,12 +21,8 @@ jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
-jest.mock('@/store/useUserStore', () => ({
-  useUserStore: {
-    getState: () => ({
-      userInfo: mockOperatorUserId ? { user_id: mockOperatorUserId } : null,
-    }),
-  },
+jest.mock('@/lib/tracking', () => ({
+  getTrackingIdentityGeneration: () => mockTrackingIdentityGeneration,
 }));
 
 jest.mock('@/api', () => ({
@@ -133,7 +129,7 @@ const renderDialog = (onCancelled = jest.fn()) => {
 describe('UserCancellationDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOperatorUserId = '';
+    mockTrackingIdentityGeneration = 0;
     mockTrackEvent.mockResolvedValue(undefined);
     mockPreview.mockResolvedValue(preview());
     mockCancel.mockResolvedValue({
@@ -652,7 +648,7 @@ describe('UserCancellationDialog', () => {
     let resolveCancellation!: (
       value: AdminOperationUserCancellationStatus,
     ) => void;
-    mockOperatorUserId = 'operator-a';
+    mockTrackingIdentityGeneration = 7;
     mockCancel.mockImplementation(
       () =>
         new Promise(resolve => {
@@ -672,7 +668,7 @@ describe('UserCancellationDialog', () => {
     );
     await waitFor(() => expect(mockCancel).toHaveBeenCalledTimes(1));
 
-    mockOperatorUserId = 'operator-b';
+    mockTrackingIdentityGeneration = 8;
     resolveCancellation(cancellationStatus());
 
     await waitFor(() =>

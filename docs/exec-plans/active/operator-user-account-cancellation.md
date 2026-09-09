@@ -462,6 +462,10 @@ analytics family only to understand whether the operations workflow is usable:
   preview data, raw errors, or provider data.
 - Failure isolation: tracking failure must not block preview, transfer, renewal
   preparation, final cancellation, navigation, or retry.
+- Identity isolation: capture the tracking transport's opaque identity scope at
+  attempt time and drop the terminal result if that scope changes before the
+  request settles; never infer this boundary from asynchronously updated UI
+  account state.
 - Consumer and compatibility: an operations adoption/failure dashboard; the
   database cancellation audit remains the correctness source of truth. The
   event family is additive and has no legacy producer to migrate.

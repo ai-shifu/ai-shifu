@@ -93,6 +93,23 @@ describe('tracking transport', () => {
     );
   });
 
+  it('exposes an opaque generation that changes with the tracking identity', () => {
+    installUmami();
+    const { getTrackingIdentityGeneration, identifyUmamiUser } =
+      loadTrackingModule();
+
+    expect(getTrackingIdentityGeneration()).toBe(0);
+    identifyUmamiUser({ user_id: 'operator-a' });
+    const operatorGeneration = getTrackingIdentityGeneration();
+    expect(operatorGeneration).toBe(1);
+
+    identifyUmamiUser({ user_id: 'operator-a' });
+    expect(getTrackingIdentityGeneration()).toBe(operatorGeneration);
+
+    identifyUmamiUser({ user_id: 'guest-session' });
+    expect(getTrackingIdentityGeneration()).toBe(operatorGeneration + 1);
+  });
+
   it('identifies only by pseudonymous ID, delivers flat scalars, and does not synthesize pageviews', async () => {
     const delivered: DeliveredPayload[] = [];
     const { identify, track } = installUmami({
