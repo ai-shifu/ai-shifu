@@ -135,6 +135,12 @@ class AdminOperationUserSummaryDTO(BaseModel):
     cancellation_operator_user_bid: str = Field(
         default="", description="Operator who cancelled the account", required=False
     )
+    cancellation_operator_mobile: str = Field(
+        default="", description="Cancellation operator mobile", required=False
+    )
+    cancellation_operator_nickname: str = Field(
+        default="", description="Cancellation operator nickname", required=False
+    )
 
     def __json__(self) -> dict[str, object]:
         """Return the operator user summary as JSON-compatible data."""

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CircleHelp } from 'lucide-react';
 import api from '@/api';
 import { Button } from '@/components/ui/Button';
 import {
@@ -14,16 +15,25 @@ import {
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
 import { useTracking } from '@/hooks/useTracking';
 import type {
   AdminOperationUserCancellationPreview,
+  AdminOperationUserCancellationStatus,
   AdminOperationUserItem,
 } from '../operation-user-types';
+import { formatOperatorUtcDateTime } from './dateTime';
 
 type Props = {
   open: boolean;
   user: AdminOperationUserItem | null;
+  contactType: 'phone' | 'email';
   onOpenChange: (open: boolean) => void;
   onCancelled: () => void;
 };
@@ -36,19 +46,95 @@ const cancellationBid = () => {
 };
 
 const SUBSCRIPTION_BLOCKER = 'subscription_cancellation_required';
+const CANCELLATION_POLL_INTERVAL_MS = 500;
+const CANCELLATION_POLL_LIMIT = 120;
+
+const waitForCancellation = async (
+  userBid: string,
+  caseBid: string,
+  timeoutMessage: string,
+): Promise<AdminOperationUserCancellationStatus> => {
+  for (let attempt = 0; attempt < CANCELLATION_POLL_LIMIT; attempt += 1) {
+    const status = (await api.getAdminOperationUserCancellationStatus({
+      user_bid: userBid,
+      cancellation_bid: caseBid,
+    })) as AdminOperationUserCancellationStatus;
+    if (status.status === 'completed' || status.status === 'failed') {
+      return status;
+    }
+    await new Promise(resolve =>
+      window.setTimeout(resolve, CANCELLATION_POLL_INTERVAL_MS),
+    );
+  }
+  throw new Error(timeoutMessage);
+};
+
+const BLOCKER_CODES = [
+  'self',
+  'operator',
+  'published_course_transfer_required',
+  'unsettled_payment',
+] as const;
+
+const SummaryLabel = ({
+  label,
+  tooltip,
+}: {
+  label: React.ReactNode;
+  tooltip?: string;
+}) => (
+  <dt className='flex items-center gap-1 text-xs text-muted-foreground'>
+    <span>{label}</span>
+    {tooltip ? (
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              aria-label={tooltip}
+              className='inline-flex h-3 w-3 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-1'
+            >
+              <CircleHelp className='h-3 w-3' />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className='z-[112] max-w-64 text-left text-xs leading-5'>
+            {tooltip}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    ) : null}
+  </dt>
+);
+
+const SummaryValue = ({ value }: { value: React.ReactNode }) => (
+  <dd className='mt-1 break-all text-sm text-foreground'>{value}</dd>
+);
+
+const packageNames = (
+  packages: AdminOperationUserCancellationPreview['paid_packages'],
+  translate: (key: string) => string,
+) =>
+  packages
+    .map(item =>
+      item.product_name_i18n_key
+        ? translate(item.product_name_i18n_key)
+        : item.product_code || item.product_bid,
+    )
+    .join('、');
 
 export default function UserCancellationDialog({
   open,
   user,
+  contactType,
   onOpenChange,
   onCancelled,
 }: Props) {
+  const { t: tGlobal } = useTranslation();
   const { t } = useTranslation('module.operationsUser');
   const { trackEvent } = useTracking();
   const [preview, setPreview] =
     useState<AdminOperationUserCancellationPreview | null>(null);
   const [reason, setReason] = useState('');
-  const [contactType, setContactType] = useState<'phone' | 'email'>('phone');
   const [identifier, setIdentifier] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -155,12 +241,23 @@ export default function UserCancellationDialog({
       surface: 'user_list',
     });
     try {
-      await api.cancelAdminOperationUser({
+      const accepted = (await api.cancelAdminOperationUser({
         user_bid: user.user_bid,
         cancellation_bid: caseBid,
         preview_version: preview.preview_version,
         reason: reason.trim(),
-      });
+      })) as AdminOperationUserCancellationStatus;
+      const result =
+        accepted.status === 'completed'
+          ? accepted
+          : await waitForCancellation(
+              user.user_bid,
+              accepted.cancellation_bid,
+              t('cancellation.errors.processingTimeout'),
+            );
+      if (result.status !== 'completed') {
+        throw new Error(t('cancellation.errors.executionFailed'));
+      }
       trackCancellationEvent('operator_user_cancellation_result', {
         surface: 'user_list',
         outcome: 'success',
@@ -188,14 +285,27 @@ export default function UserCancellationDialog({
     busy ||
     !preview ||
     (!confirming && (hasManualBlocker || reason.trim().length < 5));
+  const accountIdentifier =
+    preview?.user.identifier ||
+    user?.mobile ||
+    user?.email ||
+    preview?.user.masked_identifier ||
+    user?.user_bid ||
+    '--';
+  const reasonLength = reason.trim().length;
+  const creditsExpireAt = user?.credits_expire_at
+    ? formatOperatorUtcDateTime(user.credits_expire_at)
+    : Number(preview?.available_credits || 0) > 0
+      ? t('credits.longTerm')
+      : '--';
 
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className='sm:max-w-xl'>
-        <DialogHeader>
+      <DialogContent className='flex max-h-[85vh] w-[calc(100vw-32px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px]'>
+        <DialogHeader className='px-5 pb-3 pt-5'>
           <DialogTitle>
             {confirming
               ? t('cancellation.confirmTitle')
@@ -209,92 +319,212 @@ export default function UserCancellationDialog({
               : t('cancellation.description')}
           </DialogDescription>
         </DialogHeader>
-        {error ? <p className='text-sm text-destructive'>{error}</p> : null}
-        {!confirming ? (
-          <div className='space-y-4'>
-            {preview?.published_courses.length ? (
-              <div className='space-y-2 rounded-lg border p-3'>
-                <p className='text-sm'>
-                  {t('cancellation.transferRequired', {
-                    count: preview.published_courses.length,
-                  })}
-                </p>
-                <div className='flex gap-2'>
-                  <select
-                    className='rounded-md border px-2 text-sm'
-                    value={contactType}
-                    onChange={event =>
-                      setContactType(event.target.value as 'phone' | 'email')
+        <div className='min-h-0 flex-1 overflow-y-auto px-5 py-4'>
+          {error ? (
+            <p className='mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+              {error}
+            </p>
+          ) : null}
+          {!confirming ? (
+            <div className='space-y-4'>
+              {preview ? (
+                <div className='rounded-xl border border-border/70 bg-muted/[0.16] px-4 py-3'>
+                  <dl className='grid gap-x-5 gap-y-3 sm:grid-cols-2'>
+                    <div>
+                      <SummaryLabel
+                        label={t('cancellation.summary.accountLabel')}
+                      />
+                      <SummaryValue value={accountIdentifier} />
+                    </div>
+                    <div>
+                      <SummaryLabel
+                        label={t('cancellation.summary.coursesLabel')}
+                        tooltip={t('cancellation.summary.coursesHint')}
+                      />
+                      <SummaryValue
+                        value={t('cancellation.summary.courseCounts', {
+                          drafts: preview.draft_course_count,
+                          published: preview.published_courses.length,
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <SummaryLabel
+                        label={t('cancellation.summary.creditsLabel')}
+                        tooltip={t('cancellation.summary.creditsHint')}
+                      />
+                      <SummaryValue value={preview.available_credits} />
+                    </div>
+                    <div>
+                      <SummaryLabel
+                        label={t('cancellation.summary.creditsExpireAtLabel')}
+                      />
+                      <SummaryValue value={creditsExpireAt} />
+                    </div>
+                  </dl>
+                  {preview.paid_packages?.length ||
+                  preview.preorder_packages?.length ||
+                  preview.renewing_packages?.length ? (
+                    <dl className='mt-3 flex flex-wrap gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-sm'>
+                      {preview.paid_packages?.length ? (
+                        <div className='flex gap-2'>
+                          <dt className='shrink-0 text-muted-foreground'>
+                            {t('cancellation.summary.paidPackages')}
+                          </dt>
+                          <dd className='break-all text-foreground'>
+                            {packageNames(preview.paid_packages || [], key =>
+                              tGlobal(key),
+                            )}
+                          </dd>
+                        </div>
+                      ) : null}
+                      {preview.preorder_packages?.length ? (
+                        <div className='flex gap-2'>
+                          <dt className='shrink-0 text-muted-foreground'>
+                            {t('cancellation.summary.preorders')}
+                          </dt>
+                          <dd className='break-all text-foreground'>
+                            {packageNames(
+                              preview.preorder_packages || [],
+                              key => tGlobal(key),
+                            )}
+                          </dd>
+                        </div>
+                      ) : null}
+                      {preview.renewing_packages?.length ? (
+                        <div className='flex gap-2'>
+                          <dt className='shrink-0 text-muted-foreground'>
+                            {t('cancellation.summary.subscriptions')}
+                          </dt>
+                          <dd className='break-all text-foreground'>
+                            {packageNames(
+                              preview.renewing_packages || [],
+                              key => tGlobal(key),
+                            )}
+                          </dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                  ) : null}
+                </div>
+              ) : null}
+              {preview?.blockers.some(
+                blocker =>
+                  blocker.code !== SUBSCRIPTION_BLOCKER &&
+                  blocker.code !== 'published_course_transfer_required',
+              ) ? (
+                <div className='rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3'>
+                  <ul className='list-disc space-y-1 pl-5 text-sm text-amber-800'>
+                    {preview.blockers
+                      .filter(
+                        blocker =>
+                          blocker.code !== SUBSCRIPTION_BLOCKER &&
+                          blocker.code !== 'published_course_transfer_required',
+                      )
+                      .map(blocker => (
+                        <li key={blocker.code}>
+                          {BLOCKER_CODES.includes(
+                            blocker.code as (typeof BLOCKER_CODES)[number],
+                          )
+                            ? t(`cancellation.blockers.${blocker.code}`, {
+                                count: blocker.count,
+                              })
+                            : t('cancellation.blockers.unknown')}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ) : null}
+              {preview?.published_courses.length ? (
+                <div className='space-y-2 rounded-lg border p-3'>
+                  <p className='text-sm'>
+                    {t('cancellation.transferRequired', {
+                      count: preview.published_courses.length,
+                    })}
+                  </p>
+                  <div className='flex gap-2'>
+                    <Input
+                      value={identifier}
+                      onChange={event => setIdentifier(event.target.value)}
+                      placeholder={t(
+                        contactType === 'email'
+                          ? 'cancellation.transferEmailPlaceholder'
+                          : 'cancellation.transferPhonePlaceholder',
+                      )}
+                    />
+                    <Button
+                      type='button'
+                      onClick={transfer}
+                      disabled={busy || !identifier.trim()}
+                    >
+                      {t('cancellation.transfer')}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+              <div className='space-y-2'>
+                <label
+                  className='text-sm font-medium text-foreground'
+                  htmlFor='account-cancellation-reason'
+                >
+                  {t('cancellation.reasonLabel')}
+                </label>
+                <Textarea
+                  id='account-cancellation-reason'
+                  className='min-h-28 resize-none'
+                  value={reason}
+                  maxLength={500}
+                  onChange={event => setReason(event.target.value)}
+                  placeholder={t('cancellation.reasonPlaceholder')}
+                />
+                <div className='flex items-start justify-between gap-3 text-xs'>
+                  <p
+                    className={
+                      reason.length > 0 && reasonLength < 5
+                        ? 'text-destructive'
+                        : 'text-muted-foreground'
                     }
                   >
-                    <option value='phone'>
-                      {t('loginMethodLabels.phone')}
-                    </option>
-                    <option value='email'>
-                      {t('loginMethodLabels.email')}
-                    </option>
-                  </select>
-                  <Input
-                    value={identifier}
-                    onChange={event => setIdentifier(event.target.value)}
-                    placeholder={t('cancellation.transferPlaceholder')}
-                  />
-                  <Button
-                    type='button'
-                    onClick={transfer}
-                    disabled={busy || !identifier.trim()}
-                  >
-                    {t('cancellation.transfer')}
-                  </Button>
+                    {reason.length > 0 && reasonLength < 5
+                      ? t('cancellation.reasonTooShort')
+                      : t('cancellation.reasonHint')}
+                  </p>
+                  <span className='shrink-0 text-muted-foreground'>
+                    {t('cancellation.reasonCounter', {
+                      count: reason.length,
+                    })}
+                  </span>
                 </div>
               </div>
-            ) : null}
-            {preview ? (
-              <ul className='space-y-1 text-sm text-muted-foreground'>
-                <li>
-                  {t('cancellation.summary.target', {
-                    user:
-                      preview.user.nickname || preview.user.masked_identifier,
-                    identifier: preview.user.masked_identifier,
+            </div>
+          ) : (
+            <div className='space-y-3'>
+              {preview?.paid_preorder_count ? (
+                <div className='rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800'>
+                  {t('cancellation.confirmPaidPreorder', {
+                    count: preview.paid_preorder_count,
                   })}
-                </li>
-                <li>
-                  {t('cancellation.summary.drafts', {
-                    count: preview.draft_course_count,
-                  })}
-                </li>
-                <li>
-                  {t('cancellation.summary.credits', {
-                    count: preview.available_credits,
-                  })}
-                </li>
-                <li>
-                  {t('cancellation.summary.sessions', {
-                    count: preview.active_session_count,
-                  })}
-                </li>
-                {preview.subscription_renewal_count > 0 ? (
-                  <li>
-                    {t('cancellation.summary.renewals', {
-                      count: preview.subscription_renewal_count,
-                    })}
-                  </li>
-                ) : null}
-              </ul>
-            ) : null}
-            <Textarea
-              value={reason}
-              maxLength={500}
-              onChange={event => setReason(event.target.value)}
-              placeholder={t('cancellation.reasonPlaceholder')}
-            />
-          </div>
-        ) : (
-          <p className='rounded-lg bg-muted p-3 text-sm'>
-            {t('cancellation.irreversible')}
-          </p>
-        )}
-        <DialogFooter>
+                </div>
+              ) : null}
+              <div className='rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm'>
+                {t('cancellation.irreversible')}
+              </div>
+              <dl className='rounded-xl border border-border/70 px-4 py-3 text-sm'>
+                <dt className='text-muted-foreground'>
+                  {t('cancellation.summary.accountLabel')}
+                </dt>
+                <dd className='mt-1 break-all font-medium'>
+                  {accountIdentifier}
+                </dd>
+                <dt className='mt-3 text-muted-foreground'>
+                  {t('cancellation.reasonLabel')}
+                </dt>
+                <dd className='mt-1 whitespace-pre-wrap'>{reason.trim()}</dd>
+              </dl>
+            </div>
+          )}
+        </div>
+        <DialogFooter className='px-5 py-4'>
           <Button
             variant='outline'
             onClick={() =>
@@ -305,13 +535,15 @@ export default function UserCancellationDialog({
             {t('cancellation.back')}
           </Button>
           <Button
-            variant='destructive'
+            variant={confirming ? 'destructive' : 'default'}
             disabled={cannotContinue}
             onClick={confirming ? cancelAccount : prepare}
           >
-            {confirming
-              ? t('cancellation.confirm')
-              : t('cancellation.continue')}
+            {confirming && busy
+              ? t('cancellation.processing')
+              : confirming
+                ? t('cancellation.confirm')
+                : t('cancellation.continue')}
           </Button>
         </DialogFooter>
       </DialogContent>

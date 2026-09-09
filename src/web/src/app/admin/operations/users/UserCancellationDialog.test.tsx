@@ -26,6 +26,7 @@ jest.mock('@/api', () => ({
     transferAdminOperationUserPublishedCourses: jest.fn(),
     cancelAdminOperationUserSubscriptionRenewals: jest.fn(),
     cancelAdminOperationUser: jest.fn(),
+    getAdminOperationUserCancellationStatus: jest.fn(),
   },
 }));
 
@@ -61,6 +62,7 @@ const preview = (
 ): AdminOperationUserCancellationPreview => ({
   user: {
     user_bid: user.user_bid,
+    identifier: '13800000000',
     masked_identifier: user.mobile,
     nickname: user.nickname,
     is_creator: false,
@@ -72,6 +74,10 @@ const preview = (
   draft_course_count: 0,
   published_courses: [],
   subscription_renewal_count: 0,
+  paid_packages: [],
+  paid_preorder_count: 0,
+  preorder_packages: [],
+  renewing_packages: [],
   unsettled_order_count: 0,
   available_credits: 20,
   reserved_credits: 0,
@@ -86,12 +92,15 @@ const mockTransfer =
 const mockCancelRenewals =
   api.cancelAdminOperationUserSubscriptionRenewals as jest.Mock;
 const mockCancel = api.cancelAdminOperationUser as jest.Mock;
+const mockCancellationStatus =
+  api.getAdminOperationUserCancellationStatus as jest.Mock;
 
 const renderDialog = (onCancelled = jest.fn()) => {
   render(
     <UserCancellationDialog
       open
       user={user}
+      contactType='phone'
       onOpenChange={jest.fn()}
       onCancelled={onCancelled}
     />,
@@ -104,7 +113,14 @@ describe('UserCancellationDialog', () => {
     jest.clearAllMocks();
     mockTrackEvent.mockResolvedValue(undefined);
     mockPreview.mockResolvedValue(preview());
-    mockCancel.mockResolvedValue({ cancellation_bid: 'case-1' });
+    mockCancel.mockResolvedValue({
+      cancellation_bid: 'case-1',
+      status: 'completed',
+    });
+    mockCancellationStatus.mockResolvedValue({
+      cancellation_bid: 'case-1',
+      status: 'completed',
+    });
   });
 
   it('confirms cancellation and tracks only allowlisted properties', async () => {
@@ -144,6 +160,21 @@ describe('UserCancellationDialog', () => {
       expect(properties).not.toHaveProperty('reason');
       expect(properties).not.toHaveProperty('identifier');
     }
+  });
+
+  it('shows the full account identifier and explains short reasons', async () => {
+    renderDialog();
+    expect(await screen.findByText('13800000000')).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByPlaceholderText('cancellation.reasonPlaceholder'),
+      { target: { value: 'no' } },
+    );
+
+    expect(screen.getByText('cancellation.reasonTooShort')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    ).toBeDisabled();
   });
 
   it('cancels renewals before showing final confirmation', async () => {
@@ -196,6 +227,9 @@ describe('UserCancellationDialog', () => {
     expect(
       screen.getByRole('button', { name: 'cancellation.continue' }),
     ).toBeDisabled();
+    expect(
+      screen.getByText('cancellation.transferRequired'),
+    ).toBeInTheDocument();
     expect(mockCancelRenewals).not.toHaveBeenCalled();
   });
 
@@ -213,7 +247,9 @@ describe('UserCancellationDialog', () => {
     renderDialog();
 
     fireEvent.change(
-      await screen.findByPlaceholderText('cancellation.transferPlaceholder'),
+      await screen.findByPlaceholderText(
+        'cancellation.transferPhonePlaceholder',
+      ),
       { target: { value: '13900000000' } },
     );
     fireEvent.click(
@@ -248,5 +284,42 @@ describe('UserCancellationDialog', () => {
     );
 
     await waitFor(() => expect(onCancelled).toHaveBeenCalledTimes(1));
+  });
+
+  it('waits for an accepted background cancellation to complete', async () => {
+    mockCancel.mockResolvedValue({
+      cancellation_bid: 'case-1',
+      status: 'pending',
+    });
+    mockCancellationStatus
+      .mockResolvedValueOnce({
+        cancellation_bid: 'case-1',
+        status: 'retrying',
+      })
+      .mockResolvedValueOnce({
+        cancellation_bid: 'case-1',
+        status: 'completed',
+      });
+    const { onCancelled } = renderDialog();
+    await screen.findByPlaceholderText('cancellation.reasonPlaceholder');
+    fireEvent.change(
+      screen.getByPlaceholderText('cancellation.reasonPlaceholder'),
+      { target: { value: 'Customer confirmed cancellation' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'cancellation.confirm' }),
+    );
+
+    await waitFor(() =>
+      expect(mockCancellationStatus).toHaveBeenCalledWith({
+        user_bid: user.user_bid,
+        cancellation_bid: 'case-1',
+      }),
+    );
+    await waitFor(() => expect(onCancelled).toHaveBeenCalledTimes(1));
+    expect(mockCancellationStatus).toHaveBeenCalledTimes(2);
   });
 });

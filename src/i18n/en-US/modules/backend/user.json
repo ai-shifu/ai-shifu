@@ -4,6 +4,7 @@
     "accountAlreadyCancelled": "This account has already been cancelled.",
     "accountCancellationBlocked": "Resolve the listed account cancellation requirements before continuing.",
     "accountCancellationConflict": "This cancellation request conflicts with another account.",
+    "accountCancellationNotFound": "The account cancellation task was not found.",
     "accountCancellationPreviewStale": "The account changed. Review the latest cancellation summary and try again.",
     "checkCodeError": "Image captcha is incorrect",
     "checkCodeExpired": "Image captcha expired",

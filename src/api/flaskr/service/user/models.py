@@ -302,6 +302,23 @@ class UserAccountCancellation(db.Model):
         index=True,
         comment="Cancellation status",
     )
+    attempt_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Background execution attempt count",
+    )
+    failure_code = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="Bounded background execution failure code",
+    )
+    last_attempt_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Latest background execution attempt timestamp",
+    )
     idempotency_key = Column(
         String(128),
         nullable=False,

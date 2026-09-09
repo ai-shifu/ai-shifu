@@ -54,6 +54,12 @@ execution service with a different actor and identity-verification policy.
       audit detail fields, and focused frontend tests.
 - [ ] Run the final repository checks, publish the stacked frontend PR, and
       validate both backend and frontend PRs together on dev02.
+- [x] 2026-09-09 09:35 CST: Moved final cancellation execution to a durable
+      background task with operator-visible processing and bounded failure
+      states; keep subscription-provider cancellation as a synchronous safety
+      gate before the task is accepted. Added retry-state regression coverage,
+      polling UI, and migration verification against the local development
+      database.
 
 ## Surprises & Discoveries
 
@@ -137,6 +143,18 @@ execution service with a different actor and identity-verification policy.
 - Decision: Do not require typing `user_bid`. A compact second confirmation
   dialog presents the target identity and effect summary and owns the final
   destructive action.
+- Decision: The final cancellation request persists a `pending` audit case
+  before dispatching a Celery task. The worker changes it to `processing`, then
+  runs all database mutations in one unit of work and finishes as `completed`.
+  A failed database step rolls back the entire user mutation and records only a
+  bounded failure code on the audit case; the same cancellation BID can be
+  retried without duplicating credit forfeiture or de-identification. Rationale:
+  large user aggregates must not hold an operator HTTP request open, and failed
+  attempts must remain observable without storing raw exceptions or PII.
+- Decision: Provider subscription cancellation remains synchronous preparation
+  and must succeed before an async cancellation case is accepted. Rationale:
+  cancelling the account before the payment provider acknowledges renewal
+  cancellation can leave an unreachable account billable.
 
 ## Outcomes & Retrospective
 
@@ -148,13 +166,22 @@ session revocation, cancelled-user filtering, and audit detail fields. Drafts
 remain frozen and recoverable, while the old login identifier is released for
 a new account without reconnecting retained history.
 
-Focused cancellation, operator-user, and creator-transfer tests pass, as do
+Final destructive execution is accepted as a durable cancellation case and
+performed by Celery rather than inside the operator HTTP request. The case
+exposes pending, processing, retrying, completed, and failed states; database
+mutations remain atomic, retry attempts do not transiently expose a terminal
+failure, and only the final exhausted attempt is recorded as failed. The UI
+polls the case status and reports success only after completion.
+
+Focused cancellation, background-task retry, operator-user, and
+creator-transfer tests pass, as do
 the repository harness, translation validation, architecture boundary check,
 and full pre-commit suite. The broader `tests/service/user` collection remains
 blocked by the local environment's pre-existing `markdown_flow` package, which
 does not export `USER_ANSWER_CONTEXT_KEY`; the focused suites do not exercise
 or depend on that missing symbol. The migration graph reports
-`b1c2d3e4f5a6` as its single head.
+`b2d4f6a8c0e1` as its single head, and the local database has all three task
+state columns at that revision.
 
 PR 2 remains intentionally separate: it will add the operator dialogs,
 cancelled filter UI, analytics contract, and frontend tests. Later work may

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 type UserInfoItemProps = {
   label: ReactNode;
   value?: string;
+  secondaryValue?: string;
   emptyValue: string;
   onClick?: () => void;
   valueClassName?: string;
@@ -15,6 +16,7 @@ type UserInfoItemProps = {
 export default function UserInfoItem({
   label,
   value,
+  secondaryValue,
   emptyValue,
   onClick,
   valueClassName,
@@ -43,13 +45,20 @@ export default function UserInfoItem({
           {displayValue}
         </button>
       ) : (
-        <div
-          className={cn(
-            'break-all text-sm font-medium text-foreground',
-            valueClassName,
-          )}
-        >
-          {displayValue}
+        <div>
+          <div
+            className={cn(
+              'break-all text-sm font-medium text-foreground',
+              valueClassName,
+            )}
+          >
+            {displayValue}
+          </div>
+          {secondaryValue ? (
+            <div className='mt-1 break-all text-xs text-muted-foreground'>
+              {secondaryValue}
+            </div>
+          ) : null}
         </div>
       )}
     </div>

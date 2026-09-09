@@ -4,6 +4,7 @@
     "accountAlreadyCancelled": "تم إلغاء هذا الحساب بالفعل.",
     "accountCancellationBlocked": "يرجى معالجة متطلبات إلغاء الحساب قبل المتابعة.",
     "accountCancellationConflict": "يتعارض طلب الإلغاء هذا مع حساب آخر.",
+    "accountCancellationNotFound": "لم يتم العثور على مهمة إلغاء الحساب.",
     "accountCancellationPreviewStale": "تغيرت بيانات الحساب. راجع ملخص الإلغاء الأحدث وحاول مجددًا.",
     "checkCodeError": "رمز التحقق المصور غير صحيح",
     "checkCodeExpired": "انتهت صلاحية رمز التحقق المصور",

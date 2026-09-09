@@ -865,6 +865,10 @@ def _build_operator_user_summary(
         cancellation_operator_user_bid=str(
             cancellation.get("operator_user_bid", "") or ""
         ),
+        cancellation_operator_mobile=str(cancellation.get("operator_mobile", "") or ""),
+        cancellation_operator_nickname=str(
+            cancellation.get("operator_nickname", "") or ""
+        ),
     )
 
 

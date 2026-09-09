@@ -4,6 +4,7 @@
     "accountAlreadyCancelled": "Ce compte a déjà été supprimé.",
     "accountCancellationBlocked": "Résolvez les conditions bloquantes avant de continuer.",
     "accountCancellationConflict": "Cette demande de suppression est liée à un autre compte.",
+    "accountCancellationNotFound": "La tâche de résiliation du compte est introuvable.",
     "accountCancellationPreviewStale": "Le compte a changé. Vérifiez le nouveau récapitulatif et réessayez.",
     "checkCodeError": "Le captcha d'image est incorrect",
     "checkCodeExpired": "Le captcha d'image a expiré",

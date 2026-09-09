@@ -51,6 +51,7 @@ from flaskr.service.billing.operation_credits import (
     reserve_operation_credits,
 )
 from flaskr.service.billing.ownership import resolve_shifu_creator_bid
+from flaskr.service.billing.preorders import is_active_preorder_order
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
     build_operator_credit_orders_overview,
@@ -154,6 +155,7 @@ __all__ = [
     "grant_manual_plan_to_user",
     "grant_referral_plan_reward",
     "grant_referral_reward_credits_to_user",
+    "is_active_preorder_order",
     "is_billing_enabled",
     "list_credit_notification_email_templates",
     "list_credit_notification_templates",

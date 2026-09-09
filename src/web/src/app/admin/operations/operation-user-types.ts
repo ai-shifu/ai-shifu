@@ -57,12 +57,15 @@ export type AdminOperationUserItem = {
   cancelled_at?: string | null;
   cancellation_reason?: string;
   cancellation_operator_user_bid?: string;
+  cancellation_operator_mobile?: string;
+  cancellation_operator_nickname?: string;
 };
 
 export type AccountCancellationIssue = { code: string; count: number };
 export type AdminOperationUserCancellationPreview = {
   user: {
     user_bid: string;
+    identifier: string;
     masked_identifier: string;
     nickname: string;
     is_creator: boolean;
@@ -74,11 +77,42 @@ export type AdminOperationUserCancellationPreview = {
   draft_course_count: number;
   published_courses: Array<{ shifu_bid: string; course_name: string }>;
   subscription_renewal_count: number;
+  paid_packages: Array<{
+    product_bid: string;
+    product_code: string;
+    product_name_i18n_key: string;
+  }>;
+  paid_preorder_count: number;
+  preorder_packages: Array<{
+    product_bid: string;
+    product_code: string;
+    product_name_i18n_key: string;
+  }>;
+  renewing_packages: Array<{
+    product_bid: string;
+    product_code: string;
+    product_name_i18n_key: string;
+  }>;
   unsettled_order_count: number;
   available_credits: number;
   reserved_credits: number;
   active_session_count: number;
   preview_version: string;
+};
+
+export type AdminOperationUserCancellationStatus = {
+  cancellation_bid: string;
+  user_bid: string;
+  status:
+    | 'pending'
+    | 'processing'
+    | 'retrying'
+    | 'completed'
+    | 'failed'
+    | LooseString;
+  failure_code: string;
+  attempt_count: number;
+  cancelled_at: string | null;
 };
 
 export type AdminOperationUserOverview = {

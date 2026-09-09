@@ -4,6 +4,7 @@
     "accountAlreadyCancelled": "บัญชีนี้ถูกยกเลิกแล้ว",
     "accountCancellationBlocked": "โปรดจัดการเงื่อนไขที่ขัดขวางการยกเลิกบัญชีก่อนดำเนินการต่อ",
     "accountCancellationConflict": "คำขอยกเลิกนี้ขัดแย้งกับบัญชีอื่น",
+    "accountCancellationNotFound": "ไม่พบงานยกเลิกบัญชี",
     "accountCancellationPreviewStale": "ข้อมูลบัญชีมีการเปลี่ยนแปลง โปรดตรวจสอบสรุปล่าสุดแล้วลองอีกครั้ง",
     "checkCodeError": "รหัสยืนยันแบบรูปภาพไม่ถูกต้อง",
     "checkCodeExpired": "รหัสยืนยันแบบรูปภาพหมดอายุแล้ว",

@@ -473,12 +473,15 @@ describe('AdminOperationUserDetailPage', () => {
       cancelled_at: '2026-09-08T04:30:00Z',
       cancellation_reason: 'Verified support request',
       cancellation_operator_user_bid: 'operator-1',
+      cancellation_operator_mobile: '13900000000',
+      cancellation_operator_nickname: 'Support agent',
     });
 
     render(<AdminOperationUserDetailPage />);
 
     expect(await screen.findByText('Verified support request')).toBeVisible();
-    expect(screen.getByText('operator-1')).toBeVisible();
+    expect(screen.getByText('13900000000')).toBeVisible();
+    expect(screen.getByText('Support agent')).toBeVisible();
     expect(
       screen.getByText('module.operationsUser.detail.cancelledAt'),
     ).toBeVisible();

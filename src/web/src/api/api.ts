@@ -195,6 +195,8 @@ const api = {
     'POST /shifu/admin/operations/users/{user_bid}/cancel-subscription-renewals',
   cancelAdminOperationUser:
     'POST /shifu/admin/operations/users/{user_bid}/cancel',
+  getAdminOperationUserCancellationStatus:
+    'GET /shifu/admin/operations/users/{user_bid}/cancellations/{cancellation_bid}',
   getAdminOperationUserCredits:
     'GET /shifu/admin/operations/users/{user_bid}/credits',
   getAdminOperationUserCreditUsageDetail:

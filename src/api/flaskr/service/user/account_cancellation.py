@@ -5,21 +5,26 @@ from __future__ import annotations
 import hashlib
 import json
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import app_context_scope, on_commit, unit_of_work
 from flaskr.service.billing.api import (
     cancel_billing_subscription,
     cancel_subscription_renewal_events,
+    is_active_preorder_order,
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
 )
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_INIT,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
@@ -29,6 +34,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -60,6 +66,33 @@ ACTIVE_RENEWAL_STATUSES = {
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
 }
+ACCOUNT_CANCELLATION_STATUS_PENDING = "pending"
+ACCOUNT_CANCELLATION_STATUS_PROCESSING = "processing"
+ACCOUNT_CANCELLATION_STATUS_RETRYING = "retrying"
+ACCOUNT_CANCELLATION_STATUS_COMPLETED = "completed"
+ACCOUNT_CANCELLATION_STATUS_FAILED = "failed"
+ACCOUNT_CANCELLATION_TASK_NAME = "user.execute_account_cancellation"
+
+
+class AccountCancellationTaskRegistrationError(RuntimeError):
+    """Signal that the account-cancellation worker task is unavailable."""
+
+
+class _TaskDispatcher(Protocol):
+    def apply_async(self, *, args: list[str]) -> object: ...
+
+
+class _CeleryTaskRegistry(Protocol):
+    tasks: dict[str, _TaskDispatcher]
+
+
+def _require_account_cancellation_task(
+    celery_app: _CeleryTaskRegistry,
+) -> _TaskDispatcher:
+    task = celery_app.tasks.get(ACCOUNT_CANCELLATION_TASK_NAME)
+    if task is None:
+        raise AccountCancellationTaskRegistrationError
+    return task
 
 
 def _mask_identifier(value: object) -> str:
@@ -114,12 +147,95 @@ def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[st
             {"shifu_bid": shifu_bid, "course_name": str(row.title or "")}
         )
 
-    renewal_count = BillingSubscription.query.filter(
+    active_subscriptions = BillingSubscription.query.filter(
         BillingSubscription.creator_bid == user_bid,
         BillingSubscription.status.in_(ACTIVE_RENEWAL_STATUSES),
         BillingSubscription.cancel_at_period_end == 0,
         BillingSubscription.deleted == 0,
-    ).count()
+    ).all()
+    renewal_count = len(active_subscriptions)
+    paid_preorders = [
+        order
+        for order in BillingOrder.query.filter(
+            BillingOrder.creator_bid == user_bid,
+            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            BillingOrder.deleted == 0,
+        ).all()
+        if is_active_preorder_order(order)
+    ]
+    paid_preorder_count = len(paid_preorders)
+    paid_subscription_bids = {
+        str(order.subscription_bid or "").strip()
+        for order in BillingOrder.query.filter(
+            BillingOrder.creator_bid == user_bid,
+            BillingOrder.order_type.in_(
+                [
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                ]
+            ),
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            BillingOrder.paid_amount > 0,
+            BillingOrder.deleted == 0,
+        ).all()
+        if str(order.subscription_bid or "").strip()
+        and not is_active_preorder_order(order)
+    }
+    product_bids = {
+        str(row.product_bid or "").strip()
+        for row in [*active_subscriptions, *paid_preorders]
+        if str(row.product_bid or "").strip()
+    }
+    products = {
+        str(product.product_bid): product
+        for product in (
+            BillingProduct.query.filter(
+                BillingProduct.product_bid.in_(product_bids),
+                BillingProduct.deleted == 0,
+            ).all()
+            if product_bids
+            else []
+        )
+    }
+
+    def product_payload(product_bid: object) -> dict[str, str]:
+        normalized_bid = str(product_bid or "").strip()
+        product = products.get(normalized_bid)
+        return {
+            "product_bid": normalized_bid,
+            "product_code": str(getattr(product, "product_code", "") or ""),
+            "product_name_i18n_key": str(
+                getattr(product, "display_name_i18n_key", "") or ""
+            ),
+        }
+
+    def unique_product_payloads(product_bids: list[object]) -> list[dict[str, str]]:
+        unique: dict[str, dict[str, str]] = {}
+        for product_bid in product_bids:
+            payload = product_payload(product_bid)
+            unique.setdefault(payload["product_bid"], payload)
+        return list(unique.values())
+
+    paid_packages = unique_product_payloads(
+        [
+            subscription.product_bid
+            for subscription in active_subscriptions
+            if str(subscription.subscription_bid or "").strip()
+            in paid_subscription_bids
+        ]
+    )
+    preorder_packages = unique_product_payloads(
+        [order.product_bid for order in paid_preorders]
+    )
+    renewing_packages = unique_product_payloads(
+        [
+            subscription.product_bid
+            for subscription in active_subscriptions
+            if str(subscription.billing_provider or "").strip().lower() != "manual"
+        ]
+    )
     unsettled_billing_orders = BillingOrder.query.filter(
         BillingOrder.creator_bid == user_bid,
         BillingOrder.status.in_(
@@ -161,6 +277,10 @@ def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[st
         blockers.append({"code": "unsettled_payment", "count": unsettled_order_count})
 
     warnings: list[dict[str, object]] = []
+    if paid_preorder_count:
+        warnings.append(
+            {"code": "paid_preorder_refund_required", "count": paid_preorder_count}
+        )
     if draft_only_bids:
         warnings.append({"code": "draft_courses_frozen", "count": len(draft_only_bids)})
     if available_credits > 0 or reserved_credits > 0:
@@ -174,6 +294,7 @@ def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[st
         "draft_only_bids": sorted(draft_only_bids),
         "published_bids": sorted(published_bids),
         "renewal_count": renewal_count,
+        "paid_preorder_count": paid_preorder_count,
         "unsettled_order_count": unsettled_order_count,
         "available_credits": str(available_credits),
         "reserved_credits": str(reserved_credits),
@@ -186,6 +307,7 @@ def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[st
     return {
         "user": {
             "user_bid": user_bid,
+            "identifier": str(user.user_identify or ""),
             "masked_identifier": _mask_identifier(user.user_identify),
             "nickname": str(user.nickname or ""),
             "is_creator": bool(user.is_creator),
@@ -197,6 +319,10 @@ def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[st
         "draft_course_count": len(draft_only_bids),
         "published_courses": published_courses,
         "subscription_renewal_count": renewal_count,
+        "paid_packages": paid_packages,
+        "paid_preorder_count": paid_preorder_count,
+        "preorder_packages": preorder_packages,
+        "renewing_packages": renewing_packages,
         "unsettled_order_count": unsettled_order_count,
         "available_credits": float(available_credits),
         "reserved_credits": float(reserved_credits),
@@ -282,6 +408,7 @@ def cancel_user_account(
     idempotency_key: str,
     preview_version: str,
     reason: str,
+    _execute_existing: bool = False,
 ) -> dict[str, Any]:
     """Cancel and de-identify one user after all preparatory work succeeds."""
     normalized_user_bid = str(user_bid or "").strip()
@@ -306,15 +433,10 @@ def cancel_user_account(
         existing = UserAccountCancellation.query.filter(
             UserAccountCancellation.idempotency_key == normalized_idempotency_key
         ).first()
-        if existing:
+        if existing and not _execute_existing:
             if existing.user_bid != normalized_user_bid:
                 raise_error("server.user.accountCancellationConflict")
-            return {
-                "cancellation_bid": existing.cancellation_bid,
-                "user_bid": existing.user_bid,
-                "status": existing.status,
-                "cancelled_at": existing.completed_at,
-            }
+            return _serialize_cancellation(existing)
 
         tokens: list[str] = []
         completed_at = now_utc()
@@ -438,27 +560,29 @@ def cancel_user_account(
                     updated_at=completed_at,
                 )
 
-            audit = UserAccountCancellation(
+            audit = existing or UserAccountCancellation(
                 cancellation_bid=normalized_cancellation_bid,
                 user_bid=normalized_user_bid,
                 operator_user_bid=normalized_operator_bid,
                 actor_type="operator",
                 reason=normalized_reason,
-                status="completed",
                 idempotency_key=normalized_idempotency_key,
-                retention_snapshot={
-                    "draft_course_count": state["draft_course_count"],
-                    "published_course_count": len(state["published_courses"]),
-                    "subscription_renewal_count": state["subscription_renewal_count"],
-                    "unsettled_order_count": state["unsettled_order_count"],
-                    "had_available_credits": state["available_credits"] > 0,
-                    "had_reserved_credits": state["reserved_credits"] > 0,
-                    "active_session_count": state["active_session_count"],
-                },
                 requested_at=completed_at,
-                completed_at=completed_at,
             )
-            db.session.add(audit)
+            audit.status = ACCOUNT_CANCELLATION_STATUS_COMPLETED
+            audit.failure_code = ""
+            audit.completed_at = completed_at
+            audit.retention_snapshot = {
+                "draft_course_count": state["draft_course_count"],
+                "published_course_count": len(state["published_courses"]),
+                "subscription_renewal_count": state["subscription_renewal_count"],
+                "unsettled_order_count": state["unsettled_order_count"],
+                "had_available_credits": state["available_credits"] > 0,
+                "had_reserved_credits": state["reserved_credits"] > 0,
+                "active_session_count": state["active_session_count"],
+            }
+            if existing is None:
+                db.session.add(audit)
 
             user.user_identify = _tombstone("user", normalized_user_bid)
             user.nickname = ""
@@ -489,3 +613,219 @@ def cancel_user_account(
             "status": "completed",
             "cancelled_at": completed_at,
         }
+
+
+def _serialize_cancellation(cancellation: UserAccountCancellation) -> dict[str, Any]:
+    return {
+        "cancellation_bid": str(cancellation.cancellation_bid or ""),
+        "user_bid": str(cancellation.user_bid or ""),
+        "status": str(cancellation.status or ""),
+        "failure_code": str(cancellation.failure_code or ""),
+        "attempt_count": int(cancellation.attempt_count or 0),
+        "cancelled_at": cancellation.completed_at,
+    }
+
+
+def get_account_cancellation_status(
+    app: Flask, *, user_bid: str, cancellation_bid: str
+) -> dict[str, Any]:
+    """Return one operator-visible background cancellation state."""
+    with app_context_scope(app):
+        cancellation = UserAccountCancellation.query.filter_by(
+            user_bid=str(user_bid or "").strip(),
+            cancellation_bid=str(cancellation_bid or "").strip(),
+        ).first()
+        if cancellation is None:
+            raise_error("server.user.accountCancellationNotFound")
+        return _serialize_cancellation(cancellation)
+
+
+def request_user_account_cancellation(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    cancellation_bid: str,
+    idempotency_key: str,
+    preview_version: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Persist and enqueue one idempotent account-cancellation request."""
+    normalized_user_bid = str(user_bid or "").strip()
+    normalized_operator_bid = str(operator_user_bid or "").strip()
+    normalized_cancellation_bid = str(cancellation_bid or "").strip()
+    normalized_idempotency_key = str(
+        idempotency_key or normalized_cancellation_bid
+    ).strip()
+    normalized_preview_version = str(preview_version or "").strip()
+    normalized_reason = str(reason or "").strip()
+    if not normalized_user_bid:
+        raise_param_error("user_bid")
+    if not normalized_operator_bid:
+        raise_param_error("operator_user_bid")
+    if not normalized_cancellation_bid:
+        raise_param_error("cancellation_bid")
+    if not normalized_idempotency_key:
+        raise_param_error("idempotency_key")
+    if not REASON_MIN_LENGTH <= len(normalized_reason) <= REASON_MAX_LENGTH:
+        raise_param_error("reason")
+
+    with app_context_scope(app):
+        existing = UserAccountCancellation.query.filter(
+            db.or_(
+                UserAccountCancellation.idempotency_key == normalized_idempotency_key,
+                UserAccountCancellation.user_bid == normalized_user_bid,
+            )
+        ).first()
+        if existing:
+            if existing.user_bid != normalized_user_bid:
+                raise_error("server.user.accountCancellationConflict")
+            if existing.status in {
+                ACCOUNT_CANCELLATION_STATUS_PENDING,
+                ACCOUNT_CANCELLATION_STATUS_PROCESSING,
+                ACCOUNT_CANCELLATION_STATUS_RETRYING,
+                ACCOUNT_CANCELLATION_STATUS_COMPLETED,
+            }:
+                return _serialize_cancellation(existing)
+            normalized_cancellation_bid = str(existing.cancellation_bid or "")
+            normalized_idempotency_key = str(existing.idempotency_key or "")
+
+        user = UserInfo.query.filter_by(
+            user_bid=normalized_user_bid,
+            deleted=0,
+        ).first()
+        if user is None:
+            raise_error("server.user.userNotFound")
+        state = _build_cancellation_state(user, normalized_operator_bid)
+        if state["preview_version"] != normalized_preview_version:
+            raise_error("server.user.accountCancellationPreviewStale")
+        if state["blockers"]:
+            raise_error("server.user.accountCancellationBlocked")
+
+        requested_at = now_utc()
+        with unit_of_work():
+            cancellation = existing or UserAccountCancellation(
+                cancellation_bid=normalized_cancellation_bid,
+                user_bid=normalized_user_bid,
+                operator_user_bid=normalized_operator_bid,
+                actor_type="operator",
+                reason=normalized_reason,
+                idempotency_key=normalized_idempotency_key,
+                requested_at=requested_at,
+            )
+            cancellation.status = ACCOUNT_CANCELLATION_STATUS_PENDING
+            cancellation.failure_code = ""
+            cancellation.completed_at = None
+            cancellation.operator_user_bid = normalized_operator_bid
+            cancellation.reason = normalized_reason
+            cancellation.retention_snapshot = {
+                "preview_version": normalized_preview_version,
+            }
+            if existing is None:
+                db.session.add(cancellation)
+            on_commit(
+                lambda: enqueue_account_cancellation(
+                    app,
+                    cancellation_bid=normalized_cancellation_bid,
+                )
+            )
+        return _serialize_cancellation(cancellation)
+
+
+def enqueue_account_cancellation(app: Flask, *, cancellation_bid: str) -> None:
+    """Dispatch a previously persisted cancellation without carrying PII."""
+    from flaskr.common.celery_app import get_celery_app
+
+    normalized_bid = str(cancellation_bid or "").strip()
+    try:
+        celery_app = get_celery_app(flask_app=app)
+        task = _require_account_cancellation_task(celery_app)
+        task.apply_async(args=[normalized_bid])
+    except Exception:
+        with app_context_scope(app):
+            cancellation = UserAccountCancellation.query.filter_by(
+                cancellation_bid=normalized_bid
+            ).first()
+            if cancellation is not None:
+                with unit_of_work():
+                    cancellation.status = ACCOUNT_CANCELLATION_STATUS_FAILED
+                    cancellation.failure_code = "enqueue_failed"
+        raise
+
+
+def execute_pending_account_cancellation(
+    app: Flask,
+    *,
+    cancellation_bid: str,
+    record_terminal_failure: bool = True,
+) -> dict[str, Any]:
+    """Execute one persisted cancellation request inside a worker."""
+    normalized_bid = str(cancellation_bid or "").strip()
+    with app_context_scope(app):
+        cancellation = UserAccountCancellation.query.filter_by(
+            cancellation_bid=normalized_bid
+        ).first()
+        if cancellation is None:
+            raise_error("server.user.userNotFound")
+        if cancellation.status == ACCOUNT_CANCELLATION_STATUS_COMPLETED:
+            return _serialize_cancellation(cancellation)
+        snapshot = dict(cancellation.retention_snapshot or {})
+        with unit_of_work():
+            cancellation.status = ACCOUNT_CANCELLATION_STATUS_PROCESSING
+            cancellation.attempt_count = int(cancellation.attempt_count or 0) + 1
+            cancellation.last_attempt_at = now_utc()
+            cancellation.failure_code = ""
+
+        try:
+            return cancel_user_account(
+                app,
+                user_bid=cancellation.user_bid,
+                operator_user_bid=cancellation.operator_user_bid,
+                cancellation_bid=cancellation.cancellation_bid,
+                idempotency_key=cancellation.idempotency_key,
+                preview_version=str(snapshot.get("preview_version") or ""),
+                reason=cancellation.reason,
+                _execute_existing=True,
+            )
+        except Exception:
+            db.session.rollback()
+            if record_terminal_failure:
+                mark_account_cancellation_failed(
+                    app,
+                    cancellation_bid=normalized_bid,
+                    failure_code="execution_failed",
+                )
+            raise
+
+
+def mark_account_cancellation_retrying(app: Flask, *, cancellation_bid: str) -> None:
+    """Expose that a failed worker attempt has a scheduled retry."""
+    with app_context_scope(app):
+        cancellation = UserAccountCancellation.query.filter_by(
+            cancellation_bid=str(cancellation_bid or "").strip()
+        ).first()
+        if cancellation is None or cancellation.status == (
+            ACCOUNT_CANCELLATION_STATUS_COMPLETED
+        ):
+            return
+        with unit_of_work():
+            cancellation.status = ACCOUNT_CANCELLATION_STATUS_RETRYING
+            cancellation.failure_code = ""
+
+
+def mark_account_cancellation_failed(
+    app: Flask, *, cancellation_bid: str, failure_code: str
+) -> None:
+    """Persist a terminal worker failure after all retries are exhausted."""
+    with app_context_scope(app):
+        cancellation = UserAccountCancellation.query.filter_by(
+            cancellation_bid=str(cancellation_bid or "").strip()
+        ).first()
+        if cancellation is None or cancellation.status == (
+            ACCOUNT_CANCELLATION_STATUS_COMPLETED
+        ):
+            return
+        with unit_of_work():
+            cancellation.status = ACCOUNT_CANCELLATION_STATUS_FAILED
+            cancellation.failure_code = str(failure_code or "execution_failed")
+            cancellation.completed_at = None

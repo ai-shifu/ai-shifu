@@ -9,21 +9,31 @@ from decimal import Decimal
 import pytest
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
 )
-from flaskr.service.billing.models import BillingSubscription
+from flaskr.service.billing.models import BillingOrder, BillingSubscription
 from flaskr.service.common.models import AppError
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.admin_operations.courses_transfer_copy import (
     transfer_operator_published_courses,
 )
-from flaskr.service.shifu.admin_operations.users import list_operator_users
+from flaskr.service.shifu.admin_operations.user_credits import get_operator_user_credits
+from flaskr.service.shifu.admin_operations.users import (
+    get_operator_user_detail,
+    list_operator_users,
+)
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.user import account_cancellation
 from flaskr.service.user.account_cancellation import (
     cancel_account_subscription_renewals,
     cancel_user_account,
+    execute_pending_account_cancellation,
     get_account_cancellation_preview,
+    get_account_cancellation_status,
+    request_user_account_cancellation,
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import (
@@ -41,6 +51,7 @@ from flaskr.util.datetime import now_utc
 def _isolate_account_cancellation_tables(app: object) -> object:
     with app.app_context():
         db.session.query(UserAccountCancellation).delete()
+        db.session.query(BillingOrder).delete()
         db.session.query(BillingSubscription).delete()
         db.session.query(UserToken).delete()
         db.session.query(UserVerifyCode).delete()
@@ -53,6 +64,7 @@ def _isolate_account_cancellation_tables(app: object) -> object:
     yield
     with app.app_context():
         db.session.query(UserAccountCancellation).delete()
+        db.session.query(BillingOrder).delete()
         db.session.query(BillingSubscription).delete()
         db.session.query(UserToken).delete()
         db.session.query(UserVerifyCode).delete()
@@ -133,6 +145,7 @@ def test_preview_distinguishes_frozen_drafts_and_published_blockers(
             "published"
         ]
         assert preview["can_cancel"] is False
+        assert preview["user"]["identifier"] == "learner@example.com"
         assert preview["blockers"] == [
             {"code": "published_course_transfer_required", "count": 1}
         ]
@@ -151,6 +164,12 @@ def test_cancel_deidentifies_account_and_preserves_draft(
         deleted_cache_keys.append,
     )
     with app.app_context():
+        _seed_user(
+            app,
+            user_bid="operator",
+            identifier="13900000000",
+            is_operator=True,
+        ).nickname = "Support agent"
         user = _seed_user(app, user_bid=user_bid, identifier="cancel-me@example.com")
         _seed_course(DraftShifu, shifu_bid="kept-draft", user_bid=user_bid)
         db.session.add(
@@ -215,6 +234,20 @@ def test_cancel_deidentifies_account_and_preserves_draft(
             "Requested by account owner"
         )
 
+        cancelled_detail = get_operator_user_detail(app, user_bid)
+        assert cancelled_detail.user_status == "cancelled"
+        assert cancelled_detail.cancellation_reason == "Requested by account owner"
+        assert cancelled_detail.cancellation_operator_mobile == "13900000000"
+        assert cancelled_detail.cancellation_operator_nickname == "Support agent"
+
+        cancelled_credits = get_operator_user_credits(
+            app,
+            user_bid=user_bid,
+            page_index=1,
+            page_size=20,
+        )
+        assert cancelled_credits.total == 0
+
 
 def test_cancel_rejects_stale_preview_without_partial_mutation(app: object) -> None:
     user_bid = uuid.uuid4().hex[:32]
@@ -236,6 +269,122 @@ def test_cancel_rejects_stale_preview_without_partial_mutation(app: object) -> N
         db.session.refresh(user)
         assert user.deleted == 0
         assert UserAccountCancellation.query.count() == 0
+
+
+def test_async_cancellation_persists_then_completes(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_bid = uuid.uuid4().hex[:32]
+    dispatched: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.user.account_cancellation.enqueue_account_cancellation",
+        lambda _app, *, cancellation_bid: dispatched.append(cancellation_bid),
+    )
+    with app.app_context():
+        _seed_user(app, user_bid=user_bid, identifier="async@example.com")
+        db.session.commit()
+        preview = get_account_cancellation_preview(
+            app, user_bid=user_bid, operator_user_bid="operator"
+        )
+        cancellation_bid = uuid.uuid4().hex
+
+        accepted = request_user_account_cancellation(
+            app,
+            user_bid=user_bid,
+            operator_user_bid="operator",
+            cancellation_bid=cancellation_bid,
+            idempotency_key=cancellation_bid,
+            preview_version=preview["preview_version"],
+            reason="Requested by account owner",
+        )
+
+        assert accepted["status"] == "pending"
+        assert dispatched == [cancellation_bid]
+        assert (
+            get_account_cancellation_status(
+                app, user_bid=user_bid, cancellation_bid=cancellation_bid
+            )["status"]
+            == "pending"
+        )
+
+        completed = execute_pending_account_cancellation(
+            app, cancellation_bid=cancellation_bid
+        )
+
+        assert completed["status"] == "completed"
+        assert UserInfo.query.filter_by(user_bid=user_bid).one().deleted == 1
+
+
+def test_async_cancellation_rolls_back_and_can_retry(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_bid = uuid.uuid4().hex[:32]
+    monkeypatch.setattr(
+        "flaskr.service.user.account_cancellation.enqueue_account_cancellation",
+        lambda *_args, **_kwargs: None,
+    )
+    with app.app_context():
+        user = _seed_user(app, user_bid=user_bid, identifier="retry@example.com")
+        token = UserToken(
+            user_id=user_bid,
+            token="retry-token",
+            token_type=0,
+            token_expired_at=now_utc() + timedelta(days=1),
+        )
+        db.session.add(token)
+        db.session.commit()
+        preview = get_account_cancellation_preview(
+            app, user_bid=user_bid, operator_user_bid="operator"
+        )
+        cancellation_bid = uuid.uuid4().hex
+        request_user_account_cancellation(
+            app,
+            user_bid=user_bid,
+            operator_user_bid="operator",
+            cancellation_bid=cancellation_bid,
+            idempotency_key=cancellation_bid,
+            preview_version=preview["preview_version"],
+            reason="Requested by account owner",
+        )
+        original_tombstone = account_cancellation._tombstone
+        monkeypatch.setattr(
+            "flaskr.service.user.account_cancellation._tombstone",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError()),
+        )
+
+        with pytest.raises(RuntimeError):
+            execute_pending_account_cancellation(app, cancellation_bid=cancellation_bid)
+
+        db.session.refresh(user)
+        assert user.deleted == 0
+        assert UserToken.query.filter_by(user_id=user_bid).count() == 1
+        failed = UserAccountCancellation.query.filter_by(
+            cancellation_bid=cancellation_bid
+        ).one()
+        assert failed.status == "failed"
+        assert failed.failure_code == "execution_failed"
+        assert failed.attempt_count == 1
+
+        monkeypatch.setattr(
+            "flaskr.service.user.account_cancellation._tombstone",
+            original_tombstone,
+        )
+        retried = request_user_account_cancellation(
+            app,
+            user_bid=user_bid,
+            operator_user_bid="operator",
+            cancellation_bid=cancellation_bid,
+            idempotency_key=cancellation_bid,
+            preview_version=preview["preview_version"],
+            reason="Requested by account owner",
+        )
+        assert retried["status"] == "pending"
+        assert (
+            execute_pending_account_cancellation(
+                app, cancellation_bid=cancellation_bid
+            )["status"]
+            == "completed"
+        )
 
 
 def test_cancel_subscription_renewals_prepares_manual_subscription(
@@ -263,6 +412,46 @@ def test_cancel_subscription_renewals_prepares_manual_subscription(
         assert subscription.cancel_at_period_end == 1
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
         assert result["preview"]["subscription_renewal_count"] == 0
+
+
+def test_preview_warns_about_paid_preorder_for_manual_refund(app: object) -> None:
+    user_bid = uuid.uuid4().hex[:32]
+    subscription_bid = uuid.uuid4().hex
+    with app.app_context():
+        _seed_user(app, user_bid=user_bid, identifier="preorder@example.com")
+        db.session.add(
+            BillingOrder(
+                bill_order_bid=uuid.uuid4().hex,
+                creator_bid=user_bid,
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                product_bid="future-product",
+                subscription_bid=subscription_bid,
+                currency="CNY",
+                payable_amount=9900,
+                paid_amount=9900,
+                payment_provider="pingxx",
+                channel="wechat",
+                provider_reference_id="paid-preorder",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=now_utc(),
+                metadata_json={
+                    "checkout_type": "subscription_preorder",
+                    "preorder_state": "pending_effective",
+                },
+            )
+        )
+        db.session.commit()
+
+        preview = get_account_cancellation_preview(
+            app, user_bid=user_bid, operator_user_bid="operator"
+        )
+
+        assert preview["paid_preorder_count"] == 1
+        assert preview["can_cancel"] is True
+        assert preview["blockers"] == []
+        assert {item["code"] for item in preview["warnings"]} == {
+            "paid_preorder_refund_required"
+        }
 
 
 def test_batch_transfer_moves_published_courses_and_matching_drafts(

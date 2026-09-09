@@ -200,7 +200,12 @@ export default function useUserDetailViewModel({
     [tOperationsUsers],
   );
   const basicInfoItems = useMemo(() => {
-    const items = [
+    const items: Array<{
+      key: string;
+      label: string;
+      value: string;
+      secondaryValue?: string;
+    }> = [
       {
         key: 'contact',
         label: contactLabel,
@@ -247,7 +252,11 @@ export default function useUserDetailViewModel({
         {
           key: 'cancellationOperator',
           label: tOperationsUsers('detail.cancellationOperator'),
-          value: detail.cancellation_operator_user_bid || EMPTY_VALUE,
+          value:
+            detail.cancellation_operator_mobile ||
+            detail.cancellation_operator_user_bid ||
+            EMPTY_VALUE,
+          secondaryValue: detail.cancellation_operator_nickname || undefined,
         },
       );
     }
@@ -258,6 +267,8 @@ export default function useUserDetailViewModel({
     defaultUserName,
     detail.cancelled_at,
     detail.cancellation_operator_user_bid,
+    detail.cancellation_operator_mobile,
+    detail.cancellation_operator_nickname,
     detail.cancellation_reason,
     detail.created_at,
     detail.last_login_at,

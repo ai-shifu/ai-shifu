@@ -1666,6 +1666,7 @@ export default function AdminOperationUsersPage() {
           <UserCancellationDialog
             open={Boolean(cancellationDialogUser)}
             user={cancellationDialogUser}
+            contactType={contactType}
             onOpenChange={nextOpen => {
               if (!nextOpen) setCancellationDialogUser(null);
             }}
