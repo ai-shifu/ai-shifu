@@ -435,6 +435,10 @@ def init_buy_record(
                 )
         else:
             order_timeout_make_new_order = True
+        if origin_record and origin_record.status == ORDER_STATUS_SUCCESS:
+            # A successful order is immutable purchase history. Reusing it must
+            # not apply newer campaigns or repeat completion side effects.
+            return query_buy_record(app, origin_record.order_bid)
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
             _sync_order_campaign_pricing(
                 app,

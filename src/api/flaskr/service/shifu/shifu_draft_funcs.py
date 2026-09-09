@@ -9,6 +9,7 @@ Date: 2025-08-07
 import json
 import math
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from time import perf_counter
 from typing import Any
 
@@ -77,24 +78,30 @@ SUPPORTED_ASK_ENABLED_STATUSES = {
 }
 
 
-def _resolve_shifu_price(shifu_price: float | None) -> float:
+def _resolve_shifu_price(shifu_price: float | Decimal | None) -> Decimal:
     """Resolve and validate a course price for the current deployment."""
-    minimum_paid_price = float(get_config("MIN_SHIFU_PRICE"))
+    minimum_paid_price = Decimal(str(get_config("MIN_SHIFU_PRICE")))
     configured_default = get_config("DEFAULT_SHIFU_PRICE")
-    if shifu_price is None:
-        price = (
-            float(configured_default)
-            if configured_default is not None
-            else minimum_paid_price
-        )
-    else:
-        price = float(shifu_price)
+    raw_price = (
+        configured_default
+        if shifu_price is None and configured_default is not None
+        else minimum_paid_price
+        if shifu_price is None
+        else shifu_price
+    )
+    try:
+        price = Decimal(str(raw_price))
+    except (InvalidOperation, ValueError):
+        raise_param_error("shifu_price")
+    cent_price = price.quantize(Decimal("0.01")) if price.is_finite() else price
+    if not price.is_finite() or price != cent_price:
+        raise_param_error("shifu_price")
     if price < 0 or (price > 0 and price < minimum_paid_price):
         raise_error_with_args(
             "server.shifu.shifuPriceTooLow",
             min_shifu_price=minimum_paid_price,
         )
-    return price
+    return cent_price
 
 
 def normalize_ask_provider_config(raw_config: object) -> dict[str, object]:
