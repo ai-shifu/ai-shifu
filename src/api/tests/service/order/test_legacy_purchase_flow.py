@@ -174,13 +174,16 @@ def test_zero_price_order_completes_during_initialization_without_provider(
     )
 
     result = init_buy_record(legacy_order_app, "free-user", "free-course")
+    repeated = init_buy_record(legacy_order_app, "free-user", "free-course")
 
     assert result.status == ORDER_STATUS_SUCCESS
+    assert repeated.order_id == result.order_id
     assert Decimal(result.value_to_pay) == Decimal("0.00")
     assert provider_calls == []
     with legacy_order_app.app_context():
         order = Order.query.filter_by(order_bid=result.order_id).one()
         assert order.status == ORDER_STATUS_SUCCESS
+        assert Order.query.filter_by(user_bid="free-user").count() == 1
 
 
 class _FakeSaasConfigFuncs:

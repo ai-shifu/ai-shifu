@@ -406,7 +406,9 @@ def init_buy_record(
             Order.query.filter(
                 Order.user_bid == user_id,
                 Order.shifu_bid == course_id,
-                Order.status.in_([ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID]),
+                Order.status.in_(
+                    [ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_SUCCESS]
+                ),
             )
             .order_by(Order.id.desc())
             .first()
@@ -441,6 +443,8 @@ def init_buy_record(
                 course_id=course_id,
                 active_id=None,
             )
+            if decimal.Decimal(origin_record.paid_price) == decimal.Decimal(0):
+                success_buy_record(app, origin_record.order_bid)
             return query_buy_record(app, origin_record.order_bid)
         order_id = str(get_uuid(app))
         if order_timeout_make_new_order:
