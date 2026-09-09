@@ -144,9 +144,15 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         assert BillingOrder.query.count() == 0
 
 
-def test_zero_price_order_completes_during_initialization_without_provider(
+@pytest.mark.parametrize(
+    ("enabled_payment_channels", "expected_payment_channel"),
+    [("pingxx", "pingxx"), ("stripe", "stripe")],
+)
+def test_zero_price_order_completes_with_market_channel_without_provider(
     legacy_order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
+    enabled_payment_channels: str,
+    expected_payment_channel: str,
 ) -> None:
     from flaskr.service.order import funs as order_funs
 
@@ -161,6 +167,12 @@ def test_zero_price_order_completes_during_initialization_without_provider(
     )
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     monkeypatch.setattr(order_funs, "set_user_state", lambda *_args: None)
+    monkeypatch.setattr(
+        "flaskr.service.order.payment_channel_resolution.get_config",
+        lambda key, default=None: (
+            enabled_payment_channels if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
+    )
     notification_calls: list[str] = []
     monkeypatch.setattr(
         order_funs,
@@ -189,6 +201,7 @@ def test_zero_price_order_completes_during_initialization_without_provider(
     with legacy_order_app.app_context():
         order = Order.query.filter_by(order_bid=result.order_id).one()
         assert order.status == ORDER_STATUS_SUCCESS
+        assert order.payment_channel == expected_payment_channel
         assert Order.query.filter_by(user_bid="free-user").count() == 1
 
 

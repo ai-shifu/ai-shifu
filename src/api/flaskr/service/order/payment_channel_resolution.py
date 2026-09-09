@@ -146,6 +146,20 @@ def resolve_payment_channel(
     return "pingxx", provider_channel
 
 
+def resolve_market_payment_provider(
+    *, additional_enabled_providers: Iterable[str] | None = None
+) -> str:
+    """Return the market provider used to attribute orders that need no charge."""
+    provider, _ = resolve_payment_channel(
+        payment_channel_hint=None,
+        channel_hint=None,
+        stored_channel=None,
+        default_pingxx_channel="alipay_qr",
+        additional_enabled_providers=additional_enabled_providers,
+    )
+    return provider
+
+
 def _provider_for_channel(channel: str, enabled_providers: set[str]) -> str:
     if channel == "alipay_qr":
         return "alipay" if "alipay" in enabled_providers else "pingxx"
