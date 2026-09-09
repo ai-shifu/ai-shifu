@@ -48,8 +48,21 @@ provider.
 Implemented a server-owned market price contract and atomic, idempotent free
 course orders without a schema migration. Cook Web consumes the contract for
 authoring validation and waits for server-confirmed success before unlocking a
-free course. Focused backend tests, frontend tests, type-check, lint, Ruff, and
+free course. Prices are also constrained to the exact `DECIMAL(10, 2)` storage
+range. Focused backend tests, frontend tests, type-check, lint, Ruff, and
 repository harness checks pass.
+
+## Follow-up Opportunities
+
+- Retry runtime configuration after an initial fetch failure. The current
+  compatibility fallback remains 0.50 and requires a refresh to recover, so a
+  transient failure can temporarily hide China's 0.01 authoring option.
+- Freeze the analytics identity version across the existing asynchronous
+  course-settings save event. This attribution race predates the price-tier
+  field and should be corrected once for the shared tracking path.
+- Promote the real payment-hook and authoring-form boundary probes into stable
+  integration coverage. The current suite covers the price policy, order
+  transition, provider bypass, and settings analytics independently.
 
 ## Context and Orientation
 
