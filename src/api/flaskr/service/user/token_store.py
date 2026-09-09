@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 from flaskr.common.cache_provider import cache
 from flaskr.dao import db
-from flaskr.service.user.models import UserInfo
 from flaskr.service.user.models import UserToken as UserTokenModel
 from flaskr.util.datetime import now_utc
 
@@ -168,15 +167,23 @@ class TokenStoreProvider:
                 cached_user_id = cached_user_id.decode("utf-8")
             if cached_user_id:
                 if str(cached_user_id) == expected_user_id:
-                    # Account cancellation deletes the durable token row and marks the
-                    # account inactive in one transaction. Validate that lifecycle on
-                    # cache hits so a failed Redis eviction cannot keep a cancelled
-                    # session alive until its cache TTL expires.
-                    active_user = UserInfo.query.filter(
-                        UserInfo.user_bid == expected_user_id,
-                        UserInfo.deleted == 0,
-                    ).first()
-                    if active_user is None:
+                    # Session revocation and account cancellation both delete the
+                    # durable token row. Treat it as the source of truth on cache hits
+                    # so a failed Redis eviction cannot keep either session alive.
+                    durable_session = (
+                        UserTokenModel.query.filter(
+                            UserTokenModel.token == token,
+                            UserTokenModel.user_id == expected_user_id,
+                        )
+                        .order_by(UserTokenModel.id.desc())
+                        .first()
+                    )
+                    expires_at = getattr(durable_session, "token_expired_at", None)
+                    if (
+                        durable_session is None
+                        or expires_at is None
+                        or expires_at <= now_utc()
+                    ):
                         with contextlib.suppress(Exception):
                             self._cache.delete(cache_key)
                             self._cache.delete(self._refresh_marker_key(app, token))
