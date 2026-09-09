@@ -7,6 +7,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from flask import Config as FlaskConfig
@@ -18,6 +19,36 @@ if TYPE_CHECKING:
 
 class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
+
+
+MAX_COURSE_PRICE = Decimal("99999999.99")
+
+
+def parse_nonnegative_cent_amount(value: object) -> Decimal:
+    """Parse an amount that fits the course-price DECIMAL(10, 2) columns."""
+    try:
+        amount = Decimal(str(value))
+        cent_amount = amount.quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        message = "must be a finite nonnegative amount with at most two decimals"
+        raise ValueError(message) from exc
+    if (
+        not amount.is_finite()
+        or amount < 0
+        or amount > MAX_COURSE_PRICE
+        or amount != cent_amount
+    ):
+        message = "must be a finite nonnegative amount with at most two decimals"
+        raise ValueError(message)
+    return cent_amount
+
+
+def _is_valid_nonnegative_cent_amount(value: object) -> bool:
+    try:
+        parse_nonnegative_cent_amount(value)
+    except ValueError:
+        return False
+    return True
 
 
 @dataclass
@@ -73,8 +104,14 @@ class EnvVar:
         elif self.type is float:
             try:
                 return float(value)
-            except ValueError as exc:
+            except (TypeError, ValueError) as exc:
                 message = f"Invalid float value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
+        elif self.type is Decimal:
+            try:
+                return Decimal(str(value))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                message = f"Invalid decimal value for {self.name}: {value}"
                 raise EnvironmentConfigError(message) from exc
         elif self.type is list:
             if isinstance(value, str):
@@ -1630,9 +1667,18 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     # Minimum Shifu Price
     "MIN_SHIFU_PRICE": EnvVar(
         name="MIN_SHIFU_PRICE",
-        default=0.5,
-        type=float,
-        description="Minimum price of shifu",
+        default=Decimal("0.5"),
+        type=Decimal,
+        validator=_is_valid_nonnegative_cent_amount,
+        description="Minimum positive price of shifu; zero is free",
+        group="shifu",
+    ),
+    "DEFAULT_SHIFU_PRICE": EnvVar(
+        name="DEFAULT_SHIFU_PRICE",
+        default=Decimal("0.5"),
+        type=Decimal,
+        validator=_is_valid_nonnegative_cent_amount,
+        description="Default price assigned to a new shifu",
         group="shifu",
     ),
     # TTS Configuration

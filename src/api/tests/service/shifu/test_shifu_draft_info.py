@@ -94,6 +94,68 @@ def _mock_route_permission(
     )
 
 
+@pytest.mark.parametrize(
+    ("minimum", "default", "price", "expected"),
+    [
+        (0.01, 0.0, None, 0.0),
+        (0.01, 0.0, 0.0, 0.0),
+        (0.01, 0.0, 0.01, 0.01),
+        (0.5, 0.5, 0.0, 0.0),
+        (0.5, 0.5, 0.5, 0.5),
+    ],
+)
+def test_course_price_policy_accepts_market_boundaries(
+    monkeypatch: pytest.MonkeyPatch,
+    minimum: float,
+    default: float,
+    price: float | None,
+    expected: float,
+) -> None:
+    from flaskr.service.shifu import shifu_draft_funcs
+
+    values = {"MIN_SHIFU_PRICE": minimum, "DEFAULT_SHIFU_PRICE": default}
+    monkeypatch.setattr(shifu_draft_funcs, "get_config", values.__getitem__)
+
+    assert shifu_draft_funcs._resolve_shifu_price(price) == Decimal(str(expected))
+
+
+def test_global_course_price_policy_rejects_positive_amount_below_stripe_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.shifu import shifu_draft_funcs
+
+    values = {"MIN_SHIFU_PRICE": 0.5, "DEFAULT_SHIFU_PRICE": 0.5}
+    monkeypatch.setattr(shifu_draft_funcs, "get_config", values.__getitem__)
+
+    with pytest.raises(AppError):
+        shifu_draft_funcs._resolve_shifu_price(0.01)
+
+
+@pytest.mark.parametrize(
+    "price",
+    [
+        0.011,
+        0.501,
+        float("nan"),
+        float("inf"),
+        Decimal("100000000.00"),
+        Decimal("1e100"),
+    ],
+)
+def test_course_price_policy_rejects_values_that_cannot_be_stored_exactly(
+    monkeypatch: pytest.MonkeyPatch, price: float
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.shifu import shifu_draft_funcs
+
+    values = {"MIN_SHIFU_PRICE": 0.01, "DEFAULT_SHIFU_PRICE": 0.0}
+    monkeypatch.setattr(shifu_draft_funcs, "get_config", values.__getitem__)
+
+    with pytest.raises(AppError):
+        shifu_draft_funcs._resolve_shifu_price(price)
+
+
 def test_save_shifu_draft_info_keeps_existing_price_when_input_is_none(
     app: object, monkeypatch: object
 ) -> None:

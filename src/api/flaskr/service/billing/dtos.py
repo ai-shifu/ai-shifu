@@ -928,6 +928,10 @@ class RuntimeConfigDTO(BillingBaseDTO):
     contact_us_url: str = Field(alias="contactUsUrl")
     official_site_url: str = Field(alias="officialSiteUrl")
     currency_symbol: str = Field(alias="currencySymbol")
+    default_course_price: float = Field(default=0.5, alias="defaultCoursePrice")
+    minimum_paid_course_price: float = Field(
+        default=0.5, alias="minimumPaidCoursePrice"
+    )
     legal_urls: RuntimeLegalUrlsDTO = Field(alias="legalUrls")
     entitlements: RuntimeBillingEntitlementsDTO
     branding: RuntimeBillingBrandingDTO

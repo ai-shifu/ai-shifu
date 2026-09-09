@@ -211,6 +211,8 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         contact_us_url="https://ai-shifu.cn/contact.html",
         official_site_url="https://official.example.com",
         currency_symbol="¥",
+        default_course_price=0,
+        minimum_paid_course_price=0.01,
         legal_urls=RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
                 **{
@@ -302,6 +304,8 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         "contactUsUrl",
         "officialSiteUrl",
         "currencySymbol",
+        "defaultCoursePrice",
+        "minimumPaidCoursePrice",
         "legalUrls",
         "entitlements",
         "branding",

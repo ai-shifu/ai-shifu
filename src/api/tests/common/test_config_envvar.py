@@ -1,10 +1,13 @@
 """Unit tests for EnvVar dataclass."""
 
+from decimal import Decimal
+
 import pytest
 from flaskr.common.config import (
     ENV_VARS,
     EnvVar,
     parse_llm_model_max_output_tokens,
+    parse_nonnegative_cent_amount,
 )
 
 from tests.common.fixtures.mock_validators import (
@@ -14,6 +17,23 @@ from tests.common.fixtures.mock_validators import (
     mock_port_validator,
     range_validator,
 )
+
+
+@pytest.mark.parametrize(
+    "value", ["nan", "inf", "-0.01", "0.501", "100000000.00", "1e100"]
+)
+def test_parse_nonnegative_cent_amount_rejects_invalid_money(value: str) -> None:
+    with pytest.raises(ValueError, match="finite nonnegative amount"):
+        parse_nonnegative_cent_amount(value)
+
+
+@pytest.mark.parametrize(
+    "value", ["0", "0.01", 0.5, Decimal("12.30"), Decimal("99999999.99")]
+)
+def test_parse_nonnegative_cent_amount_accepts_exact_money(value: object) -> None:
+    assert parse_nonnegative_cent_amount(value) == Decimal(str(value)).quantize(
+        Decimal("0.01")
+    )
 
 
 class TestEnvVarInitialization:
@@ -120,6 +140,15 @@ class TestEnvVarTypeConversion:
         assert env_var.convert_type(2.71) == 2.71  # Already float
         assert env_var.convert_type("10") == 10.0
         assert env_var.convert_type("") == 1.5  # Empty returns default
+
+    def test_convert_to_decimal_preserves_source_precision(self) -> None:
+        """Test decimal conversion does not round through binary floating point."""
+        env_var = EnvVar(name="DECIMAL_VAR", type=Decimal, default=Decimal("0.5"))
+
+        assert env_var.convert_type("0.50000000000000001") == Decimal(
+            "0.50000000000000001"
+        )
+        assert env_var.convert_type("") == Decimal("0.5")
 
     def test_convert_to_bool(self) -> None:
         """Test string to bool conversion."""

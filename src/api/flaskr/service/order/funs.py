@@ -406,7 +406,9 @@ def init_buy_record(
             Order.query.filter(
                 Order.user_bid == user_id,
                 Order.shifu_bid == course_id,
-                Order.status.in_([ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID]),
+                Order.status.in_(
+                    [ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_SUCCESS]
+                ),
             )
             .order_by(Order.id.desc())
             .first()
@@ -433,6 +435,10 @@ def init_buy_record(
                 )
         else:
             order_timeout_make_new_order = True
+        if origin_record and origin_record.status == ORDER_STATUS_SUCCESS:
+            # A successful order is immutable purchase history. Reusing it must
+            # not apply newer campaigns or repeat completion side effects.
+            return query_buy_record(app, origin_record.order_bid)
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
             _sync_order_campaign_pricing(
                 app,
@@ -441,6 +447,8 @@ def init_buy_record(
                 course_id=course_id,
                 active_id=None,
             )
+            if decimal.Decimal(origin_record.paid_price) == decimal.Decimal(0):
+                success_buy_record(app, origin_record.order_bid)
             return query_buy_record(app, origin_record.order_bid)
         order_id = str(get_uuid(app))
         if order_timeout_make_new_order:
@@ -462,6 +470,8 @@ def init_buy_record(
             course_id=course_id,
             active_id=active_id,
         )
+        if decimal.Decimal(buy_record.paid_price) == decimal.Decimal(0):
+            success_buy_record(app, buy_record.order_bid)
         price_items = []
         price_items.append(
             PayItemDto(

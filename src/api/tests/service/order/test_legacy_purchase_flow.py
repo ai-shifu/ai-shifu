@@ -14,7 +14,7 @@ from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
 from flaskr.service.billing.models import BillingOrder
-from flaskr.service.order.consts import ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.funs import (
     BuyRecordDTO,
     generate_charge,
@@ -142,6 +142,92 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         assert order.status == ORDER_STATUS_TO_BE_PAID
         assert order.payment_channel == "pingxx"
         assert BillingOrder.query.count() == 0
+
+
+def test_zero_price_order_completes_during_initialization_without_provider(
+    legacy_order_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.order import funs as order_funs
+
+    monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda *_args: "u1")
+    monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args: None)
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            price=Decimal("0.00"), title="Free course", description="Free"
+        ),
+    )
+    monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
+    monkeypatch.setattr(order_funs, "set_user_state", lambda *_args: None)
+    notification_calls: list[str] = []
+    monkeypatch.setattr(
+        order_funs,
+        "send_order_feishu",
+        lambda _app, order_bid: notification_calls.append(order_bid),
+    )
+    provider_calls: list[str] = []
+
+    def record_provider_call(name: str) -> None:
+        provider_calls.append(name)
+
+    monkeypatch.setattr(
+        order_funs,
+        "get_payment_provider",
+        record_provider_call,
+    )
+
+    result = init_buy_record(legacy_order_app, "free-user", "free-course")
+    repeated = init_buy_record(legacy_order_app, "free-user", "free-course")
+
+    assert result.status == ORDER_STATUS_SUCCESS
+    assert repeated.order_id == result.order_id
+    assert Decimal(result.value_to_pay) == Decimal("0.00")
+    assert provider_calls == []
+    assert notification_calls == [result.order_id]
+    with legacy_order_app.app_context():
+        order = Order.query.filter_by(order_bid=result.order_id).one()
+        assert order.status == ORDER_STATUS_SUCCESS
+        assert Order.query.filter_by(user_bid="free-user").count() == 1
+
+
+def test_successful_order_retry_does_not_reprice_purchase_history(
+    legacy_order_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.order import funs as order_funs
+
+    monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda *_args: "u1")
+    monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args: None)
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        lambda *_args, **_kwargs: SimpleNamespace(price=Decimal("20.00")),
+    )
+    with legacy_order_app.app_context():
+        order = Order(
+            order_bid="paid-order",
+            user_bid="paid-user",
+            shifu_bid="paid-course",
+            creator_bid="u1",
+            payable_price=Decimal("20.00"),
+            paid_price=Decimal("20.00"),
+            status=ORDER_STATUS_SUCCESS,
+        )
+        dao.db.session.add(order)
+        dao.db.session.commit()
+
+    monkeypatch.setattr(
+        order_funs,
+        "_sync_order_campaign_pricing",
+        lambda *_args, **_kwargs: pytest.fail("successful orders must not be repriced"),
+    )
+
+    result = init_buy_record(legacy_order_app, "paid-user", "paid-course")
+
+    assert result.order_id == "paid-order"
+    assert Decimal(result.value_to_pay) == Decimal("20.00")
 
 
 class _FakeSaasConfigFuncs:

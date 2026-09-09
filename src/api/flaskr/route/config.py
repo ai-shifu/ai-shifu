@@ -269,6 +269,8 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             contact_us_url=contact_us_url,
             official_site_url=official_site_url,
             currency_symbol=get_config("CURRENCY_SYMBOL", "¥"),
+            default_course_price=float(get_config("DEFAULT_SHIFU_PRICE", 0.5)),
+            minimum_paid_course_price=float(get_config("MIN_SHIFU_PRICE", 0.5)),
             legal_urls=legal_urls,
             entitlements=runtime_billing.entitlements,
             branding=runtime_billing.branding,
