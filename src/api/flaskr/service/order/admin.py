@@ -628,6 +628,32 @@ def _resolve_order_display_payment_channel(order: Order) -> str:
     return resolve_market_payment_provider()
 
 
+def _apply_payment_channel_filter(query: Query, payment_channel: str) -> Query:
+    """Filter by the same effective channel exposed in order DTOs."""
+    normalized_channel = str(payment_channel or "").strip()
+    if not normalized_channel:
+        return query
+
+    market_provider = resolve_market_payment_provider()
+    if market_provider == "pingxx":
+        return query.filter(Order.payment_channel == normalized_channel)
+
+    legacy_free_order = db.and_(
+        Order.payment_channel == "pingxx",
+        Order.paid_price == Decimal(0),
+    )
+    if normalized_channel == market_provider:
+        return query.filter(
+            db.or_(Order.payment_channel == normalized_channel, legacy_free_order)
+        )
+    if normalized_channel == "pingxx":
+        return query.filter(
+            Order.payment_channel == "pingxx",
+            Order.paid_price != Decimal(0),
+        )
+    return query.filter(Order.payment_channel == normalized_channel)
+
+
 def _build_order_item(
     order: Order,
     shifu_map: dict[str, DraftShifu | PublishedShifu],
@@ -937,7 +963,7 @@ def list_orders(
 
         payment_channel = filters.get("payment_channel")
         if payment_channel:
-            query = query.filter(Order.payment_channel == payment_channel)
+            query = _apply_payment_channel_filter(query, str(payment_channel))
 
         start_time = _normalize_order_datetime_filter(filters.get("start_time"))
         if start_time:
@@ -1016,7 +1042,7 @@ def list_operator_orders(
 
         payment_channel = str(filters.get("payment_channel", "") or "").strip()
         if payment_channel:
-            query = query.filter(Order.payment_channel == payment_channel)
+            query = _apply_payment_channel_filter(query, payment_channel)
 
         order_source = str(filters.get("order_source", "") or "").strip()
         if order_source:

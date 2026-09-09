@@ -9,6 +9,7 @@ from flaskr.dao import db
 from flaskr.service.common import raise_error
 from flaskr.service.order.funs import (
     AICourseBuyRecordDTO,
+    assign_free_order_payment_channel,
     query_buy_record,
     success_buy_record,
 )
@@ -267,6 +268,8 @@ def use_coupon_code(
             )
         if decimal.Decimal(buy_record.paid_price) < 0:
             buy_record.paid_price = decimal.Decimal(0)
+        if buy_record.paid_price == 0:
+            assign_free_order_payment_channel(buy_record)
         buy_record.updated_at = now
         coupon_usage.updated_at = now
         if not user_usage_already_bound:

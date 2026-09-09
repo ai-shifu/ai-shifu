@@ -14,9 +14,14 @@ from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
 from flaskr.service.billing.models import BillingOrder
-from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.consts import (
+    ORDER_STATUS_INIT,
+    ORDER_STATUS_SUCCESS,
+    ORDER_STATUS_TO_BE_PAID,
+)
 from flaskr.service.order.funs import (
     BuyRecordDTO,
+    assign_free_order_payment_channel,
     generate_charge,
     init_buy_record,
     query_buy_record,
@@ -203,6 +208,27 @@ def test_zero_price_order_completes_with_market_channel_without_provider(
         assert order.status == ORDER_STATUS_SUCCESS
         assert order.payment_channel == expected_payment_channel
         assert Order.query.filter_by(user_bid="free-user").count() == 1
+
+
+@pytest.mark.parametrize("payment_channel", ["manual", "open_api"])
+def test_free_order_keeps_explicit_non_provider_channel(
+    monkeypatch: pytest.MonkeyPatch, payment_channel: str
+) -> None:
+    order = SimpleNamespace(
+        payment_channel=payment_channel,
+        status=ORDER_STATUS_INIT,
+    )
+
+    def fail_if_called() -> None:
+        pytest.fail("market provider should not be resolved")
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.resolve_market_payment_provider", fail_if_called
+    )
+
+    assign_free_order_payment_channel(order)
+
+    assert order.payment_channel == payment_channel
 
 
 def test_successful_order_retry_does_not_reprice_purchase_history(
