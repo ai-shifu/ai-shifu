@@ -234,6 +234,67 @@ def test_a_session_served_from_cache_keeps_its_row_alive(
         assert len(list_user_sessions(user_id=user_id)) == 1
 
 
+def test_a_valid_cached_session_survives_a_transient_row_refresh_failure(
+    app: object, user_id: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed sliding-expiry write must not sign out a valid session."""
+    with app.test_request_context():
+        token = _sign_in(app, user_id)
+
+    def fail_to_refresh(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(token_store, "_refresh_row_periodically", fail_to_refresh)
+
+    with app.test_request_context():
+        ttl = int(app.config.get("TOKEN_EXPIRE_TIME", 604800))
+        result = token_store.get_and_refresh(
+            app, token=token, expected_user_id=user_id, ttl_seconds=ttl
+        )
+
+    assert result is not None
+    assert result.user_id == user_id
+
+
+def test_a_session_revoked_during_its_cached_refresh_is_rejected(
+    app: object, user_id: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Do not revive a row deleted between validation and expiry renewal."""
+    with app.test_request_context():
+        token = _sign_in(app, user_id)
+
+    def report_missing_row(*_args: object, **_kwargs: object) -> bool:
+        return False
+
+    monkeypatch.setattr(token_store, "_refresh_row_periodically", report_missing_row)
+
+    with app.test_request_context():
+        ttl = int(app.config.get("TOKEN_EXPIRE_TIME", 604800))
+        result = token_store.get_and_refresh(
+            app, token=token, expected_user_id=user_id, ttl_seconds=ttl
+        )
+
+    assert result is None
+
+
+def test_a_cached_session_without_its_durable_row_is_rejected(
+    app: object, user_id: str
+) -> None:
+    """Deleting the durable row must still revoke a cache-resident session."""
+    with app.test_request_context():
+        token = _sign_in(app, user_id)
+        UserToken.query.filter(UserToken.token == token).delete()
+        db.session.commit()
+
+    with app.test_request_context():
+        ttl = int(app.config.get("TOKEN_EXPIRE_TIME", 604800))
+        result = token_store.get_and_refresh(
+            app, token=token, expected_user_id=user_id, ttl_seconds=ttl
+        )
+
+    assert result is None
+
+
 @pytest.mark.parametrize(
     ("user_agent", "expected"),
     [

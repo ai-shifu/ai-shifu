@@ -109,7 +109,7 @@ class TokenStoreProvider:
 
     def _refresh_row_periodically(
         self, app: Flask, *, token: str, user_id: str, ttl_seconds: int
-    ) -> bool:
+    ) -> bool | None:
         """Keep the stored expiry from falling behind a cache-served session.
 
         A cache hit renews only the cache entry, so a session in constant use
@@ -143,7 +143,7 @@ class TokenStoreProvider:
                     return False
         except Exception:
             app.logger.warning("could not refresh token row expiry")
-            return False
+            return None
 
         with contextlib.suppress(Exception):
             self._cache.set(marker, "1", ex=max(1, ttl_seconds // 2))
@@ -191,12 +191,17 @@ class TokenStoreProvider:
                             self._cache.delete(cache_key)
                             self._cache.delete(self._refresh_marker_key(app, token))
                         return None
-                    if not self._refresh_row_periodically(
+                    refresh_result = self._refresh_row_periodically(
                         app,
                         token=token,
                         user_id=expected_user_id,
                         ttl_seconds=ttl_seconds,
-                    ):
+                    )
+                    # A missing row means the session was revoked between the
+                    # validation query and the refresh write. Database errors are
+                    # different: expiry renewal is best-effort and must not turn a
+                    # valid request into a logout.
+                    if refresh_result is False:
                         return None
                     return TokenLookupResult(user_id=expected_user_id)
                 # Defensive: token should never map to a different user id.
