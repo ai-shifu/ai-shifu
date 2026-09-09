@@ -1632,7 +1632,14 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="MIN_SHIFU_PRICE",
         default=0.5,
         type=float,
-        description="Minimum price of shifu",
+        description="Minimum positive price of shifu; zero is free",
+        group="shifu",
+    ),
+    "DEFAULT_SHIFU_PRICE": EnvVar(
+        name="DEFAULT_SHIFU_PRICE",
+        default=0.5,
+        type=float,
+        description="Default price assigned to a new shifu",
         group="shifu",
     ),
     # TTS Configuration

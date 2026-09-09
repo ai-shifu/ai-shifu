@@ -77,6 +77,26 @@ SUPPORTED_ASK_ENABLED_STATUSES = {
 }
 
 
+def _resolve_shifu_price(shifu_price: float | None) -> float:
+    """Resolve and validate a course price for the current deployment."""
+    minimum_paid_price = float(get_config("MIN_SHIFU_PRICE"))
+    configured_default = get_config("DEFAULT_SHIFU_PRICE")
+    if shifu_price is None:
+        price = (
+            float(configured_default)
+            if configured_default is not None
+            else minimum_paid_price
+        )
+    else:
+        price = float(shifu_price)
+    if price < 0 or (price > 0 and price < minimum_paid_price):
+        raise_error_with_args(
+            "server.shifu.shifuPriceTooLow",
+            min_shifu_price=minimum_paid_price,
+        )
+    return price
+
+
 def normalize_ask_provider_config(raw_config: object) -> dict[str, object]:
     """Normalize ask_provider_config into a stable object shape."""
     parsed: dict[str, Any] = {}
@@ -294,7 +314,7 @@ def create_shifu_draft(
             keywords=",".join(shifu_keywords) if shifu_keywords else "",
             llm=shifu_model or "",
             llm_temperature=shifu_temperature or 0.3,
-            price=shifu_price or get_config("MIN_SHIFU_PRICE"),
+            price=_resolve_shifu_price(shifu_price),
             deleted=0,  # not deleted
             created_user_bid=user_id,
             created_at=now_time,
@@ -615,15 +635,9 @@ def save_shifu_draft_info(
                 normalized_ask_provider_config
             )
 
-        min_shifu_price = get_config("MIN_SHIFU_PRICE")
         if shifu_price is None and shifu_draft:
             shifu_price = float(shifu_draft.price)
-        elif shifu_price is None:
-            shifu_price = min_shifu_price
-        if shifu_price < min_shifu_price:
-            raise_error_with_args(
-                "server.shifu.shifuPriceTooLow", min_shifu_price=min_shifu_price
-            )
+        shifu_price = _resolve_shifu_price(shifu_price)
         if not shifu_draft:
             # First-time draft: there is no current value to preserve, so fill
             # sensible defaults for any field the caller omitted (None).

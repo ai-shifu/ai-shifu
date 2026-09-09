@@ -462,6 +462,8 @@ def init_buy_record(
             course_id=course_id,
             active_id=active_id,
         )
+        if decimal.Decimal(buy_record.paid_price) == decimal.Decimal(0):
+            success_buy_record(app, buy_record.order_bid)
         price_items = []
         price_items.append(
             PayItemDto(
