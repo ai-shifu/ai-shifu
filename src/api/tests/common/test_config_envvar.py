@@ -19,13 +19,17 @@ from tests.common.fixtures.mock_validators import (
 )
 
 
-@pytest.mark.parametrize("value", ["nan", "inf", "-0.01", "0.501", "1e100"])
+@pytest.mark.parametrize(
+    "value", ["nan", "inf", "-0.01", "0.501", "100000000.00", "1e100"]
+)
 def test_parse_nonnegative_cent_amount_rejects_invalid_money(value: str) -> None:
     with pytest.raises(ValueError, match="finite nonnegative amount"):
         parse_nonnegative_cent_amount(value)
 
 
-@pytest.mark.parametrize("value", ["0", "0.01", 0.5, Decimal("12.30")])
+@pytest.mark.parametrize(
+    "value", ["0", "0.01", 0.5, Decimal("12.30"), Decimal("99999999.99")]
+)
 def test_parse_nonnegative_cent_amount_accepts_exact_money(value: object) -> None:
     assert parse_nonnegative_cent_amount(value) == Decimal(str(value)).quantize(
         Decimal("0.01")

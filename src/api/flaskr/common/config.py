@@ -21,15 +21,23 @@ class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
 
 
+MAX_COURSE_PRICE = Decimal("99999999.99")
+
+
 def parse_nonnegative_cent_amount(value: object) -> Decimal:
-    """Parse a finite, nonnegative monetary amount with exact cent precision."""
+    """Parse an amount that fits the course-price DECIMAL(10, 2) columns."""
     try:
         amount = Decimal(str(value))
         cent_amount = amount.quantize(Decimal("0.01"))
     except (InvalidOperation, TypeError, ValueError) as exc:
         message = "must be a finite nonnegative amount with at most two decimals"
         raise ValueError(message) from exc
-    if not amount.is_finite() or amount < 0 or amount != cent_amount:
+    if (
+        not amount.is_finite()
+        or amount < 0
+        or amount > MAX_COURSE_PRICE
+        or amount != cent_amount
+    ):
         message = "must be a finite nonnegative amount with at most two decimals"
         raise ValueError(message)
     return cent_amount

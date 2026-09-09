@@ -133,7 +133,15 @@ def test_global_course_price_policy_rejects_positive_amount_below_stripe_minimum
 
 
 @pytest.mark.parametrize(
-    "price", [0.011, 0.501, float("nan"), float("inf"), Decimal("1e100")]
+    "price",
+    [
+        0.011,
+        0.501,
+        float("nan"),
+        float("inf"),
+        Decimal("100000000.00"),
+        Decimal("1e100"),
+    ],
 )
 def test_course_price_policy_rejects_values_that_cannot_be_stored_exactly(
     monkeypatch: pytest.MonkeyPatch, price: float
