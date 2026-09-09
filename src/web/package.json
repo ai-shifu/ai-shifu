@@ -119,7 +119,7 @@
     "less": "^4.2.2",
     "lint-staged": "^15.5.1",
     "next-with-less": "^3.0.1",
-    "postcss": "^8.5.23",
+    "postcss": "^8.5.24",
     "prettier": "3.7.4",
     "sass": "^1.89.2",
     "tailwindcss": "^4.1.13",
