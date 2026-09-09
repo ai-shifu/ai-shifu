@@ -126,10 +126,25 @@ class AdminOperationUserSummaryDTO(BaseModel):
     )
     created_at: datetime | None = Field(..., description="Created at", required=False)
     updated_at: datetime | None = Field(..., description="Updated at", required=False)
+    cancelled_at: datetime | None = Field(
+        default=None, description="Account cancellation time", required=False
+    )
+    cancellation_operator_user_bid: str = Field(
+        default="", description="Operator who cancelled the account", required=False
+    )
 
     def __json__(self) -> dict[str, object]:
         """Return the operator user summary as JSON-compatible data."""
         return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserDetailDTO(AdminOperationUserSummaryDTO):
+    """User detail including restricted cancellation audit text."""
+
+    cancellation_reason: str = Field(
+        default="", description="Operator-provided cancellation reason", required=False
+    )
 
 
 @register_schema_to_swagger

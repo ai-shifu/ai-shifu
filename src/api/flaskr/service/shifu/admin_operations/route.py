@@ -72,6 +72,7 @@ from flaskr.service.shifu.admin_operations.courses import (
     get_operator_course_users,
     list_operator_courses,
     transfer_operator_course_creator,
+    transfer_operator_published_courses,
 )
 from flaskr.service.shifu.admin_operations.credit_notifications import (
     dry_run_operator_credit_notifications,
@@ -107,13 +108,24 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
     list_operator_voice_clones,
     register_operator_voice_clone,
 )
+from flaskr.service.user.api import (
+    cancel_account_subscription_renewals,
+    cancel_user_account,
+    get_account_cancellation_preview,
+)
 from flaskr.util.datetime import parse_naive_utc
 from pydantic import ValidationError
 
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
-OPERATOR_USER_STATUS_VALUES = {"unregistered", "registered", "trial", "paid"}
+OPERATOR_USER_STATUS_VALUES = {
+    "unregistered",
+    "registered",
+    "trial",
+    "paid",
+    "cancelled",
+}
 OPERATOR_USER_ROLE_VALUES = {"operator", "creator", "learner", "regular"}
 PROMOTION_COUPON_STATUS_VALUES = {"inactive", "not_started", "active", "expired"}
 PROMOTION_CAMPAIGN_STATUS_VALUES = {"inactive", "not_started", "active", "ended"}
@@ -2025,6 +2037,95 @@ def register_admin_operations_routes(
         """
         _require_operator()
         return make_common_response(get_operator_user_detail(app, user_bid))
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/cancellation-preview",
+        methods=["GET"],
+    )
+    def admin_operation_user_cancellation_preview(user_bid: str) -> str:
+        """Preview blockers and warnings for operator account cancellation."""
+        _require_operator()
+        operator_user_bid = str(getattr(request.user, "user_id", "") or "")
+        return make_common_response(
+            get_account_cancellation_preview(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=operator_user_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/transfer-published-courses",
+        methods=["POST"],
+    )
+    def admin_operation_user_transfer_published_courses(user_bid: str) -> str:
+        """Transfer every published course before cancelling its owner."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+        identifiers = _validate_contacts(
+            contact_type,
+            _normalize_contacts(payload.get("identifier", "")),
+        )
+        if len(identifiers) != 1:
+            raise_param_error("contact")
+        return make_common_response(
+            transfer_operator_published_courses(
+                app,
+                previous_creator_user_bid=user_bid,
+                contact_type=contact_type,
+                identifier=identifiers[0],
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/cancel-subscription-renewals",
+        methods=["POST"],
+    )
+    def admin_operation_user_cancel_subscription_renewals(user_bid: str) -> str:
+        """Cancel future renewals before final account cancellation."""
+        _require_operator()
+        return make_common_response(
+            cancel_account_subscription_renewals(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/cancel",
+        methods=["POST"],
+    )
+    def admin_operation_user_cancel(user_bid: str) -> str:
+        """Cancel and de-identify one user account."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        return make_common_response(
+            cancel_user_account(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                cancellation_bid=str(payload.get("cancellation_bid", "") or ""),
+                idempotency_key=str(
+                    payload.get("idempotency_key")
+                    or payload.get("cancellation_bid")
+                    or ""
+                ),
+                preview_version=str(payload.get("preview_version", "") or ""),
+                reason=str(payload.get("reason", "") or ""),
+            )
+        )
 
     @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/credits", methods=["GET"]

@@ -45,6 +45,7 @@ from flaskr.service.shifu.admin_shared import (
     OPERATOR_USER_ROLE_LEARNER,
     OPERATOR_USER_ROLE_OPERATOR,
     OPERATOR_USER_ROLE_REGULAR,
+    OPERATOR_USER_STATUS_CANCELLED,
     OPERATOR_USER_STATUS_UNKNOWN,
     OPERATOR_USER_SUPPORTED_LOGIN_METHOD_PROVIDERS,
     USER_STATE_TO_OPERATOR_STATUS,
@@ -773,6 +774,7 @@ def _build_operator_user_summary(
     | None = None,
     learning_course_count_map: dict[str, int] | None = None,
     created_course_count_map: dict[str, int] | None = None,
+    cancellation_map: dict[str, dict[str, object]] | None = None,
 ) -> AdminOperationUserSummaryDTO:
     user_bid = str(user.user_bid or "").strip()
     contact = contact_map.get(user.user_bid or "", {})
@@ -781,12 +783,17 @@ def _build_operator_user_summary(
     has_credit_account = bool(user.is_creator) or credit_summary is not None
     learning_courses = list((learning_courses_map or {}).get(user_bid, []) or [])
     created_courses = list((created_courses_map or {}).get(user_bid, []) or [])
+    cancellation = (cancellation_map or {}).get(user_bid, {})
     return AdminOperationUserSummaryDTO(
         user_bid=user_bid,
         mobile=str(contact.get("mobile", "") or ""),
         email=str(contact.get("email", "") or ""),
         nickname=user.nickname or "",
-        user_status=_resolve_operator_user_status(user.state),
+        user_status=(
+            OPERATOR_USER_STATUS_CANCELLED
+            if bool(user.deleted)
+            else _resolve_operator_user_status(user.state)
+        ),
         user_role=_resolve_operator_user_role(
             is_creator=bool(user.is_creator),
             is_operator=bool(user.is_operator),
@@ -853,22 +860,25 @@ def _build_operator_user_summary(
         last_learning_at=last_learning_map.get(user_bid),
         created_at=user.created_at,
         updated_at=user.updated_at,
+        cancelled_at=user.cancelled_at,
+        cancellation_reason=str(cancellation.get("reason", "") or ""),
+        cancellation_operator_user_bid=str(
+            cancellation.get("operator_user_bid", "") or ""
+        ),
     )
 
 
-def _load_operator_user_or_raise(user_bid: str) -> UserEntity:
+def _load_operator_user_or_raise(
+    user_bid: str, *, include_cancelled: bool = False
+) -> UserEntity:
     normalized_user_bid = str(user_bid or "").strip()
     if not normalized_user_bid:
         raise_param_error("user_bid is required")
 
-    user = (
-        UserEntity.query.filter(
-            UserEntity.user_bid == normalized_user_bid,
-            UserEntity.deleted == 0,
-        )
-        .order_by(UserEntity.id.desc())
-        .first()
-    )
+    query = UserEntity.query.filter(UserEntity.user_bid == normalized_user_bid)
+    if not include_cancelled:
+        query = query.filter(UserEntity.deleted == 0)
+    user = query.order_by(UserEntity.id.desc()).first()
     if user is None:
         raise_error("server.user.userNotFound")
     return user

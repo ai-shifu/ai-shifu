@@ -2,7 +2,7 @@
 title: Operator User Management
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-09-08
 canonical: true
 ---
 
@@ -66,6 +66,37 @@ Primary source tables:
   - `identifier`
   - `state`
   - `deleted`
+- `user_account_cancellations`
+  - stable cancellation case and cancelled `user_bid`
+  - operator, required reason, status, and UTC timestamps
+  - privacy-safe retention snapshot and idempotency key
+
+## Account Cancellation Contract
+
+The first cancellation delivery is operator-only and intentionally has no
+learner or teacher self-service entry. Backend policy is exposed through four
+operator endpoints: preview, published-course batch transfer, subscription
+renewal cancellation, and final cancellation.
+
+- The preview is authoritative and versioned. Final cancellation rejects a
+  stale preview or any remaining blocker.
+- Operators cannot cancel themselves or another operator account.
+- Draft-only courses are retained with their original `created_user_bid` and
+  become frozen because a cancelled owner cannot authenticate. Published
+  courses must first be transferred; all matching draft revisions and
+  course-owned cloned voices move with them.
+- Active renewal is cancelled automatically by the operator workflow before
+  final confirmation. Unsettled payments remain a blocker.
+- Unused available credits are forfeited without refund. Financial and credit
+  ledger history remains pseudonymously attributable to the stable `user_bid`.
+- Final cancellation revokes sessions, disables and de-identifies credentials,
+  erases direct profile data and global profile variables, and marks the user
+  row deleted with a cancellation timestamp and case identifier.
+- A released phone or email can register a new account; it never reactivates
+  or reconnects to the cancelled account.
+- The default list remains active-only. `user_status=cancelled` selects
+  cancelled accounts, while detail responses expose the cancellation time,
+  reason, and responsible operator for audit.
 
 ## Backend Plan
 
