@@ -141,6 +141,15 @@ class TestEnvVarTypeConversion:
         assert env_var.convert_type("10") == 10.0
         assert env_var.convert_type("") == 1.5  # Empty returns default
 
+    def test_convert_to_decimal_preserves_source_precision(self) -> None:
+        """Test decimal conversion does not round through binary floating point."""
+        env_var = EnvVar(name="DECIMAL_VAR", type=Decimal, default=Decimal("0.5"))
+
+        assert env_var.convert_type("0.50000000000000001") == Decimal(
+            "0.50000000000000001"
+        )
+        assert env_var.convert_type("") == Decimal("0.5")
+
     def test_convert_to_bool(self) -> None:
         """Test string to bool conversion."""
         env_var = EnvVar(name="BOOL_VAR", type=bool, default=False)

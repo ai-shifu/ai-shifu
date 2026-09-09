@@ -3,7 +3,12 @@
 from unittest.mock import patch
 
 import pytest
-from flaskr.common.config import EnhancedConfig, EnvironmentConfigError, EnvVar
+from flaskr.common.config import (
+    ENV_VARS,
+    EnhancedConfig,
+    EnvironmentConfigError,
+    EnvVar,
+)
 
 from tests.common.fixtures.config_data import (
     DOCKER_ENV_CONFIG,
@@ -48,6 +53,20 @@ class TestEnhancedConfigValidation:
         config.validate_environment()
 
         assert config._validated is True
+
+    @pytest.mark.parametrize(
+        "variable_name", ["MIN_SHIFU_PRICE", "DEFAULT_SHIFU_PRICE"]
+    )
+    def test_course_price_validation_preserves_environment_precision(
+        self, monkeypatch: object, variable_name: str
+    ) -> None:
+        """Reject extra decimals that binary float conversion would discard."""
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        monkeypatch.setenv(variable_name, "0.50000000000000001")
+        config = EnhancedConfig({variable_name: ENV_VARS[variable_name]})
+
+        with pytest.raises(EnvironmentConfigError, match=variable_name):
+            config.validate_environment()
 
     def test_validate_missing_required(self, monkeypatch: object) -> None:
         """Test validation fails when required variables are missing."""

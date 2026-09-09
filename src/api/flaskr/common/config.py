@@ -104,8 +104,14 @@ class EnvVar:
         elif self.type is float:
             try:
                 return float(value)
-            except ValueError as exc:
+            except (TypeError, ValueError) as exc:
                 message = f"Invalid float value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
+        elif self.type is Decimal:
+            try:
+                return Decimal(str(value))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                message = f"Invalid decimal value for {self.name}: {value}"
                 raise EnvironmentConfigError(message) from exc
         elif self.type is list:
             if isinstance(value, str):
@@ -1661,16 +1667,16 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     # Minimum Shifu Price
     "MIN_SHIFU_PRICE": EnvVar(
         name="MIN_SHIFU_PRICE",
-        default=0.5,
-        type=float,
+        default=Decimal("0.5"),
+        type=Decimal,
         validator=_is_valid_nonnegative_cent_amount,
         description="Minimum positive price of shifu; zero is free",
         group="shifu",
     ),
     "DEFAULT_SHIFU_PRICE": EnvVar(
         name="DEFAULT_SHIFU_PRICE",
-        default=0.5,
-        type=float,
+        default=Decimal("0.5"),
+        type=Decimal,
         validator=_is_valid_nonnegative_cent_amount,
         description="Default price assigned to a new shifu",
         group="shifu",
