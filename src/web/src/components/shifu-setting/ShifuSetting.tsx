@@ -1293,6 +1293,7 @@ export default function ShifuSettingDialog({
                 defaultListenModeEnabled,
                 useLearnerLanguage,
                 followUpMode: isLiveVoiceFollowUp ? 'live_voice' : 'text',
+                price: Number(data.price),
               }),
             ),
           ).catch(() => {});

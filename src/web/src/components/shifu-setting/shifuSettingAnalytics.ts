@@ -5,6 +5,7 @@ export type ShifuSettingSaveAnalyticsInput = {
   defaultListenModeEnabled: boolean;
   useLearnerLanguage: boolean;
   followUpMode: 'text' | 'live_voice';
+  price: number;
 };
 
 export const buildShifuSettingSaveAnalytics = ({
@@ -14,6 +15,7 @@ export const buildShifuSettingSaveAnalytics = ({
   defaultListenModeEnabled,
   useLearnerLanguage,
   followUpMode,
+  price,
 }: ShifuSettingSaveAnalyticsInput) => ({
   shifu_bid: shifuBid,
   save_type: saveType,
@@ -21,4 +23,6 @@ export const buildShifuSettingSaveAnalytics = ({
   default_listen_mode_enabled: ttsEnabled && defaultListenModeEnabled,
   use_learner_language: useLearnerLanguage,
   follow_up_mode: followUpMode,
+  price_tier:
+    price === 0 ? 'free' : price < 0.5 ? 'micro_paid' : 'standard_paid',
 });

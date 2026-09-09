@@ -9,6 +9,7 @@ describe('buildShifuSettingSaveAnalytics', () => {
       defaultListenModeEnabled: true,
       useLearnerLanguage: false,
       followUpMode: 'live_voice',
+      price: 0,
     });
 
     expect(payload).toEqual({
@@ -18,6 +19,7 @@ describe('buildShifuSettingSaveAnalytics', () => {
       default_listen_mode_enabled: true,
       use_learner_language: false,
       follow_up_mode: 'live_voice',
+      price_tier: 'free',
     });
     expect(payload).not.toHaveProperty('name');
     expect(payload).not.toHaveProperty('description');
@@ -33,6 +35,7 @@ describe('buildShifuSettingSaveAnalytics', () => {
       [
         'default_listen_mode_enabled',
         'follow_up_mode',
+        'price_tier',
         'save_type',
         'shifu_bid',
         'tts_enabled',
@@ -50,6 +53,7 @@ describe('buildShifuSettingSaveAnalytics', () => {
         defaultListenModeEnabled: true,
         useLearnerLanguage: true,
         followUpMode: 'text',
+        price: 0.01,
       }),
     ).toEqual({
       shifu_bid: 'course-1',
@@ -58,6 +62,21 @@ describe('buildShifuSettingSaveAnalytics', () => {
       default_listen_mode_enabled: false,
       use_learner_language: true,
       follow_up_mode: 'text',
+      price_tier: 'micro_paid',
     });
+  });
+
+  it('groups regular paid prices without recording the amount', () => {
+    expect(
+      buildShifuSettingSaveAnalytics({
+        shifuBid: 'course-1',
+        saveType: 'manual',
+        ttsEnabled: false,
+        defaultListenModeEnabled: false,
+        useLearnerLanguage: false,
+        followUpMode: 'text',
+        price: 0.5,
+      }).price_tier,
+    ).toBe('standard_paid');
   });
 });
