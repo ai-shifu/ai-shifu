@@ -129,10 +129,7 @@ export const usePaymentFlow = ({
       setPriceItems(
         snapshot.price_item?.filter(item => item?.is_discount) || [],
       );
-      const valueToPayNumber = Number(snapshot.value_to_pay);
-      const isFreeOrder =
-        !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
-      if (snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS || isFreeOrder) {
+      if (snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
         setIsCompleted(true);
         setPollingActive(false);
         onOrderPaid?.();
@@ -200,13 +197,7 @@ export const usePaymentFlow = ({
         }
         updateFromOrder(current);
         const currentSnapshot = current;
-        const valueToPayNumber = Number(currentSnapshot.value_to_pay);
-        const isFreeOrder =
-          !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
-        if (
-          currentSnapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS ||
-          isFreeOrder
-        ) {
+        if (currentSnapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
           return current;
         }
         const payload = await getPayUrl({

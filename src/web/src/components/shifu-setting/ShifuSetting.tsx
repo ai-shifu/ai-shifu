@@ -36,6 +36,7 @@ import {
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
 import { getResolvedBaseURL } from '@/lib/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
+import { isAllowedCoursePrice } from '@/lib/coursePricePolicy';
 import {
   type AudioSegment,
   mergeAudioSegmentByUniqueKey,
@@ -171,7 +172,6 @@ interface Shifu {
   use_learner_language?: boolean;
 }
 
-const MIN_SHIFU_PRICE = 0.5;
 const TEMPERATURE_MIN = 0;
 const TEMPERATURE_MAX = 2;
 const ASK_MODE_ENABLE = 5103;
@@ -219,6 +219,9 @@ export default function ShifuSettingDialog({
   const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
+  const minimumPaidCoursePrice = useEnvStore(
+    state => state.minimumPaidCoursePrice,
+  );
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
   const debugAllowed =
@@ -1099,7 +1102,7 @@ export default function ShifuSettingDialog({
       .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
     price: z
       .string()
-      .min(0.5, t('module.shifuSetting.shifuPriceEmpty'))
+      .min(1, t('module.shifuSetting.shifuPriceEmpty'))
       .regex(/^\d+(\.\d{1,2})?$/, t('module.shifuSetting.shifuPriceFormat')),
     temperature: z
       .string()
@@ -1709,11 +1712,11 @@ export default function ShifuSettingDialog({
         return false;
       }
       const priceValue = parseFloat(form.getValues('price') || '0');
-      if (!Number.isNaN(priceValue) && priceValue < MIN_SHIFU_PRICE) {
+      if (!isAllowedCoursePrice(priceValue, minimumPaidCoursePrice)) {
         form.setError('price', {
           type: 'manual',
           message: t('server.shifu.shifuPriceTooLow', {
-            min_shifu_price: MIN_SHIFU_PRICE,
+            min_shifu_price: minimumPaidCoursePrice,
           }),
         });
         if (needClose) {
@@ -1730,7 +1733,15 @@ export default function ShifuSettingDialog({
       await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [currentShifu?.readonly, form, onSubmit, settingsLoading, t, updateOpen],
+    [
+      currentShifu?.readonly,
+      form,
+      minimumPaidCoursePrice,
+      onSubmit,
+      settingsLoading,
+      t,
+      updateOpen,
+    ],
   );
 
   useEffect(() => {
