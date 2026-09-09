@@ -21,6 +21,7 @@ const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 const mockEnvState = {
   defaultLlmModel: '',
   currencySymbol: '¥',
+  minimumPaidCoursePrice: 0.5,
   billingEnabled: 'false',
 };
 
@@ -225,6 +226,7 @@ describe('ShifuSettingDialog analytics producer', () => {
             default_listen_mode_enabled: false,
             use_learner_language: true,
             follow_up_mode: 'text',
+            price_tier: 'standard_paid',
           },
         );
       });
@@ -437,6 +439,7 @@ describe('ShifuSettingDialog analytics producer', () => {
           default_listen_mode_enabled: false,
           use_learner_language: false,
           follow_up_mode: 'text',
+          price_tier: 'standard_paid',
         },
       );
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
@@ -479,6 +482,7 @@ describe('ShifuSettingDialog analytics producer', () => {
           default_listen_mode_enabled: false,
           use_learner_language: true,
           follow_up_mode: 'text',
+          price_tier: 'standard_paid',
         },
       );
 

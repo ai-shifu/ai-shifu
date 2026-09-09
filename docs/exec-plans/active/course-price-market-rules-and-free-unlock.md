@@ -14,10 +14,10 @@ provider.
   order initialization, provider dispatch, and learner payment state.
 - [x] 2026-09-09 17:25 CST: Implement backend pricing contract and atomic free
   order completion with regression coverage.
-- [ ] 2026-09-09 17:05 CST: Implement frontend configuration-driven authoring
+- [x] 2026-09-09 17:45 CST: Implement frontend configuration-driven authoring
   validation and server-authoritative free unlock with regression coverage.
-- [ ] 2026-09-09 17:05 CST: Verify, self-review, publish two focused PRs, and
-  document their stacking/merge order.
+- [x] 2026-09-09 18:00 CST: Verified and self-reviewed two focused stacked
+  branches; publish them as backend-first PRs.
 
 ## Surprises & Discoveries
 
@@ -45,7 +45,24 @@ provider.
 
 ## Outcomes & Retrospective
 
-Pending implementation and verification.
+Implemented a server-owned market price contract and atomic, idempotent free
+course orders without a schema migration. Cook Web consumes the contract for
+authoring validation and waits for server-confirmed success before unlocking a
+free course. Prices are also constrained to the exact `DECIMAL(10, 2)` storage
+range. Focused backend tests, frontend tests, type-check, lint, Ruff, and
+repository harness checks pass.
+
+## Follow-up Opportunities
+
+- Retry runtime configuration after an initial fetch failure. The current
+  compatibility fallback remains 0.50 and requires a refresh to recover, so a
+  transient failure can temporarily hide China's 0.01 authoring option.
+- Freeze the analytics identity version across the existing asynchronous
+  course-settings save event. This attribution race predates the price-tier
+  field and should be corrected once for the shared tracking path.
+- Promote the real payment-hook and authoring-form boundary probes into stable
+  integration coverage. The current suite covers the price policy, order
+  transition, provider bypass, and settings analytics independently.
 
 ## Context and Orientation
 

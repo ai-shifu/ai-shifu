@@ -28,6 +28,8 @@ export interface EnvStoreState {
   contactUsUrl: string;
   officialSiteUrl: string;
   currencySymbol: string;
+  defaultCoursePrice: number;
+  minimumPaidCoursePrice: number;
   billingEnabled: string;
   stripePublishableKey: string;
   stripeEnabled: string;
@@ -55,6 +57,8 @@ export interface EnvStoreState {
   updateContactUsUrl: (url: string) => Promise<void>;
   updateOfficialSiteUrl: (url: string) => Promise<void>;
   updateCurrencySymbol: (symbol: string) => Promise<void>;
+  updateDefaultCoursePrice: (price: number) => Promise<void>;
+  updateMinimumPaidCoursePrice: (price: number) => Promise<void>;
   updateBillingEnabled: (value: string) => Promise<void>;
   updateStripePublishableKey: (key: string) => Promise<void>;
   updateStripeEnabled: (value: string) => Promise<void>;
