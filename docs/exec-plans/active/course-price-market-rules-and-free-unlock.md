@@ -16,8 +16,8 @@ provider.
   order completion with regression coverage.
 - [x] 2026-09-09 17:45 CST: Implement frontend configuration-driven authoring
   validation and server-authoritative free unlock with regression coverage.
-- [ ] 2026-09-09 17:05 CST: Verify, self-review, publish two focused PRs, and
-  document their stacking/merge order.
+- [x] 2026-09-09 18:00 CST: Verified and self-reviewed two focused stacked
+  branches; publish them as backend-first PRs.
 
 ## Surprises & Discoveries
 
@@ -45,7 +45,11 @@ provider.
 
 ## Outcomes & Retrospective
 
-Pending implementation and verification.
+Implemented a server-owned market price contract and atomic, idempotent free
+course orders without a schema migration. Cook Web consumes the contract for
+authoring validation and waits for server-confirmed success before unlocking a
+free course. Focused backend tests, frontend tests, type-check, lint, Ruff, and
+repository harness checks pass.
 
 ## Context and Orientation
 
