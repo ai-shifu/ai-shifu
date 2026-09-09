@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
 import { useTracking } from '@/hooks/useTracking';
+import { useUserStore } from '@/store/useUserStore';
 import type {
   AdminOperationUserCancellationPreview,
   AdminOperationUserCancellationStatus,
@@ -55,12 +56,15 @@ const waitForCancellation = async (
   userBid: string,
   caseBid: string,
   timeoutMessage: string,
-): Promise<AdminOperationUserCancellationStatus> => {
+  isCurrentWorkflow: () => boolean,
+): Promise<AdminOperationUserCancellationStatus | null> => {
   for (let attempt = 0; attempt < CANCELLATION_POLL_LIMIT; attempt += 1) {
+    if (!isCurrentWorkflow()) return null;
     const status = (await api.getAdminOperationUserCancellationStatus({
       user_bid: userBid,
       cancellation_bid: caseBid,
     })) as AdminOperationUserCancellationStatus;
+    if (!isCurrentWorkflow()) return null;
     if (status.status === 'completed' || status.status === 'failed') {
       return status;
     }
@@ -144,6 +148,18 @@ export default function UserCancellationDialog({
   const previewRequestRef = useRef(0);
   const workflowBidRef = useRef('');
   const openedWorkflowRef = useRef('');
+  const workflowSequenceRef = useRef(0);
+  const activeWorkflowRef = useRef<{ id: number; userBid: string } | null>(
+    null,
+  );
+
+  const isCurrentWorkflow = (workflow: { id: number; userBid: string }) => {
+    const active = activeWorkflowRef.current;
+    return active?.id === workflow.id && active.userBid === workflow.userBid;
+  };
+
+  const currentOperatorUserId = () =>
+    useUserStore.getState().userInfo?.user_id || '';
 
   const trackCancellationEvent = (
     eventName:
@@ -159,8 +175,12 @@ export default function UserCancellationDialog({
     }
   };
 
-  const loadPreview = async (requestedUser = user) => {
+  const loadPreview = async (
+    requestedUser = user,
+    workflow = activeWorkflowRef.current,
+  ) => {
     if (!requestedUser) return null;
+    if (!workflow || workflow.userBid !== requestedUser.user_bid) return null;
     const requestId = previewRequestRef.current + 1;
     previewRequestRef.current = requestId;
     setBusy(true);
@@ -169,19 +189,28 @@ export default function UserCancellationDialog({
       const result = (await api.getAdminOperationUserCancellationPreview({
         user_bid: requestedUser.user_bid,
       })) as AdminOperationUserCancellationPreview;
-      if (previewRequestRef.current === requestId) {
+      if (
+        previewRequestRef.current === requestId &&
+        isCurrentWorkflow(workflow)
+      ) {
         setPreview(result);
       }
       return result;
     } catch (value) {
-      if (previewRequestRef.current === requestId) {
+      if (
+        previewRequestRef.current === requestId &&
+        isCurrentWorkflow(workflow)
+      ) {
         setError(
           (value as ErrorWithCode).message || t('cancellation.errors.load'),
         );
       }
       return null;
     } finally {
-      if (previewRequestRef.current === requestId) {
+      if (
+        previewRequestRef.current === requestId &&
+        isCurrentWorkflow(workflow)
+      ) {
         setBusy(false);
       }
     }
@@ -189,12 +218,18 @@ export default function UserCancellationDialog({
 
   useEffect(() => {
     if (!open) return;
+    const workflow = {
+      id: workflowSequenceRef.current + 1,
+      userBid: user?.user_bid || '',
+    };
+    workflowSequenceRef.current = workflow.id;
+    activeWorkflowRef.current = workflow;
     setReason('');
     setIdentifier('');
     setConfirming(false);
     setPreview(null);
     workflowBidRef.current = cancellationBid();
-    void loadPreview();
+    void loadPreview(user, workflow);
     const workflowKey = `${user?.user_bid || ''}:${workflowBidRef.current}`;
     if (user && openedWorkflowRef.current !== workflowKey) {
       openedWorkflowRef.current = workflowKey;
@@ -204,6 +239,9 @@ export default function UserCancellationDialog({
     }
     return () => {
       previewRequestRef.current += 1;
+      if (isCurrentWorkflow(workflow)) {
+        activeWorkflowRef.current = null;
+      }
     };
     // Opening for another user remounts the workflow state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -212,6 +250,8 @@ export default function UserCancellationDialog({
   const transfer = async () => {
     if (!user || preview?.user.user_bid !== user.user_bid || !identifier.trim())
       return;
+    const workflow = activeWorkflowRef.current;
+    if (!workflow || workflow.userBid !== user.user_bid) return;
     setBusy(true);
     setError('');
     try {
@@ -220,8 +260,10 @@ export default function UserCancellationDialog({
         contact_type: contactType,
         identifier: identifier.trim(),
       });
-      await loadPreview();
+      if (!isCurrentWorkflow(workflow)) return;
+      await loadPreview(user, workflow);
     } catch (value) {
+      if (!isCurrentWorkflow(workflow)) return;
       setError(
         (value as ErrorWithCode).message || t('cancellation.errors.transfer'),
       );
@@ -237,6 +279,8 @@ export default function UserCancellationDialog({
       reason.trim().length < 5
     )
       return;
+    const workflow = activeWorkflowRef.current;
+    if (!workflow || workflow.userBid !== user.user_bid) return;
     setBusy(true);
     setError('');
     try {
@@ -245,6 +289,7 @@ export default function UserCancellationDialog({
         const result = (await api.cancelAdminOperationUserSubscriptionRenewals({
           user_bid: user.user_bid,
         })) as { preview: AdminOperationUserCancellationPreview };
+        if (!isCurrentWorkflow(workflow)) return;
         preparedPreview = result.preview;
         setPreview(preparedPreview);
       }
@@ -252,18 +297,23 @@ export default function UserCancellationDialog({
         setError(t('cancellation.errors.blocked'));
         return;
       }
+      if (!isCurrentWorkflow(workflow)) return;
       setConfirming(true);
     } catch (value) {
+      if (!isCurrentWorkflow(workflow)) return;
       setError(
         (value as ErrorWithCode).message || t('cancellation.errors.prepare'),
       );
     } finally {
-      setBusy(false);
+      if (isCurrentWorkflow(workflow)) setBusy(false);
     }
   };
 
   const cancelAccount = async () => {
     if (!user || !preview || preview.user.user_bid !== user.user_bid) return;
+    const workflow = activeWorkflowRef.current;
+    if (!workflow || workflow.userBid !== user.user_bid) return;
+    const operatorUserId = currentOperatorUserId();
     setBusy(true);
     const caseBid = workflowBidRef.current || cancellationBid();
     workflowBidRef.current = caseBid;
@@ -284,35 +334,51 @@ export default function UserCancellationDialog({
               user.user_bid,
               accepted.cancellation_bid,
               t('cancellation.errors.processingTimeout'),
+              () => isCurrentWorkflow(workflow),
             );
+      if (!result || !isCurrentWorkflow(workflow)) return;
       if (result.status !== 'completed') {
         throw new Error(t('cancellation.errors.executionFailed'));
       }
-      trackCancellationEvent('operator_user_cancellation_result', {
-        surface: 'user_list',
-        outcome: 'success',
-      });
+      if (currentOperatorUserId() === operatorUserId) {
+        trackCancellationEvent('operator_user_cancellation_result', {
+          surface: 'user_list',
+          outcome: 'success',
+        });
+      }
+      activeWorkflowRef.current = null;
       onOpenChange(false);
       onCancelled();
       workflowBidRef.current = '';
     } catch (value) {
-      trackCancellationEvent('operator_user_cancellation_result', {
-        surface: 'user_list',
-        outcome: 'failed',
-      });
+      if (!isCurrentWorkflow(workflow)) return;
+      if (currentOperatorUserId() === operatorUserId) {
+        trackCancellationEvent('operator_user_cancellation_result', {
+          surface: 'user_list',
+          outcome: 'failed',
+        });
+      }
       setConfirming(false);
       const requestError = value as ErrorWithCode;
       if (
         requestError.code === CANCELLATION_PREVIEW_STALE_CODE ||
         requestError.code === CANCELLATION_BLOCKED_CODE
       ) {
-        await loadPreview(user);
+        await loadPreview(user, workflow);
       } else {
         setError(requestError.message || t('cancellation.errors.cancel'));
       }
     } finally {
-      setBusy(false);
+      if (isCurrentWorkflow(workflow)) setBusy(false);
     }
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      previewRequestRef.current += 1;
+      activeWorkflowRef.current = null;
+    }
+    onOpenChange(nextOpen);
   };
 
   const hasManualBlocker = Boolean(
@@ -339,7 +405,7 @@ export default function UserCancellationDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
     >
       <DialogContent className='flex max-h-[85vh] w-[calc(100vw-32px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px]'>
         <DialogHeader className='px-5 pb-3 pt-5'>

@@ -4,10 +4,12 @@ import api from '@/api';
 import UserCancellationDialog from './UserCancellationDialog';
 import type {
   AdminOperationUserCancellationPreview,
+  AdminOperationUserCancellationStatus,
   AdminOperationUserItem,
 } from '../operation-user-types';
 
 const mockTrackEvent = jest.fn();
+let mockOperatorUserId = '';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -17,6 +19,14 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
+
+jest.mock('@/store/useUserStore', () => ({
+  useUserStore: {
+    getState: () => ({
+      userInfo: mockOperatorUserId ? { user_id: mockOperatorUserId } : null,
+    }),
+  },
 }));
 
 jest.mock('@/api', () => ({
@@ -86,6 +96,18 @@ const preview = (
   ...overrides,
 });
 
+const cancellationStatus = (
+  overrides: Partial<AdminOperationUserCancellationStatus> = {},
+): AdminOperationUserCancellationStatus => ({
+  cancellation_bid: 'case-1',
+  user_bid: user.user_bid,
+  status: 'completed',
+  failure_code: '',
+  attempt_count: 1,
+  cancelled_at: null,
+  ...overrides,
+});
+
 const mockPreview = api.getAdminOperationUserCancellationPreview as jest.Mock;
 const mockTransfer =
   api.transferAdminOperationUserPublishedCourses as jest.Mock;
@@ -111,6 +133,7 @@ const renderDialog = (onCancelled = jest.fn()) => {
 describe('UserCancellationDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockOperatorUserId = '';
     mockTrackEvent.mockResolvedValue(undefined);
     mockPreview.mockResolvedValue(preview());
     mockCancel.mockResolvedValue({
@@ -485,5 +508,182 @@ describe('UserCancellationDialog', () => {
     );
     await waitFor(() => expect(onCancelled).toHaveBeenCalledTimes(1));
     expect(mockCancellationStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores renewal preparation from a closed account workflow', async () => {
+    let resolveRenewals!: (value: {
+      preview: AdminOperationUserCancellationPreview;
+    }) => void;
+    mockPreview
+      .mockResolvedValueOnce(
+        preview({
+          can_cancel: false,
+          blockers: [{ code: 'subscription_cancellation_required', count: 1 }],
+          subscription_renewal_count: 1,
+        }),
+      )
+      .mockResolvedValueOnce(
+        preview({
+          user: { ...preview().user, user_bid: 'user-2', identifier: 'user-2' },
+        }),
+      );
+    mockCancelRenewals.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveRenewals = resolve;
+        }),
+    );
+    const onOpenChange = jest.fn();
+    const onCancelled = jest.fn();
+    const view = render(
+      <UserCancellationDialog
+        open
+        user={user}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    fireEvent.change(
+      await screen.findByPlaceholderText('cancellation.reasonPlaceholder'),
+      { target: { value: 'Customer confirmed cancellation' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    );
+    await waitFor(() => expect(mockCancelRenewals).toHaveBeenCalledTimes(1));
+
+    view.rerender(
+      <UserCancellationDialog
+        open={false}
+        user={user}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    const nextUser = { ...user, user_bid: 'user-2', mobile: '13900000000' };
+    view.rerender(
+      <UserCancellationDialog
+        open
+        user={nextUser}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    expect(await screen.findByText('user-2')).toBeInTheDocument();
+
+    resolveRenewals({ preview: preview() });
+    await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2));
+    expect(
+      screen.queryByRole('button', { name: 'cancellation.confirm' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('user-2')).toBeInTheDocument();
+  });
+
+  it('does not close a new account workflow when an old cancellation completes', async () => {
+    let resolveCancellation!: (
+      value: AdminOperationUserCancellationStatus,
+    ) => void;
+    mockCancel.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveCancellation = resolve;
+        }),
+    );
+    const onOpenChange = jest.fn();
+    const onCancelled = jest.fn();
+    const view = render(
+      <UserCancellationDialog
+        open
+        user={user}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    fireEvent.change(
+      await screen.findByPlaceholderText('cancellation.reasonPlaceholder'),
+      { target: { value: 'Customer confirmed cancellation' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'cancellation.confirm' }),
+    );
+    await waitFor(() => expect(mockCancel).toHaveBeenCalledTimes(1));
+
+    view.rerender(
+      <UserCancellationDialog
+        open={false}
+        user={user}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    const nextUser = { ...user, user_bid: 'user-2', mobile: '13900000000' };
+    mockPreview.mockResolvedValueOnce(
+      preview({
+        user: { ...preview().user, user_bid: 'user-2', identifier: 'user-2' },
+      }),
+    );
+    view.rerender(
+      <UserCancellationDialog
+        open
+        user={nextUser}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    expect(await screen.findByText('user-2')).toBeInTheDocument();
+
+    resolveCancellation(cancellationStatus());
+    await waitFor(() => expect(mockCancel).toHaveBeenCalledTimes(1));
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(onCancelled).not.toHaveBeenCalled();
+    expect(screen.getByText('user-2')).toBeInTheDocument();
+  });
+
+  it('drops the result event when the operator changes during cancellation', async () => {
+    let resolveCancellation!: (
+      value: AdminOperationUserCancellationStatus,
+    ) => void;
+    mockOperatorUserId = 'operator-a';
+    mockCancel.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveCancellation = resolve;
+        }),
+    );
+    renderDialog();
+    fireEvent.change(
+      await screen.findByPlaceholderText('cancellation.reasonPlaceholder'),
+      { target: { value: 'Customer confirmed cancellation' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'cancellation.confirm' }),
+    );
+    await waitFor(() => expect(mockCancel).toHaveBeenCalledTimes(1));
+
+    mockOperatorUserId = 'operator-b';
+    resolveCancellation(cancellationStatus());
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'operator_user_cancellation_attempt',
+        { surface: 'user_list' },
+      ),
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'operator_user_cancellation_result',
+      expect.anything(),
+    );
   });
 });
