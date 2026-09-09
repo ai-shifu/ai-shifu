@@ -21,7 +21,6 @@ const api = {
   sendSmsCode: 'POST /user/send_sms_code',
   sendEmailCode: 'POST /user/send_email_code',
   emailLogin: 'POST /user/login_email',
-  requireTmp: 'POST /user/require_tmp',
   smsLogin: 'POST /user/login_sms',
   deviceAuthPending: 'GET /user/device/pending',
   deviceAuthApprove: 'POST /user/device/approve',
@@ -85,10 +84,8 @@ const api = {
   // blocks api
   getBlocks: 'GET /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/blocks',
   saveBlocks: 'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/blocks',
-  addBlock: 'PUT /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/blocks',
   // block api end
 
-  getProfile: 'GET /user/get_profile',
   getProfileItemDefinitions: 'GET /profiles/get-profile-item-definitions',
   addProfileItem: 'POST /profiles/add-profile-item-quick',
   getUserInfo: 'GET /user/info',
@@ -96,13 +93,6 @@ const api = {
   updateChapterOrder: 'POST /shifu/update-chapter-order',
 
   getModelList: 'GET /llm/model-list',
-  getSystemPrompt: 'GET /llm/get-system-prompt',
-  debugPrompt: 'GET /llm/debug-prompt',
-
-  // resource api start
-  getVideoInfo: 'POST /shifu/get-video-info',
-  upfileByUrl: 'POST /shifu/url-upfile',
-  // resource api end
 
   // TTS api
   askConfig: 'GET /shifu/ask/config',
@@ -284,7 +274,6 @@ const api = {
 
   saveProfile: 'POST /profiles/save-profile-item',
   deleteProfile: 'POST /profiles/delete-profile-item',
-  getProfileList: 'GET /profiles/get-profile-item-definitions',
   hideUnusedProfileItems: 'POST /profiles/hide-unused-profile-items',
   getProfileVariableUsage: 'GET /profiles/profile-variable-usage',
   updateProfileHiddenState: 'POST /profiles/update-profile-hidden-state',

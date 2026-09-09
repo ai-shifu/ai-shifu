@@ -230,9 +230,7 @@ def test_cancel_deidentifies_account_and_preserves_draft(
         cancelled_users = list_operator_users(app, 1, 20, {"user_status": "cancelled"})
         assert cancelled_users.total == 1
         assert cancelled_users.data[0].user_status == "cancelled"
-        assert cancelled_users.data[0].cancellation_reason == (
-            "Requested by account owner"
-        )
+        assert "cancellation_reason" not in cancelled_users.data[0].model_dump()
 
         cancelled_detail = get_operator_user_detail(app, user_bid)
         assert cancelled_detail.user_status == "cancelled"

@@ -47,7 +47,7 @@ execution service with a different actor and identity-verification policy.
       published-course transfer, credit forfeiture, session revocation,
       de-identification, identifier release, and idempotent cancellation.
 - [x] 2026-09-08 13:50 CST: Added operator routes, cancelled-user list/detail
-      contracts, localized errors, and focused backend regression coverage.
+  contracts, localized errors, and focused backend regression coverage.
 - [x] 2026-09-08 15:30 CST: Added the User Management action, two-stage
       confirmation dialog, inline published-course transfer, automatic renewal
       preparation, cancelled filter, i18n, API client, privacy-safe analytics,
@@ -60,6 +60,11 @@ execution service with a different actor and identity-verification policy.
       gate before the task is accepted. Added retry-state regression coverage,
       polling UI, and migration verification against the local development
       database.
+- [x] 2026-09-09 10:20 CST: Hardened cancellation review boundaries: open
+  credit reservations are terminally forfeited, cached sessions revalidate
+  account activity, cancelled lists exclude unrelated legacy soft deletions,
+  audit reasons remain detail-only, and batch course transfer is concurrency
+  safe with failure-tolerant post-commit work.
 
 ## Surprises & Discoveries
 
@@ -70,6 +75,11 @@ execution service with a different actor and identity-verification policy.
   session revocation therefore deletes database rows first and then evicts all
   token cache entries; cancellation must preserve that ordering and must not
   report clean success while known cached credentials remain usable.
+- Operation-credit holds are independently capturable or releasable after
+  reservation. Account cancellation must lock the user lifecycle before wallet
+  mutation, terminally consume every open hold, and make later capture/release
+  calls reject the cancelled owner; zeroing available buckets alone is not
+  sufficient.
 - The stable account key is copied across many independent domains rather than
   enforced by one cascading foreign key. Examples include course authoring,
   learning progress and generated content, orders, subscriptions, credit

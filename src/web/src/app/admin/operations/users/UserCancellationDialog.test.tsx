@@ -96,7 +96,7 @@ const mockCancellationStatus =
   api.getAdminOperationUserCancellationStatus as jest.Mock;
 
 const renderDialog = (onCancelled = jest.fn()) => {
-  render(
+  const view = render(
     <UserCancellationDialog
       open
       user={user}
@@ -105,7 +105,7 @@ const renderDialog = (onCancelled = jest.fn()) => {
       onCancelled={onCancelled}
     />,
   );
-  return { onCancelled };
+  return { onCancelled, ...view };
 };
 
 describe('UserCancellationDialog', () => {
@@ -148,6 +148,10 @@ describe('UserCancellationDialog', () => {
     );
     expect(onCancelled).toHaveBeenCalledTimes(1);
     expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_user_cancellation_opened',
+      { surface: 'user_list' },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
       'operator_user_cancellation_attempt',
       { surface: 'user_list' },
     );
@@ -160,6 +164,166 @@ describe('UserCancellationDialog', () => {
       expect(properties).not.toHaveProperty('reason');
       expect(properties).not.toHaveProperty('identifier');
     }
+  });
+
+  it('tracks opening once only when an account is eligible for the workflow', async () => {
+    const onOpenChange = jest.fn();
+    const onCancelled = jest.fn();
+    const view = render(
+      <UserCancellationDialog
+        open
+        user={null}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    view.rerender(
+      <UserCancellationDialog
+        open
+        user={user}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    await screen.findByPlaceholderText('cancellation.reasonPlaceholder');
+    view.rerender(
+      <UserCancellationDialog
+        open
+        user={user}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_user_cancellation_opened',
+      { surface: 'user_list' },
+    );
+  });
+
+  it('ignores a preview response from a previously selected user', async () => {
+    let resolveFirst!: (value: AdminOperationUserCancellationPreview) => void;
+    mockPreview
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(
+        preview({
+          user: { ...preview().user, user_bid: 'user-2', identifier: 'user-2' },
+        }),
+      );
+    const onOpenChange = jest.fn();
+    const onCancelled = jest.fn();
+    const view = render(
+      <UserCancellationDialog
+        open
+        user={user}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+    const nextUser = { ...user, user_bid: 'user-2', mobile: '13900000000' };
+    view.rerender(
+      <UserCancellationDialog
+        open
+        user={nextUser}
+        contactType='phone'
+        onOpenChange={onOpenChange}
+        onCancelled={onCancelled}
+      />,
+    );
+
+    expect(await screen.findByText('user-2')).toBeInTheDocument();
+    resolveFirst(preview());
+    await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('13800000000')).not.toBeInTheDocument();
+  });
+
+  it('reuses the cancellation bid after an uncertain failure', async () => {
+    mockCancel
+      .mockRejectedValueOnce(new Error('response lost'))
+      .mockResolvedValueOnce({
+        cancellation_bid: 'case-1',
+        status: 'completed',
+      });
+    renderDialog();
+    await screen.findByPlaceholderText('cancellation.reasonPlaceholder');
+    fireEvent.change(
+      screen.getByPlaceholderText('cancellation.reasonPlaceholder'),
+      { target: { value: 'Customer confirmed cancellation' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'cancellation.confirm' }),
+    );
+    await screen.findByText('response lost');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'cancellation.confirm' }),
+    );
+
+    await waitFor(() => expect(mockCancel).toHaveBeenCalledTimes(2));
+    expect(mockCancel.mock.calls[0][0].cancellation_bid).toBe(
+      mockCancel.mock.calls[1][0].cancellation_bid,
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_user_cancellation_result',
+      { surface: 'user_list', outcome: 'failed' },
+    );
+  });
+
+  it('refreshes a stale preview while preserving the reason', async () => {
+    mockPreview
+      .mockResolvedValueOnce(preview())
+      .mockResolvedValueOnce(preview({ preview_version: 'preview-2' }));
+    mockCancel.mockRejectedValueOnce({ code: 1037, message: 'stale' });
+    renderDialog();
+    const reasonInput = await screen.findByPlaceholderText(
+      'cancellation.reasonPlaceholder',
+    );
+    fireEvent.change(reasonInput, {
+      target: { value: 'Customer confirmed cancellation' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'cancellation.confirm' }),
+    );
+
+    await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByPlaceholderText('cancellation.reasonPlaceholder'),
+    ).toHaveValue('Customer confirmed cancellation');
+  });
+
+  it('shows manual blocker details before disabling cancellation', async () => {
+    mockPreview.mockResolvedValue(
+      preview({
+        can_cancel: false,
+        blockers: [{ code: 'unsettled_payment', count: 2 }],
+      }),
+    );
+    renderDialog();
+    expect(
+      await screen.findByText('cancellation.blockers.unsettled_payment'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'cancellation.continue' }),
+    ).toBeDisabled();
   });
 
   it('shows the full account identifier and explains short reasons', async () => {

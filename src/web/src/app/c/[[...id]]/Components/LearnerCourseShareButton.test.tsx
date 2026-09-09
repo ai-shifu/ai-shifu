@@ -9,7 +9,7 @@ import LearnerCourseShareButton from './LearnerCourseShareButton';
 
 let mockRouteParams: { id?: string[] } = { id: ['course-1'] };
 
-type MockCourseShareButtonProps = {
+type MockCourseShareMenuProps = {
   courseTitle: string;
   courseDescription?: string;
   shifuBid: string;
@@ -17,15 +17,13 @@ type MockCourseShareButtonProps = {
   surface: string;
 };
 
-const mockCourseShareButton = jest.fn(
-  ({ surface }: MockCourseShareButtonProps) => (
-    <button
-      type='button'
-      data-testid='course-share-button'
-      data-surface={surface}
-    />
-  ),
-);
+const mockCourseShareMenu = jest.fn(({ surface }: MockCourseShareMenuProps) => (
+  <button
+    type='button'
+    data-testid='course-share-button'
+    data-surface={surface}
+  />
+));
 
 jest.mock('sse.js', () => ({
   SSE: jest.fn(),
@@ -45,8 +43,8 @@ jest.mock('@/i18n', () => ({
 }));
 
 jest.mock('@/components/course-share', () => ({
-  CourseShareButton: (props: MockCourseShareButtonProps) =>
-    mockCourseShareButton(props),
+  CourseShareMenu: (props: MockCourseShareMenuProps) =>
+    mockCourseShareMenu(props),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -96,28 +94,37 @@ describe('LearnerCourseShareButton', () => {
     });
   });
 
-  it('binds the current learner course and resolves a clean course-root URL', () => {
-    render(<LearnerCourseShareButton surface='learner_desktop_header' />);
+  it.each([
+    'learner_desktop_header',
+    'learner_mobile_header',
+    'learner_mobile_fullscreen',
+  ] as const)(
+    'binds %s to the shared menu and a clean course-root URL',
+    surface => {
+      render(<LearnerCourseShareButton surface={surface} />);
 
-    expect(screen.getByTestId('course-share-button')).toHaveAttribute(
-      'data-surface',
-      'learner_desktop_header',
-    );
-    expect(mockCourseShareButton).toHaveBeenCalledWith(
-      expect.objectContaining({
-        courseTitle: 'Course one',
-        courseDescription: 'Course description',
-        shifuBid: 'course-1',
-        surface: 'learner_desktop_header',
-      }),
-    );
+      expect(screen.getByTestId('course-share-button')).toHaveAttribute(
+        'data-surface',
+        surface,
+      );
+      expect(mockCourseShareMenu).toHaveBeenCalledWith(
+        expect.objectContaining({
+          courseTitle: 'Course one',
+          courseDescription: 'Course description',
+          shifuBid: 'course-1',
+          surface,
+        }),
+      );
 
-    const props = mockCourseShareButton.mock.calls[0]?.[0];
-    expect(props.resolveShareUrl()).toBe(
-      'https://courses.example.com/c/course-1',
-    );
-    expect(mockedBuildCoursePageUrl).toHaveBeenCalledWith(window.location.href);
-  });
+      const props = mockCourseShareMenu.mock.calls[0]?.[0];
+      expect(props.resolveShareUrl()).toBe(
+        'https://courses.example.com/c/course-1',
+      );
+      expect(mockedBuildCoursePageUrl).toHaveBeenCalledWith(
+        window.location.href,
+      );
+    },
+  );
 
   it('does not expose sharing in preview mode', () => {
     act(() => {
@@ -127,7 +134,7 @@ describe('LearnerCourseShareButton', () => {
     render(<LearnerCourseShareButton surface='learner_mobile_header' />);
 
     expect(screen.queryByTestId('course-share-button')).not.toBeInTheDocument();
-    expect(mockCourseShareButton).not.toHaveBeenCalled();
+    expect(mockCourseShareMenu).not.toHaveBeenCalled();
   });
 
   it('does not combine the previous course content with a newly selected course URL', () => {
@@ -136,7 +143,7 @@ describe('LearnerCourseShareButton', () => {
     render(<LearnerCourseShareButton surface='learner_mobile_header' />);
 
     expect(screen.queryByTestId('course-share-button')).not.toBeInTheDocument();
-    expect(mockCourseShareButton).not.toHaveBeenCalled();
+    expect(mockCourseShareMenu).not.toHaveBeenCalled();
   });
 
   it('waits for course settings when the environment has switched courses', () => {
@@ -147,6 +154,6 @@ describe('LearnerCourseShareButton', () => {
     render(<LearnerCourseShareButton surface='learner_mobile_header' />);
 
     expect(screen.queryByTestId('course-share-button')).not.toBeInTheDocument();
-    expect(mockCourseShareButton).not.toHaveBeenCalled();
+    expect(mockCourseShareMenu).not.toHaveBeenCalled();
   });
 });

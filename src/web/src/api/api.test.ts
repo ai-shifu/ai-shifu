@@ -1,5 +1,28 @@
 import api from './api';
 
+describe('unused catalog cleanup', () => {
+  test('drops unused catalog keys and keeps profile item definitions', () => {
+    const unusedCatalogKeys = [
+      'requireTmp',
+      'getProfile',
+      'getProfileList',
+      'addBlock',
+      'getSystemPrompt',
+      'debugPrompt',
+      'getVideoInfo',
+      'upfileByUrl',
+    ];
+
+    unusedCatalogKeys.forEach(key => {
+      expect(Object.prototype.hasOwnProperty.call(api, key)).toBe(false);
+    });
+
+    expect(api.getProfileItemDefinitions).toBe(
+      'GET /profiles/get-profile-item-definitions',
+    );
+  });
+});
+
 describe('auth api definitions', () => {
   test('exposes captcha, SMS, and email login endpoints', () => {
     expect(api.getCaptcha).toBe('GET /user/captcha');

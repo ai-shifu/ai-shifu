@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserDetailDTO,
     AdminOperationUserListDTO,
     AdminOperationUserOverviewDTO,
     AdminOperationUserSummaryDTO,
@@ -230,8 +231,9 @@ def list_operator_users(
         end_time = filters.get("end_time")
 
         query = UserEntity.query.filter(
-            UserEntity.deleted
-            == (1 if user_status == OPERATOR_USER_STATUS_CANCELLED else 0)
+            UserEntity.cancelled_at.isnot(None)
+            if user_status == OPERATOR_USER_STATUS_CANCELLED
+            else UserEntity.deleted == 0
         )
         if user_bid:
             query = query.filter(UserEntity.user_bid == user_bid)
@@ -384,10 +386,7 @@ def list_operator_users(
         last_learning_map = load_operator_user_last_learning_map(user_bids)
         credit_summary_map = load_operator_user_credit_summary_map(user_bids)
         cancellation_map = {
-            row.user_bid: {
-                "reason": row.reason,
-                "operator_user_bid": row.operator_user_bid,
-            }
+            row.user_bid: {"operator_user_bid": row.operator_user_bid}
             for row in UserAccountCancellation.query.filter(
                 UserAccountCancellation.user_bid.in_(user_bids)
             ).all()
@@ -469,7 +468,7 @@ def get_operator_user_detail(
         credit_summary_map = load_operator_user_credit_summary_map(
             [normalized_user_bid]
         )
-        return build_operator_user_summary(
+        summary = build_operator_user_summary(
             user,
             contact_map,
             learner_user_bids,
@@ -496,4 +495,8 @@ def get_operator_user_detail(
                 if cancellation
                 else {}
             ),
+        )
+        return AdminOperationUserDetailDTO(
+            **summary.model_dump(),
+            cancellation_reason=str(cancellation.reason or "") if cancellation else "",
         )

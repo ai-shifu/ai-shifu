@@ -12,7 +12,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
-from flaskr.dao.uow import unit_of_work
+from flaskr.dao.uow import on_commit, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common.models import (
     raise_error,
@@ -379,6 +379,7 @@ def _update_course_creator_bid(
     shifu_bid: str,
     creator_user_bid: str,
     updated_user_bid: str = "",
+    expected_creator_user_bid: str = "",
 ) -> None:
     draft_values = {DraftShifu.created_user_bid: creator_user_bid}
     published_values = {PublishedShifu.created_user_bid: creator_user_bid}
@@ -389,11 +390,21 @@ def _update_course_creator_bid(
         draft_values[DraftShifu.updated_at] = updated_at
         published_values[PublishedShifu.updated_user_bid] = normalized_updated_user_bid
         published_values[PublishedShifu.updated_at] = updated_at
-    DraftShifu.query.filter(DraftShifu.shifu_bid == shifu_bid).update(
+    draft_query = DraftShifu.query.filter(DraftShifu.shifu_bid == shifu_bid)
+    published_query = PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_bid)
+    normalized_expected_creator = str(expected_creator_user_bid or "").strip()
+    if normalized_expected_creator:
+        draft_query = draft_query.filter(
+            DraftShifu.created_user_bid == normalized_expected_creator
+        )
+        published_query = published_query.filter(
+            PublishedShifu.created_user_bid == normalized_expected_creator
+        )
+    draft_query.update(
         draft_values,
         synchronize_session=False,
     )
-    PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_bid).update(
+    published_query.update(
         published_values,
         synchronize_session=False,
     )
@@ -537,47 +548,62 @@ def transfer_operator_published_courses(
         created_new_user = bool(target_result["created_new_user"])
         creator_granted_now = bool(target_result["creator_granted_now"])
 
-        for shifu_bid in course_bids:
-            _update_course_creator_bid(
-                shifu_bid,
-                target_user_bid,
-                updated_user_bid=normalized_operator_user_bid,
-            )
-            latest_course = latest_by_bid[shifu_bid]
-            if getattr(latest_course, "id", 0):
-                save_shifu_history(
-                    app,
-                    normalized_operator_user_bid,
-                    shifu_bid,
-                    int(latest_course.id),
-                )
-
-        TTSMiniMaxClonedVoice.query.filter(
-            TTSMiniMaxClonedVoice.owner_user_bid == source_user_bid,
-            TTSMiniMaxClonedVoice.shifu_bid.in_(course_bids),
-            TTSMiniMaxClonedVoice.deleted == 0,
-        ).update(
-            {TTSMiniMaxClonedVoice.owner_user_bid: target_user_bid},
-            synchronize_session=False,
-        )
-
         with unit_of_work():
-            db.session.flush()
-        for shifu_bid in course_bids:
-            _clear_shifu_permission_cache(app, source_user_bid, shifu_bid)
-            _clear_shifu_permission_cache(app, target_user_bid, shifu_bid)
-            _clear_shifu_creator_cache(app, shifu_bid)
-        if creator_granted_now:
-            _get_legacy_admin_symbol(
-                "run_creator_granted_post_auth", run_creator_granted_post_auth
-            )(
-                app,
-                user_id=target_user_bid,
-                source="operator_transfer_creator",
-                login_context="admin",
-                created_new_user=created_new_user,
-                language=target_aggregate.user_language,
+            locked_rows = (
+                PublishedShifu.query.filter(
+                    PublishedShifu.shifu_bid.in_(course_bids),
+                    PublishedShifu.created_user_bid == source_user_bid,
+                    PublishedShifu.deleted == 0,
+                )
+                .with_for_update()
+                .all()
             )
+            still_owned_bids = {str(row.shifu_bid or "").strip() for row in locked_rows}
+            if still_owned_bids != set(course_bids):
+                raise_error("server.user.accountCancellationConflict")
+            for shifu_bid in course_bids:
+                _update_course_creator_bid(
+                    shifu_bid,
+                    target_user_bid,
+                    updated_user_bid=normalized_operator_user_bid,
+                    expected_creator_user_bid=source_user_bid,
+                )
+                latest_course = latest_by_bid[shifu_bid]
+                if getattr(latest_course, "id", 0):
+                    save_shifu_history(
+                        app,
+                        normalized_operator_user_bid,
+                        shifu_bid,
+                        int(latest_course.id),
+                    )
+
+            TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.owner_user_bid == source_user_bid,
+                TTSMiniMaxClonedVoice.shifu_bid.in_(course_bids),
+                TTSMiniMaxClonedVoice.deleted == 0,
+            ).update(
+                {TTSMiniMaxClonedVoice.owner_user_bid: target_user_bid},
+                synchronize_session=False,
+            )
+
+            def finish_transfer() -> None:
+                for transferred_bid in course_bids:
+                    _clear_shifu_permission_cache(app, source_user_bid, transferred_bid)
+                    _clear_shifu_permission_cache(app, target_user_bid, transferred_bid)
+                    _clear_shifu_creator_cache(app, transferred_bid)
+                if creator_granted_now:
+                    _get_legacy_admin_symbol(
+                        "run_creator_granted_post_auth", run_creator_granted_post_auth
+                    )(
+                        app,
+                        user_id=target_user_bid,
+                        source="operator_transfer_creator",
+                        login_context="admin",
+                        created_new_user=created_new_user,
+                        language=target_aggregate.user_language,
+                    )
+
+            on_commit(finish_transfer)
         return {
             "previous_creator_user_bid": source_user_bid,
             "target_creator_user_bid": target_user_bid,

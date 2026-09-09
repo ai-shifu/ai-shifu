@@ -14,11 +14,8 @@ const mockTrackEvent = jest.fn();
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) => {
-      if (key === 'common.core.share') {
-        return 'Share';
-      }
-      if (key === 'common.core.shareCourse') {
-        return 'Share course';
+      if (key === 'common.core.shareCourseLink') {
+        return 'Share link';
       }
       if (key === 'common.core.shareCourseMessage') {
         return `Recommend ${String(values?.courseName)}`;
@@ -35,6 +32,7 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('@/hooks/useToast', () => ({
+  showDefaultToast: (description: string) => mockToast({ description }),
   useToast: () => ({ toast: mockToast }),
 }));
 
@@ -107,7 +105,7 @@ describe('CourseShareButton', () => {
     setNavigatorProperty('canShare', canShare);
 
     renderShareButton();
-    fireEvent.click(screen.getByRole('button', { name: 'Share course' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share link' }));
 
     expect(share).toHaveBeenCalledWith({
       title: 'Practical AI',
@@ -136,7 +134,7 @@ describe('CourseShareButton', () => {
     setNavigatorProperty('share', jest.fn().mockRejectedValue(abortError));
 
     renderShareButton({ surface: 'teacher_header' });
-    fireEvent.click(screen.getByRole('button', { name: 'Share course' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share link' }));
 
     await waitFor(() => {
       expect(mockTrackEvent).toHaveBeenLastCalledWith('course_share_result', {
@@ -157,14 +155,14 @@ describe('CourseShareButton', () => {
       surface: 'learner_mobile_header',
       showLabel: true,
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Share course' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share link' }));
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(
         'Recommend Practical AI\n\nA hands-on course.\n\nhttps://learn.example.com/c/course-1',
       );
     });
-    expect(screen.getByText('Share')).toBeInTheDocument();
+    expect(screen.getByText('Share link')).toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenLastCalledWith('course_share_result', {
       shifu_bid: 'course-1',
       surface: 'learner_mobile_header',
@@ -172,7 +170,7 @@ describe('CourseShareButton', () => {
       outcome: 'success',
     });
     expect(mockToast).toHaveBeenCalledWith({
-      title: 'Share content copied',
+      description: 'Share content copied',
     });
   });
 
@@ -182,7 +180,7 @@ describe('CourseShareButton', () => {
     });
 
     renderShareButton({ surface: 'learner_mobile_fullscreen' });
-    fireEvent.click(screen.getByRole('button', { name: 'Share course' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share link' }));
 
     await waitFor(() => {
       expect(mockTrackEvent).toHaveBeenLastCalledWith('course_share_result', {
@@ -204,7 +202,7 @@ describe('CourseShareButton', () => {
       courseDescription: 'Private course description',
       resolveShareUrl: () => 'javascript:alert(1)',
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Share course' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share link' }));
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
@@ -243,7 +241,7 @@ describe('CourseShareButton', () => {
     setNavigatorProperty('share', share);
 
     renderShareButton();
-    const button = screen.getByRole('button', { name: 'Share course' });
+    const button = screen.getByRole('button', { name: 'Share link' });
     fireEvent.click(button);
     fireEvent.click(button);
 
@@ -266,7 +264,7 @@ describe('CourseShareButton', () => {
     setNavigatorProperty('share', share);
 
     renderShareButton();
-    const button = screen.getByRole('button', { name: 'Share course' });
+    const button = screen.getByRole('button', { name: 'Share link' });
     fireEvent.click(button);
 
     expect(share).toHaveBeenCalledTimes(1);
