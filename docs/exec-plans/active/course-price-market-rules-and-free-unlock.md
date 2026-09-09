@@ -14,7 +14,7 @@ provider.
   order initialization, provider dispatch, and learner payment state.
 - [x] 2026-09-09 17:25 CST: Implement backend pricing contract and atomic free
   order completion with regression coverage.
-- [ ] 2026-09-09 17:05 CST: Implement frontend configuration-driven authoring
+- [x] 2026-09-09 17:45 CST: Implement frontend configuration-driven authoring
   validation and server-authoritative free unlock with regression coverage.
 - [ ] 2026-09-09 17:05 CST: Verify, self-review, publish two focused PRs, and
   document their stacking/merge order.

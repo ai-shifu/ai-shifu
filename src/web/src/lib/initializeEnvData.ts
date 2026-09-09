@@ -89,6 +89,8 @@ const loadRuntimeConfig = async () => {
     updateContactUsUrl,
     updateOfficialSiteUrl,
     updateCurrencySymbol,
+    updateDefaultCoursePrice,
+    updateMinimumPaidCoursePrice,
     updateBillingEnabled,
     updateStripePublishableKey,
     updateStripeEnabled,
@@ -177,6 +179,16 @@ const loadRuntimeConfig = async () => {
     resolveOfficialSiteUrl(runtimeConfig?.officialSiteUrl),
   );
   await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
+  await updateDefaultCoursePrice(
+    typeof runtimeConfig?.defaultCoursePrice === 'number'
+      ? runtimeConfig.defaultCoursePrice
+      : 0.5,
+  );
+  await updateMinimumPaidCoursePrice(
+    typeof runtimeConfig?.minimumPaidCoursePrice === 'number'
+      ? runtimeConfig.minimumPaidCoursePrice
+      : 0.5,
+  );
   await updateBillingEnabled(
     runtimeConfig?.billingEnabled !== undefined
       ? runtimeConfig.billingEnabled.toString()
