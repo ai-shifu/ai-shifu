@@ -48,6 +48,8 @@ class _RetryingTask(Protocol):
     bind=True,
     name="user.execute_account_cancellation",
     max_retries=2,
+    acks_late=True,
+    reject_on_worker_lost=True,
 )
 def execute_account_cancellation_task(
     task: _RetryingTask, cancellation_bid: str

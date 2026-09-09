@@ -304,6 +304,92 @@ def test_async_cancellation_persists_then_completes(
             )["status"]
             == "pending"
         )
+        assert dispatched == [cancellation_bid]
+
+        completed = execute_pending_account_cancellation(
+            app, cancellation_bid=cancellation_bid
+        )
+
+        assert completed["status"] == "completed"
+        assert UserInfo.query.filter_by(user_bid=user_bid).one().deleted == 1
+
+
+def test_status_atomically_reenqueues_a_stale_cancellation(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_bid = uuid.uuid4().hex[:32]
+    dispatched: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.user.account_cancellation.enqueue_account_cancellation",
+        lambda _app, *, cancellation_bid: dispatched.append(cancellation_bid),
+    )
+    with app.app_context():
+        _seed_user(app, user_bid=user_bid, identifier="stale-task@example.com")
+        db.session.commit()
+        preview = get_account_cancellation_preview(
+            app, user_bid=user_bid, operator_user_bid="operator"
+        )
+        cancellation_bid = uuid.uuid4().hex
+        request_user_account_cancellation(
+            app,
+            user_bid=user_bid,
+            operator_user_bid="operator",
+            cancellation_bid=cancellation_bid,
+            idempotency_key=cancellation_bid,
+            preview_version=preview["preview_version"],
+            reason="Requested by account owner",
+        )
+        cancellation = UserAccountCancellation.query.filter_by(
+            cancellation_bid=cancellation_bid
+        ).one()
+        cancellation.requested_at = now_utc() - timedelta(minutes=11)
+        db.session.commit()
+
+        first = get_account_cancellation_status(
+            app, user_bid=user_bid, cancellation_bid=cancellation_bid
+        )
+        second = get_account_cancellation_status(
+            app, user_bid=user_bid, cancellation_bid=cancellation_bid
+        )
+
+        assert first["status"] == "pending"
+        assert second["status"] == "pending"
+        assert dispatched == [cancellation_bid, cancellation_bid]
+
+
+def test_worker_rechecks_blockers_without_rejecting_volatile_preview_changes(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_bid = uuid.uuid4().hex[:32]
+    monkeypatch.setattr(
+        "flaskr.service.user.account_cancellation.enqueue_account_cancellation",
+        lambda *_args, **_kwargs: None,
+    )
+    with app.app_context():
+        _seed_user(app, user_bid=user_bid, identifier="volatile@example.com")
+        db.session.commit()
+        preview = get_account_cancellation_preview(
+            app, user_bid=user_bid, operator_user_bid="operator"
+        )
+        cancellation_bid = uuid.uuid4().hex
+        request_user_account_cancellation(
+            app,
+            user_bid=user_bid,
+            operator_user_bid="operator",
+            cancellation_bid=cancellation_bid,
+            idempotency_key=cancellation_bid,
+            preview_version=preview["preview_version"],
+            reason="Requested by account owner",
+        )
+        db.session.add(
+            UserToken(
+                user_id=user_bid,
+                token="new-session-after-confirmation",
+                token_type=0,
+                token_expired_at=now_utc() + timedelta(days=1),
+            )
+        )
+        db.session.commit()
 
         completed = execute_pending_account_cancellation(
             app, cancellation_bid=cancellation_bid

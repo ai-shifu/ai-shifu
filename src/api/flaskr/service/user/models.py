@@ -306,12 +306,14 @@ class UserAccountCancellation(db.Model):
         Integer,
         nullable=False,
         default=0,
+        server_default="0",
         comment="Background execution attempt count",
     )
     failure_code = Column(
         String(64),
         nullable=False,
         default="",
+        server_default="",
         comment="Bounded background execution failure code",
     )
     last_attempt_at = Column(

@@ -64,7 +64,11 @@ execution service with a different actor and identity-verification policy.
   credit reservations are terminally forfeited, cached sessions revalidate
   account activity, cancelled lists exclude unrelated legacy soft deletions,
   audit reasons remain detail-only, and batch course transfer is concurrency
-  safe with failure-tolerant post-commit work.
+    safe with failure-tolerant post-commit work.
+- [x] 2026-09-09 14:05 CST: Added late-ack worker delivery, atomic recovery for
+  cancellation leases stale for ten minutes, and worker-side blocker
+  revalidation without rejecting already-confirmed requests for volatile
+  preview changes.
 
 ## Surprises & Discoveries
 

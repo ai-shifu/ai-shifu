@@ -327,6 +327,7 @@ describe('UserCancellationDialog', () => {
     expect(
       screen.getByPlaceholderText('cancellation.reasonPlaceholder'),
     ).toHaveValue('Customer confirmed cancellation');
+    expect(screen.getByText('stale')).toBeVisible();
   });
 
   it('shows manual blocker details before disabling cancellation', async () => {

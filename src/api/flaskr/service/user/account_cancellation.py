@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -74,6 +75,7 @@ ACCOUNT_CANCELLATION_STATUS_RETRYING = "retrying"
 ACCOUNT_CANCELLATION_STATUS_COMPLETED = "completed"
 ACCOUNT_CANCELLATION_STATUS_FAILED = "failed"
 ACCOUNT_CANCELLATION_TASK_NAME = "user.execute_account_cancellation"
+ACCOUNT_CANCELLATION_STALE_AFTER = timedelta(minutes=10)
 
 
 class AccountCancellationTaskRegistrationError(RuntimeError):
@@ -564,7 +566,10 @@ def cancel_user_account(
                     }
                 raise_error("server.user.accountAlreadyCancelled")
             state = _build_cancellation_state(user, normalized_operator_bid)
-            if state["preview_version"] != str(preview_version or "").strip():
+            if (
+                not _execute_existing
+                and state["preview_version"] != str(preview_version or "").strip()
+            ):
                 raise_error("server.user.accountCancellationPreviewStale")
             if state["blockers"]:
                 raise_error("server.user.accountCancellationBlocked")
@@ -736,6 +741,57 @@ def _serialize_cancellation(cancellation: UserAccountCancellation) -> dict[str, 
     }
 
 
+def _recover_stale_account_cancellation(
+    app: Flask, cancellation: UserAccountCancellation
+) -> None:
+    """Atomically lease and re-enqueue a cancellation whose worker was lost."""
+    if cancellation.status not in {
+        ACCOUNT_CANCELLATION_STATUS_PENDING,
+        ACCOUNT_CANCELLATION_STATUS_PROCESSING,
+        ACCOUNT_CANCELLATION_STATUS_RETRYING,
+    }:
+        return
+
+    lease_at = cancellation.last_attempt_at or cancellation.requested_at
+    if lease_at is None or lease_at > now_utc() - ACCOUNT_CANCELLATION_STALE_AFTER:
+        return
+
+    claimed_at = now_utc()
+    query = UserAccountCancellation.query.filter(
+        UserAccountCancellation.id == cancellation.id,
+        UserAccountCancellation.status == cancellation.status,
+    )
+    if cancellation.last_attempt_at is None:
+        query = query.filter(
+            UserAccountCancellation.last_attempt_at.is_(None),
+            UserAccountCancellation.requested_at == cancellation.requested_at,
+        )
+    else:
+        query = query.filter(
+            UserAccountCancellation.last_attempt_at == cancellation.last_attempt_at
+        )
+
+    with unit_of_work():
+        claimed = query.update(
+            {
+                UserAccountCancellation.status: ACCOUNT_CANCELLATION_STATUS_PENDING,
+                UserAccountCancellation.last_attempt_at: claimed_at,
+                UserAccountCancellation.failure_code: "",
+            },
+            synchronize_session=False,
+        )
+        if claimed == 1:
+            cancellation_bid = str(cancellation.cancellation_bid or "")
+            on_commit(
+                lambda: enqueue_account_cancellation(
+                    app,
+                    cancellation_bid=cancellation_bid,
+                )
+            )
+    if claimed == 1:
+        db.session.expire(cancellation)
+
+
 def get_account_cancellation_status(
     app: Flask, *, user_bid: str, cancellation_bid: str
 ) -> dict[str, Any]:
@@ -747,6 +803,7 @@ def get_account_cancellation_status(
         ).first()
         if cancellation is None:
             raise_error("server.user.accountCancellationNotFound")
+        _recover_stale_account_cancellation(app, cancellation)
         return _serialize_cancellation(cancellation)
 
 
@@ -796,6 +853,7 @@ def request_user_account_cancellation(
                 ACCOUNT_CANCELLATION_STATUS_RETRYING,
                 ACCOUNT_CANCELLATION_STATUS_COMPLETED,
             }:
+                _recover_stale_account_cancellation(app, existing)
                 return _serialize_cancellation(existing)
             normalized_cancellation_bid = str(existing.cancellation_bid or "")
             normalized_idempotency_key = str(existing.idempotency_key or "")

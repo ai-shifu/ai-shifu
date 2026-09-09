@@ -362,6 +362,9 @@ export default function UserCancellationDialog({
         requestError.code === CANCELLATION_BLOCKED_CODE
       ) {
         await loadPreview(user, workflow);
+        if (isCurrentWorkflow(workflow)) {
+          setError(requestError.message || t('cancellation.errors.blocked'));
+        }
       } else {
         setError(requestError.message || t('cancellation.errors.cancel'));
       }

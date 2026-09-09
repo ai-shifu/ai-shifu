@@ -485,6 +485,7 @@ describe('AdminOperationUserDetailPage', () => {
     expect(
       screen.getByText('module.operationsUser.detail.cancelledAt'),
     ).toBeVisible();
+    expect(screen.getByText('2026-09-08 04:30:00')).toBeVisible();
   });
 
   test('formats credits without grouping in Chinese locale', async () => {
