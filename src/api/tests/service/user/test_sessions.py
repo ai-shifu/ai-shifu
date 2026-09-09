@@ -217,13 +217,17 @@ def test_a_session_served_from_cache_keeps_its_row_alive(
         record.token_expired_at = now_utc() + datetime.timedelta(minutes=1)
         db.session.commit()
 
+    # Authentication happens in a later read-only request. Nothing outside the
+    # token store commits this request's scoped ORM session.
+    with app.test_request_context():
         ttl = int(app.config.get("TOKEN_EXPIRE_TIME", 604800))
         result = token_store.get_and_refresh(
             app, token=token, expected_user_id=user_id, ttl_seconds=ttl
         )
-        db.session.commit()
-
         assert result is not None
+
+    # A fresh request proves teardown did not roll the sliding renewal back.
+    with app.test_request_context():
         refreshed = UserToken.query.filter(UserToken.token == token).first()
         assert refreshed.token_expired_at > now_utc() + datetime.timedelta(days=1)
         # And it is therefore still listed.
