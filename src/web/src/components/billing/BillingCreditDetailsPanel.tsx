@@ -1,7 +1,18 @@
 import React, { useMemo } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
+import api from '@/api';
 import { Button } from '@/components/ui/Button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
 import {
   Card,
   CardContent,
@@ -17,9 +28,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  useBillingCatalog,
   useBillingOverview,
   useBillingWalletBuckets,
 } from '@/hooks/useBillingData';
+import { useTracking } from '@/hooks/useTracking';
+import { toast } from '@/hooks/useToast';
 import type {
   BillingBucketCategory,
   BillingWalletBucket,
@@ -31,11 +45,19 @@ import {
   parseBillingDateValue,
   registerBillingTranslationUsage,
   resolveBillingBucketCategoryLabel,
+  resolveBillingProductTitle,
 } from '@/lib/billing';
+import type { BillingSubscription } from '@/types/billing';
 
 type BillingCreditDetailsPanelProps = {
   onUpgrade?: () => void;
+  showSubscriptionManagement?: boolean;
 };
+
+const SUBSCRIPTION_RENEWAL_EVENTS = {
+  attempt: 'creator_subscription_renewal_attempt',
+  result: 'creator_subscription_renewal_result',
+} as const;
 
 type CategorySummaryRow = {
   category: BillingBucketCategory;
@@ -203,14 +225,22 @@ function CategoryValidityCell({
 
 export function BillingCreditDetailsPanel({
   onUpgrade,
+  showSubscriptionManagement = false,
 }: BillingCreditDetailsPanelProps) {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
+  const [pendingAction, setPendingAction] = React.useState<
+    'cancel' | 'resume' | null
+  >(null);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   registerBillingTranslationUsage(t);
   const {
     data: overview,
     error: overviewError,
     isLoading: overviewLoading,
+    mutate: refreshOverview,
   } = useBillingOverview();
+  const { data: catalog } = useBillingCatalog(showSubscriptionManagement);
   const {
     data: bucketList,
     error: bucketsError,
@@ -268,6 +298,88 @@ export function BillingCreditDetailsPanel({
     'module.billing.details.topupAvailabilityTooltip',
   );
   const loadError = overviewError || bucketsError;
+  const subscription = overview?.subscription;
+  const manageableSubscription =
+    showSubscriptionManagement &&
+    subscription?.billing_provider === 'stripe' &&
+    hasActiveSubscription
+      ? subscription
+      : null;
+  const currentPlan = catalog?.plans.find(
+    plan => plan.product_bid === manageableSubscription?.product_bid,
+  );
+  const currentPlanLabel = resolveBillingProductTitle(
+    t,
+    currentPlan,
+    t('module.billing.common.empty'),
+  );
+  const isCancelScheduled = Boolean(
+    manageableSubscription?.cancel_at_period_end ||
+    manageableSubscription?.status === 'cancel_scheduled',
+  );
+
+  function reportRenewalEvent(
+    eventName: (typeof SUBSCRIPTION_RENEWAL_EVENTS)[keyof typeof SUBSCRIPTION_RENEWAL_EVENTS],
+    payload: Record<string, string>,
+  ) {
+    try {
+      Promise.resolve(trackEvent(eventName, payload)).catch(() => {});
+    } catch {
+      // Analytics is best effort and must not alter subscription management.
+    }
+  }
+
+  async function handleSubscriptionMutation() {
+    if (!manageableSubscription || !pendingAction || isSubmitting) {
+      return;
+    }
+    const action = pendingAction;
+    const analyticsPayload = {
+      action,
+      source_surface: 'credit_details',
+      payment_provider: 'stripe',
+      subscription_bid: manageableSubscription.subscription_bid,
+    };
+    setIsSubmitting(true);
+    try {
+      reportRenewalEvent(SUBSCRIPTION_RENEWAL_EVENTS.attempt, analyticsPayload);
+      const nextSubscription = (await (action === 'cancel'
+        ? api.cancelBillingSubscription({
+            subscription_bid: manageableSubscription.subscription_bid,
+          })
+        : api.resumeBillingSubscription({
+            subscription_bid: manageableSubscription.subscription_bid,
+          }))) as BillingSubscription;
+      await refreshOverview?.(
+        current =>
+          current ? { ...current, subscription: nextSubscription } : current,
+        false,
+      );
+      reportRenewalEvent(SUBSCRIPTION_RENEWAL_EVENTS.result, {
+        ...analyticsPayload,
+        outcome: 'success',
+      });
+      toast({
+        title: t(
+          action === 'cancel'
+            ? 'module.billing.details.subscription.cancelSuccess'
+            : 'module.billing.details.subscription.resumeSuccess',
+        ),
+      });
+      setPendingAction(null);
+    } catch {
+      reportRenewalEvent(SUBSCRIPTION_RENEWAL_EVENTS.result, {
+        ...analyticsPayload,
+        outcome: 'failed',
+      });
+      toast({
+        title: t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <section
@@ -359,11 +471,126 @@ export function BillingCreditDetailsPanel({
                     </div>
                   </div>
                 ))}
+                {manageableSubscription ? (
+                  <div
+                    className='flex flex-col gap-4 border-t border-[var(--base-border,#E5E5E5)] px-2 py-4 md:flex-row md:items-center md:justify-between'
+                    data-testid='billing-subscription-management'
+                  >
+                    <div className='flex flex-wrap items-center gap-x-8 gap-y-2 text-sm leading-5'>
+                      <div className='flex items-center gap-3'>
+                        <span className='text-muted-foreground'>
+                          {t('module.billing.details.subscription.currentPlan')}
+                        </span>
+                        <span className='font-medium text-foreground'>
+                          {currentPlanLabel}
+                        </span>
+                      </div>
+                      <div className='flex items-center gap-3'>
+                        <span className='text-muted-foreground'>
+                          {t(
+                            'module.billing.details.subscription.renewalStatus',
+                          )}
+                        </span>
+                        <span className='font-medium text-foreground'>
+                          {t(
+                            isCancelScheduled
+                              ? 'module.billing.details.subscription.cancelScheduled'
+                              : 'module.billing.details.subscription.autoRenew',
+                          )}
+                        </span>
+                      </div>
+                      <div className='flex items-center gap-3'>
+                        <span className='text-muted-foreground'>
+                          {t(
+                            isCancelScheduled
+                              ? 'module.billing.details.subscription.accessUntil'
+                              : 'module.billing.details.subscription.nextRenewal',
+                          )}
+                        </span>
+                        <span className='font-medium text-foreground'>
+                          {formatBillingCompactDateTime(
+                            manageableSubscription.current_period_end_at,
+                            i18n.language,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      className='shrink-0 self-start md:self-auto'
+                      disabled={isSubmitting}
+                      onClick={() =>
+                        setPendingAction(
+                          isCancelScheduled ? 'resume' : 'cancel',
+                        )
+                      }
+                      type='button'
+                      variant='outline'
+                    >
+                      {t(
+                        isCancelScheduled
+                          ? 'module.billing.details.subscription.resumeAction'
+                          : 'module.billing.details.subscription.cancelAction',
+                      )}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={pendingAction !== null}
+        onOpenChange={open => {
+          if (!open && !isSubmitting) {
+            setPendingAction(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t(
+                pendingAction === 'resume'
+                  ? 'module.billing.details.subscription.resumeConfirmTitle'
+                  : 'module.billing.details.subscription.cancelConfirmTitle',
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                pendingAction === 'resume'
+                  ? 'module.billing.details.subscription.resumeConfirmDescription'
+                  : 'module.billing.details.subscription.cancelConfirmDescription',
+                {
+                  date: formatBillingCompactDateTime(
+                    manageableSubscription?.current_period_end_at,
+                    i18n.language,
+                  ),
+                },
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>
+              {t('common.core.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSubmitting}
+              onClick={event => {
+                event.preventDefault();
+                void handleSubscriptionMutation();
+              }}
+            >
+              {t(
+                pendingAction === 'resume'
+                  ? 'module.billing.details.subscription.resumeConfirmAction'
+                  : 'module.billing.details.subscription.cancelConfirmAction',
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
