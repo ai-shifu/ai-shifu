@@ -697,6 +697,24 @@
       "upgradeNow": "الترقية الآن"
     },
     "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "متاح حتى",
+      "autoRenew": "التجديد التلقائي مفعّل",
+      "cancelAction": "إلغاء التجديد التلقائي",
+      "cancelConfirmAction": "تأكيد الإلغاء",
+      "cancelConfirmDescription": "تظل المزايا والأرصدة الحالية متاحة حتى {date}، ولن يتم تحصيل رسوم أخرى بعد ذلك.",
+      "cancelConfirmTitle": "إلغاء التجديد التلقائي؟",
+      "cancelScheduled": "تم إلغاء التجديد التلقائي",
+      "cancelSuccess": "تم إلغاء التجديد التلقائي، وتبقى مزايا الفترة الحالية كما هي.",
+      "currentPlan": "الباقة الحالية",
+      "nextRenewal": "التجديد التالي",
+      "renewalStatus": "حالة التجديد",
+      "resumeAction": "استئناف التجديد التلقائي",
+      "resumeConfirmAction": "تأكيد الاستئناف",
+      "resumeConfirmDescription": "سيتم تجديد باقتك الأصلية تلقائيًا في {date}.",
+      "resumeConfirmTitle": "استئناف التجديد التلقائي؟",
+      "resumeSuccess": "تم استئناف التجديد التلقائي."
+    },
     "subtitle": "اعرض إجمالي أرصدة مساحة المعلم الحالية وأرصدة كل نوع ومدة صلاحيتها المقابلة.",
     "table": {
       "balance": "الرصيد",

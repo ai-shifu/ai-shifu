@@ -2,10 +2,65 @@ import React from 'react';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
+  useBillingCatalog,
   useBillingOverview,
   useBillingWalletBuckets,
 } from '@/hooks/useBillingData';
 import { BillingCreditDetailsPanel } from './BillingCreditDetailsPanel';
+
+const mockCancelBillingSubscription = jest.fn();
+const mockResumeBillingSubscription = jest.fn();
+const mockTrackEvent = jest.fn();
+const mockRefreshOverview = jest.fn();
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    cancelBillingSubscription: (...args: unknown[]) =>
+      mockCancelBillingSubscription(...args),
+    resumeBillingSubscription: (...args: unknown[]) =>
+      mockResumeBillingSubscription(...args),
+  },
+}));
+
+jest.mock('@/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
+
+jest.mock('@/hooks/useToast', () => ({
+  toast: jest.fn(),
+}));
+
+jest.mock('@/components/ui/AlertDialog', () => ({
+  AlertDialog: ({
+    children,
+    open,
+  }: {
+    children: React.ReactNode;
+    open: boolean;
+  }) => (open ? <div>{children}</div> : null),
+  AlertDialogAction: (props: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props} />
+  ),
+  AlertDialogCancel: (props: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props} />
+  ),
+  AlertDialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <p>{children}</p>
+  ),
+  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <h2>{children}</h2>
+  ),
+}));
 
 let mockResolvedLanguage = 'zh-CN';
 
@@ -27,17 +82,27 @@ jest.mock('@/lib/browser-timezone', () => ({
 jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
+  useBillingCatalog: jest.fn(),
   useBillingWalletBuckets: jest.fn(),
 }));
 
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
+const mockUseBillingCatalog = useBillingCatalog as jest.Mock;
 const mockUseBillingWalletBuckets = useBillingWalletBuckets as jest.Mock;
 
 describe('BillingCreditDetailsPanel', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2026-04-15T00:00:00Z'));
     mockUseBillingOverview.mockReset();
+    mockUseBillingCatalog.mockReset();
     mockUseBillingWalletBuckets.mockReset();
+    mockCancelBillingSubscription.mockReset();
+    mockResumeBillingSubscription.mockReset();
+    mockTrackEvent.mockReset();
+    mockRefreshOverview.mockReset();
+    mockRefreshOverview.mockImplementation(
+      async (updater: (current: unknown) => unknown) => updater(undefined),
+    );
     mockResolvedLanguage = 'zh-CN';
 
     mockUseBillingOverview.mockReturnValue({
@@ -86,6 +151,26 @@ describe('BillingCreditDetailsPanel', () => {
       },
       error: undefined,
       isLoading: false,
+      mutate: mockRefreshOverview,
+    });
+    mockUseBillingCatalog.mockReturnValue({
+      data: {
+        plans: [
+          {
+            product_bid: 'product-plan-paid',
+            product_code: 'creator-plan-pro',
+            product_type: 'plan',
+            display_name: 'module.billing.package.plans.business.name',
+            description: '',
+            currency: 'USD',
+            price_amount: 399900,
+            credit_amount: 100000,
+            billing_interval: 'year',
+            billing_interval_count: 1,
+          },
+        ],
+        topups: [],
+      },
     });
     mockUseBillingWalletBuckets.mockReturnValue({
       data: {
@@ -128,6 +213,190 @@ describe('BillingCreditDetailsPanel', () => {
       error: undefined,
       isLoading: false,
     });
+  });
+
+  test('shows Stripe renewal controls only for the global billing experience', () => {
+    const { rerender } = render(<BillingCreditDetailsPanel />);
+
+    expect(
+      screen.queryByTestId('billing-subscription-management'),
+    ).not.toBeInTheDocument();
+
+    rerender(<BillingCreditDetailsPanel showSubscriptionManagement />);
+
+    expect(
+      screen.getByTestId('billing-subscription-management'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.cancelAction',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('confirms cancellation and records attempt and result analytics', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const refreshedSubscription = {
+      ...mockUseBillingOverview.mock.results[0]?.value?.data?.subscription,
+      subscription_bid: 'sub-1',
+      product_bid: 'product-plan-paid',
+      product_code: 'creator-plan-pro',
+      status: 'cancel_scheduled',
+      billing_provider: 'stripe',
+      current_period_start_at: '2026-04-01T00:00:00',
+      current_period_end_at: '2026-10-12T23:59:00',
+      grace_period_end_at: null,
+      cancel_at_period_end: true,
+      next_product_bid: null,
+      last_renewed_at: null,
+      last_failed_at: null,
+    };
+    mockCancelBillingSubscription.mockResolvedValue(refreshedSubscription);
+
+    render(<BillingCreditDetailsPanel showSubscriptionManagement />);
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.cancelAction',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.cancelConfirmAction',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCancelBillingSubscription).toHaveBeenCalledWith({
+        subscription_bid: 'sub-1',
+      });
+    });
+    expect(mockRefreshOverview).toHaveBeenCalledWith(
+      expect.any(Function),
+      false,
+    );
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      1,
+      'creator_subscription_renewal_attempt',
+      {
+        action: 'cancel',
+        source_surface: 'credit_details',
+        payment_provider: 'stripe',
+        subscription_bid: 'sub-1',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      2,
+      'creator_subscription_renewal_result',
+      expect.objectContaining({ action: 'cancel', outcome: 'success' }),
+    );
+  });
+
+  test('offers resume for a cancel-scheduled Stripe subscription', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const currentOverview = mockUseBillingOverview();
+    mockUseBillingOverview.mockReturnValue({
+      ...currentOverview,
+      data: {
+        ...currentOverview.data,
+        subscription: {
+          ...currentOverview.data.subscription,
+          status: 'cancel_scheduled',
+          cancel_at_period_end: true,
+        },
+      },
+    });
+    mockResumeBillingSubscription.mockResolvedValue({
+      ...currentOverview.data.subscription,
+      status: 'active',
+      cancel_at_period_end: false,
+    });
+
+    render(<BillingCreditDetailsPanel showSubscriptionManagement />);
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.resumeAction',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.resumeConfirmAction',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockResumeBillingSubscription).toHaveBeenCalledWith({
+        subscription_bid: 'sub-1',
+      });
+    });
+    expect(mockTrackEvent).toHaveBeenNthCalledWith(
+      2,
+      'creator_subscription_renewal_result',
+      expect.objectContaining({ action: 'resume', outcome: 'success' }),
+    );
+  });
+
+  test('keeps cancellation working when analytics is unavailable', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('analytics unavailable');
+    });
+    mockCancelBillingSubscription.mockResolvedValue({
+      ...mockUseBillingOverview().data.subscription,
+      status: 'cancel_scheduled',
+      cancel_at_period_end: true,
+    });
+
+    render(<BillingCreditDetailsPanel showSubscriptionManagement />);
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.cancelAction',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.cancelConfirmAction',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCancelBillingSubscription).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test('records a bounded failed result when cancellation fails', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockCancelBillingSubscription.mockRejectedValue(
+      new Error('provider response must not be tracked'),
+    );
+
+    render(<BillingCreditDetailsPanel showSubscriptionManagement />);
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.cancelAction',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.cancelConfirmAction',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenNthCalledWith(
+        2,
+        'creator_subscription_renewal_result',
+        {
+          action: 'cancel',
+          source_surface: 'credit_details',
+          payment_provider: 'stripe',
+          subscription_bid: 'sub-1',
+          outcome: 'failed',
+        },
+      );
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'provider response must not be tracked',
+    );
   });
 
   afterEach(() => {
