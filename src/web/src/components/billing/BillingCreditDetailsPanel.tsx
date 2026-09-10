@@ -28,7 +28,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  useBillingCatalog,
   useBillingOverview,
   useBillingWalletBuckets,
 } from '@/hooks/useBillingData';
@@ -45,7 +44,6 @@ import {
   parseBillingDateValue,
   registerBillingTranslationUsage,
   resolveBillingBucketCategoryLabel,
-  resolveBillingProductTitle,
 } from '@/lib/billing';
 import type { BillingSubscription } from '@/types/billing';
 
@@ -240,7 +238,6 @@ export function BillingCreditDetailsPanel({
     isLoading: overviewLoading,
     mutate: refreshOverview,
   } = useBillingOverview();
-  const { data: catalog } = useBillingCatalog(showSubscriptionManagement);
   const {
     data: bucketList,
     error: bucketsError,
@@ -305,17 +302,14 @@ export function BillingCreditDetailsPanel({
     hasActiveSubscription
       ? subscription
       : null;
-  const currentPlan = catalog?.plans.find(
-    plan => plan.product_bid === manageableSubscription?.product_bid,
-  );
-  const currentPlanLabel = resolveBillingProductTitle(
-    t,
-    currentPlan,
-    t('module.billing.common.empty'),
-  );
-  const isCancelScheduled = Boolean(
+  const currentPlanLabel = manageableSubscription?.product_name_key
+    ? t(manageableSubscription.product_name_key)
+    : t('module.billing.common.empty');
+  const isPaused = manageableSubscription?.status === 'paused';
+  const isResumeState = Boolean(
     manageableSubscription?.cancel_at_period_end ||
-    manageableSubscription?.status === 'cancel_scheduled',
+    manageableSubscription?.status === 'cancel_scheduled' ||
+    manageableSubscription?.status === 'paused',
   );
 
   function reportRenewalEvent(
@@ -493,16 +487,18 @@ export function BillingCreditDetailsPanel({
                         </span>
                         <span className='font-medium text-foreground'>
                           {t(
-                            isCancelScheduled
-                              ? 'module.billing.details.subscription.cancelScheduled'
-                              : 'module.billing.details.subscription.autoRenew',
+                            isPaused
+                              ? 'module.billing.details.subscription.paused'
+                              : isResumeState
+                                ? 'module.billing.details.subscription.cancelScheduled'
+                                : 'module.billing.details.subscription.autoRenew',
                           )}
                         </span>
                       </div>
                       <div className='flex items-center gap-3'>
                         <span className='text-muted-foreground'>
                           {t(
-                            isCancelScheduled
+                            isResumeState
                               ? 'module.billing.details.subscription.accessUntil'
                               : 'module.billing.details.subscription.nextRenewal',
                           )}
@@ -519,15 +515,13 @@ export function BillingCreditDetailsPanel({
                       className='shrink-0 self-start md:self-auto'
                       disabled={isSubmitting}
                       onClick={() =>
-                        setPendingAction(
-                          isCancelScheduled ? 'resume' : 'cancel',
-                        )
+                        setPendingAction(isResumeState ? 'resume' : 'cancel')
                       }
                       type='button'
                       variant='outline'
                     >
                       {t(
-                        isCancelScheduled
+                        isResumeState
                           ? 'module.billing.details.subscription.resumeAction'
                           : 'module.billing.details.subscription.cancelAction',
                       )}

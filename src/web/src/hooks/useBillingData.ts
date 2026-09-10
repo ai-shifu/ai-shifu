@@ -3,8 +3,6 @@ import api from '@/api';
 import { useEnvStore } from '@/store';
 import { buildBillingSwrKey } from '@/lib/billing';
 import type {
-  BillingPlan,
-  BillingTopupProduct,
   BillingWalletBucketList,
   CreatorBillingOverview,
 } from '@/types/billing';
@@ -19,12 +17,6 @@ const BILLING_PASSIVE_REQUEST_CONFIG = {
 
 export const BILLING_OVERVIEW_SWR_KEY = 'creator-billing-overview';
 export const BILLING_WALLET_BUCKETS_SWR_KEY = 'billing-wallet-buckets';
-export const BILLING_CATALOG_SWR_KEY = 'billing-catalog';
-
-type BillingCatalogResponse = {
-  plans: BillingPlan[];
-  topups: BillingTopupProduct[];
-};
 
 function useBillingEnabled(): boolean {
   return useEnvStore(state => state.billingEnabled === 'true');
@@ -40,22 +32,6 @@ export function useBillingOverview() {
         {},
         BILLING_PASSIVE_REQUEST_CONFIG,
       )) as CreatorBillingOverview,
-    BILLING_SWR_OPTIONS,
-  );
-}
-
-export function useBillingCatalog(enabled = true) {
-  const billingEnabled = useBillingEnabled();
-
-  return useSWR<BillingCatalogResponse>(
-    billingEnabled && enabled
-      ? buildBillingSwrKey(BILLING_CATALOG_SWR_KEY)
-      : null,
-    async () =>
-      (await api.getBillingCatalog(
-        {},
-        BILLING_PASSIVE_REQUEST_CONFIG,
-      )) as BillingCatalogResponse,
     BILLING_SWR_OPTIONS,
   );
 }

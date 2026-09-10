@@ -704,6 +704,7 @@ export type I18nKey =
   | 'module.billing.details.subscription.cancelSuccess'
   | 'module.billing.details.subscription.currentPlan'
   | 'module.billing.details.subscription.nextRenewal'
+  | 'module.billing.details.subscription.paused'
   | 'module.billing.details.subscription.renewalStatus'
   | 'module.billing.details.subscription.resumeAction'
   | 'module.billing.details.subscription.resumeConfirmAction'

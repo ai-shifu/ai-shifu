@@ -151,6 +151,7 @@ class BillingSubscriptionDTO(BillingBaseDTO):
     subscription_bid: str
     product_bid: str
     product_code: str
+    product_name_key: str = ""
     status: str
     billing_provider: str
     current_period_start_at: datetime | None = None
@@ -501,7 +502,6 @@ class AdminBillingSubscriptionDTO(BillingSubscriptionDTO):
     creator_mobile: str = ""
     creator_email: str = ""
     creator_nickname: str = ""
-    product_name_key: str = ""
     next_product_code: str = ""
     next_product_name_key: str = ""
     wallet: BillingWalletSnapshotDTO
