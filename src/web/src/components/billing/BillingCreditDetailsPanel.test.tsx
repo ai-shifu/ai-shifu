@@ -114,7 +114,7 @@ describe('BillingCreditDetailsPanel', () => {
           subscription_bid: 'sub-1',
           product_bid: 'product-plan-paid',
           product_code: 'creator-plan-pro',
-          product_name_key: 'module.billing.package.plans.business.name',
+          product_name_key: 'module.billing.globalPricing.plans.business.name',
           status: 'active',
           billing_provider: 'stripe',
           current_period_start_at: '2026-04-01T00:00:00',
@@ -211,8 +211,28 @@ describe('BillingCreditDetailsPanel', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.package.plans.business.name'),
+      screen.getByText('module.billing.globalPricing.plans.business.name'),
     ).toBeInTheDocument();
+  });
+
+  test('hides renewal controls when the subscription period end is unavailable', () => {
+    const currentOverview = mockUseBillingOverview();
+    mockUseBillingOverview.mockReturnValue({
+      ...currentOverview,
+      data: {
+        ...currentOverview.data,
+        subscription: {
+          ...currentOverview.data.subscription,
+          current_period_end_at: null,
+        },
+      },
+    });
+
+    render(<BillingCreditDetailsPanel showSubscriptionManagement />);
+
+    expect(
+      screen.queryByTestId('billing-subscription-management'),
+    ).not.toBeInTheDocument();
   });
 
   test('offers resume for a paused Stripe subscription', () => {
