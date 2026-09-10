@@ -296,10 +296,15 @@ export function BillingCreditDetailsPanel({
   );
   const loadError = overviewError || bucketsError;
   const subscription = overview?.subscription;
+  const subscriptionPeriodEndLabel = formatBillingCompactDateTime(
+    subscription?.current_period_end_at,
+    i18n.language,
+  );
   const manageableSubscription =
     showSubscriptionManagement &&
     subscription?.billing_provider === 'stripe' &&
-    hasActiveSubscription
+    hasActiveSubscription &&
+    subscriptionPeriodEndLabel
       ? subscription
       : null;
   const currentPlanLabel = manageableSubscription?.product_name_key
@@ -504,10 +509,7 @@ export function BillingCreditDetailsPanel({
                           )}
                         </span>
                         <span className='font-medium text-foreground'>
-                          {formatBillingCompactDateTime(
-                            manageableSubscription.current_period_end_at,
-                            i18n.language,
-                          )}
+                          {subscriptionPeriodEndLabel}
                         </span>
                       </div>
                     </div>
@@ -557,10 +559,7 @@ export function BillingCreditDetailsPanel({
                   ? 'module.billing.details.subscription.resumeConfirmDescription'
                   : 'module.billing.details.subscription.cancelConfirmDescription',
                 {
-                  date: formatBillingCompactDateTime(
-                    manageableSubscription?.current_period_end_at,
-                    i18n.language,
-                  ),
+                  date: subscriptionPeriodEndLabel,
                 },
               )}
             </AlertDialogDescription>
