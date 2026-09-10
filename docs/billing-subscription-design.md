@@ -1457,6 +1457,7 @@ type BillingSubscription = {
   subscription_bid: string;
   product_bid: string;
   product_code: string;
+  product_name_key?: string;
   status: 'draft' | 'active' | 'past_due' | 'paused' | 'cancel_scheduled' | 'canceled' | 'expired';
   billing_provider: string;
   current_period_start_at: string | null;

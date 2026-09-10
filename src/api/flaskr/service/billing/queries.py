@@ -405,6 +405,22 @@ def load_product_code_map(product_bids: list[str]) -> dict[str, str]:
     return {row.product_bid: row.product_code for row in rows}
 
 
+def load_product_name_key_map(product_bids: list[str]) -> dict[str, str]:
+    """Load product display-name keys, including inactive products."""
+    normalized_bids = [bid for bid in product_bids if bid]
+    if not normalized_bids:
+        return {}
+    rows = (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_bid.in_(normalized_bids),
+        )
+        .order_by(BillingProduct.id.desc())
+        .all()
+    )
+    return {row.product_bid: str(row.display_name_i18n_key or "") for row in rows}
+
+
 def load_wallet_map(creator_bids: list[str]) -> dict[str, CreditWallet]:
     """Load wallet map."""
     normalized_creator_bids = [normalize_bid(bid) for bid in creator_bids if bid]

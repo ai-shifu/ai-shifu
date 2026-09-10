@@ -708,6 +708,7 @@
       "cancelSuccess": "Auto-renewal canceled. Your current-period benefits are unchanged.",
       "currentPlan": "Current plan",
       "nextRenewal": "Next renewal",
+      "paused": "Subscription paused",
       "renewalStatus": "Renewal status",
       "resumeAction": "Resume auto-renewal",
       "resumeConfirmAction": "Confirm resumption",

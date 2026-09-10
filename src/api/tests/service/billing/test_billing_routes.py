@@ -30,6 +30,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PRODUCT_STATUS_INACTIVE,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_TRIAL_PRODUCT_BID,
@@ -790,6 +791,9 @@ class TestBillingRoutes:
         assert overview_payload["data"]["wallet"]["available_credits"] == 120.5
         assert overview_payload["data"]["subscription"]["subscription_bid"] == "sub-1"
         assert overview_payload["data"]["subscription"]["status"] == "active"
+        assert overview_payload["data"]["subscription"]["product_name_key"] == (
+            "module.billing.catalog.plans.creatorMonthly.title"
+        )
         assert overview_payload["data"]["billing_alerts"][0]["code"] == (
             "subscription_cancel_scheduled"
         )
@@ -828,6 +832,33 @@ class TestBillingRoutes:
         assert bucket_payload["data"]["items"][1]["credit_asset_kind"] == "plan_credits"
         assert bucket_payload["data"]["items"][2]["credit_asset_kind"] == "pack_credits"
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
+
+    def test_overview_preserves_name_for_inactive_subscribed_product(
+        self, billing_test_client: object
+    ) -> None:
+        app = billing_test_client.application
+        with app.app_context():
+            product = BillingProduct.query.filter_by(
+                product_bid="bill-product-plan-monthly"
+            ).one()
+            expected_name_key = product.display_name_i18n_key
+            product.status = BILLING_PRODUCT_STATUS_INACTIVE
+            dao.db.session.commit()
+
+        catalog_payload = billing_test_client.get("/api/billing/catalog").get_json(
+            force=True
+        )
+        overview_payload = billing_test_client.get("/api/billing/overview").get_json(
+            force=True
+        )
+
+        assert all(
+            item["product_bid"] != "bill-product-plan-monthly"
+            for item in catalog_payload["data"]["plans"]
+        )
+        assert overview_payload["data"]["subscription"]["product_name_key"] == (
+            expected_name_key
+        )
 
     def test_overview_recalculates_wallet_snapshot_for_current_balance(
         self, billing_test_client: object

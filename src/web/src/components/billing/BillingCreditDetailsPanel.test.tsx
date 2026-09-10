@@ -2,7 +2,6 @@ import React from 'react';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
-  useBillingCatalog,
   useBillingOverview,
   useBillingWalletBuckets,
 } from '@/hooks/useBillingData';
@@ -82,19 +81,16 @@ jest.mock('@/lib/browser-timezone', () => ({
 jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
-  useBillingCatalog: jest.fn(),
   useBillingWalletBuckets: jest.fn(),
 }));
 
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
-const mockUseBillingCatalog = useBillingCatalog as jest.Mock;
 const mockUseBillingWalletBuckets = useBillingWalletBuckets as jest.Mock;
 
 describe('BillingCreditDetailsPanel', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2026-04-15T00:00:00Z'));
     mockUseBillingOverview.mockReset();
-    mockUseBillingCatalog.mockReset();
     mockUseBillingWalletBuckets.mockReset();
     mockCancelBillingSubscription.mockReset();
     mockResumeBillingSubscription.mockReset();
@@ -118,6 +114,7 @@ describe('BillingCreditDetailsPanel', () => {
           subscription_bid: 'sub-1',
           product_bid: 'product-plan-paid',
           product_code: 'creator-plan-pro',
+          product_name_key: 'module.billing.package.plans.business.name',
           status: 'active',
           billing_provider: 'stripe',
           current_period_start_at: '2026-04-01T00:00:00',
@@ -152,25 +149,6 @@ describe('BillingCreditDetailsPanel', () => {
       error: undefined,
       isLoading: false,
       mutate: mockRefreshOverview,
-    });
-    mockUseBillingCatalog.mockReturnValue({
-      data: {
-        plans: [
-          {
-            product_bid: 'product-plan-paid',
-            product_code: 'creator-plan-pro',
-            product_type: 'plan',
-            display_name: 'module.billing.package.plans.business.name',
-            description: '',
-            currency: 'USD',
-            price_amount: 399900,
-            credit_amount: 100000,
-            billing_interval: 'year',
-            billing_interval_count: 1,
-          },
-        ],
-        topups: [],
-      },
     });
     mockUseBillingWalletBuckets.mockReturnValue({
       data: {
@@ -232,6 +210,40 @@ describe('BillingCreditDetailsPanel', () => {
         name: 'module.billing.details.subscription.cancelAction',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.package.plans.business.name'),
+    ).toBeInTheDocument();
+  });
+
+  test('offers resume for a paused Stripe subscription', () => {
+    const currentOverview = mockUseBillingOverview();
+    mockUseBillingOverview.mockReturnValue({
+      ...currentOverview,
+      data: {
+        ...currentOverview.data,
+        subscription: {
+          ...currentOverview.data.subscription,
+          status: 'paused',
+          cancel_at_period_end: false,
+        },
+      },
+    });
+
+    render(<BillingCreditDetailsPanel showSubscriptionManagement />);
+
+    expect(
+      screen.getByText('module.billing.details.subscription.paused'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.resumeAction',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.billing.details.subscription.cancelAction',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   test('confirms cancellation and records attempt and result analytics', async () => {
