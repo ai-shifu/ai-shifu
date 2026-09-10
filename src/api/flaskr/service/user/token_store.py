@@ -71,32 +71,39 @@ class TokenStoreProvider:
         now = now_utc()
         expires_at = now + datetime.timedelta(seconds=ttl_seconds)
 
-        with db.session.begin_nested():
-            record = (
-                UserTokenModel.query.filter(UserTokenModel.token == token)
-                .order_by(UserTokenModel.id.desc())
-                .first()
+        values: dict[str, object] = {
+            "user_id": user_id,
+            "token_expired_at": expires_at,
+        }
+        if metadata is not None:
+            # Recorded once, at creation: these describe where the session
+            # started, not where it was last used.
+            values.update(
+                session_bid=metadata.session_bid,
+                source=metadata.source,
+                device_name=metadata.device_name,
+                device_os=metadata.device_os,
+                created_ip=metadata.created_ip,
             )
-            if record is None:
-                record = UserTokenModel(
-                    user_id=user_id,
-                    token=token,
-                    token_type=0,
-                    token_expired_at=expires_at,
-                )
-                db.session.add(record)
-            else:
-                record.user_id = user_id
-                record.token_expired_at = expires_at
 
-            if metadata is not None:
-                # Recorded once, at creation: these describe where the session
-                # started, not where it was last used.
-                record.session_bid = metadata.session_bid
-                record.source = metadata.source
-                record.device_name = metadata.device_name
-                record.device_os = metadata.device_os
-                record.created_ip = metadata.created_ip
+        # A token is returned to the client immediately, and many sign-in flows
+        # do not commit the request-scoped ORM session afterwards. Persist it in
+        # an independent transaction so request teardown cannot roll it back.
+        # This also avoids committing unrelated caller-owned business changes.
+        with db.engine.begin() as connection:
+            result = connection.execute(
+                UserTokenModel.__table__.update()
+                .where(UserTokenModel.token == token)
+                .values(**values)
+            )
+            if result.rowcount < 1:
+                connection.execute(
+                    UserTokenModel.__table__.insert().values(
+                        token=token,
+                        token_type=0,
+                        **values,
+                    )
+                )
 
         try:
             self._cache.set(self._cache_key(app, token), user_id, ex=ttl_seconds)
