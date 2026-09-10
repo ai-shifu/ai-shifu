@@ -49,7 +49,10 @@ from flaskr.service.order.models import (
     PingxxOrder,
     StripeOrder,
 )
-from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
+from flaskr.service.order.payment_channel_resolution import (
+    resolve_market_payment_provider,
+    resolve_payment_channel,
+)
 from flaskr.service.order.payment_providers import PaymentRequest, get_payment_provider
 from flaskr.service.order.payment_providers.base import (
     PaymentNotificationResult,
@@ -448,6 +451,7 @@ def init_buy_record(
                 active_id=None,
             )
             if decimal.Decimal(origin_record.paid_price) == decimal.Decimal(0):
+                assign_free_order_payment_channel(origin_record)
                 success_buy_record(app, origin_record.order_bid)
             return query_buy_record(app, origin_record.order_bid)
         order_id = str(get_uuid(app))
@@ -471,6 +475,7 @@ def init_buy_record(
             active_id=active_id,
         )
         if decimal.Decimal(buy_record.paid_price) == decimal.Decimal(0):
+            assign_free_order_payment_channel(buy_record)
             success_buy_record(app, buy_record.order_bid)
         price_items = []
         price_items.append(
@@ -720,6 +725,17 @@ def _resolve_payment_channel(
         stored_channel=stored_channel,
         additional_enabled_providers=additional_enabled_providers,
     )
+
+
+def assign_free_order_payment_channel(order: Order) -> None:
+    """Attribute a free order to the market provider without creating a charge."""
+    recorded_channel = str(order.payment_channel or "").strip()
+    if recorded_channel in {"manual", "open_api"} or (
+        order.status != ORDER_STATUS_INIT
+        and recorded_channel in {"stripe", "alipay", "wechatpay"}
+    ):
+        return
+    order.payment_channel = resolve_market_payment_provider()
 
 
 def _resolve_custom_payment_provider_hints(creator_bid: str) -> set[str]:

@@ -40,6 +40,9 @@ from flaskr.service.order.models import (
     PingxxOrder,
     StripeOrder,
 )
+from flaskr.service.order.payment_channel_resolution import (
+    resolve_market_payment_provider,
+)
 from flaskr.service.order.raw_snapshots import (
     legacy_native_snapshot_query,
     legacy_pingxx_snapshot_query,
@@ -617,6 +620,40 @@ def _apply_order_source_filter(query: Query, order_source: str) -> Query:
     return query.filter(db.literal(False))  # noqa: FBT003 -- SQL literal value
 
 
+def _resolve_order_display_payment_channel(order: Order) -> str:
+    """Correct the legacy model default for free orders on non-Ping++ markets."""
+    payment_channel = str(order.payment_channel or "").strip()
+    if payment_channel != "pingxx" or Decimal(order.paid_price or 0) != Decimal(0):
+        return payment_channel
+    return resolve_market_payment_provider()
+
+
+def _apply_payment_channel_filter(query: Query, payment_channel: str) -> Query:
+    """Filter by the same effective channel exposed in order DTOs."""
+    normalized_channel = str(payment_channel or "").strip()
+    if not normalized_channel:
+        return query
+
+    market_provider = resolve_market_payment_provider()
+    if market_provider == "pingxx":
+        return query.filter(Order.payment_channel == normalized_channel)
+
+    legacy_free_order = db.and_(
+        Order.payment_channel == "pingxx",
+        Order.paid_price == Decimal(0),
+    )
+    if normalized_channel == market_provider:
+        return query.filter(
+            db.or_(Order.payment_channel == normalized_channel, legacy_free_order)
+        )
+    if normalized_channel == "pingxx":
+        return query.filter(
+            Order.payment_channel == "pingxx",
+            Order.paid_price != Decimal(0),
+        )
+    return query.filter(Order.payment_channel == normalized_channel)
+
+
 def _build_order_item(
     order: Order,
     shifu_map: dict[str, DraftShifu | PublishedShifu],
@@ -626,7 +663,7 @@ def _build_order_item(
     """Build admin order summary DTO from order plus shifu/user lookups."""
     shifu = shifu_map.get(order.shifu_bid)
     user = user_map.get(order.user_bid, {})
-    payment_channel = order.payment_channel or ""
+    payment_channel = _resolve_order_display_payment_channel(order)
     status_key = ORDER_STATUS_KEY_MAP.get(order.status, "server.order.orderStatusInit")
     coupon_codes = []
     if coupon_map is not None:
@@ -926,7 +963,7 @@ def list_orders(
 
         payment_channel = filters.get("payment_channel")
         if payment_channel:
-            query = query.filter(Order.payment_channel == payment_channel)
+            query = _apply_payment_channel_filter(query, str(payment_channel))
 
         start_time = _normalize_order_datetime_filter(filters.get("start_time"))
         if start_time:
@@ -1005,7 +1042,7 @@ def list_operator_orders(
 
         payment_channel = str(filters.get("payment_channel", "") or "").strip()
         if payment_channel:
-            query = query.filter(Order.payment_channel == payment_channel)
+            query = _apply_payment_channel_filter(query, payment_channel)
 
         order_source = str(filters.get("order_source", "") or "").strip()
         if order_source:
@@ -1147,7 +1184,7 @@ def _load_order_coupons(order_bid: str) -> list[OrderAdminCouponDTO]:
 
 def _load_payment_detail(order: Order) -> OrderAdminPaymentDTO | None:
     """Build payment detail DTO from channel-specific order records."""
-    payment_channel = order.payment_channel or ""
+    payment_channel = _resolve_order_display_payment_channel(order)
     if payment_channel == "stripe":
         stripe_order = (
             legacy_stripe_snapshot_query()
@@ -1260,7 +1297,7 @@ def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDeta
         summary = _build_order_item(order, shifu_map, user_map, coupon_map)
         payment_detail = _load_payment_detail(order)
         if not payment_detail:
-            payment_channel = order.payment_channel or ""
+            payment_channel = _resolve_order_display_payment_channel(order)
             payment_detail = OrderAdminPaymentDTO(
                 payment_channel=payment_channel,
                 payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
@@ -1296,7 +1333,7 @@ def get_operator_order_detail(app: Flask, order_bid: str) -> OrderAdminDetailDTO
         summary = _build_order_item(order, shifu_map, user_map, coupon_map)
         payment_detail = _load_payment_detail(order)
         if not payment_detail:
-            payment_channel = order.payment_channel or ""
+            payment_channel = _resolve_order_display_payment_channel(order)
             payment_detail = OrderAdminPaymentDTO(
                 payment_channel=payment_channel,
                 payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
