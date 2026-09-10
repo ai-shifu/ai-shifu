@@ -1217,12 +1217,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raw_request_args=request.args.to_dict(flat=True),
             current_user_id=current_user_id,
         )
-        try:
+        with unit_of_work():
             auth_result = provider.handle_oauth_callback(app, callback_request)
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-            raise
         run_post_auth_extensions(
             app,
             PostAuthContext(
@@ -1264,26 +1260,28 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         vr = VerificationRequest(identifier=identifier, code=password)
         # TODO(geyunfei): Add rate-limiting and failed login attempt tracking
         # (record identifier, request.remote_addr, timestamp on failure)
-        auth_result = provider.verify(app, vr)
-        current_user = _best_effort_password_login_user(app)
-        current_user_id = (
-            getattr(current_user, "user_id", None) if current_user is not None else None
-        )
-        if current_user_id and current_user_id != auth_result.user.user_id:
-            merge_learner_profile_for_sign_in(
-                source_user_id=current_user_id,
-                target_user_id=auth_result.user.user_id,
+        with unit_of_work():
+            auth_result = provider.verify(app, vr)
+            current_user = _best_effort_password_login_user(app)
+            current_user_id = (
+                getattr(current_user, "user_id", None)
+                if current_user is not None
+                else None
             )
-            refreshed = load_user_aggregate(auth_result.user.user_id)
-            if not refreshed:
-                raise_error("USER.USER_NOT_FOUND")
-            refreshed_user = build_user_info_from_aggregate(refreshed)
-            auth_result.user = refreshed_user
-            auth_result.token = UserToken(
-                user_info=refreshed_user,
-                token=auth_result.token.token,
-            )
-        db.session.commit()
+            if current_user_id and current_user_id != auth_result.user.user_id:
+                merge_learner_profile_for_sign_in(
+                    source_user_id=current_user_id,
+                    target_user_id=auth_result.user.user_id,
+                )
+                refreshed = load_user_aggregate(auth_result.user.user_id)
+                if not refreshed:
+                    raise_error("USER.USER_NOT_FOUND")
+                refreshed_user = build_user_info_from_aggregate(refreshed)
+                auth_result.user = refreshed_user
+                auth_result.token = UserToken(
+                    user_info=refreshed_user,
+                    token=auth_result.token.token,
+                )
         run_post_auth_extensions(
             app,
             PostAuthContext(

@@ -2,6 +2,7 @@
 
 import uuid
 from collections.abc import Iterator
+from types import SimpleNamespace
 
 import flaskr.common.config as common_config
 import pytest
@@ -22,6 +23,7 @@ from flaskr.service.user.models import (
 from flaskr.service.user.models import (
     UserToken as UserTokenModel,
 )
+from flaskr.service.user.token_store import token_store
 from sqlalchemy import Text
 
 
@@ -96,6 +98,49 @@ def _run_google_callback(
 
     with app.test_request_context("/login/google-callback"):
         return provider.handle_oauth_callback(app, callback)
+
+
+def test_google_callback_commit_failure_does_not_populate_token_cache(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    import flaskr.route.user as user_route
+
+    token = f"google-failed-{uuid.uuid4().hex}"
+    user_id = uuid.uuid4().hex
+
+    class FailingCommitProvider:
+        def handle_oauth_callback(self, route_app: object, _request: object) -> object:
+            token_store.save(
+                route_app,
+                user_id=user_id,
+                token=token,
+                ttl_seconds=60,
+            )
+            return SimpleNamespace(
+                user=SimpleNamespace(user_id=user_id, language="en-US"),
+                token=SimpleNamespace(token=token),
+                is_new_user=False,
+                metadata={},
+            )
+
+    def fail_commit() -> None:
+        message = "simulated Google login commit failure"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        user_route, "get_provider", lambda _name: FailingCommitProvider()
+    )
+    monkeypatch.setattr(db.session, "commit", fail_commit)
+
+    response = test_client.get(
+        "/api/user/oauth/google/callback",
+        query_string={"state": "state", "code": "code"},
+    )
+    assert response.get_json(force=True)["code"] == -1
+
+    with app.app_context():
+        assert UserTokenModel.query.filter_by(token=token).count() == 0
+        assert token_store._cache.get(token_store._cache_key(app, token)) is None
 
 
 def test_google_unverified_email_does_not_consume_first_account_bootstrap(

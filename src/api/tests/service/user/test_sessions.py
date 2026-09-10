@@ -4,6 +4,7 @@ import uuid
 
 import pytest
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.models import UserToken
 from flaskr.service.user.sessions import (
@@ -11,7 +12,7 @@ from flaskr.service.user.sessions import (
     revoke_other_user_sessions,
     revoke_user_session,
 )
-from flaskr.service.user.token_store import token_store
+from flaskr.service.user.token_store import SessionMetadata, token_store
 from flaskr.service.user.utils import describe_user_agent, generate_token
 
 
@@ -30,6 +31,75 @@ def _sign_in(app: object, user_id: str, **kwargs: object) -> str:
     token = generate_token(app, user_id, **kwargs)
     db.session.commit()
     return token
+
+
+def test_a_failed_login_transaction_does_not_expose_its_token(
+    app: object, user_id: str
+) -> None:
+    token = f"rolled-back-{uuid.uuid4().hex}"
+
+    def fail_login_transaction() -> None:
+        with unit_of_work():
+            token_store.save(
+                app,
+                user_id=user_id,
+                token=token,
+                ttl_seconds=60,
+            )
+            message = "simulate a later login failure"
+            raise RuntimeError(message)
+
+    with app.test_request_context():
+        with pytest.raises(RuntimeError):
+            fail_login_transaction()
+
+        assert UserToken.query.filter_by(token=token).count() == 0
+        assert token_store._cache.get(token_store._cache_key(app, token)) is None
+
+
+def test_resaving_a_token_preserves_where_the_session_started(
+    app: object, user_id: str
+) -> None:
+    token = f"resaved-{uuid.uuid4().hex}"
+    original = SessionMetadata(
+        session_bid=uuid.uuid4().hex,
+        source="web",
+        device_name="Original device",
+        device_os="Original OS",
+        created_ip="203.0.113.8",
+    )
+    replacement = SessionMetadata(
+        session_bid=uuid.uuid4().hex,
+        source="cli",
+        device_name="Replacement device",
+        device_os="Replacement OS",
+        created_ip="203.0.113.9",
+    )
+
+    with app.test_request_context():
+        token_store.save(
+            app,
+            user_id=user_id,
+            token=token,
+            ttl_seconds=60,
+            metadata=original,
+        )
+        db.session.commit()
+        token_store.save(
+            app,
+            user_id=user_id,
+            token=token,
+            ttl_seconds=120,
+            metadata=replacement,
+        )
+        db.session.commit()
+
+        record = UserToken.query.filter_by(token=token).one()
+        assert record.session_bid == original.session_bid
+        assert record.source == original.source
+        assert record.device_name == original.device_name
+        assert record.device_os == original.device_os
+        assert record.created_ip == original.created_ip
 
 
 def test_a_session_is_recorded_for_every_sign_in(app: object, user_id: str) -> None:

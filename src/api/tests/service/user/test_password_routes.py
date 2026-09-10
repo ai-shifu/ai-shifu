@@ -2,7 +2,9 @@
 
 import json
 import time
+import uuid
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import jwt
 
@@ -17,6 +19,53 @@ def _post_json(
         headers=headers or {},
     )
     return resp, json.loads(resp.data)
+
+
+def test_password_login_commit_failure_does_not_populate_token_cache(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    import flaskr.route.user as user_route
+    from flaskr.dao import db
+    from flaskr.service.user.models import UserToken
+    from flaskr.service.user.token_store import token_store
+
+    token = f"password-failed-{uuid.uuid4().hex}"
+    user_id = uuid.uuid4().hex
+
+    class FailingCommitProvider:
+        def verify(self, route_app: object, _request: object) -> object:
+            token_store.save(
+                route_app,
+                user_id=user_id,
+                token=token,
+                ttl_seconds=60,
+            )
+            return SimpleNamespace(
+                user=SimpleNamespace(user_id=user_id, language="en-US"),
+                token=SimpleNamespace(token=token),
+                is_new_user=False,
+                metadata={},
+            )
+
+    def fail_commit() -> None:
+        message = "simulated password login commit failure"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        user_route, "get_provider", lambda _name: FailingCommitProvider()
+    )
+    monkeypatch.setattr(db.session, "commit", fail_commit)
+
+    _response, body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": "user@example.com", "password": "password"},
+    )
+    assert body["code"] == -1
+
+    with app.app_context():
+        assert UserToken.query.filter_by(token=token).count() == 0
+        assert token_store._cache.get(token_store._cache_key(app, token)) is None
 
 
 def test_reset_password_does_not_create_new_user(
