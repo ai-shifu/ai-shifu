@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.common.cache_provider import cache
-from flaskr.dao import db
+from flaskr.dao import db, uow
 from flaskr.service.user.models import UserToken as UserTokenModel
 from flaskr.util.datetime import now_utc
 
@@ -71,45 +71,41 @@ class TokenStoreProvider:
         now = now_utc()
         expires_at = now + datetime.timedelta(seconds=ttl_seconds)
 
-        values: dict[str, object] = {
-            "user_id": user_id,
-            "token_expired_at": expires_at,
-        }
-        if metadata is not None:
-            # Recorded once, at creation: these describe where the session
-            # started, not where it was last used.
-            values.update(
-                session_bid=metadata.session_bid,
-                source=metadata.source,
-                device_name=metadata.device_name,
-                device_os=metadata.device_os,
-                created_ip=metadata.created_ip,
+        record = (
+            UserTokenModel.query.filter(UserTokenModel.token == token)
+            .order_by(UserTokenModel.id.desc())
+            .first()
+        )
+        if record is None:
+            record = UserTokenModel(
+                user_id=user_id,
+                token=token,
+                token_type=0,
+                token_expired_at=expires_at,
             )
+            if metadata is not None:
+                # Creation metadata describes where the session began and
+                # must not be replaced by a later save of the same token.
+                record.session_bid = metadata.session_bid
+                record.source = metadata.source
+                record.device_name = metadata.device_name
+                record.device_os = metadata.device_os
+                record.created_ip = metadata.created_ip
+            db.session.add(record)
+        else:
+            record.user_id = user_id
+            record.token_expired_at = expires_at
 
-        # A token is returned to the client immediately, and many sign-in flows
-        # do not commit the request-scoped ORM session afterwards. Persist it in
-        # an independent transaction so request teardown cannot roll it back.
-        # This also avoids committing unrelated caller-owned business changes.
-        with db.engine.begin() as connection:
-            result = connection.execute(
-                UserTokenModel.__table__.update()
-                .where(UserTokenModel.token == token)
-                .values(**values)
-            )
-            if result.rowcount < 1:
-                connection.execute(
-                    UserTokenModel.__table__.insert().values(
-                        token=token,
-                        token_type=0,
-                        **values,
-                    )
-                )
+        def populate_cache() -> None:
+            try:
+                self._cache.set(self._cache_key(app, token), user_id, ex=ttl_seconds)
+            except Exception:
+                # Cache failures should not block login flows.
+                return
 
-        try:
-            self._cache.set(self._cache_key(app, token), user_id, ex=ttl_seconds)
-        except Exception:
-            # Cache failures should not block login flows.
-            return
+        # Authentication flows own their transaction. Do not expose a token in
+        # cache when that transaction later rolls back.
+        uow.on_commit(populate_cache)
 
     def _refresh_marker_key(self, app: Flask, token: str) -> str:
         return f"{self._cache_key(app, token)}:row"

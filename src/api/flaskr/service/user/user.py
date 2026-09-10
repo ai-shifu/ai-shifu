@@ -12,6 +12,7 @@ from flask import Flask
 from flaskr.api.wechat import get_wechat_access_token
 from flaskr.common.shifu_context import get_shifu_creator_bid as get_context_creator_bid
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.billing.api import resolve_creator_wechat_oauth_app_id
 from flaskr.service.common.dtos import USER_STATE_UNREGISTERED, UserToken
 from flaskr.service.common.models import raise_error
@@ -78,6 +79,12 @@ def generate_temp_user(
     language: object = "en-US",
 ) -> UserToken:
     """Generate temp user."""
+
+    def generate_committed_token(user_id: str) -> str:
+        """Persist a guest token after its account changes are durable."""
+        with unit_of_work():
+            return generate_token(app, user_id=user_id)
+
     with app.app_context():
         convert_user = UserConversion.query.filter(
             UserConversion.conversion_id == temp_id,
@@ -103,7 +110,7 @@ def generate_temp_user(
                     if aggregate:
                         return UserToken(
                             build_user_info_from_aggregate(aggregate),
-                            token=generate_token(app, user_id=aggregate.user_bid),
+                            token=generate_committed_token(aggregate.user_bid),
                         )
             user_id = uuid.uuid4().hex
             new_convert_user = UserConversion(
@@ -135,7 +142,7 @@ def generate_temp_user(
             aggregate = load_user_aggregate(user_id)
             if not aggregate:
                 raise_error("USER.USER_NOT_FOUND")
-            token = generate_token(app, user_id=user_id)
+            token = generate_committed_token(user_id)
             return UserToken(build_user_info_from_aggregate(aggregate), token=token)
         if wx_openid != "":
             credential = find_credential(
@@ -146,7 +153,7 @@ def generate_temp_user(
                 if aggregate:
                     return UserToken(
                         build_user_info_from_aggregate(aggregate),
-                        token=generate_token(app, user_id=aggregate.user_bid),
+                        token=generate_committed_token(aggregate.user_bid),
                     )
 
         aggregate, _ = ensure_user_aggregate(app, user_bid=convert_user.user_id)
@@ -164,7 +171,7 @@ def generate_temp_user(
         refreshed = load_user_aggregate(convert_user.user_id)
         if not refreshed:
             raise_error("USER.USER_NOT_FOUND")
-        token = generate_token(app, user_id=refreshed.user_bid)
+        token = generate_committed_token(refreshed.user_bid)
         return UserToken(build_user_info_from_aggregate(refreshed), token=token)
 
 
