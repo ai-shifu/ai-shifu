@@ -119,3 +119,68 @@ def test_create_without_attribution_does_not_infer_origin(app: object) -> None:
             ).one_or_none()
             is None
         )
+
+
+def test_retried_handoff_returns_the_original_course(app: object) -> None:
+    from flaskr.service.common.source_attribution import parse_source_attribution
+    from flaskr.service.shifu.models import CourseCreationAttribution
+    from flaskr.service.shifu.shifu_draft_funcs import create_shifu_draft
+
+    teacher_bid = "teacher-retried-handoff"
+    attribution = parse_source_attribution(
+        _valid_payload(), field_name="creation_attribution"
+    )
+    first = create_shifu_draft(
+        app=app,
+        user_id=teacher_bid,
+        shifu_name="Original course",
+        shifu_description="Original request",
+        shifu_image="",
+        creation_attribution=attribution,
+    )
+    retried = create_shifu_draft(
+        app=app,
+        user_id=teacher_bid,
+        shifu_name="Duplicate request",
+        shifu_description="Must not create another course",
+        shifu_image="",
+        creation_attribution=attribution,
+    )
+
+    assert retried.bid == first.bid
+    assert retried.name == "Original course"
+    with app.app_context():
+        assert (
+            CourseCreationAttribution.query.filter_by(
+                handoff_id=attribution.handoff_id
+            ).count()
+            == 1
+        )
+
+
+def test_handoff_cannot_be_reused_by_another_teacher(app: object) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.common.source_attribution import parse_source_attribution
+    from flaskr.service.shifu.shifu_draft_funcs import create_shifu_draft
+
+    attribution = parse_source_attribution(
+        _valid_payload(), field_name="creation_attribution"
+    )
+    create_shifu_draft(
+        app=app,
+        user_id="teacher-original-handoff",
+        shifu_name="Original course",
+        shifu_description="",
+        shifu_image="",
+        creation_attribution=attribution,
+    )
+
+    with pytest.raises(AppError):
+        create_shifu_draft(
+            app=app,
+            user_id="teacher-other-handoff",
+            shifu_name="Other course",
+            shifu_description="",
+            shifu_image="",
+            creation_attribution=attribution,
+        )

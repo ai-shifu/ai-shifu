@@ -44,6 +44,7 @@ from flaskr.service.user.device_auth import (
     deny_device_authorization,
     get_device_authorization,
     poll_device_authorization,
+    record_device_registration_attribution,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.service.user.onboarding import (
@@ -725,6 +726,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                         },
                     ),
                 )
+                if auth_result.is_new_user:
+                    record_device_registration_attribution(
+                        app,
+                        user_code=payload.get("device_user_code"),
+                        user_id=auth_result.user.user_id,
+                    )
             run_post_auth_extensions(
                 app,
                 PostAuthContext(
@@ -1166,6 +1173,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         login_context = request.args.get("login_context")
         if login_context:
             metadata["login_context"] = login_context
+        device_user_code = request.args.get("device_user_code")
+        if device_user_code:
+            metadata["device_user_code"] = device_user_code
         ui_language = request.args.get("language")
         if ui_language:
             metadata["language"] = ui_language
@@ -1220,6 +1230,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
         with unit_of_work():
             auth_result = provider.handle_oauth_callback(app, callback_request)
+            if auth_result.is_new_user:
+                record_device_registration_attribution(
+                    app,
+                    user_code=auth_result.metadata.get("device_user_code"),
+                    user_id=auth_result.user.user_id,
+                )
         run_post_auth_extensions(
             app,
             PostAuthContext(

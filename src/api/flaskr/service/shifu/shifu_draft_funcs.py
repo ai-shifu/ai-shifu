@@ -50,6 +50,7 @@ from flaskr.service.learn.ask_provider_adapters.consts import (  # noqa: F401
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
+from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     ASK_MODE_DEFAULT,
@@ -84,6 +85,36 @@ SUPPORTED_ASK_ENABLED_STATUSES = {
     ASK_MODE_DISABLE,
     ASK_MODE_ENABLE,
 }
+
+
+def _attributed_course_result(
+    attribution: CourseCreationAttribution,
+    *,
+    user_id: str,
+    creation_attribution: SourceAttributionInput,
+) -> ShifuDto:
+    """Return an idempotent course result or reject a reused handoff."""
+    if (
+        attribution.created_user_bid != user_id
+        or attribution.creation_source != creation_attribution.creation_source
+        or attribution.source_product != creation_attribution.source_product
+    ):
+        raise_param_error("creation_attribution.handoff_id")
+    draft = get_latest_shifu_draft(attribution.shifu_bid)
+    if draft is None:
+        raise_param_error("creation_attribution.handoff_id")
+    return ShifuDto(
+        shifu_id=draft.shifu_bid,
+        shifu_name=draft.title,
+        shifu_description=draft.description,
+        shifu_avatar=draft.avatar_res_bid,
+        shifu_state=STATUS_DRAFT,
+        is_favorite=False,
+        archived=False,
+        can_manage_archive=True,
+        can_manage_permissions=True,
+        created_user_bid=draft.created_user_bid,
+    )
 
 
 def _resolve_shifu_price(shifu_price: float | Decimal | None) -> Decimal:
@@ -311,6 +342,17 @@ def create_shifu_draft(
         stage_started_at = total_started_at
         now_time = now_utc()
 
+        if creation_attribution is not None:
+            existing_attribution = CourseCreationAttribution.query.filter_by(
+                handoff_id=creation_attribution.handoff_id
+            ).one_or_none()
+            if existing_attribution is not None:
+                return _attributed_course_result(
+                    existing_attribution,
+                    user_id=user_id,
+                    creation_attribution=creation_attribution,
+                )
+
         shifu_id = generate_id(app)
 
         if not shifu_name:
@@ -360,16 +402,30 @@ def create_shifu_draft(
         db.session.flush()
 
         if creation_attribution is not None:
-            db.session.add(
-                CourseCreationAttribution(
-                    shifu_bid=shifu_id,
-                    created_user_bid=user_id,
-                    creation_source=creation_attribution.creation_source,
-                    source_product=creation_attribution.source_product,
-                    handoff_id=creation_attribution.handoff_id,
-                    created_at=now_time,
+            try:
+                db.session.add(
+                    CourseCreationAttribution(
+                        shifu_bid=shifu_id,
+                        created_user_bid=user_id,
+                        creation_source=creation_attribution.creation_source,
+                        source_product=creation_attribution.source_product,
+                        handoff_id=creation_attribution.handoff_id,
+                        created_at=now_time,
+                    )
                 )
-            )
+                db.session.flush()
+            except IntegrityError:
+                db.session.rollback()
+                existing_attribution = CourseCreationAttribution.query.filter_by(
+                    handoff_id=creation_attribution.handoff_id
+                ).one_or_none()
+                if existing_attribution is None:
+                    raise
+                return _attributed_course_result(
+                    existing_attribution,
+                    user_id=user_id,
+                    creation_attribution=creation_attribution,
+                )
 
         save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
 

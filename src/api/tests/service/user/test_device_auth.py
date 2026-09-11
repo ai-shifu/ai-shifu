@@ -1,7 +1,6 @@
 """Verify the device authorization flow used by command-line clients."""
 
 import json
-from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -17,8 +16,8 @@ from flaskr.service.user.device_auth import (
     get_device_authorization,
     normalize_user_code,
     poll_device_authorization,
+    record_device_registration_attribution,
 )
-from flaskr.util.datetime import now_utc
 
 USER_ID = "test-user-bid-0001"
 
@@ -41,11 +40,11 @@ def _lobster_attribution(handoff_id: str | None = None) -> dict[str, str]:
     }
 
 
-def test_new_registration_after_lobster_authorization_is_attributed(
+def test_explicit_new_registration_from_lobster_is_attributed(
     app: object,
 ) -> None:
     from flaskr import dao
-    from flaskr.service.user.models import UserInfo, UserRegistrationAttribution
+    from flaskr.service.user.models import UserRegistrationAttribution
 
     user_id = "new-lobster-user"
     handoff_id = str(uuid4())
@@ -54,24 +53,10 @@ def test_new_registration_after_lobster_authorization_is_attributed(
             app,
             registration_attribution=_lobster_attribution(handoff_id),
         )
-        dao.db.session.add(
-            UserInfo(
-                user_bid=user_id,
-                user_identify="new-lobster@example.test",
-                nickname="",
-                avatar="",
-                language="en-US",
-            )
-        )
-        dao.db.session.commit()
-
-        approve_device_authorization(
+        assert record_device_registration_attribution(
             app, user_code=started["user_code"], user_id=user_id
         )
-        assert (
-            poll_device_authorization(app, device_code=started["device_code"])["status"]
-            == STATUS_APPROVED
-        )
+        dao.db.session.commit()
 
         row = UserRegistrationAttribution.query.filter_by(user_bid=user_id).one()
         assert row.registration_source == "ai_assistant"
@@ -79,23 +64,11 @@ def test_new_registration_after_lobster_authorization_is_attributed(
         assert row.handoff_id == handoff_id
 
 
-def test_existing_user_authorizing_lobster_is_not_reclassified(app: object) -> None:
-    from flaskr import dao
-    from flaskr.service.user.models import UserInfo, UserRegistrationAttribution
+def test_device_poll_does_not_infer_registration_from_user_age(app: object) -> None:
+    from flaskr.service.user.models import UserRegistrationAttribution
 
     user_id = "existing-lobster-user"
     with app.test_request_context():
-        dao.db.session.add(
-            UserInfo(
-                user_bid=user_id,
-                user_identify="existing-lobster@example.test",
-                nickname="",
-                avatar="",
-                language="en-US",
-                created_at=now_utc() - timedelta(days=1),
-            )
-        )
-        dao.db.session.commit()
         started = create_device_authorization(
             app,
             registration_attribution=_lobster_attribution(),
@@ -112,40 +85,13 @@ def test_existing_user_authorizing_lobster_is_not_reclassified(app: object) -> N
         )
 
 
-def test_registration_in_authorization_starting_second_is_attributed(
+def test_registration_attribution_requires_the_exact_pending_handoff(
     app: object,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from flaskr import dao
-    from flaskr.service.user.models import UserInfo, UserRegistrationAttribution
-
-    user_id = "same-second-lobster-user"
-    handoff_id = str(uuid4())
-    monkeypatch.setattr("flaskr.service.user.device_auth.time.time", lambda: 1000.9)
     with app.test_request_context():
-        started = create_device_authorization(
-            app,
-            registration_attribution=_lobster_attribution(handoff_id),
+        assert not record_device_registration_attribution(
+            app, user_code="MISSING", user_id="new-lobster-user"
         )
-        dao.db.session.add(
-            UserInfo(
-                user_bid=user_id,
-                user_identify="same-second-lobster@example.test",
-                nickname="",
-                avatar="",
-                language="en-US",
-                created_at=datetime.fromtimestamp(1000, UTC).replace(tzinfo=None),
-            )
-        )
-        dao.db.session.commit()
-
-        approve_device_authorization(
-            app, user_code=started["user_code"], user_id=user_id
-        )
-        poll_device_authorization(app, device_code=started["device_code"])
-
-        row = UserRegistrationAttribution.query.filter_by(user_bid=user_id).one()
-        assert row.handoff_id == handoff_id
 
 
 def test_device_authorization_rejects_invalid_source_attribution(app: object) -> None:

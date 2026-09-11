@@ -48,6 +48,7 @@ interface UseAuthOptions {
   onError?: (error: any) => void;
   loginContext?: string;
   courseId?: string;
+  deviceUserCode?: string;
 }
 
 export function useAuth(options: UseAuthOptions = {}) {
@@ -188,6 +189,7 @@ export function useAuth(options: UseAuthOptions = {}) {
                 language,
                 login_context: options.loginContext,
                 course_id: options.courseId,
+                device_user_code: options.deviceUserCode,
                 ...referralPayload,
               },
               { skipErrorToast: true },
@@ -199,6 +201,7 @@ export function useAuth(options: UseAuthOptions = {}) {
                 language,
                 login_context: options.loginContext,
                 course_id: options.courseId,
+                device_user_code: options.deviceUserCode,
                 ...referralPayload,
               },
               { skipErrorToast: true },

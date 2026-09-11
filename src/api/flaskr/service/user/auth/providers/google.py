@@ -200,6 +200,9 @@ class GoogleAuthProvider(AuthProvider):
             "redirect_uri": redirect_uri,
             "login_context": login_context,
         }
+        device_user_code = str(metadata.get("device_user_code") or "").strip()
+        if device_user_code:
+            state_payload["device_user_code"] = device_user_code
         # All domains share one Google callback, so remember where the browser
         # came from to hand it back afterwards. The origin is derived from
         # headers an attacker can set, so it is only honored together with the
@@ -247,10 +250,12 @@ class GoogleAuthProvider(AuthProvider):
         redirect_uri = None
         login_context = None
         language: str | None = None
+        device_user_code = None
         try:
             redirect_uri = state_payload.get("redirect_uri")
             login_context = state_payload.get("login_context")
             language = state_payload.get("language")
+            device_user_code = state_payload.get("device_user_code")
         except Exception:  # defensive fallback
             current_app.logger.warning("Failed to parse Google OAuth state payload")
 
@@ -318,11 +323,13 @@ class GoogleAuthProvider(AuthProvider):
                 )
                 if entity:
                     updates: dict[str, Any] = {"identify": email}
-                    if email_verified and aggregate.state in (
+                    promoted_user = email_verified and aggregate.state in (
                         USER_STATE_UNREGISTERED,
                         0,
-                    ):
+                    )
+                    if promoted_user:
                         updates["state"] = USER_STATE_REGISTERED
+                        created_user = True
                     display_name = profile.get("name")
                     if display_name:
                         updates["nickname"] = display_name
@@ -411,6 +418,7 @@ class GoogleAuthProvider(AuthProvider):
                 "profile": profile,
                 "creator_granted_now": creator_granted_now,
                 "snapshot": snapshot.to_dict(),
+                "device_user_code": device_user_code,
             },
         )
 

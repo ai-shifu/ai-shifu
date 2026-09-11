@@ -30,6 +30,7 @@ type VerificationCodeLoginProps = {
   onLoginSuccess: (userInfo: UserInfo) => void;
   loginContext?: string;
   courseId?: string;
+  deviceUserCode?: string;
   referralMetadata?: ReferralLoginMetadata;
 };
 
@@ -58,6 +59,7 @@ export function VerificationCodeLogin({
   onLoginSuccess,
   loginContext,
   courseId,
+  deviceUserCode,
   referralMetadata,
 }: VerificationCodeLoginProps) {
   const isPhone = mode === 'phone';
@@ -78,6 +80,7 @@ export function VerificationCodeLogin({
       onSuccess: onLoginSuccess,
       loginContext,
       courseId,
+      deviceUserCode,
     });
   const {
     captchaImage,

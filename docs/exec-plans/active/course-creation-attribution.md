@@ -21,7 +21,9 @@ conversion analysis.
 - [x] 2026-09-11 17:35 CST: Ran focused and repository-required verification.
 - [x] 2026-09-11 17:45 CST: Prepared one focused commit and pull request per
   repository.
-  commit, push, and open one focused PR per repository.
+- [x] 2026-09-11 20:40 CST: Reworked registration attribution around the exact
+  browser handoff and explicit new-user result; made course handoffs safe for
+  retries and concurrent Skill commands.
 
 ## Surprises & Discoveries
 
@@ -31,10 +33,9 @@ conversion analysis.
   source of truth.
 - GitHub and Gitee Skills `main` currently resolve to the same commit,
   `cf9cf1d0de76f626a3b24c2e5cfa1ab6f51fdc20`.
-- The existing MySQL `users.created_at` column has second precision, while the
-  device authorization timestamp is generated with subsecond precision. The
-  comparison must normalize both to seconds or registrations completed in the
-  authorization's starting second can be missed.
+- Temporary guest accounts retain their original `created_at` when promoted,
+  so account timestamps cannot reliably determine whether the browser handoff
+  caused registration.
 
 ## Decision Log
 
@@ -54,9 +55,14 @@ conversion analysis.
 - Decision: Carry the authorization handoff UUID into the first new course
   created after authorization. Rationale: this joins a newly registered user
   to their first Skill-created course without collecting contact details.
-- Decision: Attribute registration only when the persisted user was created
-  after the device authorization began. Rationale: an existing teacher who
-  merely authorizes the CLI must not be reclassified as Lobster-acquired.
+- Decision: Pass the device `user_code` through the browser login request and
+  persist registration attribution only when the auth provider explicitly
+  reports a new registration. Rationale: this identifies the exact handoff,
+  handles guest promotion, and does not depend on the CLI polling afterward.
+- Decision: Reserve a saved course handoff atomically and only when its saved
+  token matches the token used for the request. Rationale: explicit-token and
+  concurrent CLI invocations must not consume or duplicate another account's
+  registration handoff.
 
 ## Outcomes & Retrospective
 
@@ -112,16 +118,18 @@ origin.
 - A failed course transaction leaves no attribution row.
 - Skill `create` and `import --new` send valid attribution; importing into an
   existing course does not send or mutate it.
-- A browser authorization started by the Skill attributes a user only when
-  that authorization began before the user account was created; the same
-  handoff UUID is reused for the first subsequent new course and then consumed.
+- A browser authorization started by the Skill attributes a user only when the
+  linked login operation explicitly creates or promotes that user; the same
+  handoff UUID is reserved for the first subsequent new course and restored if
+  that request fails.
 
 ## Idempotence and Recovery
 
-The migration is a normal Alembic upgrade/downgrade. Attribution insertion is
-part of the course creation transaction, so rollback removes both records.
-The table has uniqueness constraints on course BID and handoff ID to prevent
-ambiguous duplicate attribution. Re-running tests is safe.
+The migration is a normal Alembic upgrade/downgrade and must run before the
+backend code is deployed. Attribution insertion is part of the course creation
+transaction, so rollback removes both records. The table has uniqueness
+constraints on course BID and handoff ID; retrying an identical course handoff
+returns its original course, while conflicting ownership is rejected.
 
 ## Interfaces and Dependencies
 
