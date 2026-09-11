@@ -1,6 +1,10 @@
 """Verify the device authorization flow used by command-line clients."""
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from types import SimpleNamespace
+from unittest import mock
 from uuid import uuid4
 
 import pytest
@@ -92,6 +96,51 @@ def test_registration_attribution_requires_the_exact_pending_handoff(
         assert not record_device_registration_attribution(
             app, user_code="MISSING", user_id="new-lobster-user"
         )
+
+
+def test_concurrent_exact_registration_attribution_is_idempotent(app: object) -> None:
+    from flaskr import dao
+    from flaskr.service.user.models import UserRegistrationAttribution
+    from sqlalchemy.exc import IntegrityError
+
+    user_id = "concurrent-lobster-user"
+    handoff_id = str(uuid4())
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution=_lobster_attribution(handoff_id),
+        )
+        existing = SimpleNamespace(
+            id=42,
+            registration_source="ai_assistant",
+            source_product="lobster",
+            handoff_id=handoff_id,
+        )
+        results = {
+            ("user_bid", user_id): iter((None, existing)),
+            ("handoff_id", handoff_id): iter((None, existing)),
+        }
+
+        class FakeQuery:
+            def filter_by(self, **kwargs: object) -> object:
+                key, value = next(iter(kwargs.items()))
+                result = next(results[(key, value)])
+                return SimpleNamespace(one_or_none=lambda: result)
+
+        @contextmanager
+        def savepoint() -> Iterator[None]:
+            yield
+
+        conflict = IntegrityError("insert", {}, RuntimeError("duplicate"))
+        with (
+            mock.patch.object(UserRegistrationAttribution, "query", FakeQuery()),
+            mock.patch.object(dao.db.session, "begin_nested", side_effect=savepoint),
+            mock.patch.object(dao.db.session, "add"),
+            mock.patch.object(dao.db.session, "flush", side_effect=conflict),
+        ):
+            assert record_device_registration_attribution(
+                app, user_code=started["user_code"], user_id=user_id
+            )
 
 
 def test_device_authorization_rejects_invalid_source_attribution(app: object) -> None:

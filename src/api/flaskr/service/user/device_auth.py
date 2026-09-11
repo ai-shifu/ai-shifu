@@ -35,6 +35,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.source_attribution import parse_source_attribution
 from flaskr.service.user.models import UserRegistrationAttribution
 from flaskr.service.user.utils import generate_token
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -472,13 +473,31 @@ def record_device_registration_attribution(
     if existing_handoff is not None:
         raise_param_error("registration_attribution.handoff_id")
 
-    db.session.add(
-        UserRegistrationAttribution(
-            user_bid=user_id,
-            registration_source=attribution.creation_source,
-            source_product=attribution.source_product,
-            handoff_id=attribution.handoff_id,
-        )
-    )
-    db.session.flush()
+    try:
+        with db.session.begin_nested():
+            db.session.add(
+                UserRegistrationAttribution(
+                    user_bid=user_id,
+                    registration_source=attribution.creation_source,
+                    source_product=attribution.source_product,
+                    handoff_id=attribution.handoff_id,
+                )
+            )
+            db.session.flush()
+    except IntegrityError:
+        existing_user = UserRegistrationAttribution.query.filter_by(
+            user_bid=user_id
+        ).one_or_none()
+        existing_handoff = UserRegistrationAttribution.query.filter_by(
+            handoff_id=attribution.handoff_id
+        ).one_or_none()
+        if (
+            existing_user is not None
+            and existing_user.id == getattr(existing_handoff, "id", None)
+            and existing_user.registration_source == attribution.creation_source
+            and existing_user.source_product == attribution.source_product
+            and existing_user.handoff_id == attribution.handoff_id
+        ):
+            return True
+        raise
     return True
