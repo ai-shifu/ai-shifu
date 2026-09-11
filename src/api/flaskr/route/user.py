@@ -8,6 +8,7 @@ from typing import ParamSpec, TypeVar
 
 from flask import Flask, Response, current_app, make_response, request
 
+from flaskr.common.http import sensitive_body
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao import db
@@ -751,6 +752,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_sms", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
+    @sensitive_body(max_bytes=16 * 1024)
     def login_sms_api() -> Response:
         """Login through SMS verification code for web clients.
 
@@ -763,6 +765,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_email", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
+    @sensitive_body(max_bytes=16 * 1024)
     def login_email_api() -> Response:
         """Login through email verification code for web clients.
 

@@ -485,12 +485,18 @@ def record_device_registration_attribution(
             )
             db.session.flush()
     except IntegrityError:
-        existing_user = UserRegistrationAttribution.query.filter_by(
-            user_bid=user_id
-        ).one_or_none()
-        existing_handoff = UserRegistrationAttribution.query.filter_by(
-            handoff_id=attribution.handoff_id
-        ).one_or_none()
+        existing_user = (
+            UserRegistrationAttribution.query.filter_by(user_bid=user_id)
+            .with_for_update()
+            .one_or_none()
+        )
+        existing_handoff = (
+            UserRegistrationAttribution.query.filter_by(
+                handoff_id=attribution.handoff_id
+            )
+            .with_for_update()
+            .one_or_none()
+        )
         if (
             existing_user is not None
             and existing_user.id == getattr(existing_handoff, "id", None)

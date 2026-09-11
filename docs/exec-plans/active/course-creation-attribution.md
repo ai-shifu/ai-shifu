@@ -63,6 +63,10 @@ conversion analysis.
   token matches the token used for the request. Rationale: explicit-token and
   concurrent CLI invocations must not consume or duplicate another account's
   registration handoff.
+- Decision: After a create request begins, retain its handoff in an
+  operation-specific retry journal instead of returning it to the account-level
+  credential slot. Rationale: a lost response cannot reveal whether the server
+  committed, so only the exact same command payload may reuse that handoff.
 
 ## Outcomes & Retrospective
 
@@ -120,8 +124,9 @@ origin.
   existing course does not send or mutate it.
 - A browser authorization started by the Skill attributes a user only when the
   linked login operation explicitly creates or promotes that user; the same
-  handoff UUID is reserved for the first subsequent new course and restored if
-  that request fails.
+  handoff UUID is reserved for the first subsequent new-course operation; an
+  uncertain result remains bound to that exact operation for an idempotent
+  retry.
 
 ## Idempotence and Recovery
 

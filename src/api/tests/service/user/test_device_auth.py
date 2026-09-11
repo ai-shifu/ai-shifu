@@ -120,12 +120,21 @@ def test_concurrent_exact_registration_attribution_is_idempotent(app: object) ->
             ("user_bid", user_id): iter((None, existing)),
             ("handoff_id", handoff_id): iter((None, existing)),
         }
+        current_reads: list[tuple[str, object]] = []
 
         class FakeQuery:
             def filter_by(self, **kwargs: object) -> object:
                 key, value = next(iter(kwargs.items()))
                 result = next(results[(key, value)])
-                return SimpleNamespace(one_or_none=lambda: result)
+
+                def with_for_update() -> object:
+                    current_reads.append((key, value))
+                    return SimpleNamespace(one_or_none=lambda: result)
+
+                return SimpleNamespace(
+                    with_for_update=with_for_update,
+                    one_or_none=lambda: result,
+                )
 
         @contextmanager
         def savepoint() -> Iterator[None]:
@@ -141,6 +150,10 @@ def test_concurrent_exact_registration_attribution_is_idempotent(app: object) ->
             assert record_device_registration_attribution(
                 app, user_code=started["user_code"], user_id=user_id
             )
+        assert current_reads == [
+            ("user_bid", user_id),
+            ("handoff_id", handoff_id),
+        ]
 
 
 def test_device_authorization_rejects_invalid_source_attribution(app: object) -> None:
