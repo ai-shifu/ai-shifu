@@ -521,6 +521,40 @@ describe('AdminPage', () => {
     );
   });
 
+  test('does not expose or track the AI entry before admin access resolves', async () => {
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    mockEnsureAdminCreator.mockReturnValue(new Promise(() => {}));
+    render(<AdminPage />);
+
+    await waitFor(() => expect(mockEnsureAdminCreator).toHaveBeenCalled());
+    expect(
+      screen.queryByRole('link', { name: 'common.core.aiCourseCreator' }),
+    ).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+  });
+
+  test('does not expose or track the AI entry when admin access fails', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    mockEnsureAdminCreator.mockRejectedValue(new Error('permission denied'));
+    render(<AdminPage />);
+
+    await screen.findByText('permission denied');
+    expect(
+      screen.queryByRole('link', { name: 'common.core.aiCourseCreator' }),
+    ).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
   test('keeps the AI entry usable when tracking is unavailable', async () => {
     mockCourseCreatorUrl = 'https://creator.example.test/new';
     mockTrackEvent.mockImplementation(() => {

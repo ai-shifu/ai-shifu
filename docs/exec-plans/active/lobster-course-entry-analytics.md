@@ -17,8 +17,10 @@ later cross-system contract.
   producers.
 - [x] 2026-09-11 13:40 CST: Added focused eligibility, deduplication, payload,
   privacy, and failure-isolation tests.
-- [x] 2026-09-11 13:45 CST: Ran 14 focused tests, TypeScript type-check,
+- [x] 2026-09-11 13:45 CST: Ran 16 focused tests, TypeScript type-check,
   focused lint, developer-tool verification, and the repository harness.
+- [x] 2026-09-11 14:05 CST: Gated entry rendering and impressions on resolved
+  administrator access after review identified an ineligible-view window.
 
 ## Surprises & Discoveries
 
@@ -27,6 +29,8 @@ later cross-system contract.
   course creation, generation, import, or publication.
 - Existing admin pageviews overstate exposure because they do not prove that
   the configured entry rendered for the teacher.
+- The configured URL resolves before administrator permission. Both rendering
+  and impression production therefore need the same resolved-access gate.
 
 ## Decision Log
 

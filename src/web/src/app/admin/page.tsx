@@ -253,7 +253,12 @@ const ScriptManagementPage = () => {
   );
 
   useEffect(() => {
-    if (!courseCreatorUrl || aiCourseEntryImpressionSentRef.current) {
+    if (
+      !courseCreatorUrl ||
+      !hasResolvedAdminSession ||
+      !adminReady ||
+      aiCourseEntryImpressionSentRef.current
+    ) {
       return;
     }
     aiCourseEntryImpressionSentRef.current = true;
@@ -261,7 +266,7 @@ const ScriptManagementPage = () => {
       COURSE_CREATION_EVENTS.AI_ENTRY_IMPRESSION,
       buildAiCourseEntryAnalytics(),
     );
-  }, [courseCreatorUrl, sendAnalytics]);
+  }, [adminReady, courseCreatorUrl, hasResolvedAdminSession, sendAnalytics]);
 
   const onCreateShifu = async (values: any) => {
     sendAnalytics(
@@ -658,7 +663,7 @@ const ScriptManagementPage = () => {
                   ONBOARDING_TARGET_IDS.courseCreationEntry,
                 )}
               >
-                {courseCreatorUrl ? (
+                {courseCreatorUrl && hasResolvedAdminSession && adminReady ? (
                   <a
                     href={courseCreatorUrl}
                     target='_blank'
