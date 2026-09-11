@@ -24,6 +24,7 @@ from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.service.common.source_attribution import SourceAttributionInput
 from flaskr.service.config import get_config
 from flaskr.service.learn.api import (
     is_live_follow_up_model,
@@ -62,7 +63,13 @@ from .course_activity import load_course_activity_map
 from .demo_courses import is_builtin_demo_course
 from .dtos import ShifuDetailDto, ShifuDto
 from .funcs import shifu_permission_verification
-from .models import DraftShifu, FavoriteScenario, PublishedShifu, ShifuUserArchive
+from .models import (
+    CourseCreationAttribution,
+    DraftShifu,
+    FavoriteScenario,
+    PublishedShifu,
+    ShifuUserArchive,
+)
 from .permissions import get_user_shifu_permissions
 from .shifu_history_manager import save_shifu_history
 from .shifu_outline_funcs import create_default_outlines_for_new_shifu
@@ -280,6 +287,7 @@ def create_shifu_draft(
     shifu_model: str | None = None,
     shifu_temperature: float | None = None,
     shifu_price: float | None = None,
+    creation_attribution: SourceAttributionInput | None = None,
 ) -> ShifuDto:
     """Create a shifu draft.
 
@@ -293,6 +301,7 @@ def create_shifu_draft(
         shifu_model: Shifu model
         shifu_temperature: Shifu temperature
         shifu_price: Shifu price
+        creation_attribution: Optional immutable creation-source attribution
     Returns:
         ShifuDto: Shifu dto.
 
@@ -349,6 +358,18 @@ def create_shifu_draft(
         stage_started_at = perf_counter()
         db.session.add(shifu_draft)
         db.session.flush()
+
+        if creation_attribution is not None:
+            db.session.add(
+                CourseCreationAttribution(
+                    shifu_bid=shifu_id,
+                    created_user_bid=user_id,
+                    creation_source=creation_attribution.creation_source,
+                    source_product=creation_attribution.source_product,
+                    handoff_id=creation_attribution.handoff_id,
+                    created_at=now_time,
+                )
+            )
 
         save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
 

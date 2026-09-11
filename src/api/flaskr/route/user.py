@@ -784,6 +784,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 device_os=payload.get("device_os"),
                 client_version=payload.get("client_version"),
                 client_ip=_request_client_ip(),
+                registration_attribution=payload.get("registration_attribution"),
             )
         )
 

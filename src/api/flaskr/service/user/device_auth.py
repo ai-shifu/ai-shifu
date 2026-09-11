@@ -24,14 +24,19 @@ from __future__ import annotations
 import json
 import secrets
 import time
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.common.public_urls import build_public_url
+from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
+from flaskr.service.common.source_attribution import parse_source_attribution
+from flaskr.service.user.models import UserInfo, UserRegistrationAttribution
 from flaskr.service.user.utils import generate_token
+from sqlalchemy.exc import SQLAlchemyError
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -218,8 +223,13 @@ def create_device_authorization(
     device_os: str | None = None,
     client_version: str | None = None,
     client_ip: str | None = None,
+    registration_attribution: object = None,
 ) -> dict[str, Any]:
     """Start a pending authorization and hand the CLI its polling secret."""
+    attribution = parse_source_attribution(
+        registration_attribution,
+        field_name="registration_attribution",
+    )
     _guard_issue_rate(app, client_ip)
     ttl_seconds = _expire_seconds(app)
     device_code = secrets.token_urlsafe(32)
@@ -233,8 +243,14 @@ def create_device_authorization(
         "device_os": _clean_text(device_os),
         "client_version": _clean_text(client_version),
         "client_ip": _clean_text(client_ip),
-        "created_at": int(time.time()),
+        "created_at": time.time(),
     }
+    if attribution is not None:
+        payload["registration_attribution"] = {
+            "creation_source": attribution.creation_source,
+            "source_product": attribution.source_product,
+            "handoff_id": attribution.handoff_id,
+        }
     _store_session(app, device_code, payload, ttl_seconds)
     redis.set(_user_code_key(app, user_code), device_code, ex=ttl_seconds)
 
@@ -393,6 +409,7 @@ def poll_device_authorization(app: Flask, *, device_code: str) -> dict[str, Any]
                 _drop_session(app, normalized, user_code)
                 raise_error("server.user.deviceCodeInvalid")
             with unit_of_work():
+                _record_registration_attribution_if_new(app, user_id, payload)
                 # Name the session after the machine the user approved, not
                 # after the polling client's user agent.
                 token = generate_token(
@@ -410,3 +427,53 @@ def poll_device_authorization(app: Flask, *, device_code: str) -> dict[str, Any]
         return {"status": STATUS_PENDING, "token": "", "interval": _poll_interval(app)}
     finally:
         lock.release()
+
+
+def _record_registration_attribution_if_new(
+    app: Flask,
+    user_id: str,
+    device_payload: dict[str, Any],
+) -> None:
+    """Persist source only when registration occurred after this handoff began."""
+    attribution = parse_source_attribution(
+        device_payload.get("registration_attribution"),
+        field_name="registration_attribution",
+    )
+    if attribution is None:
+        return
+
+    user = (
+        UserInfo.query.filter(
+            UserInfo.user_bid == user_id,
+            UserInfo.deleted == 0,
+        )
+        .order_by(UserInfo.id.desc())
+        .first()
+    )
+    if user is None or user.created_at is None:
+        return
+    # MySQL's existing ``users.created_at`` column is second-precision. Floor
+    # the Redis timestamp to the same precision so a user created later in the
+    # authorization's starting second is not incorrectly treated as existing.
+    request_started_at = datetime.fromtimestamp(
+        int(float(device_payload.get("created_at") or 0)), UTC
+    ).replace(tzinfo=None)
+    if user.created_at < request_started_at:
+        return
+
+    try:
+        with db.session.begin_nested():
+            db.session.add(
+                UserRegistrationAttribution(
+                    user_bid=user_id,
+                    registration_source=attribution.creation_source,
+                    source_product=attribution.source_product,
+                    handoff_id=attribution.handoff_id,
+                )
+            )
+            db.session.flush()
+    except SQLAlchemyError:
+        app.logger.exception(
+            "registration attribution persistence failed | user_id=%s",
+            user_id,
+        )

@@ -67,6 +67,7 @@ from flaskr.service.billing.api import (
     assert_creator_debug_allowed,
 )
 from flaskr.service.common.models import ERROR_CODE, raise_error, raise_param_error
+from flaskr.service.common.source_attribution import parse_source_attribution
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
@@ -788,14 +789,25 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     $ref: "#/components/schemas/ShifuDto"
         """
         user_id = request.user.user_id
-        shifu_name = request.get_json().get("name")
+        payload = request.get_json() or {}
+        shifu_name = payload.get("name")
         if not shifu_name:
             raise_param_error("name is required")
-        shifu_description = request.get_json().get("description")
-        shifu_avatar = request.get_json().get("avatar", "")
+        shifu_description = payload.get("description")
+        shifu_avatar = payload.get("avatar", "")
+        creation_attribution = parse_source_attribution(
+            payload.get("creation_attribution"),
+            field_name="creation_attribution",
+        )
         return make_common_response(
             create_shifu_draft(
-                app, user_id, shifu_name, shifu_description, shifu_avatar, []
+                app,
+                user_id,
+                shifu_name,
+                shifu_description,
+                shifu_avatar,
+                [],
+                creation_attribution=creation_attribution,
             )
         )
 
