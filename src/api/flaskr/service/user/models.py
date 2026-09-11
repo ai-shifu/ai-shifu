@@ -251,6 +251,50 @@ class UserInfo(db.Model):
     )
 
 
+class UserRegistrationAttribution(db.Model):
+    """Immutable AI-workflow attribution for a newly registered user."""
+
+    __tablename__ = "user_registration_attributions"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_bid",
+            name="uk_user_registration_attribution_user_bid",
+        ),
+        UniqueConstraint(
+            "handoff_id",
+            name="uk_user_registration_attribution_handoff_id",
+        ),
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        comment="Registered user business identifier",
+    )
+    registration_source = Column(
+        String(32),
+        nullable=False,
+        comment="Stable registration source",
+    )
+    source_product = Column(
+        String(32),
+        nullable=False,
+        comment="Stable source product identifier",
+    )
+    handoff_id = Column(
+        String(36),
+        nullable=False,
+        comment="Cross-system handoff UUID",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Attribution creation timestamp",
+    )
+
+
 class UserAccountCancellation(db.Model):
     """Persist the authoritative audit record for a cancelled account."""
 

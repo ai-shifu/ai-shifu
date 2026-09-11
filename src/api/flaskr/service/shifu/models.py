@@ -160,6 +160,56 @@ class ShifuUserArchive(db.Model):
     )
 
 
+class CourseCreationAttribution(db.Model):
+    """Immutable creation-source attribution for one course."""
+
+    __tablename__ = "shifu_course_creation_attributions"
+    __table_args__ = (
+        UniqueConstraint(
+            "shifu_bid",
+            name="uk_shifu_course_creation_attribution_shifu_bid",
+        ),
+        UniqueConstraint(
+            "handoff_id",
+            name="uk_shifu_course_creation_attribution_handoff_id",
+        ),
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        comment="Shifu business identifier",
+    )
+    created_user_bid = Column(
+        String(32),
+        nullable=False,
+        index=True,
+        comment="Teacher business identifier at creation time",
+    )
+    creation_source = Column(
+        String(32),
+        nullable=False,
+        comment="Stable course creation source",
+    )
+    source_product = Column(
+        String(32),
+        nullable=False,
+        comment="Stable source product identifier",
+    )
+    handoff_id = Column(
+        String(36),
+        nullable=False,
+        comment="Cross-system handoff UUID",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Attribution creation timestamp",
+    )
+
+
 # draft shifu's model
 class DraftShifu(db.Model):
     """Shifu draft shifu."""
