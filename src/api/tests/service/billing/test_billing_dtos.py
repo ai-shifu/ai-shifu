@@ -41,6 +41,7 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
             subscription_bid="sub-1",
             product_bid="bill-product-plan-monthly",
             product_code="plan-monthly",
+            product_name_key="module.billing.catalog.plans.monthly.title",
             status="active",
             billing_provider="stripe",
             current_period_start_at="2026-04-01T00:00:00+00:00",
@@ -84,6 +85,9 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
 
     assert payload["wallet"]["available_credits"] == 12.5
     assert payload["subscription"]["status"] == "active"
+    assert payload["subscription"]["product_name_key"] == (
+        "module.billing.catalog.plans.monthly.title"
+    )
     assert payload["billing_alerts"][0]["action_payload"] == {"target": "topup"}
     assert payload["trial_offer"]["status"] == "granted"
     assert payload["trial_offer"]["product_code"] == "creator-plan-trial"

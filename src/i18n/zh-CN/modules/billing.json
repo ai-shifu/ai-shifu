@@ -697,6 +697,25 @@
       "upgradeNow": "立即升级"
     },
     "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "可使用至",
+      "autoRenew": "自动续订",
+      "cancelAction": "取消自动续订",
+      "cancelConfirmAction": "确认取消自动续订",
+      "cancelConfirmDescription": "取消后，本周期权益和积分仍可使用至 {date}，到期后不再自动续费。",
+      "cancelConfirmTitle": "取消自动续订？",
+      "cancelScheduled": "已取消自动续订",
+      "cancelSuccess": "已取消自动续订，本周期权益不受影响。",
+      "currentPlan": "当前套餐",
+      "nextRenewal": "下次续费",
+      "paused": "订阅已暂停",
+      "renewalStatus": "续订状态",
+      "resumeAction": "恢复自动续订",
+      "resumeConfirmAction": "确认恢复自动续订",
+      "resumeConfirmDescription": "恢复后，订阅将在 {date} 按原套餐自动续费。",
+      "resumeConfirmTitle": "恢复自动续订？",
+      "resumeSuccess": "已恢复自动续订。"
+    },
     "subtitle": "查看当前老师空间的总积分、各类积分余额以及对应有效期。",
     "table": {
       "balance": "余额",

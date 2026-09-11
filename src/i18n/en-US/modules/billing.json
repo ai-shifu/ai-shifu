@@ -697,6 +697,25 @@
       "upgradeNow": "Upgrade now"
     },
     "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "Access until",
+      "autoRenew": "Auto-renewal on",
+      "cancelAction": "Cancel auto-renewal",
+      "cancelConfirmAction": "Confirm cancellation",
+      "cancelConfirmDescription": "Your current benefits and credits remain available until {date}. You will not be charged again after that date.",
+      "cancelConfirmTitle": "Cancel auto-renewal?",
+      "cancelScheduled": "Auto-renewal canceled",
+      "cancelSuccess": "Auto-renewal canceled. Your current-period benefits are unchanged.",
+      "currentPlan": "Current plan",
+      "nextRenewal": "Next renewal",
+      "paused": "Subscription paused",
+      "renewalStatus": "Renewal status",
+      "resumeAction": "Resume auto-renewal",
+      "resumeConfirmAction": "Confirm resumption",
+      "resumeConfirmDescription": "Your original plan will renew automatically on {date}.",
+      "resumeConfirmTitle": "Resume auto-renewal?",
+      "resumeSuccess": "Auto-renewal resumed."
+    },
     "subtitle": "Review total credits, category balances, and the effective window for each credit source.",
     "table": {
       "balance": "Balance",

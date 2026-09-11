@@ -166,6 +166,7 @@ export function AdminBillingPageClient({
             <div className='space-y-8 pb-6'>
               <BillingCreditDetailsPanel
                 onUpgrade={() => updateTab('packages')}
+                showSubscriptionManagement={useGlobalPricing}
               />
               <BillingRecentActivitySection />
             </div>

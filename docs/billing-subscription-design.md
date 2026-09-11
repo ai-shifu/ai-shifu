@@ -1221,7 +1221,31 @@ v1 前端不新建全局 billing store，默认采用：
 
 Feature-owned payload 固定为 `{}`。共享 `useTracking` 仍会自动添加既有的 `user_type`、`user_id`、`device` 和 `timeStamp` transport fields；这些字段不是本事件新增的契约字段，新 consumer 不得依赖它们。不得添加 URL、query、referrer、账务数据、用户输入、错误原文或关联 ID；埋点始终 fail-open，不得阻塞或改变导航。
 
-#### 7.5.3 v1 组件拆分
+#### 7.5.3 海外订阅自动续订管理埋点
+
+- Business question：海外老师是否能够成功自助取消或恢复 Stripe 自动续订，以及失败是否集中在某一种操作。
+- Metric definition：按滚动 7 天和 30 天分别统计取消、恢复操作的尝试数、成功数和失败数；成功率为同一 action 的成功 result 数除以 attempt 数。由于浏览器关闭等原因，attempt 与 result 可能无法严格一一对应。
+- Event names：`creator_subscription_renewal_attempt`、`creator_subscription_renewal_result`。
+- Actor and surface：仅账务渠道为纯 Stripe、持有可管理有效订阅并进入“积分详情”的已登录老师；国内站、guest、无订阅、manual 订阅和失效订阅排除。
+- Trigger：老师在二次确认框确认取消或恢复时发送 attempt；平台接口确认成功或失败时发送唯一 terminal result。打开或关闭确认框不发送。
+- Count unit：一次被接受的取消或恢复请求。
+- Deduplication：提交期间禁用重复操作；每次确认最多一个 attempt 和一个 terminal result，不跨独立请求去重。
+- Correlation：使用 `subscription_bid` 关联同一订阅的 attempt/result；不得用于识别用户，老师身份继续由共享 tracking context 提供。
+- Consumers：产品和账务团队的海外订阅自助管理成功率与失败趋势。
+- Compatibility：新增 v1 事件，不改变 checkout 事件语义。
+- Verification：组件测试覆盖海外显隐、国内排除、取消/恢复请求、精确事件名和 allowlist payload、失败结果，以及埋点异常不影响订阅操作。
+
+| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
+| --- | --- | --- | --- | --- | --- |
+| `action` | string | `cancel`, `resume` | low | non-personal | 区分取消与恢复 |
+| `source_surface` | string | `credit_details` | low | non-personal | 固定入口归因 |
+| `payment_provider` | string | `stripe` | low | non-personal | 明确仅海外 Stripe 流程 |
+| `subscription_bid` | string | 稳定业务 ID | high | pseudonymous | 关联同次订阅的尝试与结果 |
+| `outcome` | string | `success`, `failed`；仅 result | low | non-personal | 计算终态成功率 |
+
+不得发送套餐名称、邮箱、手机号、错误原文、URL、query 或 referrer。埋点始终 fail-open，不得阻塞、延迟或改变取消/恢复结果。
+
+#### 7.5.4 v1 组件拆分
 
 当前 `src/web/src/components/billing/` 的主要组件包括：
 
@@ -1433,6 +1457,7 @@ type BillingSubscription = {
   subscription_bid: string;
   product_bid: string;
   product_code: string;
+  product_name_key?: string;
   status: 'draft' | 'active' | 'past_due' | 'paused' | 'cancel_scheduled' | 'canceled' | 'expired';
   billing_provider: string;
   current_period_start_at: string | null;

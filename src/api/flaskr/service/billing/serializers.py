@@ -78,7 +78,7 @@ from .primitives import (
     normalize_json_object,
     to_decimal,
 )
-from .queries import load_product_code_map
+from .queries import load_product_code_map, load_product_name_key_map
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -354,12 +354,14 @@ def serialize_subscription(
     if row is None:
         return None
     product_codes = load_product_code_map([row.product_bid])
+    product_name_keys = load_product_name_key_map([row.product_bid])
     next_product_bid = normalize_bid(row.next_product_bid)
     runtime_status = _resolve_runtime_subscription_status(row)
     return BillingSubscriptionDTO(
         subscription_bid=row.subscription_bid,
         product_bid=row.product_bid,
         product_code=product_codes.get(row.product_bid, ""),
+        product_name_key=product_name_keys.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(runtime_status, "draft"),
         billing_provider=str(row.billing_provider or ""),
         current_period_start_at=row.current_period_start_at,

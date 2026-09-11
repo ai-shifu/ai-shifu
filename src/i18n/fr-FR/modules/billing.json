@@ -697,6 +697,25 @@
       "upgradeNow": "Mettre à niveau"
     },
     "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "Accès jusqu’au",
+      "autoRenew": "Renouvellement automatique activé",
+      "cancelAction": "Annuler le renouvellement automatique",
+      "cancelConfirmAction": "Confirmer l’annulation",
+      "cancelConfirmDescription": "Vos avantages et crédits restent disponibles jusqu’au {date}. Aucun nouveau prélèvement ne sera effectué ensuite.",
+      "cancelConfirmTitle": "Annuler le renouvellement automatique ?",
+      "cancelScheduled": "Renouvellement automatique annulé",
+      "cancelSuccess": "Le renouvellement automatique est annulé. Les avantages de la période en cours restent inchangés.",
+      "currentPlan": "Forfait actuel",
+      "nextRenewal": "Prochain renouvellement",
+      "paused": "Abonnement suspendu",
+      "renewalStatus": "État du renouvellement",
+      "resumeAction": "Rétablir le renouvellement automatique",
+      "resumeConfirmAction": "Confirmer le rétablissement",
+      "resumeConfirmDescription": "Votre forfait initial sera renouvelé automatiquement le {date}.",
+      "resumeConfirmTitle": "Rétablir le renouvellement automatique ?",
+      "resumeSuccess": "Le renouvellement automatique est rétabli."
+    },
     "subtitle": "Consulter le total des crédits, les soldes par catégorie et la fenêtre effective de chaque source de crédits.",
     "table": {
       "balance": "Solde",
