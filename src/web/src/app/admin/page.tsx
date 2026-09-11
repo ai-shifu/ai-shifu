@@ -42,6 +42,7 @@ import {
 import AdminTitle from './components/AdminTitle';
 import ShifuCard from './components/ShifuCard';
 import {
+  buildAiCourseEntryAnalytics,
   buildCourseCreationAttemptAnalytics,
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
@@ -100,6 +101,7 @@ const ScriptManagementPage = () => {
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const listVersionRef = useRef(0);
+  const aiCourseEntryImpressionSentRef = useRef(false);
   const createRedirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -250,6 +252,22 @@ const ScriptManagementPage = () => {
     [trackEvent],
   );
 
+  useEffect(() => {
+    if (
+      !courseCreatorUrl ||
+      !hasResolvedAdminSession ||
+      !adminReady ||
+      aiCourseEntryImpressionSentRef.current
+    ) {
+      return;
+    }
+    aiCourseEntryImpressionSentRef.current = true;
+    sendAnalytics(
+      COURSE_CREATION_EVENTS.AI_ENTRY_IMPRESSION,
+      buildAiCourseEntryAnalytics(),
+    );
+  }, [adminReady, courseCreatorUrl, hasResolvedAdminSession, sendAnalytics]);
+
   const onCreateShifu = async (values: any) => {
     sendAnalytics(
       COURSE_CREATION_EVENTS.ATTEMPT,
@@ -311,6 +329,10 @@ const ScriptManagementPage = () => {
   };
 
   const handleAiCourseCreatorClick = () => {
+    sendAnalytics(
+      COURSE_CREATION_EVENTS.AI_ENTRY_CLICK,
+      buildAiCourseEntryAnalytics(),
+    );
     sendAnalytics(
       COURSE_CREATION_EVENTS.ATTEMPT,
       buildCourseCreationAttemptAnalytics('ai_assistant'),
@@ -641,7 +663,7 @@ const ScriptManagementPage = () => {
                   ONBOARDING_TARGET_IDS.courseCreationEntry,
                 )}
               >
-                {courseCreatorUrl ? (
+                {courseCreatorUrl && hasResolvedAdminSession && adminReady ? (
                   <a
                     href={courseCreatorUrl}
                     target='_blank'

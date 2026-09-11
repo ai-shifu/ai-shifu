@@ -458,8 +458,24 @@ describe('AdminPage', () => {
     const link = await screen.findByRole('link', {
       name: 'common.core.aiCourseCreator',
     });
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_ai_course_entry_impression',
+        {
+          surface: 'admin_course_list',
+          presentation: 'text_link',
+        },
+      ),
+    );
     fireEvent.click(link);
 
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_ai_course_entry_click',
+      {
+        surface: 'admin_course_list',
+        presentation: 'text_link',
+      },
+    );
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_course_create_attempt',
       { creation_path: 'ai_assistant' },
@@ -468,6 +484,89 @@ describe('AdminPage', () => {
       'creator_course_create_result',
       { creation_path: 'ai_assistant', outcome: 'success' },
     );
+    const serializedCalls = JSON.stringify(mockTrackEvent.mock.calls);
+    expect(serializedCalls).not.toContain('creator.example.test');
+  });
+
+  test('tracks one AI entry impression per mounted visit across rerenders', async () => {
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    const { rerender } = render(<AdminPage />);
+    await screen.findByRole('link', {
+      name: 'common.core.aiCourseCreator',
+    });
+    await waitFor(() =>
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([eventName]) => eventName === 'creator_ai_course_entry_impression',
+        ),
+      ).toHaveLength(1),
+    );
+
+    rerender(<AdminPage />);
+
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_ai_course_entry_impression',
+      ),
+    ).toHaveLength(1);
+  });
+
+  test('does not track an AI entry impression when the entry is unavailable', async () => {
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+  });
+
+  test('does not expose or track the AI entry before admin access resolves', async () => {
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    mockEnsureAdminCreator.mockReturnValue(new Promise(() => {}));
+    render(<AdminPage />);
+
+    await waitFor(() => expect(mockEnsureAdminCreator).toHaveBeenCalled());
+    expect(
+      screen.queryByRole('link', { name: 'common.core.aiCourseCreator' }),
+    ).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+  });
+
+  test('does not expose or track the AI entry when admin access fails', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    mockEnsureAdminCreator.mockRejectedValue(new Error('permission denied'));
+    render(<AdminPage />);
+
+    await screen.findByText('permission denied');
+    expect(
+      screen.queryByRole('link', { name: 'common.core.aiCourseCreator' }),
+    ).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
+  test('keeps the AI entry usable when tracking is unavailable', async () => {
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    render(<AdminPage />);
+
+    const link = await screen.findByRole('link', {
+      name: 'common.core.aiCourseCreator',
+    });
+    expect(link).toHaveAttribute('href', 'https://creator.example.test/new');
+    expect(() => fireEvent.click(link)).not.toThrow();
   });
 
   test('keeps the manual create workflow usable when tracking throws', async () => {
