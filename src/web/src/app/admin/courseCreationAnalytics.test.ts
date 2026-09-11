@@ -1,8 +1,19 @@
 import {
+  buildAiCourseEntryAnalytics,
   buildCourseCreationAttemptAnalytics,
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
 } from './courseCreationAnalytics';
+
+describe('AI course entry analytics', () => {
+  test('uses a bounded payload that can compare entry presentations', () => {
+    expect(buildAiCourseEntryAnalytics()).toEqual({
+      surface: 'admin_course_list',
+      presentation: 'text_link',
+    });
+    expect(JSON.stringify(buildAiCourseEntryAnalytics())).not.toContain('url');
+  });
+});
 
 describe('courseCreationAnalytics', () => {
   test('builds bounded path payloads for attempts and cancellations', () => {
