@@ -20,7 +20,8 @@ from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
     get_shifu_context_snapshot,
 )
-from flaskr.dao import db
+from flaskr.dao import db, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.api import (
@@ -113,7 +114,7 @@ def publish_shifu_draft(
         str: Shifu published URL
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         now_time = now_utc()
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
@@ -240,17 +241,22 @@ def publish_shifu_draft(
         shifu_log_published_struct.created_user_bid = user_id
         shifu_log_published_struct.created_at = now_time
         db.session.add(shifu_log_published_struct)
-        db.session.commit()
         parent_shifu_context = get_shifu_context_snapshot()
-        if sync_summary:
-            _run_summary_with_error_handling(app, shifu_id, parent_shifu_context)
-        else:
+
+        def start_summary() -> None:
+            if sync_summary:
+                _run_summary_with_error_handling(app, shifu_id, parent_shifu_context)
+                return
             thread = threading.Thread(
                 target=_run_summary_with_error_handling,
                 args=(app, shifu_id, parent_shifu_context),
             )
             thread.daemon = True  # Ensure thread doesn't prevent app shutdown
             thread.start()
+
+        # The summary reads the published rows, so it starts only once the
+        # publish transaction is durable (and never when it rolls back).
+        uow.on_commit(start_summary)
         return _build_frontend_url(base_url, f"/c/{shifu_id}")
 
 
@@ -297,7 +303,7 @@ def get_shifu_summary(app: object, shifu_id: str) -> None:
         shifu_id: Shifu ID.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         shifu: PublishedShifu = (
             PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_id)
             .order_by(PublishedShifu.id.desc())
@@ -329,7 +335,6 @@ def get_shifu_summary(app: object, shifu_id: str) -> None:
             ask_prompt_template,
         )
         shifu.ask_enabled_status = ASK_MODE_ENABLE
-        db.session.commit()
         return
 
 

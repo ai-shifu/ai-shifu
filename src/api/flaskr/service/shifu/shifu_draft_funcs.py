@@ -16,6 +16,7 @@ from typing import Any
 from flask import Flask
 from flaskr.common.config import parse_nonnegative_cent_amount
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common.dtos import PageNationDTO
@@ -297,7 +298,7 @@ def create_shifu_draft(
         ShifuDto: Shifu dto.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         total_started_at = perf_counter()
         stage_started_at = total_started_at
         now_time = now_utc()
@@ -368,17 +369,15 @@ def create_shifu_draft(
         )
 
         draft_persist_elapsed_ms = round((perf_counter() - stage_started_at) * 1000, 2)
-        stage_started_at = perf_counter()
-        db.session.commit()
-        commit_elapsed_ms = round((perf_counter() - stage_started_at) * 1000, 2)
         total_elapsed_ms = round((perf_counter() - total_started_at) * 1000, 2)
+        # The unit of work commits when this block exits, so the timings here
+        # cover the risk check and the staged writes only.
         app.logger.info(
-            "create_shifu_draft finished | shifu_id=%s user_id=%s risk_check_ms=%s draft_persist_ms=%s commit_ms=%s total_ms=%s",
+            "create_shifu_draft finished | shifu_id=%s user_id=%s risk_check_ms=%s draft_persist_ms=%s total_ms=%s",
             shifu_id,
             user_id,
             risk_check_elapsed_ms,
             draft_persist_elapsed_ms,
-            commit_elapsed_ms,
             total_elapsed_ms,
         )
 
@@ -499,7 +498,7 @@ def save_shifu_draft_info(
         ShifuDetailDto: Shifu detail dto.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         total_started_at = perf_counter()
         risk_check_elapsed_ms = 0.0
         persist_elapsed_ms = 0.0
@@ -684,7 +683,6 @@ def save_shifu_draft_info(
             db.session.add(shifu_draft)
             db.session.flush()
             save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
-            db.session.commit()
         else:
             new_shifu_draft: DraftShifu = shifu_draft.clone()
             # PATCH semantics: only overwrite a field the caller actually provided
@@ -751,7 +749,6 @@ def save_shifu_draft_info(
                 db.session.add(new_shifu_draft)
                 db.session.flush()
                 save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
-                db.session.commit()
                 persist_elapsed_ms = round(
                     (perf_counter() - persist_started_at) * 1000, 2
                 )
@@ -1034,7 +1031,7 @@ def get_shifu_published_list(
 def _set_shifu_archive_state(
     app: object, user_id: str, shifu_id: str, archived: bool
 ) -> None:
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
@@ -1064,8 +1061,6 @@ def _set_shifu_archive_state(
                     updated_at=now,
                 )
             )
-
-        db.session.commit()
 
 
 def archive_shifu(app: object, user_id: str, shifu_id: str) -> None:

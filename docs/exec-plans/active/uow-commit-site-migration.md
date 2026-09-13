@@ -28,7 +28,12 @@ is merged; merges are manual.
   order (22 sites; baseline 146 -> 124). Promo helpers now join the order
   unit of work, config cache writes and Feishu notifications moved to
   `on_commit`, `import_activation_order` runs as two explicit steps.
-- [ ] B2 — shifu services and `shifu/route.py` boundary push-down (18 sites).
+- [x] 2026-09-13 CST: B2 — shifu services and `shifu/route.py` push-down
+  (18 sites; baseline 124 -> 106). Permission grant/remove moved into
+  `service/shifu/shifu_permission_funcs.py`; publish starts the summary
+  thread, and creator transfer/copy run cache invalidation and post-auth,
+  from `on_commit`; `save_shifu_mdflow` keeps `retry_on_deadlock` on the
+  closure that owns the unit of work; `import_shifu` lost its `commit` flag.
 - [ ] B3 — user services, `route/user.py` push-down, and retirement of
   `user/repository.py::transactional_session` (14 sites).
 - [ ] B4 — referral, `billing/referral_plan_rewards`, lesson_feedback,
