@@ -27,6 +27,15 @@ hard backend constraints close to `src/api/`.
 - Define the intended schema in SQLAlchemy models first, then generate schema
   revisions with `FLASK_APP=app.py flask db migrate -m "message"` and review
   the candidate migration before accepting it.
+- Own database transactions with `with unit_of_work():` from
+  `flaskr/dao/uow.py`: helpers add and flush but never commit or roll back,
+  nested blocks join the caller, and external side effects (notifications,
+  celery enqueue, cache writes, background threads) go through
+  `uow.on_commit`.
+- Reuse the caller's app context with `uow.app_context_scope(app)`; push
+  `app.app_context()` only at real entry points (celery tasks, CLI commands),
+  because a nested context switches Flask-SQLAlchemy sessions and breaks the
+  caller's transaction boundary.
 
 ## Avoid
 
@@ -41,6 +50,11 @@ hard backend constraints close to `src/api/`.
   OpenAI-compatible integrations.
 - Do not place backend translations in ad-hoc Python modules; use shared JSON
   namespaces under `src/i18n/`.
+- Do not add `db.session.commit()` or `db.session.rollback()` outside
+  `flaskr/dao/`; `scripts/check_uow_commit_sites.py` only lets the
+  grandfathered baseline in `docs/generated/uow-commit-baseline.json` shrink.
+  Multi-step flows use one unit of work per persistence step and never span a
+  generator `yield` or a provider HTTP call.
 
 ## Commands
 
@@ -48,11 +62,17 @@ hard backend constraints close to `src/api/`.
 - `cd src/api && pytest -q`
 - `cd src/api && FLASK_APP=app.py flask db migrate -m "message"`
 - `cd src/api && python scripts/harness_diagnostics.py --request-id <id>`
+- `python scripts/check_uow_commit_sites.py` (repository root) verifies no new
+  direct commit sites appeared; `--update` ratchets the baseline down after a
+  migration removes sites.
 
 ## Tests
 
 - Add or update targeted pytest coverage in `src/api/tests/service/` when
   service behavior changes.
+- Pair every migration to `unit_of_work()` with a mid-flow failure test
+  (pattern: `src/api/tests/service/order/test_uow_failure_paths.py`) proving
+  partial writes roll back and `on_commit` side effects do not fire.
 - Review generated migration files manually before accepting schema changes.
 - Run broader backend tests when request flow, provider integration, or shared
   config behavior changes.

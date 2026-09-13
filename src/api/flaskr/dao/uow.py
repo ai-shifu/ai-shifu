@@ -24,6 +24,11 @@ Rules:
 - ``retry_on_deadlock`` composes with this: decorate the function that OWNS
   the outermost unit of work, so a MySQL deadlock (rolled back quietly by the
   decorator) re-runs the whole transaction.
+- A unit of work must not span a generator ``yield`` or a provider HTTP call.
+  Multi-step flows (claim -> external call -> finalize) use one unit of work
+  per persistence step, so each must-persist step is durable on its own.
+- Reuse the caller's app context with ``app_context_scope(app)``; never push
+  ``app.app_context()`` from service code, which would switch sessions.
 
 Nesting depth is tracked per execution context via ``contextvars``, so
 request handlers, the /run producer thread, and celery tasks each get an
@@ -40,6 +45,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from flask import Flask
     from flask.ctx import AppContext
 
 from flask import has_app_context
@@ -63,6 +69,9 @@ _depth: contextvars.ContextVar[int] = contextvars.ContextVar("uow_depth", defaul
 _post_commit: contextvars.ContextVar[list] = contextvars.ContextVar(
     "uow_post_commit", default=None
 )
+_discard: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "uow_discard", default=False
+)
 
 
 def in_unit_of_work() -> bool:
@@ -79,6 +88,9 @@ def on_commit(callback: object) -> None:
     dropped. Outside any unit of work the callback runs immediately (there is
     no transaction to wait for). Callback exceptions are logged, not raised —
     the transaction is already committed.
+
+    Callbacks run after the unit of work has fully unwound, so a callback may
+    open its own ``unit_of_work()`` and that block commits normally.
     """
     callbacks = _post_commit.get()
     if callbacks is None:
@@ -96,27 +108,41 @@ def _run_post_commit(callbacks: list) -> None:
 
 
 @contextmanager
-def unit_of_work() -> Iterator[None]:
+def unit_of_work(*, discard: bool = False) -> Iterator[None]:
     """Commit on clean exit of the outermost block; roll back on exception.
 
     Nested blocks join the outer transaction (no commit, no rollback): an
     exception inside a nested block propagates and the outermost block rolls
     everything back, which is exactly the semantics scattered mid-function
     commits used to break.
+
+    ``discard=True`` turns the transaction into a preview (``dry_run`` paths
+    that used to call ``db.session.rollback()`` directly): the outermost block
+    rolls back on clean exit instead of committing and drops post-commit
+    callbacks. A nested block propagates the flag outward, so a dry run inside
+    a larger unit of work never commits the caller's work by accident.
     """
     from flaskr import dao
 
     depth = _depth.get()
     token = _depth.set(depth + 1)
     callbacks_token = None
+    discard_token = None
     if depth == 0:
         callbacks_token = _post_commit.set([])
+        discard_token = _discard.set(discard)
+    elif discard:
+        # Restored by the outermost block's reset(); no token needed here.
+        _discard.set(True)
+    committed_callbacks: list | None = None
     try:
         yield
         if depth == 0:
-            callbacks = _post_commit.get()
-            dao.db.session.commit()
-            _run_post_commit(callbacks)
+            if _discard.get():
+                dao.cleanup_session_after(None, source="unit_of_work discard")
+            else:
+                committed_callbacks = _post_commit.get()
+                dao.db.session.commit()
     except Exception as exc:
         if depth == 0:
             # Classified cleanup: stream-interrupting failures (desync
@@ -136,3 +162,34 @@ def unit_of_work() -> Iterator[None]:
         _depth.reset(token)
         if callbacks_token is not None:
             _post_commit.reset(callbacks_token)
+        if discard_token is not None:
+            _discard.reset(discard_token)
+    # Post-commit callbacks run only after the depth counter has been reset:
+    # a callback that opens its own unit_of_work() must be treated as a NEW
+    # outermost block (and commit), not as a nested block that never commits.
+    if committed_callbacks is not None:
+        _run_post_commit(committed_callbacks)
+
+
+@contextmanager
+def autonomous_unit_of_work(app: Flask) -> Iterator[None]:
+    """Commit a small, independent transaction on a fresh session.
+
+    Deliberately pushes a NEW app context so Flask-SQLAlchemy hands out a
+    session separate from the caller's: rows written here stay durable even
+    when the surrounding unit of work rolls back, and the caller's staged
+    rows are never committed early. Reserve this for audit and metering rows
+    that must persist on their own (risk-control results, usage records)
+    while a /run stream is still in flight; everything else joins the caller
+    through plain ``unit_of_work()``.
+    """
+    depth_token = _depth.set(0)
+    callbacks_token = _post_commit.set(None)
+    discard_token = _discard.set(False)
+    try:
+        with app.app_context(), unit_of_work():
+            yield
+    finally:
+        _discard.reset(discard_token)
+        _post_commit.reset(callbacks_token)
+        _depth.reset(depth_token)

@@ -95,7 +95,7 @@ pre-commit:
     no-hardcoded-cjk-in-backend:
       run: python3 scripts/check_backend_hardcoded_cn.py
     check-uow-commit-sites:
-      glob: "src/api/flaskr/**/*.py"
+      glob: "{docs/generated/uow-commit-baseline.json,scripts/check_uow_commit_sites.py,src/api/flaskr/**/*.py}"
       run: python3 scripts/check_uow_commit_sites.py
 
 commit-msg:

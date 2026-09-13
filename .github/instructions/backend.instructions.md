@@ -26,3 +26,8 @@ applyTo: "src/api/**/*.py,src/api/**/*.md,src/i18n/**/*.json"
   narrowly scoped guard only for a documented non-transactional DDL recovery
   requirement. Do not edit applied revisions, add hard business-key
   foreign-key constraints, or bypass LiteLLM and shared provider helpers.
+
+- Own transactions with `with unit_of_work():` from `flaskr/dao/uow.py` and
+  reuse the caller's app context via `uow.app_context_scope(app)`; do not add
+  `db.session.commit()` outside `flaskr/dao/` (the commit-site ratchet
+  `scripts/check_uow_commit_sites.py` only shrinks).

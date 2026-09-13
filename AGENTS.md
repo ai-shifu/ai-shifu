@@ -185,6 +185,9 @@ Contributors have one place to check the required commit title and body format.
   metadata, and generated harness artifacts.
 - `python scripts/check_architecture_boundaries.py` validates the committed
   frontend/backend boundary baseline and blocks new drift.
+- `python scripts/check_uow_commit_sites.py` enforces the backend
+  unit-of-work ratchet: no new `db.session.commit()` outside `flaskr/dao/`,
+  and `--update` shrinks the baseline after a migration removes sites.
 - `python scripts/check_dev_tools.py` verifies lefthook and its underlying
   tools are installed, so the pre-commit hooks are not silently skipped.
 - `lefthook run pre-commit --all-files` is the repository-wide verification
