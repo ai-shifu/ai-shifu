@@ -27,9 +27,11 @@ from flaskr.service.order.consts import (
 from flaskr.service.order.funs import init_buy_record, success_buy_record
 from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
+    COUPON_STATUS_ACTIVE,
     COUPON_STATUS_USED,
     COUPON_TYPE_FIXED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
 )
 from flaskr.service.promo.models import Coupon, CouponUsage, PromoRedemption
 
@@ -81,27 +83,48 @@ def stub_shifu(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-@pytest.fixture
-def stub_promo_side_sessions(monkeypatch: pytest.MonkeyPatch) -> object:
-    """Neutralize the promo helpers that push their own app context.
+def _seed_promo_state(order_bid: str) -> None:
+    """Attach a used coupon and an applied campaign to ``order_bid``.
 
-    ``timeout_coupon_code_rollback`` / ``void_promo_campaign_applications``
-    open a nested app context and commit a *separate* session (documented
-    cross-module boundary leak, out of scope for this batch). Stub them so
-    these tests observe only the order module's own unit of work.
+    The promo helpers that release them on a timeout flip join the order's
+    unit of work (B1 migration), so both rows must follow the flip: released
+    and voided on commit, untouched on rollback.
     """
-    calls = {"rollback": 0, "void": 0}
-    monkeypatch.setattr(
-        order_funs,
-        "timeout_coupon_code_rollback",
-        lambda *_a, **_k: calls.__setitem__("rollback", calls["rollback"] + 1),
+    dao.db.session.add_all(
+        [
+            CouponUsage(
+                coupon_usage_bid="uow-timeout-coupon-usage-1",
+                coupon_bid="uow-timeout-coupon-1",
+                user_bid=USER_ID,
+                order_bid=order_bid,
+                code="UOWTIMEOUT",
+                discount_type=COUPON_TYPE_FIXED,
+                value=Decimal("20.00"),
+                status=COUPON_STATUS_USED,
+            ),
+            PromoRedemption(
+                redemption_bid="uow-timeout-redemption-1",
+                promo_bid="uow-timeout-promo-1",
+                order_bid=order_bid,
+                user_bid=USER_ID,
+                shifu_bid=COURSE_ID,
+                promo_name="UOW campaign",
+                discount_amount=Decimal("10.00"),
+                status=PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+            ),
+        ]
     )
-    monkeypatch.setattr(
-        order_funs,
-        "void_promo_campaign_applications",
-        lambda *_a, **_k: calls.__setitem__("void", calls["void"] + 1),
-    )
-    return calls
+    dao.db.session.commit()
+
+
+def _promo_state() -> tuple[int, int]:
+    usage = CouponUsage.query.filter(
+        CouponUsage.coupon_usage_bid == "uow-timeout-coupon-usage-1"
+    ).first()
+    redemption = PromoRedemption.query.filter(
+        PromoRedemption.redemption_bid == "uow-timeout-redemption-1"
+    ).first()
+    return usage.status, redemption.status
 
 
 def _fail_after_pricing_sync(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -172,15 +195,15 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
     stub_shifu: object,
-    stub_promo_side_sessions: object,
 ) -> None:
-    """(b) Clean run: the timeout flip and the new order commit together."""
+    """(b) Clean run: the timeout flip, the promo release, and the new order commit together."""
     _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
     ) - datetime.timedelta(hours=2)
     origin_bid = _seed_order(created_at=stale_created_at)
+    _seed_promo_state(origin_bid)
 
     result = init_buy_record(order_app, USER_ID, COURSE_ID)
 
@@ -189,28 +212,33 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
     assert origin.status == ORDER_STATUS_TIMEOUT
     assert result.order_id != origin_bid
     assert Order.query.count() == 2
-    assert stub_promo_side_sessions == {"rollback": 1, "void": 1}
+    assert _promo_state() == (
+        COUPON_STATUS_ACTIVE,
+        PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
+    )
 
 
 def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
     stub_shifu: object,
-    stub_promo_side_sessions: object,
 ) -> None:
     """(b) Failure run: the timeout flip joins the caller's transaction.
 
     Decision: the flip is derived state (recomputed from ``created_at`` on
     every attempt), so it must NOT survive a failed order-creation attempt.
     A retry re-detects the timeout and re-flips atomically with the
-    replacement order.
+    replacement order. The promo helpers join the same unit of work, so the
+    coupon stays used and the campaign stays applied too - pre-migration they
+    committed a separate session and leaked past the rollback.
     """
-    _ = (stub_shifu, stub_promo_side_sessions)
+    _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
     ) - datetime.timedelta(hours=2)
     origin_bid = _seed_order(created_at=stale_created_at)
+    _seed_promo_state(origin_bid)
     _fail_after_pricing_sync(monkeypatch)
 
     with pytest.raises(RuntimeError, match="boom after pricing sync"):
@@ -221,6 +249,10 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     origin = Order.query.filter(Order.order_bid == origin_bid).first()
     assert origin.status == ORDER_STATUS_INIT  # flip rolled back
     assert Order.query.count() == 1  # no replacement order persisted
+    assert _promo_state() == (
+        COUPON_STATUS_USED,
+        PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+    )
 
 
 def test_discount_refresh_failure_keeps_coupon_pricing_untouched(

@@ -425,10 +425,9 @@ def init_buy_record(
                 # rolls back with it, in which case a retry re-detects the
                 # timeout (it is derived from created_at) and re-flips.
                 origin_record.status = ORDER_STATUS_TIMEOUT
-                # NOTE: cross-module boundary leak - both promo helpers below
-                # push their own app context and commit their own session, so
-                # their coupon/promo state persists even if this unit of work
-                # later rolls back. Tracked for the promo-module uow batch.
+                # Both promo helpers join this unit of work, so the coupon
+                # release and the campaign void commit (or roll back) together
+                # with the timeout flip and the replacement order.
                 timeout_coupon_code_rollback(
                     app, origin_record.user_bid, origin_record.order_bid
                 )
