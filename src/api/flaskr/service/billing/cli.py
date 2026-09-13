@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import click
 from flask import current_app
@@ -136,9 +135,6 @@ from .wallets import (
     repair_renewal_state_drift,
     restore_wrongly_expired_credit_pack_buckets,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 _PRODUCT_TYPE_LABELS = {
     "custom": BILLING_PRODUCT_TYPE_CUSTOM,
@@ -314,8 +310,8 @@ def backfill_authoring_permission_creators(
                 )
                 role_would_grant_count += 1
             else:
-                mark_user_roles(current_user_bid, is_creator=True)
-                db.session.commit()
+                with unit_of_work():
+                    mark_user_roles(current_user_bid, is_creator=True)
                 record.update(
                     {
                         "role_status": "granted",
@@ -1351,17 +1347,17 @@ def register_billing_commands(console: object) -> None:
 
 def seed_billing_bootstrap_data() -> dict[str, object]:
     """Seed billing bootstrap data."""
-    rate_result = _upsert_bootstrap_rows(
-        model=CreditUsageRate,
-        key_field="rate_bid",
-        rows=[asdict(row) for row in CREDIT_USAGE_RATE_SEEDS],
-    )
-    config_result = _upsert_bootstrap_rows(
-        model=Config,
-        key_field="key",
-        rows=[dict(row) for row in BILL_SYS_CONFIG_SEEDS],
-    )
-    db.session.commit()
+    with unit_of_work():
+        rate_result = _upsert_bootstrap_rows(
+            model=CreditUsageRate,
+            key_field="rate_bid",
+            rows=[asdict(row) for row in CREDIT_USAGE_RATE_SEEDS],
+        )
+        config_result = _upsert_bootstrap_rows(
+            model=Config,
+            key_field="key",
+            rows=[dict(row) for row in BILL_SYS_CONFIG_SEEDS],
+        )
     return {
         "status": "seeded",
         "products": {"count": 0, "inserted": 0, "updated": 0},
@@ -1963,12 +1959,12 @@ def upsert_billing_product(
         message = "--description-i18n-key is required."
         raise click.ClickException(message)
 
-    created = _upsert_bootstrap_row(
-        model=BillingProduct,
-        key_field="product_bid",
-        payload=payload,
-    )
-    db.session.commit()
+    with unit_of_work():
+        created = _upsert_bootstrap_row(
+            model=BillingProduct,
+            key_field="product_bid",
+            payload=payload,
+        )
     return {
         "status": "upserted",
         "created": created,
@@ -2114,16 +2110,6 @@ def _format_provider_price_mapping_error(exc: ProviderPriceMappingError) -> str:
     )
 
 
-@contextmanager
-def _rollback_on_error() -> Iterator[None]:
-    """Roll back the CLI transaction when the wrapped block raises."""
-    try:
-        yield
-    except Exception:
-        db.session.rollback()
-        raise
-
-
 def grant_billing_plan_by_identify(
     *,
     identify: str,
@@ -2150,7 +2136,7 @@ def grant_billing_plan_by_identify(
         raise click.ClickException(error_message)
     normalized_effective_to = str(effective_to or "").strip()
 
-    with _rollback_on_error():
+    with unit_of_work():
         aggregate = load_user_aggregate_by_identifier(normalized_identify)
         if aggregate is None:
             message = f"No user found for identify: {normalized_identify}"
@@ -2180,7 +2166,6 @@ def grant_billing_plan_by_identify(
                 str(existing_subscription.product_bid or "").strip()
                 == product.product_bid
             ):
-                db.session.commit()
                 return {
                     "status": "noop_active",
                     "identify": normalized_identify,
@@ -2326,30 +2311,29 @@ def grant_billing_plan_by_identify(
             )
         )
         _enforce_manual_subscription_expire_event(subscription)
-        db.session.commit()
 
-        payload = {
-            "status": "granted",
-            "identify": normalized_identify,
-            "creator_bid": aggregate.user_bid,
-            "creator_role_granted": creator_role_granted,
-            "product_bid": product.product_bid,
-            "product_code": product.product_code,
-            "subscription_bid": subscription.subscription_bid,
-            "bill_order_bid": order.bill_order_bid,
-            "billing_provider": subscription.billing_provider,
-            "current_period_start_at": subscription.current_period_start_at,
-            "current_period_end_at": subscription.current_period_end_at,
-            "email": aggregate.email,
-            "mobile": aggregate.mobile,
-        }
-        if should_enqueue_subscription_purchase_sms:
-            sms_payload = enqueue_subscription_purchase_sms(
-                current_app,
-                bill_order_bid=order.bill_order_bid,
-            )
-            payload["sms_enqueue_status"] = str(sms_payload.get("status") or "")
-            payload["sms_enqueued"] = bool(sms_payload.get("enqueued"))
+    payload = {
+        "status": "granted",
+        "identify": normalized_identify,
+        "creator_bid": aggregate.user_bid,
+        "creator_role_granted": creator_role_granted,
+        "product_bid": product.product_bid,
+        "product_code": product.product_code,
+        "subscription_bid": subscription.subscription_bid,
+        "bill_order_bid": order.bill_order_bid,
+        "billing_provider": subscription.billing_provider,
+        "current_period_start_at": subscription.current_period_start_at,
+        "current_period_end_at": subscription.current_period_end_at,
+        "email": aggregate.email,
+        "mobile": aggregate.mobile,
+    }
+    if should_enqueue_subscription_purchase_sms:
+        sms_payload = enqueue_subscription_purchase_sms(
+            current_app,
+            bill_order_bid=order.bill_order_bid,
+        )
+        payload["sms_enqueue_status"] = str(sms_payload.get("status") or "")
+        payload["sms_enqueued"] = bool(sms_payload.get("enqueued"))
     return payload
 
 
@@ -2391,49 +2375,49 @@ def grant_operator_credits_by_cli(
         str(operator_user_bid or "").strip() or _DEFAULT_CLI_OPERATOR_USER_BID
     )
 
-    with _rollback_on_error():
-        aggregate = (
-            load_user_aggregate(normalized_user_bid)
-            if normalized_user_bid
-            else load_user_aggregate_by_identifier(normalized_identify)
-        )
-        if aggregate is None:
-            target = normalized_user_bid or normalized_identify
-            message = f"No user found for target: {target}"
-            raise click.ClickException(message)
-        if not normalized_request_id:
-            normalized_request_id = _build_cli_credit_grant_request_id(
-                user_bid=aggregate.user_bid,
-                amount=amount,
-                grant_source=grant_source,
-                validity_preset=validity_preset,
-                display_name=normalized_display_name,
-                note=normalized_note,
-            )
-
-        grant_result = grant_manual_credits_to_user(
-            current_app,
+    # The manual grant owns its own idempotent unit of work; no outer block.
+    aggregate = (
+        load_user_aggregate(normalized_user_bid)
+        if normalized_user_bid
+        else load_user_aggregate_by_identifier(normalized_identify)
+    )
+    if aggregate is None:
+        target = normalized_user_bid or normalized_identify
+        message = f"No user found for target: {target}"
+        raise click.ClickException(message)
+    if not normalized_request_id:
+        normalized_request_id = _build_cli_credit_grant_request_id(
             user_bid=aggregate.user_bid,
-            operator_user_bid=normalized_operator_user_bid,
-            request_id=normalized_request_id,
-            amount=str(amount or "").strip(),
-            grant_source=str(grant_source or "").strip(),
-            validity_preset=str(validity_preset or "").strip(),
+            amount=amount,
+            grant_source=grant_source,
+            validity_preset=validity_preset,
             display_name=normalized_display_name,
             note=normalized_note,
-            grant_channel="operator_cli",
         )
-        payload = dict(_serialize_cli_payload(grant_result))
-        payload.update(
-            {
-                "identify": normalized_identify,
-                "creator_bid": aggregate.user_bid,
-                "operator_user_bid": normalized_operator_user_bid,
-                "request_id": normalized_request_id,
-                "email": getattr(aggregate, "email", ""),
-                "mobile": getattr(aggregate, "mobile", ""),
-            }
-        )
+
+    grant_result = grant_manual_credits_to_user(
+        current_app,
+        user_bid=aggregate.user_bid,
+        operator_user_bid=normalized_operator_user_bid,
+        request_id=normalized_request_id,
+        amount=str(amount or "").strip(),
+        grant_source=str(grant_source or "").strip(),
+        validity_preset=str(validity_preset or "").strip(),
+        display_name=normalized_display_name,
+        note=normalized_note,
+        grant_channel="operator_cli",
+    )
+    payload = dict(_serialize_cli_payload(grant_result))
+    payload.update(
+        {
+            "identify": normalized_identify,
+            "creator_bid": aggregate.user_bid,
+            "operator_user_bid": normalized_operator_user_bid,
+            "request_id": normalized_request_id,
+            "email": getattr(aggregate, "email", ""),
+            "mobile": getattr(aggregate, "mobile", ""),
+        }
+    )
     return payload
 
 

@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
 from flaskr.service.metering.models import BillUsageRecord
@@ -146,7 +147,7 @@ def reserve_operation_credits(
             amount=_ZERO,
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         _lock_active_creator(normalized_creator_bid)
         idempotency_key = _reserve_idempotency_key(
             normalized_operation_type,
@@ -231,7 +232,6 @@ def reserve_operation_credits(
             metadata_json=ledger_metadata,
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditReservationResult(
             status="reserved",
             reservation_bid=ledger_bid,
@@ -254,7 +254,7 @@ def capture_reserved_operation_credits(
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
     normalized_usage_bid = _require_bid(usage_bid, "usage_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         hold = _load_hold(normalized_reservation_bid)
         creator_bid = str(hold.creator_bid or "")
         _lock_active_creator(creator_bid)
@@ -318,7 +318,6 @@ def capture_reserved_operation_credits(
             },
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditCaptureResult(
             status="captured",
             reservation_bid=normalized_reservation_bid,
@@ -337,7 +336,7 @@ def release_reserved_operation_credits(
     """Release reserved operation credits."""
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         hold = _load_hold(normalized_reservation_bid)
         creator_bid = str(hold.creator_bid or "")
         _lock_active_creator(creator_bid)
@@ -394,7 +393,6 @@ def release_reserved_operation_credits(
             },
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditReleaseResult(
             status="released",
             reservation_bid=normalized_reservation_bid,

@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask, has_app_context
-from flaskr.dao import db
+from flaskr.dao import db, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import get_user_entity_by_bid
 from flaskr.util.datetime import now_utc
@@ -53,8 +52,9 @@ from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 
 if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
     from decimal import Decimal
+
+    from flask import Flask
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -63,10 +63,6 @@ _ACTIVE_SUBSCRIPTION_STATUSES = (
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
 )
 _TRIAL_WELCOME_ACK_KEY = "welcome_trial_dialog_acknowledged_at"
-
-
-def _maybe_app_context(app: Flask) -> AbstractContextManager[None]:
-    return nullcontext() if has_app_context() else app.app_context()
 
 
 @dataclass(slots=True, frozen=True)
@@ -471,7 +467,7 @@ def _enqueue_trial_credit_notification(app: Flask, creator_bid: str) -> None:
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return
-    with _maybe_app_context(app):
+    with app_context_scope(app):
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -551,7 +547,7 @@ def _backfill_missing_creator_trial_credits(
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
 
-    with _maybe_app_context(app):
+    with app_context_scope(app):
         if not _is_billing_enabled():
             return {
                 "status": "noop",
@@ -665,16 +661,19 @@ def _backfill_missing_creator_trial_credits(
                 continue
 
             try:
-                _bootstrap_trial_subscription(
-                    app,
-                    creator_bid=current_creator_bid,
-                    product_ref=resolved_product_ref,
-                    trigger="cli_backfill_missing_creator_trial",
-                )
-                db.session.commit()
-                _enqueue_trial_credit_notification(app, current_creator_bid)
+                with unit_of_work():
+                    _bootstrap_trial_subscription(
+                        app,
+                        creator_bid=current_creator_bid,
+                        product_ref=resolved_product_ref,
+                        trigger="cli_backfill_missing_creator_trial",
+                    )
+                    uow.on_commit(
+                        lambda creator=current_creator_bid: (
+                            _enqueue_trial_credit_notification(app, creator)
+                        )
+                    )
             except IntegrityError:
-                db.session.rollback()
                 records.append(
                     {
                         "creator_bid": current_creator_bid,
@@ -799,7 +798,7 @@ def _acknowledge_trial_welcome_dialog(
     if not normalized_creator_bid:
         return BillingTrialWelcomeAckDTO(acknowledged=False, acknowledged_at=None)
 
-    with _maybe_app_context(app):
+    with app_context_scope(app):
         trial_subscription = _load_trial_subscription(normalized_creator_bid)
         trial_order = _load_trial_order(normalized_creator_bid)
         legacy_entry = _load_legacy_trial_entry(normalized_creator_bid)
@@ -829,12 +828,12 @@ def _acknowledge_trial_welcome_dialog(
             )
 
         acknowledged_at = now_utc()
-        _set_trial_welcome_acknowledged_at(
-            target_record,
-            acknowledged_at=acknowledged_at,
-        )
-        db.session.add(target_record)
-        db.session.commit()
+        with unit_of_work():
+            _set_trial_welcome_acknowledged_at(
+                target_record,
+                acknowledged_at=acknowledged_at,
+            )
+            db.session.add(target_record)
         return BillingTrialWelcomeAckDTO(
             acknowledged=True,
             acknowledged_at=acknowledged_at,
@@ -846,25 +845,28 @@ def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
     if not normalized_creator_bid:
         return
 
-    with _maybe_app_context(app):
+    with app_context_scope(app):
         status, product_ref = _resolve_trial_bootstrap_status(normalized_creator_bid)
         if status != "grantable" or product_ref is None:
             return
 
         try:
-            _bootstrap_trial_subscription(
-                app,
-                creator_bid=normalized_creator_bid,
-                product_ref=product_ref,
-                trigger="post_auth_creator_grant",
-            )
-            db.session.commit()
-            _enqueue_trial_credit_notification(app, normalized_creator_bid)
+            with unit_of_work():
+                _bootstrap_trial_subscription(
+                    app,
+                    creator_bid=normalized_creator_bid,
+                    product_ref=product_ref,
+                    trigger="post_auth_creator_grant",
+                )
+                uow.on_commit(
+                    lambda: _enqueue_trial_credit_notification(
+                        app, normalized_creator_bid
+                    )
+                )
         except IntegrityError:
-            db.session.rollback()
-        except Exception:
-            db.session.rollback()
-            raise
+            # Another request bootstrapped the trial first; the unit of work
+            # already rolled ours back.
+            pass
 
 
 resolve_new_creator_trial_offer = _resolve_new_creator_trial_offer

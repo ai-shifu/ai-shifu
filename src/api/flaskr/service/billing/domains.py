@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 import dns.resolver
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
 from flaskr.util.datetime import now_utc
@@ -122,7 +123,7 @@ def manage_creator_domain_binding(
         strict=action == "bind" and not normalized_binding_bid,
     )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
         custom_domain_enabled = bool(entitlement_state.custom_domain_enabled)
 
@@ -153,7 +154,6 @@ def manage_creator_domain_binding(
             )
 
         db.session.add(binding)
-        db.session.commit()
         return BillingDomainBindResultDTO(
             action=action,
             binding=_serialize_domain_binding(

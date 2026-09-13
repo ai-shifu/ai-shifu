@@ -1,6 +1,7 @@
 """Tests for the unit-of-work transaction boundary (flaskr/dao/uow.py)."""
 
 import threading
+from contextlib import nullcontext
 
 import pytest
 from flaskr import dao
@@ -260,8 +261,84 @@ def test_autonomous_unit_of_work_runs_own_post_commit_callbacks(
     assert calls == ["autonomous", "outer"]
 
 
+def test_app_context_scope_pushes_when_the_active_context_is_another_app(
+    app: object,
+) -> None:
+    """A context of a different Flask app must not be reused.
+
+    The session would be bound to that app's database (celery FlaskTask /
+    multi-app fixtures).
+    """
+    from flask import Flask, current_app
+
+    other = Flask("uow-other-app")
+    with other.app_context():
+        assert current_app._get_current_object() is other
+        with uow.app_context_scope(app):
+            assert current_app._get_current_object() is app
+        assert current_app._get_current_object() is other
+    with app.app_context(), uow.app_context_scope(app):
+        # Same app: the caller's context (and session) is reused.
+        assert current_app._get_current_object() is app
+
+
+def test_app_context_scope_treats_current_app_proxy_as_the_same_app(
+    app: object,
+) -> None:
+    """CLI commands pass ``current_app`` (a proxy); it must reuse the context."""
+    from flask import current_app
+
+    with app.app_context():
+        scope = uow.app_context_scope(current_app)
+        assert isinstance(scope, nullcontext)
+
+
 def test_require_transaction_owner_rejects_nested_callers(app: object) -> None:
     with app.app_context():
         uow.require_transaction_owner("probe")  # no active block: fine
         with uow.unit_of_work(), pytest.raises(RuntimeError, match="probe owns"):
             uow.require_transaction_owner("probe")
+
+
+def test_app_context_scope_switching_apps_commits_independently(app: object) -> None:
+    """A unit of work in another app's context commits on its own.
+
+    The caller's depth belongs to the caller's session; carrying it into a
+    different app (and therefore a different session) would make the inner
+    block look nested and never commit.
+    """
+    from flask import Flask
+    from flaskr.service.shifu.models import PublishedShifu
+
+    other = Flask("uow-other-app-commit")
+    other.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    )
+    dao.db.init_app(other)
+    with other.app_context():
+        dao.db.create_all()
+
+    with app.app_context(), uow.unit_of_work():
+        dao.db.session.add(_make_shifu("uow-switch-outer-1"))
+        with uow.app_context_scope(other), uow.unit_of_work():
+            assert uow.in_unit_of_work()
+            dao.db.session.add(_make_shifu("uow-switch-inner-1"))
+        # Back in the caller's app: still inside its unit of work.
+        assert uow.in_unit_of_work()
+
+    with other.app_context():
+        assert (
+            PublishedShifu.query.filter_by(shifu_bid="uow-switch-inner-1").count() == 1
+        )
+        assert (
+            PublishedShifu.query.filter_by(shifu_bid="uow-switch-outer-1").count() == 0
+        )
+        dao.db.session.remove()
+        dao.db.drop_all()
+    with app.app_context():
+        assert _count("uow-switch-outer-1") == 1
