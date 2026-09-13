@@ -399,12 +399,11 @@ def create_shifu_draft(
 
         # save to database
         stage_started_at = perf_counter()
-        db.session.add(shifu_draft)
-        db.session.flush()
-
         if creation_attribution is not None:
             try:
                 with db.session.begin_nested():
+                    db.session.add(shifu_draft)
+                    db.session.flush()
                     db.session.add(
                         CourseCreationAttribution(
                             shifu_bid=shifu_id,
@@ -431,6 +430,9 @@ def create_shifu_draft(
                     user_id=user_id,
                     creation_attribution=creation_attribution,
                 )
+        else:
+            db.session.add(shifu_draft)
+            db.session.flush()
 
         save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
 
