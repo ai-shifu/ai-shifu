@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from flaskr.dao import db
+from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config.funcs import get_config as get_dynamic_config
@@ -212,6 +212,9 @@ def complete_onboarding_scene(
     status: str = STATUS_COMPLETED,
 ) -> dict[str, object]:
     """Complete onboarding scene."""
+    # The IntegrityError handler below re-reads the winner in a fresh unit of
+    # work; nested, the conflict would surface at the caller's commit instead.
+    uow.require_transaction_owner("onboarding scene completion")
     normalized_user_bid = str(user_bid or "").strip()
     normalized_scene_key = str(scene_key or "").strip()
     normalized_version = str(version or "").strip()
