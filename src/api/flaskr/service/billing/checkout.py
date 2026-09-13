@@ -9,7 +9,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
-from flaskr.dao import db
+from flaskr.dao import db, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _ as translate
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.native_payment_status import (
@@ -515,7 +516,11 @@ def create_billing_subscription_checkout(
         default_pingxx_channel="alipay_qr",
     )
 
-    with app.app_context(), _subscription_checkout_lock(app, normalized_creator_bid):
+    with (
+        app_context_scope(app),
+        _subscription_checkout_lock(app, normalized_creator_bid),
+        unit_of_work(),
+    ):
         now = now_utc()
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
         provider_price_mapping: BillingProductProviderPrice | None = None
@@ -710,15 +715,13 @@ def create_billing_subscription_checkout(
 
             db.session.add(subscription)
             db.session.flush()
-            checkout_result = _reopen_existing_billing_order_checkout(
+            return _reopen_existing_billing_order_checkout(
                 app,
                 creator_bid=normalized_creator_bid,
                 order=reusable_order,
                 product=product,
                 requested_channel=channel,
             )
-            db.session.commit()
-            return checkout_result
 
         db.session.add(subscription)
         db.session.flush()
@@ -812,8 +815,13 @@ def create_billing_subscription_checkout(
                 channel=channel,
                 provider_price_mapping=provider_price_mapping,
             )
-        db.session.commit()
-        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
+        # Paid-order side effects (credit notifications, SMS, Feishu) dispatch
+        # only once the checkout transaction is durable.
+        uow.on_commit(
+            lambda: _dispatch_billing_paid_order_side_effects(
+                app, paid_order_side_effects
+            )
+        )
         return checkout_result
 
 
@@ -830,7 +838,7 @@ def create_billing_topup_checkout(
         default_pingxx_channel="alipay_qr",
     )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_TOPUP)
         provider_price_mapping: BillingProductProviderPrice | None = None
         if payment_provider == "stripe":
@@ -908,7 +916,7 @@ def create_billing_topup_checkout(
         db.session.add(order)
         db.session.flush()
 
-        checkout_result = _create_provider_checkout(
+        return _create_provider_checkout(
             app,
             creator_bid=normalized_creator_bid,
             order=order,
@@ -918,8 +926,6 @@ def create_billing_topup_checkout(
             channel=channel,
             provider_price_mapping=provider_price_mapping,
         )
-        db.session.commit()
-        return checkout_result
 
 
 def create_billing_order_checkout(
@@ -933,41 +939,45 @@ def create_billing_order_checkout(
     normalized_order_bid = _normalize_bid(bill_order_bid)
     requested_channel = _normalize_bid(payload.get("channel"))
 
-    with app.app_context():
+    with app_context_scope(app):
         now = now_utc()
-        order = (
-            BillingOrder.query.filter(
-                BillingOrder.deleted == 0,
-                BillingOrder.creator_bid == normalized_creator_bid,
-                BillingOrder.bill_order_bid == normalized_order_bid,
+        # Step 1 - load and validate; an expiry detected here must be durable
+        # before the caller sees the error, so it gets its own unit of work.
+        with unit_of_work():
+            order = (
+                BillingOrder.query.filter(
+                    BillingOrder.deleted == 0,
+                    BillingOrder.creator_bid == normalized_creator_bid,
+                    BillingOrder.bill_order_bid == normalized_order_bid,
+                )
+                .order_by(BillingOrder.id.desc())
+                .first()
             )
-            .order_by(BillingOrder.id.desc())
-            .first()
-        )
-        if order is None:
-            raise_error("server.order.orderNotFound")
-        if _hydrate_legacy_billing_order_expires_at(order):
-            db.session.add(order)
-        if order.status != BILLING_ORDER_STATUS_PENDING:
-            raise_error("server.order.orderStatusError")
-        if _expire_pending_billing_order_if_due(order, now=now):
-            db.session.add(order)
-            db.session.commit()
+            if order is None:
+                raise_error("server.order.orderNotFound")
+            if _hydrate_legacy_billing_order_expires_at(order):
+                db.session.add(order)
+            if order.status != BILLING_ORDER_STATUS_PENDING:
+                raise_error("server.order.orderStatusError")
+            expired = _expire_pending_billing_order_if_due(order, now=now)
+            if expired:
+                db.session.add(order)
+        if expired:
             raise_error("server.order.orderPayExpired")
 
-        product = _load_billing_product_by_bid(order.product_bid)
-        if product is None:
-            raise_error("server.order.orderNotFound")
+        # Step 2 - reopen the provider checkout for the still-pending order.
+        with unit_of_work():
+            product = _load_billing_product_by_bid(order.product_bid)
+            if product is None:
+                raise_error("server.order.orderNotFound")
 
-        checkout_result = _reopen_existing_billing_order_checkout(
-            app,
-            creator_bid=normalized_creator_bid,
-            order=order,
-            product=product,
-            requested_channel=requested_channel,
-        )
-        db.session.commit()
-        return checkout_result
+            return _reopen_existing_billing_order_checkout(
+                app,
+                creator_bid=normalized_creator_bid,
+                order=order,
+                product=product,
+                requested_channel=requested_channel,
+            )
 
 
 def _reopen_existing_billing_order_checkout(
@@ -1190,7 +1200,7 @@ def refund_billing_order(
     if refund_amount_value not in (None, ""):
         refund_amount = int(refund_amount_value)
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -1302,7 +1312,6 @@ def refund_billing_order(
                 effective_from=now,
             )
 
-        db.session.commit()
         return BillingRefundResultDTO(
             bill_order_bid=order.bill_order_bid,
             provider=order.payment_provider,
@@ -1325,7 +1334,11 @@ def sync_billing_order(
     # Hold a per-creator lock across the whole read-modify-commit so the grant
     # idempotency pre-check and the commit run in one critical section (see
     # _credit_ledger_lock).
-    with app.app_context(), _credit_ledger_lock(app, normalized_creator_bid):
+    with (
+        app_context_scope(app),
+        _credit_ledger_lock(app, normalized_creator_bid),
+        unit_of_work(),
+    ):
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -1365,8 +1378,7 @@ def sync_billing_order(
         order_update.stage_after_state_changes(app, order)
 
         db.session.add(order)
-        db.session.commit()
-        order_update.dispatch_after_commit(app)
+        uow.on_commit(lambda: order_update.dispatch_after_commit(app))
         return _build_billing_order_sync_result(order)
 
 

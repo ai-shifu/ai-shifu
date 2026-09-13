@@ -58,8 +58,12 @@ is merged; merges are manual.
   body as one unit of work with `enqueue=True`, campaign writes commit
   before the detail read-back, `entitlements.grant_creator_manual_entitlement`
   lost its `commit` flag, and the billing CLI dropped `_rollback_on_error`.
-- [ ] B6 — billing payment chain: notifications, checkout, webhooks,
-  settlement (22 sites).
+- [x] 2026-09-13 CST: B6 — billing payment chain: notifications, checkout,
+  webhooks, settlement (22 sites; baseline 40 -> 18). Notification
+  delivery runs claim -> provider -> finalize as one unit of work per
+  stage, `create_billing_order_checkout` commits an expiry before raising,
+  checkout/sync/webhook paths dispatch paid-order side effects from
+  `on_commit`, and usage settlement owns one unit of work under its lock.
 - [ ] B7 — streaming and long-running flows plus autonomous audit rows:
   runscript_v2, context_v2, minimax_voice_clone, check_risk, metering,
   audio_record_utils (18 sites).

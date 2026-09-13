@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -164,7 +165,7 @@ def settle_bill_usage(
 ) -> SettlementResult:
     """Settle a single metering usage record into credit ledger consumption."""
     normalized_usage_bid = str(usage_bid or "").strip()
-    with app.app_context():
+    with app_context_scope(app):
         usage = _load_usage_record(usage_bid=normalized_usage_bid, usage_id=usage_id)
         if usage is None:
             return SettlementResult(
@@ -184,10 +185,13 @@ def settle_bill_usage(
         if not creator_bid:
             return _build_skip_result(usage, reason="creator_not_found")
 
-        with _usage_settlement_lock(
-            app,
-            creator_bid=creator_bid,
-            usage_bid=usage.usage_bid,
+        with (
+            _usage_settlement_lock(
+                app,
+                creator_bid=creator_bid,
+                usage_bid=usage.usage_bid,
+            ),
+            unit_of_work(),
         ):
             existing_entries = (
                 CreditLedgerEntry.query.filter(
@@ -225,7 +229,6 @@ def settle_bill_usage(
                         ),
                         updated_at=now_utc(),
                     )
-                    db.session.commit()
                 return SettlementResult(
                     status="noop",
                     usage_bid=usage.usage_bid,
@@ -415,7 +418,6 @@ def settle_bill_usage(
                 ),
                 updated_at=now_utc(),
             )
-            db.session.commit()
             return SettlementResult(
                 status="settled",
                 usage_bid=usage.usage_bid,
