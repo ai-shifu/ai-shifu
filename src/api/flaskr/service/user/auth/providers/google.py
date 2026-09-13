@@ -10,6 +10,7 @@ import jwt
 from authlib.integrations.requests_client import OAuth2Session
 from flask import current_app, request
 from flaskr.common.public_urls import build_google_oauth_callback_url
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
@@ -31,7 +32,6 @@ from flaskr.service.user.repository import (
     get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
-    transactional_session,
     update_user_entity_fields,
     upsert_credential,
 )
@@ -294,7 +294,7 @@ class GoogleAuthProvider(AuthProvider):
         created_user = False
         credential_record = None
 
-        with transactional_session():
+        with unit_of_work():
             if credential:
                 aggregate = load_user_aggregate(credential.user_bid)
 

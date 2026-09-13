@@ -11,8 +11,8 @@ from urllib.parse import urlsplit
 from flask import Flask
 from flaskr.api.wechat import get_wechat_access_token
 from flaskr.common.shifu_context import get_shifu_creator_bid as get_context_creator_bid
-from flaskr.dao import db
-from flaskr.dao.uow import unit_of_work
+from flaskr.dao import db, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.billing.api import resolve_creator_wechat_oauth_app_id
 from flaskr.service.common.dtos import USER_STATE_UNREGISTERED, UserToken
 from flaskr.service.common.models import raise_error
@@ -81,11 +81,11 @@ def generate_temp_user(
     """Generate temp user."""
 
     def generate_committed_token(user_id: str) -> str:
-        """Persist a guest token after its account changes are durable."""
+        """Persist a guest token; it joins the surrounding unit of work."""
         with unit_of_work():
             return generate_token(app, user_id=user_id)
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         convert_user = UserConversion.query.filter(
             UserConversion.conversion_id == temp_id,
             UserConversion.conversion_source == user_source,
@@ -138,7 +138,6 @@ def generate_temp_user(
                     union_identifier=wx_union_identifier,
                     verified=True,
                 )
-            db.session.commit()
             aggregate = load_user_aggregate(user_id)
             if not aggregate:
                 raise_error("USER.USER_NOT_FOUND")
@@ -167,7 +166,6 @@ def generate_temp_user(
                 union_identifier=wx_union_identifier,
                 verified=True,
             )
-        db.session.commit()
         refreshed = load_user_aggregate(convert_user.user_id)
         if not refreshed:
             raise_error("USER.USER_NOT_FOUND")
@@ -178,7 +176,7 @@ def generate_temp_user(
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
     """Update user open ID."""
     app.logger.info("update_user_open_id user_id: %s wx_code: %s", user_id, wx_code)
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         aggregate = load_user_aggregate(user_id)
         if not aggregate:
             app.logger.error("user not found")
@@ -206,7 +204,6 @@ def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
                 union_identifier=wx_union_identifier,
                 verified=True,
             )
-            db.session.commit()
             app.logger.info(
                 "update_user_open_id user_id: %s wx_openid: %s",
                 user_id,
@@ -242,7 +239,7 @@ def _wechat_identifiers(app_id: str, open_id: str, union_id: str) -> tuple[str, 
 
 def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
     """Upload user avatar."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         aggregate = load_user_aggregate(user_id)
         if not aggregate:
             raise_error("USER.USER_NOT_FOUND")
@@ -253,7 +250,8 @@ def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
 
         file_id = uuid.uuid4().hex
         old_avatar = aggregate.avatar
-        if old_avatar:
+
+        def delete_previous_avatar() -> None:
             _try_delete_local_file_by_url(app, old_avatar)
             if is_oss_profile_configured(OSS_PROFILE_DEFAULT):
                 try:
@@ -265,6 +263,11 @@ def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
                 except Exception as exc:
                     app.logger.warning("Failed to delete OSS avatar object: %s", exc)
 
+        if old_avatar:
+            # Remove the previous object only once the new URL is durable: a
+            # rollback restores the old URL, which must still resolve.
+            uow.on_commit(delete_previous_avatar)
+
         result = upload_to_storage(
             app,
             file_content=avatar,
@@ -274,13 +277,17 @@ def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
             warm_up=False,
         )
         update_user_entity_fields(entity, avatar=result.url)
-        db.session.commit()
 
         if result.provider == STORAGE_PROVIDER_OSS:
-            config = get_oss_config(OSS_PROFILE_DEFAULT)
-            if not warm_up_cdn(app, result.url, config):
-                app.logger.warning(
-                    "The user avatar URL is inaccessible, but the URL continues to be returned"
-                )
+
+            def warm_up() -> None:
+                config = get_oss_config(OSS_PROFILE_DEFAULT)
+                if not warm_up_cdn(app, result.url, config):
+                    app.logger.warning(
+                        "The user avatar URL is inaccessible, but the URL continues to be returned"
+                    )
+
+            # Warm the CDN only once the new avatar URL is durable.
+            uow.on_commit(warm_up)
 
         return result.url
