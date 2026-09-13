@@ -42,6 +42,7 @@ from typing import Generic, TypeVar
 
 from flask import Flask
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope
 from flaskr.service.user.models import UserInfo
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc, to_utc_iso
@@ -229,7 +230,7 @@ def get_shifu_draft_revision(
     app: Flask, shifu_bid: str, outline_bid: str | None = None
 ) -> int:
     """Return shifu draft revision."""
-    with app.app_context():
+    with app_context_scope(app):
         if outline_bid:
             latest = _get_latest_outline_content_log(shifu_bid, outline_bid)
         else:
@@ -248,7 +249,7 @@ def get_shifu_draft_meta(
     outline_bid: str | None = None,
 ) -> dict:
     """Return shifu draft meta."""
-    with app.app_context():
+    with app_context_scope(app):
         if outline_bid:
             latest = _get_latest_outline_content_log(shifu_bid, outline_bid)
         else:
@@ -259,6 +260,15 @@ def get_shifu_draft_meta(
 def get_shifu_history(app: object, shifu_bid: str) -> HistoryItem:
     """Get shifu history.
 
+    Reads through ``app_context_scope`` so the query joins the caller's
+    session and transaction. Every history mutation in this module is a
+    read-modify-write of the newest ``LogDraftStruct`` row, so a read that
+    pushed its own nested app context would open a *second* session and see
+    only committed rows: two nodes written inside one transaction would each
+    modify the pre-transaction struct, so the second write would silently drop
+    the first, and a child appended after its parent could not find the parent
+    at all ("Parent history node not found").
+
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
@@ -266,7 +276,7 @@ def get_shifu_history(app: object, shifu_bid: str) -> HistoryItem:
         HistoryItem: History item.
 
     """
-    with app.app_context():
+    with app_context_scope(app):
         shifu_history = (
             LogDraftStruct.query.filter_by(
                 shifu_bid=shifu_bid,
