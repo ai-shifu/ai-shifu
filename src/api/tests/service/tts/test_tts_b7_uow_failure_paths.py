@@ -306,3 +306,71 @@ def test_usage_record_survives_caller_rollback(app: Flask) -> None:
         dao.db.session.expire_all()
         assert DraftShifu.query.filter_by(shifu_bid="b7-usage-caller-1").count() == 0
         assert BillUsageRecord.query.filter_by(usage_bid=usage_bids[0]).count() == 1
+
+
+def test_voice_clone_entry_points_reject_nested_callers(clone_app: Flask) -> None:
+    """Submit, run and retry own their consecutive commits."""
+    from flaskr.service.tts.minimax_voice_clone import (
+        retry_minimax_voice_clone,
+        run_minimax_voice_clone,
+    )
+
+    def nested(fn: object) -> None:
+        with unit_of_work():
+            fn()
+
+    with clone_app.app_context():
+        with pytest.raises(RuntimeError, match="must not be called inside"):
+            nested(lambda: _submit(clone_app, voice_id="AiShifu_teacher_1"))
+        with pytest.raises(RuntimeError, match="must not be called inside"):
+            nested(lambda: run_minimax_voice_clone(clone_app, voice_bid="voice-1"))
+        with pytest.raises(RuntimeError, match="must not be called inside"):
+            nested(
+                lambda: retry_minimax_voice_clone(
+                    clone_app, owner_user_bid="creator-1", voice_bid="voice-1"
+                )
+            )
+
+
+def test_retry_enqueue_failure_persists_a_failed_released_row(
+    clone_app: Flask, monkeypatch: object
+) -> None:
+    """Retry mirrors submit: a broker failure never leaves a queued row holding credits."""
+    from flaskr.service.tts.minimax_voice_clone import (
+        TTS_MINIMAX_CLONE_STATUS_FAILED,
+        retry_minimax_voice_clone,
+        run_minimax_voice_clone,
+    )
+    from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+
+    _seed_course_wallet_and_rate(clone_app)
+    _stub_resources(monkeypatch)
+    monkeypatch.setattr(f"{_MODULE}._enqueue_minimax_clone_task", _enqueue_clone)
+    submitted = _submit(clone_app, voice_id="AiShifu_teacher_retry_1")
+    monkeypatch.setattr(
+        f"{_MODULE}.normalize_audio_blob",
+        lambda *_a, **_k: (_ for _ in ()).throw(ValueError("too short")),
+    )
+    assert run_minimax_voice_clone(clone_app, voice_bid=submitted.voice_bid).status == (
+        "failed"
+    )
+
+    def _broken_enqueue(_app: object, *, voice_bid: str) -> bool:
+        _ = voice_bid
+        message = "broker down"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(f"{_MODULE}._enqueue_minimax_clone_task", _broken_enqueue)
+
+    payload = retry_minimax_voice_clone(
+        clone_app, owner_user_bid="creator-1", voice_bid=submitted.voice_bid
+    )
+
+    assert payload["status"] == TTS_MINIMAX_CLONE_STATUS_FAILED
+    with clone_app.app_context():
+        dao.db.session.expire_all()
+        row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
+        assert row.retry_count == 1
+        assert row.failure_reason == "enqueue_failed"
+        assert row.billing_status == "released"
+    assert _wallet(clone_app) == (Decimal("10.0000000000"), Decimal("0E-10"))

@@ -73,6 +73,17 @@ is merged; merges are manual.
   before object-storage I/O, risk-control and usage rows use
   `autonomous_unit_of_work(app)`, and `save_audio_record` lost its `commit`
   flag (the streaming finalize owns the boundary only when `commit=True`).
+- [x] 2026-09-13 CST: Review follow-ups from the AI reviewers on the batch
+  pull requests: `--update` refuses to grow the ratchet baseline;
+  `require_transaction_owner()` guards the multi-step flows (verification
+  challenge, onboarding completion, voice clone submit/run/retry); config
+  cache refresh failures drop the stale key; profile hidden-state read-back
+  joins the caller's session; the mdflow save retries a deadlock only when it
+  owns the transaction; the invite-code collision re-reads the winner with a
+  locking read; `app_context_scope` resets unit-of-work state when it switches
+  apps; the settlement shortfall guard uses a savepoint; a failed retry
+  enqueue persists a failed, released clone row; avatar replacement deletes
+  the old object from `on_commit`; stale transaction comments refreshed.
 - [x] 2026-09-13 CST: Moved this plan to `docs/exec-plans/completed/`: the
   baseline is empty on the B7 branch and the `Static Checks` workflow enforces
   the ratchet. The batch pull requests (#2801 -> #2802 -> #2803 -> #2804 ->

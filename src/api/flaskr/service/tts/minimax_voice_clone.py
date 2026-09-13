@@ -30,7 +30,7 @@ except Exception:  # pragma: no cover - exercised only when pydub is missing.
 import contextlib
 
 from flaskr.common.config import get_config
-from flaskr.dao import db
+from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.billing.api import (
     admit_creator_usage,
@@ -383,6 +383,9 @@ def submit_minimax_voice_clone(
     prompt_content_type: str = "",
 ) -> TTSMiniMaxClonedVoice:
     """Submit minimax voice clone."""
+    # Reservation -> uploads -> row -> enqueue are consecutive commits; the
+    # steps are only durable in that order when no caller owns the transaction.
+    uow.require_transaction_owner("voice clone submission")
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_shifu_bid = _normalize_required(shifu_bid, "shifu_bid")
     normalized_display_name = str(display_name or "").strip()[:128]
@@ -520,29 +523,37 @@ def submit_minimax_voice_clone(
         try:
             _enqueue_minimax_clone_task(app, voice_bid=voice_bid)
         except Exception as exc:
-            with unit_of_work():
-                failed = _load_voice_row(voice_bid)
-                failed.status = TTS_MINIMAX_CLONE_STATUS_FAILED
-                failed.status_msg = _safe_status_message(exc)
-                failed.failure_reason = "enqueue_failed"
-                if failed.billing_reservation_bid:
-                    release_reserved_operation_credits(
-                        app,
-                        reservation_bid=failed.billing_reservation_bid,
-                        reason="enqueue_failed",
-                    )
-                    failed.billing_status = TTS_MINIMAX_CLONE_BILLING_RELEASED
+            _mark_enqueue_failed(app, voice_bid=voice_bid, exc=exc)
 
         return _load_voice_row(voice_bid)
+
+
+def _mark_enqueue_failed(app: Flask, *, voice_bid: str, exc: Exception) -> None:
+    """Persist a broker failure as a retryable failed row and free the credits."""
+    with unit_of_work():
+        failed = _load_voice_row(voice_bid)
+        failed.status = TTS_MINIMAX_CLONE_STATUS_FAILED
+        failed.status_msg = _safe_status_message(exc)
+        failed.failure_reason = "enqueue_failed"
+        if failed.billing_reservation_bid:
+            release_reserved_operation_credits(
+                app,
+                reservation_bid=failed.billing_reservation_bid,
+                reason="enqueue_failed",
+            )
+            failed.billing_status = TTS_MINIMAX_CLONE_BILLING_RELEASED
 
 
 def run_minimax_voice_clone(
     app: Flask, *, voice_bid: str
 ) -> MiniMaxVoiceCloneRunResult:
     """Run minimax voice clone."""
-    normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     # Step 1 claims the row; the provider round trip runs outside any
-    # transaction; step 2 (inside _execute_clone_processing) finalizes.
+    # transaction; step 2 (inside _execute_clone_processing) finalizes. The
+    # claim is only durable before the provider call when this function owns
+    # the transaction.
+    uow.require_transaction_owner("voice clone processing")
+    normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app_context_scope(app), unit_of_work():
         row = _load_voice_row(normalized_voice_bid)
         if row.status == TTS_MINIMAX_CLONE_STATUS_READY:
@@ -637,6 +648,7 @@ def retry_minimax_voice_clone(
     voice_bid: str,
 ) -> dict[str, object]:
     """Retry minimax voice clone."""
+    uow.require_transaction_owner("voice clone retry")
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app_context_scope(app):
@@ -654,7 +666,12 @@ def retry_minimax_voice_clone(
             row.status_msg = ""
             row.failure_reason = ""
             row.retry_count = int(row.retry_count or 0) + 1
-        _enqueue_minimax_clone_task(app, voice_bid=normalized_voice_bid)
+        try:
+            _enqueue_minimax_clone_task(app, voice_bid=normalized_voice_bid)
+        except Exception as exc:
+            # Same contract as submit: a broker failure leaves a failed,
+            # released row the UI can retry, not a queued row holding credits.
+            _mark_enqueue_failed(app, voice_bid=normalized_voice_bid, exc=exc)
         return serialize_minimax_cloned_voice(_load_voice_row(normalized_voice_bid))
 
 
