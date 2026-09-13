@@ -79,6 +79,25 @@ def in_unit_of_work() -> bool:
     return _depth.get() > 0
 
 
+def require_transaction_owner(operation: str) -> None:
+    """Refuse to run ``operation`` inside a caller's unit of work.
+
+    Multi-step flows (claim -> provider call -> finalize, or "try the insert,
+    re-read the winner on IntegrityError") only work when their inner
+    ``unit_of_work()`` blocks are the OUTERMOST ones: nested, the first step
+    would not be durable before the external call, and an IntegrityError would
+    surface at the caller's commit instead of inside the handler. Call this at
+    the top of such functions so a future nested caller fails loudly instead
+    of silently changing the transaction semantics.
+    """
+    if in_unit_of_work():
+        message = (
+            f"{operation} owns its own transaction and must not be called "
+            "inside an active unit_of_work()"
+        )
+        raise RuntimeError(message)
+
+
 def on_commit(callback: object) -> None:
     """Run ``callback()`` after the OUTERMOST unit of work commits.
 
