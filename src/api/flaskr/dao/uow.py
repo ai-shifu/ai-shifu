@@ -239,3 +239,5 @@ def autonomous_unit_of_work(app: Flask) -> Iterator[None]:
         _discard.reset(discard_token)
         _post_commit.reset(callbacks_token)
         _depth.reset(depth_token)
+
+# CI baseline probe: force a full backend test selection.
