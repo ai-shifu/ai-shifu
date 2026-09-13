@@ -4,16 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import (
-    cleanup_session_after,
     db,
-    invalidate_session,
-    is_abnormal_stream_termination,
 )
 from flaskr.service.common.dtos import UserInfo
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
@@ -30,8 +26,6 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from flask import Flask
 
 logger = logging.getLogger(__name__)
@@ -953,34 +947,3 @@ def upsert_wechat_credentials(
         )
 
     return credentials
-
-
-@contextmanager
-def transactional_session() -> Iterator[None]:
-    # Managed manually instead of ``with begin_nested()``: the context
-    # manager's __exit__ would emit ROLLBACK TO SAVEPOINT on the wire BEFORE
-    # any classification could run, which is exactly what must not happen on
-    # a connection whose exchange was interrupted.
-    """Provide a transactional database session."""
-    nested = db.session.begin_nested()
-    try:
-        yield
-    except Exception as exc:
-        if is_abnormal_stream_termination(exc):
-            invalidate_session(source="transactional_session desync")
-        else:
-            try:
-                nested.rollback()
-            except Exception:  # savepoint already broken
-                invalidate_session(source="transactional_session rollback failure")
-            # Preserve the legacy contract: a failure rolls back the whole
-            # session transaction, not only the savepoint.
-            cleanup_session_after(exc, source="transactional_session")
-        raise
-    except BaseException:
-        # GreenletExit landing inside the body's DB IO: discard before any
-        # cleanup could touch the wire.
-        invalidate_session(source="transactional_session interrupt")
-        raise
-    else:
-        nested.commit()

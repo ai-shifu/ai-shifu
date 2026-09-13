@@ -2,7 +2,7 @@
 
 import jwt
 from flask import Flask, has_app_context
-from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import get_i18n_list
 from flaskr.service.common.dtos import UserInfo, UserToken
 from flaskr.service.common.models import raise_error
@@ -73,7 +73,7 @@ def update_user_info(
     avatar: object = None,
 ) -> UserInfo:
     """Update user info."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         if not user:
             raise_error("server.user.userNotFound")
 
@@ -141,7 +141,6 @@ def update_user_info(
                     verified=False,
                 )
 
-        db.session.commit()
         refreshed = load_user_aggregate(user.user_id)
         if not refreshed:
             raise_error("USER.USER_NOT_FOUND")

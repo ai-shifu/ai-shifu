@@ -19,6 +19,7 @@ from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
 from flaskr.service.common.contact_identifiers import (
     CONTACT_TYPE_EMAIL,
@@ -482,13 +483,16 @@ def _prepare_verification_challenge(
         challenge_cache.set(identifier_limit_key, int(time.time()), ex=interval)
 
         is_email = policy.verify_code_type == 2
-        record = create_and_commit_user_verify_code(
-            mail=identifier if is_email else None,
-            phone=None if is_email else identifier,
-            verify_code=code,
-            verify_code_type=policy.verify_code_type,
-            ip=ip,
-        )
+        # Step 1 - the code record must be durable before delivery is
+        # attempted, so an audit row exists even when delivery fails.
+        with unit_of_work():
+            record = create_user_verify_code(
+                mail=identifier if is_email else None,
+                phone=None if is_email else identifier,
+                verify_code=code,
+                verify_code_type=policy.verify_code_type,
+                ip=ip,
+            )
         challenge = _PreparedVerificationChallenge(
             code=code,
             expire_in=expire_in,
@@ -502,8 +506,9 @@ def _prepare_verification_challenge(
         if not delivered:
             challenge_cache.delete(code_key, identifier_limit_key)
             raise_error("server.common.unknownError")
-        challenge.record.verify_code_send = 1
-        db.session.commit()
+        # Step 2 - mark the record as sent once the provider accepted it.
+        with unit_of_work():
+            challenge.record.verify_code_send = 1
         return challenge
 
 
@@ -607,14 +612,14 @@ def send_email_code(
         return {"expire_in": challenge.expire_in}
 
 
-def create_and_commit_user_verify_code(
+def create_user_verify_code(
     mail: str | None,
     phone: str | None,
     verify_code: str,
     verify_code_type: int,
     ip: str | None,
 ) -> UserVerifyCode:
-    """Persist a verification-code record and return it."""
+    """Stage a verification-code record; the caller's unit of work commits it."""
     user_verify_code = UserVerifyCode(
         phone=phone or "",
         mail=mail or "",
@@ -625,7 +630,7 @@ def create_and_commit_user_verify_code(
         user_ip=ip or "",
     )
     db.session.add(user_verify_code)
-    db.session.commit()
+    db.session.flush()
     return user_verify_code
 
 

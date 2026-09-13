@@ -564,6 +564,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     next_identifier: str,
     expected_rate_code: int,
 ) -> None:
+    import contextlib
     from types import SimpleNamespace
 
     import flaskr.service.user.utils as user_utils
@@ -604,14 +605,12 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
 
     monkeypatch.setattr(
         user_utils,
-        "create_and_commit_user_verify_code",
+        "create_user_verify_code",
         _capture_record,
     )
-    monkeypatch.setattr(
-        user_utils,
-        "db",
-        SimpleNamespace(session=SimpleNamespace(commit=lambda: None)),
-    )
+    # No Flask app here: neutralize the unit-of-work boundaries so the test
+    # keeps exercising the cache/lock/delivery ordering only.
+    monkeypatch.setattr(user_utils, "unit_of_work", contextlib.nullcontext)
     monkeypatch.setattr(
         user_utils,
         "_redis_prefix",

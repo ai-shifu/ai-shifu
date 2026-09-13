@@ -1,7 +1,6 @@
 {
   "command/import_user.py": 1,
   "command/update_shifu_demo.py": 2,
-  "route/user.py": 5,
   "service/billing/campaigns.py": 3,
   "service/billing/checkout.py": 7,
   "service/billing/cli.py": 5,
@@ -30,9 +29,5 @@
   "service/referral/campaign_admin.py": 3,
   "service/referral/service.py": 6,
   "service/tts/audio_record_utils.py": 1,
-  "service/tts/minimax_voice_clone.py": 10,
-  "service/user/common.py": 1,
-  "service/user/onboarding.py": 2,
-  "service/user/user.py": 4,
-  "service/user/utils.py": 2
+  "service/tts/minimax_voice_clone.py": 10
 }

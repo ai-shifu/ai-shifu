@@ -34,8 +34,14 @@ is merged; merges are manual.
   thread, and creator transfer/copy run cache invalidation and post-auth,
   from `on_commit`; `save_shifu_mdflow` keeps `retry_on_deadlock` on the
   closure that owns the unit of work; `import_shifu` lost its `commit` flag.
-- [ ] B3 — user services, `route/user.py` push-down, and retirement of
-  `user/repository.py::transactional_session` (14 sites).
+- [x] 2026-09-13 CST: B3 — user services, `route/user.py` push-down, and
+  retirement of `user/repository.py::transactional_session` (14 sites;
+  baseline 106 -> 92). Verification codes persist the record in one unit
+  of work before delivery and mark it sent in a second; onboarding
+  completion retries on the idempotency rewrite; password set/change/reset
+  moved into `service/user/password_flow.py`; avatar CDN warm-up runs from
+  `on_commit`; the email/phone/Google sign-in flows use `unit_of_work()`
+  (nested under the route's block) instead of a savepoint.
 - [ ] B4 — referral, `billing/referral_plan_rewards`, lesson_feedback,
   listen_element helpers, CLI commands (19 sites).
 - [ ] B5 — billing operations and scheduled paths (33 sites).
@@ -59,11 +65,12 @@ is merged; merges are manual.
   before any batch touches those callers.
 - The ratchet was only wired into lefthook; `.github/workflows/` never ran it,
   so contributors without lefthook (or using `--no-verify`) could add sites.
-- `user/repository.py::transactional_session` is a second, savepoint-based
-  transaction helper. Its three callers run without an enclosing unit of work,
-  so `token_store.save`'s `uow.on_commit(populate_cache)` fires immediately and
-  caches the token before the transaction commits. Replacing it with
-  `unit_of_work()` fixes that ordering.
+- `user/repository.py::transactional_session` was a second, savepoint-based
+  transaction helper. The login routes already wrap its three callers in
+  `unit_of_work()`, so the savepoint was redundant there; callers without
+  that outer block (tests, scripts) saw `token_store.save`'s
+  `uow.on_commit(populate_cache)` fire before the commit. Replacing it with
+  `unit_of_work()` removes the second abstraction and fixes that ordering.
 - `service/check_risk/funcs.py` and `service/metering/recorder.py`
   deliberately push a fresh app context to get an independent session, because
   they persist audit rows in the middle of a /run stream and must not commit
