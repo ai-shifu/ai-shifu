@@ -8,6 +8,7 @@ Date: 2025-08-07
 
 import queue
 import threading
+from dataclasses import dataclass
 
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
@@ -295,6 +296,106 @@ def _run_summary_with_error_handling(
             )
 
 
+@dataclass(frozen=True)
+class _SummaryModelChoice:
+    """Model and temperature the summary and ask generation runs with."""
+
+    model_name: str
+    temperature: object
+
+
+@dataclass(frozen=True)
+class _SummaryInputs:
+    """Everything the provider calls need, read before the generation starts.
+
+    Only plain values: the generation phase runs with no transaction open, so
+    it must not hold ORM instances loaded by the read step.
+    """
+
+    model_choice: _SummaryModelChoice
+    outline_tree: ShifuInfoDto
+    outline_ids: list[str]
+    section_contents: dict[str, str]
+    summary_prompt_template: object
+    ask_prompt_template: str
+
+
+def _resolve_summary_model(app: object, shifu: PublishedShifu) -> _SummaryModelChoice:
+    """Pick the model that generates summaries and ask prompts."""
+    if is_live_follow_up_model(shifu.ask_llm):
+        model_name = shifu.llm
+        temperature = shifu.llm_temperature or 0.3
+    else:
+        model_name = shifu.ask_llm or shifu.llm
+        temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
+    if not model_name:
+        model_name = app.config.get("DEFAULT_LLM_MODEL", "")
+    return _SummaryModelChoice(model_name=model_name, temperature=temperature)
+
+
+def _load_published_shifu(shifu_id: str) -> PublishedShifu | None:
+    return (
+        PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_id)
+        .order_by(PublishedShifu.id.desc())
+        .first()
+    )
+
+
+def _load_summary_inputs(app: object, shifu_id: str) -> _SummaryInputs | None:
+    """Read the course data the generation phase needs."""
+    shifu = _load_published_shifu(shifu_id)
+    if not shifu:
+        app.logger.error("get_shifu_summary shifu_id: %s not found", shifu_id)
+        return None
+
+    outline_tree, outline_ids, outline_item_map = _get_shifu_data(app, shifu_id)
+    return _SummaryInputs(
+        model_choice=_resolve_summary_model(app, shifu),
+        outline_tree=outline_tree,
+        outline_ids=outline_ids,
+        section_contents={
+            bid: (outline_item.content or "")
+            for bid, outline_item in outline_item_map.items()
+        },
+        summary_prompt_template=load_prompt_template("summary"),
+        ask_prompt_template=load_prompt_template("ask"),
+    )
+
+
+def _apply_summary_results(
+    app: object,
+    shifu_id: str,
+    *,
+    outline_ids: list[str],
+    outline_summary_map: dict[str, dict],
+    ask_prompts: dict[str, str],
+) -> None:
+    """Write the generated summaries and ask prompts back to the course."""
+    shifu = _load_published_shifu(shifu_id)
+    if not shifu:
+        app.logger.error("get_shifu_summary shifu_id: %s not found", shifu_id)
+        return
+
+    # Re-read through the same helper the input step used, so the generation
+    # is written back to exactly the rows it was read from.
+    outline_item_map = _load_outline_item_map(outline_ids)
+    # Only the ask prompt and the enabled flag are persisted: the summary text
+    # is an input to the ask prompts, and `shifu_published_outline_items` has
+    # no column for it (the previous `outline_item.summary = ...` assignment
+    # set a transient attribute that was dropped with the session).
+    for bid in outline_summary_map:
+        outline_item = outline_item_map.get(bid)
+        if outline_item is None:
+            continue
+        outline_item.ask_enabled_status = ASK_MODE_ENABLE
+    for bid, ask_prompt in ask_prompts.items():
+        outline_item = outline_item_map.get(bid)
+        if outline_item is None:
+            continue
+        outline_item.ask_llm_system_prompt = ask_prompt
+    shifu.ask_enabled_status = ASK_MODE_ENABLE
+
+
 def get_shifu_summary(app: object, shifu_id: str) -> None:
     """Obtain the shifu summary information.
 
@@ -303,39 +404,42 @@ def get_shifu_summary(app: object, shifu_id: str) -> None:
         shifu_id: Shifu ID.
 
     """
-    with app_context_scope(app), unit_of_work():
-        shifu: PublishedShifu = (
-            PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_id)
-            .order_by(PublishedShifu.id.desc())
-            .first()
-        )
-        if not shifu:
-            app.logger.error("get_shifu_summary shifu_id: %s not found", shifu_id)
+    with app_context_scope(app):
+        # Step 1 - read what the generation needs, then end the transaction.
+        with unit_of_work():
+            inputs = _load_summary_inputs(app, shifu_id)
+        if inputs is None:
             return
 
-        # Get the prompt word template
-        summary_prompt_template = load_prompt_template("summary")
-        ask_prompt_template = load_prompt_template("ask")
-
-        # Get course data
-        outline_tree, outline_ids, outline_item_map = _get_shifu_data(app, shifu_id)
-
-        # Generate summaries
+        # The provider calls run with NO transaction open: one summary and one
+        # ask prompt per section means minutes of LLM round trips, and holding
+        # the read transaction across them would pin a pooled connection and a
+        # read snapshot for the whole run.
         outline_summary_map = _generate_summaries(
-            app, outline_tree, outline_item_map, summary_prompt_template, shifu
+            app,
+            inputs.outline_tree,
+            inputs.section_contents,
+            inputs.summary_prompt_template,
+            inputs.model_choice,
+        )
+        ask_prompts = _generate_ask_prompts(
+            app,
+            inputs.outline_tree,
+            inputs.outline_ids,
+            outline_summary_map,
+            inputs.ask_prompt_template,
         )
 
-        # Generate ask_prompt
-        _generate_ask_prompts(
-            app,
-            outline_tree,
-            outline_ids,
-            outline_summary_map,
-            outline_item_map,
-            ask_prompt_template,
-        )
-        shifu.ask_enabled_status = ASK_MODE_ENABLE
-        return
+        # Step 2 - apply everything at once, so a failed generation leaves the
+        # published course exactly as it was.
+        with unit_of_work():
+            _apply_summary_results(
+                app,
+                shifu_id,
+                outline_ids=inputs.outline_ids,
+                outline_summary_map=outline_summary_map,
+                ask_prompts=ask_prompts,
+            )
 
 
 def _generate_ask_prompts(
@@ -343,22 +447,24 @@ def _generate_ask_prompts(
     shifu_info: ShifuInfoDto,
     outline_ids: list[str],
     outline_summary_map: dict[str, dict],
-    outline_item_map: dict[str, PublishedOutlineItem],
     ask_prompt_template: str,
-) -> None:
-    """Generate ask_prompt for each section.
+) -> dict[str, str]:
+    """Build the ask prompt of each section.
+
+    Pure with respect to the database: it reads no rows and writes none, so it
+    can run between the two units of work of ``get_shifu_summary``.
 
     Args:
         app: Flask application instance
         shifu_info: Shifu info
         outline_ids: Section ID list
         outline_summary_map: Summary mapping
-        outline_item_map: Outline item mapping
         ask_prompt_template: Ask template
     Returns:
-        None.
+        Mapping of outline item bid to its ask prompt.
 
     """
+    ask_prompts: dict[str, str] = {}
     for chapter in shifu_info.outline_items:
         for section in chapter.children:
             # Split outline_summary_map into learned and unlearned parts based on current section ID
@@ -383,63 +489,57 @@ def _generate_ask_prompts(
             # Build text for unlearned content
             unlearned_text = _build_summary_text(unlearned_summaries)
 
-            ask_prompt = _make_ask_prompt(
+            ask_prompts[section.bid] = _make_ask_prompt(
                 app, ask_prompt_template, learned_text, unlearned_text
             )
-            outline_item = outline_item_map.get(section.bid)
-            if outline_item:
-                outline_item.ask_llm_system_prompt = ask_prompt
+    return ask_prompts
 
 
 def _generate_summaries(
     app: object,
     outline_tree: ShifuInfoDto,
-    outline_item_map: dict[str, PublishedOutlineItem],
+    section_contents: dict[str, str],
     summary_prompt_template: object,
-    shifu: PublishedShifu,
+    model_choice: _SummaryModelChoice,
 ) -> dict[str, dict]:
     """Generate summaries for all sections.
+
+    Pure with respect to the database: it takes the section content as plain
+    strings and returns plain values, so the LLM calls can run between the two
+    units of work of ``get_shifu_summary``.
 
     Args:
         app: Flask application instance
         outline_tree: Outline tree
-        outline_item_map: Outline item mapping
+        section_contents: Outline item bid to its published content
         summary_prompt_template: Summary template
-        shifu: Course information
+        model_choice: Model and temperature resolved from the course
     Returns:
         Summary mapping.
 
     """
     outline_summary_map = {}
 
-    # Get model configuration
-    if is_live_follow_up_model(shifu.ask_llm):
-        model_name = shifu.llm
-        temperature = shifu.llm_temperature or 0.3
-    else:
-        model_name = shifu.ask_llm or shifu.llm
-        temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
-    if not model_name:
-        model_name = app.config.get("DEFAULT_LLM_MODEL", "")
-
     for chapter in outline_tree.outline_items:
         for section in chapter.children:
-            outline_item = outline_item_map.get(section.bid)
+            content = section_contents.get(section.bid)
+            if content is None:
+                # The outline item is gone (deleted, or republished between the
+                # read and now); there is nothing to write a summary back to.
+                continue
             now_lesson_script_prompts = ""
-            if outline_item and bool(outline_item.content):
+            if content:
                 app.logger.info(
                     "outline_item: %s has mdflow content,make summary from mdflow",
-                    outline_item.outline_item_bid,
+                    section.bid,
                 )
-                mdflow = MarkdownFlow(outline_item.content).set_output_language(
+                mdflow = MarkdownFlow(content).set_output_language(
                     get_markdownflow_output_language()
                 )
                 blocks = mdflow.get_all_blocks()
                 for block in blocks:
                     if block.block_type == BlockType.CONTENT:
                         now_lesson_script_prompts += "\n" + block.content
-            else:
-                now_lesson_script_prompts = outline_item.content
 
             final_prompt = summary_prompt_template.format(
                 all_script_content=now_lesson_script_prompts
@@ -448,24 +548,16 @@ def _generate_summaries(
             summary = _get_summary(
                 app,
                 prompt=final_prompt,
-                model_name=model_name,
-                temperature=temperature,
+                model_name=model_choice.model_name,
+                temperature=model_choice.temperature,
             )
-
-            # Update section information
-            outline_item = outline_item_map.get(section.bid)
-            if outline_item:
-                outline_item.summary = summary
-                outline_item.ask_enabled_status = ASK_MODE_ENABLE
-
-                # Store summary information
-                outline_summary_map[section.bid] = {
-                    "chapter_id": chapter.bid,
-                    "chapter_name": chapter.title,
-                    "section_id": section.bid,
-                    "section_name": section.title,
-                    "content": summary,
-                }
+            outline_summary_map[section.bid] = {
+                "chapter_id": chapter.bid,
+                "chapter_name": chapter.title,
+                "section_id": section.bid,
+                "section_name": section.title,
+                "content": summary,
+            }
 
     return outline_summary_map
 
@@ -501,6 +593,15 @@ def _get_shifu_data(
                 q.put(child)
 
     # Get all section data
+    outline_item_map = _load_outline_item_map(outline_ids)
+
+    return shifu_outline_tree, outline_ids, outline_item_map
+
+
+def _load_outline_item_map(
+    outline_ids: list[str],
+) -> dict[str, PublishedOutlineItem]:
+    """Map each outline bid to its published row, as the summary flow reads it."""
     outline_items = (
         PublishedOutlineItem.query.filter(
             PublishedOutlineItem.outline_item_bid.in_(outline_ids),
@@ -509,11 +610,9 @@ def _get_shifu_data(
         .order_by(PublishedOutlineItem.id.desc())
         .all()
     )
-    outline_item_map = {
+    return {
         outline_item.outline_item_bid: outline_item for outline_item in outline_items
     }
-
-    return shifu_outline_tree, outline_ids, outline_item_map
 
 
 def _make_ask_prompt(
