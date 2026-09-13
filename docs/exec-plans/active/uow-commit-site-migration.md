@@ -42,8 +42,14 @@ is merged; merges are manual.
   moved into `service/user/password_flow.py`; avatar CDN warm-up runs from
   `on_commit`; the email/phone/Google sign-in flows use `unit_of_work()`
   (nested under the route's block) instead of a savepoint.
-- [ ] B4 — referral, `billing/referral_plan_rewards`, lesson_feedback,
-  listen_element helpers, CLI commands (19 sites).
+- [x] 2026-09-13 CST: B4 — referral, `billing/referral_plan_rewards`,
+  lesson_feedback, listen_element helpers, CLI commands (19 sites; baseline
+  92 -> 73). `process_referral_post_auth` runs as three steps (persist
+  relation + reward; grant + mark succeeded; mark failed), invite-code
+  collisions retry under a savepoint, lesson feedback uses the idempotency
+  rewrite, both element backfills use `unit_of_work(discard=dry_run)`,
+  `import_user` keeps the account step ahead of `init_buy_record`, and
+  `update_demo_shifu` wraps each demo course in one unit of work.
 - [ ] B5 — billing operations and scheduled paths (33 sites).
 - [ ] B6 — billing payment chain: notifications, checkout, webhooks,
   settlement (22 sites).

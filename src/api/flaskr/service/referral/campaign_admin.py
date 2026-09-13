@@ -9,6 +9,7 @@ from math import ceil
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.billing.consts import (
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_TYPE_PLAN,
@@ -195,7 +196,7 @@ def create_operator_referral_campaign(
     payload: dict[str, object],
 ) -> dict[str, object]:
     """Create operator referral campaign."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         data = _normalize_payload(payload, is_create=True)
         _assert_campaign_code_available(data["campaign_code"])
         _assert_product_code_is_active_plan(data["reward_product_code"])
@@ -235,7 +236,6 @@ def create_operator_referral_campaign(
             ),
         )
         db.session.add_all([campaign, rule])
-        db.session.commit()
         return {"campaign_bid": campaign.campaign_bid}
 
 
@@ -246,7 +246,7 @@ def update_operator_referral_campaign(
     payload: dict[str, object],
 ) -> dict[str, object]:
     """Update operator referral campaign."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         campaign = _load_campaign_or_404(campaign_bid)
         rule = _load_latest_rule(campaign.campaign_bid)
         data = _normalize_payload(payload, is_create=False, existing=campaign)
@@ -299,7 +299,6 @@ def update_operator_referral_campaign(
                     else REFERRAL_RULE_STATUS_PAUSED
                 )
         db.session.add(campaign)
-        db.session.commit()
         return {"campaign_bid": campaign.campaign_bid}
 
 
@@ -310,7 +309,7 @@ def update_operator_referral_campaign_status(
     enabled: object,
 ) -> dict[str, object]:
     """Update operator referral campaign status."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         campaign = _load_campaign_or_404(campaign_bid)
         enabled_value = _parse_bool(enabled, "enabled")
         now = now_utc()
@@ -335,7 +334,6 @@ def update_operator_referral_campaign_status(
         metadata["operator_user_bid"] = _normalize_text(operator_user_bid)
         campaign.metadata_json = metadata
         db.session.add_all([campaign, rule])
-        db.session.commit()
         return {"campaign_bid": campaign.campaign_bid, "enabled": enabled_value}
 
 
