@@ -10,7 +10,11 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
 from flaskr.dao import db, uow
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.i18n import _ as translate
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.native_payment_status import (
@@ -382,10 +386,11 @@ def _expire_pending_billing_order_if_due(
     *,
     now: datetime | None = None,
 ) -> bool:
-    if (
-        int(order.status or 0) != BILLING_ORDER_STATUS_PENDING
-        or not _is_subscription_checkout_order(order)
-        or not _is_billing_order_expired(order, now=now)
+    # Any order carrying an explicit deadline can time out; orders without
+    # one keep the legacy subscription-only behaviour through
+    # _resolve_effective_billing_order_expires_at.
+    if int(order.status or 0) != BILLING_ORDER_STATUS_PENDING or not (
+        _is_billing_order_expired(order, now=now)
     ):
         return False
     _mark_billing_order_invalidated(
@@ -508,6 +513,9 @@ def create_billing_subscription_checkout(
     payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
     """Create a subscription checkout order for the current creator."""
+    # Prepare and commit, call the provider, finalize: nested, neither unit of
+    # work would commit, so an outer rollback could orphan the charge.
+    require_transaction_owner("billing subscription checkout")
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
     checkout_action = _normalize_checkout_action(payload.get("action"))
@@ -872,6 +880,7 @@ def create_billing_topup_checkout(
     payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
     """Create a one-time topup checkout order for the current creator."""
+    require_transaction_owner("billing top-up checkout")
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
     payment_provider, channel = _resolve_billing_payment_channel(
@@ -960,6 +969,10 @@ def _prepare_topup_checkout(
             channel=channel,
             provider_reference_id="",
             status=BILLING_ORDER_STATUS_PENDING,
+            # The row is committed before the provider call, so it needs a
+            # deadline: a provider failure would otherwise leave it pending
+            # forever, with nothing to time it out.
+            expires_at=_resolve_billing_order_expires_at(),
             metadata_json=_normalize_json_object(
                 order_metadata_payload
             ).to_metadata_json(),
@@ -1057,6 +1070,10 @@ def _load_reopen_targets(
     order = _load_billing_order_by_bid(bill_order_bid)
     if order is None:
         raise_error("server.order.orderNotFound")
+    # A webhook or a sync can settle the order between the two units of work
+    # of the reopen flow; a settled order must not be reopened.
+    if int(order.status or 0) != BILLING_ORDER_STATUS_PENDING:
+        raise_error("server.order.orderStatusError")
     product = _load_billing_product_by_bid(product_bid)
     if product is None:
         raise_error("server.order.orderNotFound")
@@ -2191,16 +2208,28 @@ def _run_provider_checkout(
     """Call the provider outside any transaction, then persist in a new one."""
     result = _call_payment_provider(app, request)
     with unit_of_work():
-        order = (
-            BillingOrder.query.filter(
-                BillingOrder.deleted == 0,
-                BillingOrder.bill_order_bid == request.bill_order_bid,
-            )
-            .order_by(BillingOrder.id.desc())
-            .first()
-        )
+        order = _load_billing_order_by_bid(request.bill_order_bid)
         if order is None:
             raise_error("server.order.orderNotFound")
+        if int(order.status or 0) != BILLING_ORDER_STATUS_PENDING:
+            # A callback settled the order while the charge was being created.
+            # Keep the raw snapshot so the new charge stays reconcilable, but
+            # never point a settled order at it.
+            _persist_billing_raw_snapshot_from_checkout(
+                order,
+                result,
+                subject=request.subject,
+                body=request.subject,
+            )
+            app.logger.warning(
+                "Billing order %s left status %s while its %s charge %s was "
+                "being created; snapshot kept for reconciliation",
+                order.bill_order_bid,
+                order.status,
+                request.payment_provider,
+                result.provider_reference,
+            )
+            raise_error("server.order.orderStatusError")
         return _persist_provider_checkout(order, result, request)
 
 

@@ -141,3 +141,73 @@ def test_a_provider_failure_leaves_a_retryable_pending_order(
     persisted = _committed_order(app, bill_order_bid)
     assert persisted.status == BILLING_ORDER_STATUS_PENDING
     assert not persisted.provider_reference_id
+
+
+def test_a_settled_order_never_points_at_a_late_charge(
+    app: object, monkeypatch: object
+) -> None:
+    """A callback can settle the order while the charge is being created.
+
+    The new charge must stay reconcilable through its raw snapshot, but the
+    settled order must not be pointed at it.
+    """
+    from flaskr.service.billing.consts import BILLING_ORDER_STATUS_PAID
+    from flaskr.service.common.models import AppError
+
+    bill_order_bid, _product_bid = _seed_pending_topup_order(app)
+
+    def create_payment(*, request: object, app: object) -> object:
+        _ = request
+        # The webhook lands while we are talking to the provider.
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            order.status = BILLING_ORDER_STATUS_PAID
+            dao.db.session.commit()
+        return SimpleNamespace(
+            provider_reference="ch_boundary_late",
+            raw_response={"id": "ch_boundary_late"},
+            checkout_session_id=None,
+            extra={},
+        )
+
+    _install_provider(monkeypatch, create_payment)
+
+    with pytest.raises(AppError):
+        checkout.create_billing_order_checkout(
+            app, _CREATOR, bill_order_bid, {"channel": "alipay_qr"}
+        )
+
+    persisted = _committed_order(app, bill_order_bid)
+    assert persisted.status == BILLING_ORDER_STATUS_PAID
+    assert not persisted.provider_reference_id
+
+
+def test_a_topup_order_carries_a_deadline(app: object, monkeypatch: object) -> None:
+    """A committed top-up must be able to time out if the provider call fails."""
+    from flaskr.service.billing import checkout as checkout_module
+
+    product_bid = _seed_pending_topup_order(app)[1]
+    monkeypatch.setattr(
+        checkout_module, "_load_effective_topup_subscription", lambda _bid: object()
+    )
+
+    def failing_create_payment(*, request: object, app: object) -> object:
+        _ = (request, app)
+        message = "provider down"
+        raise RuntimeError(message)
+
+    _install_provider(monkeypatch, failing_create_payment)
+
+    with pytest.raises(RuntimeError, match="provider down"):
+        checkout.create_billing_topup_checkout(
+            app, _CREATOR, {"product_bid": product_bid, "channel": "alipay_qr"}
+        )
+
+    with app.app_context():
+        order = (
+            BillingOrder.query.filter_by(creator_bid=_CREATOR, product_bid=product_bid)
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        assert order.status == BILLING_ORDER_STATUS_PENDING
+        assert order.expires_at is not None
