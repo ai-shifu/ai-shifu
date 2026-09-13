@@ -79,18 +79,20 @@ def test_a_unit_of_work_of_another_app_is_not_a_nesting_violation(
 
     Rejecting it would break the celery task app and the multi-app fixtures,
     so the guard only fires when the caller's own context would be reused.
+    The foreign app is never entered here: what matters is the decision the
+    guard makes about it while another app's unit of work is active.
     """
     from flask import Flask
     from flaskr.dao import uow
 
     other = Flask("guard-other-app")
 
-    with other.app_context(), unit_of_work():
-        # Same app as the active unit of work: a real violation.
+    with app.app_context(), unit_of_work():
+        # The active unit of work belongs to this app: a real violation.
         with pytest.raises(RuntimeError, match="must not be called"):
-            uow.require_transaction_owner("probe", other)
+            uow.require_transaction_owner("probe", app)
         # A different app: app_context_scope will reset the depth for it.
-        uow.require_transaction_owner("probe", app)
+        uow.require_transaction_owner("probe", other)
         # Without the app argument the guard cannot tell them apart and
         # stays strict.
         with pytest.raises(RuntimeError, match="must not be called"):
