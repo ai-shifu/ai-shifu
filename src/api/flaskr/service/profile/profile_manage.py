@@ -124,7 +124,9 @@ def get_profile_item_definition_list(
     """Return profile item definition list."""
     _ = definition_type  # Kept for backward compatibility with existing callers.
     normalized_parent_id = parent_id or ""
-    with app.app_context():
+    # Join the caller's session so a read-back inside an open unit of work
+    # sees that unit's own uncommitted writes.
+    with app_context_scope(app):
         definitions = (
             Variable.query.filter(
                 Variable.shifu_bid.in_([normalized_parent_id, ""]),
@@ -162,7 +164,8 @@ def update_profile_item_hidden_state(
             item.is_hidden = 1 if hidden else 0
             item.updated_at = now_utc()
             item.updated_user_bid = user_id or ""
-    # Read back after the commit: the list helper opens its own app context.
+    # Read back after the block: the list helper joins this session, so it
+    # returns the committed state here and the staged state when nested.
     return get_profile_item_definition_list(app, parent_id=parent_id)
 
 

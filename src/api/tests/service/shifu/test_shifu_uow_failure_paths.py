@@ -278,3 +278,73 @@ def test_transfer_creator_runs_post_auth_only_after_commit(
     assert result["target_creator_user_bid"] == target_user
     # The hook saw the committed creator change, not a pending one.
     assert seen == [target_user]
+
+
+def _deadlock_error() -> object:
+    from sqlalchemy.exc import OperationalError
+
+    exc = OperationalError("UPDATE outline", {}, Exception(1213, "Deadlock found"))
+    exc.orig.args = (1213, "Deadlock found")
+    return exc
+
+
+def _stub_mdflow_save_collaborators(monkeypatch: object) -> None:
+    prefix = "flaskr.service.shifu.shifu_mdflow_funcs."
+    monkeypatch.setattr(prefix + "check_text_with_risk_control", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        prefix + "get_profile_item_definition_list", lambda *_a, **_k: []
+    )
+    monkeypatch.setattr(
+        prefix + "add_profile_item_quick_internal", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(prefix + "save_outline_history", lambda *_a, **_k: 999999)
+    monkeypatch.setattr(
+        prefix + "cleanup_outline_history_versions", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr("flaskr.dao.time.sleep", lambda *_a, **_k: None)
+
+
+def test_save_mdflow_retries_a_deadlock_only_when_it_owns_the_transaction(
+    app: object, monkeypatch: object
+) -> None:
+    """Top-level: the deadlock is retried. Nested: it propagates to the owner.
+
+    A nested retry would roll back the caller's staged writes and re-run only
+    the save, so the outer transaction would commit without them.
+    """
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.shifu.shifu_mdflow_funcs import save_shifu_mdflow
+    from sqlalchemy.exc import OperationalError
+
+    from tests.test_mdflow_adapter import _add_outline_version
+
+    shifu_bid = "uow-mdflow-deadlock-shifu"
+    outline_bid = "uow-mdflow-deadlock-outline"
+    _add_outline_version(app, shifu_bid, outline_bid, "Original", "uow-user", 0)
+    _stub_mdflow_save_collaborators(monkeypatch)
+
+    lock_calls: list[str] = []
+
+    def flaky_lock(bid: str) -> None:
+        lock_calls.append(bid)
+        if len(lock_calls) == 1:
+            raise _deadlock_error()
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.lock_shifu_for_outline_write",
+        flaky_lock,
+    )
+
+    result = save_shifu_mdflow(app, "uow-user", shifu_bid, outline_bid, "Owner save")
+    assert result["conflict"] is False
+    assert lock_calls == [shifu_bid, shifu_bid]  # deadlock, then a retry
+
+    lock_calls.clear()
+
+    def nested_save() -> None:
+        with app.app_context(), unit_of_work():
+            save_shifu_mdflow(app, "uow-user", shifu_bid, outline_bid, "Nested save")
+
+    with pytest.raises(OperationalError):
+        nested_save()
+    assert lock_calls == [shifu_bid]  # no retry inside a caller's transaction

@@ -258,3 +258,10 @@ def test_autonomous_unit_of_work_runs_own_post_commit_callbacks(
         # caller's callback is still deferred.
         assert calls == ["autonomous"]
     assert calls == ["autonomous", "outer"]
+
+
+def test_require_transaction_owner_rejects_nested_callers(app: object) -> None:
+    with app.app_context():
+        uow.require_transaction_owner("probe")  # no active block: fine
+        with uow.unit_of_work(), pytest.raises(RuntimeError, match="probe owns"):
+            uow.require_transaction_owner("probe")

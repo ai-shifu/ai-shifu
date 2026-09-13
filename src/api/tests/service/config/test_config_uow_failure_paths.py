@@ -87,3 +87,19 @@ def test_update_config_failure_after_the_write_persists_nothing(
         ).first()
     assert row.value == "before"
     fake_redis.set.assert_not_called()
+
+
+def test_failed_cache_refresh_drops_the_stale_entry(
+    app: object, fake_redis: MagicMock
+) -> None:
+    """A refresh failure after the commit must not leave an old value cached."""
+    key = "uow_config_key_cache_fail"
+    fake_redis.set.side_effect = RuntimeError("redis down")
+
+    with app.app_context():
+        # The row commits; the callback failure is logged, not raised.
+        assert config_funcs.add_config(app, key, "value-1") is True
+
+    assert _committed_config_count(app, key) == 1
+    fake_redis.delete.assert_called_once()
+    assert fake_redis.delete.call_args.args[0].endswith(key)
