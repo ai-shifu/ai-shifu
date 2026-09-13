@@ -14,6 +14,7 @@ import time
 import uuid
 from collections.abc import Generator
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -35,6 +36,7 @@ from flaskr.api.tts.base import REQUEST_SCOPED_STREAM_VOLCENGINE_TIMESTAMP
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
 from flaskr.dao import cleanup_session_after
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -1096,7 +1098,10 @@ class StreamingTTSProcessor:
                 segment_count=len(audio_data_list),
                 subtitle_cues=effective_subtitle_cues,
             )
-            save_audio_record(audio_record, commit=commit)
+            # ``commit`` says whether this finalize owns the boundary or the
+            # surrounding run step (context_v2 passes commit=False) does.
+            with unit_of_work() if commit else nullcontext():
+                save_audio_record(audio_record)
 
             from flaskr.service.tts.tts_usage_recorder import (
                 record_tts_aggregated_usage,

@@ -39,7 +39,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
-- [Unit-of-Work Commit-Site Migration](./active/uow-commit-site-migration.md)
 
 ## Completed
 
@@ -79,6 +78,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 - [Unify Frontend Source Directories](./completed/unify-frontend-directories.md)
+- [Unit-of-Work Commit-Site Migration](./completed/uow-commit-site-migration.md)
 - [Reuse Email and SMS Verification Login](./completed/verification-code-login-reuse.md)
 
 ## Supporting Tracker

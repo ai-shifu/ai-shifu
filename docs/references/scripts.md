@@ -36,7 +36,7 @@ This repository includes a small set of scripts focused on internationalization 
 - scripts/check_uow_commit_sites.py
   - Ratchet for the backend unit-of-work migration (`src/api/flaskr/dao/uow.py`): counts `db.session.commit()` call sites under `src/api/flaskr/` outside `dao/` and compares them with `docs/generated/uow-commit-baseline.json`.
   - Fails when any file gains call sites, and also when sites disappear without shrinking the baseline; run with `--update` after a migration so the baseline only ratchets down.
-  - Runs in lefthook pre-commit and in the `Static Checks` workflow; the migration plan lives in `docs/exec-plans/active/uow-commit-site-migration.md`.
+  - Runs in lefthook pre-commit and in the `Static Checks` workflow; the migration plan lives in `docs/exec-plans/completed/uow-commit-site-migration.md`.
 
 Notes
 - Legacy allowlists for unused/missing translations have been removed; CI enforces clean state by default.

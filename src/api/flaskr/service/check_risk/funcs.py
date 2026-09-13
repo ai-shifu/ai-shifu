@@ -4,6 +4,7 @@ from flask import Flask
 from flaskr.api.check import CHECK_RESULT_PASS, CHECK_RESULT_REJECT, check_text
 from flaskr.api.check.dto import CheckResultDTO
 from flaskr.dao import db
+from flaskr.dao.uow import autonomous_unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import now_utc
 
@@ -21,8 +22,14 @@ def add_risk_control_result(
     is_pass: object,
     check_strategy: object,
 ) -> int:
-    """Add risk control result."""
-    with app.app_context():
+    """Add risk control result.
+
+    Audit rows persist on their own session: the moderation verdict must
+    survive even when the caller's unit of work (a /run stream, a profile
+    save) later rolls back, and the caller's staged rows must not commit
+    early.
+    """
+    with autonomous_unit_of_work(app):
         risk_control_result = RiskControlResult(
             chat_id=chat_id,
             user_id=user_id,
@@ -34,7 +41,8 @@ def add_risk_control_result(
             check_strategy=check_strategy,
         )
         db.session.add(risk_control_result)
-        db.session.commit()
+        db.session.flush()
+        # Read the id before the block commits and pops the context.
         return risk_control_result.id
 
 
