@@ -813,12 +813,10 @@ def save_credit_notification_policy(
     serialized = json.dumps(
         policy, ensure_ascii=False, separators=(",", ":"), sort_keys=True
     )
-    # NOTE(uow cross-module leak): config.funcs.add_config pushes its own
-    # nested app context (a separate Flask-SQLAlchemy session) and commits it
-    # internally, so it must never run inside a unit of work owned here. This
-    # function holds no ORM instances across the call (only plain dicts), so
-    # no db.session.expire_all() is required afterwards. Migrating
-    # service/config is a later batch; do not "fix" the commit from here.
+    # config.funcs.add_config joins the caller's session and owns a unit of
+    # work only when none is active; called here outside any unit of work it
+    # commits on its own and refreshes the config cache from on_commit. This
+    # function holds no ORM instances across the call (only plain dicts).
     ok = add_config(
         app,
         BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,

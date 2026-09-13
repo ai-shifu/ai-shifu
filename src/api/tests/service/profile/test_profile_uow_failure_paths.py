@@ -68,3 +68,23 @@ def test_hidden_state_update_is_visible_to_the_read_back(app: object) -> None:
 
     hidden = {item.profile_key: item for item in definitions}[key]
     assert hidden.is_hidden is True
+
+
+def test_nested_hidden_state_read_back_sees_the_staged_update(app: object) -> None:
+    """Inside a caller's unit of work the read-back joins that session."""
+    from flaskr.dao.uow import unit_of_work
+
+    shifu_bid = "uow-profile-shifu-4"
+    key = "uow_profile_key_4"
+
+    with app.app_context():
+        profile_manage.save_profile_item(app, "", shifu_bid, "uow-user", key)
+        with unit_of_work():
+            definitions = profile_manage.update_profile_item_hidden_state(
+                app, shifu_bid, [key], hidden=True, user_id="uow-user"
+            )
+            staged = {item.profile_key: item for item in definitions}[key]
+            assert staged.is_hidden is True
+        dao.db.session.expire_all()
+        row = Variable.query.filter_by(shifu_bid=shifu_bid, key=key).one()
+        assert row.is_hidden == 1
