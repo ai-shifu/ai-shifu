@@ -297,7 +297,10 @@ def test_avatar_previous_object_is_deleted_only_after_commit(
         monkeypatch.setattr(user_module, "update_user_entity_fields", failing_update)
         with pytest.raises(RuntimeError, match="update boom"):
             user_module.upload_user_avatar(app, user_bid, avatar)
-        assert deleted == []  # the rollback keeps the old avatar reachable
+        # The rollback keeps the old avatar reachable, and the object uploaded
+        # by the failed attempt is removed instead of being orphaned.
+        assert deleted == ["/static/avatar/new.png"]
+        deleted.clear()
 
         monkeypatch.undo()
         monkeypatch.setattr(
@@ -317,3 +320,55 @@ def test_avatar_previous_object_is_deleted_only_after_commit(
             "/static/avatar/new.png"
         )
         assert deleted == ["/static/avatar/old.png"]
+
+
+def test_avatar_upload_removes_the_orphan_when_the_transaction_rolls_back(
+    app: object, monkeypatch: object
+) -> None:
+    """A failed avatar update must not leave the uploaded object behind."""
+    from types import SimpleNamespace
+
+    from flaskr.service.common.storage import STORAGE_PROVIDER_OSS
+    from flaskr.service.user import user as user_module
+
+    user_bid = uuid.uuid4().hex[:32]
+    email = f"{uuid.uuid4().hex[:8]}@example.com"
+    deleted_objects: list[str] = []
+
+    class _Bucket:
+        def object_exists(self, key: str) -> bool:
+            return key == "new-object-key"
+
+        def delete_object(self, key: str) -> None:
+            deleted_objects.append(key)
+
+    monkeypatch.setattr(user_module, "_try_delete_local_file_by_url", lambda *_a: None)
+    monkeypatch.setattr(user_module, "is_oss_profile_configured", lambda _p: True)
+    monkeypatch.setattr(user_module, "get_oss_config", lambda _p: object())
+    monkeypatch.setattr(user_module, "create_oss_bucket", lambda _c: _Bucket())
+    monkeypatch.setattr(
+        user_module,
+        "upload_to_storage",
+        lambda *_a, **_k: SimpleNamespace(
+            url="https://cdn.example/new.png",
+            provider=STORAGE_PROVIDER_OSS,
+            object_key="new-object-key",
+            bucket="avatars",
+        ),
+    )
+
+    def failing_update(*_a: object, **_k: object) -> None:
+        message = "update boom"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(user_module, "update_user_entity_fields", failing_update)
+
+    with app.app_context():
+        _seed_user(app, user_bid, email)
+        dao.db.session.commit()
+        with pytest.raises(RuntimeError, match="update boom"):
+            user_module.upload_user_avatar(
+                app, user_bid, SimpleNamespace(filename="new.png")
+            )
+
+    assert deleted_objects == ["new-object-key"]
