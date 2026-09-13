@@ -230,3 +230,90 @@ def test_password_set_change_reset_round_trip(app: object, monkeypatch: object) 
         AuthCredential.provider_name == "password",
     )
     assert len(rows) == 1
+
+
+def test_transaction_owning_flows_reject_nested_callers(app: object) -> None:
+    """Challenge issuance and onboarding completion own their transactions."""
+    from flaskr.dao.uow import unit_of_work
+
+    def nested_challenge() -> None:
+        with unit_of_work():
+            user_utils._prepare_verification_challenge(
+                app, "13800000000", None, None, lambda _c: True
+            )
+
+    def nested_onboarding() -> None:
+        with unit_of_work():
+            onboarding.complete_onboarding_scene(
+                app,
+                user_bid="uow-user",
+                scene_key="learner_profile",
+                version="v1",
+                trigger_source="manual",
+            )
+
+    with app.app_context():
+        with pytest.raises(RuntimeError, match="must not be called inside"):
+            nested_challenge()
+        with pytest.raises(RuntimeError, match="must not be called inside"):
+            nested_onboarding()
+
+
+def test_avatar_previous_object_is_deleted_only_after_commit(
+    app: object, monkeypatch: object
+) -> None:
+    from types import SimpleNamespace
+
+    from flaskr.service.user import user as user_module
+
+    user_bid = uuid.uuid4().hex[:32]
+    email = f"{uuid.uuid4().hex[:8]}@example.com"
+    deleted: list[str] = []
+    monkeypatch.setattr(
+        user_module,
+        "_try_delete_local_file_by_url",
+        lambda _app, url: deleted.append(url),
+    )
+    monkeypatch.setattr(user_module, "is_oss_profile_configured", lambda _p: False)
+    monkeypatch.setattr(
+        user_module,
+        "upload_to_storage",
+        lambda *_a, **_k: SimpleNamespace(
+            url="/static/avatar/new.png", provider="local"
+        ),
+    )
+    avatar = SimpleNamespace(filename="new.png")
+
+    with app.app_context():
+        _seed_user(app, user_bid, email)
+        entity = user_module.get_user_entity_by_bid(user_bid, include_deleted=True)
+        entity.avatar = "/static/avatar/old.png"
+        dao.db.session.commit()
+
+        def failing_update(*_a: object, **_k: object) -> None:
+            message = "update boom"
+            raise RuntimeError(message)
+
+        monkeypatch.setattr(user_module, "update_user_entity_fields", failing_update)
+        with pytest.raises(RuntimeError, match="update boom"):
+            user_module.upload_user_avatar(app, user_bid, avatar)
+        assert deleted == []  # the rollback keeps the old avatar reachable
+
+        monkeypatch.undo()
+        monkeypatch.setattr(
+            user_module,
+            "_try_delete_local_file_by_url",
+            lambda _app, url: deleted.append(url),
+        )
+        monkeypatch.setattr(user_module, "is_oss_profile_configured", lambda _p: False)
+        monkeypatch.setattr(
+            user_module,
+            "upload_to_storage",
+            lambda *_a, **_k: SimpleNamespace(
+                url="/static/avatar/new.png", provider="local"
+            ),
+        )
+        assert user_module.upload_user_avatar(app, user_bid, avatar) == (
+            "/static/avatar/new.png"
+        )
+        assert deleted == ["/static/avatar/old.png"]

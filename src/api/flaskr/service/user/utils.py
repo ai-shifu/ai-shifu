@@ -18,7 +18,7 @@ from flask import Flask, has_app_context, has_request_context, request
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
-from flaskr.dao import db
+from flaskr.dao import db, uow
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
 from flaskr.service.common.contact_identifiers import (
@@ -453,6 +453,10 @@ def _prepare_verification_challenge(
     policy: _VerificationChallengePolicy,
     deliver: Callable[[_PreparedVerificationChallenge], bool],
 ) -> _PreparedVerificationChallenge:
+    # Two-step contract (durable record -> provider delivery -> mark sent):
+    # the steps below are real commits only when no caller owns the
+    # transaction, so a nested caller is rejected up front.
+    uow.require_transaction_owner("verification challenge issuance")
     _enforce_verification_ip_limit(app, ip, policy)
     kind = "email" if policy.verify_code_type == 2 else "sms"
     challenge_cache = verification_cache_provider()

@@ -68,7 +68,28 @@ def app_context_scope(app: object) -> AbstractContextManager[AppContext | None]:
     target = app._get_current_object() if isinstance(app, LocalProxy) else app
     if has_app_context() and current_app._get_current_object() is target:
         return nullcontext()
-    return target.app_context()
+    return _foreign_app_context(target)
+
+
+@contextmanager
+def _foreign_app_context(app: Flask) -> Iterator[AppContext]:
+    """Push ``app``'s context with a fresh unit-of-work state.
+
+    A different app context means a different Flask-SQLAlchemy session, so
+    the caller's unit-of-work depth must not leak into it: otherwise a block
+    opened inside would look nested, never commit, and its session would be
+    discarded when the context pops. The caller's state is restored on exit.
+    """
+    depth_token = _depth.set(0)
+    callbacks_token = _post_commit.set(None)
+    discard_token = _discard.set(False)
+    try:
+        with app.app_context() as ctx:
+            yield ctx
+    finally:
+        _discard.reset(discard_token)
+        _post_commit.reset(callbacks_token)
+        _depth.reset(depth_token)
 
 
 _depth: contextvars.ContextVar[int] = contextvars.ContextVar("uow_depth", default=0)
@@ -83,6 +104,25 @@ _discard: contextvars.ContextVar[bool] = contextvars.ContextVar(
 def in_unit_of_work() -> bool:
     """Return True when the caller is inside an active unit of work."""
     return _depth.get() > 0
+
+
+def require_transaction_owner(operation: str) -> None:
+    """Refuse to run ``operation`` inside a caller's unit of work.
+
+    Multi-step flows (claim -> provider call -> finalize, or "try the insert,
+    re-read the winner on IntegrityError") only work when their inner
+    ``unit_of_work()`` blocks are the OUTERMOST ones: nested, the first step
+    would not be durable before the external call, and an IntegrityError would
+    surface at the caller's commit instead of inside the handler. Call this at
+    the top of such functions so a future nested caller fails loudly instead
+    of silently changing the transaction semantics.
+    """
+    if in_unit_of_work():
+        message = (
+            f"{operation} owns its own transaction and must not be called "
+            "inside an active unit_of_work()"
+        )
+        raise RuntimeError(message)
 
 
 def on_commit(callback: object) -> None:

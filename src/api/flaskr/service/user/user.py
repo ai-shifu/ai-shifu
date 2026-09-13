@@ -250,7 +250,8 @@ def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
 
         file_id = uuid.uuid4().hex
         old_avatar = aggregate.avatar
-        if old_avatar:
+
+        def delete_previous_avatar() -> None:
             _try_delete_local_file_by_url(app, old_avatar)
             if is_oss_profile_configured(OSS_PROFILE_DEFAULT):
                 try:
@@ -261,6 +262,11 @@ def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
                         bucket.delete_object(old_file_id)
                 except Exception as exc:
                     app.logger.warning("Failed to delete OSS avatar object: %s", exc)
+
+        if old_avatar:
+            # Remove the previous object only once the new URL is durable: a
+            # rollback restores the old URL, which must still resolve.
+            uow.on_commit(delete_previous_avatar)
 
         result = upload_to_storage(
             app,
