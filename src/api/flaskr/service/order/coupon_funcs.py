@@ -5,7 +5,8 @@ import json
 
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
-from flaskr.dao import db
+from flaskr.dao import db, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common import raise_error
 from flaskr.service.order.funs import (
     AICourseBuyRecordDTO,
@@ -164,7 +165,7 @@ def use_coupon_code(
         raise_error: If the coupon code is not found or the coupon is already used.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         now = now_utc()
         buy_record: Order = Order.query.filter(Order.order_bid == order_id).first()
         if not buy_record:
@@ -274,15 +275,16 @@ def use_coupon_code(
         coupon_usage.updated_at = now
         if not user_usage_already_bound:
             coupon.used_count = coupon.used_count + 1
-        db.session.commit()
 
         if buy_record.paid_price == 0:
+            # Joins this unit of work: the coupon usage and the SUCCESS flip
+            # commit together, and the order notification fires after that.
             return success_buy_record(app, buy_record.order_bid)
-        send_feishu_coupon_code(
-            app,
-            user_id,
-            coupon_code,
-            coupon.code,
-            coupon.value,
+        coupon_name = coupon.code
+        coupon_value = coupon.value
+        uow.on_commit(
+            lambda: send_feishu_coupon_code(
+                app, user_id, coupon_code, coupon_name, coupon_value
+            )
         )
         return query_buy_record(app, buy_record.order_bid)

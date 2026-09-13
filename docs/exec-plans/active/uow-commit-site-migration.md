@@ -24,7 +24,10 @@ is merged; merges are manual.
   that opened its own unit of work never committed), added `unit_of_work(discard=True)`
   and `autonomous_unit_of_work`, wired the ratchet into the `Static Checks`
   workflow, and recorded the rules in `src/api/AGENTS.md`.
-- [ ] B1 — config, feedback, profile, promo, learn_funcs, order (22 sites).
+- [x] 2026-09-13 CST: B1 — config, feedback, profile, promo, learn_funcs,
+  order (22 sites; baseline 146 -> 124). Promo helpers now join the order
+  unit of work, config cache writes and Feishu notifications moved to
+  `on_commit`, `import_activation_order` runs as two explicit steps.
 - [ ] B2 — shifu services and `shifu/route.py` boundary push-down (18 sites).
 - [ ] B3 — user services, `route/user.py` push-down, and retirement of
   `user/repository.py::transactional_session` (14 sites).
@@ -79,6 +82,12 @@ is merged; merges are manual.
   transaction (`shifu_publish_funcs.get_shifu_summary`,
   `checkout._create_provider_checkout`) are out of scope for this plan; the
   migration keeps the existing ordering and records the debt here.
+- 2026-09-13: `order/admin.py::import_activation_order` keeps two units of
+  work (account + credential, then price + success flip) with
+  `init_buy_record` between them instead of one enclosing block:
+  `init_buy_record` owns a `retry_on_deadlock` unit of work, and nesting it
+  would let a deadlock retry silently discard the caller's rolled-back
+  account writes while the retried order still commits.
 - 2026-09-13: Each batch is verified on `dev01` (branch force-pushed, CI/CD
   build and compose deploy). Non-payment flows are exercised through the UI
   and verified against the database; payment and webhook flows are covered by

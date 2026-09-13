@@ -17,7 +17,8 @@ from flaskr.common.config import (
 from flaskr.common.config import (
     has_explicit_env_override,
 )
-from flaskr.dao import db
+from flaskr.dao import db, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.framework import extensible
 from flaskr.service.config.models import Config
 from flaskr.util import generate_id
@@ -272,6 +273,23 @@ def get_config(key: str, default: str | None = None) -> str:
             return default
 
 
+def _schedule_config_cache_write(
+    app: Flask, key: str, is_secret: bool, value: str
+) -> None:
+    """Refresh the config cache once the surrounding unit of work commits."""
+    cache_key = _get_config_cache_key(app, key)
+    payload = ConfigCache(is_encrypted=is_secret, value=value).model_dump_json()
+
+    def write_cache() -> None:
+        redis.set(
+            cache_key,
+            payload,
+            ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
+        )
+
+    uow.on_commit(write_cache)
+
+
 def add_config(
     app: Flask,
     key: str,
@@ -281,7 +299,7 @@ def add_config(
     updated_by: str = "system",
 ) -> bool | None:
     """Add config to database."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         normalized_updated_by = _normalize_updated_by(updated_by)
         if has_explicit_env_override(key):
             return None
@@ -302,13 +320,7 @@ def add_config(
             existing_config.is_encrypted = is_secret
             existing_config.remark = remark
             existing_config.updated_by = normalized_updated_by
-            db.session.commit()
-            cache_key = _get_config_cache_key(app, key)
-            redis.set(
-                cache_key,
-                ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
-            )
+            _schedule_config_cache_write(app, key, is_secret, value)
             return True
         # Config doesn't exist, add new one
         if value:
@@ -324,13 +336,7 @@ def add_config(
                 updated_by=normalized_updated_by,
             )
             db.session.add(config)
-            db.session.commit()
-            cache_key = _get_config_cache_key(app, key)
-            redis.set(
-                cache_key,
-                ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
-            )
+            _schedule_config_cache_write(app, key, is_secret, value)
             return True
         return False
 
@@ -344,11 +350,10 @@ def update_config(
     updated_by: str = "system",
 ) -> bool:
     """Update config in database."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         normalized_updated_by = _normalize_updated_by(updated_by)
         if has_explicit_env_override(key):
             return False
-        cache_key = _get_config_cache_key(app, key)
         if value:
             if is_secret:
                 value = _encrypt_config(app, value)
@@ -376,11 +381,6 @@ def update_config(
                 config.is_encrypted = is_secret
                 config.remark = remark
                 config.updated_by = normalized_updated_by
-            db.session.commit()
-            redis.set(
-                cache_key,
-                ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
-            )
+            _schedule_config_cache_write(app, key, is_secret, value)
             return True
         return False

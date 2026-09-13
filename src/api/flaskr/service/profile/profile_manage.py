@@ -5,6 +5,7 @@ import hashlib
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
@@ -147,7 +148,7 @@ def update_profile_item_hidden_state(
     if not profile_keys:
         return get_profile_item_definition_list(app, parent_id=parent_id)
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         target_items = (
             Variable.query.filter(
                 Variable.shifu_bid == parent_id,
@@ -157,13 +158,12 @@ def update_profile_item_hidden_state(
             .order_by(Variable.id.asc())
             .all()
         )
-        if target_items:
-            for item in target_items:
-                item.is_hidden = 1 if hidden else 0
-                item.updated_at = now_utc()
-                item.updated_user_bid = user_id or ""
-            db.session.commit()
-        return get_profile_item_definition_list(app, parent_id=parent_id)
+        for item in target_items:
+            item.is_hidden = 1 if hidden else 0
+            item.updated_at = now_utc()
+            item.updated_user_bid = user_id or ""
+    # Read back after the commit: the list helper opens its own app context.
+    return get_profile_item_definition_list(app, parent_id=parent_id)
 
 
 def hide_unused_profile_items(
@@ -213,14 +213,12 @@ def add_profile_item_quick(
     app: Flask, parent_id: str, key: str, user_id: str
 ) -> ProfileItemDefinition:
     """Add profile item quick."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         if not parent_id:
             raise_error("server.profile.prarentRequired")
         if not key:
             raise_error("server.profile.keyRequire")
-        ret = add_profile_item_quick_internal(app, parent_id, key, user_id)
-        db.session.commit()
-        return ret
+        return add_profile_item_quick_internal(app, parent_id, key, user_id)
 
 
 def add_profile_item_quick_internal(
@@ -461,7 +459,7 @@ def save_profile_item(
     key: str,
 ) -> ProfileItemDefinition:
     """Save (create/update) a custom variable definition."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         normalized_parent_id = parent_id or ""
         if normalized_parent_id == "" and user_id != "":
             raise_error("server.profile.systemProfileNotAllowUpdate")
@@ -521,13 +519,12 @@ def save_profile_item(
             )
             db.session.add(definition)
 
-        db.session.commit()
         return convert_variable_definition_to_profile_item_definition(definition)
 
 
 def delete_profile_item(app: Flask, user_id: str, profile_id: str) -> bool:
     """Delete profile item."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         definition = Variable.query.filter(
             Variable.variable_bid == profile_id,
             Variable.deleted == 0,
@@ -540,5 +537,4 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str) -> bool:
         definition.deleted = 1
         definition.updated_at = now_utc()
         definition.updated_user_bid = user_id or ""
-        db.session.commit()
         return True
