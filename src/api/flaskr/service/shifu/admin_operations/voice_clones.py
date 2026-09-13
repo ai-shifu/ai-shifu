@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.api.tts import get_default_voice_settings, synthesize_text
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_operations.shared import (
     format_operator_datetime,
@@ -420,45 +421,46 @@ def register_operator_voice_clone(
     if not provider_spec.is_valid_custom_voice_id(normalized_voice_id):
         raise_param_error("voice_id is invalid")
 
-    with app.app_context():
+    with app_context_scope(app):
         # Validate the voice_id against the platform provider account before
         # any DB query, so this external HTTP call does not hold a database
         # connection / open transaction while it runs.
         _VOICE_ID_VERIFIERS[normalized_provider](normalized_voice_id)
 
-        owner = UserEntity.query.filter(
-            UserEntity.user_bid == normalized_owner_bid,
-            UserEntity.deleted == 0,
-        ).first()
-        if owner is None:
-            raise_param_error("owner_user_bid not found")
-        if not int(owner.is_creator or 0):
-            raise_param_error("owner_user_bid is not a teacher")
+        with unit_of_work():
+            owner = UserEntity.query.filter(
+                UserEntity.user_bid == normalized_owner_bid,
+                UserEntity.deleted == 0,
+            ).first()
+            if owner is None:
+                raise_param_error("owner_user_bid not found")
+            if not int(owner.is_creator or 0):
+                raise_param_error("owner_user_bid is not a teacher")
 
-        existing = TTSMiniMaxClonedVoice.query.filter(
-            TTSMiniMaxClonedVoice.deleted == 0,
-            TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner_bid,
-            TTSMiniMaxClonedVoice.provider == normalized_provider,
-            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
-        ).first()
-        if existing is not None:
-            raise_param_error("voice_id already exists")
+            existing = TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.deleted == 0,
+                TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner_bid,
+                TTSMiniMaxClonedVoice.provider == normalized_provider,
+                TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+            ).first()
+            if existing is not None:
+                raise_param_error("voice_id already exists")
 
-        row = TTSMiniMaxClonedVoice(
-            voice_bid=generate_id(app),
-            owner_user_bid=normalized_owner_bid,
-            shifu_bid="",
-            display_name=normalized_display_name,
-            provider=normalized_provider,
-            voice_id=normalized_voice_id,
-            status=TTS_MINIMAX_CLONE_STATUS_READY,
-            status_msg="",
-            source_capture_method=OPERATOR_VOICE_CLONE_SOURCE_METHOD,
-            billing_status=TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
-            estimated_credits=0,
-            charged_credits=0,
-            ready_at=now_utc(),
-        )
-        db.session.add(row)
-        db.session.commit()
-        return serialize_minimax_cloned_voice(row)
+            row = TTSMiniMaxClonedVoice(
+                voice_bid=generate_id(app),
+                owner_user_bid=normalized_owner_bid,
+                shifu_bid="",
+                display_name=normalized_display_name,
+                provider=normalized_provider,
+                voice_id=normalized_voice_id,
+                status=TTS_MINIMAX_CLONE_STATUS_READY,
+                status_msg="",
+                source_capture_method=OPERATOR_VOICE_CLONE_SOURCE_METHOD,
+                billing_status=TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
+                estimated_credits=0,
+                charged_credits=0,
+                ready_at=now_utc(),
+            )
+            db.session.add(row)
+            db.session.flush()
+            return serialize_minimax_cloned_voice(row)

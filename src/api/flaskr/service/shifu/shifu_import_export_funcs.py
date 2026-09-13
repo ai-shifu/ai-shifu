@@ -7,6 +7,7 @@ from pathlib import Path
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.learn.api import (
@@ -178,7 +179,6 @@ def import_shifu(
     shifu_id: str | None,
     file: FileStorage,
     user_id: str,
-    commit: bool = True,
 ) -> str:
     """Import a shifu from a JSON file.
 
@@ -188,13 +188,12 @@ def import_shifu(
                   If not provided or doesn't exist, will create a new shifu.
         file: FileStorage object containing the JSON file
         user_id: User ID for creating/updating the shifu
-        commit: Commit the transaction before returning
 
     Returns:
         str: The shifu_bid of the imported shifu
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         # Read JSON file
         try:
             file_content = file.read()
@@ -471,9 +470,6 @@ def import_shifu(
                     app, user_id, shifu_bid, outline_tree, new_shifu.id
                 )
 
-        if commit:
-            db.session.commit()
-        else:
-            db.session.flush()
+        db.session.flush()
 
         return shifu_bid

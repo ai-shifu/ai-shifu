@@ -6,6 +6,7 @@ from typing import TypedDict
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db, retry_on_deadlock
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common import raise_error
 from flaskr.service.profile.profile_manage import (
@@ -155,7 +156,7 @@ def save_shifu_mdflow(
 ) -> DraftSaveResponse:
     """Save shifu mdflow."""
     content = content or ""
-    with app.app_context():
+    with app_context_scope(app):
         lock_latest = isinstance(base_revision, int) and base_revision >= 0
 
         def _current_conflict() -> DraftConflictResult | None:
@@ -197,6 +198,12 @@ def save_shifu_mdflow(
 
         @retry_on_deadlock()
         def _save_txn() -> DraftSaveResponse:
+            # The closure owns the outermost unit of work, so a deadlock retry
+            # re-runs the whole locked transaction from scratch.
+            with unit_of_work():
+                return _save_locked()
+
+        def _save_locked() -> DraftSaveResponse:
             lock_shifu_for_outline_write(shifu_bid)
             conflict = _current_conflict()
             if conflict:
@@ -258,7 +265,6 @@ def save_shifu_mdflow(
                     shifu_bid,
                     outline_bid,
                 )
-                db.session.commit()
                 new_revision = int(new_outline.id)
             return {
                 "conflict": False,

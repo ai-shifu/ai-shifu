@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util import generate_id
@@ -441,7 +442,7 @@ def create_outline(
         SimpleOutlineDto: Outline dto.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         now_time = now_utc()
         # Generate the id and run the external risk check BEFORE taking the
         # per-shifu lock, so no network I/O happens while the lock is held.
@@ -451,7 +452,7 @@ def create_outline(
             app, outline_bid, user_id, f"{outline_name} {system_prompt or ''}"
         )
         __lock_shifu_for_outline_write(shifu_id)
-        dto = __insert_outline_locked(
+        return __insert_outline_locked(
             app,
             user_id,
             shifu_id,
@@ -463,8 +464,6 @@ def create_outline(
             now_time,
             outline_bid,
         )
-        db.session.commit()
-        return dto
 
 
 def create_default_outlines_for_new_shifu(
@@ -596,7 +595,7 @@ def create_outlines_batch(
     if not isinstance(outlines, list) or not outlines:
         raise_param_error("outlines")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         now_time = now_utc()
 
         # Pre-pass OUTSIDE the lock: validate each node, generate its id, and run
@@ -650,9 +649,7 @@ def create_outlines_batch(
                 created.append(dto)
             return created
 
-        results = _insert(prepared, parent_id or "")
-        db.session.commit()
-        return results
+        return _insert(prepared, parent_id or "")
 
 
 def reorder_outline_tree(
@@ -672,7 +669,7 @@ def reorder_outline_tree(
         bool: True if reordered, False otherwise
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         app.logger.info(
             "reorder outline tree, user_id: %s, shifu_id: %s", user_id, shifu_id
         )
@@ -747,7 +744,6 @@ def reorder_outline_tree(
         for outline_bid in changed_outline_bids:
             cleanup_outline_history_versions(app, shifu_id, outline_bid)
         save_outline_tree_history(app, user_id, shifu_id, history_infos)
-        db.session.commit()
         return True
 
 
@@ -820,7 +816,7 @@ def modify_unit(
         OutlineDto: Outline dto.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         app.logger.info("modify unit: %s, name: %s", unit_id, unit_name)
         now_time = now_utc()
         # find existing unit
@@ -874,7 +870,6 @@ def modify_unit(
                 app, user_id, existing_unit.shifu_bid, unit_id, new_unit.id
             )
             cleanup_outline_history_versions(app, existing_unit.shifu_bid, unit_id)
-            db.session.commit()
 
         return OutlineDto(
             bid=existing_unit.outline_item_bid,
@@ -901,7 +896,7 @@ def delete_unit(app: object, user_id: str, unit_id: str) -> bool:
         bool: True if deleted, False otherwise
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         now_time = now_utc()
         # find the unit to delete
         unit_to_delete = (
@@ -962,5 +957,4 @@ def delete_unit(app: object, user_id: str, unit_id: str) -> bool:
         for item_id in ids_to_delete:
             cleanup_outline_history_versions(app, unit_to_delete.shifu_bid, item_id)
         delete_outline_history(app, user_id, unit_to_delete.shifu_bid, unit_id)
-        db.session.commit()
         return True
