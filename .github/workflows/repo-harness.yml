@@ -126,6 +126,9 @@ jobs:
           python scripts/check_repo_harness.py
           python scripts/check_architecture_boundaries.py
 
+      - name: Enforce unit-of-work commit-site ratchet
+        run: python scripts/check_uow_commit_sites.py
+
       - name: Verify translation parity
         run: python scripts/check_translations.py
 

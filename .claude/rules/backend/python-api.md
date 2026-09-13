@@ -18,6 +18,12 @@ rooted in Flask services, migrations, or backend scripts.
   revisions, and do not add hard database foreign-key constraints for
   business-key relationships unless the architecture changes deliberately.
 
+- Own transactions with `with unit_of_work():` from `flaskr/dao/uow.py`
+  (helpers never commit or roll back; side effects go through
+  `uow.on_commit`; reuse the caller's context via `uow.app_context_scope`).
+  New `db.session.commit()` sites outside `flaskr/dao/` fail
+  `scripts/check_uow_commit_sites.py`.
+
 - Reach for backend skills when work touches shifu authoring, user auth flows,
   or the MDF proxy boundary.
 
