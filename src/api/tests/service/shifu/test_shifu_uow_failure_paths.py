@@ -348,3 +348,95 @@ def test_save_mdflow_retries_a_deadlock_only_when_it_owns_the_transaction(
     with pytest.raises(OperationalError):
         nested_save()
     assert lock_calls == [shifu_bid]  # no retry inside a caller's transaction
+
+
+def test_publish_rolls_back_and_never_starts_the_summary_when_the_last_step_fails(
+    app: object, monkeypatch: object
+) -> None:
+    """Publishing is one unit of work; the summary starts only after it commits."""
+    from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
+
+    shifu_bid = "uow-publish-rollback"
+    summaries: list[object] = []
+    monkeypatch.setattr(
+        module, "_run_summary_with_error_handling", lambda *args: summaries.append(args)
+    )
+
+    def failing_build_url(*_args: object, **_kwargs: object) -> str:
+        message = "url boom"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(module, "_build_frontend_url", failing_build_url)
+
+    with app.app_context():
+        dao.db.session.add_all(
+            [
+                DraftShifu(shifu_bid=shifu_bid, title="Draft", description="Desc"),
+                DraftOutlineItem(
+                    outline_item_bid=f"{shifu_bid}-lesson",
+                    shifu_bid=shifu_bid,
+                    title="Lesson",
+                    position="1",
+                    type=401,
+                    hidden=0,
+                    content="# Lesson",
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    with pytest.raises(RuntimeError, match="url boom"):
+        module.publish_shifu_draft(
+            app,
+            user_id="uow-user",
+            shifu_id=shifu_bid,
+            base_url="https://example.com",
+            sync_summary=True,
+        )
+
+    with app.app_context():
+        dao.db.session.expire_all()
+        assert PublishedShifu.query.filter_by(shifu_bid=shifu_bid).count() == 0
+        assert PublishedOutlineItem.query.filter_by(shifu_bid=shifu_bid).count() == 0
+    assert summaries == []
+
+
+def test_mdflow_save_persists_no_version_when_a_later_step_fails(
+    app: object, monkeypatch: object
+) -> None:
+    """The locked save is one unit of work: a late failure leaves no new version."""
+    from flaskr.service.shifu.shifu_mdflow_funcs import save_shifu_mdflow
+
+    from tests.test_mdflow_adapter import _add_outline_version
+
+    shifu_bid = "uow-mdflow-rollback-shifu"
+    outline_bid = "uow-mdflow-rollback-outline"
+    _add_outline_version(app, shifu_bid, outline_bid, "Original", "uow-user", 0)
+    _stub_mdflow_save_collaborators(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.lock_shifu_for_outline_write",
+        lambda _bid: None,
+    )
+
+    def failing_cleanup(*_args: object, **_kwargs: object) -> None:
+        message = "cleanup boom"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.cleanup_outline_history_versions",
+        failing_cleanup,
+    )
+
+    with pytest.raises(RuntimeError, match="cleanup boom"):
+        save_shifu_mdflow(app, "uow-user", shifu_bid, outline_bid, "Updated content")
+
+    with app.app_context():
+        dao.db.session.expire_all()
+        contents = [
+            row.content
+            for row in DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid, outline_item_bid=outline_bid
+            ).all()
+        ]
+    assert contents == ["Original"]
