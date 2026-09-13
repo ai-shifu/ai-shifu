@@ -10,7 +10,11 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
 from flaskr.dao import db, uow
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.i18n import _ as translate
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.native_payment_status import (
@@ -935,6 +939,9 @@ def create_billing_order_checkout(
     payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
     """Create or refresh a Pingxx charge for one existing pending billing order."""
+    # An expiry detected below is committed in its own unit of work before the
+    # error is raised; nested, that write would roll back with the caller.
+    require_transaction_owner("billing order checkout", app)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     requested_channel = _normalize_bid(payload.get("channel"))
@@ -1327,6 +1334,10 @@ def sync_billing_order(
     payload: dict[str, object],
 ) -> BillingOrderSyncResultDTO:
     """Synchronize billing order payment status with the provider."""
+    # Non-idempotent provider calls plus a grant idempotency pre-check that
+    # must see committed state; renewal deliberately calls this outside its
+    # own units of work (see the NOTE in _sync_billing_renewal_order).
+    require_transaction_owner("billing order sync", app)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     session_id = _normalize_bid(payload.get("session_id"))

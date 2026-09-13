@@ -13,7 +13,11 @@ from urllib.parse import urlsplit, urlunsplit
 from flask import Flask, has_request_context, request
 from flaskr.common.config import get_config as get_common_config
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.service.billing.api import (
     ReferralPlanRewardRequest,
 )
@@ -706,6 +710,10 @@ def retry_pending_referral_rewards(
     dry_run: bool = True,
 ) -> list[dict[str, object]]:
     """Retry generated referral rewards that do not yet have billing artifacts."""
+    # One unit of work per reward, plus a second one to record a failed grant:
+    # nested, no row would commit on its own and a conflict would surface at
+    # the caller's commit instead of in the per-row handler.
+    require_transaction_owner("pending referral reward retry", app)
     with app_context_scope(app):
         safe_limit = max(min(int(limit or 100), 500), 1)
         rewards = (
@@ -778,6 +786,9 @@ def process_referral_post_auth(
     context: object,
 ) -> ReferralPostAuthResult:
     """Process referral post auth."""
+    # Three consecutive units of work (relation + reward, grant, outcome):
+    # nested, none of them would be durable on their own.
+    require_transaction_owner("referral post-auth binding", app)
     with app_context_scope(app):
         if not context.created_new_user:
             return ReferralPostAuthResult()

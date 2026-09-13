@@ -214,7 +214,7 @@ def complete_onboarding_scene(
     """Complete onboarding scene."""
     # The IntegrityError handler below re-reads the winner in a fresh unit of
     # work; nested, the conflict would surface at the caller's commit instead.
-    uow.require_transaction_owner("onboarding scene completion")
+    uow.require_transaction_owner("onboarding scene completion", app)
     normalized_user_bid = str(user_bid or "").strip()
     normalized_scene_key = str(scene_key or "").strip()
     normalized_version = str(version or "").strip()

@@ -385,7 +385,7 @@ def submit_minimax_voice_clone(
     """Submit minimax voice clone."""
     # Reservation -> uploads -> row -> enqueue are consecutive commits; the
     # steps are only durable in that order when no caller owns the transaction.
-    uow.require_transaction_owner("voice clone submission")
+    uow.require_transaction_owner("voice clone submission", app)
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_shifu_bid = _normalize_required(shifu_bid, "shifu_bid")
     normalized_display_name = str(display_name or "").strip()[:128]
@@ -552,7 +552,7 @@ def run_minimax_voice_clone(
     # transaction; step 2 (inside _execute_clone_processing) finalizes. The
     # claim is only durable before the provider call when this function owns
     # the transaction.
-    uow.require_transaction_owner("voice clone processing")
+    uow.require_transaction_owner("voice clone processing", app)
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app_context_scope(app), unit_of_work():
         row = _load_voice_row(normalized_voice_bid)
@@ -648,7 +648,7 @@ def retry_minimax_voice_clone(
     voice_bid: str,
 ) -> dict[str, object]:
     """Retry minimax voice clone."""
-    uow.require_transaction_owner("voice clone retry")
+    uow.require_transaction_owner("voice clone retry", app)
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app_context_scope(app):
