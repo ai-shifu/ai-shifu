@@ -68,7 +68,28 @@ def app_context_scope(app: object) -> AbstractContextManager[AppContext | None]:
     target = app._get_current_object() if isinstance(app, LocalProxy) else app
     if has_app_context() and current_app._get_current_object() is target:
         return nullcontext()
-    return target.app_context()
+    return _foreign_app_context(target)
+
+
+@contextmanager
+def _foreign_app_context(app: Flask) -> Iterator[AppContext]:
+    """Push ``app``'s context with a fresh unit-of-work state.
+
+    A different app context means a different Flask-SQLAlchemy session, so
+    the caller's unit-of-work depth must not leak into it: otherwise a block
+    opened inside would look nested, never commit, and its session would be
+    discarded when the context pops. The caller's state is restored on exit.
+    """
+    depth_token = _depth.set(0)
+    callbacks_token = _post_commit.set(None)
+    discard_token = _discard.set(False)
+    try:
+        with app.app_context() as ctx:
+            yield ctx
+    finally:
+        _discard.reset(discard_token)
+        _post_commit.reset(callbacks_token)
+        _depth.reset(depth_token)
 
 
 _depth: contextvars.ContextVar[int] = contextvars.ContextVar("uow_depth", default=0)
