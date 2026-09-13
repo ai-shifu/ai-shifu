@@ -318,6 +318,11 @@ class _SummaryInputs:
     section_contents: dict[str, str]
     summary_prompt_template: object
     ask_prompt_template: str
+    # Row identities, not just business bids: a republish during the
+    # generation creates NEW rows carrying the same bids, and the generated
+    # text describes the rows read here.
+    shifu_row_id: int
+    outline_row_ids: dict[str, int]
 
 
 def _resolve_summary_model(app: object, shifu: PublishedShifu) -> _SummaryModelChoice:
@@ -359,6 +364,10 @@ def _load_summary_inputs(app: object, shifu_id: str) -> _SummaryInputs | None:
         },
         summary_prompt_template=load_prompt_template("summary"),
         ask_prompt_template=load_prompt_template("ask"),
+        shifu_row_id=int(shifu.id),
+        outline_row_ids={
+            bid: int(outline_item.id) for bid, outline_item in outline_item_map.items()
+        },
     )
 
 
@@ -366,30 +375,48 @@ def _apply_summary_results(
     app: object,
     shifu_id: str,
     *,
-    outline_ids: list[str],
+    inputs: _SummaryInputs,
     outline_summary_map: dict[str, dict],
     ask_prompts: dict[str, str],
 ) -> None:
-    """Write the generated summaries and ask prompts back to the course."""
+    """Write the generated ask prompts back to the rows they were read from.
+
+    A republish during the generation retires those rows and creates new ones
+    with the same bids. Writing this run's output into the new publication
+    would mix two publications, so the apply is skipped entirely instead.
+    """
     shifu = _load_published_shifu(shifu_id)
     if not shifu:
         app.logger.error("get_shifu_summary shifu_id: %s not found", shifu_id)
         return
+    if int(shifu.id) != inputs.shifu_row_id:
+        app.logger.warning(
+            "Skipping shifu summary for %s: republished during generation "
+            "(read row %s, active row %s)",
+            shifu_id,
+            inputs.shifu_row_id,
+            shifu.id,
+        )
+        return
 
-    # Re-read through the same helper the input step used, so the generation
-    # is written back to exactly the rows it was read from.
-    outline_item_map = _load_outline_item_map(outline_ids)
+    outline_item_map = {
+        outline_item.id: outline_item
+        for outline_item in PublishedOutlineItem.query.filter(
+            PublishedOutlineItem.id.in_(inputs.outline_row_ids.values()),
+            PublishedOutlineItem.deleted == 0,
+        ).all()
+    }
     # Only the ask prompt and the enabled flag are persisted: the summary text
     # is an input to the ask prompts, and `shifu_published_outline_items` has
     # no column for it (the previous `outline_item.summary = ...` assignment
     # set a transient attribute that was dropped with the session).
     for bid in outline_summary_map:
-        outline_item = outline_item_map.get(bid)
+        outline_item = outline_item_map.get(inputs.outline_row_ids.get(bid))
         if outline_item is None:
             continue
         outline_item.ask_enabled_status = ASK_MODE_ENABLE
     for bid, ask_prompt in ask_prompts.items():
-        outline_item = outline_item_map.get(bid)
+        outline_item = outline_item_map.get(inputs.outline_row_ids.get(bid))
         if outline_item is None:
             continue
         outline_item.ask_llm_system_prompt = ask_prompt
@@ -404,6 +431,10 @@ def get_shifu_summary(app: object, shifu_id: str) -> None:
         shifu_id: Shifu ID.
 
     """
+    # Read, generate, apply are three steps with the provider calls between
+    # them: nested, neither unit of work would commit and the generation would
+    # run inside the caller's transaction after all.
+    uow.require_transaction_owner("shifu summary generation")
     with app_context_scope(app):
         # Step 1 - read what the generation needs, then end the transaction.
         with unit_of_work():
@@ -436,7 +467,7 @@ def get_shifu_summary(app: object, shifu_id: str) -> None:
             _apply_summary_results(
                 app,
                 shifu_id,
-                outline_ids=inputs.outline_ids,
+                inputs=inputs,
                 outline_summary_map=outline_summary_map,
                 ask_prompts=ask_prompts,
             )
@@ -524,8 +555,9 @@ def _generate_summaries(
         for section in chapter.children:
             content = section_contents.get(section.bid)
             if content is None:
-                # The outline item is gone (deleted, or republished between the
-                # read and now); there is nothing to write a summary back to.
+                # The tree lists a section the outline query did not return
+                # (an inconsistent read of the published rows); there is
+                # nothing to write a summary back to.
                 continue
             now_lesson_script_prompts = ""
             if content:

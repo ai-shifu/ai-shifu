@@ -595,6 +595,7 @@ def test_failed_summary_generation_leaves_the_course_untouched(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.service.shifu.consts import ASK_MODE_ENABLE as ASK_MODE_ENABLE_VALUE
 
     shifu_bid = "summary-course-2"
     lesson_bid = "summary-lesson-2"
@@ -617,4 +618,66 @@ def test_failed_summary_generation_leaves_the_course_untouched(
         ).one()
         shifu = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).one()
         assert not outline_item.ask_llm_system_prompt
-        assert shifu.ask_enabled_status != 1
+        assert shifu.ask_enabled_status != ASK_MODE_ENABLE_VALUE
+
+
+def test_summary_is_skipped_when_the_course_is_republished_mid_generation(
+    app: object, monkeypatch: object
+) -> None:
+    """A republish retires the rows this run read; its output must not land."""
+    from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.service.shifu.consts import ASK_MODE_DEFAULT
+
+    shifu_bid = "summary-course-3"
+    lesson_bid = "summary-lesson-3"
+    _seed_summary_course(app, shifu_bid, lesson_bid)
+    _stub_summary_reads(monkeypatch, module, app, lesson_bid)
+
+    def republish_then_summarise(_app: object, **kwargs: object) -> str:
+        _ = kwargs
+        # Another publish lands while the provider call is in flight.
+        with app.app_context():
+            db.session.add_all(
+                [
+                    PublishedShifu(
+                        shifu_bid=shifu_bid,
+                        title="Summary course v2",
+                        llm="gpt-main",
+                        deleted=0,
+                    ),
+                    PublishedOutlineItem(
+                        outline_item_bid=lesson_bid,
+                        shifu_bid=shifu_bid,
+                        title="Lesson v2",
+                        position="1.1",
+                        type=402,
+                        hidden=0,
+                        content="Lesson content v2",
+                        deleted=0,
+                    ),
+                ]
+            )
+            db.session.commit()
+        return "stale summary"
+
+    monkeypatch.setattr(module, "_get_summary", republish_then_summarise)
+
+    module.get_shifu_summary(app, shifu_bid)
+
+    with app.app_context():
+        outline_items = (
+            PublishedOutlineItem.query.filter_by(outline_item_bid=lesson_bid)
+            .order_by(PublishedOutlineItem.id.asc())
+            .all()
+        )
+        shifus = (
+            PublishedShifu.query.filter_by(shifu_bid=shifu_bid)
+            .order_by(PublishedShifu.id.asc())
+            .all()
+        )
+        # Neither the retired rows nor the new publication carry the stale run.
+        assert [item.ask_llm_system_prompt for item in outline_items] == ["", ""]
+        assert [shifu.ask_enabled_status for shifu in shifus] == [
+            ASK_MODE_DEFAULT,
+            ASK_MODE_DEFAULT,
+        ]
