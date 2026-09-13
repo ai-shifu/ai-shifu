@@ -514,7 +514,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                     }
                     and key in payload
                 },
-                commit=False,
             )
             clear_admin_creator_customization_draft(
                 app,

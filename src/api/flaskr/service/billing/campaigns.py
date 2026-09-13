@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common.models import (
     AppError,
@@ -338,7 +339,7 @@ def create_admin_billing_campaign(
     """Create admin billing campaign."""
     normalized_operator_bid = normalize_bid(operator_user_bid)
     draft = _normalize_campaign_payload(payload)
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         product_configs = _load_campaign_target_product_configs(draft["products"])
         if _should_require_provider_discount_sync_for_benefit(
             draft["benefit_type_code"]
@@ -370,11 +371,9 @@ def create_admin_billing_campaign(
         db.session.add(row)
         db.session.flush()
         _replace_campaign_products(row.campaign_bid, product_configs)
-        db.session.commit()
-        return build_admin_billing_campaign_detail(
-            app,
-            row.campaign_bid,
-        )
+        created_campaign_bid = row.campaign_bid
+    # The detail read opens its own app context, so it runs after the commit.
+    return build_admin_billing_campaign_detail(app, created_campaign_bid)
 
 
 def update_admin_billing_campaign(
@@ -390,7 +389,7 @@ def update_admin_billing_campaign(
     if not normalized_campaign_bid:
         raise_param_error("campaign_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         row = _load_campaign(normalized_campaign_bid)
         if row is None:
             raise_error("server.billing.campaignNotFound")
@@ -449,8 +448,7 @@ def update_admin_billing_campaign(
         db.session.add(row)
         if hit_order_count <= 0:
             _replace_campaign_products(normalized_campaign_bid, product_configs)
-        db.session.commit()
-        return build_admin_billing_campaign_detail(app, normalized_campaign_bid)
+    return build_admin_billing_campaign_detail(app, normalized_campaign_bid)
 
 
 def update_admin_billing_campaign_status(
@@ -469,7 +467,7 @@ def update_admin_billing_campaign_status(
     if not isinstance(enabled, bool):
         raise_param_error("enabled")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         row = _load_campaign(normalized_campaign_bid)
         if row is None:
             raise_error("server.billing.campaignNotFound")
@@ -498,8 +496,7 @@ def update_admin_billing_campaign_status(
         row.updated_user_bid = normalized_operator_bid
         row.updated_at = now_utc()
         db.session.add(row)
-        db.session.commit()
-        return build_admin_billing_campaign_detail(app, normalized_campaign_bid)
+    return build_admin_billing_campaign_detail(app, normalized_campaign_bid)
 
 
 def _should_require_provider_discount_sync_for_benefit(benefit_type: int) -> bool:

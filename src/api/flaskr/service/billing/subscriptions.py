@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.payment_providers import get_payment_provider
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
@@ -416,7 +417,7 @@ def cancel_billing_subscription(
     payload: dict[str, object],
 ) -> BillingSubscriptionDTO:
     """Mark the current subscription to cancel at period end."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         subscription = _load_owned_subscription(
             _normalize_bid(creator_bid),
             _normalize_bid(payload.get("subscription_bid")),
@@ -450,7 +451,6 @@ def cancel_billing_subscription(
         subscription.updated_at = now_utc()
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
-        db.session.commit()
         return _serialize_subscription(app, subscription)
 
 
@@ -460,7 +460,7 @@ def resume_billing_subscription(
     payload: dict[str, object],
 ) -> BillingSubscriptionDTO:
     """Resume a cancel-scheduled subscription."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         subscription = _load_owned_subscription(
             _normalize_bid(creator_bid),
             _normalize_bid(payload.get("subscription_bid")),
@@ -492,7 +492,6 @@ def resume_billing_subscription(
         subscription.updated_at = now_utc()
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
-        db.session.commit()
         return _serialize_subscription(app, subscription)
 
 
@@ -1868,7 +1867,7 @@ def repair_topup_grant_expiries(
             repaired_ledger_count=0,
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         buckets = (
             CreditWalletBucket.query.filter(
                 CreditWalletBucket.deleted == 0,
@@ -1985,11 +1984,6 @@ def repair_topup_grant_expiries(
                 )
             )
 
-        if repaired_records:
-            db.session.commit()
-        else:
-            db.session.rollback()
-
         return TopupExpiryRepairResult(
             status="repaired" if repaired_records else "noop",
             creator_bid=normalized_creator_bid,
@@ -2011,7 +2005,7 @@ def repair_subscription_cycle_mismatches(
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_subscription_bid = _normalize_bid(subscription_bid)
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         query = BillingSubscription.query.filter(BillingSubscription.deleted == 0)
         if normalized_creator_bid:
             query = query.filter(
@@ -2094,11 +2088,6 @@ def repair_subscription_cycle_mismatches(
                     reason=evidence.reason,
                 )
             )
-
-        if repaired_records:
-            db.session.commit()
-        else:
-            db.session.rollback()
 
         return SubscriptionCycleRepairResult(
             status="repaired" if repaired_records else "noop",

@@ -50,7 +50,14 @@ is merged; merges are manual.
   rewrite, both element backfills use `unit_of_work(discard=dry_run)`,
   `import_user` keeps the account step ahead of `init_buy_record`, and
   `update_demo_shifu` wraps each demo course in one unit of work.
-- [ ] B5 — billing operations and scheduled paths (33 sites).
+- [x] 2026-09-13 CST: B5 — billing operations and scheduled paths (33 sites;
+  baseline 73 -> 40). Manual credit / referral-reward grants use the
+  idempotency rewrite (a `_once` helper owns the unit of work, the caller
+  answers with the winner on IntegrityError), trial bootstrap enqueues its
+  notification from `on_commit`, `grant_manual_plan_to_user` runs its lock
+  body as one unit of work with `enqueue=True`, campaign writes commit
+  before the detail read-back, `entitlements.grant_creator_manual_entitlement`
+  lost its `commit` flag, and the billing CLI dropped `_rollback_on_error`.
 - [ ] B6 — billing payment chain: notifications, checkout, webhooks,
   settlement (22 sites).
 - [ ] B7 — streaming and long-running flows plus autonomous audit rows:
@@ -77,6 +84,15 @@ is merged; merges are manual.
   that outer block (tests, scripts) saw `token_store.save`'s
   `uow.on_commit(populate_cache)` fire before the commit. Replacing it with
   `unit_of_work()` removes the second abstraction and fixes that ordering.
+- `uow.app_context_scope(app)` originally reused ANY active app context. The
+  celery `FlaskTask` wrapper pushes the resolved Flask app's context before a
+  task runs, and multi-app test fixtures nest contexts of different apps; in
+  both cases reusing the active context bound the session to the wrong
+  database (`no such table` in the billing task tests once B5 migrated
+  `dispatch_due_renewal_events`). It now reuses the context only when it
+  belongs to the same app and pushes `app.app_context()` otherwise; the
+  identity check unwraps `current_app` proxies, which the billing CLI passes
+  as `app`.
 - `service/check_risk/funcs.py` and `service/metering/recorder.py`
   deliberately push a fresh app context to get an independent session, because
   they persist audit rows in the middle of a /run stream and must not commit
@@ -106,6 +122,13 @@ is merged; merges are manual.
   `init_buy_record` owns a `retry_on_deadlock` unit of work, and nesting it
   would let a deadlock retry silently discard the caller's rolled-back
   account writes while the retried order still commits.
+- 2026-09-13: The idempotency rewrite (try a unit of work, re-read the winner
+  on IntegrityError) only works when that unit of work is the OUTERMOST
+  one: nested, the IntegrityError surfaces at the caller's commit, outside
+  the handler. Callers of such functions (`grant_manual_credit_wallet_balance`,
+  `grant_referral_reward_credits_to_user`, `complete_onboarding_scene`,
+  `submit_lesson_feedback`) therefore do not wrap them in their own block;
+  the billing CLI's `_rollback_on_error` wrapper was removed for that reason.
 - 2026-09-13: Each batch is verified on `dev01` (branch force-pushed, CI/CD
   build and compose deploy). Non-payment flows are exercised through the UI
   and verified against the database; payment and webhook flows are covered by

@@ -1,6 +1,7 @@
 """Tests for the unit-of-work transaction boundary (flaskr/dao/uow.py)."""
 
 import threading
+from contextlib import nullcontext
 
 import pytest
 from flaskr import dao
@@ -258,3 +259,35 @@ def test_autonomous_unit_of_work_runs_own_post_commit_callbacks(
         # caller's callback is still deferred.
         assert calls == ["autonomous"]
     assert calls == ["autonomous", "outer"]
+
+
+def test_app_context_scope_pushes_when_the_active_context_is_another_app(
+    app: object,
+) -> None:
+    """A context of a different Flask app must not be reused.
+
+    The session would be bound to that app's database (celery FlaskTask /
+    multi-app fixtures).
+    """
+    from flask import Flask, current_app
+
+    other = Flask("uow-other-app")
+    with other.app_context():
+        assert current_app._get_current_object() is other
+        with uow.app_context_scope(app):
+            assert current_app._get_current_object() is app
+        assert current_app._get_current_object() is other
+    with app.app_context(), uow.app_context_scope(app):
+        # Same app: the caller's context (and session) is reused.
+        assert current_app._get_current_object() is app
+
+
+def test_app_context_scope_treats_current_app_proxy_as_the_same_app(
+    app: object,
+) -> None:
+    """CLI commands pass ``current_app`` (a proxy); it must reuse the context."""
+    from flask import current_app
+
+    with app.app_context():
+        scope = uow.app_context_scope(current_app)
+        assert isinstance(scope, nullcontext)

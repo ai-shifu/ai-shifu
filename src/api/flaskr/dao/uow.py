@@ -48,7 +48,8 @@ if TYPE_CHECKING:
     from flask import Flask
     from flask.ctx import AppContext
 
-from flask import has_app_context
+from flask import current_app, has_app_context
+from werkzeug.local import LocalProxy
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +61,14 @@ def app_context_scope(app: object) -> AbstractContextManager[AppContext | None]:
     pushing a nested ``app.app_context()`` silently switches to a *different*
     session and breaks the unit-of-work boundary owned by the caller. Only
     push a new context when none exists (celery workers, CLI commands,
-    scripts).
+    scripts) or when the active context belongs to a *different* Flask app:
+    reusing that one would bind the session to the wrong database (the celery
+    ``FlaskTask`` wrapper and multi-app test fixtures both hit this).
     """
-    return nullcontext() if has_app_context() else app.app_context()
+    target = app._get_current_object() if isinstance(app, LocalProxy) else app
+    if has_app_context() and current_app._get_current_object() is target:
+        return nullcontext()
+    return target.app_context()
 
 
 _depth: contextvars.ContextVar[int] = contextvars.ContextVar("uow_depth", default=0)
