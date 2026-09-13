@@ -93,6 +93,7 @@ def _attributed_course_result(
     *,
     user_id: str,
     creation_attribution: SourceAttributionInput,
+    current_read: bool = False,
 ) -> ShifuDto:
     """Return an idempotent course result or reject a reused handoff."""
     if (
@@ -101,7 +102,10 @@ def _attributed_course_result(
         or attribution.source_product != creation_attribution.source_product
     ):
         raise_param_error("creation_attribution.handoff_id")
-    draft = get_latest_shifu_draft(attribution.shifu_bid)
+    draft = get_latest_shifu_draft(
+        attribution.shifu_bid,
+        current_read=current_read,
+    )
     if draft is None:
         raise_param_error("creation_attribution.handoff_id")
     return ShifuDto(
@@ -186,23 +190,28 @@ def serialize_ask_provider_config(raw_config: object) -> str:
     return json.dumps(normalized, ensure_ascii=False, sort_keys=True)
 
 
-def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
+def get_latest_shifu_draft(
+    shifu_id: str,
+    *,
+    current_read: bool = False,
+) -> DraftShifu:
     """Get the latest shifu draft.
 
     Args:
         shifu_id: Shifu ID
+        current_read: Lock and read the latest committed row instead of an
+            existing repeatable-read snapshot
     Returns:
         DraftShifu: Shifu draft.
 
     """
-    shifu_draft: DraftShifu = (
-        DraftShifu.query.filter(
-            DraftShifu.shifu_bid == shifu_id,
-            DraftShifu.deleted == 0,
-        )
-        .order_by(DraftShifu.id.desc())
-        .first()
+    query = DraftShifu.query.filter(
+        DraftShifu.shifu_bid == shifu_id,
+        DraftShifu.deleted == 0,
     )
+    if current_read:
+        query = query.with_for_update()
+    shifu_draft: DraftShifu = query.order_by(DraftShifu.id.desc()).first()
     return shifu_draft
 
 
@@ -429,6 +438,7 @@ def create_shifu_draft(
                     existing_attribution,
                     user_id=user_id,
                     creation_attribution=creation_attribution,
+                    current_read=True,
                 )
         else:
             db.session.add(shifu_draft)

@@ -1,5 +1,6 @@
 """Verify immutable course creation attribution behavior."""
 
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -156,6 +157,48 @@ def test_retried_handoff_returns_the_original_course(app: object) -> None:
             ).count()
             == 1
         )
+
+
+def test_conflict_recovery_loads_attributed_course_with_current_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.common.source_attribution import parse_source_attribution
+    from flaskr.service.shifu import shifu_draft_funcs
+
+    creation_attribution = parse_source_attribution(
+        _valid_payload(), field_name="creation_attribution"
+    )
+    assert creation_attribution is not None
+    attribution = SimpleNamespace(
+        shifu_bid="winning-course",
+        created_user_bid="teacher-current-read",
+        creation_source=creation_attribution.creation_source,
+        source_product=creation_attribution.source_product,
+    )
+    draft = SimpleNamespace(
+        shifu_bid="winning-course",
+        title="Winning course",
+        description="",
+        avatar_res_bid="",
+        created_user_bid="teacher-current-read",
+    )
+    reads: list[tuple[str, bool]] = []
+
+    def load_draft(shifu_bid: str, *, current_read: bool = False) -> object:
+        reads.append((shifu_bid, current_read))
+        return draft
+
+    monkeypatch.setattr(shifu_draft_funcs, "get_latest_shifu_draft", load_draft)
+
+    result = shifu_draft_funcs._attributed_course_result(
+        attribution,
+        user_id="teacher-current-read",
+        creation_attribution=creation_attribution,
+        current_read=True,
+    )
+
+    assert result.bid == "winning-course"
+    assert reads == [("winning-course", True)]
 
 
 def test_handoff_cannot_be_reused_by_another_teacher(app: object) -> None:
