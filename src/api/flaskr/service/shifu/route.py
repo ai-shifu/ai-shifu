@@ -53,11 +53,9 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
-from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_config, get_redis_key_prefix
+from flaskr.common.config import get_config
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.route.common import bypass_token_validation, fmt, make_common_response
@@ -121,28 +119,22 @@ from flaskr.service.shifu.shifu_outline_funcs import (
     modify_unit,
     reorder_outline_tree,
 )
+from flaskr.service.shifu.shifu_permission_funcs import (
+    grant_shifu_permissions,
+    remove_shifu_permission,
+)
 from flaskr.service.shifu.shifu_publish_funcs import (
     preview_shifu_draft,
     publish_shifu_draft,
 )
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.common import validate_user
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
-    ensure_user_for_identifier,
     load_user_aggregate,
-    load_user_aggregate_by_identifier,
-    set_user_state,
-    upsert_credential,
 )
 from flaskr.service.user.utils import (
-    ensure_demo_course_permissions,
     get_user_language,
-    load_existing_demo_shifu_ids,
-    mark_creator_role_if_needed,
-    run_creator_granted_post_auth,
 )
-from flaskr.util.uuid import generate_id
 
 from .funcs import (
     get_video_info,
@@ -161,7 +153,6 @@ class ShifuPermission(Enum):
     PUBLISH = "publish"
 
 
-MAX_SHARED_COURSE_USERS = 10
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
@@ -371,17 +362,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         if creator_bid != user_id:
             raise_error("server.shifu.noPermission")
         return user_id
-
-    def _clear_shifu_permission_cache(user_id: str, shifu_bid: str) -> None:
-        """Remove cached permission entries for a given user/shifu pair."""
-        # Clear both legacy and current redis prefixes to avoid stale permissions.
-        prefixes = {
-            app.config.get("CACHE_KEY_PREFIX", "") or "",
-            get_redis_key_prefix(app),
-        }
-        for prefix in prefixes:
-            cache_key = f"{prefix}shifu_permission:{user_id}:{shifu_bid}"
-            redis.delete(cache_key)
 
     def _parse_ask_provider_config(raw_value: object) -> dict | None:
         """Parse and validate ask_provider_config from request payload."""
@@ -595,132 +575,15 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         if not contacts:
             raise_param_error("contact")
 
-        existing_auths = AiCourseAuth.query.filter(
-            AiCourseAuth.course_id == shifu_bid,
-            AiCourseAuth.status == 1,
-        ).all()
-        existing_user_ids = {
-            auth.user_id
-            for auth in existing_auths
-            if auth.user_id and auth.user_id != owner_id
-        }
-
-        user_id_by_contact: dict[str, str] = {}
-        aggregate_by_contact: dict[str, object] = {}
-        new_contact_count = 0
-        for contact in contacts:
-            aggregate = load_user_aggregate_by_identifier(
-                contact, providers=[contact_type]
-            )
-            if aggregate:
-                if aggregate.user_bid == owner_id:
-                    continue
-                user_id_by_contact[contact] = aggregate.user_bid
-                aggregate_by_contact[contact] = aggregate
-            else:
-                new_contact_count += 1
-
-        new_existing_user_ids = {
-            user_id
-            for user_id in user_id_by_contact.values()
-            if user_id not in existing_user_ids and user_id != owner_id
-        }
-
-        if (
-            len(existing_user_ids) + len(new_existing_user_ids) + new_contact_count
-            > MAX_SHARED_COURSE_USERS
-        ):
-            raise_param_error(
-                _("server.shifu.permissionContactLimit").format(
-                    count=MAX_SHARED_COURSE_USERS
-                )
-            )
-
-        auth_types = ["view"]
-        if permission == "edit":
-            auth_types = ["edit"]
-        elif permission == "publish":
-            # Publish grants both edit and publish permissions.
-            auth_types = ["edit", "publish"]
-
-        demo_shifu_ids = load_existing_demo_shifu_ids()
-        creator_upgrade_contexts: dict[str, dict[str, object]] = {}
-        for contact in contacts:
-            aggregate = aggregate_by_contact.get(contact)
-            created_new_user = False
-            should_grant_demo_permissions = False
-            if aggregate is None:
-                aggregate, created_new_user = ensure_user_for_identifier(
-                    app,
-                    provider=contact_type,
-                    identifier=contact,
-                    defaults={"state": USER_STATE_REGISTERED},
-                )
-                should_grant_demo_permissions = created_new_user
-            elif aggregate.state == USER_STATE_UNREGISTERED:
-                set_user_state(aggregate.user_bid, USER_STATE_REGISTERED)
-                should_grant_demo_permissions = True
-            if not aggregate or aggregate.user_bid == owner_id:
-                continue
-
-            normalized_contact = contact
-            if contact_type == "email":
-                normalized_contact = contact.lower()
-
-            upsert_credential(
-                app,
-                user_bid=aggregate.user_bid,
-                provider_name=contact_type,
-                subject_id=normalized_contact,
-                subject_format=contact_type,
-                identifier=normalized_contact,
-                metadata={},
-                verified=True,
-            )
-            if should_grant_demo_permissions:
-                ensure_demo_course_permissions(
-                    app, aggregate.user_bid, demo_ids=demo_shifu_ids
-                )
-            if permission in {"edit", "publish"}:
-                creator_granted_now = mark_creator_role_if_needed(aggregate.user_bid)
-                if creator_granted_now:
-                    creator_upgrade_contexts.setdefault(
-                        aggregate.user_bid,
-                        {
-                            "created_new_user": created_new_user,
-                            "language": aggregate.user_language,
-                        },
-                    )
-
-            auth = AiCourseAuth.query.filter(
-                AiCourseAuth.course_id == shifu_bid,
-                AiCourseAuth.user_id == aggregate.user_bid,
-            ).first()
-            if auth:
-                auth.auth_type = json.dumps(auth_types)
-                auth.status = 1
-            else:
-                db.session.add(
-                    AiCourseAuth(
-                        course_auth_id=generate_id(app),
-                        user_id=aggregate.user_bid,
-                        course_id=shifu_bid,
-                        auth_type=json.dumps(auth_types),
-                        status=1,
-                    )
-                )
-            _clear_shifu_permission_cache(aggregate.user_bid, shifu_bid)
-
-        db.session.commit()
-        for user_id, upgrade_context in creator_upgrade_contexts.items():
-            run_creator_granted_post_auth(
-                app,
-                user_id=user_id,
-                source="shifu_permission_grant",
-                created_new_user=bool(upgrade_context.get("created_new_user")),
-                language=str(upgrade_context.get("language") or ""),
-            )
-        return make_common_response({"count": len(contacts)})
+        count = grant_shifu_permissions(
+            app,
+            shifu_bid=shifu_bid,
+            owner_id=owner_id,
+            contact_type=contact_type,
+            contacts=contacts,
+            permission=permission,
+        )
+        return make_common_response({"count": count})
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/permissions/remove",
@@ -737,14 +600,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         if user_id == owner_id:
             raise_error("server.shifu.noPermission")
 
-        auth = AiCourseAuth.query.filter(
-            AiCourseAuth.course_id == shifu_bid,
-            AiCourseAuth.user_id == user_id,
-        ).first()
-        if auth:
-            auth.status = 0
-        _clear_shifu_permission_cache(user_id, shifu_bid)
-        db.session.commit()
+        remove_shifu_permission(app, shifu_bid=shifu_bid, user_id=user_id)
         return make_common_response({"removed": True})
 
     @app.route(path_prefix + "/shifus", methods=["PUT"])

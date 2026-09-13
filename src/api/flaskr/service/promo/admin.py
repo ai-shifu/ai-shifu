@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.api import (
     ORDER_STATUS_KEY_MAP,
@@ -871,7 +872,7 @@ def create_operator_promotion_coupon(
     app: Flask, operator_user_bid: str, payload: dict
 ) -> dict:
     """Create operator promotion coupon."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         name = str(payload.get("name", "") or "").strip()
         if not name:
             raise_param_error("name")
@@ -948,7 +949,6 @@ def create_operator_promotion_coupon(
                 )
             )
 
-        db.session.commit()
         return {"coupon_bid": coupon.coupon_bid}
 
 
@@ -956,7 +956,7 @@ def update_operator_promotion_coupon(
     app: Flask, operator_user_bid: str, coupon_bid: str, payload: dict
 ) -> dict:
     """Update operator promotion coupon."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         coupon = _load_coupon_or_404(coupon_bid)
         name = str(payload.get("name", "") or "").strip()
         if not name:
@@ -1066,7 +1066,6 @@ def update_operator_promotion_coupon(
                     )
                 )
 
-        db.session.commit()
         return {"coupon_bid": coupon.coupon_bid}
 
 
@@ -1114,7 +1113,7 @@ def update_operator_promotion_coupon_status(
     app: Flask, operator_user_bid: str, coupon_bid: str, enabled: object
 ) -> dict:
     """Update operator promotion coupon status."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         enabled_value = _parse_bool_value(enabled, "enabled")
         coupon = _load_coupon_or_404(coupon_bid)
         if enabled_value and not _coupon_is_enableable(coupon):
@@ -1125,7 +1124,6 @@ def update_operator_promotion_coupon_status(
             else COUPON_BATCH_STATUS_INACTIVE
         )
         coupon.updated_user_bid = operator_user_bid
-        db.session.commit()
         return {"coupon_bid": coupon.coupon_bid, "enabled": enabled_value}
 
 
@@ -1633,7 +1631,7 @@ def create_operator_promotion_campaign(
     app: Flask, operator_user_bid: str, payload: dict
 ) -> dict:
     """Create operator promotion campaign."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         name = str(payload.get("name", "") or "").strip()
         if not name:
             raise_param_error("name")
@@ -1681,7 +1679,6 @@ def create_operator_promotion_campaign(
         campaign.created_user_bid = operator_user_bid
         campaign.updated_user_bid = operator_user_bid
         db.session.add(campaign)
-        db.session.commit()
         return {"promo_bid": campaign.promo_bid}
 
 
@@ -1689,7 +1686,7 @@ def update_operator_promotion_campaign(
     app: Flask, operator_user_bid: str, promo_bid: str, payload: dict
 ) -> dict:
     """Update operator promotion campaign."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         campaign = _load_campaign_or_404(promo_bid)
         name = str(payload.get("name", "") or "").strip()
         if not name:
@@ -1756,7 +1753,6 @@ def update_operator_promotion_campaign(
         campaign.value = value
         campaign.channel = channel
         campaign.updated_user_bid = operator_user_bid
-        db.session.commit()
         return {"promo_bid": campaign.promo_bid}
 
 
@@ -1799,7 +1795,7 @@ def update_operator_promotion_campaign_status(
     app: Flask, operator_user_bid: str, promo_bid: str, enabled: object
 ) -> dict:
     """Update operator promotion campaign status."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         enabled_value = _parse_bool_value(enabled, "enabled")
         campaign = _load_campaign_or_404(promo_bid)
         if enabled_value and not _campaign_is_enableable(campaign):
@@ -1821,7 +1817,6 @@ def update_operator_promotion_campaign_status(
             else PROMO_CAMPAIGN_STATUS_INACTIVE
         )
         campaign.updated_user_bid = operator_user_bid
-        db.session.commit()
         return {"promo_bid": campaign.promo_bid, "enabled": enabled_value}
 
 

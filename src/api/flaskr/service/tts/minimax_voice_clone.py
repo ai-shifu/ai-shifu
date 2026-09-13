@@ -30,7 +30,8 @@ except Exception:  # pragma: no cover - exercised only when pydub is missing.
 import contextlib
 
 from flaskr.common.config import get_config
-from flaskr.dao import db
+from flaskr.dao import db, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.billing.api import (
     admit_creator_usage,
     capture_reserved_operation_credits,
@@ -382,6 +383,9 @@ def submit_minimax_voice_clone(
     prompt_content_type: str = "",
 ) -> TTSMiniMaxClonedVoice:
     """Submit minimax voice clone."""
+    # Reservation -> uploads -> row -> enqueue are consecutive commits; the
+    # steps are only durable in that order when no caller owns the transaction.
+    uow.require_transaction_owner("voice clone submission")
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_shifu_bid = _normalize_required(shifu_bid, "shifu_bid")
     normalized_display_name = str(display_name or "").strip()[:128]
@@ -402,7 +406,7 @@ def submit_minimax_voice_clone(
             max_bytes=_MAX_PROMPT_BYTES,
         )
 
-    with app.app_context():
+    with app_context_scope(app):
         shifu = _load_owned_shifu(owner_bid, normalized_shifu_bid)
         if (
             TTSMiniMaxClonedVoice.query.filter(
@@ -427,6 +431,9 @@ def submit_minimax_voice_clone(
         voice_bid = generate_id(app)
         reservation = None
         if should_bill:
+            # The reservation commits on its own before the uploads below so
+            # wallet row locks are never held across object-storage I/O;
+            # that is why a later failure has to release it explicitly.
             reservation = reserve_operation_credits(
                 app,
                 creator_bid=owner_bid,
@@ -461,44 +468,47 @@ def submit_minimax_voice_clone(
                     prompt_resource.resource_bid, prompt_audio_bytes
                 )
 
-            row = TTSMiniMaxClonedVoice(
-                voice_bid=voice_bid,
-                owner_user_bid=owner_bid,
-                shifu_bid=normalized_shifu_bid,
-                display_name=normalized_display_name,
-                voice_id=normalized_voice_id,
-                status=TTS_MINIMAX_CLONE_STATUS_QUEUED,
-                status_msg="",
-                source_capture_method=(source_capture_method or "upload").strip()[:32],
-                source_audio_resource_bid=source_resource.resource_bid,
-                source_audio_url=source_resource.url,
-                source_audio_filename=str(source_filename or "")[:255],
-                source_audio_content_type=str(source_content_type or "")[:128],
-                prompt_audio_resource_bid=(
-                    prompt_resource.resource_bid if prompt_resource is not None else ""
-                ),
-                prompt_audio_url=(
-                    prompt_resource.url if prompt_resource is not None else ""
-                ),
-                prompt_audio_filename=str(prompt_filename or "")[:255],
-                prompt_audio_content_type=str(prompt_content_type or "")[:128],
-                billing_status=(
-                    TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
-                    if not should_bill
-                    else TTS_MINIMAX_CLONE_BILLING_RESERVED
-                ),
-                estimated_credits=estimate.consumed_credits,
-                billing_reservation_bid=(
-                    reservation.reservation_bid if reservation is not None else ""
-                ),
-                billing_ledger_bid=(
-                    reservation.ledger_bid if reservation is not None else ""
-                ),
-            )
-            db.session.add(row)
-            db.session.commit()
+            with unit_of_work():
+                row = TTSMiniMaxClonedVoice(
+                    voice_bid=voice_bid,
+                    owner_user_bid=owner_bid,
+                    shifu_bid=normalized_shifu_bid,
+                    display_name=normalized_display_name,
+                    voice_id=normalized_voice_id,
+                    status=TTS_MINIMAX_CLONE_STATUS_QUEUED,
+                    status_msg="",
+                    source_capture_method=(source_capture_method or "upload").strip()[
+                        :32
+                    ],
+                    source_audio_resource_bid=source_resource.resource_bid,
+                    source_audio_url=source_resource.url,
+                    source_audio_filename=str(source_filename or "")[:255],
+                    source_audio_content_type=str(source_content_type or "")[:128],
+                    prompt_audio_resource_bid=(
+                        prompt_resource.resource_bid
+                        if prompt_resource is not None
+                        else ""
+                    ),
+                    prompt_audio_url=(
+                        prompt_resource.url if prompt_resource is not None else ""
+                    ),
+                    prompt_audio_filename=str(prompt_filename or "")[:255],
+                    prompt_audio_content_type=str(prompt_content_type or "")[:128],
+                    billing_status=(
+                        TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
+                        if not should_bill
+                        else TTS_MINIMAX_CLONE_BILLING_RESERVED
+                    ),
+                    estimated_credits=estimate.consumed_credits,
+                    billing_reservation_bid=(
+                        reservation.reservation_bid if reservation is not None else ""
+                    ),
+                    billing_ledger_bid=(
+                        reservation.ledger_bid if reservation is not None else ""
+                    ),
+                )
+                db.session.add(row)
         except Exception:
-            db.session.rollback()
             if reservation is not None and reservation.reservation_bid:
                 release_reserved_operation_credits(
                     app,
@@ -507,34 +517,44 @@ def submit_minimax_voice_clone(
                 )
             raise
 
-    try:
-        _enqueue_minimax_clone_task(app, voice_bid=voice_bid)
-    except Exception as exc:
-        with app.app_context():
-            failed = _load_voice_row(voice_bid)
-            failed.status = TTS_MINIMAX_CLONE_STATUS_FAILED
-            failed.status_msg = _safe_status_message(exc)
-            failed.failure_reason = "enqueue_failed"
-            if failed.billing_reservation_bid:
-                release_reserved_operation_credits(
-                    app,
-                    reservation_bid=failed.billing_reservation_bid,
-                    reason="enqueue_failed",
-                )
-                failed.billing_status = TTS_MINIMAX_CLONE_BILLING_RELEASED
-            db.session.commit()
-            return failed
+        # The enqueue stays after the row commit (not ``on_commit``): a
+        # broker failure must surface as a persisted failed row, not as a
+        # logged callback error.
+        try:
+            _enqueue_minimax_clone_task(app, voice_bid=voice_bid)
+        except Exception as exc:
+            _mark_enqueue_failed(app, voice_bid=voice_bid, exc=exc)
 
-    with app.app_context():
         return _load_voice_row(voice_bid)
+
+
+def _mark_enqueue_failed(app: Flask, *, voice_bid: str, exc: Exception) -> None:
+    """Persist a broker failure as a retryable failed row and free the credits."""
+    with unit_of_work():
+        failed = _load_voice_row(voice_bid)
+        failed.status = TTS_MINIMAX_CLONE_STATUS_FAILED
+        failed.status_msg = _safe_status_message(exc)
+        failed.failure_reason = "enqueue_failed"
+        if failed.billing_reservation_bid:
+            release_reserved_operation_credits(
+                app,
+                reservation_bid=failed.billing_reservation_bid,
+                reason="enqueue_failed",
+            )
+            failed.billing_status = TTS_MINIMAX_CLONE_BILLING_RELEASED
 
 
 def run_minimax_voice_clone(
     app: Flask, *, voice_bid: str
 ) -> MiniMaxVoiceCloneRunResult:
     """Run minimax voice clone."""
+    # Step 1 claims the row; the provider round trip runs outside any
+    # transaction; step 2 (inside _execute_clone_processing) finalizes. The
+    # claim is only durable before the provider call when this function owns
+    # the transaction.
+    uow.require_transaction_owner("voice clone processing")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         row = _load_voice_row(normalized_voice_bid)
         if row.status == TTS_MINIMAX_CLONE_STATUS_READY:
             return MiniMaxVoiceCloneRunResult(
@@ -560,7 +580,6 @@ def run_minimax_voice_clone(
             )
         row.status = TTS_MINIMAX_CLONE_STATUS_PROCESSING
         row.status_msg = ""
-        db.session.commit()
 
     try:
         return _execute_clone_processing(app, normalized_voice_bid)
@@ -629,25 +648,30 @@ def retry_minimax_voice_clone(
     voice_bid: str,
 ) -> dict[str, object]:
     """Retry minimax voice clone."""
+    uow.require_transaction_owner("voice clone retry")
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
-    with app.app_context():
-        row = _load_voice_row(normalized_voice_bid)
-        if row.owner_user_bid != owner_bid:
-            raise_error("server.shifu.noPermission")
-        if row.status not in {
-            TTS_MINIMAX_CLONE_STATUS_FAILED,
-            TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING,
-        }:
-            raise_param_error("voice is not retryable")
-        _prepare_retry_billing(app, row)
-        row.status = TTS_MINIMAX_CLONE_STATUS_QUEUED
-        row.status_msg = ""
-        row.failure_reason = ""
-        row.retry_count = int(row.retry_count or 0) + 1
-        db.session.commit()
-    _enqueue_minimax_clone_task(app, voice_bid=normalized_voice_bid)
-    with app.app_context():
+    with app_context_scope(app):
+        with unit_of_work():
+            row = _load_voice_row(normalized_voice_bid)
+            if row.owner_user_bid != owner_bid:
+                raise_error("server.shifu.noPermission")
+            if row.status not in {
+                TTS_MINIMAX_CLONE_STATUS_FAILED,
+                TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING,
+            }:
+                raise_param_error("voice is not retryable")
+            _prepare_retry_billing(app, row)
+            row.status = TTS_MINIMAX_CLONE_STATUS_QUEUED
+            row.status_msg = ""
+            row.failure_reason = ""
+            row.retry_count = int(row.retry_count or 0) + 1
+        try:
+            _enqueue_minimax_clone_task(app, voice_bid=normalized_voice_bid)
+        except Exception as exc:
+            # Same contract as submit: a broker failure leaves a failed,
+            # released row the UI can retry, not a queued row holding credits.
+            _mark_enqueue_failed(app, voice_bid=normalized_voice_bid, exc=exc)
         return serialize_minimax_cloned_voice(_load_voice_row(normalized_voice_bid))
 
 
@@ -660,13 +684,13 @@ def delete_minimax_cloned_voice(
     """Delete minimax cloned voice."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
-    with app.app_context():
-        row = _load_voice_row(normalized_voice_bid)
-        if row.owner_user_bid != owner_bid:
-            raise_error("server.shifu.noPermission")
-        row.deleted = 1
-        row.deleted_at = now_utc()
-        db.session.commit()
+    with app_context_scope(app):
+        with unit_of_work():
+            row = _load_voice_row(normalized_voice_bid)
+            if row.owner_user_bid != owner_bid:
+                raise_error("server.shifu.noPermission")
+            row.deleted = 1
+            row.deleted_at = now_utc()
         return serialize_minimax_cloned_voice(row)
 
 
@@ -735,7 +759,7 @@ def _execute_clone_processing(
     app: Flask,
     voice_bid: str,
 ) -> MiniMaxVoiceCloneRunResult:
-    with app.app_context():
+    with app_context_scope(app):
         row = _load_voice_row(voice_bid)
         row_voice_bid = row.voice_bid
         row_voice_id = row.voice_id
@@ -797,62 +821,97 @@ def _execute_clone_processing(
         message = "MiniMax rejected the audio for sensitive content"
         raise ValueError(message)
 
-    with app.app_context():
-        row = _load_voice_row(voice_bid)
-        row.normalized_audio_resource_bid = normalized_resource.resource_bid
-        row.normalized_audio_url = normalized_resource.url
-        row.normalized_audio_object_key = normalized_resource.object_key
-        row.normalized_audio_duration_ms = source_audio.duration_ms
-        row.source_audio_duration_ms = source_audio.duration_ms
-        if prompt_audio is not None:
-            row.prompt_audio_duration_ms = prompt_audio.duration_ms
-        row.minimax_source_file_id = source_file.file_id
-        row.minimax_prompt_file_id = prompt_file_id
-        row.minimax_demo_audio_url = clone_result.demo_audio
-        row.minimax_trace_id = clone_result.trace_id
-        row.minimax_status_code = clone_result.status_code
-        row.minimax_status_msg = clone_result.status_msg
-        row.minimax_extra = clone_result.extra_info
-        row.status_msg = ""
-
-        usage_bid = _record_voice_clone_usage(app, row, clone_result)
-        row.clone_usage_bid = usage_bid
-        if row.billing_reservation_bid:
-            capture = capture_reserved_operation_credits(
+    with app_context_scope(app):
+        with unit_of_work():
+            row = _load_voice_row(voice_bid)
+            _apply_clone_result(
                 app,
-                reservation_bid=row.billing_reservation_bid,
-                usage_bid=usage_bid,
-                metadata={
-                    "voice_bid": row.voice_bid,
-                    "voice_id": row.voice_id,
-                    "trace_id": clone_result.trace_id,
-                },
+                row,
+                clone_result=clone_result,
+                normalized_resource=normalized_resource,
+                source_audio=source_audio,
+                prompt_audio=prompt_audio,
+                source_file_id=source_file.file_id,
+                prompt_file_id=prompt_file_id,
             )
-            if capture.status in {"captured", "already_captured"}:
-                row.billing_status = TTS_MINIMAX_CLONE_BILLING_CHARGED
-                row.charged_credits = capture.amount or row.estimated_credits
-            else:
-                row.billing_status = TTS_MINIMAX_CLONE_BILLING_FAILED
-                row.status = TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING
-                row.status_msg = "billing capture is pending"
-                db.session.commit()
-                return MiniMaxVoiceCloneRunResult(
-                    status="billing_pending",
-                    voice_bid=row.voice_bid,
-                    voice_id=row.voice_id,
-                )
-        else:
-            row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
-            row.charged_credits = _zero()
-        row.status = TTS_MINIMAX_CLONE_STATUS_READY
-        row.ready_at = now_utc()
-        db.session.commit()
+            billing_pending = _settle_clone_billing(app, row, clone_result)
+            result_voice_bid = row.voice_bid
+            result_voice_id = row.voice_id
+        if billing_pending:
+            return MiniMaxVoiceCloneRunResult(
+                status="billing_pending",
+                voice_bid=result_voice_bid,
+                voice_id=result_voice_id,
+            )
         _cleanup_raw_resources(app, row)
         return MiniMaxVoiceCloneRunResult(
             status="ready",
-            voice_bid=row.voice_bid,
-            voice_id=row.voice_id,
+            voice_bid=result_voice_bid,
+            voice_id=result_voice_id,
         )
+
+
+def _apply_clone_result(
+    app: Flask,
+    row: TTSMiniMaxClonedVoice,
+    *,
+    clone_result: MiniMaxVoiceCloneResult,
+    normalized_resource: StoredResourceRef,
+    source_audio: NormalizedAudioBlob,
+    prompt_audio: NormalizedAudioBlob | None,
+    source_file_id: str,
+    prompt_file_id: str,
+) -> None:
+    _ = app
+    row.normalized_audio_resource_bid = normalized_resource.resource_bid
+    row.normalized_audio_url = normalized_resource.url
+    row.normalized_audio_object_key = normalized_resource.object_key
+    row.normalized_audio_duration_ms = source_audio.duration_ms
+    row.source_audio_duration_ms = source_audio.duration_ms
+    if prompt_audio is not None:
+        row.prompt_audio_duration_ms = prompt_audio.duration_ms
+    row.minimax_source_file_id = source_file_id
+    row.minimax_prompt_file_id = prompt_file_id
+    row.minimax_demo_audio_url = clone_result.demo_audio
+    row.minimax_trace_id = clone_result.trace_id
+    row.minimax_status_code = clone_result.status_code
+    row.minimax_status_msg = clone_result.status_msg
+    row.minimax_extra = clone_result.extra_info
+    row.status_msg = ""
+
+
+def _settle_clone_billing(
+    app: Flask,
+    row: TTSMiniMaxClonedVoice,
+    clone_result: MiniMaxVoiceCloneResult,
+) -> bool:
+    """Record usage and capture the reservation; True when capture is pending."""
+    usage_bid = _record_voice_clone_usage(app, row, clone_result)
+    row.clone_usage_bid = usage_bid
+    if row.billing_reservation_bid:
+        capture = capture_reserved_operation_credits(
+            app,
+            reservation_bid=row.billing_reservation_bid,
+            usage_bid=usage_bid,
+            metadata={
+                "voice_bid": row.voice_bid,
+                "voice_id": row.voice_id,
+                "trace_id": clone_result.trace_id,
+            },
+        )
+        if capture.status not in {"captured", "already_captured"}:
+            row.billing_status = TTS_MINIMAX_CLONE_BILLING_FAILED
+            row.status = TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING
+            row.status_msg = "billing capture is pending"
+            return True
+        row.billing_status = TTS_MINIMAX_CLONE_BILLING_CHARGED
+        row.charged_credits = capture.amount or row.estimated_credits
+    else:
+        row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
+        row.charged_credits = _zero()
+    row.status = TTS_MINIMAX_CLONE_STATUS_READY
+    row.ready_at = now_utc()
+    return False
 
 
 def _record_voice_clone_usage(
@@ -896,22 +955,22 @@ def _mark_clone_failed(
     exc: Exception,
     reason: str,
 ) -> None:
-    with app.app_context():
-        row = _load_voice_row(voice_bid)
-        row.status = TTS_MINIMAX_CLONE_STATUS_FAILED
-        row.status_msg = _safe_status_message(exc)
-        row.failure_reason = reason
-        if row.billing_reservation_bid:
-            release = release_reserved_operation_credits(
-                app,
-                reservation_bid=row.billing_reservation_bid,
-                reason=reason,
-            )
-            if release.status in {"released", "already_released"}:
-                row.billing_status = TTS_MINIMAX_CLONE_BILLING_RELEASED
-        elif row.billing_status != TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED:
-            row.billing_status = TTS_MINIMAX_CLONE_BILLING_FAILED
-        db.session.commit()
+    with app_context_scope(app):
+        with unit_of_work():
+            row = _load_voice_row(voice_bid)
+            row.status = TTS_MINIMAX_CLONE_STATUS_FAILED
+            row.status_msg = _safe_status_message(exc)
+            row.failure_reason = reason
+            if row.billing_reservation_bid:
+                release = release_reserved_operation_credits(
+                    app,
+                    reservation_bid=row.billing_reservation_bid,
+                    reason=reason,
+                )
+                if release.status in {"released", "already_released"}:
+                    row.billing_status = TTS_MINIMAX_CLONE_BILLING_RELEASED
+            elif row.billing_status != TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED:
+                row.billing_status = TTS_MINIMAX_CLONE_BILLING_FAILED
         _cleanup_raw_resources(app, row)
 
 
@@ -1011,7 +1070,7 @@ def _store_resource_bytes(
         warm_up=False,
     )
     resource_bid = generate_id(app)
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         resource = Resource(
             resource_id=resource_bid,
             name=str(filename or resource_kind)[:255],
@@ -1025,7 +1084,6 @@ def _store_resource_bytes(
             updated_by=owner_user_bid,
         )
         db.session.add(resource)
-        db.session.commit()
     _write_temp_resource_bytes(resource_bid, data)
     return StoredResourceRef(
         resource_bid=resource_bid,
@@ -1042,11 +1100,10 @@ def _delete_resource_object(app: Flask, resource_bid: str) -> None:
     temp_path = _temp_resource_path(normalized)
     with contextlib.suppress(Exception):
         temp_path.unlink(missing_ok=True)
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         resource = Resource.query.filter(Resource.resource_id == normalized).first()
         if resource is not None:
             resource.is_deleted = 1
-            db.session.commit()
 
 
 def _read_resource_bytes(resource_bid: str) -> bytes:

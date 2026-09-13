@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.config import get_config
 from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, or_
@@ -229,7 +229,7 @@ def dispatch_due_renewal_events(
     app: object,
 ) -> dict[str, object]:
     """Find due renewal events and enqueue the existing runner task."""
-    with app.app_context():
+    with app_context_scope(app):
         config = _load_renewal_task_config()
         if not _coerce_bool(config.get("enabled")):
             return {
@@ -255,11 +255,10 @@ def dispatch_due_renewal_events(
             enabled=config.get("use_dedicated_queue"),
         )
         now = now_utc()
-        recovered_processing_count = _recover_stale_processing_renewal_events(
-            stale_before=now - timedelta(minutes=processing_timeout_minutes)
-        )
-        if recovered_processing_count:
-            db.session.commit()
+        with unit_of_work():
+            recovered_processing_count = _recover_stale_processing_renewal_events(
+                stale_before=now - timedelta(minutes=processing_timeout_minutes)
+            )
 
         cutoff = now + timedelta(minutes=lookahead_minutes)
         events = (

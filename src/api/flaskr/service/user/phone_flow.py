@@ -6,6 +6,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
@@ -27,7 +28,6 @@ from flaskr.service.user.repository import (
     load_user_aggregate,
     load_user_aggregate_by_identifier,
     mark_user_roles,
-    transactional_session,
     update_user_entity_fields,
     upsert_credential,
     upsert_wechat_credentials,
@@ -247,7 +247,7 @@ def verify_phone_code(
     creator_granted_now = False
     normalized_course_id = str(course_id or "").strip() or None
 
-    with transactional_session():
+    with unit_of_work():
         target_aggregate = load_user_aggregate_by_identifier(
             normalized_phone, providers=["phone"]
         )

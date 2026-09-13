@@ -371,7 +371,9 @@ disposition, consuming Phase 2 batch. Summary rows go to
   of old commit points to new boundaries, mid-flow-failure tests, and a
   concurrent order-creation check in the dev env. Afterwards add a CI lint
   banning new `db.session.commit()` outside `dao/`; remaining call sites
-  migrate opportunistically.
+  migrate opportunistically. Superseded 2026-09-13: the remaining sites are
+  now migrated in planned batches under
+  `docs/exec-plans/completed/uow-commit-site-migration.md`.
 - **B5 Giant file splits**: mechanical decomposition of
   `shifu/admin_operations/courses.py`, `shifu/admin.py`, and
   `shifu/admin_dtos.py` into cohesive submodules with re-export shims at the

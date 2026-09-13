@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.pagination import normalize_pagination
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
@@ -405,7 +406,7 @@ def update_operator_referral_status(
     payload: dict[str, object],
 ) -> dict[str, object]:
     """Update operator referral status."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         relation = (
             ReferralInviteRelation.query.filter(
                 ReferralInviteRelation.deleted == 0,
@@ -453,8 +454,9 @@ def update_operator_referral_status(
         db.session.add(relation)
         if reward is not None:
             db.session.add(reward)
-        db.session.commit()
-        return get_operator_referral_detail(app, relation_bid=relation.relation_bid)
+        updated_relation_bid = relation.relation_bid
+    # The detail read opens its own app context, so it runs after the commit.
+    return get_operator_referral_detail(app, relation_bid=updated_relation_bid)
 
 
 def _page_count(total: int, page_size: int) -> int:

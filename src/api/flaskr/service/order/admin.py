@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
@@ -730,77 +731,84 @@ def import_activation_order(
     existing_aggregate = load_user_aggregate_by_identifier(
         normalized_identifier, providers=[contact_type]
     )
-    aggregate, created_new_user = ensure_user_for_identifier(
-        app,
-        provider=contact_type,
-        identifier=normalized_identifier,
-        defaults=defaults,
-    )
-
-    if not aggregate:
-        raise_error("server.user.userNotFound")
-
-    user_id = aggregate.user_bid
-
-    existing_success_order = (
-        Order.query.filter(
-            Order.user_bid == user_id,
-            Order.shifu_bid == normalized_course_id,
-            Order.status == ORDER_STATUS_SUCCESS,
-            Order.deleted == 0,
+    # Step 1 - the account and its credential must exist before the order is
+    # created; ``init_buy_record`` owns its own retry-on-deadlock unit of
+    # work, so it stays outside this block instead of nesting.
+    with unit_of_work():
+        aggregate, created_new_user = ensure_user_for_identifier(
+            app,
+            provider=contact_type,
+            identifier=normalized_identifier,
+            defaults=defaults,
         )
-        .order_by(Order.id.desc())
-        .first()
-    )
-    if existing_success_order:
-        if contact_type == "email":
-            raise_error_with_args(
-                "server.order.emailAlreadyActivated", email=normalized_identifier
-            )
-        else:
-            raise_error_with_args(
-                "server.order.mobileAlreadyActivated",
-                mobile=normalized_identifier,
-            )
 
-    entity = get_user_entity_by_bid(user_id, include_deleted=True)
-    if entity:
-        updates = {"identify": normalized_identifier}
-        if normalized_nickname:
-            updates["nickname"] = normalized_nickname
-        if aggregate.state == USER_STATE_UNREGISTERED:
-            updates["state"] = USER_STATE_REGISTERED
-        update_user_entity_fields(entity, **updates)
-    if created_new_user or (
-        existing_aggregate and existing_aggregate.state == USER_STATE_UNREGISTERED
-    ):
-        ensure_demo_course_permissions(app, user_id)
+        if not aggregate:
+            raise_error("server.user.userNotFound")
 
-    upsert_credential(
-        app,
-        user_bid=user_id,
-        provider_name=contact_type,
-        subject_id=normalized_identifier,
-        subject_format=contact_type,
-        identifier=normalized_identifier,
-        metadata={"course_id": normalized_course_id},
-        verified=True,
-    )
-    db.session.commit()
+        user_id = aggregate.user_bid
+
+        existing_success_order = (
+            Order.query.filter(
+                Order.user_bid == user_id,
+                Order.shifu_bid == normalized_course_id,
+                Order.status == ORDER_STATUS_SUCCESS,
+                Order.deleted == 0,
+            )
+            .order_by(Order.id.desc())
+            .first()
+        )
+        if existing_success_order:
+            if contact_type == "email":
+                raise_error_with_args(
+                    "server.order.emailAlreadyActivated", email=normalized_identifier
+                )
+            else:
+                raise_error_with_args(
+                    "server.order.mobileAlreadyActivated",
+                    mobile=normalized_identifier,
+                )
+
+        entity = get_user_entity_by_bid(user_id, include_deleted=True)
+        if entity:
+            updates = {"identify": normalized_identifier}
+            if normalized_nickname:
+                updates["nickname"] = normalized_nickname
+            if aggregate.state == USER_STATE_UNREGISTERED:
+                updates["state"] = USER_STATE_REGISTERED
+            update_user_entity_fields(entity, **updates)
+        if created_new_user or (
+            existing_aggregate and existing_aggregate.state == USER_STATE_UNREGISTERED
+        ):
+            ensure_demo_course_permissions(app, user_id)
+
+        upsert_credential(
+            app,
+            user_bid=user_id,
+            provider_name=contact_type,
+            subject_id=normalized_identifier,
+            subject_format=contact_type,
+            identifier=normalized_identifier,
+            metadata={"course_id": normalized_course_id},
+            verified=True,
+        )
 
     buy_record = init_buy_record(app, user_id, normalized_course_id)
-    order = Order.query.filter(Order.order_bid == buy_record.order_id).first()
-    if not order:
-        raise_error("server.order.orderNotFound")
 
-    order.payable_price = Decimal(0)
-    order.paid_price = Decimal(0)
-    order.payment_channel = payment_channel
-    db.session.commit()
+    # Step 2 - zero the price and flip the order to SUCCESS together;
+    # ``success_buy_record`` joins this block and its notification fires
+    # only after the commit.
+    with unit_of_work():
+        order = Order.query.filter(Order.order_bid == buy_record.order_id).first()
+        if not order:
+            raise_error("server.order.orderNotFound")
 
-    success_buy_record(app, order.order_bid)
+        order.payable_price = Decimal(0)
+        order.paid_price = Decimal(0)
+        order.payment_channel = payment_channel
+        order_bid = order.order_bid
+        success_buy_record(app, order_bid)
 
-    return {"order_bid": order.order_bid}
+    return {"order_bid": order_bid}
 
 
 def import_activation_orders(

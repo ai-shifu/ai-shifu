@@ -57,6 +57,25 @@ def main() -> int:
     """Report direct commits outside approved unit-of-work boundaries."""
     current = scan()
     if "--update" in sys.argv:
+        # The baseline only ratchets down: refuse to record a file that gained
+        # call sites, so `--update` cannot launder a regression into the
+        # baseline in the same change. Creating a missing baseline is allowed.
+        if BASELINE_PATH.exists():
+            previous = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+            grown = {
+                rel: (previous.get(rel, 0), n)
+                for rel, n in current.items()
+                if n > previous.get(rel, 0)
+            }
+            if grown:
+                print("Refusing to update: commit sites increased in:")
+                for rel, (old, new) in sorted(grown.items()):
+                    print(f" - flaskr/{rel}: {old} -> {new}")
+                print(
+                    "Move the new commit onto `with unit_of_work():` "
+                    "(flaskr/dao/uow.py); the baseline never grows."
+                )
+                return 1
         BASELINE_PATH.write_text(
             json.dumps(current, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )

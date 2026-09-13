@@ -11,7 +11,6 @@ from flask import Flask, Response, current_app, make_response, request
 from flaskr.common.http import sensitive_body
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _translations, set_language
 from flaskr.service.common.dtos import OAuthStartDTO, UserToken
@@ -24,6 +23,7 @@ from flaskr.service.profile.funcs import (
     update_user_profile_with_lable,
 )
 from flaskr.service.referral.service import extract_referral_post_auth_fields
+from flaskr.service.user import password_flow
 from flaskr.service.user.auth import get_provider
 from flaskr.service.user.auth.base import (
     ChallengeRequest,
@@ -38,7 +38,6 @@ from flaskr.service.user.captcha import (
     verify_captcha_code,
 )
 from flaskr.service.user.common import update_user_info, validate_user
-from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.device_auth import (
     approve_device_authorization,
     create_device_authorization,
@@ -47,26 +46,17 @@ from flaskr.service.user.device_auth import (
     poll_device_authorization,
     record_device_registration_attribution,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo
+from flaskr.service.user.models import UserInfo
 from flaskr.service.user.onboarding import (
     ONBOARDING_VERSION,
     build_onboarding_status,
     complete_onboarding_scene,
 )
-from flaskr.service.user.password_utils import (
-    hash_password,
-    validate_password_strength,
-    verify_password,
-)
+from flaskr.service.user.password_utils import validate_password_strength
 from flaskr.service.user.post_auth import PostAuthContext, run_post_auth_extensions
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
-    find_credential,
-    get_password_hash,
-    list_credentials,
     load_user_aggregate,
-    load_user_aggregate_by_identifier,
-    set_password_hash,
 )
 from flaskr.service.user.sessions import (
     list_user_sessions,
@@ -81,8 +71,6 @@ from flaskr.service.user.user import (
 from flaskr.service.user.utils import (
     ensure_admin_creator_and_demo_permissions,
 )
-from flaskr.service.user.verification_codes import consume_verification_code
-from flaskr.util.uuid import generate_id
 
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
 from .profile import register_profile_routes
@@ -360,13 +348,13 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 description: ensure admin creator permissions
         """
         language = getattr(request.user, "language", None) or "en-US"
-        creator_granted_now = ensure_admin_creator_and_demo_permissions(
-            app,
-            request.user.user_id,
-            language,
-            "admin",
-        )
-        db.session.commit()
+        with unit_of_work():
+            creator_granted_now = ensure_admin_creator_and_demo_permissions(
+                app,
+                request.user.user_id,
+                language,
+                "admin",
+            )
         run_post_auth_extensions(
             app,
             PostAuthContext(
@@ -1021,17 +1009,16 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         course_id = request.get_json().get("course_id", None)
         if not profiles:
             raise_param_error("profiles")
-        with app.app_context():
-            ret = update_user_profile_with_lable(
+        with unit_of_work():
+            update_user_profile_with_lable(
                 app,
                 request.user.user_id,
                 profiles,
                 update_all=True,
                 course_id=course_id,
             )
-            db.session.commit()
-            ret = get_user_profile_labels(app, request.user.user_id, course_id)
-            return make_common_response(ret.__json__())
+        ret = get_user_profile_labels(app, request.user.user_id, course_id)
+        return make_common_response(ret.__json__())
 
     @app.route(path_prefix + "/upload_avatar", methods=["POST"])
     def upload_avatar() -> str:
@@ -1334,70 +1321,13 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("new_password")
         validate_password_strength(new_password)
 
-        user = request.user
-        user_bid = user.user_id
-
-        # Find user's phone/email credential to get identifier
-        creds = list_credentials(user_bid=user_bid)
-        available_identifiers = []
-        for c in creds:
-            if c.provider_name in ("phone", "email") and c.identifier:
-                normalized = (
-                    c.identifier.lower()
-                    if c.provider_name == "email"
-                    else normalize_phone_identifier(c.identifier)
-                )
-                available_identifiers.append(normalized)
-
-        selected_identifier = None
-        if identifier:
-            normalized = (
-                identifier.strip().lower()
-                if "@" in identifier
-                else normalize_phone_identifier(identifier)
-            )
-            if normalized not in available_identifiers:
-                # Avoid leaking whether another account exists for the identifier.
-                raise_error("server.user.invalidCredentials")
-            selected_identifier = normalized
-        else:
-            selected_identifier = (
-                available_identifiers[0] if available_identifiers else None
-            )
-
-        if not selected_identifier:
-            raise_param_error("identifier")
-
-        # Reject if user already has a password credential (use change_password instead)
-        pwd_cred = find_credential(
-            provider_name="password", identifier=selected_identifier, user_bid=user_bid
+        password_flow.set_password(
+            app,
+            user_bid=request.user.user_id,
+            identifier=identifier,
+            code=code,
+            new_password=new_password,
         )
-        if pwd_cred and get_password_hash(pwd_cred):
-            raise_error("server.user.passwordAlreadySet")
-
-        # Validate ownership by consuming a verification code for the chosen identifier.
-        consume_verification_code(app, identifier=selected_identifier, code=code)
-
-        subject_format = "email" if "@" in selected_identifier else "phone"
-
-        if pwd_cred:
-            set_password_hash(pwd_cred, hash_password(new_password))
-        else:
-            pwd_cred = AuthCredential(
-                credential_bid=generate_id(app),
-                user_bid=user_bid,
-                provider_name="password",
-                subject_id=selected_identifier,
-                subject_format=subject_format,
-                identifier=selected_identifier,
-                raw_profile="",
-                state=CREDENTIAL_STATE_VERIFIED,
-                deleted=0,
-            )
-            db.session.add(pwd_cred)
-            set_password_hash(pwd_cred, hash_password(new_password))
-
-        db.session.commit()
         return make_common_response({"success": True})
 
     @app.route(path_prefix + "/change_password", methods=["POST"])
@@ -1417,21 +1347,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         validate_password_strength(new_password)
 
-        user = request.user
-        user_bid = user.user_id
-
-        # Find user's password credential
-        creds = list_credentials(user_bid=user_bid, provider_name="password")
-        if not creds:
-            raise_error("server.user.invalidCredentials")
-
-        pwd_cred = creds[0]
-        current_hash = get_password_hash(pwd_cred)
-        if not current_hash or not verify_password(old_password, current_hash):
-            raise_error("server.user.invalidCredentials")
-
-        set_password_hash(pwd_cred, hash_password(new_password))
-        db.session.commit()
+        password_flow.change_password(
+            app,
+            user_bid=request.user.user_id,
+            old_password=old_password,
+            new_password=new_password,
+        )
         return make_common_response({"success": True})
 
     @app.route(path_prefix + "/reset_password", methods=["POST"])
@@ -1455,51 +1376,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         validate_password_strength(new_password)
 
-        raw_identifier = identifier.strip()
-        normalized_identifier = (
-            raw_identifier.lower()
-            if "@" in raw_identifier
-            else normalize_phone_identifier(raw_identifier)
+        password_flow.reset_password(
+            app, identifier=identifier, code=code, new_password=new_password
         )
-
-        # Reset is only allowed for existing users. New users must go through
-        # phone-code / Google login first.
-        aggregate = load_user_aggregate_by_identifier(
-            normalized_identifier, providers=["phone", "email"]
-        )
-        if not aggregate:
-            raise_error("server.user.userNotFound")
-
-        # Verify identity via verification code without creating/merging users.
-        consume_verification_code(app, identifier=normalized_identifier, code=code)
-
-        user_bid = aggregate.user_bid
-        subject_format = "email" if "@" in normalized_identifier else "phone"
-
-        # Find or create password credential
-        pwd_cred = find_credential(
-            provider_name="password",
-            identifier=normalized_identifier,
-            user_bid=user_bid,
-        )
-        if pwd_cred:
-            set_password_hash(pwd_cred, hash_password(new_password))
-        else:
-            pwd_cred = AuthCredential(
-                credential_bid=generate_id(app),
-                user_bid=user_bid,
-                provider_name="password",
-                subject_id=normalized_identifier,
-                subject_format=subject_format,
-                identifier=normalized_identifier,
-                raw_profile="",
-                state=CREDENTIAL_STATE_VERIFIED,
-                deleted=0,
-            )
-            db.session.add(pwd_cred)
-            set_password_hash(pwd_cred, hash_password(new_password))
-
-        db.session.commit()
         return make_common_response({"success": True})
 
     # health check

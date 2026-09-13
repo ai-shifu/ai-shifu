@@ -21,7 +21,7 @@ from flaskr.api.tts import (
     is_tts_configured,
     synthesize_text,
 )
-from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
@@ -702,7 +702,7 @@ def reset_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str
 ) -> bool:
     """Reset learn record."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         progress_records = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
@@ -712,8 +712,6 @@ def reset_learn_record(
         ).all()
         for progress_record in progress_records:
             progress_record.status = LEARN_STATUS_RESET
-
-        db.session.commit()
         return True
 
 
@@ -721,7 +719,7 @@ def handle_reaction(
     app: Flask, shifu_bid: str, user_bid: str, generated_block_bid: str, action: str
 ) -> bool:
     """Persist a learner's reaction to one generated block."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         generated_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.user_bid == user_bid,
             LearnGeneratedBlock.shifu_bid == shifu_bid,
@@ -739,7 +737,6 @@ def handle_reaction(
             generated_block.liked = -1
         if action == "none":
             generated_block.liked = 0
-        db.session.commit()
         return True
 
 
@@ -1056,7 +1053,8 @@ def _finalize_tts_stream_audio(
             segment_count=segment_count,
             subtitle_cues=subtitle_cues,
         )
-        save_audio_record(audio_record, commit=True)
+        with unit_of_work():
+            save_audio_record(audio_record)
 
     return oss_url, duration_ms
 

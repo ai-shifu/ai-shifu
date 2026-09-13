@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
-from flaskr.dao.uow import unit_of_work
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
@@ -1048,7 +1049,11 @@ def rebuild_credit_wallet_snapshots(
     """Rebuild wallet snapshots from bucket rows for one or many creators."""
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bid = str(wallet_bid or "").strip()
-    with app.app_context():
+    # A dry run stages nothing, so it must not own a transaction boundary at
+    # all: a caller's pending work stays pending (neither committed nor
+    # rolled back), exactly as before the migration.
+    boundary = nullcontext() if dry_run else unit_of_work()
+    with app_context_scope(app), boundary:
         query = CreditWallet.query.filter(CreditWallet.deleted == 0)
         if normalized_creator_bid:
             query = query.filter(CreditWallet.creator_bid == normalized_creator_bid)
@@ -1108,8 +1113,6 @@ def rebuild_credit_wallet_snapshots(
                 )
             )
 
-        if not dry_run:
-            db.session.commit()
         return WalletSnapshotRebuildResult(
             status="dry_run" if dry_run else "rebuilt",
             creator_bid=normalized_creator_bid or None,
@@ -1411,7 +1414,7 @@ def repair_credit_bucket_runtime_statuses(
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
     repaired_at = now_utc()
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         query = CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
             CreditWalletBucket.status == CREDIT_BUCKET_STATUS_EXPIRED,
@@ -1471,7 +1474,6 @@ def repair_credit_bucket_runtime_statuses(
                 updated_at=repaired_at,
             )
 
-        db.session.commit()
         return {
             "status": "repaired",
             "creator_bid": normalized_creator_bid or None,
@@ -1506,7 +1508,7 @@ def grant_refund_return_credits(
             amount=_credit_decimal_to_number(normalized_amount),
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         idempotency_key = f"refund_return:{normalized_refund_bid}"
         existing_entry = (
             CreditLedgerEntry.query.filter(
@@ -1614,7 +1616,6 @@ def grant_refund_return_credits(
             updated_at=now,
         )
         db.session.add(ledger_entry)
-        db.session.commit()
         return RefundReturnCreditsResult(
             status="granted",
             creator_bid=normalized_creator_bid,
@@ -1644,7 +1645,7 @@ def adjust_credit_wallet_balance(
             amount=_credit_decimal_to_number(normalized_amount),
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
         adjustment_bid = generate_id(app)
         adjusted_at = now_utc()
@@ -1706,7 +1707,6 @@ def adjust_credit_wallet_balance(
                 updated_at=adjusted_at,
             )
             db.session.add(ledger_entry)
-            db.session.commit()
             return BillingLedgerAdjustResultDTO(
                 status="adjusted",
                 adjustment_bid=adjustment_bid,
@@ -1783,7 +1783,6 @@ def adjust_credit_wallet_balance(
             ledger_bids.append(ledger_entry.ledger_bid)
             remaining -= adjusted_amount
 
-        db.session.commit()
         return BillingLedgerAdjustResultDTO(
             status="adjusted",
             adjustment_bid=adjustment_bid,
@@ -1829,11 +1828,50 @@ def grant_manual_credit_wallet_balance(
             amount=_credit_decimal_to_number(normalized_amount),
         )
 
-    with app.app_context():
+    with app_context_scope(app):
         granted_at = effective_from or now_utc()
-        wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
         grant_bid = normalized_source_bid or generate_id(app)
         ledger_key = normalized_idempotency_key or f"manual_grant:{grant_bid}"
+        try:
+            return _grant_manual_credit_wallet_balance_once(
+                app,
+                creator_bid=normalized_creator_bid,
+                amount=normalized_amount,
+                grant_bid=grant_bid,
+                ledger_key=ledger_key,
+                granted_at=granted_at,
+                effective_to=effective_to,
+                metadata=metadata,
+                ledger_metadata=ledger_metadata,
+            )
+        except IntegrityError:
+            # A concurrent grant with the same idempotency key won; the unit
+            # of work rolled ours back, so answer with the winner's result.
+            existing_result = _load_existing_manual_credit_grant_result(
+                creator_bid=normalized_creator_bid,
+                ledger_key=ledger_key,
+            )
+            if existing_result is not None:
+                return existing_result
+            raise
+
+
+def _grant_manual_credit_wallet_balance_once(
+    app: Flask,
+    *,
+    creator_bid: str,
+    amount: Decimal,
+    grant_bid: str,
+    ledger_key: str,
+    granted_at: datetime,
+    effective_to: datetime | None,
+    metadata: dict[str, object] | None,
+    ledger_metadata: dict[str, object] | None,
+) -> ManualCreditGrantResult:
+    normalized_creator_bid = creator_bid
+    normalized_amount = amount
+    with unit_of_work():
+        wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
 
         existing_result = _load_existing_manual_credit_grant_result(
             creator_bid=normalized_creator_bid,
@@ -1899,17 +1937,6 @@ def grant_manual_credit_wallet_balance(
             updated_at=granted_at,
         )
         db.session.add(ledger_entry)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
-            existing_result = _load_existing_manual_credit_grant_result(
-                creator_bid=normalized_creator_bid,
-                ledger_key=ledger_key,
-            )
-            if existing_result is not None:
-                return existing_result
-            raise
         return ManualCreditGrantResult(
             status="granted",
             creator_bid=normalized_creator_bid,
@@ -1966,14 +1993,12 @@ def expire_credit_wallet_buckets(
     """Expire currently active buckets whose effective window has ended."""
     normalized_creator_bid = str(creator_bid or "").strip()
     cutoff = expire_before or now_utc()
-    with app.app_context():
-        result = _expire_credit_wallet_buckets_in_session(
+    with app_context_scope(app), unit_of_work():
+        return _expire_credit_wallet_buckets_in_session(
             app,
             creator_bid=normalized_creator_bid,
             expire_before=cutoff,
         )
-        db.session.commit()
-        return result
 
 
 def repair_expire_ledger_bucket_drift(

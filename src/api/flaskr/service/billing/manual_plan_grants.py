@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -22,8 +23,6 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
 )
 from .credit_notifications import (
-    enqueue_credit_notification,
-    pending_credit_notification_bids,
     stage_credit_granted_notification_for_order,
 )
 from .models import BillingOrder, BillingProduct, BillingSubscription
@@ -186,7 +185,7 @@ def grant_manual_plan_to_user(
     grant_channel: str = "operator_user_management",
 ) -> ManualPlanGrantResult:
     """Grant one active billing plan to one user via a manual paid order."""
-    with app.app_context():
+    with app_context_scope(app):
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_product_bid = _normalize_bid(product_bid)
         normalized_operator_user_bid = _normalize_bid(operator_user_bid)
@@ -216,210 +215,209 @@ def grant_manual_plan_to_user(
             raise_error("server.billing.manualPlanGrantBusy")
 
         try:
-            existing_order = _load_existing_manual_grant_order(
-                user_bid=normalized_user_bid,
-                request_id=normalized_request_id,
-            )
-            now = now_utc()
-            if existing_order is not None:
-                granted = grant_paid_order_credits(app, existing_order)
-                notification_bids: tuple[str, ...] = ()
-                if granted:
-                    grant_notification = stage_credit_granted_notification_for_order(
-                        app,
-                        creator_bid=existing_order.creator_bid,
-                        bill_order_bid=existing_order.bill_order_bid,
-                        commit=False,
-                        enqueue=False,
+            # One unit of work under the request lock; the staged credit
+            # notifications are enqueued by uow.on_commit once it commits.
+            with unit_of_work():
+                existing_order = _load_existing_manual_grant_order(
+                    user_bid=normalized_user_bid,
+                    request_id=normalized_request_id,
+                )
+                now = now_utc()
+                if existing_order is not None:
+                    granted = grant_paid_order_credits(app, existing_order)
+                    if granted:
+                        stage_credit_granted_notification_for_order(
+                            app,
+                            creator_bid=existing_order.creator_bid,
+                            bill_order_bid=existing_order.bill_order_bid,
+                            commit=False,
+                            enqueue=True,
+                        )
+                    notification_status = _ensure_notification_extension_metadata(
+                        existing_order,
+                        requested_at=now,
+                        operator_user_bid=normalized_operator_user_bid,
+                        grant_channel=grant_channel,
                     )
-                    notification_bids = pending_credit_notification_bids(
-                        grant_notification
+                    db.session.add(existing_order)
+                    subscription = (
+                        BillingSubscription.query.filter(
+                            BillingSubscription.deleted == 0,
+                            BillingSubscription.subscription_bid
+                            == existing_order.subscription_bid,
+                        )
+                        .order_by(BillingSubscription.id.desc())
+                        .first()
                     )
+                    existing_product = _load_plan_product_by_bid(
+                        str(existing_order.product_bid or "").strip()
+                    )
+                    return ManualPlanGrantResult(
+                        user_bid=normalized_user_bid,
+                        product_bid=str(existing_order.product_bid or "").strip(),
+                        product_code=(
+                            str(existing_product.product_code or "").strip()
+                            if existing_product is not None
+                            else ""
+                        ),
+                        subscription_bid=str(
+                            existing_order.subscription_bid or ""
+                        ).strip(),
+                        bill_order_bid=str(existing_order.bill_order_bid or "").strip(),
+                        current_period_start_at=(
+                            subscription.current_period_start_at
+                            if subscription is not None
+                            else None
+                        ),
+                        current_period_end_at=(
+                            subscription.current_period_end_at
+                            if subscription is not None
+                            else None
+                        ),
+                        notification_status=notification_status,
+                        reused_existing_request=True,
+                    )
+
+                product = _load_active_plan_product(product_bid=normalized_product_bid)
+                if product is None:
+                    raise_param_error("product_bid")
+
+                existing_subscription = _load_primary_active_subscription(
+                    normalized_user_bid,
+                    as_of=now,
+                )
+                order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_START
+                if existing_subscription is not None:
+                    existing_product_bid = _normalize_bid(
+                        existing_subscription.product_bid
+                    )
+                    if existing_product_bid == product.product_bid:
+                        raise_error("server.billing.adminPlanGrantAlreadyActive")
+                    if not is_self_managed_billing_provider(
+                        existing_subscription.billing_provider
+                    ):
+                        raise_error(
+                            "server.billing.adminPlanGrantProviderManagedConflict"
+                        )
+                    current_product = _load_plan_product_by_bid(existing_product_bid)
+                    if current_product is None:
+                        raise_error("server.billing.manualPlanGrantFailed")
+                    if int(product.sort_order or 0) <= int(
+                        current_product.sort_order or 0
+                    ):
+                        raise_error("server.billing.subscriptionUpgradeOnly")
+                    order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+
+                granted_at = now_utc()
+                cycle_end_at = _resolve_manual_plan_cycle_end(
+                    product=product,
+                    granted_at=granted_at,
+                )
+
+                subscription_metadata = {
+                    "admin_manual_plan_grant": True,
+                    "grant_channel": grant_channel,
+                    "operator_user_bid": normalized_operator_user_bid,
+                    "request_id": normalized_request_id,
+                }
+                if normalized_note:
+                    subscription_metadata["note"] = normalized_note
+
+                if existing_subscription is None:
+                    subscription = BillingSubscription(
+                        subscription_bid=generate_id(app),
+                        creator_bid=normalized_user_bid,
+                        product_bid=product.product_bid,
+                        status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+                        billing_provider=_MANUAL_PROVIDER_NAME,
+                        provider_subscription_id="",
+                        provider_customer_id="",
+                        billing_anchor_at=granted_at,
+                        current_period_start_at=granted_at,
+                        current_period_end_at=cycle_end_at,
+                        grace_period_end_at=None,
+                        cancel_at_period_end=0,
+                        next_product_bid="",
+                        last_renewed_at=None,
+                        last_failed_at=None,
+                        metadata_json=subscription_metadata,
+                    )
+                else:
+                    subscription = existing_subscription
+                    subscription.metadata_json = {
+                        **(
+                            subscription.metadata_json
+                            if isinstance(subscription.metadata_json, dict)
+                            else {}
+                        ),
+                        **subscription_metadata,
+                    }
+                    subscription.updated_at = granted_at
+
+                db.session.add(subscription)
+                db.session.flush()
+
+                order_metadata = {
+                    "checkout_type": "admin_manual_plan_grant",
+                    "admin_manual_plan_grant": True,
+                    "grant_channel": grant_channel,
+                    "operator_user_bid": normalized_operator_user_bid,
+                    "request_id": normalized_request_id,
+                    "applied_cycle_start_at": granted_at.isoformat(),
+                    "applied_cycle_end_at": cycle_end_at.isoformat(),
+                }
+                if normalized_note:
+                    order_metadata["note"] = normalized_note
+
+                order = BillingOrder(
+                    bill_order_bid=generate_id(app),
+                    creator_bid=normalized_user_bid,
+                    order_type=order_type,
+                    product_bid=product.product_bid,
+                    subscription_bid=subscription.subscription_bid,
+                    currency=product.currency,
+                    payable_amount=0,
+                    paid_amount=0,
+                    payment_provider=_MANUAL_PROVIDER_NAME,
+                    channel=_MANUAL_PROVIDER_NAME,
+                    provider_reference_id=_build_manual_grant_provider_reference(
+                        normalized_request_id
+                    ),
+                    status=BILLING_ORDER_STATUS_PAID,
+                    paid_at=granted_at,
+                    metadata_json=order_metadata,
+                )
                 notification_status = _ensure_notification_extension_metadata(
-                    existing_order,
-                    requested_at=now,
+                    order,
+                    requested_at=granted_at,
                     operator_user_bid=normalized_operator_user_bid,
                     grant_channel=grant_channel,
                 )
-                db.session.add(existing_order)
-                db.session.commit()
-                for notification_bid in notification_bids:
-                    enqueue_credit_notification(app, notification_bid=notification_bid)
-                subscription = (
-                    BillingSubscription.query.filter(
-                        BillingSubscription.deleted == 0,
-                        BillingSubscription.subscription_bid
-                        == existing_order.subscription_bid,
+
+                db.session.add(order)
+                db.session.flush()
+
+                granted = grant_paid_order_credits(app, order)
+                if granted:
+                    stage_credit_granted_notification_for_order(
+                        app,
+                        creator_bid=order.creator_bid,
+                        bill_order_bid=order.bill_order_bid,
+                        commit=False,
+                        enqueue=True,
                     )
-                    .order_by(BillingSubscription.id.desc())
-                    .first()
-                )
-                existing_product = _load_plan_product_by_bid(
-                    str(existing_order.product_bid or "").strip()
-                )
+
                 return ManualPlanGrantResult(
                     user_bid=normalized_user_bid,
-                    product_bid=str(existing_order.product_bid or "").strip(),
-                    product_code=(
-                        str(existing_product.product_code or "").strip()
-                        if existing_product is not None
-                        else ""
-                    ),
-                    subscription_bid=str(existing_order.subscription_bid or "").strip(),
-                    bill_order_bid=str(existing_order.bill_order_bid or "").strip(),
-                    current_period_start_at=(
-                        subscription.current_period_start_at
-                        if subscription is not None
-                        else None
-                    ),
-                    current_period_end_at=(
-                        subscription.current_period_end_at
-                        if subscription is not None
-                        else None
-                    ),
-                    notification_status=notification_status,
-                    reused_existing_request=True,
-                )
-
-            product = _load_active_plan_product(product_bid=normalized_product_bid)
-            if product is None:
-                raise_param_error("product_bid")
-
-            existing_subscription = _load_primary_active_subscription(
-                normalized_user_bid,
-                as_of=now,
-            )
-            order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_START
-            if existing_subscription is not None:
-                existing_product_bid = _normalize_bid(existing_subscription.product_bid)
-                if existing_product_bid == product.product_bid:
-                    raise_error("server.billing.adminPlanGrantAlreadyActive")
-                if not is_self_managed_billing_provider(
-                    existing_subscription.billing_provider
-                ):
-                    raise_error("server.billing.adminPlanGrantProviderManagedConflict")
-                current_product = _load_plan_product_by_bid(existing_product_bid)
-                if current_product is None:
-                    raise_error("server.billing.manualPlanGrantFailed")
-                if int(product.sort_order or 0) <= int(current_product.sort_order or 0):
-                    raise_error("server.billing.subscriptionUpgradeOnly")
-                order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
-
-            granted_at = now_utc()
-            cycle_end_at = _resolve_manual_plan_cycle_end(
-                product=product,
-                granted_at=granted_at,
-            )
-
-            subscription_metadata = {
-                "admin_manual_plan_grant": True,
-                "grant_channel": grant_channel,
-                "operator_user_bid": normalized_operator_user_bid,
-                "request_id": normalized_request_id,
-            }
-            if normalized_note:
-                subscription_metadata["note"] = normalized_note
-
-            if existing_subscription is None:
-                subscription = BillingSubscription(
-                    subscription_bid=generate_id(app),
-                    creator_bid=normalized_user_bid,
                     product_bid=product.product_bid,
-                    status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
-                    billing_provider=_MANUAL_PROVIDER_NAME,
-                    provider_subscription_id="",
-                    provider_customer_id="",
-                    billing_anchor_at=granted_at,
-                    current_period_start_at=granted_at,
-                    current_period_end_at=cycle_end_at,
-                    grace_period_end_at=None,
-                    cancel_at_period_end=0,
-                    next_product_bid="",
-                    last_renewed_at=None,
-                    last_failed_at=None,
-                    metadata_json=subscription_metadata,
+                    product_code=str(product.product_code or "").strip(),
+                    subscription_bid=str(subscription.subscription_bid or "").strip(),
+                    bill_order_bid=str(order.bill_order_bid or "").strip(),
+                    current_period_start_at=subscription.current_period_start_at,
+                    current_period_end_at=subscription.current_period_end_at,
+                    notification_status=notification_status,
+                    reused_existing_request=False,
                 )
-            else:
-                subscription = existing_subscription
-                subscription.metadata_json = {
-                    **(
-                        subscription.metadata_json
-                        if isinstance(subscription.metadata_json, dict)
-                        else {}
-                    ),
-                    **subscription_metadata,
-                }
-                subscription.updated_at = granted_at
-
-            db.session.add(subscription)
-            db.session.flush()
-
-            order_metadata = {
-                "checkout_type": "admin_manual_plan_grant",
-                "admin_manual_plan_grant": True,
-                "grant_channel": grant_channel,
-                "operator_user_bid": normalized_operator_user_bid,
-                "request_id": normalized_request_id,
-                "applied_cycle_start_at": granted_at.isoformat(),
-                "applied_cycle_end_at": cycle_end_at.isoformat(),
-            }
-            if normalized_note:
-                order_metadata["note"] = normalized_note
-
-            order = BillingOrder(
-                bill_order_bid=generate_id(app),
-                creator_bid=normalized_user_bid,
-                order_type=order_type,
-                product_bid=product.product_bid,
-                subscription_bid=subscription.subscription_bid,
-                currency=product.currency,
-                payable_amount=0,
-                paid_amount=0,
-                payment_provider=_MANUAL_PROVIDER_NAME,
-                channel=_MANUAL_PROVIDER_NAME,
-                provider_reference_id=_build_manual_grant_provider_reference(
-                    normalized_request_id
-                ),
-                status=BILLING_ORDER_STATUS_PAID,
-                paid_at=granted_at,
-                metadata_json=order_metadata,
-            )
-            notification_status = _ensure_notification_extension_metadata(
-                order,
-                requested_at=granted_at,
-                operator_user_bid=normalized_operator_user_bid,
-                grant_channel=grant_channel,
-            )
-
-            db.session.add(order)
-            db.session.flush()
-
-            granted = grant_paid_order_credits(app, order)
-            notification_bids: tuple[str, ...] = ()
-            if granted:
-                grant_notification = stage_credit_granted_notification_for_order(
-                    app,
-                    creator_bid=order.creator_bid,
-                    bill_order_bid=order.bill_order_bid,
-                    commit=False,
-                    enqueue=False,
-                )
-                notification_bids = pending_credit_notification_bids(grant_notification)
-
-            db.session.commit()
-            for notification_bid in notification_bids:
-                enqueue_credit_notification(app, notification_bid=notification_bid)
-            return ManualPlanGrantResult(
-                user_bid=normalized_user_bid,
-                product_bid=product.product_bid,
-                product_code=str(product.product_code or "").strip(),
-                subscription_bid=str(subscription.subscription_bid or "").strip(),
-                bill_order_bid=str(order.bill_order_bid or "").strip(),
-                current_period_start_at=subscription.current_period_start_at,
-                current_period_end_at=subscription.current_period_end_at,
-                notification_status=notification_status,
-                reused_existing_request=False,
-            )
         finally:
             with contextlib.suppress(LockError):
                 grant_lock.release()

@@ -12,7 +12,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
-from flaskr.dao.uow import on_commit, unit_of_work
+from flaskr.dao.uow import app_context_scope, on_commit, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common.models import (
     raise_error,
@@ -419,7 +419,7 @@ def transfer_operator_course_creator(
     operator_user_bid: str = "",
 ) -> dict[str, object]:
     """Transfer operator course creator."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
         normalized_identifier = _normalize_identifier(identifier)
@@ -456,24 +456,28 @@ def transfer_operator_course_creator(
                 int(latest_course.id),
             )
 
-        db.session.commit()
-        if previous_creator_user_bid:
-            _clear_shifu_permission_cache(
-                app, previous_creator_user_bid, normalized_shifu_bid
-            )
-        _clear_shifu_permission_cache(app, target_user_bid, normalized_shifu_bid)
-        _clear_shifu_creator_cache(app, normalized_shifu_bid)
-        if creator_granted_now:
-            _get_legacy_admin_symbol(
-                "run_creator_granted_post_auth", run_creator_granted_post_auth
-            )(
-                app,
-                user_id=target_user_bid,
-                source="operator_transfer_creator",
-                login_context="admin",
-                created_new_user=created_new_user,
-                language=target_aggregate.user_language,
-            )
+        def finish_transfer() -> None:
+            if previous_creator_user_bid:
+                _clear_shifu_permission_cache(
+                    app, previous_creator_user_bid, normalized_shifu_bid
+                )
+            _clear_shifu_permission_cache(app, target_user_bid, normalized_shifu_bid)
+            _clear_shifu_creator_cache(app, normalized_shifu_bid)
+            if creator_granted_now:
+                _get_legacy_admin_symbol(
+                    "run_creator_granted_post_auth", run_creator_granted_post_auth
+                )(
+                    app,
+                    user_id=target_user_bid,
+                    source="operator_transfer_creator",
+                    login_context="admin",
+                    created_new_user=created_new_user,
+                    language=target_aggregate.user_language,
+                )
+
+        # Cache invalidation and the post-auth chain run only once the new
+        # creator is durable; a rollback drops them.
+        on_commit(finish_transfer)
         return {
             "shifu_bid": normalized_shifu_bid,
             "previous_creator_user_bid": previous_creator_user_bid,
@@ -623,7 +627,7 @@ def copy_operator_course(
     new_course_name: str = "",
 ) -> dict[str, object]:
     """Copy operator course."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
         normalized_identifier = _normalize_identifier(identifier)
@@ -770,18 +774,21 @@ def copy_operator_course(
             now=now,
         )
 
-        db.session.commit()
         if creator_granted_now:
-            _get_legacy_admin_symbol(
-                "run_creator_granted_post_auth", run_creator_granted_post_auth
-            )(
-                app,
-                user_id=target_user_bid,
-                source="operator_copy_course",
-                login_context="admin",
-                created_new_user=created_new_user,
-                language=target_aggregate.user_language,
-            )
+
+            def finish_copy() -> None:
+                _get_legacy_admin_symbol(
+                    "run_creator_granted_post_auth", run_creator_granted_post_auth
+                )(
+                    app,
+                    user_id=target_user_bid,
+                    source="operator_copy_course",
+                    login_context="admin",
+                    created_new_user=created_new_user,
+                    language=target_aggregate.user_language,
+                )
+
+            on_commit(finish_copy)
 
         return {
             "source_shifu_bid": normalized_shifu_bid,

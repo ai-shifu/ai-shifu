@@ -11,7 +11,9 @@ and protocol-desync errors invalidate the session's connection instead of
 rolling back on it.
 """
 
+import contextlib
 import types
+from collections.abc import Iterator
 from typing import ClassVar
 
 import pytest
@@ -71,7 +73,17 @@ def _patch_run_dependencies(monkeypatch: object, script: object) -> object:
         pass
 
     _FakeDb.session = session
+
+    @contextlib.contextmanager
+    def _fake_unit_of_work() -> Iterator[None]:
+        # The checkpoint commit now goes through unit_of_work(); route it to
+        # the fake session so the commit/rollback/invalidate counts stay
+        # observable.
+        yield
+        session.commit()
+
     monkeypatch.setattr(runscript_v2, "db", _FakeDb)
+    monkeypatch.setattr(runscript_v2, "unit_of_work", _fake_unit_of_work)
     monkeypatch.setattr(
         runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
     )

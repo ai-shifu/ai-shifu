@@ -1,10 +1,10 @@
 """Promo functions."""
 
 import decimal
-from contextlib import AbstractContextManager, nullcontext
 
-from flask import Flask, has_app_context
+from flask import Flask
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, func, or_
@@ -88,10 +88,6 @@ def build_campaign_enabled_expression(model_or_columns: object) -> ColumnElement
     )
 
 
-def _app_context_scope(app: Flask) -> AbstractContextManager[None]:
-    return nullcontext() if has_app_context() else app.app_context()
-
-
 def timeout_coupon_code_rollback(
     app: Flask, user_bid: object, order_bid: object
 ) -> None:
@@ -103,7 +99,7 @@ def timeout_coupon_code_rollback(
         order_bid: Order bid.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         usage = CouponUsageModel.query.filter(
             CouponUsageModel.user_bid == user_bid,
             CouponUsageModel.order_bid == order_bid,
@@ -112,12 +108,11 @@ def timeout_coupon_code_rollback(
         if not usage:
             return
         usage.status = COUPON_STATUS_ACTIVE
-        db.session.commit()
 
 
 def void_promo_campaign_applications(app: Flask, user_bid: str, order_bid: str) -> None:
     """Mark applied promo campaign applications as voided for an order."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         PromoRedemption.query.filter(
             PromoRedemption.order_bid == order_bid,
             PromoRedemption.user_bid == user_bid,
@@ -130,7 +125,6 @@ def void_promo_campaign_applications(app: Flask, user_bid: str, order_bid: str) 
             },
             synchronize_session="fetch",
         )
-        db.session.commit()
 
 
 def _calculate_discount_amount(
@@ -158,7 +152,7 @@ def apply_promo_campaigns(
     payable_price: decimal.Decimal,
 ) -> list[PromoRedemption]:
     """Apply eligible promo campaigns to an order and create application records."""
-    with _app_context_scope(app):
+    with app_context_scope(app):
         now = now_utc()
 
         campaigns: list[PromoCampaign] = PromoCampaign.query.filter(
@@ -243,7 +237,7 @@ def query_promo_campaign_applications(
     app: Flask, order_bid: str, recalc_discount: bool
 ) -> list[PromoRedemption]:
     """Query promo campaign applications tied to an order."""
-    with _app_context_scope(app):
+    with app_context_scope(app):
         records: list[PromoRedemption] = PromoRedemption.query.filter(
             PromoRedemption.order_bid == order_bid,
             PromoRedemption.deleted == 0,

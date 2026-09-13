@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from flaskr.dao import db
+from flaskr.dao import uow
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.admin import (
     import_activation_order,
@@ -121,7 +122,9 @@ def open_api_revoke_order(
     if not order:
         raise_error("server.openapi.noActiveAuthorization")
 
-    order.status = ORDER_STATUS_REFUND
-    db.session.commit()
-    send_revoke_feishu(app, order.order_bid, user_identify)
-    return {"order_bid": order.order_bid, "status": "revoked"}
+    order_bid = order.order_bid
+    with unit_of_work():
+        order.status = ORDER_STATUS_REFUND
+        # Notify only once the revocation is durable.
+        uow.on_commit(lambda: send_revoke_feishu(app, order_bid, user_identify))
+    return {"order_bid": order_bid, "status": "revoked"}
