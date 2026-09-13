@@ -211,3 +211,65 @@ def test_a_topup_order_carries_a_deadline(app: object, monkeypatch: object) -> N
         )
         assert order.status == BILLING_ORDER_STATUS_PENDING
         assert order.expires_at is not None
+
+
+def test_a_late_charge_snapshot_is_recorded_as_pending(
+    app: object, monkeypatch: object
+) -> None:
+    """The charge is pending even when the order it belongs to is settled."""
+    from flaskr.service.billing.consts import BILLING_ORDER_STATUS_PAID
+    from flaskr.service.common.models import AppError
+    from flaskr.service.order.models import PingxxOrder
+
+    bill_order_bid, _product_bid = _seed_pending_topup_order(app)
+
+    def create_payment(*, request: object, app: object) -> object:
+        _ = request
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            order.status = BILLING_ORDER_STATUS_PAID
+            dao.db.session.commit()
+        return SimpleNamespace(
+            provider_reference="ch_late_snapshot",
+            raw_response={"id": "ch_late_snapshot"},
+            checkout_session_id=None,
+            extra={},
+        )
+
+    _install_provider(monkeypatch, create_payment)
+
+    with pytest.raises(AppError):
+        checkout.create_billing_order_checkout(
+            app, _CREATOR, bill_order_bid, {"channel": "alipay_qr"}
+        )
+
+    with app.app_context():
+        snapshot = (
+            PingxxOrder.query.filter_by(
+                biz_domain="billing", bill_order_bid=bill_order_bid
+            )
+            .order_by(PingxxOrder.id.desc())
+            .first()
+        )
+        assert snapshot.charge_id == "ch_late_snapshot"
+        # Pending (0), not the settled order's paid status (1).
+        assert int(snapshot.status or 0) == 0
+
+
+def test_an_expired_topup_leaves_pending_after_a_sync(app: object) -> None:
+    """The timeout scan must not keep re-selecting a failed top-up attempt."""
+    from datetime import timedelta
+
+    from flaskr.service.billing.consts import BILLING_ORDER_STATUS_TIMEOUT
+    from flaskr.util.datetime import now_utc
+
+    bill_order_bid, _product_bid = _seed_pending_topup_order(app)
+    with app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+        order.expires_at = now_utc() - timedelta(minutes=5)
+        dao.db.session.commit()
+
+    checkout.sync_billing_order(app, _CREATOR, bill_order_bid, {})
+
+    persisted = _committed_order(app, bill_order_bid)
+    assert persisted.status == BILLING_ORDER_STATUS_TIMEOUT

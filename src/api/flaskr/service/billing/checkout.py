@@ -1497,22 +1497,12 @@ def sync_billing_order(
         if order is None:
             raise_error("server.order.orderNotFound")
 
-        if int(
-            order.status or 0
-        ) == BILLING_ORDER_STATUS_PENDING and _is_subscription_checkout_order(order):
-            if _hydrate_legacy_billing_order_expires_at(order):
-                db.session.add(order)
-            if order.payment_provider == "stripe":
-                order_update = _sync_stripe_order(app, order, session_id=session_id)
-            elif order.payment_provider == "pingxx":
-                order_update = _sync_pingxx_order(app, order)
-            elif order.payment_provider in {"alipay", "wechatpay"}:
-                order_update = _sync_native_order(app, order)
-            else:
-                raise_error("server.pay.payChannelNotSupport")
-            if _expire_pending_billing_order_if_due(order):
-                db.session.add(order)
-        elif order.payment_provider == "stripe":
+        if int(order.status or 0) == BILLING_ORDER_STATUS_PENDING and (
+            _hydrate_legacy_billing_order_expires_at(order)
+        ):
+            db.session.add(order)
+
+        if order.payment_provider == "stripe":
             order_update = _sync_stripe_order(app, order, session_id=session_id)
         elif order.payment_provider == "pingxx":
             order_update = _sync_pingxx_order(app, order)
@@ -1520,6 +1510,12 @@ def sync_billing_order(
             order_update = _sync_native_order(app, order)
         else:
             raise_error("server.pay.payChannelNotSupport")
+
+        # Applies to every order that is still pending and past its deadline,
+        # so a top-up whose provider call failed (no provider reference, so the
+        # sync leaves it pending) stops being picked up by every later scan.
+        if _expire_pending_billing_order_if_due(order):
+            db.session.add(order)
 
         order_update.stage_after_state_changes(app, order)
 
@@ -2211,26 +2207,36 @@ def _run_provider_checkout(
         order = _load_billing_order_by_bid(request.bill_order_bid)
         if order is None:
             raise_error("server.order.orderNotFound")
-        if int(order.status or 0) != BILLING_ORDER_STATUS_PENDING:
-            # A callback settled the order while the charge was being created.
-            # Keep the raw snapshot so the new charge stays reconcilable, but
-            # never point a settled order at it.
-            _persist_billing_raw_snapshot_from_checkout(
-                order,
-                result,
-                subject=request.subject,
-                body=request.subject,
-            )
-            app.logger.warning(
-                "Billing order %s left status %s while its %s charge %s was "
-                "being created; snapshot kept for reconciliation",
-                order.bill_order_bid,
-                order.status,
-                request.payment_provider,
-                result.provider_reference,
-            )
-            raise_error("server.order.orderStatusError")
-        return _persist_provider_checkout(order, result, request)
+        if int(order.status or 0) == BILLING_ORDER_STATUS_PENDING:
+            return _persist_provider_checkout(order, result, request)
+
+        # A callback settled the order while the charge was being created.
+        # Keep the raw snapshot so the new charge stays reconcilable, but
+        # never point a settled order at it. The snapshot is written here and
+        # committed by this block; the error is raised only afterwards, so it
+        # cannot take the snapshot down with it.
+        _persist_billing_raw_snapshot_from_checkout(
+            order,
+            result,
+            subject=request.subject,
+            body=request.subject,
+            # The charge itself is pending, whatever became of the order.
+            raw_snapshot_status=_RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS[
+                BILLING_ORDER_STATUS_PENDING
+            ],
+        )
+        settled_status = int(order.status or 0)
+
+    app.logger.warning(
+        "Billing order %s left status %s while its %s charge %s was being "
+        "created; snapshot kept for reconciliation",
+        request.bill_order_bid,
+        settled_status,
+        request.payment_provider,
+        result.provider_reference,
+    )
+    raise_error("server.order.orderStatusError")
+    return None
 
 
 def _complete_zero_amount_subscription_checkout(
@@ -2380,11 +2386,19 @@ def _persist_billing_raw_snapshot_from_checkout(
     *,
     subject: str = "",
     body: str = "",
+    raw_snapshot_status: int | None = None,
 ) -> None:
+    """Record a provider attempt against the order.
+
+    ``raw_snapshot_status`` overrides the status the snapshot is stored with.
+    Pass it for an attempt whose outcome is not the order's: a charge created
+    after the order was settled elsewhere is itself still pending.
+    """
     if order.payment_provider == "stripe":
         _persist_billing_stripe_raw_snapshot(
             order,
             create_if_missing=True,
+            raw_snapshot_status=raw_snapshot_status,
             metadata=result.extra.get("metadata") or {},
             checkout_session_id=result.checkout_session_id or result.provider_reference,
             checkout_object=result.raw_response or {},
@@ -2401,6 +2415,7 @@ def _persist_billing_raw_snapshot_from_checkout(
         _persist_billing_pingxx_raw_snapshot(
             order,
             create_if_missing=True,
+            raw_snapshot_status=raw_snapshot_status,
             charge_id=str(result.provider_reference or ""),
             charge_object=charge,
             transaction_no=str(charge.get("order_no") or ""),
@@ -2421,6 +2436,7 @@ def _persist_billing_raw_snapshot_from_checkout(
         _persist_billing_native_raw_snapshot(
             order,
             create_if_missing=True,
+            raw_snapshot_status=raw_snapshot_status,
             provider_attempt_id=str(result.provider_reference or order.bill_order_bid),
             transaction_id="",
             raw_status="pending",
@@ -2438,6 +2454,7 @@ def _persist_billing_stripe_raw_snapshot(
     order: BillingOrder,
     *,
     create_if_missing: bool,
+    raw_snapshot_status: int | None = None,
     metadata: object | None = None,
     checkout_session_id: str = "",
     checkout_object: object | None = None,
@@ -2447,8 +2464,12 @@ def _persist_billing_stripe_raw_snapshot(
     receipt_url: str = "",
     payment_method: str = "",
 ) -> None:
-    raw_status = _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
-        int(order.status or BILLING_ORDER_STATUS_INIT), 0
+    raw_status = (
+        int(raw_snapshot_status)
+        if raw_snapshot_status is not None
+        else _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
+            int(order.status or BILLING_ORDER_STATUS_INIT), 0
+        )
     )
     existing = (
         billing_stripe_snapshot_query()
@@ -2481,6 +2502,7 @@ def _persist_billing_pingxx_raw_snapshot(
     order: BillingOrder,
     *,
     create_if_missing: bool,
+    raw_snapshot_status: int | None = None,
     charge_id: str = "",
     charge_object: object | None = None,
     transaction_no: str = "",
@@ -2491,8 +2513,12 @@ def _persist_billing_pingxx_raw_snapshot(
     client_ip: str = "",
     extra: object | None = None,
 ) -> None:
-    raw_status = _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
-        int(order.status or BILLING_ORDER_STATUS_INIT), 0
+    raw_status = (
+        int(raw_snapshot_status)
+        if raw_snapshot_status is not None
+        else _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
+            int(order.status or BILLING_ORDER_STATUS_INIT), 0
+        )
     )
     existing = (
         billing_pingxx_snapshot_query()
