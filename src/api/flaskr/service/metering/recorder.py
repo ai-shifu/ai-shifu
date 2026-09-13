@@ -11,7 +11,8 @@ import contextlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from flaskr.dao import cleanup_session_after, db, invalidate_session
+from flaskr.dao import db
+from flaskr.dao.uow import autonomous_unit_of_work
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id
 
@@ -65,30 +66,25 @@ def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) ->
 
 
 def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
-    """Persist raw usage only; async settlement owns later credit mutations."""
-    with app.app_context():
-        try:
+    """Persist raw usage only; async settlement owns later credit mutations.
+
+    The record lands on its own session (``autonomous_unit_of_work``): a
+    /run stream may still hold half-generated blocks in the caller's
+    session, and those must neither commit early nor drag the usage row
+    down with them. The unit of work performs the classified cleanup inside
+    the pushed context - ordinary errors roll back that session, protocol
+    interrupts (including a GreenletExit inside the commit's network IO)
+    discard the connection - so only the outcome is reported here.
+    """
+    try:
+        with autonomous_unit_of_work(app):
             db.session.add(record)
-            db.session.commit()
-        except Exception as exc:
-            # Never mask the persistence failure with a logging failure.
-            with contextlib.suppress(Exception):
-                app.logger.exception("Usage metering persist failed")
-            # Clean up INSIDE the pushed context so it targets the session
-            # that actually failed - the previous cleanup ran after the
-            # context pop and rolled back the CALLER's session instead.
-            # Classified: stream-interrupting failures discard the
-            # connection, ordinary errors roll back as before.
-            cleanup_session_after(exc, source="usage metering persist")
-            return False
-        except BaseException:
-            # A GreenletExit landing inside commit's network IO leaves an
-            # unread response owed on the wire; discard the connection
-            # before the context teardown would roll back on it.
-            invalidate_session(source="usage metering persist interrupt")
-            raise
-        else:
-            return True
+    except Exception:
+        # Never mask the persistence failure with a logging failure.
+        with contextlib.suppress(Exception):
+            app.logger.exception("Usage metering persist failed")
+        return False
+    return True
 
 
 def _should_enqueue_usage_settlement(

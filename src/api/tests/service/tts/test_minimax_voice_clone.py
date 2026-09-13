@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
@@ -625,6 +626,10 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(
         "db",
         SimpleNamespace(session=SimpleNamespace(commit=lambda: None)),
     )
+    # FakeApp pushes no real Flask context, so the unit of work (which would
+    # commit the real scoped session) is stubbed out; the assertion under test
+    # is the app-context discipline around row attribute access.
+    monkeypatch.setattr(minimax_voice_clone, "unit_of_work", nullcontext)
 
     class FakeClient:
         def upload_clone_audio(

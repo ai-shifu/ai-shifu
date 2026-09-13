@@ -64,11 +64,30 @@ is merged; merges are manual.
   stage, `create_billing_order_checkout` commits an expiry before raising,
   checkout/sync/webhook paths dispatch paid-order side effects from
   `on_commit`, and usage settlement owns one unit of work under its lock.
-- [ ] B7 — streaming and long-running flows plus autonomous audit rows:
-  runscript_v2, context_v2, minimax_voice_clone, check_risk, metering,
-  audio_record_utils (18 sites).
-- [ ] Move this plan to `docs/exec-plans/completed/` once the baseline is
-  empty and CI enforces it.
+- [x] 2026-09-13 CST: B7 — streaming and long-running flows plus autonomous
+  audit rows: runscript_v2, context_v2, minimax_voice_clone, check_risk,
+  metering, audio_record_utils (18 sites; baseline 18 -> 0). The /run
+  checkpoints go through a `unit_of_work()` step helper, `reload` joins the
+  producer's session instead of pushing a nested app context, voice cloning
+  is claim -> provider -> finalize with the reservation committed on its own
+  before object-storage I/O, risk-control and usage rows use
+  `autonomous_unit_of_work(app)`, and `save_audio_record` lost its `commit`
+  flag (the streaming finalize owns the boundary only when `commit=True`).
+- [x] 2026-09-13 CST: Review follow-ups from the AI reviewers on the batch
+  pull requests: `--update` refuses to grow the ratchet baseline;
+  `require_transaction_owner()` guards the multi-step flows (verification
+  challenge, onboarding completion, voice clone submit/run/retry); config
+  cache refresh failures drop the stale key; profile hidden-state read-back
+  joins the caller's session; the mdflow save retries a deadlock only when it
+  owns the transaction; the invite-code collision re-reads the winner with a
+  locking read; `app_context_scope` resets unit-of-work state when it switches
+  apps; the settlement shortfall guard uses a savepoint; a failed retry
+  enqueue persists a failed, released clone row; avatar replacement deletes
+  the old object from `on_commit`; stale transaction comments refreshed.
+- [x] 2026-09-13 CST: Moved this plan to `docs/exec-plans/completed/`: the
+  baseline is empty on the B7 branch and the `Static Checks` workflow enforces
+  the ratchet. The batch pull requests (#2801 -> #2802 -> #2803 -> #2804 ->
+  #2805 -> #2807 -> #2808 -> B7) merge in chain order.
 
 ## Surprises & Discoveries
 
@@ -133,6 +152,19 @@ is merged; merges are manual.
   `grant_referral_reward_credits_to_user`, `complete_onboarding_scene`,
   `submit_lesson_feedback`) therefore do not wrap them in their own block;
   the billing CLI's `_rollback_on_error` wrapper was removed for that reason.
+- 2026-09-13: `submit_minimax_voice_clone` keeps the credit reservation as
+  its own committed unit of work *before* the object-storage uploads and the
+  row insert, instead of joining them into one transaction: joining would hold
+  wallet row locks across provider/OSS I/O. The explicit release on failure
+  therefore stays. Likewise the celery enqueue runs after the row commit (not
+  from `on_commit`) so a broker failure is persisted as a failed row rather
+  than logged from a callback.
+- 2026-09-13: Risk-control and usage-metering rows use
+  `autonomous_unit_of_work(app)`; the previous nested `app.app_context()` was
+  an implicit second session with the same intent (persist even when the /run
+  stream rolls back), now made explicit. The unit of work also performs the
+  classified cleanup (rollback vs. connection invalidate) inside the pushed
+  context, so `metering/recorder.py` dropped its hand-written handlers.
 - 2026-09-13: Each batch is verified on `dev01` (branch force-pushed, CI/CD
   build and compose deploy). Non-payment flows are exercised through the UI
   and verified against the database; payment and webhook flows are covered by
@@ -141,8 +173,33 @@ is merged; merges are manual.
 
 ## Outcomes & Retrospective
 
-Pending. Update after each batch with the ratchet count, test totals, and the
-dev01 verification results.
+- Ratchet: 146 grandfathered sites (53 files) at the 2026-09-13 re-baseline
+  -> 0 after B7; `docs/generated/uow-commit-baseline.json` is an empty object
+  and `python scripts/check_uow_commit_sites.py` prints `OK (0 grandfathered
+  sites)`. The check runs in lefthook and in the `Static Checks` workflow.
+- Tests: the backend suite grew from 4302 (PR-0 baseline) to 4348 passed;
+  every batch added a `test_*_uow_failure_paths.py` module covering rollback
+  of the last step, deferred side effects not firing on rollback, and
+  must-persist steps surviving later failures.
+- dev01: each batch was force-pushed to the `dev01` branch, built and
+  deployed by CI/CD, and exercised with service-level probes inside the API
+  container against the shared dev database; results are recorded in the
+  pull request bodies (#2802 to #2808 and the B7 PR).
+- Framework fixes surfaced by the migration: `on_commit` callbacks ran
+  before the depth counter reset (a callback's own unit of work never
+  committed); `app_context_scope` reused any active context, binding the
+  session to the wrong app under the celery `FlaskTask` wrapper and multi-app
+  test fixtures (now compares app identity and unwraps `LocalProxy`).
+- Patterns worth keeping: consecutive units of work for claim -> provider ->
+  finalize flows; IntegrityError idempotency handled only by the OUTERMOST
+  unit of work; `discard=dry_run` for previews that stage writes and no
+  boundary at all for previews that stage nothing; `autonomous_unit_of_work`
+  for audit/metering rows; `retry_on_deadlock` on the owner of the outermost
+  block only.
+- Out of scope, recorded as debt: provider/LLM HTTP calls that still run
+  inside a transaction (`shifu_publish_funcs.get_shifu_summary`,
+  `checkout._create_provider_checkout`), and the pre-existing nested
+  `create_outlines_batch` failure observed on dev01 (same on `dev`).
 
 ## Context and Orientation
 

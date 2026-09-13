@@ -373,8 +373,9 @@ def test_record_tts_usage_marks_builtin_demo_course_non_billable(
 def test_persist_cleanup_targets_failed_session_inside_context(
     app: object, monkeypatch: object
 ) -> None:
-    """Cleanup must run inside the pushed context (targeting the session that failed) and classify the failure: ordinary errors roll back, protocol interrupts invalidate."""
+    """The autonomous unit of work cleans up INSIDE the pushed context (targeting the session that failed) and classifies the failure: ordinary errors roll back, protocol interrupts invalidate."""
     from flask import current_app
+    from flaskr import dao
     from flaskr.service.metering import recorder as recorder_module
     from sqlalchemy.exc import ResourceClosedError
 
@@ -386,7 +387,7 @@ def test_persist_cleanup_targets_failed_session_inside_context(
         events.append((type(exc).__name__, current_app._get_current_object() is app))
         return "cleaned"
 
-    monkeypatch.setattr(recorder_module, "cleanup_session_after", _fake_cleanup)
+    monkeypatch.setattr(dao, "cleanup_session_after", _fake_cleanup)
 
     class _FailingSession:
         def add(self, _record: object) -> None:
@@ -396,6 +397,7 @@ def test_persist_cleanup_targets_failed_session_inside_context(
             message = "desynced"
             raise ResourceClosedError(message)
 
+    monkeypatch.setattr(dao, "db", type("D", (), {"session": _FailingSession()}))
     monkeypatch.setattr(
         recorder_module, "db", type("D", (), {"session": _FailingSession()})
     )
@@ -409,11 +411,12 @@ def test_persist_cleanup_targets_failed_session_inside_context(
 def test_persist_invalidates_on_base_exception_interrupt(
     app: object, monkeypatch: object
 ) -> None:
+    from flaskr import dao
     from flaskr.service.metering import recorder as recorder_module
 
     invalidations = []
     monkeypatch.setattr(
-        recorder_module,
+        dao,
         "invalidate_session",
         lambda *, source, _session=None: invalidations.append(source) or True,
     )
@@ -428,6 +431,7 @@ def test_persist_invalidates_on_base_exception_interrupt(
         def commit(self) -> None:
             raise _Interrupt
 
+    monkeypatch.setattr(dao, "db", type("D", (), {"session": _InterruptedSession()}))
     monkeypatch.setattr(
         recorder_module, "db", type("D", (), {"session": _InterruptedSession()})
     )
@@ -435,4 +439,6 @@ def test_persist_invalidates_on_base_exception_interrupt(
     with pytest.raises(_Interrupt):
         recorder_module._persist_usage_record(app, object())
 
-    assert invalidations == ["usage metering persist interrupt"]
+    # The unit of work discards the connection first; the app-context
+    # teardown then invalidates again as defense in depth.
+    assert invalidations[0] == "unit_of_work interrupt"

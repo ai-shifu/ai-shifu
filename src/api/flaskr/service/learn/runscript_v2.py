@@ -25,6 +25,7 @@ from flaskr.dao import (
     is_abnormal_stream_termination,
     is_protocol_interrupt_error,
 )
+from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.const import INPUT_TYPE_ASK
@@ -320,6 +321,19 @@ def _get_run_script_started_at(
         return None
 
 
+def _commit_pending_step() -> None:
+    """Make rows staged between run steps durable.
+
+    ``RunRecorder`` bounds the per-step writes; this checkpoint runs only at
+    step boundaries (after a reload rewind, after the stream completes, and
+    on ``BreakError``) so collaborators that still stage rows with plain
+    flushes never span a ``yield``. The block stages nothing itself: the
+    commit is the point.
+    """
+    with unit_of_work():
+        pass
+
+
 def run_script_inner(
     app: Flask,
     user_bid: str,
@@ -476,7 +490,7 @@ def run_script_inner(
                     ),
                     ready_element_bids_by_block_bid,
                 )
-                db.session.commit()
+                _commit_pending_step()
                 yield from _iter_audio_backfill_ready_events(
                     ready_element_bids_by_block_bid
                 )
@@ -497,13 +511,13 @@ def run_script_inner(
                     ready_element_bids_by_block_bid,
                 )
             _finalize_langfuse_if_available(run_script_context)
-            db.session.commit()
+            _commit_pending_step()
             yield from _iter_audio_backfill_ready_events(
                 ready_element_bids_by_block_bid
             )
         except BreakError:
             _finalize_langfuse_if_available(run_script_context)
-            db.session.commit()
+            _commit_pending_step()
             yield from _iter_audio_backfill_ready_events(
                 ready_element_bids_by_block_bid
             )

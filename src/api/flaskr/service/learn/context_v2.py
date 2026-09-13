@@ -35,6 +35,7 @@ from flaskr.common.shifu_context import (
     get_shifu_context_snapshot,
 )
 from flaskr.dao import cleanup_session_after, db, invalidate_session
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.learn.check_text import check_text_with_llm_response
@@ -3747,7 +3748,9 @@ class RunScriptContextV2:
         reload_element_bid: str | None = None,
     ) -> Generator[object, None, None]:
         """Regenerate from an anchor by rewinding progress and deactivating superseded persisted state."""
-        with app.app_context():
+        # Join the producer's session: a nested ``app.app_context()`` would
+        # hand this rewind a *different* session from the run it precedes.
+        with app_context_scope(app):
             anchor_element = None
             anchor_generated_block_bid = ""
             if reload_element_bid:
@@ -3865,17 +3868,17 @@ class RunScriptContextV2:
                             synchronize_session=False,
                         )
 
-                    if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
-                        _deactivate_superseded_generated_rows(
-                            include_current_block=True
-                        )
-                    if generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                        _deactivate_superseded_generated_rows(
-                            include_current_block=False
-                        )
-                    current_attend.block_position = generated_block.position
-                    current_attend.status = LEARN_STATUS_IN_PROGRESS
-                    db.session.commit()
+                    with unit_of_work():
+                        if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
+                            _deactivate_superseded_generated_rows(
+                                include_current_block=True
+                            )
+                        if generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                            _deactivate_superseded_generated_rows(
+                                include_current_block=False
+                            )
+                        current_attend.block_position = generated_block.position
+                        current_attend.status = LEARN_STATUS_IN_PROGRESS
                 else:
                     self._last_position = generated_block.position
             elif anchor_element:
@@ -3884,6 +3887,7 @@ class RunScriptContextV2:
                 self._last_position = int(
                     getattr(anchor_element, "element_index", 0) or 0
                 )
-        with app.app_context():
+        # The caller (``run_script_inner``) checkpoints the session once the
+        # regenerated stream completes; no commit belongs after the yield.
+        with app_context_scope(app):
             yield from self.run(app)
-            db.session.commit()

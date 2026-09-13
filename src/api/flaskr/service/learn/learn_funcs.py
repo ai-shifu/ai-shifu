@@ -1053,7 +1053,8 @@ def _finalize_tts_stream_audio(
             segment_count=segment_count,
             subtitle_cues=subtitle_cues,
         )
-        save_audio_record(audio_record, commit=True)
+        with unit_of_work():
+            save_audio_record(audio_record)
 
     return oss_url, duration_ms
 
