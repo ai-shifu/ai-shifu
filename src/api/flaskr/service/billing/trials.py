@@ -8,7 +8,11 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db, uow
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import get_user_entity_by_bid
 from flaskr.util.datetime import now_utc
@@ -544,6 +548,9 @@ def _backfill_missing_creator_trial_credits(
     creator_bid: str = "",
     limit: int | None = None,
 ) -> dict[str, object]:
+    # One unit of work per creator with its own IntegrityError handler: nested,
+    # the per-creator durability and that handler are both lost.
+    require_transaction_owner("creator trial backfill", app)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
 
@@ -841,6 +848,9 @@ def _acknowledge_trial_welcome_dialog(
 
 
 def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
+    # Losing the bootstrap race is absorbed by the IntegrityError handler
+    # below, which requires this call to own the outermost unit of work.
+    require_transaction_owner("creator trial bootstrap", app)
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return

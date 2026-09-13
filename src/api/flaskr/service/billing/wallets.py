@@ -9,7 +9,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
@@ -1811,6 +1815,9 @@ def grant_manual_credit_wallet_balance(
     idempotency_key: str = "",
 ) -> ManualCreditGrantResult:
     """Create a dedicated manual-grant bucket and matching ledger row."""
+    # Idempotency depends on the IntegrityError reaching the handler below,
+    # which only happens when this call owns the outermost unit of work.
+    require_transaction_owner("manual credit grant", app)
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_amount = _quantize_credit_amount(amount)
     normalized_source_bid = str(source_bid or "").strip()
