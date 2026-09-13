@@ -139,6 +139,9 @@ def require_transaction_owner(operation: str, app: object = None) -> None:
         return
     if app is not None and not _reuses_caller_app_context(app):
         return
+    import sys as _sys
+
+    print(f"GUARD-FIRED {operation}", file=_sys.stderr, flush=True)
     message = (
         f"{operation} owns its own transaction and must not be called "
         "inside an active unit_of_work()"
