@@ -237,8 +237,38 @@ def _wechat_identifiers(app_id: str, open_id: str, union_id: str) -> tuple[str, 
     )
 
 
+def _delete_uploaded_avatar(app: Flask, result: object) -> None:
+    """Best-effort removal of an avatar object this request just uploaded."""
+    _try_delete_local_file_by_url(app, getattr(result, "url", ""))
+    if getattr(result, "provider", "") != STORAGE_PROVIDER_OSS:
+        return
+    try:
+        config = get_oss_config(OSS_PROFILE_DEFAULT)
+        bucket = create_oss_bucket(config)
+        object_key = getattr(result, "object_key", "")
+        if object_key and bucket.object_exists(object_key):
+            bucket.delete_object(object_key)
+    except Exception as exc:
+        app.logger.warning("Failed to delete orphaned OSS avatar object: %s", exc)
+
+
 def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
     """Upload user avatar."""
+    # Uploading is an external side effect performed inside the transaction.
+    # When that transaction rolls back the account keeps its previous avatar
+    # URL, so the object uploaded here is unreachable and has to go with it.
+    uploaded: list[object] = []
+    try:
+        return _replace_user_avatar(app, user_id, avatar, uploaded=uploaded)
+    except Exception:
+        for orphan in uploaded:
+            _delete_uploaded_avatar(app, orphan)
+        raise
+
+
+def _replace_user_avatar(
+    app: Flask, user_id: str, avatar: object, *, uploaded: list[object]
+) -> str:
     with app_context_scope(app), unit_of_work():
         aggregate = load_user_aggregate(user_id)
         if not aggregate:
@@ -276,6 +306,8 @@ def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
             profile=OSS_PROFILE_DEFAULT,
             warm_up=False,
         )
+        # Remember it before anything else can fail, so the caller can undo it.
+        uploaded.append(result)
         update_user_entity_fields(entity, avatar=result.url)
 
         if result.provider == STORAGE_PROVIDER_OSS:
