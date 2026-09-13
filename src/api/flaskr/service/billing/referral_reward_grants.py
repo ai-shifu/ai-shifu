@@ -6,7 +6,11 @@ from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.service.common.models import raise_param_error
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -202,6 +206,9 @@ def grant_referral_reward_credits_to_user(
     grant_channel: str = "operator_user_management",
 ) -> ManualCreditGrantResult:
     """Grant referral reward credits and extend the referral reward pool."""
+    # Same idempotency contract as the manual grant: the IntegrityError must
+    # surface here, not at a caller's commit.
+    require_transaction_owner("referral reward credit grant")
     with app_context_scope(app):
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_operator_user_bid = _normalize_bid(operator_user_bid)

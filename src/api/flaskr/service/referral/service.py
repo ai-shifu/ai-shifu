@@ -13,7 +13,11 @@ from urllib.parse import urlsplit, urlunsplit
 from flask import Flask, has_request_context, request
 from flaskr.common.config import get_config as get_common_config
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.service.billing.api import (
     ReferralPlanRewardRequest,
 )
@@ -778,6 +782,9 @@ def process_referral_post_auth(
     context: object,
 ) -> ReferralPostAuthResult:
     """Process referral post auth."""
+    # Three consecutive units of work (relation + reward, grant, outcome):
+    # nested, none of them would be durable on their own.
+    require_transaction_owner("referral post-auth binding")
     with app_context_scope(app):
         if not context.created_new_user:
             return ReferralPostAuthResult()

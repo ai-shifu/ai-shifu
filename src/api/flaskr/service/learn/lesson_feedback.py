@@ -6,7 +6,11 @@ import json
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.i18n import _
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.const import CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE
@@ -128,6 +132,9 @@ def submit_lesson_feedback(
     mode: str | None,
 ) -> dict:
     """Submit lesson feedback."""
+    # The IntegrityError handler re-reads the winner in a fresh unit of work;
+    # nested, the conflict would only surface at the caller's commit.
+    require_transaction_owner("lesson feedback submission")
     normalized_score = _normalize_score(score)
     normalized_comment = _normalize_comment(comment)
     normalized_mode = _normalize_mode(mode)

@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING
 from flaskr.api.doc.feishu import send_notify
 from flaskr.api.sms.aliyun import send_sms_ali
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.user.models import UserConversion
@@ -649,6 +653,9 @@ def deliver_billing_paid_feishu(
     bill_order_bid: str,
 ) -> dict[str, object]:
     """Send one billing paid Feishu notification if the order is pending."""
+    # claim -> provider -> finalize: the claim must be committed before the
+    # provider call, which only holds when this call owns the transaction.
+    require_transaction_owner("billing paid Feishu delivery")
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_feishu_result("invalid_bill_order_bid")
@@ -791,6 +798,8 @@ def deliver_subscription_purchase_sms(
     bill_order_bid: str,
 ) -> dict[str, object]:
     """Send one subscription purchase SMS if the billing order is pending."""
+    # claim -> provider -> finalize, as above.
+    require_transaction_owner("subscription purchase SMS delivery")
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_result("invalid_bill_order_bid")
