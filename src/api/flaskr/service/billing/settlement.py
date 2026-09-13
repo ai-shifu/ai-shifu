@@ -274,6 +274,10 @@ def settle_bill_usage(
             entry_count = 0
             total_consumed = _ZERO
             bucket_breakdown_map: dict[str, dict[str, Any]] = {}
+            # Bucket debits are staged under a savepoint: an allocation that
+            # comes up short is undone locally instead of rolling back the
+            # whole session, which would also discard a caller's staged work.
+            allocation = db.session.begin_nested()
             for charge in metric_charges:
                 remaining = charge.consumed_credits
                 for bucket in buckets:
@@ -333,7 +337,7 @@ def settle_bill_usage(
 
                 if remaining <= _ZERO:
                     continue
-                db.session.rollback()
+                allocation.rollback()
                 return SettlementResult(
                     status="insufficient",
                     usage_bid=usage.usage_bid,
@@ -341,6 +345,7 @@ def settle_bill_usage(
                     entry_count=0,
                     consumed_credits=_credit_decimal_to_number(total_required),
                 )
+            allocation.commit()
 
             bucket_breakdown = [
                 UsageBucketBreakdownItem(
