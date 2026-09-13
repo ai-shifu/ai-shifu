@@ -1,8 +1,4 @@
 {
-  "service/billing/checkout.py": 7,
-  "service/billing/notifications.py": 10,
-  "service/billing/settlement.py": 2,
-  "service/billing/webhooks.py": 3,
   "service/check_risk/funcs.py": 1,
   "service/learn/context_v2.py": 2,
   "service/learn/runscript_v2.py": 3,
