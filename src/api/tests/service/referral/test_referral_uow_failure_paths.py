@@ -116,3 +116,60 @@ def test_post_auth_grant_failure_keeps_relation_and_marks_reward_failed(
         # The tainted snapshot staged inside the failed step did not persist.
         assert reward.rule_snapshot != {"tainted": True}
         assert not uow.in_unit_of_work()
+
+
+def test_invite_code_conflict_reread_is_a_locking_read() -> None:
+    """After the savepoint rollback the winner is re-read with FOR UPDATE.
+
+    Under MySQL REPEATABLE READ a plain SELECT would keep serving the
+    transaction's earlier snapshot and never see the concurrently inserted
+    code, so every retry would collide on the (campaign, inviter) uniqueness.
+    """
+    from sqlalchemy import select
+    from sqlalchemy.dialects import mysql
+
+    statement = (
+        select(ReferralInviteCode)
+        .where(
+            ReferralInviteCode.campaign_bid == "c",
+            ReferralInviteCode.inviter_user_bid == "i",
+        )
+        .with_for_update()
+    )
+    assert "FOR UPDATE" in str(statement.compile(dialect=mysql.dialect()))
+
+
+def test_invite_code_race_returns_the_concurrent_winner(
+    referral_app: object, monkeypatch: object
+) -> None:
+    """A concurrent first code for the same inviter is returned, not retried away."""
+    with referral_app.app_context():
+        campaign, _rule = _seed_campaign(campaign_bid="ref-campaign-race")
+        monkeypatch.setattr(
+            referral_service,
+            "_resolve_public_origin",
+            lambda: "https://frontend.example",
+        )
+        lookups: list[bool] = []
+        real_lookup = referral_service._load_active_invite_code
+
+        def racing_generate() -> str:
+            # The "other request" wins between our snapshot and our insert.
+            _seed_invite_code(
+                campaign.campaign_bid, code="WINNER01", inviter="inviter-race"
+            )
+            return "LOSER002"
+
+        def spy_lookup(**kwargs: object) -> object:
+            lookups.append(bool(kwargs.get("for_update")))
+            return real_lookup(**kwargs)
+
+        monkeypatch.setattr(referral_service, "_generate_invite_code", racing_generate)
+        monkeypatch.setattr(referral_service, "_load_active_invite_code", spy_lookup)
+
+        profile = build_invite_profile(referral_app, inviter_user_bid="inviter-race")
+
+        assert profile.invite_code == "WINNER01"
+        assert True in lookups  # the conflict path used the locking read
+        rows = ReferralInviteCode.query.filter_by(inviter_user_bid="inviter-race").all()
+        assert [row.invite_code for row in rows] == ["WINNER01"]

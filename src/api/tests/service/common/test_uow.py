@@ -291,3 +291,10 @@ def test_app_context_scope_treats_current_app_proxy_as_the_same_app(
     with app.app_context():
         scope = uow.app_context_scope(current_app)
         assert isinstance(scope, nullcontext)
+
+
+def test_require_transaction_owner_rejects_nested_callers(app: object) -> None:
+    with app.app_context():
+        uow.require_transaction_owner("probe")  # no active block: fine
+        with uow.unit_of_work(), pytest.raises(RuntimeError, match="probe owns"):
+            uow.require_transaction_owner("probe")
