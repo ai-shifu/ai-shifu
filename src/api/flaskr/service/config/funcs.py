@@ -1,6 +1,7 @@
 """Implement business operations for persisted configuration."""
 
 import base64
+import contextlib
 import hashlib
 import random
 import threading
@@ -281,11 +282,20 @@ def _schedule_config_cache_write(
     payload = ConfigCache(is_encrypted=is_secret, value=value).model_dump_json()
 
     def write_cache() -> None:
-        redis.set(
-            cache_key,
-            payload,
-            ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
-        )
+        try:
+            redis.set(
+                cache_key,
+                payload,
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
+            )
+        except Exception:
+            # The row is already committed. Never leave a stale positive
+            # entry behind: drop the key so reads fall through to the
+            # database, and log the refresh failure explicitly.
+            app.logger.exception("config cache refresh failed for %s", key)
+            with contextlib.suppress(Exception):
+                redis.delete(cache_key)
+            raise
 
     uow.on_commit(write_cache)
 
