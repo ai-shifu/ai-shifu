@@ -29,6 +29,8 @@ _GUARDED = (
     ("flaskr.service.billing.checkout", "create_billing_order_checkout"),
     ("flaskr.service.billing.checkout", "sync_billing_order"),
     ("flaskr.service.billing.trials", "_bootstrap_new_creator_trial_credits"),
+    ("flaskr.service.billing.trials", "_backfill_missing_creator_trial_credits"),
+    ("flaskr.service.referral.service", "retry_pending_referral_rewards"),
     ("flaskr.service.user.utils", "_prepare_verification_challenge"),
     ("flaskr.service.user.onboarding", "complete_onboarding_scene"),
     ("flaskr.service.tts.minimax_voice_clone", "submit_minimax_voice_clone"),
@@ -68,3 +70,28 @@ def test_guarded_entry_point_rejects_a_nested_caller(
 
     with app.app_context(), pytest.raises(RuntimeError, match="must not be called"):
         call_nested()
+
+
+def test_a_unit_of_work_of_another_app_is_not_a_nesting_violation(
+    app: object,
+) -> None:
+    """`app_context_scope` hands a foreign-app call a fresh session and depth.
+
+    Rejecting it would break the celery task app and the multi-app fixtures,
+    so the guard only fires when the caller's own context would be reused.
+    """
+    from flask import Flask
+    from flaskr.dao import uow
+
+    other = Flask("guard-other-app")
+
+    with other.app_context(), unit_of_work():
+        # Same app as the active unit of work: a real violation.
+        with pytest.raises(RuntimeError, match="must not be called"):
+            uow.require_transaction_owner("probe", other)
+        # A different app: app_context_scope will reset the depth for it.
+        uow.require_transaction_owner("probe", app)
+        # Without the app argument the guard cannot tell them apart and
+        # stays strict.
+        with pytest.raises(RuntimeError, match="must not be called"):
+            uow.require_transaction_owner("probe")

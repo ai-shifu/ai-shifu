@@ -134,7 +134,7 @@ def submit_lesson_feedback(
     """Submit lesson feedback."""
     # The IntegrityError handler re-reads the winner in a fresh unit of work;
     # nested, the conflict would only surface at the caller's commit.
-    require_transaction_owner("lesson feedback submission")
+    require_transaction_owner("lesson feedback submission", app)
     normalized_score = _normalize_score(score)
     normalized_comment = _normalize_comment(comment)
     normalized_mode = _normalize_mode(mode)

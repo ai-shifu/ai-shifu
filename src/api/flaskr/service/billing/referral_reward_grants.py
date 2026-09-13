@@ -208,7 +208,7 @@ def grant_referral_reward_credits_to_user(
     """Grant referral reward credits and extend the referral reward pool."""
     # Same idempotency contract as the manual grant: the IntegrityError must
     # surface here, not at a caller's commit.
-    require_transaction_owner("referral reward credit grant")
+    require_transaction_owner("referral reward credit grant", app)
     with app_context_scope(app):
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_operator_user_bid = _normalize_bid(operator_user_bid)

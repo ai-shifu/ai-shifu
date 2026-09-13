@@ -710,6 +710,10 @@ def retry_pending_referral_rewards(
     dry_run: bool = True,
 ) -> list[dict[str, object]]:
     """Retry generated referral rewards that do not yet have billing artifacts."""
+    # One unit of work per reward, plus a second one to record a failed grant:
+    # nested, no row would commit on its own and a conflict would surface at
+    # the caller's commit instead of in the per-row handler.
+    require_transaction_owner("pending referral reward retry", app)
     with app_context_scope(app):
         safe_limit = max(min(int(limit or 100), 500), 1)
         rewards = (
@@ -784,7 +788,7 @@ def process_referral_post_auth(
     """Process referral post auth."""
     # Three consecutive units of work (relation + reward, grant, outcome):
     # nested, none of them would be durable on their own.
-    require_transaction_owner("referral post-auth binding")
+    require_transaction_owner("referral post-auth binding", app)
     with app_context_scope(app):
         if not context.created_new_user:
             return ReferralPostAuthResult()

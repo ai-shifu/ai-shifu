@@ -1817,7 +1817,7 @@ def grant_manual_credit_wallet_balance(
     """Create a dedicated manual-grant bucket and matching ledger row."""
     # Idempotency depends on the IntegrityError reaching the handler below,
     # which only happens when this call owns the outermost unit of work.
-    require_transaction_owner("manual credit grant")
+    require_transaction_owner("manual credit grant", app)
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_amount = _quantize_credit_amount(amount)
     normalized_source_bid = str(source_bid or "").strip()

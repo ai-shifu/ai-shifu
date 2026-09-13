@@ -941,7 +941,7 @@ def create_billing_order_checkout(
     """Create or refresh a Pingxx charge for one existing pending billing order."""
     # An expiry detected below is committed in its own unit of work before the
     # error is raised; nested, that write would roll back with the caller.
-    require_transaction_owner("billing order checkout")
+    require_transaction_owner("billing order checkout", app)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     requested_channel = _normalize_bid(payload.get("channel"))
@@ -1337,7 +1337,7 @@ def sync_billing_order(
     # Non-idempotent provider calls plus a grant idempotency pre-check that
     # must see committed state; renewal deliberately calls this outside its
     # own units of work (see the NOTE in _sync_billing_renewal_order).
-    require_transaction_owner("billing order sync")
+    require_transaction_owner("billing order sync", app)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     session_id = _normalize_bid(payload.get("session_id"))
