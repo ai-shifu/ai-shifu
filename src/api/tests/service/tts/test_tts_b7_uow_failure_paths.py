@@ -187,17 +187,23 @@ def test_run_claim_is_durable_before_provider_call_and_failure_releases(
     submitted = _submit(clone_app, voice_id="AiShifu_teacher_retry_1")
 
     seen_statuses: list[object] = []
+    open_transactions: list[bool] = []
 
     class _DownClient:
         def upload_clone_audio(self, *_args: object, **_kwargs: object) -> object:
-            # Committed state only: the claim must already be durable here,
-            # i.e. visible to a query that cannot see uncommitted rows.
-            with dao.db.engine.connect() as connection:
-                status = connection.exec_driver_sql(
-                    "SELECT status FROM tts_minimax_cloned_voices WHERE voice_bid = ?",
-                    (submitted.voice_bid,),
-                ).scalar()
-            seen_statuses.append(status)
+            # The claim has to be durable here. This fixture runs on an
+            # in-memory SQLite database, where every connection is the same
+            # underlying one, so a second connection could not tell committed
+            # from staged rows: assert instead that no unit of work is open,
+            # which is what makes the claim durable.
+            from flaskr.dao import uow
+
+            open_transactions.append(uow.in_unit_of_work())
+            seen_statuses.append(
+                TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid)
+                .one()
+                .status
+            )
             message = "provider down"
             raise RuntimeError(message)
 
@@ -209,6 +215,7 @@ def test_run_claim_is_durable_before_provider_call_and_failure_releases(
     with clone_app.app_context():
         dao.db.session.expire_all()
         row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
+        assert open_transactions == [False]
         assert seen_statuses == [TTS_MINIMAX_CLONE_STATUS_PROCESSING], row.status_msg
         assert row.status == TTS_MINIMAX_CLONE_STATUS_FAILED
         assert row.failure_reason == "worker_failed"

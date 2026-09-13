@@ -19,6 +19,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.billing.provider_state import BillingOrderProviderUpdateResult
+from flaskr.service.order.models import PingxxOrder
 
 from tests.service.billing.test_billing_callbacks import (
     _create_active_subscription,
@@ -104,8 +105,15 @@ def test_pingxx_webhook_failure_rolls_back_and_dispatches_nothing(
     with webhook_app.app_context():
         dao.db.session.expire_all()
         order = BillingOrder.query.filter_by(bill_order_bid=_ORDER_BID).one()
+        raw_order = PingxxOrder.query.filter_by(
+            biz_domain="billing", bill_order_bid=_ORDER_BID
+        ).one()
         assert order.status == BILLING_ORDER_STATUS_PENDING
         assert not order.paid_at
+        # The raw snapshot is staged in the same unit of work and rolls back
+        # with it: both its status and the stored charge payload are as seeded.
+        assert int(raw_order.status or 0) == 0
+        assert raw_order.charge_object == "{}"
     assert dispatched == []
 
 
@@ -113,17 +121,21 @@ def test_pingxx_webhook_dispatches_only_after_the_paid_status_is_durable(
     webhook_app: object, monkeypatch: object
 ) -> None:
     seen_status: list[int] = []
+    open_transactions: list[bool] = []
     _seed_pending_pingxx_order(webhook_app)
 
     def record_dispatch(*_a: object, **_k: object) -> None:
-        # Committed state only: a separate connection cannot see staged rows.
-        with webhook_app.app_context(), dao.db.engine.connect() as connection:
-            row = connection.execute(
-                BillingOrder.__table__.select().where(
-                    BillingOrder.bill_order_bid == _ORDER_BID
-                )
-            ).first()
-            seen_status.append(int(row.status))
+        # This fixture runs on an in-memory SQLite database, where every
+        # connection is the same underlying one, so reading through a second
+        # connection could not tell committed from staged rows. What makes the
+        # paid status durable here is that the unit of work has already
+        # unwound, which is what `on_commit` guarantees.
+        from flaskr.dao import uow
+
+        open_transactions.append(uow.in_unit_of_work())
+        with webhook_app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=_ORDER_BID).one()
+            seen_status.append(int(order.status))
 
     monkeypatch.setattr(
         BillingOrderProviderUpdateResult, "dispatch_after_commit", record_dispatch
@@ -132,4 +144,5 @@ def test_pingxx_webhook_dispatches_only_after_the_paid_status_is_durable(
     _payload, status_code = webhooks.handle_billing_pingxx_webhook(webhook_app, _BODY)
 
     assert status_code == 200
+    assert open_transactions == [False]
     assert seen_status == [BILLING_ORDER_STATUS_PAID]
