@@ -239,17 +239,20 @@ def _load_active_invite_code(
     *,
     campaign_bid: str,
     inviter_user_bid: str,
+    for_update: bool = False,
 ) -> ReferralInviteCode | None:
-    return (
-        ReferralInviteCode.query.filter(
-            ReferralInviteCode.deleted == 0,
-            ReferralInviteCode.campaign_bid == campaign_bid,
-            ReferralInviteCode.inviter_user_bid == inviter_user_bid,
-            ReferralInviteCode.status == REFERRAL_INVITE_CODE_STATUS_ACTIVE,
-        )
-        .order_by(ReferralInviteCode.id.desc())
-        .first()
-    )
+    query = ReferralInviteCode.query.filter(
+        ReferralInviteCode.deleted == 0,
+        ReferralInviteCode.campaign_bid == campaign_bid,
+        ReferralInviteCode.inviter_user_bid == inviter_user_bid,
+        ReferralInviteCode.status == REFERRAL_INVITE_CODE_STATUS_ACTIVE,
+    ).order_by(ReferralInviteCode.id.desc())
+    if for_update:
+        # A locking read returns the latest committed row even under
+        # REPEATABLE READ, where a plain SELECT would keep serving the
+        # transaction's earlier snapshot.
+        query = query.with_for_update()
+    return query.first()
 
 
 def _create_invite_code_with_retry(
@@ -275,9 +278,14 @@ def _create_invite_code_with_retry(
             db.session.flush()
         except IntegrityError:
             savepoint.rollback()
+            # The conflict may be this inviter's own code inserted by a
+            # concurrent request after our snapshot was taken: only a
+            # locking read can see it, otherwise every retry would collide
+            # again on the (campaign, inviter) uniqueness.
             existing = _load_active_invite_code(
                 campaign_bid=campaign_bid,
                 inviter_user_bid=inviter_user_bid,
+                for_update=True,
             )
             if existing is not None:
                 return existing
