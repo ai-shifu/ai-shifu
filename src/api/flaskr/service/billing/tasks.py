@@ -361,21 +361,24 @@ def _expire_pending_billing_orders(
         query = BillingOrder.query.filter(
             BillingOrder.deleted == 0,
             BillingOrder.status == BILLING_ORDER_STATUS_PENDING,
-            BillingOrder.order_type.in_(
-                (
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-                )
-            ),
             or_(
+                # Orders with an explicit deadline, whatever their type: a
+                # top-up whose provider call failed is committed and pending.
                 and_(
                     BillingOrder.expires_at.is_not(None),
                     BillingOrder.expires_at <= resolved_expire_before,
                 ),
+                # Legacy rows without one keep the subscription-only rule.
                 and_(
                     BillingOrder.expires_at.is_(None),
                     BillingOrder.created_at <= legacy_expire_before,
+                    BillingOrder.order_type.in_(
+                        (
+                            BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                            BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                            BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                        )
+                    ),
                 ),
             ),
         )

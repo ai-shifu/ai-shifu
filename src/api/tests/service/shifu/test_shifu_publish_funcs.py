@@ -474,27 +474,210 @@ def test_live_follow_up_never_drives_text_summary_generation(
             )
         ]
     )
-    outline = types.SimpleNamespace(
-        outline_item_bid="lesson-1",
-        content="",
-        summary="",
-        ask_enabled_status=0,
-    )
     shifu = types.SimpleNamespace(
         llm="gpt-main",
         llm_temperature=Decimal("0.4"),
         ask_llm=GEMINI_LIVE_MODEL_ID,
         ask_llm_temperature=Decimal("0.1"),
     )
+    app = Flask("live-summary-model-test")
 
+    model_choice = module._resolve_summary_model(app, shifu)
     result = module._generate_summaries(
-        Flask("live-summary-model-test"),
+        app,
         tree,
-        {"lesson-1": outline},
+        {"lesson-1": ""},
         "Summary: {all_script_content}",
-        shifu,
+        model_choice,
     )
 
+    assert model_choice.model_name == "gpt-main"
+    assert model_choice.temperature == Decimal("0.4")
     assert captured["model_name"] == "gpt-main"
     assert captured["temperature"] == Decimal("0.4")
     assert result["lesson-1"]["content"] == "summary"
+
+
+def _seed_summary_course(app: object, shifu_bid: str, lesson_bid: str) -> None:
+    with app.app_context():
+        db.session.add_all(
+            [
+                PublishedShifu(
+                    shifu_bid=shifu_bid,
+                    title="Summary course",
+                    llm="gpt-main",
+                    deleted=0,
+                ),
+                PublishedOutlineItem(
+                    outline_item_bid=lesson_bid,
+                    shifu_bid=shifu_bid,
+                    title="Lesson",
+                    position="1.1",
+                    type=402,
+                    hidden=0,
+                    content="Lesson content",
+                    deleted=0,
+                ),
+            ]
+        )
+        db.session.commit()
+
+
+def _stub_summary_reads(
+    monkeypatch: object, module: object, app: object, lesson_bid: str
+) -> None:
+    """Feed the read step a one-lesson tree; the rows themselves stay real."""
+    section = types.SimpleNamespace(bid=lesson_bid, title="Lesson")
+    tree = types.SimpleNamespace(
+        outline_items=[
+            types.SimpleNamespace(bid="chapter-1", title="Chapter", children=[section])
+        ]
+    )
+
+    def fake_get_shifu_data(_app: object, _shifu_id: str) -> tuple:
+        return tree, [lesson_bid], module._load_outline_item_map([lesson_bid])
+
+    monkeypatch.setattr(module, "_get_shifu_data", fake_get_shifu_data)
+    monkeypatch.setattr(
+        module,
+        "load_prompt_template",
+        lambda name: (
+            "{all_script_content}"
+            if name == "summary"
+            else "ask:{learned}|{unlearned}"
+            "{shifu_system_message}{knowledge_rule}{knowledge_section}"
+        ),
+    )
+    _ = app
+
+
+def test_summary_generation_runs_with_no_transaction_open(
+    app: object, monkeypatch: object
+) -> None:
+    """The LLM calls must not hold the read transaction open.
+
+    One summary and one ask prompt per section means minutes of provider round
+    trips; keeping a transaction open across them pins a pooled connection and
+    a read snapshot for the whole run.
+    """
+    from flaskr.dao import uow
+    from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.service.shifu.consts import ASK_MODE_ENABLE
+
+    shifu_bid = "summary-course-1"
+    lesson_bid = "summary-lesson-1"
+    _seed_summary_course(app, shifu_bid, lesson_bid)
+    _stub_summary_reads(monkeypatch, module, app, lesson_bid)
+
+    inside_transaction = []
+
+    def fake_get_summary(_app: object, **kwargs: object) -> str:
+        _ = kwargs
+        inside_transaction.append(uow.in_unit_of_work())
+        return "generated summary"
+
+    monkeypatch.setattr(module, "_get_summary", fake_get_summary)
+
+    module.get_shifu_summary(app, shifu_bid)
+
+    assert inside_transaction == [False]
+    with app.app_context():
+        outline_item = PublishedOutlineItem.query.filter_by(
+            outline_item_bid=lesson_bid
+        ).one()
+        shifu = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        assert outline_item.ask_llm_system_prompt.startswith("ask:")
+        assert outline_item.ask_enabled_status == ASK_MODE_ENABLE
+        assert shifu.ask_enabled_status == ASK_MODE_ENABLE
+
+
+def test_failed_summary_generation_leaves_the_course_untouched(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.service.shifu.consts import ASK_MODE_ENABLE as ASK_MODE_ENABLE_VALUE
+
+    shifu_bid = "summary-course-2"
+    lesson_bid = "summary-lesson-2"
+    _seed_summary_course(app, shifu_bid, lesson_bid)
+    _stub_summary_reads(monkeypatch, module, app, lesson_bid)
+
+    def failing_get_summary(_app: object, **kwargs: object) -> str:
+        _ = kwargs
+        message = "provider down"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(module, "_get_summary", failing_get_summary)
+
+    with pytest.raises(RuntimeError, match="provider down"):
+        module.get_shifu_summary(app, shifu_bid)
+
+    with app.app_context():
+        outline_item = PublishedOutlineItem.query.filter_by(
+            outline_item_bid=lesson_bid
+        ).one()
+        shifu = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        assert not outline_item.ask_llm_system_prompt
+        assert shifu.ask_enabled_status != ASK_MODE_ENABLE_VALUE
+
+
+def test_summary_is_skipped_when_the_course_is_republished_mid_generation(
+    app: object, monkeypatch: object
+) -> None:
+    """A republish retires the rows this run read; its output must not land."""
+    from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.service.shifu.consts import ASK_MODE_DEFAULT
+
+    shifu_bid = "summary-course-3"
+    lesson_bid = "summary-lesson-3"
+    _seed_summary_course(app, shifu_bid, lesson_bid)
+    _stub_summary_reads(monkeypatch, module, app, lesson_bid)
+
+    def republish_then_summarise(_app: object, **kwargs: object) -> str:
+        _ = kwargs
+        # Another publish lands while the provider call is in flight.
+        with app.app_context():
+            db.session.add_all(
+                [
+                    PublishedShifu(
+                        shifu_bid=shifu_bid,
+                        title="Summary course v2",
+                        llm="gpt-main",
+                        deleted=0,
+                    ),
+                    PublishedOutlineItem(
+                        outline_item_bid=lesson_bid,
+                        shifu_bid=shifu_bid,
+                        title="Lesson v2",
+                        position="1.1",
+                        type=402,
+                        hidden=0,
+                        content="Lesson content v2",
+                        deleted=0,
+                    ),
+                ]
+            )
+            db.session.commit()
+        return "stale summary"
+
+    monkeypatch.setattr(module, "_get_summary", republish_then_summarise)
+
+    module.get_shifu_summary(app, shifu_bid)
+
+    with app.app_context():
+        outline_items = (
+            PublishedOutlineItem.query.filter_by(outline_item_bid=lesson_bid)
+            .order_by(PublishedOutlineItem.id.asc())
+            .all()
+        )
+        shifus = (
+            PublishedShifu.query.filter_by(shifu_bid=shifu_bid)
+            .order_by(PublishedShifu.id.asc())
+            .all()
+        )
+        # Neither the retired rows nor the new publication carry the stale run.
+        assert [item.ask_llm_system_prompt for item in outline_items] == ["", ""]
+        assert [shifu.ask_enabled_status for shifu in shifus] == [
+            ASK_MODE_DEFAULT,
+            ASK_MODE_DEFAULT,
+        ]

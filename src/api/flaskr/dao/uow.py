@@ -65,10 +65,23 @@ def app_context_scope(app: object) -> AbstractContextManager[AppContext | None]:
     reusing that one would bind the session to the wrong database (the celery
     ``FlaskTask`` wrapper and multi-app test fixtures both hit this).
     """
-    target = app._get_current_object() if isinstance(app, LocalProxy) else app
-    if has_app_context() and current_app._get_current_object() is target:
+    target = _unwrap_app(app)
+    if _reuses_caller_app_context(target):
         return nullcontext()
     return _foreign_app_context(target)
+
+
+def _unwrap_app(app: object) -> Flask:
+    return app._get_current_object() if isinstance(app, LocalProxy) else app
+
+
+def _reuses_caller_app_context(app: object) -> bool:
+    """Report whether ``app_context_scope(app)`` reuses the caller's context.
+
+    When it would not, the scope hands the call a fresh session and a fresh
+    unit-of-work state, so the caller's transaction is irrelevant to it.
+    """
+    return has_app_context() and current_app._get_current_object() is _unwrap_app(app)
 
 
 @contextmanager
@@ -106,7 +119,7 @@ def in_unit_of_work() -> bool:
     return _depth.get() > 0
 
 
-def require_transaction_owner(operation: str) -> None:
+def require_transaction_owner(operation: str, app: object = None) -> None:
     """Refuse to run ``operation`` inside a caller's unit of work.
 
     Multi-step flows (claim -> provider call -> finalize, or "try the insert,
@@ -116,13 +129,21 @@ def require_transaction_owner(operation: str) -> None:
     surface at the caller's commit instead of inside the handler. Call this at
     the top of such functions so a future nested caller fails loudly instead
     of silently changing the transaction semantics.
+
+    Pass ``app`` when the function goes on to enter ``app_context_scope(app)``:
+    a unit of work that belongs to a DIFFERENT Flask app (a celery task app, a
+    multi-app test fixture) is reset by that scope, so it is not a nesting
+    violation and must not be rejected here.
     """
-    if in_unit_of_work():
-        message = (
-            f"{operation} owns its own transaction and must not be called "
-            "inside an active unit_of_work()"
-        )
-        raise RuntimeError(message)
+    if not in_unit_of_work():
+        return
+    if app is not None and not _reuses_caller_app_context(app):
+        return
+    message = (
+        f"{operation} owns its own transaction and must not be called "
+        "inside an active unit_of_work()"
+    )
+    raise RuntimeError(message)
 
 
 def on_commit(callback: object) -> None:
