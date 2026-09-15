@@ -21,6 +21,15 @@ def expired_token(app: object) -> str:
     )
 
 
+@pytest.fixture
+def claimless_token(app: object) -> str:
+    return jwt.encode(
+        {"exp": int(time.time()) + 60},
+        app.config["SECRET_KEY"],
+        algorithm="HS256",
+    )
+
+
 @pytest.mark.parametrize(
     "path",
     [
@@ -32,16 +41,21 @@ def expired_token(app: object) -> str:
         "/api/user/submit-feedback",
     ],
 )
-@pytest.mark.parametrize("token_kind", ["invalid", "expired"])
+@pytest.mark.parametrize("token_kind", ["invalid", "expired", "claimless"])
 def test_public_recovery_routes_ignore_stale_optional_tokens(
     test_client: object,
     expired_token: str,
+    claimless_token: str,
     path: str,
     token_kind: str,
 ) -> None:
-    token = "not-a-jwt" if token_kind == "invalid" else expired_token
+    tokens = {
+        "invalid": "not-a-jwt",
+        "expired": expired_token,
+        "claimless": claimless_token,
+    }
 
-    response = test_client.post(path, json={}, headers={"Token": token})
+    response = test_client.post(path, json={}, headers={"Token": tokens[token_kind]})
     body = response.get_json(force=True)
 
     assert response.status_code == 200
@@ -67,3 +81,14 @@ def test_optional_token_validation_keeps_non_auth_failures_visible(
 
     assert response.status_code == 200
     assert body["code"] == 9999
+
+
+def test_google_oauth_start_preserves_expired_token_recovery(
+    test_client: object, expired_token: str
+) -> None:
+    response = test_client.get(
+        "/api/user/oauth/google",
+        headers={"Token": expired_token},
+    )
+
+    assert response.get_json(force=True)["code"] == 1005
