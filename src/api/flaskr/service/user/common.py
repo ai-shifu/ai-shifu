@@ -29,6 +29,19 @@ def _load_user_info(user_bid: str) -> UserInfo:
     return build_user_info_from_aggregate(aggregate)
 
 
+def _decode_token_user_id(app: Flask, token: str) -> str:
+    """Decode and require the application identity claim from a session token."""
+    claims = jwt.decode(
+        token,
+        app.config["SECRET_KEY"],
+        algorithms=["HS256"],
+    )
+    user_id = claims.get("user_id")
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise jwt.exceptions.InvalidTokenError
+    return user_id
+
+
 def validate_user(app: Flask, token: str) -> UserInfo:
     """Validate user."""
 
@@ -38,9 +51,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
         try:
             if app.config.get("ENVERIMENT", "prod") == "dev":
                 return _load_user_info(token)
-            user_id = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])[
-                "user_id"
-            ]
+            user_id = _decode_token_user_id(app, token)
             app.logger.info("user_id: %s", user_id)
             ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)
             lookup = token_store.get_and_refresh(

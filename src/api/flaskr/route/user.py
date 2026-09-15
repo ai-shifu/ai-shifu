@@ -13,7 +13,12 @@ from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _translations, set_language
 from flaskr.service.common.dtos import OAuthStartDTO, UserToken
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import (
+    ERROR_CODE,
+    AppError,
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.feedback.funs import submit_feedback
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
@@ -82,6 +87,14 @@ _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = (
     "fr-FR",
     "ar-SA",
     "th-TH",
+)
+
+_OPTIONAL_TOKEN_AUTH_ERROR_CODES = frozenset(
+    {
+        ERROR_CODE["server.user.userNotFound"],
+        ERROR_CODE["server.user.userNotLogin"],
+        ERROR_CODE["server.user.userTokenExpired"],
+    }
 )
 
 
@@ -242,8 +255,10 @@ def _extract_request_token() -> str | None:
     return token
 
 
-def optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
-    """Allow a route to accept an optional authentication token."""
+def _optional_token_validation(
+    f: Callable[P, R], *, ignore_auth_errors: bool
+) -> Callable[P, R]:
+    """Attach valid optional identity, with route-specific stale-token handling."""
 
     @wraps(f)
     def decorated_function(*args: object, **kwargs: object) -> R:
@@ -251,12 +266,29 @@ def optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
 
         if token:
             token = str(token)
-            user = validate_user(current_app, token)
-            set_language(_resolve_runtime_language(user))
-            request.user = user
+            try:
+                user = validate_user(current_app, token)
+            except AppError as error:
+                if not ignore_auth_errors or (
+                    error.code not in _OPTIONAL_TOKEN_AUTH_ERROR_CODES
+                ):
+                    raise
+            else:
+                set_language(_resolve_runtime_language(user))
+                request.user = user
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
+    """Accept an optional token while preserving authentication failures."""
+    return _optional_token_validation(f, ignore_auth_errors=False)
+
+
+def recovery_optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
+    """Treat a stale optional token as signed out on account-recovery routes."""
+    return _optional_token_validation(f, ignore_auth_errors=True)
 
 
 def _best_effort_password_login_user(app: Flask) -> UserInfo | None:
@@ -548,7 +580,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     # specification.
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
-    @optional_token_validation
+    @recovery_optional_token_validation
     def send_sms_code_api() -> str:
         """Send SMS Captcha.
 
@@ -618,7 +650,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/console_send_sms_code", methods=["POST"])
     @bypass_token_validation
-    @optional_token_validation
+    @recovery_optional_token_validation
     def console_send_sms_code_api() -> str:
         """Send SMS verification code for console clients without image captcha.
 
@@ -646,7 +678,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/send_email_code", methods=["POST"])
     @bypass_token_validation
-    @optional_token_validation
+    @recovery_optional_token_validation
     def send_email_code_api() -> str:
         """Send email verification code.
 
@@ -731,7 +763,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/login_sms", methods=["POST"])
     @bypass_token_validation
-    @optional_token_validation
+    @recovery_optional_token_validation
     def login_sms_api() -> Response:
         """Login through SMS verification code for web clients.
 
@@ -743,7 +775,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/login_email", methods=["POST"])
     @bypass_token_validation
-    @optional_token_validation
+    @recovery_optional_token_validation
     def login_email_api() -> Response:
         """Login through email verification code for web clients.
 
@@ -1092,7 +1124,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/submit-feedback", methods=["POST"])
     @bypass_token_validation
-    @optional_token_validation
+    @recovery_optional_token_validation
     def sumbit_feedback_api() -> str:
         """Submit feedback.
 
