@@ -29,6 +29,7 @@ import CreatorRedemptionCodeDialog from './orders/CreatorRedemptionCodeDialog';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/lib/urlUtils';
+import { copyText } from '@/lib/textutils';
 import { useCreatorOnboardingStatus } from '@/hooks/useOnboarding';
 import {
   canManageArchive as canManageArchiveForShifu,
@@ -41,8 +42,10 @@ import {
 } from '@/lib/onboardingTargets';
 import AdminTitle from './components/AdminTitle';
 import ShifuCard from './components/ShifuCard';
+import CourseCreationChoiceDialog from './components/CourseCreationChoiceDialog';
 import {
   buildAiCourseEntryAnalytics,
+  buildAiCoursePromptCopyResultAnalytics,
   buildCourseCreationAttemptAnalytics,
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
@@ -80,6 +83,8 @@ const ScriptManagementPage = () => {
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [courseCreationChoiceOpen, setCourseCreationChoiceOpen] =
+    useState(false);
   const [showCreateShifuModal, setShowCreateShifuModal] = useState(false);
   const [error, setError] = useState<{ message: string; code?: number } | null>(
     null,
@@ -254,7 +259,7 @@ const ScriptManagementPage = () => {
 
   useEffect(() => {
     if (
-      !courseCreatorUrl ||
+      !courseCreationChoiceOpen ||
       !hasResolvedAdminSession ||
       !adminReady ||
       aiCourseEntryImpressionSentRef.current
@@ -266,7 +271,12 @@ const ScriptManagementPage = () => {
       COURSE_CREATION_EVENTS.AI_ENTRY_IMPRESSION,
       buildAiCourseEntryAnalytics(),
     );
-  }, [adminReady, courseCreatorUrl, hasResolvedAdminSession, sendAnalytics]);
+  }, [
+    adminReady,
+    courseCreationChoiceOpen,
+    hasResolvedAdminSession,
+    sendAnalytics,
+  ]);
 
   const onCreateShifu = async (values: any) => {
     sendAnalytics(
@@ -314,7 +324,13 @@ const ScriptManagementPage = () => {
     }
   };
 
-  const handleCreateShifuModal = () => {
+  const handleCourseCreationChoice = () => {
+    if (!hasResolvedAdminSession || !adminReady) return;
+    setCourseCreationChoiceOpen(true);
+  };
+
+  const handleManualCreateClick = () => {
+    setCourseCreationChoiceOpen(false);
     setShowCreateShifuModal(true);
   };
 
@@ -333,17 +349,37 @@ const ScriptManagementPage = () => {
       COURSE_CREATION_EVENTS.AI_ENTRY_CLICK,
       buildAiCourseEntryAnalytics(),
     );
+  };
+
+  const handleAiCoursePromptCopy = async (prompt: string) => {
     sendAnalytics(
-      COURSE_CREATION_EVENTS.ATTEMPT,
-      buildCourseCreationAttemptAnalytics('ai_assistant'),
+      COURSE_CREATION_EVENTS.AI_PROMPT_COPY_ATTEMPT,
+      buildAiCourseEntryAnalytics(),
     );
-    sendAnalytics(
-      COURSE_CREATION_EVENTS.RESULT,
-      buildCourseCreationResultAnalytics({
-        creationPath: 'ai_assistant',
-        outcome: 'success',
-      }),
-    );
+    try {
+      await copyText(prompt);
+      sendAnalytics(
+        COURSE_CREATION_EVENTS.AI_PROMPT_COPY_RESULT,
+        buildAiCoursePromptCopyResultAnalytics('success'),
+      );
+      toast({
+        title: t('component.courseCreationChoiceDialog.copySuccess'),
+        description: t(
+          'component.courseCreationChoiceDialog.copySuccessDescription',
+        ),
+      });
+      return true;
+    } catch {
+      sendAnalytics(
+        COURSE_CREATION_EVENTS.AI_PROMPT_COPY_RESULT,
+        buildAiCoursePromptCopyResultAnalytics('failed'),
+      );
+      toast({
+        title: t('component.courseCreationChoiceDialog.copyFailed'),
+        variant: 'destructive',
+      });
+      return false;
+    }
   };
 
   const resetListAndFetch = useCallback(() => {
@@ -663,32 +699,26 @@ const ScriptManagementPage = () => {
                   ONBOARDING_TARGET_IDS.courseCreationEntry,
                 )}
               >
-                {courseCreatorUrl && hasResolvedAdminSession && adminReady ? (
-                  <a
-                    href={courseCreatorUrl}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='text-xs text-muted-foreground underline hover:text-foreground'
-                    onClick={handleAiCourseCreatorClick}
-                    {...buildOnboardingTargetProps(
-                      ONBOARDING_TARGET_IDS.lobsterCreateEntry,
-                    )}
-                  >
-                    {t('common.core.aiCourseCreator')}
-                  </a>
-                ) : null}
                 <Button
                   size='sm'
-                  onClick={handleCreateShifuModal}
-                  {...buildOnboardingTargetProps(
-                    ONBOARDING_TARGET_IDS.blankCreateEntry,
-                  )}
+                  onClick={handleCourseCreationChoice}
+                  disabled={!hasResolvedAdminSession || !adminReady}
                 >
                   {t('common.core.createBlankShifu')}
                 </Button>
               </div>
             </div>
           </div>
+          <CourseCreationChoiceDialog
+            open={courseCreationChoiceOpen}
+            onOpenChange={setCourseCreationChoiceOpen}
+            courseCreatorUrl={
+              hasResolvedAdminSession && adminReady ? courseCreatorUrl : null
+            }
+            onAiCourseCreatorClick={handleAiCourseCreatorClick}
+            onAiCoursePromptCopy={handleAiCoursePromptCopy}
+            onManualCreateClick={handleManualCreateClick}
+          />
           <CreateShifuDialog
             open={showCreateShifuModal}
             onOpenChange={handleCreateShifuOpenChange}

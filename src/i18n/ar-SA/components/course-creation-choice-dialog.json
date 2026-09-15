@@ -1,0 +1,18 @@
+{
+  "__namespace__": "component.courseCreationChoiceDialog",
+  "aiDescription": "أرسل موادك أو فكرتك إلى مساعد ذكاء اصطناعي لإنشاء الدورة.",
+  "aiPrompt": "ابحث عن Skill إنشاء دورات AI Shifu (ai-shifu-course-creator) وثبّتها، ثم ساعدني في إنشاء دورة.",
+  "aiTitle": "الإنشاء بالذكاء الاصطناعي",
+  "copiedAction": "تم النسخ",
+  "copyAction": "نسخ تعليمات إنشاء الدورة لمساعد الذكاء الاصطناعي",
+  "copyFailed": "تعذر النسخ. حاول مرة أخرى.",
+  "copySuccess": "تم نسخ التعليمات",
+  "copySuccessDescription": "أرسلها إلى مساعدك.",
+  "description": "اختر طريقة الإنشاء.",
+  "guideAction": "عرض الدليل",
+  "manualAction": "إنشاء دورة فارغة",
+  "manualDescription": "عدّل الدورة بنفسك في لوحة الإدارة.",
+  "manualTitle": "الإنشاء يدويًا",
+  "recommended": "موصى به",
+  "title": "إنشاء دورة"
+}

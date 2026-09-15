@@ -26,6 +26,7 @@
     "common.core",
     "common.errors",
     "common.language",
+    "component.courseCreationChoiceDialog",
     "component.createShifuDialog",
     "component.header",
     "component.menus",

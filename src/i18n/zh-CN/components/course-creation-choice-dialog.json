@@ -1,0 +1,18 @@
+{
+  "__namespace__": "component.courseCreationChoiceDialog",
+  "aiDescription": "把资料或想法发给 AI，对话生成课程。",
+  "aiPrompt": "请帮我搜索并安装 AI 师傅的建课 Skill（ai-shifu-course-creator），然后帮助我制作一门课程。",
+  "aiTitle": "用 AI 办公助理建课",
+  "copiedAction": "已复制",
+  "copyAction": "复制给 AI 办公助理的建课指令",
+  "copyFailed": "复制失败，请重试",
+  "copySuccess": "已复制建课指令",
+  "copySuccessDescription": "请发给你的 AI 办公助理。",
+  "description": "选择建课方式。",
+  "guideAction": "查看教程",
+  "manualAction": "创建空白课程",
+  "manualDescription": "在后台自行编辑课程。",
+  "manualTitle": "后台建课",
+  "recommended": "推荐",
+  "title": "创建课程"
+}

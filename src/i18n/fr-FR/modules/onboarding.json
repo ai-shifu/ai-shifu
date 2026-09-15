@@ -5,15 +5,9 @@
       "descriptionGeneric": "Consultez ici les crédits disponibles, souscrivez un abonnement ou achetez des crédits.",
       "title": "Crédits et offres"
     },
-    "blankCourse": {
-      "description": "Créez ici un nouveau cours, puis modifiez son contenu à partir de zéro.",
-      "title": "Créer un cours vierge"
-    },
-    "lobsterCourse": {
-      "descriptionLink": "Créer des cours avec l'assistant IA",
-      "descriptionPrefix": "Vous pouvez aussi utiliser ",
-      "descriptionSuffix": " pour collaborer avec d’autres Skills et générer une ébauche de cours modifiable à partir de vos ressources et consignes.",
-      "title": "Générer une ébauche avec l'assistant IA"
+    "courseCreationChoice": {
+      "description": "Cliquez sur Nouveau cours pour créer rapidement avec un assistant IA ou partir d’un cours vierge dans l’administration.",
+      "title": "Choisir une méthode de création"
     }
   },
   "common": {
