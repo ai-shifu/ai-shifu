@@ -1,7 +1,7 @@
 {
   "__namespace__": "component.courseCreationChoiceDialog",
   "aiDescription": "ส่งสื่อหรือไอเดียให้ AI สร้างคอร์สผ่านการสนทนา",
-  "aiExamples": "เช่น Claude Cowork, Codex",
+  "aiExamples": "เช่น Claude Cowork, Codex, Hermes Agent, OpenClaw",
   "aiPrompt": "โปรดค้นหาและติดตั้ง Skill สร้างคอร์สของ AI Shifu (ai-shifu-course-creator) แล้วช่วยฉันสร้างคอร์สหนึ่งคอร์ส",
   "aiTitle": "สร้างด้วย AI",
   "copiedAction": "คัดลอกแล้ว",

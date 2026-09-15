@@ -1,7 +1,7 @@
 {
   "__namespace__": "component.courseCreationChoiceDialog",
   "aiDescription": "Envoyez vos supports ou votre idée à une IA pour créer le cours.",
-  "aiExamples": "Ex. : Claude Cowork, Codex",
+  "aiExamples": "Ex. : Claude Cowork, Codex, Hermes Agent, OpenClaw",
   "aiPrompt": "Recherchez et installez le Skill de création de cours AI Shifu (ai-shifu-course-creator), puis aidez-moi à créer un cours.",
   "aiTitle": "Créer avec l’IA",
   "copiedAction": "Copié",
