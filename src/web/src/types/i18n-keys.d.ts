@@ -71,6 +71,7 @@ export type I18nKey =
   | 'component.courseCreationChoiceDialog.copiedAction'
   | 'component.courseCreationChoiceDialog.copyAction'
   | 'component.courseCreationChoiceDialog.copyFailed'
+  | 'component.courseCreationChoiceDialog.copyHint'
   | 'component.courseCreationChoiceDialog.copySuccess'
   | 'component.courseCreationChoiceDialog.copySuccessDescription'
   | 'component.courseCreationChoiceDialog.description'
