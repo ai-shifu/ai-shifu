@@ -448,7 +448,7 @@ src/app/admin/components/AdminCountCard.tsx
 - 行高：`20px`
 - 单行省略
 
-### 8.5 课程描述
+### 8.5 课程简介
 
 - 距离头像 / 标题行：`16px`
 - 颜色：`rgba(10, 10, 10, 0.65)`
