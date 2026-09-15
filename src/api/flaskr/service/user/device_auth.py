@@ -29,9 +29,13 @@ from typing import TYPE_CHECKING, Any
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.common.public_urls import build_public_url
+from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.source_attribution import parse_source_attribution
+from flaskr.service.user.models import UserRegistrationAttribution
 from flaskr.service.user.utils import generate_token
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -218,8 +222,13 @@ def create_device_authorization(
     device_os: str | None = None,
     client_version: str | None = None,
     client_ip: str | None = None,
+    registration_attribution: object = None,
 ) -> dict[str, Any]:
     """Start a pending authorization and hand the CLI its polling secret."""
+    attribution = parse_source_attribution(
+        registration_attribution,
+        field_name="registration_attribution",
+    )
     _guard_issue_rate(app, client_ip)
     ttl_seconds = _expire_seconds(app)
     device_code = secrets.token_urlsafe(32)
@@ -233,8 +242,14 @@ def create_device_authorization(
         "device_os": _clean_text(device_os),
         "client_version": _clean_text(client_version),
         "client_ip": _clean_text(client_ip),
-        "created_at": int(time.time()),
+        "created_at": time.time(),
     }
+    if attribution is not None:
+        payload["registration_attribution"] = {
+            "creation_source": attribution.creation_source,
+            "source_product": attribution.source_product,
+            "handoff_id": attribution.handoff_id,
+        }
     _store_session(app, device_code, payload, ttl_seconds)
     redis.set(_user_code_key(app, user_code), device_code, ex=ttl_seconds)
 
@@ -410,3 +425,85 @@ def poll_device_authorization(app: Flask, *, device_code: str) -> dict[str, Any]
         return {"status": STATUS_PENDING, "token": "", "interval": _poll_interval(app)}
     finally:
         lock.release()
+
+
+def record_device_registration_attribution(
+    app: Flask,
+    *,
+    user_code: object,
+    user_id: str,
+) -> bool:
+    """Persist a new registration's source from its exact device handoff.
+
+    The caller supplies the explicit ``is_new_user`` decision from the
+    registration transaction. This function deliberately does not infer that
+    fact from entity timestamps because guest-to-user promotion keeps the
+    guest row's original creation time.
+    """
+    normalized_user_code = normalize_user_code(user_code)
+    if not normalized_user_code:
+        return False
+    device_code = _decode(redis.get(_user_code_key(app, normalized_user_code)))
+    if not device_code:
+        return False
+    device_payload = _load_session(app, device_code)
+    if device_payload is None or device_payload.get("status") != STATUS_PENDING:
+        return False
+    attribution = parse_source_attribution(
+        device_payload.get("registration_attribution"),
+        field_name="registration_attribution",
+    )
+    if attribution is None:
+        return False
+
+    existing_user = UserRegistrationAttribution.query.filter_by(
+        user_bid=user_id
+    ).one_or_none()
+    if existing_user is not None:
+        if (
+            existing_user.registration_source == attribution.creation_source
+            and existing_user.source_product == attribution.source_product
+            and existing_user.handoff_id == attribution.handoff_id
+        ):
+            return True
+        raise_param_error("registration_attribution")
+    existing_handoff = UserRegistrationAttribution.query.filter_by(
+        handoff_id=attribution.handoff_id
+    ).one_or_none()
+    if existing_handoff is not None:
+        raise_param_error("registration_attribution.handoff_id")
+
+    try:
+        with db.session.begin_nested():
+            db.session.add(
+                UserRegistrationAttribution(
+                    user_bid=user_id,
+                    registration_source=attribution.creation_source,
+                    source_product=attribution.source_product,
+                    handoff_id=attribution.handoff_id,
+                )
+            )
+            db.session.flush()
+    except IntegrityError:
+        existing_user = (
+            UserRegistrationAttribution.query.filter_by(user_bid=user_id)
+            .with_for_update()
+            .one_or_none()
+        )
+        existing_handoff = (
+            UserRegistrationAttribution.query.filter_by(
+                handoff_id=attribution.handoff_id
+            )
+            .with_for_update()
+            .one_or_none()
+        )
+        if (
+            existing_user is not None
+            and existing_user.id == getattr(existing_handoff, "id", None)
+            and existing_user.registration_source == attribution.creation_source
+            and existing_user.source_product == attribution.source_product
+            and existing_user.handoff_id == attribution.handoff_id
+        ):
+            return True
+        raise
+    return True

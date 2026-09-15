@@ -9,7 +9,10 @@ const logoutMock = jest.fn(() => Promise.resolve());
 // effect that depends on them re-run on every render.
 const mockRouter = { replace: replaceMock };
 const mockSearchParams = {
-  get: jest.fn(() => null),
+  get: jest.fn((key: string): string | null => {
+    void key;
+    return null;
+  }),
 };
 const mockPasswordLogin = jest.fn(
   ({
@@ -30,14 +33,17 @@ const mockEmailLogin = jest.fn(
   ({
     loginContext,
     courseId,
+    deviceUserCode,
   }: {
     loginContext?: string;
     courseId?: string;
+    deviceUserCode?: string;
   }) => (
     <div
       data-testid='email-login'
       data-login-context={loginContext}
       data-course-id={courseId}
+      data-device-user-code={deviceUserCode}
     />
   ),
 );
@@ -112,8 +118,11 @@ jest.mock('@/components/auth/PhoneLogin', () => ({
 }));
 
 jest.mock('@/components/auth/EmailLogin', () => ({
-  EmailLogin: (props: { loginContext?: string; courseId?: string }) =>
-    mockEmailLogin(props),
+  EmailLogin: (props: {
+    loginContext?: string;
+    courseId?: string;
+    deviceUserCode?: string;
+  }) => mockEmailLogin(props),
 }));
 
 jest.mock('@/components/auth/FeedbackForm', () => ({
@@ -208,6 +217,7 @@ jest.mock('@/components/ui/Card', () => ({
 describe('AuthPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearchParams.get.mockImplementation(() => null);
     mockPasswordLogin.mockClear();
     mockEmailLogin.mockClear();
     mockUserState.userInfo = null;
@@ -217,6 +227,21 @@ describe('AuthPage', () => {
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockEnvState.runtimeConfigLoaded = true;
+  });
+
+  it('passes the nested device handoff code into registration login', async () => {
+    mockEnvState.loginMethodsEnabled = ['email'];
+    mockEnvState.defaultLoginMethod = 'email';
+    mockSearchParams.get.mockImplementation((key: string) =>
+      key === 'redirect' ? '/login/device?code=AC4-7HK' : null,
+    );
+
+    render(<AuthPage />);
+
+    expect(await screen.findByTestId('email-login')).toHaveAttribute(
+      'data-device-user-code',
+      'AC4-7HK',
+    );
   });
 
   it('switches an authenticated browser session to a guest session on the login page', async () => {

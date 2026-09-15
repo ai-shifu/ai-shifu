@@ -113,6 +113,23 @@ describe('useGoogleAuth analytics contract', () => {
     );
   });
 
+  it('forwards the device handoff code without adding it to analytics', async () => {
+    mockGoogleOauthStart.mockResolvedValue({
+      code: 0,
+      data: { authorization_url: 'https://accounts.example.test' },
+    });
+    const { result } = renderHook(() => useGoogleAuth());
+
+    await act(async () => {
+      await result.current.startGoogleLogin({ deviceUserCode: 'AC4-7HK' });
+    });
+
+    expect(mockGoogleOauthStart).toHaveBeenCalledWith(
+      expect.objectContaining({ device_user_code: 'AC4-7HK' }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('AC4-7HK');
+  });
+
   it('records a successful callback without OAuth state, code, token, or identity', async () => {
     mockGoogleOauthCallback.mockResolvedValue(successfulGoogleCallbackResponse);
     const onSuccess = jest.fn();

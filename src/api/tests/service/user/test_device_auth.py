@@ -1,6 +1,11 @@
 """Verify the device authorization flow used by command-line clients."""
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from types import SimpleNamespace
+from unittest import mock
+from uuid import uuid4
 
 import pytest
 from flaskr.service.common.models import ERROR_CODE, AppError
@@ -15,6 +20,7 @@ from flaskr.service.user.device_auth import (
     get_device_authorization,
     normalize_user_code,
     poll_device_authorization,
+    record_device_registration_attribution,
 )
 
 USER_ID = "test-user-bid-0001"
@@ -28,6 +34,138 @@ def _start(app: object) -> dict:
         client_version="1.2.6",
         client_ip="203.0.113.7",
     )
+
+
+def _lobster_attribution(handoff_id: str | None = None) -> dict[str, str]:
+    return {
+        "creation_source": "ai_assistant",
+        "source_product": "lobster",
+        "handoff_id": handoff_id or str(uuid4()),
+    }
+
+
+def test_explicit_new_registration_from_lobster_is_attributed(
+    app: object,
+) -> None:
+    from flaskr import dao
+    from flaskr.service.user.models import UserRegistrationAttribution
+
+    user_id = "new-lobster-user"
+    handoff_id = str(uuid4())
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution=_lobster_attribution(handoff_id),
+        )
+        assert record_device_registration_attribution(
+            app, user_code=started["user_code"], user_id=user_id
+        )
+        dao.db.session.commit()
+
+        row = UserRegistrationAttribution.query.filter_by(user_bid=user_id).one()
+        assert row.registration_source == "ai_assistant"
+        assert row.source_product == "lobster"
+        assert row.handoff_id == handoff_id
+
+
+def test_device_poll_does_not_infer_registration_from_user_age(app: object) -> None:
+    from flaskr.service.user.models import UserRegistrationAttribution
+
+    user_id = "existing-lobster-user"
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution=_lobster_attribution(),
+        )
+
+        approve_device_authorization(
+            app, user_code=started["user_code"], user_id=user_id
+        )
+        poll_device_authorization(app, device_code=started["device_code"])
+
+        assert (
+            UserRegistrationAttribution.query.filter_by(user_bid=user_id).one_or_none()
+            is None
+        )
+
+
+def test_registration_attribution_requires_the_exact_pending_handoff(
+    app: object,
+) -> None:
+    with app.test_request_context():
+        assert not record_device_registration_attribution(
+            app, user_code="MISSING", user_id="new-lobster-user"
+        )
+
+
+def test_concurrent_exact_registration_attribution_is_idempotent(app: object) -> None:
+    from flaskr import dao
+    from flaskr.service.user.models import UserRegistrationAttribution
+    from sqlalchemy.exc import IntegrityError
+
+    user_id = "concurrent-lobster-user"
+    handoff_id = str(uuid4())
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution=_lobster_attribution(handoff_id),
+        )
+        existing = SimpleNamespace(
+            id=42,
+            registration_source="ai_assistant",
+            source_product="lobster",
+            handoff_id=handoff_id,
+        )
+        results = {
+            ("user_bid", user_id): iter((None, existing)),
+            ("handoff_id", handoff_id): iter((None, existing)),
+        }
+        current_reads: list[tuple[str, object]] = []
+
+        class FakeQuery:
+            def filter_by(self, **kwargs: object) -> object:
+                key, value = next(iter(kwargs.items()))
+                result = next(results[(key, value)])
+
+                def with_for_update() -> object:
+                    current_reads.append((key, value))
+                    return SimpleNamespace(one_or_none=lambda: result)
+
+                return SimpleNamespace(
+                    with_for_update=with_for_update,
+                    one_or_none=lambda: result,
+                )
+
+        @contextmanager
+        def savepoint() -> Iterator[None]:
+            yield
+
+        conflict = IntegrityError("insert", {}, RuntimeError("duplicate"))
+        with (
+            mock.patch.object(UserRegistrationAttribution, "query", FakeQuery()),
+            mock.patch.object(dao.db.session, "begin_nested", side_effect=savepoint),
+            mock.patch.object(dao.db.session, "add"),
+            mock.patch.object(dao.db.session, "flush", side_effect=conflict),
+        ):
+            assert record_device_registration_attribution(
+                app, user_code=started["user_code"], user_id=user_id
+            )
+        assert current_reads == [
+            ("user_bid", user_id),
+            ("handoff_id", handoff_id),
+        ]
+
+
+def test_device_authorization_rejects_invalid_source_attribution(app: object) -> None:
+    with app.test_request_context(), pytest.raises(AppError):
+        create_device_authorization(
+            app,
+            registration_attribution={
+                "creation_source": "ai_assistant",
+                "source_product": "lobster",
+                "handoff_id": "invalid",
+            },
+        )
 
 
 def test_full_flow_issues_token_after_approval(app: object) -> None:

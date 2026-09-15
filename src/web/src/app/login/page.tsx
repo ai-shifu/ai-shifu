@@ -185,6 +185,17 @@ export default function AuthPage() {
       return match[1];
     }
   }, [resolveRedirectPath]);
+  const deviceUserCode = useMemo(() => {
+    const redirectPath = resolveRedirectPath();
+    try {
+      const target = new URL(redirectPath, 'https://local.ai-shifu.invalid');
+      return target.pathname === '/login/device'
+        ? (target.searchParams.get('code') ?? '')
+        : '';
+    } catch {
+      return '';
+    }
+  }, [resolveRedirectPath]);
 
   const handleAuthSuccess = useCallback(() => {
     router.replace(resolveRedirectPath());
@@ -322,11 +333,12 @@ export default function AuthPage() {
       await startGoogleLogin({
         redirectPath: resolveRedirectPath(),
         language: language ?? undefined,
+        deviceUserCode: deviceUserCode || undefined,
       });
     } catch {
       setIsGoogleLoading(false);
     }
-  }, [language, resolveRedirectPath, startGoogleLogin]);
+  }, [deviceUserCode, language, resolveRedirectPath, startGoogleLogin]);
 
   const handleGoogleSignIn = useCallback(async () => {
     if (!isGoogleEnabled) {
@@ -364,6 +376,7 @@ export default function AuthPage() {
               onLoginSuccess={handleAuthSuccess}
               loginContext={loginContext}
               courseId={courseIdFromRedirect || undefined}
+              deviceUserCode={deviceUserCode || undefined}
               referralMetadata={referralMetadata}
             />
           );
@@ -373,6 +386,7 @@ export default function AuthPage() {
               onLoginSuccess={handleAuthSuccess}
               loginContext={loginContext}
               courseId={courseIdFromRedirect || undefined}
+              deviceUserCode={deviceUserCode || undefined}
               referralMetadata={referralMetadata}
             />
           );
@@ -410,6 +424,7 @@ export default function AuthPage() {
       isGoogleLoading,
       loginContext,
       courseIdFromRedirect,
+      deviceUserCode,
       referralMetadata,
       isEmailEnabled,
       isGoogleEnabled,

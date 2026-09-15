@@ -8,6 +8,7 @@ from typing import ParamSpec, TypeVar
 
 from flask import Flask, Response, current_app, make_response, request
 
+from flaskr.common.http import sensitive_body
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao.uow import unit_of_work
@@ -43,6 +44,7 @@ from flaskr.service.user.device_auth import (
     deny_device_authorization,
     get_device_authorization,
     poll_device_authorization,
+    record_device_registration_attribution,
 )
 from flaskr.service.user.models import UserInfo
 from flaskr.service.user.onboarding import (
@@ -713,6 +715,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                         },
                     ),
                 )
+                if auth_result.is_new_user:
+                    record_device_registration_attribution(
+                        app,
+                        user_code=payload.get("device_user_code"),
+                        user_id=auth_result.user.user_id,
+                    )
             run_post_auth_extensions(
                 app,
                 PostAuthContext(
@@ -732,6 +740,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_sms", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
+    @sensitive_body(max_bytes=16 * 1024)
     def login_sms_api() -> Response:
         """Login through SMS verification code for web clients.
 
@@ -744,6 +753,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_email", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
+    @sensitive_body(max_bytes=16 * 1024)
     def login_email_api() -> Response:
         """Login through email verification code for web clients.
 
@@ -772,6 +782,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 device_os=payload.get("device_os"),
                 client_version=payload.get("client_version"),
                 client_ip=_request_client_ip(),
+                registration_attribution=payload.get("registration_attribution"),
             )
         )
 
@@ -1152,6 +1163,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         login_context = request.args.get("login_context")
         if login_context:
             metadata["login_context"] = login_context
+        device_user_code = request.args.get("device_user_code")
+        if device_user_code:
+            metadata["device_user_code"] = device_user_code
         ui_language = request.args.get("language")
         if ui_language:
             metadata["language"] = ui_language
@@ -1206,6 +1220,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
         with unit_of_work():
             auth_result = provider.handle_oauth_callback(app, callback_request)
+            if auth_result.is_new_user:
+                record_device_registration_attribution(
+                    app,
+                    user_code=auth_result.metadata.get("device_user_code"),
+                    user_id=auth_result.user.user_id,
+                )
         run_post_auth_extensions(
             app,
             PostAuthContext(

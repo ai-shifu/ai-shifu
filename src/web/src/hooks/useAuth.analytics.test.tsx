@@ -121,6 +121,21 @@ describe('useAuth login analytics contract', () => {
     );
   });
 
+  it('forwards the device handoff code only to the login request', async () => {
+    mockSmsLogin.mockResolvedValue(successfulSmsResponse);
+    const { result } = renderHook(() => useAuth({ deviceUserCode: 'AC4-7HK' }));
+
+    await act(async () => {
+      await result.current.loginWithSmsCode('13800138000', '123456', 'zh-CN');
+    });
+
+    expect(mockSmsLogin).toHaveBeenCalledWith(
+      expect.objectContaining({ device_user_code: 'AC4-7HK' }),
+      { skipErrorToast: true },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('AC4-7HK');
+  });
+
   it('keeps SMS success terminal when the post-login callback throws', async () => {
     const callbackError = new Error('private post-login callback error');
     const onSuccess = jest.fn(() => {

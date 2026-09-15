@@ -339,6 +339,7 @@ def test_google_existing_account_accepts_long_avatar_url(
                 },
             )
 
+            assert result.is_new_user is True
             stored = UserEntity.query.filter_by(user_bid=result.user.user_id).one()
             assert stored.avatar == avatar_url
         finally:

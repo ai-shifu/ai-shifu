@@ -8,6 +8,7 @@ interface EmailLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;
   loginContext?: string;
   courseId?: string;
+  deviceUserCode?: string;
   referralMetadata?: ReferralLoginMetadata;
 }
 
