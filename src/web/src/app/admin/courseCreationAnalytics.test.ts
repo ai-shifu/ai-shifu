@@ -1,5 +1,6 @@
 import {
   buildAiCourseEntryAnalytics,
+  buildAiCoursePromptCopyResultAnalytics,
   buildCourseCreationAttemptAnalytics,
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
@@ -9,9 +10,20 @@ describe('AI course entry analytics', () => {
   test('uses a bounded payload that can compare entry presentations', () => {
     expect(buildAiCourseEntryAnalytics()).toEqual({
       surface: 'admin_course_list',
-      presentation: 'text_link',
+      presentation: 'creation_choice_modal',
     });
     expect(JSON.stringify(buildAiCourseEntryAnalytics())).not.toContain('url');
+  });
+
+  test('reports prompt copy outcomes without including the prompt', () => {
+    expect(buildAiCoursePromptCopyResultAnalytics('success')).toEqual({
+      surface: 'admin_course_list',
+      presentation: 'creation_choice_modal',
+      outcome: 'success',
+    });
+    expect(
+      JSON.stringify(buildAiCoursePromptCopyResultAnalytics('failed')),
+    ).not.toContain('prompt');
   });
 });
 

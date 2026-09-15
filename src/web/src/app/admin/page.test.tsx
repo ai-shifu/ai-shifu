@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import { copyText } from '@/lib/textutils';
 
 import AdminPage from './page';
 
@@ -15,6 +16,9 @@ const CLOSE_IMPORT_LABEL = 'close-import';
 const CLOSE_REDEMPTION_LABEL = 'close-redemption';
 const SUBMIT_COURSE_LABEL = 'submit-course';
 const CANCEL_COURSE_LABEL = 'cancel-course';
+const CHOOSE_AI_COURSE_LABEL = 'choose-ai-course';
+const COPY_AI_COURSE_PROMPT_LABEL = 'copy-ai-course-prompt';
+const CHOOSE_MANUAL_COURSE_LABEL = 'choose-manual-course';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -84,6 +88,10 @@ jest.mock('@/hooks/useOnboarding', () => ({
 
 jest.mock('@/lib/urlUtils', () => ({
   getCourseCreatorUrl: () => mockCourseCreatorUrl,
+}));
+
+jest.mock('@/lib/textutils', () => ({
+  copyText: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/lib/onboardingTargets', () => ({
@@ -246,6 +254,47 @@ jest.mock('@/components/create-shifu-dialog', () => ({
     ) : null,
 }));
 
+jest.mock('./components/CourseCreationChoiceDialog', () => ({
+  __esModule: true,
+  default: ({
+    open,
+    courseCreatorUrl,
+    onAiCourseCreatorClick,
+    onAiCoursePromptCopy,
+    onManualCreateClick,
+  }: {
+    open: boolean;
+    courseCreatorUrl: string | null;
+    onAiCourseCreatorClick: () => void;
+    onAiCoursePromptCopy: (prompt: string) => Promise<boolean>;
+    onManualCreateClick: () => void;
+  }) =>
+    open ? (
+      <div data-testid='course-creation-choice-dialog'>
+        {courseCreatorUrl ? (
+          <a
+            href={courseCreatorUrl}
+            onClick={onAiCourseCreatorClick}
+          >
+            {CHOOSE_AI_COURSE_LABEL}
+          </a>
+        ) : null}
+        <button
+          type='button'
+          onClick={() => onAiCoursePromptCopy('safe localized prompt')}
+        >
+          {COPY_AI_COURSE_PROMPT_LABEL}
+        </button>
+        <button
+          type='button'
+          onClick={onManualCreateClick}
+        >
+          {CHOOSE_MANUAL_COURSE_LABEL}
+        </button>
+      </div>
+    ) : null,
+}));
+
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => <div data-testid='loading-indicator' />,
@@ -392,6 +441,9 @@ describe('AdminPage', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
     );
+    fireEvent.click(
+      screen.getByRole('button', { name: CHOOSE_MANUAL_COURSE_LABEL }),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
     expect(mockTrackEvent).toHaveBeenCalledWith(
@@ -428,6 +480,9 @@ describe('AdminPage', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
     );
+    fireEvent.click(
+      screen.getByRole('button', { name: CHOOSE_MANUAL_COURSE_LABEL }),
+    );
     fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
 
     await waitFor(() =>
@@ -455,15 +510,21 @@ describe('AdminPage', () => {
     mockCourseCreatorUrl = 'https://creator.example.test/new';
     render(<AdminPage />);
 
-    const link = await screen.findByRole('link', {
-      name: 'common.core.aiCourseCreator',
-    });
+    await screen.findByText('Course 1');
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    const link = screen.getByRole('link', { name: CHOOSE_AI_COURSE_LABEL });
     await waitFor(() =>
       expect(mockTrackEvent).toHaveBeenCalledWith(
         'creator_ai_course_entry_impression',
         {
           surface: 'admin_course_list',
-          presentation: 'text_link',
+          presentation: 'creation_choice_modal',
         },
       ),
     );
@@ -473,16 +534,12 @@ describe('AdminPage', () => {
       'creator_ai_course_entry_click',
       {
         surface: 'admin_course_list',
-        presentation: 'text_link',
+        presentation: 'creation_choice_modal',
       },
     );
-    expect(mockTrackEvent).toHaveBeenCalledWith(
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
       'creator_course_create_attempt',
       { creation_path: 'ai_assistant' },
-    );
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      'creator_course_create_result',
-      { creation_path: 'ai_assistant', outcome: 'success' },
     );
     const serializedCalls = JSON.stringify(mockTrackEvent.mock.calls);
     expect(serializedCalls).not.toContain('creator.example.test');
@@ -491,9 +548,11 @@ describe('AdminPage', () => {
   test('tracks one AI entry impression per mounted visit across rerenders', async () => {
     mockCourseCreatorUrl = 'https://creator.example.test/new';
     const { rerender } = render(<AdminPage />);
-    await screen.findByRole('link', {
-      name: 'common.core.aiCourseCreator',
-    });
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    await screen.findByRole('link', { name: CHOOSE_AI_COURSE_LABEL });
     await waitFor(() =>
       expect(
         mockTrackEvent.mock.calls.filter(
@@ -511,13 +570,81 @@ describe('AdminPage', () => {
     ).toHaveLength(1);
   });
 
-  test('does not track an AI entry impression when the entry is unavailable', async () => {
+  test('tracks prompt copy attempt and terminal success without exposing prompt text', async () => {
     render(<AdminPage />);
     await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
 
-    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+    await waitFor(() => expect(copyText).toHaveBeenCalledTimes(1));
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_ai_course_prompt_copy_attempt',
+      {
+        surface: 'admin_course_list',
+        presentation: 'creation_choice_modal',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_ai_course_prompt_copy_result',
+      {
+        surface: 'admin_course_list',
+        presentation: 'creation_choice_modal',
+        outcome: 'success',
+      },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'safe localized prompt',
+    );
+  });
+
+  test('reports a bounded prompt copy failure and keeps the choice dialog open', async () => {
+    (copyText as jest.Mock).mockRejectedValueOnce(
+      new Error('sensitive clipboard failure'),
+    );
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_ai_course_prompt_copy_result',
+        {
+          surface: 'admin_course_list',
+          presentation: 'creation_choice_modal',
+          outcome: 'failed',
+        },
+      ),
+    );
+    expect(
+      screen.getByTestId('course-creation-choice-dialog'),
+    ).toBeInTheDocument();
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'sensitive clipboard failure',
+    );
+  });
+
+  test('tracks the in-product AI option even when the optional guide is unavailable', async () => {
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_ai_course_entry_impression',
-      expect.anything(),
+      {
+        surface: 'admin_course_list',
+        presentation: 'creation_choice_modal',
+      },
     );
   });
 
@@ -527,8 +654,11 @@ describe('AdminPage', () => {
     render(<AdminPage />);
 
     await waitFor(() => expect(mockEnsureAdminCreator).toHaveBeenCalled());
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
     expect(
-      screen.queryByRole('link', { name: 'common.core.aiCourseCreator' }),
+      screen.queryByRole('link', { name: CHOOSE_AI_COURSE_LABEL }),
     ).not.toBeInTheDocument();
     expect(mockTrackEvent).not.toHaveBeenCalledWith(
       'creator_ai_course_entry_impression',
@@ -546,7 +676,7 @@ describe('AdminPage', () => {
 
     await screen.findByText('permission denied');
     expect(
-      screen.queryByRole('link', { name: 'common.core.aiCourseCreator' }),
+      screen.queryByRole('link', { name: CHOOSE_AI_COURSE_LABEL }),
     ).not.toBeInTheDocument();
     expect(mockTrackEvent).not.toHaveBeenCalledWith(
       'creator_ai_course_entry_impression',
@@ -562,9 +692,11 @@ describe('AdminPage', () => {
     });
     render(<AdminPage />);
 
-    const link = await screen.findByRole('link', {
-      name: 'common.core.aiCourseCreator',
-    });
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    const link = screen.getByRole('link', { name: CHOOSE_AI_COURSE_LABEL });
     expect(link).toHaveAttribute('href', 'https://creator.example.test/new');
     expect(() => fireEvent.click(link)).not.toThrow();
   });
@@ -578,6 +710,9 @@ describe('AdminPage', () => {
 
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: CHOOSE_MANUAL_COURSE_LABEL }),
     );
     fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
 

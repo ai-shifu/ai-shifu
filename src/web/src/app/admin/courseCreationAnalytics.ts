@@ -1,6 +1,8 @@
 export const COURSE_CREATION_EVENTS = {
   AI_ENTRY_IMPRESSION: 'creator_ai_course_entry_impression',
   AI_ENTRY_CLICK: 'creator_ai_course_entry_click',
+  AI_PROMPT_COPY_ATTEMPT: 'creator_ai_course_prompt_copy_attempt',
+  AI_PROMPT_COPY_RESULT: 'creator_ai_course_prompt_copy_result',
   ATTEMPT: 'creator_course_create_attempt',
   RESULT: 'creator_course_create_result',
   CANCEL: 'creator_course_create_cancel',
@@ -8,11 +10,18 @@ export const COURSE_CREATION_EVENTS = {
 
 export const AI_COURSE_ENTRY_ANALYTICS = {
   surface: 'admin_course_list',
-  presentation: 'text_link',
+  presentation: 'creation_choice_modal',
 } as const;
 
 export const buildAiCourseEntryAnalytics = () => ({
   ...AI_COURSE_ENTRY_ANALYTICS,
+});
+
+export const buildAiCoursePromptCopyResultAnalytics = (
+  outcome: 'success' | 'failed',
+) => ({
+  ...AI_COURSE_ENTRY_ANALYTICS,
+  outcome,
 });
 
 export type CourseCreationPath = 'manual' | 'ai_assistant';

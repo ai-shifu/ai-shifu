@@ -5,15 +5,9 @@
       "descriptionGeneric": "Check available credits here, or subscribe or buy credits.",
       "title": "Credits and plans"
     },
-    "blankCourse": {
-      "description": "Create a new course here, then edit the content from scratch.",
-      "title": "Create a blank course"
-    },
-    "lobsterCourse": {
-      "descriptionLink": "Create courses with AI assistant",
-      "descriptionPrefix": "You can also use ",
-      "descriptionSuffix": " to work with other Skills and generate an editable course draft from your materials and requirements.",
-      "title": "Generate a course draft with AI assistant"
+    "courseCreationChoice": {
+      "description": "Select New course to create quickly with an AI assistant or start with a blank course in the admin portal.",
+      "title": "Choose how to create"
     }
   },
   "common": {

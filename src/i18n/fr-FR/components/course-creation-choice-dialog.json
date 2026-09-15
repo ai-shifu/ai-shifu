@@ -1,0 +1,18 @@
+{
+  "__namespace__": "component.courseCreationChoiceDialog",
+  "aiDescription": "Envoyez vos supports ou votre idée à une IA pour créer le cours.",
+  "aiPrompt": "Recherchez et installez le Skill de création de cours AI Shifu (ai-shifu-course-creator), puis aidez-moi à créer un cours.",
+  "aiTitle": "Créer avec l’IA",
+  "copiedAction": "Copié",
+  "copyAction": "Copier l’instruction pour l’IA",
+  "copyFailed": "Échec de la copie. Réessayez.",
+  "copySuccess": "Instruction copiée",
+  "copySuccessDescription": "Envoyez-la à votre assistant IA.",
+  "description": "Choisissez comment le créer.",
+  "guideAction": "Voir le guide",
+  "manualAction": "Créer un cours vierge",
+  "manualDescription": "Modifiez vous-même le cours dans l’administration.",
+  "manualTitle": "Créer manuellement",
+  "recommended": "Recommandé",
+  "title": "Créer un cours"
+}
