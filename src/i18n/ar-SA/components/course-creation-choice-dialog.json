@@ -1,6 +1,7 @@
 {
   "__namespace__": "component.courseCreationChoiceDialog",
   "aiDescription": "أرسل موادك أو فكرتك إلى مساعد ذكاء اصطناعي لإنشاء الدورة.",
+  "aiExamples": "مثل WorkBuddy وCodex وClaude Cowork",
   "aiPrompt": "ابحث عن Skill إنشاء دورات AI Shifu (ai-shifu-course-creator) وثبّتها، ثم ساعدني في إنشاء دورة.",
   "aiTitle": "الإنشاء بالذكاء الاصطناعي",
   "copiedAction": "تم النسخ",

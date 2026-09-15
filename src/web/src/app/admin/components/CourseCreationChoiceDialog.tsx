@@ -99,6 +99,9 @@ export default function CourseCreationChoiceDialog({
               <p className='mt-3 text-sm leading-6 text-muted-foreground sm:text-base'>
                 {t('component.courseCreationChoiceDialog.aiDescription')}
               </p>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                {t('component.courseCreationChoiceDialog.aiExamples')}
+              </p>
             </div>
 
             <Button

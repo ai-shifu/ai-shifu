@@ -66,6 +66,7 @@ export type I18nKey =
   | 'common.errors.noPermission'
   | 'common.language.name'
   | 'component.courseCreationChoiceDialog.aiDescription'
+  | 'component.courseCreationChoiceDialog.aiExamples'
   | 'component.courseCreationChoiceDialog.aiPrompt'
   | 'component.courseCreationChoiceDialog.aiTitle'
   | 'component.courseCreationChoiceDialog.copiedAction'
