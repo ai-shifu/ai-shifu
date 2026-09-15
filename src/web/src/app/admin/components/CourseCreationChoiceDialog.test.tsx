@@ -1,9 +1,19 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import mockChinese from '../../../../../i18n/zh-CN/components/course-creation-choice-dialog.json';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import CourseCreationChoiceDialog from './CourseCreationChoiceDialog';
 
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string) =>
+      key.endsWith('.aiPrompt') ? mockChinese.aiPrompt : key,
+  }),
 }));
 
 jest.mock('@/lib/onboardingTargets', () => ({
@@ -32,8 +42,9 @@ describe('CourseCreationChoiceDialog', () => {
     );
 
     expect(
-      screen.getByText('component.courseCreationChoiceDialog.recommended'),
-    ).toBeInTheDocument();
+      screen.queryByText('component.courseCreationChoiceDialog.recommended'),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
     expect(
       screen.getByText('component.courseCreationChoiceDialog.aiDescription'),
     ).toBeInTheDocument();
@@ -58,7 +69,7 @@ describe('CourseCreationChoiceDialog', () => {
       }),
     );
     expect(onAiCoursePromptCopy).toHaveBeenCalledWith(
-      'component.courseCreationChoiceDialog.aiPrompt',
+      '请帮我搜索并安装 AI 师傅的建课技能（ai-shifu-course-creator）。如果已经安装，请直接告诉我可以开始建课。',
     );
     expect(
       await screen.findByRole('button', {
@@ -101,5 +112,106 @@ describe('CourseCreationChoiceDialog', () => {
         name: 'component.courseCreationChoiceDialog.manualAction',
       }),
     ).toBeEnabled();
+  });
+
+  test('ignores pending clicks, allows retry, and changes guidance only on success', async () => {
+    let settle!: (value: boolean) => void;
+    const copy = jest
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<boolean>(resolve => {
+            settle = resolve;
+          }),
+      )
+      .mockResolvedValue(true);
+    render(
+      <CourseCreationChoiceDialog
+        open
+        onOpenChange={jest.fn()}
+        courseCreatorUrl={null}
+        onAiCourseCreatorClick={jest.fn()}
+        onAiCoursePromptCopy={copy}
+        onManualCreateClick={jest.fn()}
+      />,
+    );
+    const button = screen.getByRole('button', { name: /\.copyAction/ });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(copy).toHaveBeenCalledTimes(1);
+    await act(async () => settle(false));
+    expect(button).toBeEnabled();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'component.courseCreationChoiceDialog.copyHint',
+    );
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'component.courseCreationChoiceDialog.copySuccessDescription',
+      ),
+    );
+    expect(copy).toHaveBeenCalledTimes(2);
+  });
+
+  test('closing resets success and ignores an earlier pending copy after reopening', async () => {
+    let settle!: (value: boolean) => void;
+    const copy = jest
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<boolean>(resolve => {
+            settle = resolve;
+          }),
+      )
+      .mockResolvedValue(true);
+    const props = {
+      onOpenChange: jest.fn(),
+      courseCreatorUrl: null,
+      onAiCourseCreatorClick: jest.fn(),
+      onAiCoursePromptCopy: copy,
+      onManualCreateClick: jest.fn(),
+    };
+    const { rerender } = render(
+      <CourseCreationChoiceDialog
+        {...props}
+        open
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /\.copyAction/ }));
+    rerender(
+      <CourseCreationChoiceDialog
+        {...props}
+        open={false}
+      />,
+    );
+    rerender(
+      <CourseCreationChoiceDialog
+        {...props}
+        open
+      />,
+    );
+    await act(async () => settle(true));
+    expect(screen.getByRole('button', { name: /\.copyAction/ })).toBeEnabled();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'component.courseCreationChoiceDialog.copyHint',
+    );
+    fireEvent.click(screen.getByRole('button', { name: /\.copyAction/ }));
+    await screen.findByRole('button', { name: /\.copiedAction/ });
+    rerender(
+      <CourseCreationChoiceDialog
+        {...props}
+        open={false}
+      />,
+    );
+    rerender(
+      <CourseCreationChoiceDialog
+        {...props}
+        open
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'component.courseCreationChoiceDialog.copyHint',
+    );
   });
 });

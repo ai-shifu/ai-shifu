@@ -7,6 +7,7 @@ import AdminPage from './page';
 
 const mockPush = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockToast = jest.fn();
 let mockCourseCreatorUrl: string | null = null;
 const mockT = (key: string) => key;
 const mockI18n = {
@@ -70,7 +71,7 @@ jest.mock('@/store', () => ({
 
 jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({
-    toast: jest.fn(),
+    toast: mockToast,
   }),
 }));
 
@@ -582,14 +583,14 @@ describe('AdminPage', () => {
 
     await waitFor(() => expect(copyText).toHaveBeenCalledTimes(1));
     expect(mockTrackEvent).toHaveBeenCalledWith(
-      'creator_ai_course_prompt_copy_attempt',
+      'creator_ai_skill_install_copy_attempt',
       {
         surface: 'admin_course_list',
         presentation: 'creation_choice_modal',
       },
     );
     expect(mockTrackEvent).toHaveBeenCalledWith(
-      'creator_ai_course_prompt_copy_result',
+      'creator_ai_skill_install_copy_result',
       {
         surface: 'admin_course_list',
         presentation: 'creation_choice_modal',
@@ -599,6 +600,81 @@ describe('AdminPage', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'safe localized prompt',
     );
+  });
+
+  test('waits for clipboard settlement and never treats installation copy as course creation', async () => {
+    let finish!: () => void;
+    (copyText as jest.Mock).mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          finish = resolve;
+        }),
+    );
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'creator_ai_skill_install_copy_attempt',
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'creator_ai_skill_install_copy_result',
+      ),
+    ).toHaveLength(0);
+    finish();
+    await waitFor(() =>
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'creator_ai_skill_install_copy_result',
+        ),
+      ).toHaveLength(1),
+    );
+    for (const retired of [
+      'creator_ai_course_prompt_copy_attempt',
+      'creator_ai_course_prompt_copy_result',
+      'creator_course_create_attempt',
+      'creator_course_create_result',
+    ]) {
+      expect(mockTrackEvent.mock.calls.some(([name]) => name === retired)).toBe(
+        false,
+      );
+    }
+    for (const [, payload] of mockTrackEvent.mock.calls) {
+      for (const field of [
+        'prompt',
+        'text',
+        'aiExamples',
+        'tools',
+        'url',
+        'error',
+      ])
+        expect(payload).not.toHaveProperty(field);
+    }
+  });
+
+  test('tracking failures do not prevent installation instruction copying', async () => {
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
+    await waitFor(() => expect(copyText).toHaveBeenCalled());
+    expect(
+      screen.getByTestId('course-creation-choice-dialog'),
+    ).toBeInTheDocument();
   });
 
   test('reports a bounded prompt copy failure and keeps the choice dialog open', async () => {
@@ -616,7 +692,7 @@ describe('AdminPage', () => {
 
     await waitFor(() =>
       expect(mockTrackEvent).toHaveBeenCalledWith(
-        'creator_ai_course_prompt_copy_result',
+        'creator_ai_skill_install_copy_result',
         {
           surface: 'admin_course_list',
           presentation: 'creation_choice_modal',

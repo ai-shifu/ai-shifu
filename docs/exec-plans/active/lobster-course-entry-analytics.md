@@ -68,18 +68,18 @@ affect copying, rendering, or native navigation.
 - Business question: among teachers shown the Lobster entry on the admin
   course-list surface, what proportion deliberately choose it, and how does
   adoption differ when the presentation changes?
-- Metric definition: distinct identified users with a successful prompt copy
+- Metric definition: distinct identified users with a successful installation-instruction copy
   divided by distinct identified users emitting an impression, over the same
   time window, grouped by `surface` and `presentation`. Optional guide clicks
   are reported separately. Raw events are diagnostic only.
 - Event names: `creator_ai_course_entry_impression`,
-  `creator_ai_course_entry_click`, `creator_ai_course_prompt_copy_attempt`,
-  `creator_ai_course_prompt_copy_result`.
+  `creator_ai_course_entry_click`, `creator_ai_skill_install_copy_attempt`,
+  `creator_ai_skill_install_copy_result`.
 - Actor and surface: authenticated teachers on `admin_course_list`.
 - Trigger: impression after the choice modal opens for an authenticated
   teacher; entry click after the optional guide anchor accepts a deliberate
-  click; prompt-copy attempt immediately before clipboard work; one terminal
-  prompt-copy result after the clipboard promise settles.
+  click; installation-instruction-copy attempt immediately before clipboard work; one terminal
+  installation-instruction-copy result after the clipboard promise settles.
 - Population: authenticated teachers with resolved admin access. Missing guide
   configuration does not exclude the in-product copy path. Non-admin learner
   surfaces are excluded.
@@ -90,7 +90,7 @@ affect copying, rendering, or native navigation.
 - Correlation: shared identified-user/session context only; no feature-owned
   stable identifier is necessary.
 - Consumers: the Lobster entry promotion decision and subsequent A/B reports.
-- Compatibility: prompt-copy events are additive. Existing
+- Compatibility: installation-instruction-copy events are additive. Existing
   `creator_course_create_*` events remain unchanged for actual course-creation
   operations and are no longer emitted for optional guide navigation.
 - Verification: exact event names/payloads, missing-guide support,
@@ -101,7 +101,7 @@ affect copying, rendering, or native navigation.
 | -------------- | ------ | ------------------------------------ | ----------- | ------------- | --------------------------------------------------------------------------- |
 | `surface`      | string | `admin_course_list`                  | low         | non-personal  | Fix the eligible UI surface.                                                |
 | `presentation` | string | `text_link`, `creation_choice_modal` | low         | non-personal  | Compare the former text-link baseline with the promoted modal presentation. |
-| `outcome`      | string | `success`, `failed`                  | low         | non-personal  | Distinguish terminal prompt-copy outcomes; result event only.               |
+| `outcome`      | string | `success`, `failed`                  | low         | non-personal  | Distinguish terminal installation-instruction-copy outcomes; result event only.               |
 
 ### Promoted choice-modal compatibility
 
@@ -124,7 +124,7 @@ independent from course loading and avoid inventing downstream success.
 
 1. Add typed event names and a fixed allowlisted payload builder.
 2. Add an impression guard to the admin page lifecycle.
-3. Add optional guide-click tracking and prompt-copy attempt/result tracking.
+3. Add optional guide-click tracking and installation-instruction-copy attempt/result tracking.
 4. Extend focused unit/component tests and run type/lint checks.
 
 ## Validation and Acceptance
@@ -148,3 +148,48 @@ events remain interpretable. Re-running tests and code generation is safe.
 No backend, database, or external Lobster change is required for this first
 stage. Confirmed course-source attribution remains dependent on a future
 external callback and server-owned persistence contract.
+
+
+## Two-step skill installation handoff (2026-09-15)
+
+### Contract and compatibility
+
+The modal now explains installation followed by asking the assistant to create a
+course. The copied instruction only requests skill installation (or confirmation
+that it is already installed). Copy success proves clipboard completion only,
+not skill installation, course generation, import, or publication.
+
+- Decision: measure whether eligible teachers use the installation handoff and
+  whether clipboard failures prevent starting it.
+- Metric: distinct identified teachers with a successful
+  `creator_ai_skill_install_copy_result` divided by distinct eligible teachers
+  with `creator_ai_course_entry_impression` in the same reporting window.
+- Trigger: `creator_ai_skill_install_copy_attempt` immediately before clipboard
+  work; exactly one `creator_ai_skill_install_copy_result` after settlement.
+- Population: authenticated teachers with resolved admin access, including when
+  the optional guide is absent; exclude guests and unresolved/denied access.
+- Deduplication: ignore clicks while the copy promise is pending; each later
+  deliberate retry is a new attempt. Close/reopen resets UI state, but settlement
+  still records the outcome of the original attempt, without reviving stale UI.
+- Payload: only `surface=admin_course_list`,
+  `presentation=creation_choice_modal`, plus result-only `outcome=success|failed`.
+  Never collect copied text, assistant names, raw errors, URLs, or course content.
+- Consumers: product entry-adoption and clipboard-reliability reports. Repository
+  search found only the adjacent helper, page producer, tests, and this document;
+  no checked-in dashboard or query consumes the retired copy event names.
+- Migration: stop emitting `creator_ai_course_prompt_copy_attempt` and
+  `creator_ai_course_prompt_copy_result` from this button; do not dual-write or
+  relabel historical data. Reports must separate legacy combined install/create
+  prompt copies from new installation-only copies by event name, and use the
+  deployment boundary for impression denominators. During mixed-version rollout,
+  report copy outcome rates per family; do not claim a clean adoption comparison.
+- Failure isolation: analytics remains best-effort; the displayed next-step hint
+  depends only on clipboard success. No event is emitted merely for changing text.
+
+### Implementation and acceptance
+
+Use the existing component interface and guide/manual callbacks. Add a semantic
+ordered list, persistent post-copy guidance, and translations in all five locales.
+Remove the recommendation badge. Cover exact installation text, pending clicks,
+retry, close/reopen races, eligible population, no retired events, privacy, and
+tracking failures. Validate layout at desktop, mobile, long translations, and RTL.
