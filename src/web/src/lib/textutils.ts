@@ -1,7 +1,9 @@
 import { isMobile } from 'react-device-detect';
 import { inWechat } from '@/constants/uiConstants';
 
-const isSafari = navigator.userAgent.match(/iPad|iPhone|iPod|Macintosh/i);
+const isSafari =
+  typeof navigator !== 'undefined' &&
+  /iPad|iPhone|iPod|Macintosh/i.test(navigator.userAgent);
 
 const copyTextOld = async text => {
   return new Promise<void>((resolve, reject) => {
