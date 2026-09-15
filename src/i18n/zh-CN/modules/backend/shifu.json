@@ -15,7 +15,7 @@
     "outlineStructureBroken": "课程大纲结构存在问题（部分单元位置冲突），请检查后重试",
     "parentOutlineNotFound": "父级大纲不存在",
     "permissionContactLimit": "共享权限最多支持{count}个用户",
-    "shifuDescriptionTooLong": "课程描述不能超过500个字符",
+    "shifuDescriptionTooLong": "课程简介不能超过500个字符",
     "shifuNameRequired": "请输入课程名称",
     "shifuNameTooLong": "课程名称不能超过{max_length}个字符",
     "shifuNotFound": "课程不存在",
