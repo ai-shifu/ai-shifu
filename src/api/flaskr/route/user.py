@@ -13,7 +13,12 @@ from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _translations, set_language
 from flaskr.service.common.dtos import OAuthStartDTO, UserToken
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import (
+    ERROR_CODE,
+    AppError,
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.feedback.funs import submit_feedback
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
@@ -82,6 +87,14 @@ _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = (
     "fr-FR",
     "ar-SA",
     "th-TH",
+)
+
+_OPTIONAL_TOKEN_AUTH_ERROR_CODES = frozenset(
+    {
+        ERROR_CODE["server.user.userNotFound"],
+        ERROR_CODE["server.user.userNotLogin"],
+        ERROR_CODE["server.user.userTokenExpired"],
+    }
 )
 
 
@@ -251,9 +264,14 @@ def optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
 
         if token:
             token = str(token)
-            user = validate_user(current_app, token)
-            set_language(_resolve_runtime_language(user))
-            request.user = user
+            try:
+                user = validate_user(current_app, token)
+            except AppError as error:
+                if error.code not in _OPTIONAL_TOKEN_AUTH_ERROR_CODES:
+                    raise
+            else:
+                set_language(_resolve_runtime_language(user))
+                request.user = user
         return f(*args, **kwargs)
 
     return decorated_function
