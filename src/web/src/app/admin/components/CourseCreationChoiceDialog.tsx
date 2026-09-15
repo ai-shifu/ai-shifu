@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowUpRight, Check, Copy, PencilLine, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Check, PencilLine, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -68,85 +68,99 @@ export default function CourseCreationChoiceDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className='max-h-[calc(100vh-32px)] overflow-y-auto p-0 sm:max-w-[760px]'>
-        <DialogHeader className='px-6 pb-1 pt-6 pe-12 sm:px-8 sm:pt-7 sm:pe-14'>
-          <DialogTitle className='text-2xl leading-8'>
+      <DialogContent
+        className='max-h-[calc(100dvh-32px)] gap-7 overflow-y-auto rounded-2xl p-6 sm:max-w-[760px] sm:gap-8 sm:rounded-2xl sm:p-8'
+        overlayClassName='bg-black/45 backdrop-blur-sm'
+      >
+        <DialogHeader className='pe-6 text-start'>
+          <DialogTitle className='text-2xl leading-8 sm:text-3xl sm:leading-9'>
             {t('component.courseCreationChoiceDialog.title')}
           </DialogTitle>
-          <DialogDescription className='text-sm leading-6'>
+          <DialogDescription className='sr-only'>
             {t('component.courseCreationChoiceDialog.description')}
           </DialogDescription>
         </DialogHeader>
 
-        <div className='space-y-3 px-6 pb-6 sm:px-8 sm:pb-7'>
-          <section className='relative overflow-hidden rounded-2xl border border-primary/25 bg-primary/[0.04] p-5'>
-            <div className='pointer-events-none absolute -end-12 -top-16 h-40 w-40 rounded-full bg-primary/10 blur-3xl' />
-            <div className='relative'>
-              <div className='flex flex-wrap items-center gap-3'>
-                <span className='flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground'>
-                  <Sparkles className='h-5 w-5' />
-                </span>
-                <h3 className='text-lg font-semibold text-foreground sm:text-xl'>
+        <div className='grid gap-6 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:gap-x-8 sm:gap-y-0'>
+          <section className='min-w-0 sm:row-span-3 sm:grid sm:grid-rows-subgrid'>
+            <div>
+              <div className='flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2'>
+                <Sparkles
+                  aria-hidden='true'
+                  className='h-7 w-7 shrink-0 text-primary'
+                />
+                <h3 className='text-xl font-semibold leading-7 sm:text-2xl sm:leading-8'>
                   {t('component.courseCreationChoiceDialog.aiTitle')}
                 </h3>
-                <Badge className='border-0 bg-primary/10 text-primary hover:bg-primary/10'>
+                <Badge className='border-0 bg-primary/10 px-2 py-1 text-primary hover:bg-primary/10'>
                   {t('component.courseCreationChoiceDialog.recommended')}
                 </Badge>
               </div>
-
-              <p className='mt-3 max-w-2xl text-sm leading-6 text-muted-foreground'>
+              <p className='mt-3 text-sm leading-6 text-muted-foreground sm:text-base'>
                 {t('component.courseCreationChoiceDialog.aiDescription')}
               </p>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                {t('component.courseCreationChoiceDialog.aiExamples')}
+              </p>
+            </div>
 
-              <div className='mt-4 flex flex-col gap-3 border-t border-primary/10 pt-4 sm:flex-row sm:items-center sm:justify-between'>
-                <div className='min-w-0 text-xs leading-5 text-muted-foreground'>
-                  {courseCreatorUrl ? (
-                    <a
-                      href={courseCreatorUrl}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='mt-1 inline-flex items-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline'
-                      onClick={onAiCourseCreatorClick}
-                      {...buildOnboardingTargetProps(
-                        ONBOARDING_TARGET_IDS.lobsterCreateEntry,
-                      )}
-                    >
-                      {t('component.courseCreationChoiceDialog.guideAction')}
-                      <ArrowUpRight className='ms-1 h-4 w-4' />
-                    </a>
-                  ) : null}
-                </div>
-                <Button
-                  className='shrink-0 self-start sm:self-center'
-                  disabled={copying}
-                  onClick={handleCopy}
-                >
-                  {copied ? (
-                    <Check className='h-4 w-4' />
-                  ) : (
-                    <Copy className='h-4 w-4' />
+            <Button
+              className='mt-6 h-auto min-h-11 w-full whitespace-normal rounded-lg px-4 py-3 text-base focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+              disabled={copying}
+              onClick={handleCopy}
+            >
+              {copied ? (
+                <Check
+                  aria-hidden='true'
+                  className='h-4 w-4'
+                />
+              ) : null}
+              {copyActionLabel}
+            </Button>
+
+            <div>
+              <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+                {t('component.courseCreationChoiceDialog.copyHint')}
+              </p>
+              {courseCreatorUrl ? (
+                <a
+                  href={courseCreatorUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='mt-4 inline-flex min-h-9 items-center rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  onClick={onAiCourseCreatorClick}
+                  {...buildOnboardingTargetProps(
+                    ONBOARDING_TARGET_IDS.lobsterCreateEntry,
                   )}
-                  {copyActionLabel}
-                </Button>
-              </div>
+                >
+                  {t('component.courseCreationChoiceDialog.guideAction')}
+                  <ArrowUpRight
+                    aria-hidden='true'
+                    className='ms-1 h-4 w-4'
+                  />
+                </a>
+              ) : null}
             </div>
           </section>
 
-          <section className='grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-2xl border bg-background p-4 text-start sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-5'>
-            <span className='flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground'>
-              <PencilLine className='h-5 w-5' />
-            </span>
-            <div className='min-w-0'>
-              <h3 className='font-semibold text-foreground'>
-                {t('component.courseCreationChoiceDialog.manualTitle')}
-              </h3>
-              <p className='mt-1 text-sm leading-6 text-muted-foreground'>
+          <section className='min-w-0 border-t pt-6 sm:row-span-3 sm:grid sm:grid-rows-subgrid sm:border-s sm:border-t-0 sm:ps-8 sm:pt-0'>
+            <div>
+              <div className='flex min-h-8 items-center gap-3'>
+                <PencilLine
+                  aria-hidden='true'
+                  className='h-7 w-7 shrink-0'
+                />
+                <h3 className='text-xl font-semibold leading-7 sm:text-2xl sm:leading-8'>
+                  {t('component.courseCreationChoiceDialog.manualTitle')}
+                </h3>
+              </div>
+              <p className='mt-3 text-sm leading-6 text-muted-foreground sm:text-base'>
                 {t('component.courseCreationChoiceDialog.manualDescription')}
               </p>
             </div>
             <Button
               variant='outline'
-              className='col-start-2 mt-1 shrink-0 justify-self-start sm:col-start-3 sm:row-start-1 sm:mt-0 sm:justify-self-end'
+              className='mt-6 h-auto min-h-11 w-full whitespace-normal rounded-lg border-primary px-4 py-3 text-base text-primary hover:bg-primary/5 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
               onClick={onManualCreateClick}
               {...buildOnboardingTargetProps(
                 ONBOARDING_TARGET_IDS.blankCreateEntry,
