@@ -68,7 +68,7 @@ export default function CourseCreationChoiceDialog({
       onOpenChange={onOpenChange}
     >
       <DialogContent
-        className='max-h-[calc(100dvh-32px)] gap-7 overflow-y-auto rounded-2xl p-6 sm:max-w-[760px] sm:gap-8 sm:rounded-2xl sm:p-8'
+        className='max-h-[calc(100dvh-32px)] gap-7 overflow-y-auto rounded-2xl p-6 sm:max-w-[840px] sm:gap-8 sm:rounded-2xl sm:p-8'
         overlayClassName='bg-black/45 backdrop-blur-sm'
       >
         <DialogHeader className='pe-6 text-start'>
@@ -80,8 +80,8 @@ export default function CourseCreationChoiceDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className='grid gap-6 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:gap-x-8 sm:gap-y-0'>
-          <section className='min-w-0'>
+        <div className='grid items-stretch gap-4 sm:grid-cols-2'>
+          <section className='min-w-0 rounded-xl border border-primary/15 bg-primary/[0.025] p-5 sm:p-6'>
             <div>
               <div className='flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2'>
                 <Sparkles
@@ -161,12 +161,12 @@ export default function CourseCreationChoiceDialog({
             </div>
           </section>
 
-          <section className='min-w-0 border-t pt-6 sm:border-s sm:border-t-0 sm:ps-8 sm:pt-0'>
+          <section className='flex min-w-0 flex-col items-center justify-center rounded-xl border border-border bg-muted/30 px-5 py-8 text-center sm:p-6'>
             <div>
-              <div className='flex min-h-8 items-center gap-3'>
+              <div className='flex flex-col items-center gap-4'>
                 <PencilLine
                   aria-hidden='true'
-                  className='h-7 w-7 shrink-0'
+                  className='h-12 w-12 shrink-0 rounded-xl bg-background p-3 text-muted-foreground ring-1 ring-border'
                 />
                 <h3 className='text-xl font-semibold leading-7 sm:text-2xl sm:leading-8'>
                   {t('component.courseCreationChoiceDialog.manualTitle')}
