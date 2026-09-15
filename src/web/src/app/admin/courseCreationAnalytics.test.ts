@@ -1,6 +1,6 @@
 import {
   buildAiCourseEntryAnalytics,
-  buildAiCoursePromptCopyResultAnalytics,
+  buildAiSkillInstallCopyResultAnalytics,
   buildCourseCreationAttemptAnalytics,
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
@@ -16,13 +16,13 @@ describe('AI course entry analytics', () => {
   });
 
   test('reports prompt copy outcomes without including the prompt', () => {
-    expect(buildAiCoursePromptCopyResultAnalytics('success')).toEqual({
+    expect(buildAiSkillInstallCopyResultAnalytics('success')).toEqual({
       surface: 'admin_course_list',
       presentation: 'creation_choice_modal',
       outcome: 'success',
     });
     expect(
-      JSON.stringify(buildAiCoursePromptCopyResultAnalytics('failed')),
+      JSON.stringify(buildAiSkillInstallCopyResultAnalytics('failed')),
     ).not.toContain('prompt');
   });
 });

@@ -1,8 +1,8 @@
 export const COURSE_CREATION_EVENTS = {
   AI_ENTRY_IMPRESSION: 'creator_ai_course_entry_impression',
   AI_ENTRY_CLICK: 'creator_ai_course_entry_click',
-  AI_PROMPT_COPY_ATTEMPT: 'creator_ai_course_prompt_copy_attempt',
-  AI_PROMPT_COPY_RESULT: 'creator_ai_course_prompt_copy_result',
+  AI_SKILL_INSTALL_COPY_ATTEMPT: 'creator_ai_skill_install_copy_attempt',
+  AI_SKILL_INSTALL_COPY_RESULT: 'creator_ai_skill_install_copy_result',
   ATTEMPT: 'creator_course_create_attempt',
   RESULT: 'creator_course_create_result',
   CANCEL: 'creator_course_create_cancel',
@@ -17,7 +17,7 @@ export const buildAiCourseEntryAnalytics = () => ({
   ...AI_COURSE_ENTRY_ANALYTICS,
 });
 
-export const buildAiCoursePromptCopyResultAnalytics = (
+export const buildAiSkillInstallCopyResultAnalytics = (
   outcome: 'success' | 'failed',
 ) => ({
   ...AI_COURSE_ENTRY_ANALYTICS,

@@ -45,7 +45,7 @@ import ShifuCard from './components/ShifuCard';
 import CourseCreationChoiceDialog from './components/CourseCreationChoiceDialog';
 import {
   buildAiCourseEntryAnalytics,
-  buildAiCoursePromptCopyResultAnalytics,
+  buildAiSkillInstallCopyResultAnalytics,
   buildCourseCreationAttemptAnalytics,
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
@@ -353,14 +353,14 @@ const ScriptManagementPage = () => {
 
   const handleAiCoursePromptCopy = async (prompt: string) => {
     sendAnalytics(
-      COURSE_CREATION_EVENTS.AI_PROMPT_COPY_ATTEMPT,
+      COURSE_CREATION_EVENTS.AI_SKILL_INSTALL_COPY_ATTEMPT,
       buildAiCourseEntryAnalytics(),
     );
     try {
       await copyText(prompt);
       sendAnalytics(
-        COURSE_CREATION_EVENTS.AI_PROMPT_COPY_RESULT,
-        buildAiCoursePromptCopyResultAnalytics('success'),
+        COURSE_CREATION_EVENTS.AI_SKILL_INSTALL_COPY_RESULT,
+        buildAiSkillInstallCopyResultAnalytics('success'),
       );
       toast({
         title: t('component.courseCreationChoiceDialog.copySuccess'),
@@ -371,8 +371,8 @@ const ScriptManagementPage = () => {
       return true;
     } catch {
       sendAnalytics(
-        COURSE_CREATION_EVENTS.AI_PROMPT_COPY_RESULT,
-        buildAiCoursePromptCopyResultAnalytics('failed'),
+        COURSE_CREATION_EVENTS.AI_SKILL_INSTALL_COPY_RESULT,
+        buildAiSkillInstallCopyResultAnalytics('failed'),
       );
       toast({
         title: t('component.courseCreationChoiceDialog.copyFailed'),

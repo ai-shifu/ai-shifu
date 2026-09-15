@@ -4,7 +4,6 @@ import { ArrowUpRight, Check, PencilLine, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -82,7 +81,7 @@ export default function CourseCreationChoiceDialog({
         </DialogHeader>
 
         <div className='grid gap-6 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:gap-x-8 sm:gap-y-0'>
-          <section className='min-w-0 sm:row-span-3 sm:grid sm:grid-rows-subgrid'>
+          <section className='min-w-0'>
             <div>
               <div className='flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2'>
                 <Sparkles
@@ -92,9 +91,6 @@ export default function CourseCreationChoiceDialog({
                 <h3 className='text-xl font-semibold leading-7 sm:text-2xl sm:leading-8'>
                   {t('component.courseCreationChoiceDialog.aiTitle')}
                 </h3>
-                <Badge className='border-0 bg-primary/10 px-2 py-1 text-primary hover:bg-primary/10'>
-                  {t('component.courseCreationChoiceDialog.recommended')}
-                </Badge>
               </div>
               <p className='mt-3 text-sm leading-6 text-muted-foreground sm:text-base'>
                 {t('component.courseCreationChoiceDialog.aiDescription')}
@@ -104,24 +100,46 @@ export default function CourseCreationChoiceDialog({
               </p>
             </div>
 
-            <Button
-              className='mt-6 h-auto min-h-11 w-full whitespace-normal rounded-lg px-4 py-3 text-base focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-              disabled={copying}
-              onClick={handleCopy}
-            >
-              {copied ? (
-                <Check
-                  aria-hidden='true'
-                  className='h-4 w-4'
-                />
-              ) : null}
-              {copyActionLabel}
-            </Button>
+            <ol className='mt-6 list-decimal space-y-5 ps-5 marker:font-semibold marker:text-primary'>
+              <li className='ps-1'>
+                <h4 className='text-base font-semibold leading-6'>
+                  {t('component.courseCreationChoiceDialog.installStep')}
+                </h4>
+                <Button
+                  className='mt-3 h-auto min-h-11 w-full whitespace-normal rounded-lg px-4 py-3 text-base focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  disabled={copying}
+                  onClick={handleCopy}
+                >
+                  {copied ? (
+                    <Check
+                      aria-hidden='true'
+                      className='h-4 w-4'
+                    />
+                  ) : null}
+                  {copyActionLabel}
+                </Button>
+                <p
+                  role='status'
+                  className='mt-2 text-sm leading-6 text-muted-foreground'
+                >
+                  {copied
+                    ? t(
+                        'component.courseCreationChoiceDialog.copySuccessDescription',
+                      )
+                    : t('component.courseCreationChoiceDialog.copyHint')}
+                </p>
+              </li>
+              <li className='ps-1'>
+                <h4 className='text-base font-semibold leading-6'>
+                  {t('component.courseCreationChoiceDialog.createStep')}
+                </h4>
+                <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+                  {t('component.courseCreationChoiceDialog.createExample')}
+                </p>
+              </li>
+            </ol>
 
             <div>
-              <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-                {t('component.courseCreationChoiceDialog.copyHint')}
-              </p>
               {courseCreatorUrl ? (
                 <a
                   href={courseCreatorUrl}
@@ -143,7 +161,7 @@ export default function CourseCreationChoiceDialog({
             </div>
           </section>
 
-          <section className='min-w-0 border-t pt-6 sm:row-span-3 sm:grid sm:grid-rows-subgrid sm:border-s sm:border-t-0 sm:ps-8 sm:pt-0'>
+          <section className='min-w-0 border-t pt-6 sm:border-s sm:border-t-0 sm:ps-8 sm:pt-0'>
             <div>
               <div className='flex min-h-8 items-center gap-3'>
                 <PencilLine
