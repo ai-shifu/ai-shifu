@@ -850,7 +850,7 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
     assert follow_up_models[0]["allowed_roles"] == ["main", "follow_up"]
     assert follow_up_models[0]["billing_mode"] == "billable"
     assert follow_up_models[2]["interaction_mode"] == "live_voice"
-    assert follow_up_models[2]["display_name"] == "Gemini 3.8 Live"
+    assert follow_up_models[2]["display_name"] == "Gemini Live"
     assert follow_up_models[2]["allowed_roles"] == ["follow_up"]
     assert follow_up_models[2]["billing_mode"] == "free_preview"
     assert len(follow_up_models[2]["voices"]) == 30

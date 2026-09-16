@@ -2111,7 +2111,7 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
         options.append(
             {
                 "model": model,
-                "display_name": "Gemini 3.8 Live",
+                "display_name": "Gemini Live",
                 "credit_multiplier": None,
                 "credit_multiplier_label": None,
                 "is_default": False,
