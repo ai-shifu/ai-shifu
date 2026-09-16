@@ -1,5 +1,10 @@
 # Explain personalization before deferring profile setup
 
+> Superseded by [the defer confirmation](profile-onboarding-defer-hint.md).
+> The benefit carousel and retention producers are retired; this document
+> preserves the historical event definitions.
+
+
 ## Purpose / Big Picture
 
 Learners in the first-course blocking onboarding flow should understand the
