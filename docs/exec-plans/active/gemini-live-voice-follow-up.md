@@ -1,5 +1,31 @@
 # Gemini Live Voice Follow-Up
 
+## 2026-09-16: Replace the supported model with Gemini 3.8 Live
+
+The user explicitly requested a direct replacement with `gemini-3.8-live`,
+without compatibility aliases, automatic course migration, or support for the
+Extended Thinking variant. The model allowlist, picker label, token defaults,
+readiness checks, usage and trace model identifiers use the single new model.
+Saved courses must select the new model, displayed as `Gemini Live`, in follow-up
+settings. Known unsupported Live-only IDs remain classified by protocol so that
+old selections are disabled and rejected by both text/SSE and Live admission.
+This does not add an alias, migration, or provider support for those models.
+
+Google's [migration guide](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-live)
+requires omitting `thinkingConfig` for this model. Remove it from both the
+server-locked token configuration and the browser setup, including resumption.
+Keep audio output, both transcriptions, voice selection, VAD, initial-history
+constraints, compression and ephemeral-token security. Proactive audio uses the
+provider's always-enabled default. There are no tools or affective-dialog
+overrides to migrate. The existing event contracts apply to the same actions;
+the analytics spec documents the deployment boundary for comparisons.
+
+Validation covers model discovery and selection (including exclusion of old
+and Extended Thinking Live models), constrained token/setup payloads, resumed
+sessions, backend Live contracts and frontend settings/connection/analytics.
+Real Gemini audio acceptance requires a configured provider credential and a
+browser microphone; mock-based regression checks do not establish that result.
+
 ## 2026-09-07: Do not force Live output into the interface language
 
 Live no longer reads the course's learner-language output switch or appends
@@ -33,7 +59,7 @@ volatile-lru and allkeys-lru, while retaining restart recovery coverage.
 ## Purpose / Big Picture
 
 Courses whose effective follow-up model is
-`gemini-3.1-flash-live-preview` use the existing AskBlock layout in reading,
+`gemini-3.8-live` use the existing AskBlock layout in reading,
 listening, and teacher preview. Opening the panel only reveals history and the
 input; the first keyboard submission or explicit microphone click starts Live.
 Keyboard and microphone input both receive native audio answers and transcripts.
@@ -75,6 +101,24 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-16 UTC: Separate known Live-only protocol identity from the active
+      model allowlist. Keep unsupported selections out of text catalogs and
+      text/SSE execution, project saved unsupported selections as disabled,
+      and require active allowlist membership before credential admission.
+- [x] 2026-09-16 UTC: Verify unsupported-model rejection and existing Live
+      contracts: 411 backend tests passed (91 environment-dependent skips),
+      and 68 frontend disabled-panel/settings/analytics tests passed. Four new
+      classification/catalog cases failed before the fix and passed afterward.
+      PR review and CI status are tracked on the current PR head.
+- [x] 2026-09-16 UTC: Replace the sole model and catalog label with Gemini 3.8
+      Live; omit thinking configuration from private and browser setup; update
+      backend/frontend fixtures and model/setup regression coverage.
+- [x] 2026-09-16 UTC: Verify core backend model/token/config tests (162 passed,
+      one unrelated LiteLLM-version contract skipped), expanded backend Live
+      tests (242 passed, 89 Redis and one MySQL test skipped), and 14 frontend
+      suites (463 passed). The full lefthook gate and repository harness pass.
+      Real provider audio acceptance remains unverified: no Gemini API key is
+      configured in this checkout's environment files or process environment.
 - [x] 2026-09-07: Suspend ownership polling/expiry during intentional media
       pause; fence audio immediately and invalidate pending heartbeat callbacks.
       Explicit resume obtains fresh bounded authorization before accepting
@@ -830,6 +874,11 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Surprises & Discoveries
 
+- 2026-09-16: The shared local virtualenv had Flask 3.0.3 / Werkzeug 3.1.4,
+  behind the repository's 3.1.3 / 3.1.6 pins. Route tests failed at the request
+  size limit setter before reaching Live code. Installing the pinned versions
+  into `/tmp/ai-shifu-gemini38-test-deps` and using it through `PYTHONPATH`
+  resolved the failures without changing shared dependencies or product code.
 - 2026-09-05: Same-anchor pause resolves the reported collapse incident but
   does not remove the one-valid-credential admission block after a real End or
   anchor change. Google token expiry and application session retirement are
@@ -913,6 +962,12 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Decision Log
 
+- Decision (2026-09-16): Directly replace the previous Live preview model with
+  `gemini-3.8-live`, without a compatibility route or Extended Thinking support.
+  This supersedes the old model/minimal-thinking decisions recorded below.
+  - Why: the user explicitly requested a single-model upgrade; standard 3.8 Live
+    does not accept `thinkingConfig`, while Extended Thinking would require a
+    different background-reasoning state contract.
 - Decision (2026-09-07, user approved): only microphone and Send remain in the
   original input. Render errors only; remove Retry, End, and status/help copy.
   Explicit mic-off pauses input and output without closing the panel or socket.
@@ -999,7 +1054,8 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 - Decision: route by backend `interaction_mode` and resolved
   `follow_up_mode`, never model labels or `-live-` string matching in Cook Web.
   - Why: capability and availability are server-owned contracts.
-- Decision: expose only `gemini-3.1-flash-live-preview` when the flag is on and
+- Decision (superseded by the 2026-09-16 Gemini 3.8 Live replacement): expose
+  only `gemini-3.1-flash-live-preview` when the flag is on and
   discovery reports `bidiGenerateContent`; retain normal text models in the
   existing primary model path.
   - Why: the allowlist and discovered operation are independent safety gates.
@@ -1013,7 +1069,8 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   ephemeral token and direct browser-to-Gemini socket.
   - Why: this removes the failed ingress Upgrade dependency while keeping the
     API key and private course instruction on the backend.
-- Decision: lock model, system instruction, audio-only response, selected
+- Decision (thinking configuration superseded on 2026-09-16): lock model,
+  system instruction, audio-only response, selected
   voice, minimal thinking, VAD, transcription, context compression, tools,
   and initial-history behavior in the token's effective Bidi setup and
   lower-camel JSON field mask. Leave only `sessionResumption` unlocked and
@@ -1133,6 +1190,15 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   - Why: adoption can be measured without collecting conversation or secrets.
 
 ## Outcomes & Retrospective
+
+The 2026-09-16 upgrade directly replaces the supported model with Gemini 3.8
+Live and removes unsupported thinking configuration from both constrained-token
+and browser session setup. Model catalog, discovery, session, settings and
+analytics regressions pass. The full repository pre-commit gate passes.
+Review follow-up keeps known unsupported Live-only models disabled and blocks
+text/SSE execution without admitting them to the active model allowlist.
+Redis/MySQL integration and real-provider audio acceptance were not available
+locally; no deployment or saved-course data migration was performed.
 
 The 2026-09-07 minimal-controls revision removes normal status/help text and
 Retry/End buttons across five locales. Explicit microphone-off pauses both

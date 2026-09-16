@@ -8,8 +8,14 @@ from typing import Literal
 
 from flaskr.service.config import get_config
 
-GEMINI_LIVE_MODEL_ID = "gemini-3.1-flash-live-preview"
+GEMINI_LIVE_MODEL_ID = "gemini-3.8-live"
 GEMINI_LIVE_MODEL_ALLOWLIST = frozenset({GEMINI_LIVE_MODEL_ID})
+# Protocol identity is broader than availability: unsupported Live-only models
+# must remain blocked from text/SSE, even when a proxy omits capability metadata.
+GEMINI_LIVE_ONLY_MODEL_IDS = GEMINI_LIVE_MODEL_ALLOWLIST | {
+    "gemini-3.1-flash-live-preview",
+    "gemini-3.8-live-extended-thinking",
+}
 DEFAULT_GEMINI_LIVE_VOICE = "Kore"
 
 # Google documents these identifiers as the 30 prebuilt voiceName values
@@ -71,8 +77,8 @@ def is_gemini_live_rotation_enabled() -> bool:
 
 
 def is_live_follow_up_model(model: object) -> bool:
-    """Match a model against the server-owned Live allowlist."""
-    return str(model or "").strip() in GEMINI_LIVE_MODEL_ALLOWLIST
+    """Identify known Live-only models, including unavailable selections."""
+    return str(model or "").strip() in GEMINI_LIVE_ONLY_MODEL_IDS
 
 
 def get_follow_up_interaction_mode(model: object) -> FollowUpInteractionMode:

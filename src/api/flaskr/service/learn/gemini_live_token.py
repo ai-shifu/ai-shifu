@@ -175,7 +175,6 @@ def _bidi_setup(
                     "prebuiltVoiceConfig": {"voiceName": voice_name},
                 }
             },
-            "thinkingConfig": {"thinkingLevel": "MINIMAL"},
         },
         # Omit empty content while retaining systemInstruction in the token's
         # field mask, so the browser still cannot supply its own instruction.
@@ -229,7 +228,6 @@ def build_gemini_live_client_setup(
                     "prebuiltVoiceConfig": {"voiceName": voice_name},
                 }
             },
-            "thinkingConfig": {"thinkingLevel": "MINIMAL"},
         },
         "realtimeInputConfig": {
             "automaticActivityDetection": {

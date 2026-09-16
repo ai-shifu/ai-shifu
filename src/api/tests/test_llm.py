@@ -536,7 +536,7 @@ def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
                         "supportedGenerationMethods": ["generateContent"],
                     },
                     {
-                        "name": "models/gemini-3.1-flash-live-preview",
+                        "name": "models/gemini-3.8-live",
                         "supportedGenerationMethods": ["bidiGenerateContent"],
                     },
                     {
@@ -562,12 +562,12 @@ def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
 
     assert models == [
         "gemini-3.7-flash",
-        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live",
     ]
     assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.7-flash"] == {
         "generateContent"
     }
-    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.1-flash-live-preview"] == {
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.8-live"] == {
         "bidiGenerateContent"
     }
 
@@ -589,7 +589,7 @@ def test_gemini_model_loader_discovers_capabilities_on_later_pages(
                 {
                     "models": [
                         {
-                            "name": "models/gemini-3.1-flash-live-preview",
+                            "name": "models/gemini-3.8-live",
                             "supportedGenerationMethods": ["bidiGenerateContent"],
                         }
                     ]
@@ -618,7 +618,7 @@ def test_gemini_model_loader_discovers_capabilities_on_later_pages(
 
     assert models == [
         "gemini-3.7-flash",
-        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live",
     ]
     assert requests_seen == [
         {"params": {"key": "test-key", "pageSize": 1000}, "timeout": 20},
@@ -662,7 +662,7 @@ def test_gemini_native_proxy_preserves_version_prefix_and_capabilities(
     openai_probe_fails: bool,
 ) -> None:
     native_requests: list[str] = []
-    live_model = "gemini-3.1-flash-live-preview"
+    live_model = "gemini-3.8-live"
 
     def fake_get(url: str, **kwargs: object) -> object:
         if "headers" in kwargs and openai_probe_fails:
@@ -783,11 +783,19 @@ def test_gemini_compatible_proxy_clears_stale_capability_metadata(
     assert proxy_model not in llm.MODEL_SUPPORTED_GENERATION_METHODS
 
 
+@pytest.mark.parametrize(
+    "other_bidi_only_model",
+    [
+        "gemini-future-bidi-preview",
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ],
+)
 def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
     monkeypatch: object,
+    other_bidi_only_model: str,
 ) -> None:
-    live_model = "gemini-3.1-flash-live-preview"
-    other_bidi_only_model = "gemini-future-bidi-preview"
+    live_model = "gemini-3.8-live"
     monkeypatch.setattr(
         llm,
         "PROVIDER_STATES",
@@ -842,6 +850,7 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
     assert follow_up_models[0]["allowed_roles"] == ["main", "follow_up"]
     assert follow_up_models[0]["billing_mode"] == "billable"
     assert follow_up_models[2]["interaction_mode"] == "live_voice"
+    assert follow_up_models[2]["display_name"] == "Gemini Live"
     assert follow_up_models[2]["allowed_roles"] == ["follow_up"]
     assert follow_up_models[2]["billing_mode"] == "free_preview"
     assert len(follow_up_models[2]["voices"]) == 30
@@ -849,6 +858,43 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
         "Kore",
         "Puck",
     }
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gemini-3.8-live",
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ],
+)
+@pytest.mark.parametrize("capabilities_discovered", [False, True])
+def test_known_live_only_models_never_enter_text_catalogs(
+    monkeypatch: pytest.MonkeyPatch, model: str, capabilities_discovered: bool
+) -> None:
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {"gemini": llm.ProviderState(enabled=True, params={}, models=[model])},
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_SUPPORTED_GENERATION_METHODS",
+        {model: frozenset({"bidiGenerateContent"})} if capabilities_discovered else {},
+    )
+    monkeypatch.setattr(
+        llm,
+        "_build_model_options",
+        lambda _app, models: [{"model": item} for item in models],
+    )
+
+    available = model == "gemini-3.8-live" and capabilities_discovered
+    assert llm.get_current_models(object()) == []
+    assert llm.is_live_follow_up_model_available(model) is available
+    assert [item["model"] for item in llm.get_follow_up_models(object())] == (
+        [model] if available else []
+    )
 
 
 def test_qwen_prefixed_model_routes_without_fetched_alias(

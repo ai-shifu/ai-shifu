@@ -219,18 +219,26 @@ class _Context:
         self.langfuse_outputs.append(value)
 
 
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gemini-3.8-live",
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ],
+)
 def test_live_follow_up_is_rejected_before_legacy_text_path_side_effects(
     app: object,
     monkeypatch: object,
+    model: str,
 ) -> None:
     from flaskr.service.common.models import AppError
     from flaskr.service.learn import handle_input_ask as module
-    from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
 
     monkeypatch.setattr(
         module,
         "get_follow_up_info_v2",
-        lambda *_args, **_kwargs: types.SimpleNamespace(ask_model=GEMINI_LIVE_MODEL_ID),
+        lambda *_args, **_kwargs: types.SimpleNamespace(ask_model=model),
     )
     monkeypatch.setattr(
         module,

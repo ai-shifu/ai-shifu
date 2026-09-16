@@ -271,8 +271,25 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
     assert unavailable_result.outline_items[2].follow_up_mode == "disabled"
 
     live_availability["enabled"] = True
+    for unsupported_model in (
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ):
+        with app.app_context():
+            stored_course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+            stored_course.ask_llm = unsupported_model
+            db.session.commit()
+
+        unsupported_result = get_outline_item_tree(
+            app, shifu_bid, "teacher-1", preview_mode=True
+        )
+        assert unsupported_result.outline_items[0].follow_up_mode == "text"
+        assert unsupported_result.outline_items[1].follow_up_mode == "disabled"
+        assert unsupported_result.outline_items[2].follow_up_mode == "disabled"
+
     with app.app_context():
         stored_course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        stored_course.ask_llm = GEMINI_LIVE_MODEL_ID
         stored_course.ask_enabled_status = 5102
         db.session.commit()
 

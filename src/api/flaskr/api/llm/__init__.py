@@ -2081,7 +2081,10 @@ def get_current_models(app: Flask) -> list[dict[str, object]]:
 def is_live_follow_up_model_available(model: object) -> bool:
     """Return whether an allowlisted Live model was capability-discovered."""
     normalized_model = str(model or "").strip()
-    if not is_gemini_live_enabled() or not is_live_follow_up_model(normalized_model):
+    if (
+        not is_gemini_live_enabled()
+        or normalized_model not in GEMINI_LIVE_MODEL_ALLOWLIST
+    ):
         return False
     gemini_state = PROVIDER_STATES.get("gemini")
     if not gemini_state or not gemini_state.enabled:
@@ -2111,7 +2114,7 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
         options.append(
             {
                 "model": model,
-                "display_name": "Gemini 3.1 Flash Live Preview",
+                "display_name": "Gemini Live",
                 "credit_multiplier": None,
                 "credit_multiplier_label": None,
                 "is_default": False,

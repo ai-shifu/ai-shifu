@@ -107,7 +107,7 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
 
     token = mint_gemini_live_ephemeral_token(
         api_key="server-api-key",
-        model="gemini-3.1-flash-live-preview",
+        model="gemini-3.8-live",
         voice_name="Kore",
         system_instruction="Private course prompt",
         include_initial_history=True,
@@ -145,14 +145,14 @@ def test_token_is_one_use_short_lived_and_locks_server_configuration() -> None:
     setup = payload["bidiGenerateContentSetup"]
     assert set(setup).issubset(locked_fields)
     assert "sessionResumption" not in setup
-    assert setup["model"] == "models/gemini-3.1-flash-live-preview"
+    assert setup["model"] == "models/gemini-3.8-live"
     generation_config = setup["generationConfig"]
     assert generation_config["responseModalities"] == ["AUDIO"]
     assert generation_config["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"] == {
         "voiceName": "Kore"
     }
     assert setup["systemInstruction"] == {"parts": [{"text": "Private course prompt"}]}
-    assert generation_config["thinkingConfig"] == {"thinkingLevel": "MINIMAL"}
+    assert "thinkingConfig" not in generation_config
     assert setup["inputAudioTranscription"] == {}
     assert setup["outputAudioTranscription"] == {}
     assert setup["historyConfig"] == {"initialHistoryInClientContent": True}
@@ -292,7 +292,7 @@ def test_token_allows_blank_prompt_without_unlocking_browser_instruction(
 def test_token_still_requires_credentials_model_and_voice(missing: str) -> None:
     options = {
         "api_key": "server-api-key",
-        "model": "gemini-3.1-flash-live-preview",
+        "model": "gemini-3.8-live",
         "voice_name": "Kore",
         "system_instruction": "",
     }
@@ -309,7 +309,7 @@ def test_token_still_requires_credentials_model_and_voice(missing: str) -> None:
 
 def test_browser_setup_omits_private_prompt_and_uses_constrained_endpoint() -> None:
     setup = build_gemini_live_client_setup(
-        model="gemini-3.1-flash-live-preview",
+        model="gemini-3.8-live",
         voice_name="Kore",
         include_initial_history=True,
     )
@@ -317,18 +317,23 @@ def test_browser_setup_omits_private_prompt_and_uses_constrained_endpoint() -> N
     assert GEMINI_LIVE_CONSTRAINED_ENDPOINT.startswith(
         "wss://generativelanguage.googleapis.com/ws/"
     )
-    assert setup["setup"]["model"] == "models/gemini-3.1-flash-live-preview"
+    assert setup["setup"]["model"] == "models/gemini-3.8-live"
+    assert setup["setup"]["generationConfig"] == {
+        "responseModalities": ["AUDIO"],
+        "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Kore"}}},
+    }
     assert "systemInstruction" not in setup["setup"]
     assert setup["setup"]["sessionResumption"] == {}
     assert setup["setup"]["historyConfig"] == {"initialHistoryInClientContent": True}
 
     resumed = build_gemini_live_client_setup(
-        model="gemini-3.1-flash-live-preview",
+        model="gemini-3.8-live",
         voice_name="Kore",
         include_initial_history=True,
         resumption_handle="resume-1",
     )
     assert resumed["setup"]["sessionResumption"] == {"handle": "resume-1"}
+    assert resumed["setup"]["generationConfig"] == setup["setup"]["generationConfig"]
     assert "historyConfig" not in resumed["setup"]
 
 
