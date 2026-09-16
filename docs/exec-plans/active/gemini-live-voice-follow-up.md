@@ -6,7 +6,10 @@ The user explicitly requested a direct replacement with `gemini-3.8-live`,
 without compatibility aliases, automatic course migration, or support for the
 Extended Thinking variant. The model allowlist, picker label, token defaults,
 readiness checks, usage and trace model identifiers use the single new model.
-Saved courses must select the new model in follow-up settings.
+Saved courses must select the new model, displayed as `Gemini Live`, in follow-up
+settings. Known unsupported Live-only IDs remain classified by protocol so that
+old selections are disabled and rejected by both text/SSE and Live admission.
+This does not add an alias, migration, or provider support for those models.
 
 Google's [migration guide](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-live)
 requires omitting `thinkingConfig` for this model. Remove it from both the
@@ -98,6 +101,15 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-16 UTC: Separate known Live-only protocol identity from the active
+      model allowlist. Keep unsupported selections out of text catalogs and
+      text/SSE execution, project saved unsupported selections as disabled,
+      and require active allowlist membership before credential admission.
+- [x] 2026-09-16 UTC: Verify unsupported-model rejection and existing Live
+      contracts: 411 backend tests passed (91 environment-dependent skips),
+      and 68 frontend disabled-panel/settings/analytics tests passed. Four new
+      classification/catalog cases failed before the fix and passed afterward.
+      PR review and CI status are tracked on the current PR head.
 - [x] 2026-09-16 UTC: Replace the sole model and catalog label with Gemini 3.8
       Live; omit thinking configuration from private and browser setup; update
       backend/frontend fixtures and model/setup regression coverage.
@@ -1183,6 +1195,8 @@ The 2026-09-16 upgrade directly replaces the supported model with Gemini 3.8
 Live and removes unsupported thinking configuration from both constrained-token
 and browser session setup. Model catalog, discovery, session, settings and
 analytics regressions pass. The full repository pre-commit gate passes.
+Review follow-up keeps known unsupported Live-only models disabled and blocks
+text/SSE execution without admitting them to the active model allowlist.
 Redis/MySQL integration and real-provider audio acceptance were not available
 locally; no deployment or saved-course data migration was performed.
 

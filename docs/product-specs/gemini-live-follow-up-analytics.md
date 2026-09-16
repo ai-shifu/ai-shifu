@@ -62,6 +62,11 @@ events cannot distinguish model versions within a mixed rollout. Do not backfill
 or reclassify historical events. Model-specific diagnostics remain in Langfuse
 and the existing non-billable usage records.
 
+Known unsupported Live-only selections use the existing disabled follow-up
+state. They are excluded from editable Live panel exposure, connection attempts,
+and text/microphone submission events; they never enter the text/SSE path.
+This adds no control, event, payload field, or model compatibility path.
+
 ### Refresh takeover revision (2026-09-07)
 
 The four connection attempt/result producers (explicit and renewal) add

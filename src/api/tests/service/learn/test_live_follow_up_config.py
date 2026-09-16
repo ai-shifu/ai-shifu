@@ -14,14 +14,16 @@ from flaskr.service.learn.live_follow_up_config import (
     ("model", "expected_mode"),
     [
         ("gemini-3.8-live", "live_voice"),
-        ("gemini-3.1-flash-live-preview", "text"),
-        ("gemini-3.8-live-extended-thinking", "text"),
+        ("gemini-3.1-flash-live-preview", "live_voice"),
+        ("gemini-3.8-live-extended-thinking", "live_voice"),
+        ("gemini-3.8-flash", "text"),
     ],
 )
-def test_only_gemini_38_live_uses_the_live_follow_up_protocol(
+def test_live_only_model_classification_is_independent_of_model_availability(
     model: str, expected_mode: str
 ) -> None:
     assert GEMINI_LIVE_MODEL_ID == "gemini-3.8-live"
+    assert {"gemini-3.8-live"} == live_follow_up_config.GEMINI_LIVE_MODEL_ALLOWLIST
     assert live_follow_up_config.get_follow_up_interaction_mode(model) == expected_mode
 
 

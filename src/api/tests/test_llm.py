@@ -860,6 +860,43 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
     }
 
 
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gemini-3.8-live",
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ],
+)
+@pytest.mark.parametrize("capabilities_discovered", [False, True])
+def test_known_live_only_models_never_enter_text_catalogs(
+    monkeypatch: pytest.MonkeyPatch, model: str, capabilities_discovered: bool
+) -> None:
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {"gemini": llm.ProviderState(enabled=True, params={}, models=[model])},
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_SUPPORTED_GENERATION_METHODS",
+        {model: frozenset({"bidiGenerateContent"})} if capabilities_discovered else {},
+    )
+    monkeypatch.setattr(
+        llm,
+        "_build_model_options",
+        lambda _app, models: [{"model": item} for item in models],
+    )
+
+    available = model == "gemini-3.8-live" and capabilities_discovered
+    assert llm.get_current_models(object()) == []
+    assert llm.is_live_follow_up_model_available(model) is available
+    assert [item["model"] for item in llm.get_follow_up_models(object())] == (
+        [model] if available else []
+    )
+
+
 def test_qwen_prefixed_model_routes_without_fetched_alias(
     monkeypatch: object, app: object
 ) -> None:
