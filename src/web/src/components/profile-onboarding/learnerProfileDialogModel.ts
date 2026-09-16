@@ -94,6 +94,7 @@ export type LearnerProfileDialogState = {
   confirmation: LearnerProfileDialogConfirmation;
   error: string;
   deferError: string;
+  deferSucceeded: boolean;
   externalDeferErrorVisible: boolean;
 };
 
@@ -129,6 +130,7 @@ export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
   confirmation: 'none',
   error: '',
   deferError: '',
+  deferSucceeded: false,
   externalDeferErrorVisible: false,
 };
 

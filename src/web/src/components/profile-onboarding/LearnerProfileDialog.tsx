@@ -60,6 +60,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   } = useLearnerProfileDialogController(props);
   const {
     phase,
+    deferSucceeded,
     collectionKey,
     collectionRunInFlight,
     guidedAvailable,
@@ -81,6 +82,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     canSave,
   } = derived;
   const deferConfirmation = confirmation === 'defer';
+  const deferConfirmRef = React.useRef<HTMLButtonElement | null>(null);
   const deferCancelRef = React.useRef<HTMLButtonElement | null>(null);
   const viewHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const collectionViewRef = React.useRef<HTMLElement | null>(null);
@@ -149,8 +151,10 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   }, [activeDialogView]);
 
   React.useEffect(() => {
-    if (deferConfirmation && !busy) deferCancelRef.current?.focus();
-  }, [deferConfirmation, busy]);
+    if (deferConfirmation && !busy) {
+      (deferSucceeded ? deferConfirmRef : deferCancelRef).current?.focus();
+    }
+  }, [deferConfirmation, busy, deferSucceeded]);
 
   React.useEffect(() => {
     if (activeDialogView === 'collect' && collectionReady) {
@@ -406,12 +410,13 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 ref={deferCancelRef}
                 type='button'
                 variant='outline'
-                disabled={busy}
+                disabled={busy || deferSucceeded}
                 onClick={cancelDefer}
               >
                 {t('module.profileOnboarding.dialog.defer.continueSetup')}
               </Button>
               <Button
+                ref={deferConfirmRef}
                 type='button'
                 disabled={!onDefer || busy || collectionRunInFlight}
                 onClick={() => void deferOnboarding()}

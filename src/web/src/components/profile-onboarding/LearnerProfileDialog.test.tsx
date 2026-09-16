@@ -2572,7 +2572,7 @@ describe('LearnerProfileDialog', () => {
     },
   );
 
-  test('does not report defer failure when dialog cleanup fails after success', async () => {
+  test('retries only close after successful defer, without cancellation or duplicate analytics', async () => {
     const onDefer = jest.fn().mockResolvedValue(true);
     const onClose = jest.fn().mockRejectedValue(new Error('Close failed'));
     renderDialog({
@@ -2594,6 +2594,36 @@ describe('LearnerProfileDialog', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
     expect(await screen.findByText('Close failed')).toBeInTheDocument();
+
+    const continueSetup = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.defer.continueSetup',
+    });
+    const confirm = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.defer.confirm',
+    });
+    expect(continueSetup).toBeDisabled();
+    expect(confirm).toHaveFocus();
+    fireEvent.click(continueSetup);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(confirm).toBeEnabled());
+    onClose.mockResolvedValueOnce(undefined);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(3));
+    expect(onDefer).toHaveBeenCalledTimes(1);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.DEFER_ATTEMPT,
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([event]) => event === PROFILE_ONBOARDING_EVENTS.DEFER_CANCELLED,
+      ),
+    ).toHaveLength(0);
+
     expect(
       mockTrackEvent.mock.calls
         .filter(([event]) => event === PROFILE_ONBOARDING_EVENTS.DEFER_RESULT)

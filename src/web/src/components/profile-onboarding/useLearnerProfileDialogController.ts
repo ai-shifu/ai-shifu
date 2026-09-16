@@ -120,6 +120,7 @@ export const useLearnerProfileDialogController = ({
   const collectionCompletionRef = React.useRef(false);
   const collectionShownAtRef = React.useRef<number | null>(null);
   const autoCollectionStartedRef = React.useRef(false);
+  const deferSucceededRef = React.useRef(false);
   const deferRequestRef = React.useRef<number | null>(null);
   const deferDecisionRef = React.useRef<{
     source: 'guided' | 'settings';
@@ -467,6 +468,7 @@ export const useLearnerProfileDialogController = ({
     collectionShownAtRef.current = null;
     autoCollectionStartedRef.current = false;
     deferRequestRef.current = null;
+    deferSucceededRef.current = false;
     deferDecisionRef.current = null;
     dispatch({
       type: 'reset',
@@ -1107,7 +1109,12 @@ export const useLearnerProfileDialogController = ({
 
   const cancelDefer = React.useCallback(() => {
     const context = deferDecisionRef.current;
-    if (!context || deferRequestRef.current !== null || externalSubmitting)
+    if (
+      !context ||
+      deferSucceededRef.current ||
+      deferRequestRef.current !== null ||
+      externalSubmitting
+    )
       return;
     deferDecisionRef.current = null;
     dispatch({
@@ -1150,12 +1157,20 @@ export const useLearnerProfileDialogController = ({
         externalDeferErrorVisible: false,
       },
     });
-    trackOnboardingEventSafely(
-      PROFILE_ONBOARDING_EVENTS.DEFER_ATTEMPT,
-      analyticsContext,
-    );
-    let deferResultTracked = false;
+    const retryingClose = deferSucceededRef.current;
+    if (!retryingClose) {
+      trackOnboardingEventSafely(
+        PROFILE_ONBOARDING_EVENTS.DEFER_ATTEMPT,
+        analyticsContext,
+      );
+    }
+    let deferResultTracked = retryingClose;
     try {
+      // A persisted skip is terminal; retries only finish closing this dialog.
+      if (retryingClose) {
+        await onClose('dismiss');
+        return;
+      }
       const result = await onDefer(
         current.activeCollectionSessionId || undefined,
       );
@@ -1175,6 +1190,8 @@ export const useLearnerProfileDialogController = ({
         });
         return;
       }
+      deferSucceededRef.current = true;
+      dispatch({ type: 'patch', patch: { deferSucceeded: true } });
       trackOnboardingEventSafely(PROFILE_ONBOARDING_EVENTS.DEFER_RESULT, {
         ...analyticsContext,
         outcome: 'success',

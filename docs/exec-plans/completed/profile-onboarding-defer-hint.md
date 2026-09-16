@@ -84,6 +84,11 @@ checks.
 
 ## Idempotence and Recovery
 
+A successful skip remains terminal if dialog close cleanup fails. The existing
+confirm action then retries only close cleanup; returning to setup is disabled.
+These retries never call the skip API or emit another defer attempt, result, or
+skipped event. The terminal marker resets with the dialog/account scope.
+
 No migration or API change. Failed requests can be retried. The existing
 server-side skipped state prevents automatic onboarding and repeated hints on
 later visits. Confirmation state is reset on scope changes.

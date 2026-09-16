@@ -84,6 +84,7 @@ const withMDX = createMDX({
 const nextConfig: NextConfig = {
   // Enable standalone output to reduce production image size
   output: 'standalone',
+  outputFileTracingRoot: path.resolve(__dirname, '..'),
 
   async redirects() {
     return [{ source: '/main', destination: '/admin', permanent: true }];
@@ -119,6 +120,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
 
   turbopack: {
+    root: path.resolve(__dirname, '..'),
     rules: {
       '*.less': {
         loaders: ['less-loader'],
