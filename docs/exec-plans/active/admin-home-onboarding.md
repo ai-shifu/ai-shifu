@@ -2,9 +2,12 @@
 
 ## Purpose / Big Picture
 
-Add creator-only admin home onboarding that replaces the old trial welcome
-dialog, highlights the key billing and creation entry points, tracks progress
-with Umami, and persists per-user completion so each scene shows at most once.
+Maintain the retained creator onboarding contract after the admin-home flow was
+retired. The trial welcome dialog is the only first-entry surface on `/admin`,
+while owner-only course-editor onboarding continues to guide eligible teachers.
+Historical `admin_home_onboarding` backend records remain readable for
+compatibility but no longer drive frontend UI, replay, completion writes, or
+analytics events.
 
 ## Progress
 
@@ -18,19 +21,20 @@ with Umami, and persists per-user completion so each scene shows at most once.
       coverage, and final verification before commit / PR.
 - [x] 2026-06-17 14:40 CST: Added `creator_activated_at` so old users who
       become creators after rollout are still eligible for admin home onboarding.
-      become creators after rollout are still eligible for admin home onboarding.
 - [x] 2026-06-17 22:20 CST: Added owner-only course editor onboarding for the
       first eligible owner editor entry and hardened the shared overlay for drawer
       targets, rounded highlight holes, edge padding, and toast/onboarding overlap.
 - [x] 2026-06-18 10:30 CST: Updated the admin home onboarding to the new
       three-step flow: blank course creation, lobster AI course creation, and the
       full billing card with trial credit details.
+- [x] 2026-09-16: Retired the admin-home creation and billing guidance so the
+      retained trial welcome dialog is the only first-entry surface. Backend
+      completion records remain readable for compatibility.
 
 ## Surprises & Discoveries
 
-- The admin home flow no longer includes the guide-course card step. The guide
-  course metadata remains available for course-list labeling, but the visible
-  onboarding now focuses on creation and billing entry points.
+- Guide-course metadata remains available for course-list labeling even though
+  the retired admin-home flow no longer consumes it.
 - The shared onboarding hook also needs to close itself when the scene becomes
   disabled mid-session, otherwise route changes can leave the overlay mounted on
   unrelated admin pages.
@@ -46,6 +50,9 @@ with Umami, and persists per-user completion so each scene shows at most once.
   through the onboarding overlay during route transition.
 
 ## Decision Log
+
+Decisions before the 2026-09-16 retirement entry are retained as implementation
+history. The final retirement decision overrides them for current behavior.
 
 - Decision: Gate onboarding by creator eligibility, exclude operators, and use
   a backend rollout threshold config (`ADMIN_ONBOARDING_ENABLED_FROM`) so older
@@ -96,15 +103,16 @@ with Umami, and persists per-user completion so each scene shows at most once.
   - Why: it gives consistent rounded holes across admin home and editor targets,
     including targets near viewport edges and targets inside portal-based
     drawers.
+- Decision: Stop producing admin-home onboarding UI and analytics events while
+  retaining the backend scene contract and course-editor onboarding.
+  - Why: the admin home is self-explanatory, and its overlay competed with the
+    trial welcome dialog that product chose to retain.
 
 ## Outcomes & Retrospective
 
-- Pending completion. PR1 should leave the backend contract, admin home UI
-  wiring, and shared onboarding primitives ready for reuse by PR2.
-- Admin home onboarding now presents three product steps when billing is
-  enabled: create a blank course, open lobster AI course creation, and review
-  the billing card for trial credits and package purchases. If billing is
-  disabled or a target is not present, missing steps skip safely.
+- The admin-home walkthrough, its target anchors, menu entry, localized copy,
+  completion writes, and analytics producers are retired. The trial welcome
+  dialog remains the only automatic first-entry surface on `/admin`.
 - Deferred follow-up: add a shared-permission editor onboarding scene after the
   owner flow lands. The first candidate scope is a lightweight three-step path
   for prompt editing, debugging, and preview only, with course settings and
@@ -118,6 +126,10 @@ with Umami, and persists per-user completion so each scene shows at most once.
 - Follow-up: open a separate French i18n polish PR to normalize accented French
   across `src/i18n/fr-FR/**`. This PR only fixes onboarding strings to avoid
   mixing broad copy cleanup with the onboarding behavior change.
+- The admin-home onboarding was retired on 2026-09-16. The trial welcome dialog
+  remains active, the menu replay entry is hidden, and the underlying course
+  editor replay state plus existing backend completion rows are intentionally
+  left untouched.
 
 ## Context and Orientation
 
@@ -131,57 +143,59 @@ with Umami, and persists per-user completion so each scene shows at most once.
 - Frontend owner paths:
   - `src/web/src/app/admin/layout.tsx`
   - `src/web/src/app/admin/page.tsx`
-  - `src/web/src/components/onboarding/*`
+  - `src/web/src/components/onboarding/editorOnboardingSteps.ts`
+  - `src/web/src/components/onboarding/OnboardingOverlay.tsx`
+  - `src/web/src/components/shifu-edit/ShifuEdit.tsx`
   - `src/web/src/hooks/useOnboarding.ts`
   - `src/web/src/lib/onboardingTargets.ts`
+  - `src/web/src/store/onboardingReplayStore.ts`
 
 ## Plan of Work
 
-1. Verify the current PR1 implementation against the product rules and local
-   onboarding plan.
-2. Fix runtime gaps in the reusable onboarding flow and add focused regression
-   tests.
-3. Run focused backend/frontend verification and capture remaining risks before
-   commit / PR.
+1. Keep the retired admin-home scene absent from frontend rendering, replay,
+   completion, and analytics paths.
+2. Preserve the trial welcome dialog and owner-only course-editor onboarding.
+3. Keep historical backend scene records and response fields compatible while
+   frontend consumers migrate independently.
 
 ## Concrete Steps
 
-1. Inspect the admin layout, course list page, onboarding hook, and new backend
-   onboarding service for mismatch or missing edge-case handling.
-2. Add/adjust tests for onboarding route behavior, guide-course list flags, and
-   frontend hook flow control as needed.
-3. Re-run the smallest relevant pytest / Jest / type-check commands.
-4. Summarize residual risk, then prepare the branch for commit / PR once PR1 is
-   stable.
+1. Verify `/admin` mounts the trial welcome dialog without starting an
+   onboarding overlay or emitting admin-home onboarding events.
+2. Verify the course editor still gates, renders, completes, and optionally
+   replays its retained onboarding scene.
+3. Keep `admin_home_onboarding` in backend-compatible types and stored records,
+   but do not add new frontend consumers.
+4. Run focused Jest coverage, type checking, translation checks, and the
+   repository harness when this contract changes.
 
 ## Validation and Acceptance
 
-- Eligible creator users on `/admin` see the onboarding once.
-- Old regular users who become creators after rollout are eligible based on
-  `creator_activated_at`.
-- Operators and old pre-rollout creators do not auto-see onboarding.
-- The lobster and billing-card steps can silently skip if their targets are
-  unavailable.
-- The overlay does not stay mounted after leaving the eligible scene.
-- The shared overlay uses rounded highlights consistently across admin home and
-  editor scenes, including targets close to viewport edges.
+- `/admin` does not render creation-button or billing-card onboarding.
+- `/admin` continues to show the trial welcome dialog when its existing grant
+  and acknowledgement rules are satisfied.
+- The user menu does not expose the retired onboarding replay entry.
+- No admin-home onboarding completion request or analytics event is produced.
+- Historical `admin_home_onboarding` records and status fields remain readable.
 - Editor settings steps keep the settings drawer open, prevent outside-click
   closure from onboarding clicks, and render only after drawer target
   coordinates stabilize.
 - Manual course creation still shows a short success toast, then transitions to
   editor onboarding without overlapping visual layers.
-- Completing the final step persists `admin_home_onboarding` completion and
-  prevents replay on refresh.
-- Focused backend pytest and frontend Jest/type-check commands pass.
+- Completing or replaying course-editor onboarding only updates
+  `course_editor_onboarding`.
+- Focused frontend Jest/type-check, translation, and repository harness checks
+  pass.
 
 ## Idempotence and Recovery
 
-- Backend completion is idempotent via the unique
-  `(user_bid, scene_key, version)` constraint.
-- Frontend target-missing steps must skip safely and must not dead-end on the
-  final step.
-- Missing optional targets should continue through the next step without an
-  error state.
+- Historical backend completion remains idempotent through the existing
+  `(user_bid, scene_key, version)` constraint; no migration or record deletion
+  is required for the retired scene.
+- Old local-storage values containing `admin_home_onboarding` are ignored while
+  the retained course-editor replay state remains readable.
+- Course-editor target-missing steps must skip safely without dead-ending the
+  retained flow.
 
 ## Shared-Permission Follow-up
 
@@ -215,3 +229,4 @@ with Umami, and persists per-user completion so each scene shows at most once.
   - `creator_onboarding_started`
   - `creator_onboarding_step_viewed`
   - `creator_onboarding_completed`
+  - These events are produced by retained course-editor onboarding only.

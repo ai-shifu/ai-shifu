@@ -1,15 +1,5 @@
 {
   "__namespace__": "module.onboarding",
-  "adminHome": {
-    "billingCard": {
-      "descriptionGeneric": "在这里查看可用积分，开通订阅或购买积分。",
-      "title": "积分和套餐"
-    },
-    "courseCreationChoice": {
-      "description": "点击新建课程，可以选择使用龙虾 AI 助理快速生成课程，或在后台创建空白课程。",
-      "title": "选择建课方式"
-    }
-  },
   "common": {
     "continue": "点击屏幕任意位置继续",
     "skip": "跳过"

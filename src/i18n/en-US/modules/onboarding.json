@@ -1,15 +1,5 @@
 {
   "__namespace__": "module.onboarding",
-  "adminHome": {
-    "billingCard": {
-      "descriptionGeneric": "Check available credits here, or subscribe or buy credits.",
-      "title": "Credits and plans"
-    },
-    "courseCreationChoice": {
-      "description": "Select New course to create quickly with an AI assistant or start with a blank course in the admin portal.",
-      "title": "Choose how to create"
-    }
-  },
   "common": {
     "continue": "Click anywhere to continue",
     "skip": "Skip"
