@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -15,6 +16,123 @@ jest.mock('react-i18next', () => ({
     t: (key: string) => key,
   }),
 }));
+
+describe('Dialog dismissal', () => {
+  it.each(['none', 'onPointerDownOutside', 'onInteractOutside'] as const)(
+    'allows explicit outside dismissal while honoring the %s guard',
+    async guard => {
+      const onOpenChange = jest.fn();
+      let pending = true;
+      const onOutside = jest.fn((event: Event) => {
+        if (pending) event.preventDefault();
+      });
+
+      render(
+        <Dialog
+          defaultOpen
+          onOpenChange={onOpenChange}
+        >
+          <DialogContent
+            closeOnOutsideClick
+            {...(guard === 'none' ? {} : { [guard]: onOutside })}
+          >
+            <DialogTitle>Dialog</DialogTitle>
+            <DialogDescription>Dialog description</DialogDescription>
+          </DialogContent>
+        </Dialog>,
+      );
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+      fireEvent.pointerDown(document.body, { pointerType: 'mouse' });
+      fireEvent.click(document.body);
+
+      if (guard !== 'none') {
+        expect(onOutside).toHaveBeenCalledTimes(1);
+        expect(onOpenChange).not.toHaveBeenCalled();
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+        pending = false;
+        fireEvent.pointerDown(document.body, { pointerType: 'mouse' });
+        fireEvent.click(document.body);
+      }
+
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+    },
+  );
+
+  it('keeps the dialog open on outside clicks while preserving outside callbacks', async () => {
+    const onOpenChange = jest.fn();
+    const onPointerDownOutside = jest.fn();
+    const onInteractOutside = jest.fn();
+
+    render(
+      <Dialog
+        defaultOpen
+        onOpenChange={onOpenChange}
+      >
+        <DialogContent
+          onPointerDownOutside={onPointerDownOutside}
+          onInteractOutside={onInteractOutside}
+        >
+          <DialogTitle>Dialog</DialogTitle>
+          <DialogDescription>Dialog description</DialogDescription>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    // Radix registers its outside pointer listener on the next task.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    fireEvent.pointerDown(document.body, { pointerType: 'mouse' });
+    fireEvent.click(document.body);
+
+    expect(onPointerDownOutside).toHaveBeenCalledTimes(1);
+    expect(onInteractOutside).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it.each(['escape', 'close icon', 'cancel button'])(
+    'still closes through the %s',
+    async method => {
+      const onOpenChange = jest.fn();
+
+      render(
+        <Dialog
+          defaultOpen
+          onOpenChange={onOpenChange}
+        >
+          <DialogContent>
+            <DialogTitle>Dialog</DialogTitle>
+            <DialogDescription>Dialog description</DialogDescription>
+            <DialogClose>Cancel</DialogClose>
+          </DialogContent>
+        </Dialog>,
+      );
+
+      if (method === 'escape') {
+        fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+      } else {
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: method === 'close icon' ? 'component.header.close' : 'Cancel',
+          }),
+        );
+      }
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    },
+  );
+});
 
 describe('Dialog fullscreen portal', () => {
   let fullscreenElement: Element | null = null;
