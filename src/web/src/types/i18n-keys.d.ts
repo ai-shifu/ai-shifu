@@ -3528,6 +3528,7 @@ export type I18nKey =
   | 'module.profileOnboarding.dialog.close'
   | 'module.profileOnboarding.dialog.confirmTitle'
   | 'module.profileOnboarding.dialog.defer.confirm'
+  | 'module.profileOnboarding.dialog.defer.continueSetup'
   | 'module.profileOnboarding.dialog.defer.description'
   | 'module.profileOnboarding.dialog.defer.title'
   | 'module.profileOnboarding.dialog.description'

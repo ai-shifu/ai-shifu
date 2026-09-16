@@ -79,6 +79,7 @@
     "confirmTitle": "Confirmer et enregistrer",
     "defer": {
       "confirm": "Commencer à apprendre",
+      "continueSetup": "Continuer la configuration",
       "description": "Vous pourrez ajouter votre parcours et vos préférences dans « {entry} » depuis votre menu personnel.",
       "title": "Configurer plus tard ?"
     },

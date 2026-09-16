@@ -79,6 +79,7 @@
     "confirmTitle": "Confirm and save",
     "defer": {
       "confirm": "Start learning",
+      "continueSetup": "Continue setup",
       "description": "You can add your background and preferences later under “{entry}” in your personal menu.",
       "title": "Set this up later?"
     },

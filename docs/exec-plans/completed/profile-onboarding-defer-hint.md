@@ -5,7 +5,7 @@
 Clicking “Later” in blocking onboarding opens a compact confirmation dialog. It
 explains where personalization can be set later, using the personal menu's
 localized entry name. “Start learning” submits the existing skip request and
-opens the course on success. “Cancel” or Escape returns to the previous form or
+opens the course on success. “Continue setup” or Escape returns to the previous form or
 conversation with all session state and drafts preserved. Remove the benefit
 carousel; reuse the same modal shell and keep its form mounted.
 
@@ -30,8 +30,8 @@ display an error in the confirmation view.
 ## Decision Log
 
 - Keep the existing skip API, course gate, settings entry, and save behavior.
-- The user clarified that the reminder must be a confirmation with Cancel. The
-  first click never persists. Initial focus goes to Cancel. While the skip
+- The user clarified that the reminder must be a confirmation with “Continue setup”. The
+  first click never persists. Initial focus goes to “Continue setup”. While the skip
   request is pending, both buttons and Escape cancellation are disabled.
 - Replace retention analytics with distinct defer-confirmation names; preserve
   the existing successful-skip event. Retired carousel UI, strings, and tests go
@@ -41,9 +41,9 @@ display an error in the confirmation view.
 
 ## Outcomes & Retrospective
 
-The compact confirmation replaces the carousel. Cancel/Escape restores the
+The compact confirmation replaces the carousel. “Continue setup”/Escape restores the
 existing form and conversation. Confirmation alone submits skip; failure remains
-retryable and restores keyboard focus to Cancel. Browser QA used the production
+retryable and restores keyboard focus to “Continue setup”. Browser QA used the production
 component with local mock profile/skip responses at desktop and 390 x 844. It
 verified draft preservation, pending controls, success, and failure. No
 production account or backend state was changed.
@@ -73,7 +73,7 @@ checks.
 
 ## Validation and Acceptance
 
-- A defer click opens confirmation without submitting skip. Cancel/Escape
+- A defer click opens confirmation without submitting skip. “Continue setup”/Escape
   restores the same draft, session, and original dialog frame.
 - Pending duplicates do not submit again. Failure preserves draft/session and
   allows retry or cancel. Only confirmed success closes the dialog and releases
@@ -102,7 +102,7 @@ No public callback or dependency changes. Use the existing shared Dialog/Button.
   the failure rate. Retries count separately. These are aggregate counts, not
   exact joins, distinct people, course-start rates, or causal uplift.
 - Events: `profile_onboarding_defer_shown` after accepted entry to confirmation;
-  `profile_onboarding_defer_cancelled` on accepted Cancel or Escape;
+  `profile_onboarding_defer_cancelled` on accepted “Continue setup” or Escape;
   `profile_onboarding_defer_attempt` before the confirmed skip request;
   `profile_onboarding_defer_result` once after true/void success, false, throw,
   or rejection. No result is emitted under a stale dialog/account identity.
@@ -111,7 +111,7 @@ No public callback or dependency changes. Use the existing shared Dialog/Button.
   clicks.
 - Count/deduplication: one exposure per accepted entry, one cancellation per
   accepted return, and one operation guarded synchronously until it settles; a
-  deliberate retry is a new operation. No persistent tracking key. Cancel and
+  deliberate retry is a new operation. No persistent tracking key. “Continue setup” and
   confirm have synchronous re-entry guards. A new confirmation after
   cancellation is a new decision cycle.
 - Correlation: no feature identifier or profile/session content; only the shared

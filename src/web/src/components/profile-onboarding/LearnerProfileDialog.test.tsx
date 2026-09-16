@@ -1654,7 +1654,7 @@ describe('LearnerProfileDialog', () => {
     await screen.findByText('module.profileOnboarding.dialog.defer.title');
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.cancel',
+        name: 'module.profileOnboarding.dialog.defer.continueSetup',
       }),
     );
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
@@ -2021,7 +2021,7 @@ describe('LearnerProfileDialog', () => {
     ).not.toBeInTheDocument();
     expect(onDefer).not.toHaveBeenCalled();
     const cancel = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.cancel',
+      name: 'module.profileOnboarding.dialog.defer.continueSetup',
     });
     await waitFor(() => expect(cancel).toHaveFocus());
     fireEvent.click(cancel);
@@ -2078,7 +2078,7 @@ describe('LearnerProfileDialog', () => {
       screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
     );
     const cancel = await screen.findByRole('button', {
-      name: 'module.profileOnboarding.dialog.cancel',
+      name: 'module.profileOnboarding.dialog.defer.continueSetup',
     });
     await waitFor(() => expect(cancel).toHaveFocus());
     await act(async () => request.resolve(existingProfile));
@@ -2139,7 +2139,7 @@ describe('LearnerProfileDialog', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.cancel',
+        name: 'module.profileOnboarding.dialog.defer.continueSetup',
       }),
     ).toBeDisabled();
     await act(async () => request.resolve(true));
@@ -2220,7 +2220,7 @@ describe('LearnerProfileDialog', () => {
     );
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.cancel',
+        name: 'module.profileOnboarding.dialog.defer.continueSetup',
       }),
     );
     const retry = screen.getByRole('button', {
@@ -2253,7 +2253,7 @@ describe('LearnerProfileDialog', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.cancel',
+        name: 'module.profileOnboarding.dialog.defer.continueSetup',
       }),
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Save unavailable');
@@ -2282,7 +2282,7 @@ describe('LearnerProfileDialog', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.cancel',
+        name: 'module.profileOnboarding.dialog.defer.continueSetup',
       }),
     );
     expect(profileInput()).toHaveValue(existingProfile.learner_profile);
@@ -2396,7 +2396,7 @@ describe('LearnerProfileDialog', () => {
       name: 'module.profileOnboarding.dialog.defer.confirm',
     });
     const continueButton = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.cancel',
+      name: 'module.profileOnboarding.dialog.defer.continueSetup',
     });
     fireEvent.click(finalSkipButton);
     await waitFor(() => expect(onDefer).toHaveBeenCalledWith(SESSION_ID));
@@ -2480,7 +2480,7 @@ describe('LearnerProfileDialog', () => {
     expect(screen.queryByText('Skip unavailable')).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.cancel',
+        name: 'module.profileOnboarding.dialog.defer.continueSetup',
       }),
     );
     await waitFor(() =>

@@ -79,6 +79,7 @@
     "confirmTitle": "确认并保存",
     "defer": {
       "confirm": "开始学习",
+      "continueSetup": "继续设置",
       "description": "之后随时可以在个人菜单的「{entry}」中补充背景和偏好。",
       "title": "稍后再设置？"
     },

@@ -409,7 +409,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 disabled={busy}
                 onClick={cancelDefer}
               >
-                {t('module.profileOnboarding.dialog.cancel')}
+                {t('module.profileOnboarding.dialog.defer.continueSetup')}
               </Button>
               <Button
                 type='button'
