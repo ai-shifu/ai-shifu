@@ -21,7 +21,7 @@ type SettingBaseModalProps = {
   okDisabled?: boolean;
   okLoading?: boolean;
   className?: string;
-  closeOnMaskClick?: boolean;
+  closeOnOutsideClick?: boolean;
 };
 
 export const SettingBaseModal = ({
@@ -36,7 +36,7 @@ export const SettingBaseModal = ({
   okDisabled = false,
   okLoading = false,
   className,
-  closeOnMaskClick = false,
+  closeOnOutsideClick = false,
 }: SettingBaseModalProps) => {
   const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
@@ -54,9 +54,9 @@ export const SettingBaseModal = ({
     >
       <DialogContent
         className={cn(styles.SettingBaseModal, className)}
-        closeOnOutsideClick={closeOnMaskClick}
+        closeOnOutsideClick={closeOnOutsideClick}
         onInteractOutside={event => {
-          if (!closeOnMaskClick) {
+          if (!closeOnOutsideClick) {
             event.preventDefault();
           }
         }}

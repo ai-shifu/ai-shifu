@@ -10,8 +10,8 @@ jest.mock('react-i18next', () => ({
 
 describe('SettingBaseModal outside dismissal', () => {
   it.each([undefined, false, true])(
-    'honors closeOnMaskClick=%s with a non-dismissible default',
-    async closeOnMaskClick => {
+    'honors closeOnOutsideClick=%s with a non-dismissible default',
+    async closeOnOutsideClick => {
       const onClose = jest.fn();
 
       render(
@@ -21,7 +21,7 @@ describe('SettingBaseModal outside dismissal', () => {
           onClose={onClose}
           title='Settings'
           header={(_, title) => <DialogTitle>{title}</DialogTitle>}
-          closeOnMaskClick={closeOnMaskClick}
+          closeOnOutsideClick={closeOnOutsideClick}
         >
           <DialogDescription>Settings description</DialogDescription>
         </SettingBaseModal>,
@@ -34,7 +34,9 @@ describe('SettingBaseModal outside dismissal', () => {
       fireEvent.pointerDown(document.body, { pointerType: 'mouse' });
       fireEvent.click(document.body);
 
-      expect(onClose).toHaveBeenCalledTimes(closeOnMaskClick === true ? 1 : 0);
+      expect(onClose).toHaveBeenCalledTimes(
+        closeOnOutsideClick === true ? 1 : 0,
+      );
 
       onClose.mockClear();
       fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
