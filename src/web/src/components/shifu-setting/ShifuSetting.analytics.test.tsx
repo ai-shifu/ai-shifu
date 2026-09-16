@@ -299,7 +299,7 @@ describe('ShifuSettingDialog analytics producer', () => {
         is_default: true,
       },
       {
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-3.8-live',
         display_name: 'Gemini Live',
         interaction_mode: 'live_voice',
         allowed_roles: ['follow_up'],
@@ -324,7 +324,7 @@ describe('ShifuSettingDialog analytics producer', () => {
       expect(latestProps.askModelOptions).toEqual([
         expect.objectContaining({ value: 'text-model', disabled: false }),
         expect.objectContaining({
-          value: 'gemini-3.1-flash-live-preview',
+          value: 'gemini-3.8-live',
           disabled: false,
         }),
       ]);
@@ -619,7 +619,7 @@ describe('ShifuSettingDialog analytics producer', () => {
         is_default: true,
       },
       {
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-3.8-live',
         display_name: 'Gemini Live',
         interaction_mode: 'live_voice',
         allowed_roles: ['follow_up'],
@@ -658,7 +658,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
     const selectLive = mockAskSettingsSection.mock.calls.at(-1)?.[0]
       .onAskModelChange as (model: string) => void;
-    act(() => selectLive('gemini-3.1-flash-live-preview'));
+    act(() => selectLive('gemini-3.8-live'));
     await waitFor(() => {
       expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
         expect.objectContaining({
@@ -674,7 +674,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
     expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        ask_model: 'gemini-3.1-flash-live-preview',
+        ask_model: 'gemini-3.8-live',
         ask_provider_config: {
           provider: 'llm',
           mode: 'provider_only',
@@ -800,7 +800,7 @@ describe('ShifuSettingDialog analytics producer', () => {
         is_default: true,
       },
       {
-        model: 'gemini-3.1-flash-live-preview',
+        model: 'gemini-3.8-live',
         display_name: 'Gemini Live',
         interaction_mode: 'live_voice',
         allowed_roles: ['follow_up'],
@@ -821,7 +821,7 @@ describe('ShifuSettingDialog analytics producer', () => {
       avatar: '',
       temperature: 0,
       system_prompt: '',
-      ask_model: 'gemini-3.1-flash-live-preview',
+      ask_model: 'gemini-3.8-live',
       ask_temperature: 0,
       ask_provider_config: {
         provider: 'llm',
@@ -854,7 +854,7 @@ describe('ShifuSettingDialog analytics producer', () => {
 
     const selectLive = mockAskSettingsSection.mock.calls.at(-1)?.[0]
       .onAskModelChange as (model: string) => void;
-    act(() => selectLive('gemini-3.1-flash-live-preview'));
+    act(() => selectLive('gemini-3.8-live'));
     await waitFor(() => {
       expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
         expect.objectContaining({

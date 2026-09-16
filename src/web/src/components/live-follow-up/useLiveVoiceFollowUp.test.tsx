@@ -183,7 +183,7 @@ const sessionResponse = (expiresAtMs = Date.now() + 15 * 60 * 1000) => ({
     'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained',
   setup: {
     setup: {
-      model: 'models/gemini-3.1-flash-live-preview',
+      model: 'models/gemini-3.8-live',
       generationConfig: { responseModalities: ['AUDIO'] },
       sessionResumption: {},
       historyConfig: { initialHistoryInClientContent: true },

@@ -2,7 +2,7 @@
 title: Embedded Gemini Live Follow-Up Analytics
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-09-07
+last_reviewed: 2026-09-16
 canonical: true
 ---
 
@@ -48,6 +48,19 @@ an exchange to one input method are not supported. Grouping by course, lesson,
 mode, and surface uses only the IDs/enums below.
 
 ## Population, triggers, and deduplication
+
+### Gemini 3.8 Live replacement (2026-09-16)
+
+The sole supported Live model is now `gemini-3.8-live`. Existing Live event
+names, triggers, populations, exclusions, deduplication, payload allowlists,
+and best-effort delivery remain unchanged: this replaces the provider model
+behind the same keyboard/microphone interactions. Teacher setting-save events
+still classify the selected follow-up mode as `live_voice`; no model, reasoning,
+audio or transcript fields are added to Umami. The adoption/outcome consumer
+should split reliability comparisons at the actual deployment boundary; these
+events cannot distinguish model versions within a mixed rollout. Do not backfill
+or reclassify historical events. Model-specific diagnostics remain in Langfuse
+and the existing non-billable usage records.
 
 ### Refresh takeover revision (2026-09-07)
 

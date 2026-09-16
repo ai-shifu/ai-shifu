@@ -8,7 +8,7 @@ from typing import Literal
 
 from flaskr.service.config import get_config
 
-GEMINI_LIVE_MODEL_ID = "gemini-3.1-flash-live-preview"
+GEMINI_LIVE_MODEL_ID = "gemini-3.8-live"
 GEMINI_LIVE_MODEL_ALLOWLIST = frozenset({GEMINI_LIVE_MODEL_ID})
 DEFAULT_GEMINI_LIVE_VOICE = "Kore"
 

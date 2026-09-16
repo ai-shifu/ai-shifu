@@ -142,7 +142,7 @@ def _session(
         "progress_record_bid": "progress-1",
         "preview_mode": False,
         "origin": "https://learn.example.com",
-        "model": "gemini-3.1-flash-live-preview",
+        "model": "gemini-3.8-live",
         "voice_name": "Kore",
         "language": "zh-CN",
         "learning_mode": "read",

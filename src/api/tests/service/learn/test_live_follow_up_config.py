@@ -11,6 +11,21 @@ from flaskr.service.learn.live_follow_up_config import (
 
 
 @pytest.mark.parametrize(
+    ("model", "expected_mode"),
+    [
+        ("gemini-3.8-live", "live_voice"),
+        ("gemini-3.1-flash-live-preview", "text"),
+        ("gemini-3.8-live-extended-thinking", "text"),
+    ],
+)
+def test_only_gemini_38_live_uses_the_live_follow_up_protocol(
+    model: str, expected_mode: str
+) -> None:
+    assert GEMINI_LIVE_MODEL_ID == "gemini-3.8-live"
+    assert live_follow_up_config.get_follow_up_interaction_mode(model) == expected_mode
+
+
+@pytest.mark.parametrize(
     ("configured", "enabled"),
     [(None, False), (False, False), ("false", False), ("true", True), (True, True)],
 )

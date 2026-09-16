@@ -1,5 +1,28 @@
 # Gemini Live Voice Follow-Up
 
+## 2026-09-16: Replace the supported model with Gemini 3.8 Live
+
+The user explicitly requested a direct replacement with `gemini-3.8-live`,
+without compatibility aliases, automatic course migration, or support for the
+Extended Thinking variant. The model allowlist, picker label, token defaults,
+readiness checks, usage and trace model identifiers use the single new model.
+Saved courses must select the new model in follow-up settings.
+
+Google's [migration guide](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-live)
+requires omitting `thinkingConfig` for this model. Remove it from both the
+server-locked token configuration and the browser setup, including resumption.
+Keep audio output, both transcriptions, voice selection, VAD, initial-history
+constraints, compression and ephemeral-token security. Proactive audio uses the
+provider's always-enabled default. There are no tools or affective-dialog
+overrides to migrate. The existing event contracts apply to the same actions;
+the analytics spec documents the deployment boundary for comparisons.
+
+Validation covers model discovery and selection (including exclusion of old
+and Extended Thinking Live models), constrained token/setup payloads, resumed
+sessions, backend Live contracts and frontend settings/connection/analytics.
+Real Gemini audio acceptance requires a configured provider credential and a
+browser microphone; mock-based regression checks do not establish that result.
+
 ## 2026-09-07: Do not force Live output into the interface language
 
 Live no longer reads the course's learner-language output switch or appends
@@ -33,7 +56,7 @@ volatile-lru and allkeys-lru, while retaining restart recovery coverage.
 ## Purpose / Big Picture
 
 Courses whose effective follow-up model is
-`gemini-3.1-flash-live-preview` use the existing AskBlock layout in reading,
+`gemini-3.8-live` use the existing AskBlock layout in reading,
 listening, and teacher preview. Opening the panel only reveals history and the
 input; the first keyboard submission or explicit microphone click starts Live.
 Keyboard and microphone input both receive native audio answers and transcripts.
@@ -75,6 +98,15 @@ auditing, or another correctness-sensitive decision.
 
 ## Progress
 
+- [x] 2026-09-16 UTC: Replace the sole model and catalog label with Gemini 3.8
+      Live; omit thinking configuration from private and browser setup; update
+      backend/frontend fixtures and model/setup regression coverage.
+- [x] 2026-09-16 UTC: Verify core backend model/token/config tests (162 passed,
+      one unrelated LiteLLM-version contract skipped), expanded backend Live
+      tests (242 passed, 89 Redis and one MySQL test skipped), and 14 frontend
+      suites (463 passed). The full lefthook gate and repository harness pass.
+      Real provider audio acceptance remains unverified: no Gemini API key is
+      configured in this checkout's environment files or process environment.
 - [x] 2026-09-07: Suspend ownership polling/expiry during intentional media
       pause; fence audio immediately and invalidate pending heartbeat callbacks.
       Explicit resume obtains fresh bounded authorization before accepting
@@ -830,6 +862,11 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Surprises & Discoveries
 
+- 2026-09-16: The shared local virtualenv had Flask 3.0.3 / Werkzeug 3.1.4,
+  behind the repository's 3.1.3 / 3.1.6 pins. Route tests failed at the request
+  size limit setter before reaching Live code. Installing the pinned versions
+  into `/tmp/ai-shifu-gemini38-test-deps` and using it through `PYTHONPATH`
+  resolved the failures without changing shared dependencies or product code.
 - 2026-09-05: Same-anchor pause resolves the reported collapse incident but
   does not remove the one-valid-credential admission block after a real End or
   anchor change. Google token expiry and application session retirement are
@@ -913,6 +950,12 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 
 ## Decision Log
 
+- Decision (2026-09-16): Directly replace the previous Live preview model with
+  `gemini-3.8-live`, without a compatibility route or Extended Thinking support.
+  This supersedes the old model/minimal-thinking decisions recorded below.
+  - Why: the user explicitly requested a single-model upgrade; standard 3.8 Live
+    does not accept `thinkingConfig`, while Extended Thinking would require a
+    different background-reasoning state contract.
 - Decision (2026-09-07, user approved): only microphone and Send remain in the
   original input. Render errors only; remove Retry, End, and status/help copy.
   Explicit mic-off pauses input and output without closing the panel or socket.
@@ -1133,6 +1176,13 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   - Why: adoption can be measured without collecting conversation or secrets.
 
 ## Outcomes & Retrospective
+
+The 2026-09-16 upgrade directly replaces the supported model with Gemini 3.8
+Live and removes unsupported thinking configuration from both constrained-token
+and browser session setup. Model catalog, discovery, session, settings and
+analytics regressions pass. The full repository pre-commit gate passes.
+Redis/MySQL integration and real-provider audio acceptance were not available
+locally; no deployment or saved-course data migration was performed.
 
 The 2026-09-07 minimal-controls revision removes normal status/help text and
 Retry/End buttons across five locales. Explicit microphone-off pauses both

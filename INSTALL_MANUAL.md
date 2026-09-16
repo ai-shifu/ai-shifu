@@ -106,6 +106,12 @@ then set:
 GEMINI_LIVE_ENABLED=true
 ```
 
+The supported Live follow-up model is `gemini-3.8-live` (Gemini 3.8 Live).
+The Gemini model discovery response must advertise `bidiGenerateContent` for
+this model. Earlier Live models and the Extended Thinking variant are not
+supported; saved courses must select Gemini 3.8 Live in their follow-up settings.
+Live session setup omits `thinkingConfig`, which this model does not support.
+
 Live readiness is separate from ordinary HTTP health. On startup, every
 enabled API worker schedules a single background task to resolve the effective
 (environment or DB-backed) flag and
