@@ -1042,7 +1042,8 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
 - Decision: route by backend `interaction_mode` and resolved
   `follow_up_mode`, never model labels or `-live-` string matching in Cook Web.
   - Why: capability and availability are server-owned contracts.
-- Decision: expose only `gemini-3.1-flash-live-preview` when the flag is on and
+- Decision (superseded by the 2026-09-16 Gemini 3.8 Live replacement): expose
+  only `gemini-3.1-flash-live-preview` when the flag is on and
   discovery reports `bidiGenerateContent`; retain normal text models in the
   existing primary model path.
   - Why: the allowlist and discovered operation are independent safety gates.
@@ -1056,7 +1057,8 @@ exact payloads, exclusions, deduplication, all terminal outcomes, and fail-open.
   ephemeral token and direct browser-to-Gemini socket.
   - Why: this removes the failed ingress Upgrade dependency while keeping the
     API key and private course instruction on the backend.
-- Decision: lock model, system instruction, audio-only response, selected
+- Decision (thinking configuration superseded on 2026-09-16): lock model,
+  system instruction, audio-only response, selected
   voice, minimal thinking, VAD, transcription, context compression, tools,
   and initial-history behavior in the token's effective Bidi setup and
   lower-camel JSON field mask. Leave only `sessionResumption` unlocked and
