@@ -5,7 +5,6 @@ import MainMenuModal from './MainMenuModal';
 const mockUpdateUserInfo = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockRefreshUserInfo = jest.fn();
-const mockRequestReplayAll = jest.fn();
 
 const mockEnvState = {
   loginMethodsEnabled: ['password', 'phone'],
@@ -58,15 +57,6 @@ jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
     selector(mockUserStoreState),
-  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
-    selector({
-      replayScenes: {
-        admin_home_onboarding: false,
-        course_editor_onboarding: false,
-      },
-      requestReplayAll: mockRequestReplayAll,
-      clearReplay: jest.fn(),
-    }),
 }));
 
 jest.mock('@/hooks/useTracking', () => ({
@@ -165,7 +155,6 @@ describe('MainMenuModal', () => {
     mockTrackEvent.mockReset();
     mockRefreshUserInfo.mockReset();
     mockUpdateUserInfo.mockReset();
-    mockRequestReplayAll.mockReset();
     mockUserStoreState.isLoggedIn = true;
     mockUserStoreState.userInfo = {
       mobile: '13800000000',
@@ -200,7 +189,7 @@ describe('MainMenuModal', () => {
       scenario: 'admin',
       surface: 'admin' as const,
       isCreator: false,
-      sceneLabel: 'component.menus.navigationMenus.onboardingGuide',
+      sceneLabel: null,
       excludedSceneLabels: [
         'component.menus.navigationMenus.createCourse',
         'component.menus.navigationMenus.adminConsole',
@@ -231,7 +220,7 @@ describe('MainMenuModal', () => {
       const expectedLabels = [
         'component.menus.navigationMenus.personalInfo',
         'module.settings.setPassword',
-        sceneLabel,
+        ...(sceneLabel ? [sceneLabel] : []),
         'component.menus.navigationMenus.language',
         'module.user.logout',
       ];
@@ -242,9 +231,11 @@ describe('MainMenuModal', () => {
       expect(
         screen.getByRole('button', { name: 'module.settings.setPassword' }),
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole('button', { name: sceneLabel }),
-      ).toBeInTheDocument();
+      if (sceneLabel) {
+        expect(
+          screen.getByRole('button', { name: sceneLabel }),
+        ).toBeInTheDocument();
+      }
       excludedSceneLabels.forEach(excludedSceneLabel => {
         expect(screen.queryByText(excludedSceneLabel)).not.toBeInTheDocument();
       });
@@ -292,31 +283,19 @@ describe('MainMenuModal', () => {
     },
   );
 
-  test('replays onboarding and closes the admin menu', () => {
-    const calls: string[] = [];
-    const onClose = jest.fn(() => calls.push('close-menu'));
-    mockRequestReplayAll.mockImplementation(() => {
-      calls.push('replay-onboarding');
-    });
-
+  test('does not show an onboarding entry in the admin menu', () => {
     render(
       <MainMenuModal
         open
-        onClose={onClose}
+        onClose={jest.fn()}
         onPersonalInfoClick={jest.fn()}
         surface='admin'
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'component.menus.navigationMenus.onboardingGuide',
-      }),
-    );
-
-    expect(calls).toEqual(['replay-onboarding', 'close-menu']);
-    expect(mockRequestReplayAll).toHaveBeenCalledTimes(1);
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText('component.menus.navigationMenus.onboardingGuide'),
+    ).not.toBeInTheDocument();
   });
 
   test('hides set password entry when password login is unavailable', () => {

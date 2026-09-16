@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/AlertDialog';
 import PopupModal from '@/components/PopupModal';
 import { useTranslation } from 'react-i18next';
-import { useOnboardingReplayStore, useUserStore } from '@/store';
+import { useUserStore } from '@/store';
 import { shifu } from '@/lib/shifu/Shifu';
 import { useTracking, EVENT_NAMES } from '@/hooks/useTracking';
 import { useEnvStore } from '@/store/envStore';
@@ -35,13 +35,7 @@ import Image from 'next/image';
 import imgPersonal from '@/assets/newchat/light/personal.png';
 import imgMultiLanguage from '@/assets/newchat/light/multiLanguage.png';
 import imgSignIn from '@/assets/newchat/light/signin.png';
-import {
-  Monitor,
-  MonitorSmartphone,
-  BookPlus,
-  KeyRound,
-  Compass,
-} from 'lucide-react';
+import { Monitor, MonitorSmartphone, BookPlus, KeyRound } from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
 
@@ -77,9 +71,6 @@ const MainMenuModal = ({
   );
 
   const isCreator = userInfo?.is_creator ?? false;
-  const requestReplayAll = useOnboardingReplayStore(
-    state => state.requestReplayAll,
-  );
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
     ? loginMethodsEnabled.includes('password')
@@ -162,29 +153,6 @@ const MainMenuModal = ({
       <div className={styles.rowTitle}>{t('module.settings.sessions')}</div>
     </button>
   ) : null;
-
-  const onReplayOnboardingClick = (evt: React.MouseEvent) => {
-    evt.preventDefault();
-    evt.stopPropagation();
-    requestReplayAll();
-    onClose?.(evt);
-  };
-  const replayOnboardingRow = (
-    <button
-      type='button'
-      className={cn(styles.mainMenuModalRow, 'px-2.5')}
-      onClick={onReplayOnboardingClick}
-      title={t('component.menus.navigationMenus.onboardingGuide')}
-    >
-      <Compass
-        className={styles.rowIcon}
-        size={16}
-      />
-      <div className={styles.rowTitle}>
-        {t('component.menus.navigationMenus.onboardingGuide')}
-      </div>
-    </button>
-  );
 
   const onAdminEntryClick = (evt: React.MouseEvent) => {
     evt.preventDefault();
@@ -308,9 +276,7 @@ const MainMenuModal = ({
                   : t('component.menus.navigationMenus.createCourse')}
               </div>
             </button>
-          ) : (
-            replayOnboardingRow
-          )}
+          ) : null}
 
           <div className={styles.languageRow}>
             <div

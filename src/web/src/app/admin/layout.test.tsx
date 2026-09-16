@@ -197,15 +197,6 @@ jest.mock('@/store', () => ({
   ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
   useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
     selector(mockUserStoreState),
-  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
-    selector({
-      replayScenes: {
-        admin_home_onboarding: false,
-        course_editor_onboarding: false,
-      },
-      requestReplayAll: jest.fn(),
-      clearReplay: jest.fn(),
-    }),
 }));
 
 jest.mock('@/store/envStore', () => ({
@@ -261,45 +252,6 @@ jest.mock('@/hooks/useTracking', () => ({
   __esModule: true,
   useTracking: () => ({
     trackEvent: jest.fn(),
-  }),
-}));
-
-jest.mock('@/hooks/useOnboarding', () => ({
-  __esModule: true,
-  useCreatorOnboardingStatus: () => ({
-    data: {
-      eligible: false,
-      user_segment: 'ineligible',
-      version: 'v1',
-      scenes: {
-        admin_home_onboarding: {
-          completed: true,
-          completed_at: null,
-          eligible: false,
-          variant: null,
-        },
-        course_editor_onboarding: {
-          completed: true,
-          completed_at: null,
-          eligible: false,
-          variant: null,
-        },
-      },
-      guide_course: {
-        bid: '',
-        title: '',
-        language: 'en-US',
-      },
-    },
-    mutate: jest.fn(),
-  }),
-  useOnboarding: () => ({
-    isOpen: false,
-    currentStep: null,
-    currentStepIndex: 0,
-    totalSteps: 0,
-    targetRect: null,
-    advance: jest.fn(),
   }),
 }));
 

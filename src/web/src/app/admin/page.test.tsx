@@ -97,12 +97,6 @@ jest.mock('@/lib/textutils', () => ({
 
 jest.mock('@/lib/onboardingTargets', () => ({
   buildGuideCourseTargetId: () => undefined,
-  buildOnboardingTargetProps: () => ({}),
-  ONBOARDING_TARGET_IDS: {
-    courseCreationEntry: 'courseCreationEntry',
-    lobsterCreateEntry: 'lobsterCreateEntry',
-    blankCreateEntry: 'blankCreateEntry',
-  },
 }));
 
 jest.mock('@/lib/shifu-permissions', () => ({

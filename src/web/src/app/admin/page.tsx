@@ -35,11 +35,7 @@ import {
   canManageArchive as canManageArchiveForShifu,
   canManageOwnerCourseAction,
 } from '@/lib/shifu-permissions';
-import {
-  buildGuideCourseTargetId,
-  buildOnboardingTargetProps,
-  ONBOARDING_TARGET_IDS,
-} from '@/lib/onboardingTargets';
+import { buildGuideCourseTargetId } from '@/lib/onboardingTargets';
 import AdminTitle from './components/AdminTitle';
 import ShifuCard from './components/ShifuCard';
 import CourseCreationChoiceDialog from './components/CourseCreationChoiceDialog';
@@ -693,12 +689,7 @@ const ScriptManagementPage = () => {
               </TabsList>
             </Tabs>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end'>
-              <div
-                className='flex flex-col gap-3 sm:flex-row sm:items-center'
-                {...buildOnboardingTargetProps(
-                  ONBOARDING_TARGET_IDS.courseCreationEntry,
-                )}
-              >
+              <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
                 <Button
                   size='sm'
                   onClick={handleCourseCreationChoice}

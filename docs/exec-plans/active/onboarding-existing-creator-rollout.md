@@ -3,13 +3,13 @@
 ## Purpose / Big Picture
 
 Extend the creator onboarding rollout to a targeted existing-creator cohort
- after `#1931` (admin home onboarding) and `#1933` (course editor onboarding)
- are already merged on `main`. The rollout must show the admin-home onboarding
- once on the first `/admin` entry and the editor onboarding once on the first
- owner editor entry, while keeping the old-user billing copy free of expired
- trial-credit messaging. The implementation must preserve the existing
- onboarding storage model and event names, and only widen eligibility and copy
- selection.
+after `#1931` (admin home onboarding) and `#1933` (course editor onboarding)
+are already merged on `main`. The rollout must show the admin-home onboarding
+once on the first `/admin` entry and the editor onboarding once on the first
+owner editor entry, while keeping the old-user billing copy free of expired
+trial-credit messaging. The implementation must preserve the existing
+onboarding storage model and event names, and only widen eligibility and copy
+selection.
 
 ## Progress
 
@@ -25,6 +25,8 @@ Extend the creator onboarding rollout to a targeted existing-creator cohort
       eligibility while keeping source parameters as tracking-only metadata.
 - [x] 2026-06-23 15:25 CST: Add focused backend/frontend coverage and verify
       the expanded tracking payload.
+- [x] 2026-09-16: Retired the admin-home onboarding surface for all creator
+      segments while preserving the rollout fields for backend compatibility.
 
 ## Surprises & Discoveries
 
@@ -68,6 +70,9 @@ Extend the creator onboarding rollout to a targeted existing-creator cohort
   generic balance/package message based on backend-provided variant metadata.
 - Both admin-home and editor onboarding tracking payloads now include
   `user_segment`, keeping existing event names intact for dashboards.
+- From 2026-09-16 onward, frontend onboarding events are produced only by the
+  retained course-editor scene; historical admin-home events remain valid and
+  must not be reinterpreted.
 
 ## Context and Orientation
 

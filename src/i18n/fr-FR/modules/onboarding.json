@@ -1,15 +1,5 @@
 {
   "__namespace__": "module.onboarding",
-  "adminHome": {
-    "billingCard": {
-      "descriptionGeneric": "Consultez ici les crédits disponibles, souscrivez un abonnement ou achetez des crédits.",
-      "title": "Crédits et offres"
-    },
-    "courseCreationChoice": {
-      "description": "Cliquez sur Nouveau cours pour créer rapidement avec un assistant IA ou partir d’un cours vierge dans l’administration.",
-      "title": "Choisir une méthode de création"
-    }
-  },
   "common": {
     "continue": "Cliquez n'importe où pour continuer",
     "skip": "Passer"

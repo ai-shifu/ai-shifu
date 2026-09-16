@@ -1,7 +1,6 @@
 import { create } from 'zustand';
-import type { CreatorOnboardingSceneKey } from '@/types/onboarding';
-
-type ReplayScenes = Record<CreatorOnboardingSceneKey, boolean>;
+type ReplaySceneKey = 'course_editor_onboarding';
+type ReplayScenes = Record<ReplaySceneKey, boolean>;
 
 const STORAGE_KEY = 'onboarding-replay-scenes';
 
@@ -12,7 +11,6 @@ const isStorageAvailable =
   typeof window !== 'undefined' && typeof localStorage !== 'undefined';
 
 const EMPTY_SCENES: ReplayScenes = {
-  admin_home_onboarding: false,
   course_editor_onboarding: false,
 };
 
@@ -27,7 +25,6 @@ const readScenes = (): ReplayScenes => {
     }
     const parsed = JSON.parse(raw);
     return {
-      admin_home_onboarding: Boolean(parsed?.admin_home_onboarding),
       course_editor_onboarding: Boolean(parsed?.course_editor_onboarding),
     };
   } catch {
@@ -49,14 +46,13 @@ const writeScenes = (scenes: ReplayScenes) => {
 type OnboardingReplayState = {
   replayScenes: ReplayScenes;
   requestReplayAll: () => void;
-  clearReplay: (scene: CreatorOnboardingSceneKey) => void;
+  clearReplay: (scene: ReplaySceneKey) => void;
 };
 
 export const useOnboardingReplayStore = create<OnboardingReplayState>(set => ({
   replayScenes: readScenes(),
   requestReplayAll: () => {
     const next: ReplayScenes = {
-      admin_home_onboarding: true,
       course_editor_onboarding: true,
     };
     writeScenes(next);

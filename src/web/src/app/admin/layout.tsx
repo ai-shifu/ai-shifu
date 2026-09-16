@@ -11,25 +11,17 @@ import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useDisclosure } from '@/hooks/useDisclosure';
-import { useTracking } from '@/hooks/useTracking';
 import { useEnvStore } from '@/store';
 import { EnvStoreState } from '@/types/store';
 import { useBillingOverview } from '@/hooks/useBillingData';
-import {
-  useCreatorOnboardingStatus,
-  useOnboarding,
-} from '@/hooks/useOnboarding';
-import { useOnboardingReplayStore, useUserStore } from '@/store';
+import { useUserStore } from '@/store';
 import { ContactSideRail } from '@/components/contact/ContactSideRail';
-import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
-import { buildAdminHomeOnboardingSteps } from '@/components/onboarding/onboardingSteps';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
 import { applyCreatorBranding } from '@/lib/initializeEnvData';
 import type { ReferralInviteProfile } from '@/types/referral';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
-import { getCourseCreatorUrl } from '@/lib/urlUtils';
 import AdminDocumentTitleSync from './AdminDocumentTitleSync';
 
 const MainInterface = ({
@@ -38,18 +30,15 @@ const MainInterface = ({
   children: React.ReactNode;
 }>) => {
   const { t, i18n } = useTranslation();
-  const { t: tOnboarding } = useTranslation('module.onboarding');
   const pathname = usePathname();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
-  const currentLanguage = useUserStore(state => state.userInfo?.language || '');
   const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
   const isOperator = useUserStore(state =>
     Boolean(state.userInfo?.is_operator),
   );
-  const { trackEvent } = useTracking();
   const hasAuthenticatedAdminSession = isInitialized && isLoggedIn && !isGuest;
   const hasResolvedAdminSession =
     hasAuthenticatedAdminSession && Boolean(currentUserId);
@@ -221,184 +210,11 @@ const MainInterface = ({
     isLoading: billingOverviewLoading,
     mutate: mutateBillingOverview,
   } = useBillingOverview();
-  const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
-    useCreatorOnboardingStatus(menuReady);
-  const adminHomeSceneStatus = onboardingStatus?.scenes.admin_home_onboarding;
-  const courseCreatorUrl = useMemo(() => getCourseCreatorUrl(), []);
-
-  const adminHomeSteps = useMemo(
-    () =>
-      buildAdminHomeOnboardingSteps({
-        t: tOnboarding,
-        billingEnabled,
-        courseCreatorUrl,
-      }),
-    [billingEnabled, courseCreatorUrl, tOnboarding],
-  );
-  const canRunAdminHomeOnboarding =
-    pathname === '/admin' &&
-    menuReady &&
-    (!billingEnabled || !billingOverviewLoading);
-  const shouldShowAdminHomeOnboarding =
-    canRunAdminHomeOnboarding &&
-    adminHomeSceneStatus?.eligible === true &&
-    (adminHomeSceneStatus?.status ?? null) === null;
-  const replayScenes = useOnboardingReplayStore(state => state.replayScenes);
-  const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
-  const isAdminHomeReplay = replayScenes.admin_home_onboarding;
-  const adminHomeOnboardingEnabled =
-    canRunAdminHomeOnboarding &&
-    (shouldShowAdminHomeOnboarding || isAdminHomeReplay);
-
-  const persistAdminHomeOnboarding = useCallback(
-    async (status: 'completed' | 'skipped') => {
-      const version = onboardingStatus?.version || 'v1';
-      const language = currentLanguage || i18n.language;
-      try {
-        await api.completeCreatorOnboarding({
-          scene_key: 'admin_home_onboarding',
-          version,
-          trigger_source: 'admin_entry',
-          status,
-        });
-        trackEvent(
-          status === 'skipped'
-            ? 'creator_onboarding_skipped'
-            : 'creator_onboarding_completed',
-          {
-            scene_key: 'admin_home_onboarding',
-            version,
-            user_segment: onboardingStatus?.user_segment || 'ineligible',
-            trigger_source: 'admin_entry',
-            language,
-          },
-        );
-      } catch {
-        trackEvent('creator_onboarding_complete_failed', {
-          scene_key: 'admin_home_onboarding',
-          version,
-          user_segment: onboardingStatus?.user_segment || 'ineligible',
-          trigger_source: 'admin_entry',
-          language,
-        });
-      }
-      await mutateOnboardingStatus(current => {
-        if (!current) {
-          return current;
-        }
-        return {
-          ...current,
-          scenes: {
-            ...current.scenes,
-            admin_home_onboarding: {
-              ...current.scenes.admin_home_onboarding,
-              completed: status === 'completed',
-              completed_at: new Date().toISOString(),
-              status,
-            },
-          },
-        };
-      }, false);
-    },
-    [
-      currentLanguage,
-      i18n.language,
-      mutateOnboardingStatus,
-      onboardingStatus?.user_segment,
-      onboardingStatus?.version,
-      trackEvent,
-    ],
-  );
-
-  const {
-    isOpen: adminHomeOnboardingOpen,
-    currentStep: adminHomeOnboardingStep,
-    currentStepIndex: adminHomeOnboardingStepIndex,
-    totalSteps: adminHomeOnboardingTotalSteps,
-    targetRect: adminHomeOnboardingTargetRect,
-    advance: advanceAdminHomeOnboarding,
-    skip: skipAdminHomeOnboarding,
-  } = useOnboarding({
-    enabled: adminHomeOnboardingEnabled,
-    steps: adminHomeSteps,
-    onStepResolved: (step, stepIndex) => {
-      trackEvent('creator_onboarding_step_viewed', {
-        scene_key: 'admin_home_onboarding',
-        version: onboardingStatus?.version || 'v1',
-        user_segment: onboardingStatus?.user_segment || 'ineligible',
-        step_id: step.id,
-        step_index: stepIndex + 1,
-        trigger_source: 'admin_entry',
-        language: currentLanguage || i18n.language,
-      });
-    },
-    onComplete: async () => {
-      if (isAdminHomeReplay) {
-        clearReplay('admin_home_onboarding');
-        return;
-      }
-      await persistAdminHomeOnboarding('completed');
-      clearReplay('admin_home_onboarding');
-    },
-    onSkip: async () => {
-      if (isAdminHomeReplay) {
-        clearReplay('admin_home_onboarding');
-        return;
-      }
-      await persistAdminHomeOnboarding('skipped');
-      clearReplay('admin_home_onboarding');
-    },
-  });
-
-  const trackedOnboardingStartRef = useRef(false);
-  useEffect(() => {
-    if (!adminHomeOnboardingOpen || trackedOnboardingStartRef.current) {
-      return;
-    }
-    trackedOnboardingStartRef.current = true;
-    trackEvent('creator_onboarding_started', {
-      scene_key: 'admin_home_onboarding',
-      version: onboardingStatus?.version || 'v1',
-      user_segment: onboardingStatus?.user_segment || 'ineligible',
-      trigger_source: 'admin_entry',
-      language: currentLanguage || i18n.language,
-    });
-  }, [
-    adminHomeOnboardingOpen,
-    currentLanguage,
-    i18n.language,
-    onboardingStatus?.user_segment,
-    onboardingStatus?.version,
-    trackEvent,
-  ]);
-
   return (
     <>
       <Suspense fallback={null}>
         <AdminDocumentTitleSync title={adminTitle} />
       </Suspense>
-      {adminHomeOnboardingStep ? (
-        <OnboardingOverlay
-          open={adminHomeOnboardingOpen}
-          advanceAriaLabel={tOnboarding('common.continue')}
-          title={adminHomeOnboardingStep.title}
-          description={adminHomeOnboardingStep.description}
-          stepIndex={adminHomeOnboardingStepIndex}
-          totalSteps={adminHomeOnboardingTotalSteps}
-          continueLabel={tOnboarding('common.continue')}
-          actionLabel={adminHomeOnboardingStep.actionLabel}
-          actionHref={adminHomeOnboardingStep.actionHref}
-          targetRect={adminHomeOnboardingTargetRect}
-          highlightPadding={adminHomeOnboardingStep.highlightPadding}
-          onAdvance={() => {
-            void advanceAdminHomeOnboarding();
-          }}
-          skipLabel={tOnboarding('common.skip')}
-          onSkip={() => {
-            void skipAdminHomeOnboarding();
-          }}
-        />
-      ) : null}
       <WelcomeTrialDialog
         billingOverview={billingOverview}
         menuReady={menuReady}

@@ -25,6 +25,9 @@ with Umami, and persists per-user completion so each scene shows at most once.
 - [x] 2026-06-18 10:30 CST: Updated the admin home onboarding to the new
       three-step flow: blank course creation, lobster AI course creation, and the
       full billing card with trial credit details.
+- [x] 2026-09-16: Retired the admin-home creation and billing guidance so the
+      retained trial welcome dialog is the only first-entry surface. Backend
+      completion records remain readable for compatibility.
 
 ## Surprises & Discoveries
 
@@ -96,6 +99,10 @@ with Umami, and persists per-user completion so each scene shows at most once.
   - Why: it gives consistent rounded holes across admin home and editor targets,
     including targets near viewport edges and targets inside portal-based
     drawers.
+- Decision: Stop producing admin-home onboarding UI and analytics events while
+  retaining the backend scene contract and course-editor onboarding.
+  - Why: the admin home is self-explanatory, and its overlay competed with the
+    trial welcome dialog that product chose to retain.
 
 ## Outcomes & Retrospective
 
@@ -118,6 +125,10 @@ with Umami, and persists per-user completion so each scene shows at most once.
 - Follow-up: open a separate French i18n polish PR to normalize accented French
   across `src/i18n/fr-FR/**`. This PR only fixes onboarding strings to avoid
   mixing broad copy cleanup with the onboarding behavior change.
+- The admin-home onboarding was retired on 2026-09-16. The trial welcome dialog
+  remains active, the menu replay entry is hidden, and the underlying course
+  editor replay state plus existing backend completion rows are intentionally
+  left untouched.
 
 ## Context and Orientation
 
