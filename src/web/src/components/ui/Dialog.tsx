@@ -49,6 +49,7 @@ const DialogContent = React.forwardRef<
     container?: DialogPortalContainer;
     overlayClassName?: string;
     showClose?: boolean;
+    closeOnOutsideClick?: boolean;
   }
 >(({ overlayClassName, ...contentProps }, ref) => {
   const {
@@ -56,6 +57,7 @@ const DialogContent = React.forwardRef<
     children,
     container,
     showClose = true,
+    closeOnOutsideClick = false,
     ...props
   } = contentProps;
   const [resolvedContainer, setResolvedContainer] =
@@ -104,7 +106,9 @@ const DialogContent = React.forwardRef<
         {...props}
         onPointerDownOutside={event => {
           props.onPointerDownOutside?.(event);
-          event.preventDefault();
+          if (!closeOnOutsideClick) {
+            event.preventDefault();
+          }
         }}
       >
         {children}
