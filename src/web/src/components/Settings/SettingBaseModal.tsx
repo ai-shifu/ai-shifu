@@ -21,7 +21,6 @@ type SettingBaseModalProps = {
   okDisabled?: boolean;
   okLoading?: boolean;
   className?: string;
-  closeOnOutsideClick?: boolean;
 };
 
 export const SettingBaseModal = ({
@@ -36,7 +35,6 @@ export const SettingBaseModal = ({
   okDisabled = false,
   okLoading = false,
   className,
-  closeOnOutsideClick = false,
 }: SettingBaseModalProps) => {
   const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
@@ -52,15 +50,7 @@ export const SettingBaseModal = ({
       open={open}
       onOpenChange={handleOpenChange}
     >
-      <DialogContent
-        className={cn(styles.SettingBaseModal, className)}
-        closeOnOutsideClick={closeOnOutsideClick}
-        onInteractOutside={event => {
-          if (!closeOnOutsideClick) {
-            event.preventDefault();
-          }
-        }}
-      >
+      <DialogContent className={cn(styles.SettingBaseModal, className)}>
         <div
           style={{
             width: calModalWidth({

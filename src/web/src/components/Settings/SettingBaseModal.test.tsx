@@ -9,9 +9,9 @@ jest.mock('react-i18next', () => ({
 }));
 
 describe('SettingBaseModal outside dismissal', () => {
-  it.each([undefined, false, true])(
-    'honors closeOnOutsideClick=%s with a non-dismissible default',
-    async closeOnOutsideClick => {
+  it.each(['Escape', 'close icon'])(
+    'inherits outside-click protection and still closes through %s',
+    async closeMethod => {
       const onClose = jest.fn();
 
       render(
@@ -21,7 +21,6 @@ describe('SettingBaseModal outside dismissal', () => {
           onClose={onClose}
           title='Settings'
           header={(_, title) => <DialogTitle>{title}</DialogTitle>}
-          closeOnOutsideClick={closeOnOutsideClick}
         >
           <DialogDescription>Settings description</DialogDescription>
         </SettingBaseModal>,
@@ -34,12 +33,15 @@ describe('SettingBaseModal outside dismissal', () => {
       fireEvent.pointerDown(document.body, { pointerType: 'mouse' });
       fireEvent.click(document.body);
 
-      expect(onClose).toHaveBeenCalledTimes(
-        closeOnOutsideClick === true ? 1 : 0,
-      );
+      expect(onClose).not.toHaveBeenCalled();
 
-      onClose.mockClear();
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+      if (closeMethod === 'Escape') {
+        fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+      } else {
+        fireEvent.click(
+          screen.getByRole('button', { name: 'component.header.close' }),
+        );
+      }
       expect(onClose).toHaveBeenCalledTimes(1);
     },
   );
