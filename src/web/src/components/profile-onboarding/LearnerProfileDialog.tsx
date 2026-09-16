@@ -18,7 +18,6 @@ import {
   ProfileDialogConfirmationView,
   ProfileInformationUsageControl,
 } from './LearnerProfileDialogViews';
-import { LearnerProfileRetentionView } from './LearnerProfileRetentionView';
 import type { LearnerProfileDialogProps } from './learnerProfileDialogModel';
 import { useLearnerProfileDialogController } from './useLearnerProfileDialogController';
 
@@ -54,13 +53,14 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     requestCollection,
     continueToSave,
     cancelCollection,
-    requestDeferRetention,
-    continueFromRetention,
+    requestDefer,
+    cancelDefer,
     deferOnboarding,
     confirmPendingAction,
   } = useLearnerProfileDialogController(props);
   const {
     phase,
+    deferSucceeded,
     collectionKey,
     collectionRunInFlight,
     guidedAvailable,
@@ -81,6 +81,9 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     nicknameOverLimit,
     canSave,
   } = derived;
+  const deferConfirmation = confirmation === 'defer';
+  const deferConfirmRef = React.useRef<HTMLButtonElement | null>(null);
+  const deferCancelRef = React.useRef<HTMLButtonElement | null>(null);
   const viewHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const collectionViewRef = React.useRef<HTMLElement | null>(null);
   const confirmationHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
@@ -102,7 +105,8 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   const activeDialogView =
     confirmation ??
     (loaded ? phase : state.loadStatus === 'error' ? 'load-error' : 'loading');
-  const collectionOwnsScroll = loaded && !confirmation && phase === 'collect';
+  const collectionOwnsScroll =
+    loaded && (!confirmation || deferConfirmation) && phase === 'collect';
 
   const keepFocusedControlVisible = React.useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {
@@ -133,7 +137,9 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     if (contentScrollRef.current) {
       contentScrollRef.current.scrollTop = 0;
     }
-    if (activeDialogView === 'collect') {
+    if (activeDialogView === 'defer') {
+      deferCancelRef.current?.focus();
+    } else if (activeDialogView === 'collect') {
       collectionViewRef.current?.focus();
     } else if (activeDialogView === 'save') {
       viewHeadingRef.current?.focus();
@@ -143,6 +149,12 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
       confirmationHeadingRef.current?.focus();
     }
   }, [activeDialogView]);
+
+  React.useEffect(() => {
+    if (deferConfirmation && !busy) {
+      (deferSucceeded ? deferConfirmRef : deferCancelRef).current?.focus();
+    }
+  }, [deferConfirmation, busy, deferSucceeded]);
 
   React.useEffect(() => {
     if (activeDialogView === 'collect' && collectionReady) {
@@ -194,6 +206,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         onEscapeKeyDown={event => {
           if (exitPolicy === 'blocking') {
             event.preventDefault();
+            if (deferConfirmation) cancelDefer();
           }
         }}
         onPointerDownOutside={event => {
@@ -201,19 +214,46 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
             event.preventDefault();
           }
         }}
-        className='inset-0 flex h-dvh max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none outline-none focus:outline-none focus-visible:outline-none focus-within:outline-none focus-within:ring-0 focus-within:ring-offset-0 motion-reduce:animate-none motion-reduce:duration-0 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input]:min-h-11 max-sm:[&_input]:text-base max-sm:[&_select]:min-h-11 max-sm:[&_select]:text-base max-sm:[&_textarea]:text-base sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(88dvh,760px)] sm:w-[calc(100vw-48px)] sm:max-w-[900px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-lg sm:any-pointer-coarse:[&_button]:min-h-11 sm:any-pointer-coarse:[&_button]:min-w-11 sm:any-pointer-coarse:[&_input]:min-h-11 sm:any-pointer-coarse:[&_input]:text-base sm:any-pointer-coarse:[&_select]:min-h-11 sm:any-pointer-coarse:[&_select]:text-base sm:any-pointer-coarse:[&_textarea]:text-base'
+        className={
+          deferConfirmation
+            ? 'flex max-h-[calc(100dvh-32px)] flex-col gap-6 overflow-y-auto rounded-2xl p-6 motion-reduce:animate-none [&_button]:min-h-11'
+            : 'inset-0 flex h-dvh max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none outline-none focus:outline-none focus-visible:outline-none focus-within:outline-none focus-within:ring-0 focus-within:ring-offset-0 motion-reduce:animate-none motion-reduce:duration-0 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input]:min-h-11 max-sm:[&_input]:text-base max-sm:[&_select]:min-h-11 max-sm:[&_select]:text-base max-sm:[&_textarea]:text-base sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(88dvh,760px)] sm:w-[calc(100vw-48px)] sm:max-w-[900px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-lg sm:any-pointer-coarse:[&_button]:min-h-11 sm:any-pointer-coarse:[&_button]:min-w-11 sm:any-pointer-coarse:[&_input]:min-h-11 sm:any-pointer-coarse:[&_input]:text-base sm:any-pointer-coarse:[&_select]:min-h-11 sm:any-pointer-coarse:[&_select]:text-base sm:any-pointer-coarse:[&_textarea]:text-base'
+        }
       >
         <header
           data-testid='learner-profile-dialog-header'
           ref={setHeaderElement}
-          className="absolute inset-x-0 top-0 z-10 border-b border-slate-300/80 bg-background/90 pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] shadow-[0_6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-6 after:h-6 after:bg-background/55 after:backdrop-blur-md after:content-[''] sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
+          className={
+            deferConfirmation
+              ? 'relative'
+              : "absolute inset-x-0 top-0 z-10 border-b border-slate-300/80 bg-background/90 pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] shadow-[0_6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-6 after:h-6 after:bg-background/55 after:backdrop-blur-md after:content-[''] sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
+          }
         >
-          <DialogHeader className='w-full space-y-1 pr-12 text-start sm:space-y-2 [@media(max-height:620px)]:space-y-1'>
-            <DialogTitle className='text-xl font-bold leading-7 tracking-tight sm:text-[28px] sm:leading-9 [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7'>
-              {t('module.profileOnboarding.dialog.unifiedTitle')}
+          <DialogHeader
+            className={cn(
+              'w-full space-y-2 text-start',
+              !deferConfirmation && 'pr-12',
+            )}
+          >
+            <DialogTitle
+              className={
+                deferConfirmation
+                  ? 'text-xl font-semibold leading-7'
+                  : 'text-xl font-bold leading-7 tracking-tight sm:text-[28px] sm:leading-9 [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7'
+              }
+            >
+              {t(
+                deferConfirmation
+                  ? 'module.profileOnboarding.dialog.defer.title'
+                  : 'module.profileOnboarding.dialog.unifiedTitle',
+              )}
             </DialogTitle>
             <DialogDescription className='max-w-2xl text-start text-sm leading-5 sm:text-base sm:leading-6 [@media(max-height:620px)]:text-sm [@media(max-height:620px)]:leading-5'>
-              {t('module.profileOnboarding.dialog.unifiedDescription')}
+              {deferConfirmation
+                ? t('module.profileOnboarding.dialog.defer.description', {
+                    entry: t('component.menus.navigationMenus.personalInfo'),
+                  })
+                : t('module.profileOnboarding.dialog.unifiedDescription')}
             </DialogDescription>
           </DialogHeader>
           {exitPolicy === 'dismissible' ? (
@@ -234,8 +274,10 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         <div
           ref={contentScrollRef}
           data-testid='learner-profile-dialog-body'
+          hidden={deferConfirmation}
           className={cn(
             'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] [scrollbar-gutter:stable] sm:px-8',
+            deferConfirmation && 'hidden',
             collectionOwnsScroll
               ? 'overflow-hidden pb-[var(--learner-profile-footer-height,80px)] pt-[var(--learner-profile-header-height,96px)] sm:pb-[var(--learner-profile-footer-height,76px)] sm:pt-[var(--learner-profile-header-height,116px)] [@media(max-height:620px)]:pb-[var(--learner-profile-footer-height,80px)] [@media(max-height:620px)]:pt-[var(--learner-profile-header-height,80px)]'
               : 'overflow-y-auto pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)] pt-[calc(var(--learner-profile-header-height,96px)+1.5rem)] sm:pb-[calc(var(--learner-profile-footer-height,76px)+1.5rem)] sm:pt-[calc(var(--learner-profile-header-height,116px)+1.5rem)] [@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)] [@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+1.5rem)]',
@@ -251,7 +293,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
             } as React.CSSProperties
           }
         >
-          {loading && confirmation !== 'defer-retention' ? (
+          {loading ? (
             <div
               role='status'
               className='flex h-full min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground'
@@ -262,7 +304,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
               />
               {t('module.profileOnboarding.dialog.loading')}
             </div>
-          ) : !loaded && confirmation !== 'defer-retention' ? (
+          ) : !loaded ? (
             <div className='mx-auto max-w-lg space-y-3'>
               {state.error ? (
                 <div
@@ -283,85 +325,59 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 </div>
               ) : null}
             </div>
-          ) : confirmation && confirmation !== 'defer-retention' ? (
+          ) : confirmation && !deferConfirmation ? (
             <ProfileDialogConfirmationView
               confirmation={confirmation}
               headingRef={confirmationHeadingRef}
             />
           ) : (
             <>
-              <div
-                className={cn(
-                  confirmation === 'defer-retention' ? 'hidden' : 'contents',
-                )}
-                aria-hidden={
-                  confirmation === 'defer-retention' ? true : undefined
-                }
-              >
-                {loaded ? (
-                  phase === 'collect' ? (
-                    <ProfileCollectionView
-                      conversationKey={collectionKey}
-                      collectionReady={collectionReady}
-                      focusRef={collectionViewRef}
-                      {...conversationProps}
-                    />
-                  ) : (
-                    <LearnerProfileSaveView
-                      headingRef={viewHeadingRef}
-                      textareaRef={textareaRef}
-                      manualFallback={manualFallback}
-                      nickname={nickname}
-                      profile={profile}
-                      loaded={loaded}
-                      busy={busy}
-                      optimizing={optimizing}
-                      nicknameOverLimit={nicknameOverLimit}
-                      nicknameLength={nicknameLength}
-                      nicknameMaxLength={nicknameMaxLength}
-                      maxLength={maxLength}
-                      optimizationStatus={optimizationStatus}
-                      optimizationDescription={optimizationDescription}
-                      optimizationOriginal={optimizationOriginal}
-                      optimizeDisabled={optimizeDisabled}
-                      guidedAvailable={guidedAvailable}
-                      onNicknameChange={value => {
-                        setNickname(value);
-                        setError('');
-                      }}
-                      onProfileChange={value => {
-                        setProfile(value);
-                        resetOptimization();
-                        setError('');
-                      }}
-                      onUndoOptimization={undoOptimization}
-                      onOptimize={optimizeProfile}
-                      onRequestCollection={requestCollection}
-                    />
-                  )
-                ) : null}
-              </div>
-              {confirmation === 'defer-retention' ? (
-                <>
-                  <LearnerProfileRetentionView
-                    headingRef={confirmationHeadingRef}
-                    scrollContainerRef={contentScrollRef}
-                    disabled={busy || collectionRunInFlight}
+              {loaded ? (
+                phase === 'collect' ? (
+                  <ProfileCollectionView
+                    conversationKey={collectionKey}
+                    collectionReady={collectionReady}
+                    focusRef={collectionViewRef}
+                    {...conversationProps}
                   />
-                  <ProfileInformationUsageControl
-                    variant='inline'
-                    summary={t(
-                      'module.profileOnboarding.dialog.retention.trust',
-                    )}
-                    className='mt-6 sm:hidden [@media(max-height:620px)]:block'
+                ) : (
+                  <LearnerProfileSaveView
+                    headingRef={viewHeadingRef}
+                    textareaRef={textareaRef}
+                    manualFallback={manualFallback}
+                    nickname={nickname}
+                    profile={profile}
+                    loaded={loaded}
+                    busy={busy}
+                    optimizing={optimizing}
+                    nicknameOverLimit={nicknameOverLimit}
+                    nicknameLength={nicknameLength}
+                    nicknameMaxLength={nicknameMaxLength}
+                    maxLength={maxLength}
+                    optimizationStatus={optimizationStatus}
+                    optimizationDescription={optimizationDescription}
+                    optimizationOriginal={optimizationOriginal}
+                    optimizeDisabled={optimizeDisabled}
+                    guidedAvailable={guidedAvailable}
+                    onNicknameChange={value => {
+                      setNickname(value);
+                      setError('');
+                    }}
+                    onProfileChange={value => {
+                      setProfile(value);
+                      resetOptimization();
+                      setError('');
+                    }}
+                    onUndoOptimization={undoOptimization}
+                    onOptimize={optimizeProfile}
+                    onRequestCollection={requestCollection}
                   />
-                </>
+                )
               ) : null}
             </>
           )}
 
-          {(loaded || confirmation === 'defer-retention') &&
-          combinedDialogError ? (
+          {!deferConfirmation && combinedDialogError ? (
             <div
               role='alert'
               className='mt-5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive'
@@ -371,41 +387,44 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
           ) : null}
         </div>
 
+        {deferConfirmation && combinedDialogError ? (
+          <p
+            role='alert'
+            className='text-sm text-destructive'
+          >
+            {combinedDialogError}
+          </p>
+        ) : null}
         <footer
           data-testid='learner-profile-dialog-footer'
           ref={setFooterElement}
-          className="absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 border-t border-slate-300/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-background/55 before:backdrop-blur-md before:content-[''] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3"
+          className={
+            deferConfirmation
+              ? 'flex flex-wrap justify-end gap-3'
+              : "absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 border-t border-slate-300/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-background/55 before:backdrop-blur-md before:content-[''] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3"
+          }
         >
-          {confirmation === 'defer-retention' ? (
+          {deferConfirmation ? (
             <>
-              <div className='hidden min-w-0 items-center justify-start sm:me-auto sm:flex sm:w-auto [@media(max-height:620px)]:hidden'>
-                <ProfileInformationUsageControl
-                  variant='popover'
-                  summary={t('module.profileOnboarding.dialog.retention.trust')}
-                />
-              </div>
-              <div
-                data-testid='learner-profile-dialog-retention-actions'
-                className='ms-auto flex w-full min-w-0 items-center justify-end gap-2 max-[420px]:flex-col max-[420px]:items-stretch sm:w-auto sm:gap-3'
+              <Button
+                ref={deferCancelRef}
+                type='button'
+                variant='outline'
+                disabled={busy || deferSucceeded}
+                onClick={cancelDefer}
               >
-                <Button
-                  type='button'
-                  className='h-auto min-h-11 min-w-0 flex-[1.4] !whitespace-normal max-[420px]:w-full max-[420px]:flex-none sm:flex-none'
-                  disabled={busy}
-                  onClick={continueFromRetention}
-                >
-                  {t('module.profileOnboarding.dialog.retention.continueSetup')}
-                </Button>
-                <Button
-                  type='button'
-                  variant='outline'
-                  className='h-auto min-h-11 min-w-0 flex-1 !whitespace-normal max-[420px]:w-full max-[420px]:flex-none sm:flex-none'
-                  disabled={!onDefer || busy || collectionRunInFlight}
-                  onClick={() => void deferOnboarding()}
-                >
-                  {t('module.profileOnboarding.dialog.retention.defer')}
-                </Button>
-              </div>
+                {t('module.profileOnboarding.dialog.defer.continueSetup')}
+              </Button>
+              <Button
+                ref={deferConfirmRef}
+                type='button'
+                disabled={!onDefer || busy || collectionRunInFlight}
+                onClick={() => void deferOnboarding()}
+              >
+                {busy
+                  ? t('module.profileOnboarding.skipping')
+                  : t('module.profileOnboarding.dialog.defer.confirm')}
+              </Button>
             </>
           ) : confirmation ? (
             <>
@@ -475,7 +494,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                       collectionRunInFlight ||
                       externalSubmitting
                     }
-                    onClick={requestDeferRetention}
+                    onClick={requestDefer}
                   >
                     {deferring || externalSubmitting
                       ? t('module.profileOnboarding.skipping')
@@ -532,7 +551,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                       collectionRunInFlight ||
                       externalSubmitting
                     }
-                    onClick={requestDeferRetention}
+                    onClick={requestDefer}
                   >
                     {deferring || externalSubmitting
                       ? t('module.profileOnboarding.skipping')
