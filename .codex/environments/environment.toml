@@ -610,7 +610,7 @@ if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
 fi'''
 
 [[actions]]
-name = "Cook Web"
+name = "Web"
 icon = "debug"
 command = '''
 cd src/web
