@@ -2,14 +2,11 @@
 
 ## Purpose / Big Picture
 
-Extend the creator onboarding rollout to a targeted existing-creator cohort
-after `#1931` (admin home onboarding) and `#1933` (course editor onboarding)
-are already merged on `main`. The rollout must show the admin-home onboarding
-once on the first `/admin` entry and the editor onboarding once on the first
-owner editor entry, while keeping the old-user billing copy free of expired
-trial-credit messaging. The implementation must preserve the existing
-onboarding storage model and event names, and only widen eligibility and copy
-selection.
+Maintain the existing-creator rollout for the retained owner course-editor
+onboarding. The admin-home flow and its billing-copy variants are retired for
+all cohorts. Backend segment, scene, variant, and completion fields remain
+compatible so historical records and older clients are not broken, but the
+frontend no longer uses them to render or track admin-home onboarding.
 
 ## Progress
 
@@ -33,14 +30,17 @@ selection.
 - `#1933` already changed editor onboarding to support direct editor entry, so
   this rollout no longer needs course-count heuristics to make skills-created
   courses reachable.
-- The current admin-home billing step always renders trial-credit messaging
-  from `trial_offer`; that is incorrect for existing creators whose historical
-  onboarding credits have already expired.
+- Before retirement, the admin-home billing step rendered trial-credit
+  messaging from `trial_offer`; that was incorrect for existing creators whose
+  historical onboarding credits had already expired.
 - Existing onboarding persistence is already scene-based and idempotent. The
   safest rollout path is to extend the status payload instead of adding a new
   completion table or bumping the onboarding version.
 
 ## Decision Log
+
+Decisions about admin-home variants below are retained as rollout history. The
+2026-09-16 retirement decision overrides them for current frontend behavior.
 
 - Decision: Keep onboarding completion on `version=v1` and use new eligibility
   metadata instead of introducing `v2`.
@@ -66,10 +66,11 @@ selection.
 - Implemented the rollout contract without a version bump. Existing creators
   can now be targeted by config, while already-completed `v1` scenes remain
   untouched.
-- The admin-home billing card now switches between trial-credit copy and a
-  generic balance/package message based on backend-provided variant metadata.
-- Both admin-home and editor onboarding tracking payloads now include
-  `user_segment`, keeping existing event names intact for dashboards.
+- Before retirement, the admin-home billing card switched between trial-credit
+  and generic balance/package copy using backend variant metadata. Those fields
+  now remain for compatibility only.
+- Historical admin-home and retained editor events include `user_segment`, so
+  existing dashboards can distinguish their original rollout cohorts.
 - From 2026-09-16 onward, frontend onboarding events are produced only by the
   retained course-editor scene; historical admin-home events remain valid and
   must not be reinterpreted.
@@ -82,8 +83,9 @@ selection.
   - `src/api/tests/service/user/test_onboarding_routes.py`
 - Frontend owner paths:
   - `src/web/src/app/admin/layout.tsx`
-  - `src/web/src/components/onboarding/onboardingSteps.ts`
   - `src/web/src/components/shifu-edit/ShifuEdit.tsx`
+  - `src/web/src/components/onboarding/editorOnboardingSteps.ts`
+  - `src/web/src/store/onboardingReplayStore.ts`
   - `src/web/src/types/onboarding.ts`
 - Translation owner paths:
   - `src/i18n/zh-CN/modules/onboarding.json`
@@ -92,31 +94,20 @@ selection.
 
 ## Plan of Work
 
-1. Extend the onboarding status contract with segment-aware, scene-level
-   eligibility and billing-copy variants for old creators.
-2. Update admin-home and editor onboarding consumers to use the new contract,
-   keeping source parameters only for tracking metadata.
-3. Add rollout-aware tracking payload fields and focused backend/frontend
-   verification.
+1. Preserve the backend rollout payload and historical completion records for
+   compatibility without restoring admin-home consumers.
+2. Apply scene-level eligibility only to the retained owner course-editor
+   onboarding.
+3. Keep editor analytics segment-aware and verify that no admin-home producer
+   remains.
 
 ## Concrete Steps
 
-1. Backend contract
-   - Add an existing-creator rollout config gate.
-   - Return `user_segment` from onboarding status.
-   - Return scene-level `eligible` flags for:
-     - `admin_home_onboarding`
-     - `course_editor_onboarding`
-   - Return `admin_home_onboarding.variant` with:
-     - `trial_credit`
-     - `generic_billing`
-2. Admin home rollout
-   - Read scene-level eligibility in the admin layout instead of relying only on
-     the top-level creator eligibility boolean.
-   - Switch the billing-card copy by variant so the old-user rollout uses a
-     generic “check balance / buy or upgrade packages” message.
-   - Keep the blank-create and lobster steps unchanged.
-3. Editor rollout
+1. Backend compatibility
+   - Keep `user_segment` and scene-level fields stable for existing clients.
+   - Preserve stored `admin_home_onboarding` completions and retired variant
+     values without adding new frontend behavior.
+2. Editor rollout
    - Gate editor onboarding with:
      - owner-only access
      - scene completion false
@@ -124,33 +115,33 @@ selection.
      - non-history editor view
    - Keep `manual_create`, `lobster_create`, `skills_create`, and
      `editor_entry` as `trigger_source` values only.
-4. Tracking
+3. Tracking
    - Keep existing event names:
      - `creator_onboarding_started`
      - `creator_onboarding_step_viewed`
      - `creator_onboarding_completed`
      - `creator_onboarding_complete_failed`
-   - Add `user_segment` to all onboarding event payloads.
-   - Keep `trigger_source=admin_entry` for admin-home events.
-5. Verification
-   - Backend tests for new segment/scene/variant combinations.
-   - Frontend tests for variant-based admin-home copy and editor eligibility
-     gating.
+   - Keep `user_segment` on retained editor event payloads.
+   - Do not emit these events with `scene_key=admin_home_onboarding`.
+4. Verification
+   - Backend compatibility tests for stored scene data and status payloads.
+   - Frontend tests for editor eligibility and absence of admin-home UI.
    - Type-check and focused lint/test runs.
 
 ## Validation and Acceptance
 
-- A rollout-eligible existing creator who has not completed admin-home
-  onboarding sees it once on the first `/admin` entry.
-- The admin-home billing step for existing creators does not claim new trial
-  credits were granted.
+- Existing creators do not see admin-home onboarding or its retired billing
+  copy, regardless of historical eligibility or completion state.
 - A rollout-eligible existing creator who has not completed editor onboarding
   sees it once on the first entry to any owner course editor.
 - Skills-created courses can trigger editor onboarding on first editor entry
   even if more than one course already exists.
 - Shared-permission users still do not see the owner editor onboarding.
-- Existing event names remain unchanged and now include `user_segment`.
-- Users who already completed either scene under `v1` do not replay that scene.
+- Retained editor event names remain unchanged and include `user_segment`.
+- Users who already completed course-editor onboarding under `v1` do not replay
+  that scene automatically.
+- Historical admin-home completions remain readable but do not affect current
+  frontend behavior.
 
 ## Idempotence and Recovery
 
@@ -158,9 +149,10 @@ selection.
   `(user_bid, scene_key, version)` uniqueness.
 - If rollout config is disabled, scene-level eligibility must fall back to
   `false` without breaking the existing payload shape.
-- If the variant field is absent or malformed on the frontend, admin-home
-  billing copy should safely fall back to the current trial-credit behavior for
-  new creators and never block rendering.
+- Retired admin-home variant fields may remain in responses for compatibility;
+  the frontend ignores them and does not need a display fallback.
+- Old local replay state for `admin_home_onboarding` is ignored without
+  affecting `course_editor_onboarding`.
 
 ## Interfaces and Dependencies
 
@@ -175,6 +167,7 @@ selection.
   - `creator_onboarding_step_viewed`
   - `creator_onboarding_completed`
   - `creator_onboarding_complete_failed`
+  - These events are produced by retained course-editor onboarding only.
 
 ## Follow-up Expansion Guidance
 
