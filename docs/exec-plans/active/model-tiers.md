@@ -16,7 +16,9 @@ replace models without editing courses. Keep credit multipliers and Live voice.
 - [x] Implement localized selectors and analytics.
 - [x] Complete targeted regressions, type checks and the full repository gate.
 - [x] 2026-09-17: Address PR review gaps in operator copy/list paths, field
-  validation, resolver failures and request-scoped migration provenance reads.
+  validation, resolver failures, strict credit estimation and migration provenance.
+- [x] 2026-09-17: Bound cleanup reads with keyset pages while preserving atomic
+  recovery; verified the newest audit batch after recovery/reapply.
 - [ ] Deploy configured mappings and run audited cleanup in the target environment.
 
 ## Surprises & Discoveries
@@ -49,7 +51,7 @@ replace models without editing courses. Keep credit multipliers and Live voice.
 ## Outcomes & Retrospective
 
 Implementation and local validation are complete. The related backend suite
-passed 1473 tests (95 skipped) after review fixes; the settings/model-selector Jest suites passed
+passed 1492 tests (95 skipped), including golden contracts, after review fixes; the settings/model-selector Jest suites passed
 70 tests. TypeScript, the full lefthook gate, repository harness, architecture
 boundaries and the unit-of-work ratchet passed. Production configuration and
 cleanup execution remain a deployment operation; no production rows were changed.
@@ -133,7 +135,12 @@ Review the preview count and per-table/row/field entries before apply. Archive
 all three outputs with the deployment record. Verify that the applied count
 matches the preview, the applied batch has that many audit rows in
 `shifu_model_tier_migration_audit`, and the verification count is zero. The
-applying transaction locks candidate course rows and writes audit entries
+cleanup reads historical revisions in keyset pages of at most 500 ORM rows; the
+compact preview/apply identity report still grows with the number of changes.
+The applying transaction remains atomic across pages so a later failure rolls
+back all tiers and audit entries. This deliberately requires the documented
+maintenance window rather than committing partial cleanup batches.
+The applying transaction locks candidate course rows and writes audit entries
 atomically; historical revisions, including deleted revisions, are included.
 The command never contacts a model provider or changes billing history.
 
@@ -151,7 +158,8 @@ exist, use a forward fix: an old binary cannot interpret them correctly.
 Invocation metadata includes `model_tier`, `resolved_model`, the selection table,
 field and row ID, and `model_selection_origin` (`tier`, `legacy_model`, or
 `migrated_default`). A migrated revision also carries `model_migration_batch`.
-New cloned revisions retain their tiers and have their own row identity; the
+When a cleanup is recovered and reapplied, provenance uses the latest matching
+audit ID. New cloned revisions retain their tiers and have their own row identity; the
 migration ledger continues identifying the original cleaned revisions. Provider
 routing and metering use the same resolved identity for each invocation.
 

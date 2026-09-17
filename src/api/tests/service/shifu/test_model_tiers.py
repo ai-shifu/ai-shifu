@@ -65,6 +65,9 @@ def test_cleanup_failure_rolls_back_rows_and_audit(
             row = DraftShifu(shifu_bid=uuid4().hex, llm="", ask_llm="explicit")
             db.session.add(row)
         row_id = row.id
+        audit_count_before = ModelTierMigrationAudit.query.filter_by(
+            table_name=DraftShifu.__tablename__, row_id=row_id
+        ).count()
         original_add = db.session.add
 
         def fail_on_audit(value: object) -> None:
@@ -82,7 +85,7 @@ def test_cleanup_failure_rolls_back_rows_and_audit(
             ModelTierMigrationAudit.query.filter_by(
                 table_name=DraftShifu.__tablename__, row_id=row_id
             ).count()
-            == 0
+            == audit_count_before
         )
 
 
