@@ -11,7 +11,7 @@ aliyun-python-sdk-cdn==3.8.8
 aliyun-python-sdk-core==2.15.1
 aliyun-python-sdk-kms==2.16.3
 annotated-types==0.7.0
-anyio==4.4.0
+anyio==4.15.1
 attrs==23.2.0
 authlib==1.6.12
 backoff==2.2.1
@@ -83,9 +83,9 @@ pluggy==1.5.0
 protobuf==6.33.5
 pycryptodome==3.20.0
 pycryptodomex==3.20.0
-pydantic==2.10.6
+pydantic==2.13.5
 pydantic-settings==2.15.0
-pydantic_core==2.27.2
+pydantic_core==2.46.5
 PyJWT==2.13.0
 PyMySQL==1.1.1
 pytest==9.0.3
