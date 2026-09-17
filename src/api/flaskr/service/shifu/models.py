@@ -339,6 +339,7 @@ class DraftShifu(db.Model):
             llm_temperature=self.llm_temperature,
             llm_system_prompt=self.llm_system_prompt,
             ask_enabled_status=self.ask_enabled_status,
+            flow_engine=self.flow_engine,
             ask_llm=self.ask_llm,
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
@@ -372,6 +373,7 @@ class DraftShifu(db.Model):
             and compare_decimal(self.llm_temperature, other.llm_temperature)
             and self.llm_system_prompt == other.llm_system_prompt
             and self.ask_enabled_status == other.ask_enabled_status
+            and self.flow_engine == other.flow_engine
             and self.ask_llm == other.ask_llm
             and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt

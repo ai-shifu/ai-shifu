@@ -14,6 +14,7 @@ from flaskr.service.learn.api import (
     is_live_follow_up_model,
     normalize_live_follow_up_course_config,
 )
+from flaskr.service.shifu.consts import FLOW_ENGINE_DEFAULT
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
@@ -131,6 +132,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                 else 0,
                 "llm_system_prompt": shifu_draft.llm_system_prompt,
                 "ask_enabled_status": shifu_draft.ask_enabled_status,
+                "flow_engine": shifu_draft.flow_engine,
                 "ask_llm": shifu_draft.ask_llm,
                 "ask_llm_temperature": float(shifu_draft.ask_llm_temperature)
                 if shifu_draft.ask_llm_temperature
@@ -242,6 +244,11 @@ def import_shifu(
                 new_shifu.ask_enabled_status = shifu_data.get(
                     "ask_enabled_status", 5101
                 )
+                # Files exported before the runtime setting existed have no key; they describe
+                # courses that ran on 1.0, which is what the default says.
+                new_shifu.flow_engine = shifu_data.get(
+                    "flow_engine", FLOW_ENGINE_DEFAULT
+                )
                 new_shifu.ask_llm = shifu_data.get("ask_llm", "")
                 new_shifu.ask_llm_temperature = Decimal(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
@@ -281,6 +288,7 @@ def import_shifu(
                     llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                     llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
                     ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
+                    flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
                     ask_llm=shifu_data.get("ask_llm", ""),
                     ask_llm_temperature=Decimal(
                         str(shifu_data.get("ask_llm_temperature", 0.0))
@@ -317,6 +325,7 @@ def import_shifu(
                 llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                 llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
                 ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
+                flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
                 ask_llm=shifu_data.get("ask_llm", ""),
                 ask_llm_temperature=Decimal(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
