@@ -168,3 +168,89 @@ def test_the_script_engine_is_reached_with_what_it_expects(
     assert seen["stop_event"] is sentinel_stop
     # The producer thread owns the app context; the inner run must not take it as well.
     assert seen["manage_app_context"] is False
+
+
+def test_a_busy_worker_tells_the_learner_to_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The stream shows an AppError's own message and renders anything else as "unknown error".
+
+    A learner told the system is busy can act on it; a learner told nothing cannot.
+    """
+    from flaskr.service.common.models import AppError
+    from flaskr.service.learn.agent import lesson_entry
+    from flaskr.service.learn.agent.bridge import TurnCapacityError
+
+    monkeypatch.setattr(runscript_v2, "uses_agent_engine", lambda _bid: True)
+
+    def _at_capacity(*_args: object, **_kwargs: object) -> None:
+        raise TurnCapacityError
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", _at_capacity)
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_lesson_routing")
+
+    with pytest.raises(AppError):
+        list(
+            runscript_v2._lesson_events(
+                app=_App(),
+                user_bid="user-bid",
+                shifu_bid=SHIFU,
+                outline_bid="outline-bid",
+                user_input=None,
+                input_type=None,
+                reload_generated_block_bid=None,
+                reload_element_bid=None,
+                listen=False,
+                learning_mode="read",
+                preview_mode=False,
+                stop_event=None,
+                element_adapter=None,
+                heartbeat_interval=0.5,
+            )
+        )
+
+
+@pytest.mark.usefixtures("allowlisted")
+def test_the_input_the_browser_sends_reaches_the_agent_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every lesson input is a map, so routing must forward it rather than flatten it away."""
+    from flaskr.service.learn.agent import lesson_entry
+
+    seen: dict = {}
+
+    def _agent(_app: object, **kwargs: object) -> list:
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", _agent)
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_lesson_routing")
+
+    sent = {"feeling": ["Good"]}
+    list(
+        runscript_v2._lesson_events(
+            app=_App(),
+            user_bid="user-bid",
+            shifu_bid=SHIFU,
+            outline_bid="outline-bid",
+            user_input=sent,
+            input_type=None,
+            reload_generated_block_bid=None,
+            reload_element_bid=None,
+            listen=False,
+            learning_mode="read",
+            preview_mode=False,
+            stop_event=None,
+            element_adapter=None,
+            heartbeat_interval=0.5,
+        )
+    )
+    assert seen["user_input"] == sent

@@ -764,7 +764,10 @@ def _lesson_events(
                 shifu_bid,
                 outline_bid,
             )
-            raise
+            # Translated to an AppError because the stream's error handler shows an AppError's own
+            # message and renders everything else as "unknown error". Being told the system is
+            # busy is something a learner can act on; being told nothing is not.
+            raise_error("server.learn.agentTurnCapacity")
         except LessonNotTeachable:
             # An allowlisted course whose lesson has no script: 1.0 knows what to do with that,
             # and refusing the learner over a configuration mistake would be worse.
