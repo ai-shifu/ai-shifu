@@ -530,6 +530,8 @@ def _iter_stream_with_precontent_retry(
     messages: list,
     params: dict,
     kwargs: dict,
+    *,
+    tool_calls_are_output: bool = False,
 ) -> Generator[ModelResponseStream, None, None]:
     """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
 
@@ -541,6 +543,10 @@ def _iter_stream_with_precontent_retry(
     buffered until the attempt produces content or completes, so reasoning
     from an abandoned attempt does not leak into Langfuse. Once content
     flowed, the error is re-raised unchanged.
+
+    `tool_calls_are_output` extends "content" to tool-call fragments. A caller reading those
+    (`chat_llm(..., emit_tool_calls=True)`) has already been handed them, so replaying the request
+    would deliver the same arguments twice and could run one tool call as two.
     """
     attempts = 0
     while True:
@@ -558,6 +564,8 @@ def _iter_stream_with_precontent_retry(
             for res in response:
                 has_choices = bool(len(res.choices))
                 has_content = bool(has_choices and res.choices[0].delta.content)
+                if tool_calls_are_output and has_choices and not has_content:
+                    has_content = bool(_extract_tool_call_deltas(res.choices[0].delta))
                 has_reasoning = bool(
                     has_choices and _extract_reasoning_delta(res.choices[0].delta)
                 )
@@ -1144,6 +1152,7 @@ class LLMStreamResponse:
         result: object,
         finish_reason: object,
         usage: object,
+        tool_call_deltas: list[dict] | None = None,
     ) -> None:
         """Build an LLM stream-chunk response."""
         self.id = response_id
@@ -1153,6 +1162,39 @@ class LLMStreamResponse:
         self.result = result
         self.finish_reason = finish_reason
         self.usage = LLMStreamaUsage(**usage) if usage else None
+        # Tool-call fragments for this chunk, each {"index", "id", "name", "arguments"}.
+        # Always empty unless the caller passes emit_tool_calls=True.
+        self.tool_call_deltas = list(tool_call_deltas or [])
+
+
+def _get_attr(obj: object, name: str) -> object:
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
+def _extract_tool_call_deltas(delta: object) -> list[dict]:
+    """Normalize a streaming delta's tool_calls into plain dicts.
+
+    Providers hand these back either as objects or as dicts, and a single call's arguments arrive
+    split across chunks, so the index is what stitches them back together.
+    """
+    calls = _get_attr(delta, "tool_calls")
+    if not calls:
+        return []
+    out: list[dict] = []
+    for position, call in enumerate(calls):
+        function = _get_attr(call, "function") or {}
+        index = _get_attr(call, "index")
+        out.append(
+            {
+                "index": position if index is None else index,
+                "id": _get_attr(call, "id"),
+                "name": _get_attr(function, "name"),
+                "arguments": _get_attr(function, "arguments"),
+            }
+        )
+    return out
 
 
 def get_litellm_params_and_model(
@@ -1385,6 +1427,8 @@ def chat_llm(
     )
     stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
+    # Off by default: the 1.0 runtime only reads text, and a tool-call-only chunk carries none.
+    emit_tool_calls = bool(kwargs.pop("emit_tool_calls", False))
     usage_scene = (
         usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
     )
@@ -1411,6 +1455,7 @@ def chat_llm(
     )
     response_text = ""
     reasoning_text = ""
+    tool_call_text = ""
     usage = None
     input_cache_tokens = 0
     provider_name = ""
@@ -1433,22 +1478,39 @@ def chat_llm(
             messages,
             params,
             kwargs,
+            tool_calls_are_output=emit_tool_calls,
         )
         try:
             for res in response:
                 if start_completion_time is None:
                     start_completion_time = now_utc()
-                if len(res.choices):
-                    reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
-                if len(res.choices) and res.choices[0].delta.content:
-                    response_text += res.choices[0].delta.content
+                choice = res.choices[0] if len(res.choices) else None
+                if choice is not None:
+                    reasoning_text += _extract_reasoning_delta(choice.delta)
+                content = choice.delta.content if choice is not None else None
+                tool_deltas = (
+                    _extract_tool_call_deltas(choice.delta)
+                    if (emit_tool_calls and choice is not None)
+                    else []
+                )
+                finish_reason = choice.finish_reason if choice is not None else None
+                if content:
+                    response_text += content
+                if tool_deltas:
+                    tool_call_text += "".join(
+                        (d.get("name") or "") + (d.get("arguments") or "")
+                        for d in tool_deltas
+                    )
+                # Without emit_tool_calls this is exactly the old condition: text chunks only.
+                if content or tool_deltas or (emit_tool_calls and finish_reason):
                     yield LLMStreamResponse(
                         res.id,
-                        bool(res.choices[0].finish_reason),
+                        bool(finish_reason),
                         is_truncated=False,
-                        result=res.choices[0].delta.content,
-                        finish_reason=res.choices[0].finish_reason,
+                        result=content or "",
+                        finish_reason=finish_reason,
                         usage=None,
+                        tool_call_deltas=tool_deltas,
                     )
                 res_usage = getattr(res, "usage", None)
                 if res_usage:
@@ -1458,13 +1520,34 @@ def chat_llm(
                         "output": res_usage.completion_tokens,
                         "total": res_usage.total_tokens,
                     }
+                    if emit_tool_calls:
+                        # Token counts only arrive on the final frame, which carries no text and
+                        # would otherwise be dropped. It trails the chunk that reported the finish
+                        # reason, so it must not claim to be the end as well: a caller that stops
+                        # at the first `is_end` would then never see the usage it is waiting for.
+                        yield LLMStreamResponse(
+                            res.id,
+                            is_end=False,
+                            is_truncated=False,
+                            result="",
+                            finish_reason=finish_reason,
+                            usage={
+                                "prompt_tokens": res_usage.prompt_tokens,
+                                "completion_tokens": res_usage.completion_tokens,
+                                "total_tokens": res_usage.total_tokens,
+                            },
+                        )
         except Exception as exc:
-            if not (_is_litellm_repeated_stream_chunk_error(exc) and response_text):
+            # A tool-calling turn can be entirely tool calls, so text alone is the wrong test for
+            # "something already reached the caller".
+            partial = response_text or (tool_call_text if emit_tool_calls else "")
+            if not (_is_litellm_repeated_stream_chunk_error(exc) and partial):
                 raise
             app.logger.warning(
-                "LiteLLM repeated streaming chunk detected; ending stream with partial response | model=%s | response_chars=%s | error=%s",
+                "LiteLLM repeated streaming chunk detected; ending stream with partial response | model=%s | response_chars=%s | tool_call_chars=%s | error=%s",
                 invoke_model,
                 len(response_text),
+                len(tool_call_text),
                 exc,
             )
     else:
@@ -1499,7 +1582,9 @@ def chat_llm(
     usage_metadata.setdefault("generation_name", generation_name)
     if "temperature" in kwargs:
         usage_metadata.setdefault("temperature", kwargs.get("temperature"))
-    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
+    usage_metadata = _attach_usage_output_text(
+        usage_metadata, response_text + tool_call_text
+    )
     if usage is None:
         usage_metadata.setdefault("usage_source", "missing")
         record_llm_usage(
@@ -1536,7 +1621,9 @@ def chat_llm(
         )
     generation.end(
         input=generation_input,
-        output=_build_langfuse_llm_output(response_text, reasoning_text),
+        output=_build_langfuse_llm_output(
+            response_text + tool_call_text, reasoning_text
+        ),
         usage=usage,
         metadata=kwargs,
         completion_start_time=start_completion_time,
