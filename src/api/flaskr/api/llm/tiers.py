@@ -119,9 +119,13 @@ def _selection_migration_batch(
             request._model_tier_migration_batches = cache
         if key in cache:
             return cache[key]
-    audit = ModelTierMigrationAudit.query.filter_by(
-        table_name=table, row_id=row_id, field_name=field + "_tier", new_tier=tier
-    ).first()
+    audit = (
+        ModelTierMigrationAudit.query.filter_by(
+            table_name=table, row_id=row_id, field_name=field + "_tier", new_tier=tier
+        )
+        .order_by(ModelTierMigrationAudit.id.desc())
+        .first()
+    )
     batch = audit.batch_bid if audit else None
     if cache is not None:
         cache[key] = batch

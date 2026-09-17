@@ -69,3 +69,22 @@ def test_provenance_queries_once_per_course_field_and_request(app: object) -> No
                 assert len(queries) == 3 * (request_number + 1)
         finally:
             event.remove(db.engine, "before_cursor_execute", record_query)
+
+
+def test_provenance_uses_latest_batch_after_cleanup_recovery(app: object) -> None:
+    """A restored and remigrated revision must point at its newest cleanup."""
+    with app.app_context():
+        with unit_of_work():
+            row = DraftShifu(shifu_bid=uuid4().hex, llm="", ask_llm="")
+            db.session.add(row)
+        original = migrate_default_model_tiers(app, apply=True)
+        with unit_of_work():
+            row.llm_tier = None
+            row.ask_llm_tier = None
+        latest = migrate_default_model_tiers(app, apply=True)
+        assert original["batch_bid"] != latest["batch_bid"]
+        db.session.expire_all()
+        with app.test_request_context():
+            for follow_up in (False, True):
+                metadata = selection_metadata(row, follow_up=follow_up)
+                assert metadata["model_migration_batch"] == latest["batch_bid"]
