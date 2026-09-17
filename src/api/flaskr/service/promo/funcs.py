@@ -5,6 +5,7 @@ import decimal
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.common.pricing import calculate_percentage_amount
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, func, or_
@@ -133,11 +134,7 @@ def _calculate_discount_amount(
     if discount_type == COUPON_TYPE_FIXED:
         result = decimal.Decimal(value)
     elif discount_type == COUPON_TYPE_PERCENT:
-        result = (
-            decimal.Decimal(value)
-            * decimal.Decimal(payable_price)
-            / decimal.Decimal(100)
-        )
+        result = calculate_percentage_amount(payable_price, value)
     else:
         result = decimal.Decimal("0.00")
     return result.quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_HALF_UP)
