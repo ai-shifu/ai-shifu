@@ -196,6 +196,18 @@ def test_an_interaction_arrives_as_its_question_then_its_controls() -> None:
     assert controls.content == "?[%{{pick}} A]"
 
 
+def test_a_question_reaches_the_learner_as_the_model_wrote_it() -> None:
+    """The frontend renders it as Markdown, where indentation and a trailing hard break matter."""
+    prompt = "    indented line\nsecond line  "
+    question, _controls = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=_spec(type="single", prompt=prompt, options=[Option(display="A")]),
+        )
+    )
+    assert question.content == prompt
+
+
 def test_an_interaction_without_a_question_sends_only_its_controls() -> None:
     (controls,) = _translate(
         InteractionRequest(

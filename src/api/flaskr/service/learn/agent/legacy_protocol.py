@@ -173,8 +173,11 @@ def translate(
 
     if isinstance(event, InteractionRequest):
         events = []
-        prompt = event.spec.prompt.strip()
-        if prompt:
+        # Stripped only to decide whether there is a question at all: the text itself goes out as
+        # the model wrote it, because the frontend renders it as Markdown and leading indentation
+        # or a trailing hard break changes what the learner sees.
+        prompt = event.spec.prompt
+        if prompt.strip():
             events.append(
                 RunMarkdownFlowDTO(
                     outline_bid=outline_bid,
