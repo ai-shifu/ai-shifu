@@ -1276,7 +1276,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: object
                                     $ref: "#/components/schemas/OutlineDto"
         """
-        _ = shifu_bid
         user_id = request.user.user_id
         name = request.get_json().get("name")
         description = request.get_json().get("description")
@@ -1291,6 +1290,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             modify_unit(
                 app,
                 user_id,
+                shifu_bid,
                 outline_bid,
                 name,
                 description,
@@ -1332,9 +1332,10 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: object
                                     $ref: "#/components/schemas/OutlineDto"
         """
-        _ = shifu_bid
         user_id = request.user.user_id
-        return make_common_response(get_unit_by_id(app, user_id, outline_bid))
+        return make_common_response(
+            get_unit_by_id(app, user_id, shifu_bid, outline_bid)
+        )
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>",
@@ -1372,9 +1373,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: boolean
                                     description: delete unit success
         """
-        _ = shifu_bid
         user_id = request.user.user_id
-        return make_common_response(delete_unit(app, user_id, outline_bid))
+        return make_common_response(delete_unit(app, user_id, shifu_bid, outline_bid))
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
