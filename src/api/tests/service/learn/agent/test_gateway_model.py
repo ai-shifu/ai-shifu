@@ -49,6 +49,23 @@ class FakeChunk:
         self.usage = usage
 
 
+class FakeSpan:
+    """A Langfuse observation handle as far as chat_llm is concerned.
+
+    `chat_llm` opens a generation on the span before it reaches a provider, so a double that never
+    touches it would hide a model built without one.
+    """
+
+    def __init__(self) -> None:
+        """Record what was opened on it."""
+        self.generations: list[str] = []
+
+    def generation(self, **kwargs: object) -> FakeSpan:
+        """Open a generation, as chat_llm does."""
+        self.generations.append(str(kwargs.get("name", "")))
+        return self
+
+
 class FakeUsage:
     """Token counts in the shape chat_llm reports them."""
 
@@ -293,6 +310,8 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     turns = {"n": 0}
 
     def fake_chat_llm(**kwargs: object) -> Iterator[FakeChunk]:
+        # Mirror what chat_llm does with the span, so a missing one fails here too.
+        kwargs["span"].generation(name=kwargs["generation_name"])
         seen.append(kwargs["messages"])
         turns["n"] += 1
         if turns["n"] == 1:
@@ -314,12 +333,15 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
 
     monkeypatch.setattr(gw, "chat_llm", fake_chat_llm)
 
-    model = gw.GatewayModel(app=None, model="test-model", user_id="u1")
+    span = FakeSpan()
+    model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=span)
     engine = Engine(model)
     session = await engine.new_session("Ask the learner how they feel.")
 
     first = [e async for e in engine.run_turn(session)]
-    request = next(e for e in first if isinstance(e, InteractionRequest))
+    requests = [e for e in first if isinstance(e, InteractionRequest)]
+    assert requests, [type(e).__name__ for e in first]
+    request = requests[0]
     assert request.spec.variable == "feeling"
     assert isinstance(first[-1], TurnDone)
     assert first[-1].reason == "interaction"
@@ -347,10 +369,12 @@ async def test_the_gateway_sends_tools_but_never_forces_a_choice() -> None:
     captured: dict[str, Any] = {}
 
     def fake_chat_llm(**kwargs: object) -> Iterator[FakeChunk]:
+        kwargs["span"].generation(name=kwargs["generation_name"])
         captured.update(kwargs)
         yield FakeChunk(result="ok", finish_reason="stop")
 
-    model = gw.GatewayModel(app=None, model="test-model", user_id="u1")
+    span = FakeSpan()
+    model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=span)
     params = _params(
         [
             ToolDefinition(
@@ -398,3 +422,101 @@ def test_repeated_instructions_are_not_stacked_up() -> None:
     out = gw.map_messages(messages)
     assert [m["role"] for m in out] == ["system", "user", "assistant", "user"]
     assert out[0]["content"] == "be brief"
+
+
+# -- review follow-up --------------------------------------------------------------------
+
+
+def test_a_model_cannot_be_built_without_a_span() -> None:
+    """`chat_llm` opens a generation on the span before reaching a provider, so None cannot work."""
+    with pytest.raises(TypeError):
+        gw.GatewayModel(app=None, model="test-model", user_id="u1")  # type: ignore[call-arg]
+
+
+def test_only_the_current_instructions_are_sent() -> None:
+    """Each request records what applied when it was made; older values are superseded."""
+    messages = [
+        ModelRequest(
+            parts=[UserPromptPart(content="one")], instructions="teach section 1"
+        ),
+        ModelResponse(parts=[TextPart(content="ok")]),
+        ModelRequest(
+            parts=[UserPromptPart(content="two")], instructions="teach section 2"
+        ),
+    ]
+    out = gw.map_messages(messages)
+    assert out[0]["content"] == "teach section 2"
+    assert "section 1" not in out[0]["content"]
+
+
+def test_a_withheld_tool_is_not_sent_to_the_provider() -> None:
+    """The adapter sends the resolved set, not every authored tool.
+
+    A run can withhold a tool until it is revealed; sending its schema anyway would let the model
+    call a capability the engine has not offered.
+    """
+    visible = ToolDefinition(
+        name="interact", description="ask", parameters_json_schema={"type": "object"}
+    )
+    withheld = ToolDefinition(
+        name="delete_draft",
+        description="destructive",
+        parameters_json_schema={"type": "object"},
+    )
+    params = ModelRequestParameters(
+        function_tools=[visible, withheld],
+        output_tools=[],
+        tool_visibility={"interact": "visible", "delete_draft": "withheld"},
+    )
+    names = [t["function"]["name"] for t in gw.map_tools(params)]
+    assert names == ["interact"]
+
+
+def test_prepare_request_runs_before_the_tools_are_read() -> None:
+    """Skipping it leaves tool visibility unresolved and the engine's settings unmerged."""
+    captured: dict[str, Any] = {}
+
+    def fake_chat_llm(**kwargs: object) -> Iterator[FakeChunk]:
+        kwargs["span"].generation(name=kwargs["generation_name"])
+        captured.update(kwargs)
+        yield FakeChunk(result="ok", finish_reason="stop")
+
+    params = ModelRequestParameters(
+        function_tools=[
+            ToolDefinition(
+                name="interact",
+                description="ask",
+                parameters_json_schema={"type": "object"},
+            )
+        ],
+        output_tools=[],
+    )
+    assert params.tool_visibility is None  # unresolved as authored
+
+    model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=FakeSpan())
+    _, prepared = model.prepare_request(None, params)
+    assert prepared.tool_visibility == {"interact": "visible"}
+    assert captured == {}
+
+
+async def test_cancelling_a_stream_closes_the_gateway_generator() -> None:
+    """A learner who stops a lesson must not leave the chat_llm generator open."""
+    closed = {"yes": False}
+
+    def chunks() -> Iterator[FakeChunk]:
+        try:
+            yield FakeChunk(result="one")
+            yield FakeChunk(result="two")
+        finally:
+            closed["yes"] = True
+
+    response = gw.GatewayStreamedResponse(
+        model_request_parameters=_params(),
+        _model_name="test-model",
+        _chunks=chunks(),
+    )
+    iterator = response.__aiter__()
+    await iterator.__anext__()  # start the generator, then abandon it
+    await response.close_stream()
+    assert closed["yes"] is True
+    await response.close_stream()  # idempotent
