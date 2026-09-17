@@ -16,6 +16,21 @@ V1_SYNTAX_RE = re.compile(
     re.MULTILINE,
 )
 _FENCE_RE = re.compile(r"(?m)^(`{3,}|~{3,}).*$")
+
+
+def _closes_fence(line: str, opening: str) -> bool:
+    """Report whether this line closes a fence opened with `opening`.
+
+    A fence closes on a line of the same marker, at least as long as the opener, and nothing else.
+    Keeping the opening length matters: a ``` line inside a ```` block is content, and closing on
+    it would expose the rest of the block to variable substitution and 1.0 syntax detection.
+    """
+    # rstrip, not strip: the opening fences recognized here must start at column 0, so an indented
+    # marker is content -- a lesson showing a fenced block inside one would otherwise close early.
+    stripped = line.rstrip()
+    return len(stripped) >= len(opening) and stripped == opening[0] * len(stripped)
+
+
 _VAR_RE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
 
 
@@ -70,10 +85,9 @@ def _strip_fences(text: str) -> str:
     for line in text.splitlines():
         m = _FENCE_RE.match(line)
         if m:
-            marker = m.group(1)[0] * 3
             if in_fence is None:
-                in_fence = marker
-            elif line.strip().startswith(in_fence):
+                in_fence = m.group(1)
+            elif _closes_fence(line, in_fence):
                 in_fence = None
             continue
         if in_fence is None:
@@ -100,10 +114,9 @@ def substitute_variables(text: str, values: Mapping[str, Any]) -> str:
     for line in text.splitlines(keepends=True):
         m = _FENCE_RE.match(line)
         if m:
-            marker = m.group(1)[0] * 3
             if in_fence is None:
-                in_fence = marker
-            elif line.strip().startswith(in_fence):
+                in_fence = m.group(1)
+            elif _closes_fence(line, in_fence):
                 in_fence = None
             out.append(line)
             continue

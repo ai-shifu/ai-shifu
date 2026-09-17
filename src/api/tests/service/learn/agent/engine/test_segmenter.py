@@ -109,3 +109,43 @@ def test_style_and_script_blocks_attach_to_the_visual() -> None:
     assert kinds(pieces) == ["html", "N"]
     assert "<script>" in pieces[0].content
     assert pieces[0].content.rstrip().endswith("</script>")
+
+
+def test_an_unterminated_fence_keeps_its_last_line() -> None:
+    """The stream ended mid-block, so there is no closing line to strip -- only content."""
+    seg = Segmenter()
+    out = list(seg.feed("```html\n<div>Explanation</div>\n"))
+    out += list(seg.finish())
+    visuals = [p for p in out if isinstance(p, Visual)]
+    assert len(visuals) == 1
+    assert "<div>Explanation</div>" in visuals[0].content
+
+
+def test_a_shorter_fence_does_not_close_a_longer_one() -> None:
+    """A ``` line inside a ```` block is content, so the visual must carry it through."""
+    seg = Segmenter()
+    out = list(seg.feed("````html\n<div>a</div>\n```\n<div>b</div>\n````\n"))
+    out += list(seg.finish())
+    visuals = [p for p in out if isinstance(p, Visual)]
+    assert len(visuals) == 1
+    assert "<div>a</div>" in visuals[0].content
+    assert "<div>b</div>" in visuals[0].content
+
+
+def test_a_closed_fence_still_drops_its_delimiters() -> None:
+    seg = Segmenter()
+    out = list(seg.feed("```html\n<div>x</div>\n```\n"))
+    out += list(seg.finish())
+    visuals = [p for p in out if isinstance(p, Visual)]
+    assert len(visuals) == 1
+    assert visuals[0].content.strip() == "<div>x</div>"
+
+
+def test_an_indented_marker_does_not_close_a_visual_fence() -> None:
+    seg = Segmenter()
+    out = list(seg.feed("```html\n<div>a</div>\n    ```\n<div>b</div>\n```\n"))
+    out += list(seg.finish())
+    visuals = [p for p in out if isinstance(p, Visual)]
+    assert len(visuals) == 1
+    assert "<div>a</div>" in visuals[0].content
+    assert "<div>b</div>" in visuals[0].content

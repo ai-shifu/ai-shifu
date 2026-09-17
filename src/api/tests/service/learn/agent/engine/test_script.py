@@ -59,3 +59,29 @@ def test_first_prompt_layout() -> None:
 def test_bundle_roundtrip() -> None:
     b = ScriptBundle(script="s", constraints=None, extras={"a": "1"})
     assert ScriptBundle.from_dict(b.to_dict()) == b
+
+
+def test_a_longer_fence_is_not_closed_by_a_shorter_one_inside_it() -> None:
+    """A ``` line inside a ```` block is content, so the block must stay open across it."""
+    text = "````markdown\n```\n{{name}}\n```\n````\n{{name}}\n"
+    out = substitute_variables(text, {"name": "Ada"})
+    assert out.count("{{name}}") == 1  # the one inside the fence survives
+    assert out.endswith("Ada\n")
+
+
+def test_a_closing_fence_carries_nothing_else() -> None:
+    """`\u0060\u0060\u0060python` opens a block; only a bare marker line closes it."""
+    text = "```\n{{name}}\n``` trailing words\n{{name}}\n```\n{{name}}\n"
+    out = substitute_variables(text, {"name": "Ada"})
+    assert out.count("{{name}}") == 2  # both lines inside the block are untouched
+
+
+def test_an_indented_marker_does_not_close_a_fence() -> None:
+    """Openings must start at column 0, so an indented marker inside a block is content.
+
+    A lesson that teaches fenced code blocks contains exactly this.
+    """
+    text = "```markdown\n    ```\n{{name}}\n```\n{{name}}\n"
+    out = substitute_variables(text, {"name": "Ada"})
+    assert out.count("{{name}}") == 1  # the one inside the block survives
+    assert out.endswith("Ada\n")

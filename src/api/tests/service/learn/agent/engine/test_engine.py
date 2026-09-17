@@ -767,3 +767,79 @@ async def test_pressing_continue_does_not_overwrite_an_answer() -> None:
         "the confirmation must not touch the answer"
     )
     assert not [e for e in events if isinstance(e, MemoryUpdated)]
+
+
+async def test_a_finished_lesson_does_not_run_the_model_again() -> None:
+    """A duplicate or late request on a finished session must not bill another model run."""
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    tool_call_id="fin_1",
+                    json_args=json.dumps({"summary": "done"}),
+                )
+            }
+        else:
+            yield "Goodbye.\n"
+
+    engine = Engine(FunctionModel(stream_function=model))
+    s = await engine.new_session("Say goodbye.")
+    await collect(engine.run_turn(s))
+    assert s.finished is True
+    calls_after_finishing = calls["n"]
+
+    again = await collect(engine.run_turn(s, ContinueTurn()))
+    assert calls["n"] == calls_after_finishing  # the model was not called again
+    assert [type(e).__name__ for e in again] == ["TurnDone"]
+    assert again[-1].reason == "finished"
+
+
+async def test_an_unanswerable_response_keeps_the_question_pending() -> None:
+    """A value that is not one of the options must not let a required question be skipped."""
+    single = {
+        "type": "single",
+        "prompt": "Pick one",
+        "options": [{"display": "A"}, {"display": "B"}],
+        "variable": "picked",
+    }
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        if _last_tool_return(messages) is None:
+            yield "Here is the question.\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    tool_call_id="q1",
+                    json_args=json.dumps(single),
+                )
+            }
+        else:
+            yield "Thanks.\n"
+
+    engine = Engine(FunctionModel(stream_function=model))
+    s = await engine.new_session("Ask one question.")
+    await collect(engine.run_turn(s))
+    assert s.pending[0].tool_call_id == "q1"
+
+    events = await collect(
+        engine.run_turn(s, InteractionResponseTurn(values=["not an option"]))
+    )
+    assert [type(e).__name__ for e in events] == [
+        "ErrorEvent",
+        "InteractionRequest",
+        "TurnDone",
+    ]
+    assert events[0].retryable is True
+    assert s.pending[0].tool_call_id == "q1"  # still waiting
+    assert s.answers == {}
+    assert "picked" not in s.memory
+
+    # A real answer still works afterwards.
+    ok = await collect(engine.run_turn(s, InteractionResponseTurn(values=["A"])))
+    assert any(isinstance(e, MemoryUpdated) for e in ok)
+    assert s.pending == []
+    assert s.memory["picked"] == "A"

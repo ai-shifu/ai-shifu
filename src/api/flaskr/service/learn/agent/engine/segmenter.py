@@ -15,6 +15,19 @@ from typing import TYPE_CHECKING
 from .events import Visual
 
 _FENCE_OPEN = re.compile(r"^(`{3,}|~{3,})\s*([\w+-]*)\s*$")
+
+
+def _closes_fence(line: str, opening: str) -> bool:
+    """Report whether this line closes a fence opened with `opening`.
+
+    It must be the same marker, at least as long as the opener, and carry nothing else.
+    """
+    # rstrip, not strip: the opening fences recognized here must start at column 0, so an indented
+    # marker is content -- a lesson showing a fenced block inside one would otherwise close early.
+    stripped = line.rstrip()
+    return len(stripped) >= len(opening) and stripped == opening[0] * len(stripped)
+
+
 _HTML_OPEN = re.compile(
     r"^\s*<(div|section|article|figure|table|svg|main|aside|header|footer)\b",
     re.IGNORECASE,
@@ -94,6 +107,9 @@ class Segmenter:
     _root: str = ""
     _depth: int = 0
     _fence: str = ""
+    _fence_closed: bool = (
+        False  # did the open fence get its closing line before the stream ended
+    )
     _lang: str = ""
     _held: Visual | None = None  # html visual waiting to see if a <style> follows
 
@@ -154,8 +170,9 @@ class Segmenter:
                 yield from self._close_style()
             return
         if self._mode == "fence":
-            if line.strip().startswith(self._fence):
+            if _closes_fence(line, self._fence):
                 self._block.append(line)
+                self._fence_closed = True
                 yield self._flush_block(self._fence_kind())
                 self._mode = "text"
             else:
@@ -175,10 +192,11 @@ class Segmenter:
         if m:
             self._mode, self._fence, self._lang = (
                 "fence",
-                m.group(1)[0] * 3,
+                m.group(1),
                 m.group(2).lower(),
             )
             self._block = [line]
+            self._fence_closed = False
             return
         m = _HTML_OPEN.match(line)
         if m:
@@ -224,7 +242,10 @@ class Segmenter:
         if kind in ("html", "svg", "mermaid") and content.lstrip().startswith(
             ("```", "~~~")
         ):
-            # strip the fence so hosts get renderable markup
+            # Strip the fence so hosts get renderable markup. An unterminated fence -- the stream
+            # ended mid-block -- has no closing line, so dropping its last line would throw away
+            # real content and leave a one-line visual empty.
             lines = content.splitlines(keepends=True)
-            content = "".join(lines[1:-1]) if len(lines) >= 2 else content
+            end = -1 if self._fence_closed else len(lines)
+            content = "".join(lines[1:end]) if len(lines) >= 2 else content
         return Visual(kind=kind, content=content)  # type: ignore[arg-type]

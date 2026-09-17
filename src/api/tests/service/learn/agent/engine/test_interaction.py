@@ -5,6 +5,7 @@ from flaskr.service.learn.agent.engine.interaction import (
     InteractionAnswer,
     InteractionSpec,
     Option,
+    answer_is_usable,
     format_answer_for_model,
     normalize_answer,
     stored_value,
@@ -97,3 +98,35 @@ def test_other_interaction_types_keep_their_variable() -> None:
             {"type": kind, "prompt": "q", "variable": "mood", **extra}
         )
         assert spec.variable == "mood", kind
+
+
+def test_a_confirm_keeps_only_one_button() -> None:
+    """Every confirm answer means the same thing, so a second button is a choice that goes nowhere."""
+    spec = InteractionSpec.model_validate(
+        {
+            "type": "confirm",
+            "prompt": "Ready?",
+            "options": [{"display": "Yes"}, {"display": "No, go back"}],
+        }
+    )
+    assert [o.display for o in spec.options] == ["Yes"]
+
+
+def test_an_unmatched_choice_does_not_count_as_an_answer() -> None:
+    """normalize_answer drops values that are not options; what is left must not pass as an answer."""
+    single = spec("single", ("A", "B"))
+    answer = normalize_answer(single, InteractionAnswer(values=["not an option"]))
+    assert answer.values == []
+    assert answer_is_usable(single, answer) is False
+
+
+def test_free_text_answers_the_text_bearing_types_but_not_a_plain_choice() -> None:
+    typed = InteractionAnswer(values=[], text="my own words")
+    assert answer_is_usable(spec("single_or_text"), typed) is True
+    assert answer_is_usable(spec("single"), typed) is False
+
+
+def test_a_confirm_is_always_usable() -> None:
+    """A confirm carries no answer, only "go on", so an empty response still means continue."""
+    confirm = InteractionSpec.model_validate({"type": "confirm", "prompt": "Ready?"})
+    assert answer_is_usable(confirm, InteractionAnswer(values=[])) is True
