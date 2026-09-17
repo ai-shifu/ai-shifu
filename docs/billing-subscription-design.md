@@ -56,7 +56,7 @@ v1.1 再补充下列扩展能力：
 | `creator_catalog` | `active` | `GET /api/billing/catalog` | on | 是 | creator 可以查看当前可售套餐和积分包 |
 | `creator_subscription_checkout` | `active` | `/api/billing/overview`、`/subscriptions/checkout`、`/subscriptions/cancel`、`/subscriptions/resume` | on | 是 | 套餐购买、取消、恢复和 overview 当前正式可达 |
 | `creator_wallet_ledger` | `active` | `GET /api/billing/wallet-buckets`、`GET /api/billing/ledger` | on | 是 | 账户积分桶和账本明细当前正式可达 |
-| `creator_orders` | `active` | `POST /api/billing/topups/checkout`、`POST /api/billing/orders/*/sync`、`POST /api/billing/orders/*/checkout`、`POST /api/billing/orders/*/refund` | on | 是 | creator topup、补单 checkout、sync、refund 当前正式可达 |
+| `creator_orders` | `active` | `POST /api/billing/topups/checkout`、`POST /api/billing/orders/*/sync`、`POST /api/billing/orders/*/checkout` | on | 是 | creator topup、补单 checkout 和 sync 当前正式可达；退款接口在积分冲正规则完成前暂停开放 |
 | `admin_subscriptions` | `active` | `GET /api/admin/billing/subscriptions` | on | 是 | admin 订阅审查当前正式可达 |
 | `admin_orders` | `active` | `GET /api/admin/billing/orders` | on | 是 | admin 订单审查当前正式可达 |
 | `admin_ledger_adjust` | `active` | `POST /api/admin/billing/ledger/adjust` | on | 是 | admin 手工账本调整当前正式可达 |
@@ -303,7 +303,7 @@ v1 冻结 subscription lifecycle 规则：
 - `resume` 只允许从 `cancel_scheduled` 或 provider 标记的 `paused` 状态恢复；恢复时必须清空 `cancel_at_period_end`，把订阅回到 `active`，并重新启用后续 `renewal`
 - provider 把订阅推进到 `past_due` 后，v1 一律进入宽限期模式：`grace_period_end_at` 默认等于当前 `current_period_end_at`，原 `renewal/cancel_effective/downgrade_effective` 事件让位给 `retry`，直到续费成功或订阅被取消/过期
 - `paused` 属于 provider 驱动状态，当前批次不提供主动 pause API；若 provider 事件把订阅置为 `paused`，creator 只能通过已有 `resume` 接口恢复
-- 退款规则固定为：`POST /billing/orders/{bill_order_bid}/refund` 当前只支持 Stripe 已支付订单，Pingxx 必须返回 `unsupported`；若退款订单绑定了订阅，则关联订阅立即进入 `canceled` 并取消后续 renewal event，不再保留 `cancel_scheduled` 或宽限期
+- 退款底层规则暂时保留：Stripe 已支付订单可进入退款流程，Pingxx 返回 `unsupported`；若退款订单绑定了订阅，则关联订阅立即进入 `canceled` 并取消后续 renewal event，不再保留 `cancel_scheduled` 或宽限期。老师侧公开退款接口在积分冲正规则完成前暂停注册；运营审核后在线下支付渠道人工退款时，必须同时核对并通过后台人工调整积分账本
 - refund 造成的积分返还不恢复原 subscription/topup bucket；如需返还 credit，一律按上一节的 `refund return -> free bucket` 规则执行
 
 ### 3.3 `bill_orders`
@@ -1370,7 +1370,6 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `GET /billing/ledger`
 - `POST /billing/orders/{bill_order_bid}/sync`
 - `POST /billing/orders/{bill_order_bid}/checkout`
-- `POST /billing/orders/{bill_order_bid}/refund`
 - `POST /billing/subscriptions/checkout`
 - `POST /billing/subscriptions/cancel`
 - `POST /billing/subscriptions/resume`
@@ -1389,7 +1388,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `GET /billing/ledger`：按时间倒序分页返回账本流水
 - `POST /billing/orders/{bill_order_bid}/sync`：按 `bill_order_bid` 和 provider reference 主动同步支付状态
 - `POST /billing/orders/{bill_order_bid}/checkout`：对已创建的待支付订单继续发起 provider checkout
-- `POST /billing/orders/{bill_order_bid}/refund`：creator 对已支付 billing 订单发起退款；当前批次仅 Stripe 支持，Pingxx 返回 `unsupported`
+- 老师侧 billing 订单退款接口当前暂停注册；运营审核后在线下支付渠道人工退款时，必须同时核对并通过后台人工调整积分账本，待积分冲正规则完成后再恢复受控入口
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
 - `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；manual trial subscription 不支持 cancel/resume；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
 - `POST /billing/topups/checkout`：在当前有效套餐周期内发起一次性积分包购买支付
