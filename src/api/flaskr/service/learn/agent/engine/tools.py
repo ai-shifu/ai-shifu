@@ -28,9 +28,13 @@ class Deps:
 
 
 def text_in_turn(ctx: RunContext[Deps]) -> int:
-    """Characters of content the model has produced so far in the current turn."""
+    """Non-whitespace characters of content the model produced so far in this turn.
+
+    Whitespace does not count: a turn whose only output is a newline has presented nothing to the
+    learner, and must not be able to pause on a `confirm`.
+    """
     return sum(
-        len(part.content)
+        sum(1 for ch in part.content if not ch.isspace())
         for msg in ctx.messages[ctx.deps.history_len :]
         if isinstance(msg, ModelResponse)
         for part in msg.parts

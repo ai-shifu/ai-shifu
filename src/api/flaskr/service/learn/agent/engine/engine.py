@@ -52,6 +52,7 @@ from .events import (
 from .interaction import (
     InteractionAnswer,
     InteractionSpec,
+    answer_is_usable,
     format_answer_for_model,
     normalize_answer,
     stored_value,
@@ -235,6 +236,10 @@ class Engine:
         interactions behind, so the host must serialize turns per session -- a learner with the
         lesson open in two tabs is the case that matters.
         """
+        if session.finished:
+            # Terminal: a repeated or late request must not run the model on a finished lesson.
+            yield TurnDone(reason="finished", usage=session.usage)
+            return
         turn = turn or (StartTurn() if not session.started else ContinueTurn())
         deps = Deps(
             memory=session.memory,
@@ -265,6 +270,16 @@ class Engine:
                 yield ErrorEvent(message=f"unknown interaction id {turn.id!r}")
                 return
             answer = normalize_answer(pending.spec, turn.answer())
+            if not answer_is_usable(pending.spec, answer):
+                # Resuming here would hand the model "continued without answering" and let a
+                # question the script requires be skipped, so keep it pending and ask again.
+                yield ErrorEvent(
+                    message=f"interaction {pending.tool_call_id!r} needs an answer",
+                    retryable=True,
+                )
+                yield InteractionRequest(id=pending.tool_call_id, spec=pending.spec)
+                yield TurnDone(reason="interaction", usage=session.usage)
+                return
             session.answers[pending.tool_call_id] = format_answer_for_model(
                 pending.spec, answer
             )

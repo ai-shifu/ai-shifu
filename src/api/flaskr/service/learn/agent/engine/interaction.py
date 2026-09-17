@@ -60,6 +60,9 @@ class InteractionSpec(BaseModel):
         if self.type == "confirm":
             if not self.options:
                 self.options = [Option(display="Continue", value="continue")]
+            # Every confirm answer means the same thing, so a second button would offer the
+            # learner a choice that cannot reach the model. Keep the first one only.
+            self.options = self.options[:1]
             # A confirm carries no answer, only "go on", so its button text must never be stored.
             # Models do attach a variable to it -- often the one the previous question filled --
             # and pressing continue then overwrites a real answer with the button's label.
@@ -101,6 +104,21 @@ def normalize_answer(
     if spec.type in ("single", "single_or_text", "confirm"):
         values = values[:1]
     return InteractionAnswer(values=values, text=answer.text)
+
+
+def answer_is_usable(spec: InteractionSpec, answer: InteractionAnswer) -> bool:
+    """Whether a normalized answer actually answers this interaction.
+
+    A `confirm` carries no answer, only "go on", so it is always usable. The choice types need an
+    option that survived normalization -- unknown values are dropped there, and resuming on what
+    is left would tell the model the learner continued without answering. The text-bearing types
+    accept free text instead.
+    """
+    if spec.type == "confirm":
+        return True
+    if spec.type in ("single", "multi"):
+        return bool(answer.values)
+    return bool(answer.values or answer.text)
 
 
 def stored_value(spec: InteractionSpec, answer: InteractionAnswer) -> str | None:
