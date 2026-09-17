@@ -21,6 +21,10 @@ from flaskr.api.langfuse import (
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.run_agent import run_agent_lesson
+from flaskr.service.learn.exceptions import PaidError
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
+from flaskr.service.order.models import Order
+from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
@@ -57,7 +61,12 @@ def _latest(model: type, **filters: object) -> object | None:
 
 
 def _resolve(
-    app: Flask, *, shifu_bid: str, outline_bid: str, preview_mode: bool
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
 ) -> tuple[str, str, float]:
     """Read the script and the model settings for this lesson.
 
@@ -65,12 +74,18 @@ def _resolve(
     deployment default -- so moving a course to 2.0 does not silently move it to another model.
     """
     outline_model, shifu_model = _models(preview_mode)
-    outline = _latest(outline_model, outline_item_bid=outline_bid)
+    # Bound to the course as well as the lesson: an allowlisted course paired with another
+    # course's outline would otherwise teach that course's script under this course's settings.
+    outline = _latest(outline_model, outline_item_bid=outline_bid, shifu_bid=shifu_bid)
     if outline is None or not (outline.content or "").strip():
-        message = f"outline {outline_bid!r} has no script"
+        message = f"outline {outline_bid!r} has no script in course {shifu_bid!r}"
         raise LessonNotTeachable(message)
 
     shifu = _latest(shifu_model, shifu_bid=shifu_bid)
+    _require_access(
+        app, user_bid=user_bid, shifu=shifu, outline=outline, preview_mode=preview_mode
+    )
+
     for source in (outline, shifu):
         if source is not None and source.llm:
             return outline.content, source.llm, float(source.llm_temperature)
@@ -81,24 +96,71 @@ def _resolve(
     )
 
 
+def _has_bought(*, user_bid: str, shifu_bid: str) -> bool:
+    """Whether this learner holds a successful order for this course."""
+    return (
+        Order.query.filter(
+            Order.user_bid == user_bid,
+            Order.shifu_bid == shifu_bid,
+            Order.status == ORDER_STATUS_SUCCESS,
+            Order.deleted == 0,
+        )
+        .order_by(Order.id.desc())
+        .first()
+        is not None
+    )
+
+
+def _require_access(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu: object | None,
+    outline: object,
+    preview_mode: bool,
+) -> None:
+    """Refuse a paid lesson the learner has not bought.
+
+    The 1.0 path gates this inside its run context, which the agent path does not build, so the
+    same rule is applied here. Without it, putting a paid course on the allowlist would hand its
+    content to anyone signed in.
+
+    Only full lessons are gated: a trial lesson is meant to be readable before buying, which is
+    what it is for.
+    """
+    if preview_mode or shifu is None:
+        return
+    if getattr(outline, "type", None) != UNIT_TYPE_VALUE_NORMAL:
+        return
+    if (shifu.price or 0) <= 0:
+        return
+    if not _has_bought(user_bid=user_bid, shifu_bid=shifu.shifu_bid):
+        app.logger.info(
+            "refusing an unpaid agent lesson: user_bid=%s shifu_bid=%s",
+            user_bid,
+            shifu.shifu_bid,
+        )
+        raise PaidError
+
+
 def agent_lesson_events(
     app: Flask,
     *,
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    user_input: str | None = None,
+    user_input: str | dict | None = None,
     preview_mode: bool = False,
     heartbeat_interval: float = 0.5,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Run one turn of an allowlisted lesson and yield the events 1.0 produces.
 
-    Listen mode is not passed on: the engine's segment and narration events have nowhere to go
-    until listen-mode mapping exists, and a lesson that emitted them would lose that content
-    silently. An allowlisted course is taught in read mode until then.
+    Listen mode never reaches here -- routing keeps those requests on 1.0 -- so `listen=False` is
+    a statement of that, not a downgrade of a listening learner's request.
     """
     script, model_name, temperature = _resolve(
         app,
+        user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         preview_mode=preview_mode,

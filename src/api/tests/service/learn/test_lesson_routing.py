@@ -27,6 +27,7 @@ def _routes_to_agent(**kwargs: object) -> bool:
     defaults = {
         "shifu_bid": SHIFU,
         "input_type": None,
+        "listen": False,
         "reload_generated_block_bid": None,
         "reload_element_bid": None,
     }
@@ -53,6 +54,16 @@ def test_with_no_allowlist_every_course_stays_on_the_script_engine() -> None:
 def test_a_follow_up_question_keeps_the_script_engine() -> None:
     """Ask runs beside the lesson under its own semaphore, not through the turn loop."""
     assert _routes_to_agent(input_type=INPUT_TYPE_ASK) is False
+
+
+@pytest.mark.usefixtures("allowlisted")
+def test_a_listening_learner_keeps_the_script_engine() -> None:
+    """Teaching it in read mode would answer a request for one thing with another.
+
+    The engine's segment and narration events have nowhere to go until listen-mode mapping
+    exists, so the request stays with the engine that can serve it.
+    """
+    assert _routes_to_agent(listen=True) is False
 
 
 @pytest.mark.usefixtures("allowlisted")

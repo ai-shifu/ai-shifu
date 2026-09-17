@@ -59,7 +59,28 @@ if TYPE_CHECKING:
     from flaskr.service.learn.agent.engine.session import Session
 
 
-def _turn_input(session: Session, user_input: str | None) -> TurnInput:
+def learner_values(user_input: str | dict | None) -> list[str]:
+    """Flatten what the browser sent into the values the learner chose or typed.
+
+    Every lesson input arrives as a map, including free text: the study client normalises a plain
+    string to `{"input": ["..."]}` before sending it. Values are kept apart rather than joined,
+    because a multi-select answer is several of them and the engine matches each against the
+    option it came from.
+    """
+    if isinstance(user_input, str):
+        return [user_input] if user_input.strip() else []
+    if not isinstance(user_input, dict):
+        return []
+    values: list[str] = []
+    for value in user_input.values():
+        if isinstance(value, list):
+            values.extend(str(item) for item in value if item is not None)
+        elif value is not None:
+            values.append(str(value))
+    return [value for value in values if value.strip()]
+
+
+def _turn_input(session: Session, values: list[str]) -> TurnInput:
     """Decide what this turn is: a start, an answer, a remark, or simply carrying on.
 
     A session holding a pending interaction answers it, even with nothing: the engine refuses every
@@ -70,11 +91,13 @@ def _turn_input(session: Session, user_input: str | None) -> TurnInput:
     On the first turn the learner's words join the opening prompt, because that is what the engine
     does with a `MessageTurn` there. Elsewhere, input with nothing pending is a remark to react to.
     """
-    text = (user_input or "").strip()
+    # Everything but an interaction answer is prose, so several values become one message the way
+    # the 1.0 path joins them.
+    text = ",".join(values)
     if not session.started:
         return MessageTurn(text=text) if text else StartTurn()
     if session.pending:
-        return InteractionResponseTurn(values=[text] if text else [])
+        return InteractionResponseTurn(values=list(values))
     if text:
         return MessageTurn(text=text)
     return ContinueTurn()
@@ -128,7 +151,7 @@ def run_agent_lesson(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    user_input: str | None = None,
+    user_input: str | dict | None = None,
     listen: bool = False,
     heartbeat_interval: float = 0.5,
     iter_turn: Callable[..., Any] | None = None,
@@ -153,15 +176,14 @@ def run_agent_lesson(
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
     generated_block_bid = uuid.uuid4().hex
+    values = learner_values(user_input)
     session_holder: dict[str, Session] = {}
 
     def make_events() -> AsyncIterator[Event]:
         async def events() -> AsyncIterator[Event]:
             session = await make_session()
             session_holder["session"] = session
-            async for event in engine.run_turn(
-                session, _turn_input(session, user_input)
-            ):
+            async for event in engine.run_turn(session, _turn_input(session, values)):
                 yield event
 
         return events()

@@ -414,3 +414,57 @@ def test_a_resumed_session_sees_a_profile_edited_since_it_was_saved(
     _run(_Engine([TurnDone(reason="end")], session=stored))
     assert stored.user_memory == {"pace": "fast"}
     assert calls
+
+
+# --- what the browser actually sends -----------------------------------------------------
+#
+# Every lesson input arrives as a map: the study client normalises even a plain string to
+# `{"input": ["..."]}` before sending it, so a path that only accepts `str` receives nothing.
+
+
+@pytest.mark.parametrize(
+    ("sent", "expected"),
+    [
+        pytest.param(
+            {"input": ["hello"]}, ["hello"], id="free-text-as-the-client-sends-it"
+        ),
+        pytest.param({"feeling": ["Good"]}, ["Good"], id="a-named-answer"),
+        pytest.param(
+            {"topics": ["a", "b"]}, ["a", "b"], id="multi-select-keeps-every-choice"
+        ),
+        pytest.param({"input": []}, [], id="nothing-chosen"),
+        pytest.param({"input": ["   "]}, [], id="whitespace-is-not-an-answer"),
+        pytest.param({"a": "x"}, ["x"], id="an-unwrapped-value"),
+        pytest.param("plain", ["plain"], id="a-bare-string-still-works"),
+        pytest.param(None, [], id="nothing-sent"),
+        pytest.param(42, [], id="not-an-input-shape"),
+    ],
+)
+def test_the_values_a_learner_chose_survive_the_wire_format(
+    sent: object, expected: list[str]
+) -> None:
+    assert run_agent.learner_values(sent) == expected
+
+
+def test_a_selected_answer_reaches_the_pending_interaction(calls: list) -> None:
+    """A clicked choice arrives in the shape the browser sends."""
+    engine = _Engine(
+        [TurnDone(reason="end")],
+        session=_Session(started=True, pending=[object()]),
+    )
+    _run(engine, user_input={"feeling": ["Good"]})
+    turn = engine.turns[0]
+    assert turn.type == "interaction.response"
+    assert turn.values == ["Good"]
+    assert calls
+
+
+def test_every_choice_of_a_multi_select_reaches_the_engine(calls: list) -> None:
+    """Joining them into one string would leave the engine matching a value no option has."""
+    engine = _Engine(
+        [TurnDone(reason="end")],
+        session=_Session(started=True, pending=[object()]),
+    )
+    _run(engine, user_input={"topics": ["a", "b"]})
+    assert engine.turns[0].values == ["a", "b"]
+    assert calls
