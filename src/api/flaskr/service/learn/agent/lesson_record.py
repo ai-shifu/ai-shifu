@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from flaskr.dao import db
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_RESET,
 )
@@ -62,27 +63,47 @@ def active_progress_record(
     return record
 
 
-def was_reset_since(
+def claim_for_writing(
     *, user_bid: str, shifu_bid: str, outline_bid: str, progress_record_bid: str
-) -> bool:
-    """Whether the record this turn started from has since been reset.
+) -> LearnProgressRecord | None:
+    """Lock the record this turn started from, or report that it is gone.
 
-    A turn that began before a reset and finished after it must not write itself back: the learner
-    asked for the lesson to start over, and the reset could not clear a session that did not exist
-    yet.
+    Returns None when the lesson was reset while the turn ran: the learner asked for it to start
+    over, and a first turn holds no session row for the reset to have cleared, so writing now would
+    hand back the conversation they just cleared.
+
+    The row is locked rather than merely read. Checking and writing in separate transactions leaves
+    a gap a reset can commit inside -- the check sees a live lesson, the reset finds no session to
+    discard, and the write lands afterwards. Holding the lock until this transaction commits makes
+    the two orders the only possibilities: either the reset goes first and this sees it, or this
+    goes first and the reset finds the session and clears it.
     """
     if not progress_record_bid:
-        return False
-    return (
+        return None
+    record = (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid == outline_bid,
             LearnProgressRecord.progress_record_bid == progress_record_bid,
-            LearnProgressRecord.status == LEARN_STATUS_RESET,
-        ).first()
-        is not None
+            LearnProgressRecord.deleted == 0,
+        )
+        .with_for_update()
+        .first()
     )
+    if record is None or record.status == LEARN_STATUS_RESET:
+        return None
+    return record
+
+
+def mark_lesson_finished(record: LearnProgressRecord) -> None:
+    """Record that the lesson is over, where the product reads completion from.
+
+    Progress is read from this status, not from the agent session's own `finished` flag, so a
+    lesson the model finished would otherwise stay "in progress" in the outline and be missing
+    from completion reports.
+    """
+    record.status = LEARN_STATUS_COMPLETED
 
 
 def stage_turn_block(

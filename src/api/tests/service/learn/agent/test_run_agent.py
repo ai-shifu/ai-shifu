@@ -38,6 +38,14 @@ class _Session:
         self.pending = pending or []
         self.user_memory: dict = {}
         self.turn = 0
+        self.finished = False
+
+
+class _Record:
+    """Stands in for the locked progress record a turn writes under."""
+
+    def __init__(self) -> None:
+        self.status = 602
 
 
 class _Memory:
@@ -108,7 +116,8 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
     monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
     monkeypatch.setattr(run_agent, "stage_turn_block", _stage_block)
     monkeypatch.setattr(run_agent, "_progress_record_bid", lambda *_a, **_k: PROGRESS)
-    monkeypatch.setattr(run_agent, "was_reset_since", lambda **_k: False)
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", lambda _r: None)
     return recorded
 
 
@@ -504,7 +513,7 @@ def test_a_turn_whose_lesson_was_reset_while_it_ran_writes_nothing(
     check runs before anything is staged, because staged-and-abandoned memory would be committed
     by whoever commits next.
     """
-    monkeypatch.setattr(run_agent, "was_reset_since", lambda **_k: True)
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
     engine = _Engine(
         [
             MemoryUpdated(key="name", value="Ada", scope="user"),
@@ -535,3 +544,72 @@ def test_the_block_a_turn_records_is_the_one_its_elements_reference(
     assert staged["user_bid"] == USER
     assert staged["shifu_bid"] == SHIFU
     assert staged["outline_bid"] == OUTLINE
+
+
+# --- a turn is written once -------------------------------------------------------------
+
+
+def test_an_error_followed_by_a_proper_ending_writes_the_turn_once(
+    calls: list,
+) -> None:
+    """The engine does exactly this when a pending question gets a blank answer.
+
+    It emits a retryable error, re-asks the question, and ends the turn properly. Treating the
+    error as terminal would write the turn twice and stage its block twice under one identifier.
+    """
+    engine = _Engine(
+        [
+            ErrorEvent(message="needs an answer", retryable=True),
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single", prompt="q", options=[Option(display="A")]
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    _run(engine)
+
+    assert [name for name, _ in calls].count("stage_block") == 1
+    assert [name for name, _ in calls].count("save_session") == 1
+
+
+def test_a_turn_that_only_fails_is_still_written(calls: list) -> None:
+    """The engine returns after a bare error for failures it cannot continue past.
+
+    What the turn produced still has to land, or the learner replays an exchange that happened.
+    """
+    engine = _Engine([ErrorEvent(message="boom")])
+    _run(engine)
+
+    assert [name for name, _ in calls].count("save_session") == 1
+
+
+def test_a_finished_lesson_is_marked_where_progress_is_read(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """Progress comes from the record's status, not from the session's own flag."""
+    marked: list[object] = []
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", marked.append)
+
+    session = _Session()
+    session.finished = True
+    engine = _Engine([TurnDone(reason="finished")], session=session)
+    _run(engine)
+
+    assert len(marked) == 1
+    assert calls
+
+
+def test_a_lesson_still_in_progress_is_not_marked_finished(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    marked: list[object] = []
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", marked.append)
+
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine)
+
+    assert marked == []
+    assert calls

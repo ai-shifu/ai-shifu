@@ -69,7 +69,7 @@ def test_a_reset_lesson_starts_a_new_record(app: object) -> None:
         _clean()
 
 
-def test_a_turn_can_tell_its_lesson_was_reset_while_it_ran(app: object) -> None:
+def test_a_turn_claims_the_lesson_it_started_in(app: object) -> None:
     """A first turn holds no session row yet, so this is what lets it decline to write itself."""
     with app.app_context():
         _clean()
@@ -77,28 +77,50 @@ def test_a_turn_can_tell_its_lesson_was_reset_while_it_ran(app: object) -> None:
         bid = record.progress_record_bid
         db.session.commit()
 
-        assert (
-            lesson_record.was_reset_since(
-                user_bid=USER,
-                shifu_bid=SHIFU,
-                outline_bid=OUTLINE,
-                progress_record_bid=bid,
-            )
-            is False
+        claimed = lesson_record.claim_for_writing(
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            progress_record_bid=bid,
         )
+        assert claimed is not None
+        assert claimed.progress_record_bid == bid
+        _clean()
 
+
+def test_a_turn_cannot_claim_a_lesson_that_was_reset(app: object) -> None:
+    with app.app_context():
+        _clean()
+        record = _resolve()
+        bid = record.progress_record_bid
         record.status = LEARN_STATUS_RESET
         db.session.commit()
 
         assert (
-            lesson_record.was_reset_since(
+            lesson_record.claim_for_writing(
                 user_bid=USER,
                 shifu_bid=SHIFU,
                 outline_bid=OUTLINE,
                 progress_record_bid=bid,
             )
-            is True
+            is None
         )
+        _clean()
+
+
+def test_a_finished_lesson_is_recorded_where_progress_is_read(app: object) -> None:
+    """The outline and completion reports read this status, not the session's own flag."""
+    from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
+
+    with app.app_context():
+        _clean()
+        record = _resolve()
+        db.session.commit()
+
+        lesson_record.mark_lesson_finished(record)
+        db.session.commit()
+
+        assert record.status == LEARN_STATUS_COMPLETED
         _clean()
 
 

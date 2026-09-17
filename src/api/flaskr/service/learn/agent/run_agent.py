@@ -33,15 +33,16 @@ from flaskr.service.learn.agent.engine.engine import (
     MessageTurn,
     StartTurn,
 )
-from flaskr.service.learn.agent.engine.events import ErrorEvent, MemoryUpdated, TurnDone
+from flaskr.service.learn.agent.engine.events import MemoryUpdated, TurnDone
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
     translate,
 )
 from flaskr.service.learn.agent.lesson_record import (
     active_progress_record,
+    claim_for_writing,
+    mark_lesson_finished,
     stage_turn_block,
-    was_reset_since,
 )
 from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
@@ -220,6 +221,7 @@ def run_agent_lesson(
         return events()
 
     pending_memory: list[MemoryUpdated] = []
+    persisted = False
 
     for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
         if isinstance(event, MemoryUpdated):
@@ -228,9 +230,13 @@ def run_agent_lesson(
             pending_memory.append(event)
             continue
 
-        if isinstance(event, (TurnDone, ErrorEvent)):
+        # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
+        # question emits one and then re-asks the question and ends the turn properly, so treating
+        # it as terminal would write the turn twice and stage its block twice.
+        if isinstance(event, TurnDone) and not persisted:
             session = session_holder.get("session")
             if session is not None:
+                persisted = True
                 _persist(
                     app,
                     session,
@@ -270,6 +276,28 @@ def run_agent_lesson(
                     content=prompt,
                 )
 
+    # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
+    # the failures it cannot continue past. What the turn produced still has to be written, or the
+    # learner replays an exchange that already happened.
+    session = session_holder.get("session")
+    if not persisted and session is not None:
+        _persist(
+            app,
+            session,
+            memory=pending_memory,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=preview_mode,
+            progress_record_bid=progress_record_bid,
+            generated_block_bid=generated_block_bid,
+            turn_index=session.turn,
+        )
+
+
+class _TurnDiscardedError(Exception):
+    """The lesson was reset while this turn ran, so nothing it produced may be written."""
+
 
 def _persist(
     app: Flask,
@@ -290,57 +318,69 @@ def _persist(
     two land together. Ordering them the other way would commit the session and leave the memory
     staged for whoever commits next.
     """
-    if was_reset_since(
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        progress_record_bid=progress_record_bid,
-    ):
-        # The learner reset this lesson while the turn was running. Checked before anything is
-        # staged, because staged-and-abandoned memory would be committed by whoever commits next.
-        # Writing the session now would hand back the conversation they just cleared -- and the
-        # reset could not have cleared it, since it did not exist yet.
-        app.logger.info(
-            "discarding a turn whose lesson was reset while it ran: "
-            "user_bid=%s outline_bid=%s",
-            user_bid,
-            outline_bid,
-        )
-        return
 
-    # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
-    # them to the profile would leak a turn's working notes into preview, Ask and follow-up
-    # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
-    # session scope, so this is the common case, not the rare one.
-    durable = [update for update in memory if update.scope == "user"]
-    if durable:
-        stage_memory(
-            app,
-            user_bid,
-            shifu_bid,
-            MemoryUpdate(
-                variables=[
-                    VariableMemoryUpdate(
-                        key=update.key,
-                        value="" if update.value is None else str(update.value),
-                    )
-                    for update in durable
-                ]
-            ),
+    def stage_everything() -> None:
+        """Everything this turn writes, inside the session's own transaction.
+
+        The claim comes first and holds a lock until the transaction commits, so a reset either
+        happens before it -- and this turn writes nothing -- or after, when it can see the session
+        and clear it. Staging anything ahead of that check would leave it in the session for
+        whoever commits next, a write from a turn that was meant to be discarded.
+        """
+        record = claim_for_writing(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
         )
-    save_agent_session(
-        app,
-        session,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_item_bid=outline_bid,
-        preview_mode=preview_mode,
-        stage=lambda: stage_turn_block(
+        if record is None:
+            raise _TurnDiscardedError
+
+        # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
+        # them to the profile would leak a turn's working notes into preview, Ask and follow-up
+        # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
+        # session scope, so this is the common case, not the rare one.
+        durable = [update for update in memory if update.scope == "user"]
+        if durable:
+            stage_memory(
+                app,
+                user_bid,
+                shifu_bid,
+                MemoryUpdate(
+                    variables=[
+                        VariableMemoryUpdate(
+                            key=update.key,
+                            value="" if update.value is None else str(update.value),
+                        )
+                        for update in durable
+                    ]
+                ),
+            )
+        stage_turn_block(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             progress_record_bid=progress_record_bid,
             generated_block_bid=generated_block_bid,
             position=turn_index,
-        ),
-    )
+        )
+        if session.finished:
+            mark_lesson_finished(record)
+
+    try:
+        save_agent_session(
+            app,
+            session,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            preview_mode=preview_mode,
+            stage=stage_everything,
+        )
+    except _TurnDiscardedError:
+        app.logger.info(
+            "discarding a turn whose lesson was reset while it ran: "
+            "user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+        )

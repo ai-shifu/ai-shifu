@@ -706,13 +706,21 @@ def reset_learn_record(
 ) -> bool:
     """Reset learn record."""
     with app_context_scope(app), unit_of_work():
-        progress_records = LearnProgressRecord.query.filter(
-            LearnProgressRecord.user_bid == user_bid,
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.outline_item_bid == outline_bid,
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        ).all()
+        progress_records = (
+            LearnProgressRecord.query.filter(
+                LearnProgressRecord.user_bid == user_bid,
+                LearnProgressRecord.shifu_bid == shifu_bid,
+                LearnProgressRecord.outline_item_bid == outline_bid,
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+            )
+            # Locked, because a 2.0 turn already running claims the same row before it writes.
+            # Without this the two interleave: the turn sees a live lesson, this finds no session
+            # to discard, and the turn inserts one afterwards -- returning the conversation the
+            # learner just cleared. Taking the lock makes one of them go first, either way.
+            .with_for_update()
+            .all()
+        )
         for progress_record in progress_records:
             progress_record.status = LEARN_STATUS_RESET
         # A 2.0 lesson keeps its conversation in its own table, which resetting the progress
