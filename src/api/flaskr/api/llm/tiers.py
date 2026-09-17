@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import (
+    ERROR_CODE,
+    AppError,
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.config import get_config
 
 ModelTier = Literal["fast", "balanced", "ultimate"]
@@ -104,7 +109,9 @@ def resolve_tier_model(tier: object) -> str:
         raise_error("server.llm.modelTierUnavailable")
     try:
         params, _, _ = get_litellm_params_and_model(model)
-    except Exception:
+    except AppError as exc:
+        if exc.code != ERROR_CODE["server.llm.specifiedLlmNotConfigured"]:
+            raise
         # Provider diagnostics are internal; the teacher-facing error is bounded.
         raise_error("server.llm.modelTierUnavailable")
     if not params:

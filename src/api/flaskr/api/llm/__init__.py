@@ -49,7 +49,7 @@ from flaskr.service.billing.rate_references import (
     format_credit_multiplier,
     load_llm_credit_1x_unit_cost,
 )
-from flaskr.service.common.models import raise_error_with_args
+from flaskr.service.common.models import ERROR_CODE, AppError, raise_error_with_args
 from flaskr.service.config import get_config
 from flaskr.service.metering import UsageContext, record_llm_usage
 from flaskr.service.metering.consts import (
@@ -2260,7 +2260,9 @@ def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
         }
         try:
             model = resolve_tier_model(tier)
-        except Exception:
+        except AppError as exc:
+            if exc.code != ERROR_CODE["server.llm.modelTierUnavailable"]:
+                raise
             options.append(option)
             continue
         rates = _attach_credit_multipliers(app, [{"model": model}])[0]
