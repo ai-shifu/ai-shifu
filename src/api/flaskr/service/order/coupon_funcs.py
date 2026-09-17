@@ -8,6 +8,7 @@ from flaskr.api.doc.feishu import send_notify
 from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common import raise_error
+from flaskr.service.common.pricing import calculate_percentage_amount
 from flaskr.service.order.funs import (
     AICourseBuyRecordDTO,
     assign_free_order_payment_channel,
@@ -264,8 +265,9 @@ def use_coupon_code(
         elif coupon.discount_type == COUPON_TYPE_PERCENT:
             buy_record.paid_price = decimal.Decimal(
                 buy_record.paid_price
-            ) - decimal.Decimal(buy_record.payable_price) * decimal.Decimal(
-                coupon_usage.value
+            ) - calculate_percentage_amount(
+                decimal.Decimal(buy_record.payable_price),
+                decimal.Decimal(coupon_usage.value),
             )
         if decimal.Decimal(buy_record.paid_price) < 0:
             buy_record.paid_price = decimal.Decimal(0)

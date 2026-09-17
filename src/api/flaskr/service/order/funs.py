@@ -33,6 +33,7 @@ from flaskr.service.common.native_payment_status import (
     extract_native_trade_status,
     native_snapshot_status,
 )
+from flaskr.service.common.pricing import calculate_percentage_amount
 from flaskr.service.config import config_overrides, get_config
 from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.learn.learn_funcs import get_shifu_info
@@ -375,8 +376,8 @@ def _sync_order_campaign_pricing(
             if coupon.discount_type == COUPON_TYPE_FIXED:
                 coupon_discount_value += coupon_value
             elif coupon.discount_type == COUPON_TYPE_PERCENT:
-                coupon_discount_value += (
-                    decimal.Decimal(buy_record.payable_price) * coupon_value / 100
+                coupon_discount_value += calculate_percentage_amount(
+                    decimal.Decimal(buy_record.payable_price), coupon_value
                 )
     total_discount_value = discount_value + coupon_discount_value
     total_discount_value = min(total_discount_value, buy_record.payable_price)
@@ -2188,7 +2189,9 @@ def calculate_discount_value(
                 if discount.discount_type == COUPON_TYPE_FIXED:
                     discount_value += discount.value
                 elif discount.discount_type == COUPON_TYPE_PERCENT:
-                    discount_value += discount.value * price / 100
+                    discount_value += calculate_percentage_amount(
+                        price, decimal.Decimal(discount.value)
+                    )
                 items.append(
                     PayItemDto(
                         _("server.order.payItemCoupon"),
