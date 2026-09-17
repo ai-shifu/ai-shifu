@@ -352,9 +352,7 @@ def handle_input_ask(
     follow_up_model = follow_up_info.ask_model
     from flaskr.api.llm.tiers import resolve_selection
 
-    follow_up_model, follow_up_usage_metadata = resolve_selection(
-        follow_up_model, getattr(follow_up_info, "usage_metadata", {})
-    )
+    follow_up_usage_metadata = dict(getattr(follow_up_info, "usage_metadata", {}))
 
     # Create ask block
     ask_block = _create_ask_block(
@@ -500,12 +498,15 @@ def handle_input_ask(
     def _chat_llm_stream(
         stream_messages: list[dict[str, Any]],
     ) -> Generator[Any, None, None]:
+        # External provider-only answers do not depend on LLM configuration.
+        # Guardrail rejections resolve through invoke_llm in check_text instead.
+        model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
         return chat_llm_func(
             app,
             user_info.user_id,
             span,
-            model=follow_up_model,
-            usage_metadata=follow_up_usage_metadata,  # Use configured model
+            model=model,
+            usage_metadata=metadata,
             json=True,
             stream=True,  # Enable streaming output
             temperature=follow_up_info.model_args[

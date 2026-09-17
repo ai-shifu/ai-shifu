@@ -36,6 +36,9 @@ replace models without editing courses. Keep credit multipliers and Live voice.
   preserve explicit legacy models and all outline inheritance. Retain audit rows.
 - New writes/imports normalize empty course selections to fast. Reads do not
   silently normalize missing selections. Unconfigured tiers fail closed.
+- Resolve follow-up tiers only when an LLM is actually invoked: healthy external
+  provider answers do not require unused LLM mappings, while fallback, synthesis
+  and guardrail rejection replies still resolve and snapshot their model.
 - Preserve legacy values when choosing tiers; record actual invocation models
   and selection metadata in usage/Langfuse. Existing rates still bill actual models.
 - Keep summary generation strict after the required cleanup: missing course
@@ -51,8 +54,9 @@ replace models without editing courses. Keep credit multipliers and Live voice.
 ## Outcomes & Retrospective
 
 Implementation and local validation are complete. The related backend suite
-passed 1492 tests (95 skipped), including golden contracts, after review fixes; the settings/model-selector Jest suites passed
-70 tests. TypeScript, the full lefthook gate, repository harness, architecture
+passed 1508 tests (95 skipped), including golden contracts, after review fixes.
+The latest external-provider routing and golden/LLM regressions passed 165 tests.
+The settings/model-selector Jest suites passed 70 tests. TypeScript, the full lefthook gate, repository harness, architecture
 boundaries and the unit-of-work ratchet passed. Production configuration and
 cleanup execution remain a deployment operation; no production rows were changed.
 
