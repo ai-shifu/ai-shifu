@@ -15,9 +15,14 @@ import pytest
 from flaskr import dao
 from flaskr.service.order import admin as order_admin
 from flaskr.service.order import coupon_funcs, open_api
+from flaskr.service.order import funs as order_funs
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.promo.consts import COUPON_STATUS_USED, COUPON_TYPE_FIXED
+from flaskr.service.promo.consts import (
+    COUPON_STATUS_USED,
+    COUPON_TYPE_FIXED,
+    COUPON_TYPE_PERCENT,
+)
 from flaskr.service.promo.models import Coupon, CouponUsage
 from flaskr.service.user.repository import load_user_aggregate_by_identifier
 from flaskr.util.datetime import now_utc
@@ -31,7 +36,13 @@ def _committed_order_status(order_bid: str) -> int | None:
     return None if row is None else row.status
 
 
-def _seed_coupon_order(order_bid: str, coupon_code: str) -> None:
+def _seed_coupon_order(
+    order_bid: str,
+    coupon_code: str,
+    *,
+    discount_type: int = COUPON_TYPE_FIXED,
+    value: Decimal = Decimal("10.00"),
+) -> None:
     now = now_utc()
     dao.db.session.add_all(
         [
@@ -45,8 +56,8 @@ def _seed_coupon_order(order_bid: str, coupon_code: str) -> None:
             Coupon(
                 coupon_bid=f"{order_bid}-coupon",
                 code=coupon_code,
-                discount_type=COUPON_TYPE_FIXED,
-                value=Decimal("10.00"),
+                discount_type=discount_type,
+                value=value,
                 start=now - timedelta(days=1),
                 end=now + timedelta(days=1),
                 channel="test",
@@ -126,6 +137,53 @@ def test_use_coupon_code_notifies_after_commit(
     assert result.order_id == order_bid
     # The notification observed the committed discounted price.
     assert seen == [Decimal("90.00")]
+
+
+def test_use_percentage_coupon_applies_percent_of_order_price(
+    app: object, monkeypatch: object
+) -> None:
+    order_bid = "uow-b1-percent-coupon-order"
+    coupon_code = "PERCENT20"
+    monkeypatch.setattr(coupon_funcs, "send_feishu_coupon_code", lambda *_a: None)
+
+    with app.app_context():
+        _seed_coupon_order(
+            order_bid,
+            coupon_code,
+            discount_type=COUPON_TYPE_PERCENT,
+            value=Decimal("20.00"),
+        )
+        result = coupon_funcs.use_coupon_code(
+            app, f"{order_bid}-user", coupon_code, order_bid
+        )
+        order = Order.query.filter(Order.order_bid == order_bid).first()
+
+    assert result.order_id == order_bid
+    assert order.paid_price == Decimal("80.00")
+
+
+def test_percentage_coupon_breakdown_uses_discounted_currency_amount(
+    app: object,
+) -> None:
+    order_bid = "uow-b1-percent-breakdown-order"
+    coupon_code = "PERCENT20BREAKDOWN"
+
+    with app.app_context():
+        _seed_coupon_order(
+            order_bid,
+            coupon_code,
+            discount_type=COUPON_TYPE_PERCENT,
+            value=Decimal("20.00"),
+        )
+        coupon = Coupon.query.filter(Coupon.coupon_bid == f"{order_bid}-coupon").first()
+        discount_info = order_funs.calculate_discount_value(
+            Decimal("200.00"),
+            [],
+            [CouponUsage(coupon_bid=coupon.coupon_bid)],
+        )
+
+    assert discount_info.discount_value == Decimal("40.00")
+    assert discount_info.items[0].price == Decimal("40.00")
 
 
 def test_open_api_revoke_notifies_only_after_the_refund_is_committed(
