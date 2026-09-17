@@ -1,7 +1,9 @@
-"""Access current learner variables through their existing storage and services.
+"""Access learner memory with category-specific payloads and storage adapters.
 
-The runtime facade delegates to the profile service, preserving canonical user fields and the
-caller's transaction. Values can come from course interactions or settings; no origin is tracked.
+Variables are the first supported category. The runtime facade adapts memory-owned DTOs to
+the profile service, preserving canonical user fields and the caller's transaction. Values
+can come from course interactions or settings; no origin is tracked. Future non-variable
+categories belong in their own envelope fields and backing stores, not in variable keys.
 The broad reader exposes ``var_variable_values`` across courses and keeps other courses in
 ``elsewhere``.
 
@@ -14,10 +16,12 @@ Two facts about that table shape everything here:
   variables use. There is no scope column.
 """
 
-from flaskr.service.learn.memory.facade import (
-    load_course_variables,
-    stage_course_variables,
+from flaskr.service.learn.memory.dtos import (
+    MemorySnapshot,
+    MemoryUpdate,
+    VariableMemoryUpdate,
 )
+from flaskr.service.learn.memory.facade import load_memory, stage_memory
 from flaskr.service.learn.memory.reader import (
     LearnerMemory,
     MemoryEntry,
@@ -27,7 +31,10 @@ from flaskr.service.learn.memory.reader import (
 __all__ = [
     "LearnerMemory",
     "MemoryEntry",
-    "load_course_variables",
+    "MemorySnapshot",
+    "MemoryUpdate",
+    "VariableMemoryUpdate",
     "load_learner_memory",
-    "stage_course_variables",
+    "load_memory",
+    "stage_memory",
 ]

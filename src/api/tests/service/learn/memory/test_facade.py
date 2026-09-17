@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.learn.context_v2 import RunScriptContextV2
+from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.memory import (
-    load_course_variables,
+    MemorySnapshot,
+    MemoryUpdate,
+    VariableMemoryUpdate,
     load_learner_memory,
-    stage_course_variables,
+    load_memory,
+    stage_memory,
 )
-from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.funcs import (
     get_profile_labels,
     get_user_profiles,
@@ -63,17 +69,30 @@ def test_course_values_follow_settings_and_keep_user_course_isolation(
         db.session.add(
             Variable(variable_bid=uuid4().hex, shifu_bid=other_course, key="base_level")
         )
-        stage_course_variables(
-            app, user_bid, shifu_bid, [ProfileToSave("base_level", "beginner", "")]
+        stage_memory(
+            app,
+            user_bid,
+            shifu_bid,
+            MemoryUpdate(
+                variables=[VariableMemoryUpdate("base_level", "beginner", "")]
+            ),
         )
-        stage_course_variables(
-            app, user_bid, other_course, [ProfileToSave("base_level", "advanced", "")]
+        stage_memory(
+            app,
+            user_bid,
+            other_course,
+            MemoryUpdate(
+                variables=[VariableMemoryUpdate("base_level", "advanced", "")]
+            ),
         )
-        stage_course_variables(
-            app, other_user, shifu_bid, [ProfileToSave("base_level", "expert", "")]
+        stage_memory(
+            app,
+            other_user,
+            shifu_bid,
+            MemoryUpdate(variables=[VariableMemoryUpdate("base_level", "expert", "")]),
         )
 
-    assert load_course_variables(app, user_bid, shifu_bid)["base_level"] == "beginner"
+    assert load_memory(app, user_bid, shifu_bid).variables["base_level"] == "beginner"
     with unit_of_work():
         update_user_profile_with_lable(
             app,
@@ -84,12 +103,12 @@ def test_course_values_follow_settings_and_keep_user_course_isolation(
 
     db.session.expire_all()
     assert (
-        load_course_variables(app, user_bid, shifu_bid)["base_level"] == "intermediate"
+        load_memory(app, user_bid, shifu_bid).variables["base_level"] == "intermediate"
     )
     assert (
-        load_course_variables(app, user_bid, other_course)["base_level"] == "advanced"
+        load_memory(app, user_bid, other_course).variables["base_level"] == "advanced"
     )
-    assert load_course_variables(app, other_user, shifu_bid)["base_level"] == "expert"
+    assert load_memory(app, other_user, shifu_bid).variables["base_level"] == "expert"
 
 
 def test_runtime_resolution_preserves_global_fallback_and_definition_filtering(
@@ -97,14 +116,24 @@ def test_runtime_resolution_preserves_global_fallback_and_definition_filtering(
 ) -> None:
     user_bid, shifu_bid = scope
     with unit_of_work():
-        stage_course_variables(
-            app, user_bid, "", [ProfileToSave("base_level", "global default", "")]
+        stage_memory(
+            app,
+            user_bid,
+            "",
+            MemoryUpdate(
+                variables=[VariableMemoryUpdate("base_level", "global default", "")]
+            ),
         )
-        stage_course_variables(
-            app, user_bid, shifu_bid, [ProfileToSave("unlisted", "stored only", "")]
+        stage_memory(
+            app,
+            user_bid,
+            shifu_bid,
+            MemoryUpdate(
+                variables=[VariableMemoryUpdate("unlisted", "stored only", "")]
+            ),
         )
 
-    variables = load_course_variables(app, user_bid, shifu_bid)
+    variables = load_memory(app, user_bid, shifu_bid).variables
     assert variables == get_user_profiles(app, user_bid, shifu_bid)
     assert variables["base_level"] == "global default"
     assert "unlisted" not in variables
@@ -129,30 +158,33 @@ def test_canonical_fields_and_profile_clear_override_stale_variable_rows(
                 )
             )
 
-    variables = load_course_variables(app, user_bid, shifu_bid)
+    variables = load_memory(app, user_bid, shifu_bid).variables
     assert variables["sys_user_nickname"] == "Current learner"
     assert variables["sys_user_language"] == "en-US"
     assert variables["sys_user_background"] == "Current background"
 
     clear_learner_profile(user_id=user_bid)
-    assert load_course_variables(app, user_bid, shifu_bid)["sys_user_background"] == ""
+    assert load_memory(app, user_bid, shifu_bid).variables["sys_user_background"] == ""
 
 
-def test_mapped_assignment_preserves_stored_value_and_mutates_the_original_dto(
+def test_mapped_assignment_preserves_stored_value_and_updates_memory_payload(
     app: Flask, scope: tuple[str, str]
 ) -> None:
     user_bid, shifu_bid = scope
-    assignment = ProfileToSave("language", "en-US", "")
+    assignment = VariableMemoryUpdate("language", "en-US", "")
     mapped_language = get_profile_labels()["language"]["items_mapping"]["en-US"]
     assert mapped_language != assignment.value
     with unit_of_work():
-        assert stage_course_variables(app, user_bid, shifu_bid, [assignment]) is True
+        assert (
+            stage_memory(app, user_bid, shifu_bid, MemoryUpdate(variables=[assignment]))
+            is True
+        )
 
     row = VariableValue.query.filter_by(user_bid=user_bid, key="language").one()
     assert row.shifu_bid == ""
     assert row.value == "en-US"
     assert assignment.value == mapped_language
-    assert load_course_variables(app, user_bid, shifu_bid) == get_user_profiles(
+    assert load_memory(app, user_bid, shifu_bid).variables == get_user_profiles(
         app, user_bid, shifu_bid
     )
 
@@ -163,8 +195,11 @@ def test_repeated_and_empty_assignments_preserve_existing_row_semantics(
     user_bid, shifu_bid = scope
     for value in ("a,b", "a,b", ""):
         with unit_of_work():
-            stage_course_variables(
-                app, user_bid, shifu_bid, [ProfileToSave("base_level", value, "")]
+            stage_memory(
+                app,
+                user_bid,
+                shifu_bid,
+                MemoryUpdate(variables=[VariableMemoryUpdate("base_level", value, "")]),
             )
     rows = (
         VariableValue.query.filter_by(user_bid=user_bid, shifu_bid=shifu_bid)
@@ -172,7 +207,7 @@ def test_repeated_and_empty_assignments_preserve_existing_row_semantics(
         .all()
     )
     assert [row.value for row in rows] == ["a,b", ""]
-    assert load_course_variables(app, user_bid, shifu_bid)["base_level"] == ""
+    assert load_memory(app, user_bid, shifu_bid).variables["base_level"] == ""
 
 
 def test_staging_does_not_commit_and_the_owner_can_roll_back(
@@ -187,8 +222,13 @@ def test_staging_does_not_commit_and_the_owner_can_roll_back(
 
     def failing_step() -> None:
         with unit_of_work():
-            stage_course_variables(
-                app, user_bid, shifu_bid, [ProfileToSave("base_level", "beginner", "")]
+            stage_memory(
+                app,
+                user_bid,
+                shifu_bid,
+                MemoryUpdate(
+                    variables=[VariableMemoryUpdate("base_level", "beginner", "")]
+                ),
             )
             assert db.session.scalar(count_values) == 1
             with db.engine.connect() as connection:
@@ -201,4 +241,94 @@ def test_staging_does_not_commit_and_the_owner_can_roll_back(
 
     with db.engine.connect() as connection:
         assert connection.scalar(count_values) == 0
-    assert "base_level" not in load_course_variables(app, user_bid, shifu_bid)
+    assert "base_level" not in load_memory(app, user_bid, shifu_bid).variables
+
+
+def test_prompt_projection_does_not_mutate_the_memory_snapshot() -> None:
+    """Runtime variable overlays must not alter the loaded memory view."""
+    memory = MemorySnapshot(variables={"base_level": "beginner"})
+    variables = memory.as_variables()
+    variables["base_level"] = "runtime override"
+    variables["temporary"] = "session only"
+    assert memory.variables == {"base_level": "beginner"}
+
+
+def test_memory_patch_preserves_omitted_values_and_definition_identity(
+    app: Flask, scope: tuple[str, str]
+) -> None:
+    """A memory update is a patch, including when it carries no assignments."""
+    user_bid, shifu_bid = scope
+    definition_bid = uuid4().hex
+    with unit_of_work():
+        db.session.add(
+            Variable(variable_bid=definition_bid, shifu_bid=shifu_bid, key="goal")
+        )
+        stage_memory(
+            app,
+            user_bid,
+            shifu_bid,
+            MemoryUpdate(variables=[VariableMemoryUpdate("base_level", "beginner")]),
+        )
+    with unit_of_work():
+        stage_memory(
+            app,
+            user_bid,
+            shifu_bid,
+            MemoryUpdate(
+                variables=[VariableMemoryUpdate("goal", "practice", definition_bid)]
+            ),
+        )
+        assert stage_memory(app, user_bid, shifu_bid, MemoryUpdate()) is True
+
+    memory = load_memory(app, user_bid, shifu_bid)
+    assert memory.variables["base_level"] == "beginner"
+    assert memory.variables["goal"] == "practice"
+    rows = VariableValue.query.filter_by(user_bid=user_bid, shifu_bid=shifu_bid).all()
+    assert len(rows) == 2
+    assert next(row for row in rows if row.key == "goal").variable_bid == definition_bid
+
+
+def test_runtime_memory_update_preserves_normalization_and_mapped_events(
+    app: Flask, scope: tuple[str, str]
+) -> None:
+    """Accepted assignments retain stored values and the mapped SSE contract."""
+    user_bid, shifu_bid = scope
+    definition = Variable.query.filter_by(shifu_bid=shifu_bid, key="base_level").one()
+    validated = {"base_level": ["a", None, "b"], "language": "en-US", "empty": None}
+    state = SimpleNamespace(
+        run_script_info=SimpleNamespace(block_position=0, outline_bid="outline-memory"),
+        mdflow_context=SimpleNamespace(
+            process=Mock(return_value=SimpleNamespace(metadata={}, variables=validated))
+        ),
+        message_list=[],
+        user_profile={},
+        variable_definition_key_id_map={"base_level": definition.variable_bid},
+    )
+    ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+    ctx.app = app
+    ctx._user_info = SimpleNamespace(user_id=user_bid)
+    ctx._outline_item_info = SimpleNamespace(shifu_bid=shifu_bid)
+    ctx._current_attend = SimpleNamespace(block_position=0)
+    ctx._run_recorder = Mock()
+    block = SimpleNamespace(generated_block_bid="block-memory")
+
+    with unit_of_work():
+        events = list(ctx._phase_validate_input_and_advance(app, state, block, {}))
+
+    assert [event.type for event in events] == [GeneratedType.VARIABLE_UPDATE] * 3
+    assert [
+        (event.content.variable_name, event.content.variable_value) for event in events
+    ] == [
+        ("base_level", "a,b"),
+        ("language", get_profile_labels()["language"]["items_mapping"]["en-US"]),
+        ("empty", ""),
+    ]
+    rows = {
+        row.key: row for row in VariableValue.query.filter_by(user_bid=user_bid).all()
+    }
+    assert rows["base_level"].value == "a,b"
+    assert rows["base_level"].variable_bid == definition.variable_bid
+    assert rows["language"].value == "en-US"
+    assert rows["language"].shifu_bid == ""
+    assert rows["empty"].value == ""
+    ctx._recorder.update_progress_pointer.assert_called_once()

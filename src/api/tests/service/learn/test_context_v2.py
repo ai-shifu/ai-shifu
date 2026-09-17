@@ -111,6 +111,7 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.service.learn.learner_profile_prompt import (
     LEARNER_PROFILE_PROMPT_MARKER,
 )
+from flaskr.service.learn.memory import MemorySnapshot
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -1518,8 +1519,8 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 return_value=object(),
             ),
             patch(
-                "flaskr.service.learn.context_v2.load_course_variables",
-                return_value=profiles,
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(variables=profiles),
             ),
             patch(
                 "flaskr.service.learn.context_v2._resolve_runtime_language_context",

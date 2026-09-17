@@ -66,7 +66,12 @@ from flaskr.service.learn.learner_profile_prompt import (
 )
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.learn.memory import load_course_variables, stage_course_variables
+from flaskr.service.learn.memory import (
+    MemoryUpdate,
+    VariableMemoryUpdate,
+    load_memory,
+    stage_memory,
+)
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -89,10 +94,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_RESET,
 )
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE
-from flaskr.service.profile.funcs import (
-    ProfileToSave,
-    get_user_profiles,
-)
+from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.profile.profile_manage import (
     ProfileItemDefinition,
     get_profile_item_definition_list,
@@ -2536,11 +2538,11 @@ class RunScriptContextV2:
             usage_context,
             usage_scene,
         )
-        stored_user_profile = load_course_variables(
+        memory = load_memory(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
         user_profile, runtime_output_language = _resolve_runtime_language_context(
-            stored_user_profile,
+            memory.as_variables(),
             use_learner_language=bool(self._shifu_info.use_learner_language),
         )
         system_prompt = build_course_prompt(
@@ -3064,7 +3066,7 @@ class RunScriptContextV2:
             return True
 
         if validate_result.variables is not None and len(validate_result.variables) > 0:
-            profile_to_save: list[ProfileToSave] = []
+            memory_update = MemoryUpdate()
             for key, value in validate_result.variables.items():
                 profile_id = state.variable_definition_key_id_map.get(key, "")
                 # Convert list to string (markdown-flow 0.2.27+ returns list[str] for multi-select)
@@ -3075,27 +3077,29 @@ class RunScriptContextV2:
                     )
                 else:
                     value_str = str(value) if value is not None else ""
-                profile_to_save.append(ProfileToSave(key, value_str, profile_id))
+                memory_update.variables.append(
+                    VariableMemoryUpdate(key, value_str, profile_id)
+                )
 
-            stage_course_variables(
+            stage_memory(
                 app,
                 self._user_info.user_id,
                 self._outline_item_info.shifu_bid,
-                profile_to_save,
+                memory_update,
             )
-            for profile in profile_to_save:
+            for variable in memory_update.variables:
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.VARIABLE_UPDATE,
                     content=VariableUpdateDTO(
-                        variable_name=profile.key,
-                        variable_value=profile.value,
+                        variable_name=variable.key,
+                        variable_value=variable.value,
                     ),
                 )
             self._can_continue = True
             # This step also makes the profile rows saved above durable
-            # (stage_course_variables only flushes; the rows ride into this
+            # (stage_memory only flushes; the rows ride into this
             # step's commit, previously the producer's outer commit).
             self._recorder.update_progress_pointer(
                 self._current_attend,

@@ -1,11 +1,14 @@
-# Expose Existing Course Variables through a Memory Facade
+# Expose Learner Memory through a Typed Host Facade
 
 ## Purpose / Big Picture
 
 Provide a small host memory interface that current learning code and a future
 MarkdownFlow engine adapter can use while AI-Shifu keeps its existing storage
-and business rules. Course memory means the current variables available to a
-learner in a course, including changes made through existing settings paths.
+and business rules. Memory is the API-level concept; variables are its first
+supported category, including changes made through existing settings paths.
+`MemorySnapshot` and `MemoryUpdate` keep variable payloads in a dedicated
+`variables` field so future non-variable categories can have their own typed
+payloads and storage without changing the top-level read/write operations.
 
 The user explicitly chose to omit interaction-source associations. Consequently,
 this stage does not distinguish an interaction answer from a settings edit,
@@ -56,6 +59,15 @@ preview, follow-ups, listening/TTS, and billing remain compatibility gates.
 - [x] 2026-09-17 06:52 UTC: Completed implementation and verification;
   archived this plan and prepared the focused change for PR publication.
 
+- [x] 2026-09-17 07:34 UTC: Reopened the plan after the user requested a
+  memory-oriented contract that can later carry non-variable memories.
+- [x] 2026-09-17 07:40 UTC: Replaced variable-named operations and exposed
+  profile DTOs with typed memory envelopes. Focused verification passed:
+  149 tests, four legacy skips, including real persistence and mapped SSE.
+- [x] 2026-09-17 07:43 UTC: Full backend verification passed: 4,455 tests,
+  107 skips, and 46 subtests. Full lefthook, architecture, UOW, and repository
+  Ruff checks passed; completed the memory-envelope revision for PR #2834.
+
 ## Surprises & Discoveries
 
 - `var_variable_values` already stores `user_bid`, `shifu_bid`, `key`, and
@@ -98,6 +110,13 @@ preview, follow-ups, listening/TTS, and billing remain compatibility gates.
   dependency or global proxy setting was changed.
 
 ## Decision Log
+
+- Follow-up decision: expose `load_memory` / `stage_memory` with
+  `MemorySnapshot` / `MemoryUpdate`. Variables are one explicit category,
+  represented by `VariableMemoryUpdate`; profile DTO conversion stays private.
+  Preserve mapped update values on the caller's mutable variable payloads.
+  Future categories must add their own typed fields and persistence handlers;
+  do not predeclare unsupported fact/summary fields or store them as variables.
 
 - User decision: do not add course-interaction provenance for now. Memory is
   the current course-variable view; later settings edits are reflected in it.
@@ -145,7 +164,14 @@ unchanged. The new cross-service dependency uses the existing profile public
 API; architecture, UOW, toolchain doctor, and full lefthook checks passed.
 No schema, origin metadata, engine activation, or new model call is introduced.
 
-All first-stage implementation milestones below are complete. PR publication
+The memory-envelope follow-up adds `MemorySnapshot`, `MemoryUpdate`, and
+`VariableMemoryUpdate`, with `load_memory` / `stage_memory` as the stable
+entry points. The 149 focused tests pass, including three additional contract
+regressions. Full backend verification now passes with 4,455 tests, 107 skips,
+and 46 subtests. Full lefthook and repository checks pass. The 4,452-test result
+above describes the initial facade implementation. Both revisions preserve
+the same storage and transaction authority; non-variable storage remains future
+work. The plan is complete again and the revision is ready for PR #2834. PR publication
 delivers this focused change for review; engine replacement and new memory usage
 remain separate work. Deployment and merge are not part of this execution.
 
@@ -164,7 +190,7 @@ external re-copying is unnecessary.
 | --- | --- | --- |
 | Variable definitions and values | `src/api/flaskr/service/profile/models.py` | Existing data model and scope identities; no schema changes. |
 | Runtime read and staged write | `src/api/flaskr/service/profile/funcs.py` | `get_user_profiles` and `save_user_profiles` remain authoritative. |
-| Existing write DTO | `src/api/flaskr/service/profile/dtos.py` | Reuse `ProfileToSave`; no parallel assignment schema. |
+| Existing write DTO | `src/api/flaskr/service/profile/dtos.py` | Use `ProfileToSave` only inside the facade adapter; memory callers use their own typed payload. |
 | Broad memory reader | `src/api/flaskr/service/learn/memory/reader.py` | Preserve `MemoryEntry`, `LearnerMemory`, `load_learner_memory`, and `elsewhere`. |
 | Learning integration | `src/api/flaskr/service/learn/context_v2.py` | Route ordinary course preparation and accepted assignment through the facade. |
 | Commit ownership | `src/api/flaskr/service/learn/run/recorder.py` | Existing pointer step commits staged profile rows; no implementation change. |
@@ -202,23 +228,28 @@ activation-date filter. A settings edit changes what a subsequent memory read
 returns. Do not add a hidden origin field in another table, log, JSON blob,
 or key prefix as a workaround for the rejected provenance design.
 
-### 2. Add two small facade operations
+### 2. Define memory envelopes and two facade operations
 
 Create `src/api/flaskr/service/learn/memory/facade.py` with explicit runtime
 read and staged-write functions. Export them through the existing package.
 Implemented signatures appear under Interfaces and Dependencies.
 
-`load_course_variables` delegates to `get_user_profiles` using the supplied
-user/course context. Preserve its definition filtering, global fallback,
-canonical label mapping, defaults, and error behavior. Do not populate it with
+`load_memory` returns a `MemorySnapshot` whose `variables` field is
+loaded from `get_user_profiles` using the supplied user/course context.
+The runtime explicitly calls `as_variables()` to project prompt variables.
+Preserve definition filtering, global fallback, canonical label mapping,
+defaults, and error behavior. Do not populate it with
 `load_learner_memory(...).as_variables()`, append `elsewhere`, or overlay stale
 entity-owned rows. Keep runtime language selection in its existing caller.
 
-`stage_course_variables` delegates once to `save_user_profiles`, passing the
-same `ProfileToSave` objects used by the existing assignment flow. It preserves
-the boolean return contract and object mutations consumed by subsequent
-`VARIABLE_UPDATE` events. It does not return source receipts, read back rows,
-copy values into another store, or create a second normalization path.
+`stage_memory` accepts a `MemoryUpdate` patch, converts its
+`VariableMemoryUpdate` payloads to private `ProfileToSave` objects, and
+delegates once to `save_user_profiles`. It preserves the boolean return
+contract and copies mapped values back to the original variable payloads
+for subsequent `VARIABLE_UPDATE` events. An empty patch is a no-op, and
+omitted variables are never deletions. A snapshot is a read view, not a patch.
+The facade does not return source receipts, read back rows, copy values into
+another store, or create a second normalization path.
 
 Keep these operations synchronous within the caller's existing Flask app/DB
 context. The profile service remains unaware of the memory facade, avoiding a
@@ -234,20 +265,20 @@ reader's queries, DTO fields, limit behavior, and exports.
 ### 3. Integrate the existing course path without extra persistence
 
 In `context_v2.py`, replace the ordinary course preparation read in
-`_prepare_step_state` with `load_course_variables`. Replace the single profile
+`_prepare_step_state` with `load_memory`. Replace the single profile
 save in the successful named-assignment branch of
-`_phase_validate_input_and_advance` with `stage_course_variables`.
+`_phase_validate_input_and_advance` with `stage_memory`.
 
 ```text
 Current course preparation:
   authenticated user/course
-  -> memory.load_course_variables
+  -> memory.load_memory
   -> existing get_user_profiles
   -> existing runtime language resolution and prompt construction
 
 Accepted named interaction:
   existing moderation + validation + value normalization
-  -> memory.stage_course_variables
+  -> memory.stage_memory
   -> existing save_user_profiles, including flush and canonical mappings
   -> existing VARIABLE_UPDATE events
   -> existing progress step commits the same staged rows
@@ -295,13 +326,13 @@ or collection-flag operation is required.
 ### 5. Keep later engine integration explicit
 
 The future engine should supply authenticated user/course context to this
-facade, adapt accepted assignments into the existing DTO, and use the host's
+facade, adapt accepted assignments into a typed memory update, and use the host's
 learning transaction to make changes durable. Its session memory remains
 session state until a permitted assignment is explicitly persisted.
 
 Compatibility here means a reusable host access boundary. It does not mean
 the current whole-user `MemoryStore.save` protocol can be wired directly to
-`stage_course_variables`. A stale snapshot must not be interpreted as a set
+`stage_memory`. A stale snapshot must not be interpreted as a set
 of user edits, and missing keys must not become deletions. Future integration
 needs explicit assignment mutations and course context, with a separate
 async/runtime bridge if required. Do not encode the course into `user_id`.
@@ -320,7 +351,8 @@ recorded above.
 
 | File | Planned change |
 | --- | --- |
-| `src/api/flaskr/service/learn/memory/facade.py` (new) | Two delegating operations for runtime reads and staged variable writes. |
+| `src/api/flaskr/service/learn/memory/dtos.py` (new) | Memory snapshot/update envelopes and a variable-specific update payload. |
+| `src/api/flaskr/service/learn/memory/facade.py` (new) | Memory operations and private adaptation to existing profile reads/writes. |
 | `src/api/flaskr/service/learn/memory/__init__.py` | Export the facade alongside existing reader exports; document current-state semantics. |
 | `src/api/flaskr/service/learn/memory/reader.py` | Clarify descriptive text about settings/current values; retain query and DTO behavior. |
 | `src/api/flaskr/service/learn/context_v2.py` | Change the two identified course read/write calls, preserving normalization, SSE, and commit order. |
@@ -342,7 +374,7 @@ plan; a larger memory architecture is not a prerequisite.
    values resolve identically, settings changes are reflected, canonical fields
    keep authority, and writes stage without committing.
 2. **Current learning integration.** Route the two existing calls through the
-   facade. Acceptance: one save per accepted assignment, same mutable DTO/SSE
+   facade. Acceptance: one save per accepted assignment, same mapped SSE
    values, identical prompt inputs, and unchanged progress/rollback behavior.
 3. **Compatibility completion.** Run relevant learning, preview, listening,
    profile, and golden checks, plus required repository gates. Acceptance: no
@@ -426,6 +458,9 @@ engine, its mandatory offline suite is
 | Failure or disconnect around the existing commit | Same staged-row rollback/durability boundary; facade does not commit, retry, or hide errors. |
 | Current read versus broad memory reader | Runtime matches `get_user_profiles`; broad reader keeps `entries`, `elsewhere`, exclusions, and truncation semantics. |
 | Prompt, SSE, model count, progress, billing | Existing fixtures and observable results remain unchanged. |
+| Memory snapshot projection | `as_variables()` returns a copy; runtime overlays cannot mutate the snapshot. |
+| Partial or empty memory patch | Omitted values survive and an empty patch adds no row. |
+| Memory payload to profile adapter | Definition IDs, list/empty normalization, raw stored values, and mapped SSE values survive the boundary. |
 
 Use fictional learner A with courses Alpha and Beta. Set Alpha's `base_level`
 to `beginner` through an accepted interaction and Beta's to `advanced`. After
@@ -462,34 +497,40 @@ part of recovery or infer it from old learning logs.
 
 ## Interfaces and Dependencies
 
-Implemented internal host signatures (bodies delegate to the profile public API):
+The public facade uses memory-owned types and explicit user/course identity:
 
 ```python
 from flask import Flask
-from flaskr.service.profile.dtos import ProfileToSave
+from flaskr.service.learn.memory import MemorySnapshot, MemoryUpdate
 
 
-def load_course_variables(app: Flask, user_bid: str, shifu_bid: str) -> dict[str, str]:
-    """Read current runtime values using existing profile resolution."""
+def load_memory(app: Flask, user_bid: str, shifu_bid: str) -> MemorySnapshot:
+    """Load the supported memory categories for this learner/course context."""
 
 
-def stage_course_variables(
-    app: Flask,
-    user_bid: str,
-    shifu_bid: str,
-    assignments: list[ProfileToSave],
+def stage_memory(
+    app: Flask, user_bid: str, shifu_bid: str, update: MemoryUpdate
 ) -> bool:
-    """Use the existing writer; preserve DTO mutation; caller owns commit."""
+    """Stage an explicit memory patch; the existing caller owns the commit."""
 ```
 
-These are facade operations, not HTTP endpoints or a new engine protocol.
-`ProfileToSave` is an existing host DTO, not an old MarkdownFlow engine type;
-a later engine adapter can construct it from validated assignments. The facade
-has no dependency on the old engine's validation objects, new engine Sessions,
-SSE DTOs, or model/tool call types.
+`MemorySnapshot.variables` holds effective runtime values. `as_variables()`
+returns a copy for prompt construction, excluding any future non-variable
+categories. `MemoryUpdate.variables` is a list of `VariableMemoryUpdate`
+objects carrying `key`, `value`, and optional `definition_bid`. It is a patch,
+never a whole-memory replacement. Staging copies existing profile mappings
+back into these mutable payloads for the established variable-update events.
+The boolean return indicates the writer result, not a durable commit.
 
-The read interface needs user/course identity, not an interaction ID or source
-receipt. Session identity stays with the runtime until a future session-memory
-adapter is actually implemented. SQLAlchemy, Flask context, profile services,
-and current UOW ownership remain the implementation dependencies; no new
-package or service is required.
+To add facts or summaries later, define a payload appropriate to that category,
+add a dedicated field to both envelopes as needed, and implement its storage
+handler in the facade. Existing variable callers continue using the same API.
+Do not force free text into variable keys, inject it via `as_variables()`, or
+claim an unsupported category is already saved. This revision adds no such
+field, extraction, backend, registry, provider hierarchy, or engine activation.
+
+`ProfileToSave` remains an internal storage-adapter detail. The existing
+`MemoryEntry`, `LearnerMemory`, and `load_learner_memory` broad inspection API
+retain their stored-row semantics; they are not the runtime snapshot.
+SQLAlchemy, Flask context, profile services, and current UOW ownership remain
+the implementation dependencies; no new package or service is required.
