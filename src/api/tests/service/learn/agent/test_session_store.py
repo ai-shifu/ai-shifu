@@ -168,3 +168,141 @@ def test_what_is_written_records_the_versions_it_was_written_with(app: object) -
         assert row.pydantic_ai_version
         assert row.finished == 0
         assert row.shifu_bid == SHIFU
+
+
+# -- review follow-up --------------------------------------------------------------------
+
+
+def test_saving_inside_a_caller_transaction_is_refused(app: object) -> None:
+    """The durability promise is what callers hold a terminal event on, so it cannot be weakened.
+
+    A nested `unit_of_work()` joins the caller's transaction and commits nothing, so returning from
+    here would report a save the caller's later failure could still roll back.
+    """
+    from flaskr.dao.uow import unit_of_work
+
+    with (
+        app.app_context(),
+        unit_of_work(),
+        pytest.raises(RuntimeError, match="unit_of_work"),
+    ):
+        store(app, a_session())
+
+
+def test_discarding_inside_a_caller_transaction_is_refused(app: object) -> None:
+    from flaskr.dao.uow import unit_of_work
+
+    with (
+        app.app_context(),
+        unit_of_work(),
+        pytest.raises(RuntimeError, match="unit_of_work"),
+    ):
+        session_store.discard_agent_session(app, USER, OUTLINE)
+
+
+def test_only_one_live_row_can_hold_a_lesson(app: object) -> None:
+    """Two tabs starting the same lesson must not each get a session.
+
+    The application's read-then-insert cannot decide this on its own: both can read an empty range
+    and both insert. The unique index is what settles it.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    with app.app_context():
+        store(app, a_session())
+        row = LearnAgentSession.query.filter_by(deleted=0).one()
+
+        db.session.add(
+            LearnAgentSession(
+                agent_session_bid="second",
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_item_bid=OUTLINE,
+                active_key=row.active_key,
+                session_data="{}",
+                schema_version=AGENT_SESSION_SCHEMA_VERSION,
+                pydantic_ai_version="x",
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+
+def test_discarding_frees_the_key_for_the_next_start(app: object) -> None:
+    """Several discarded rows can pile up: NULL keys do not collide with each other."""
+    with app.app_context():
+        for _ in range(3):
+            store(app, a_session())
+            session_store.discard_agent_session(app, USER, OUTLINE)
+
+        assert LearnAgentSession.query.count() == 3
+        assert LearnAgentSession.query.filter_by(deleted=0).count() == 0
+        assert (
+            LearnAgentSession.query.filter(
+                LearnAgentSession.active_key.isnot(None)
+            ).count()
+            == 0
+        )
+
+        store(app, a_session())
+        assert session_store.load_agent_session(app, USER, OUTLINE) is not None
+
+
+def test_a_failure_part_way_through_a_save_leaves_nothing_behind(app: object) -> None:
+    """The repository requires a mid-flow failure test for anything owning a unit of work."""
+    with app.app_context():
+        original = a_session()
+        store(app, original)
+        before = session_store.load_agent_session(app, USER, OUTLINE)
+        assert before.turn == 3
+
+        original.turn = 99
+
+        def explode(*_a: object, **_k: object) -> None:
+            msg = "writing the progress record failed"
+            raise RuntimeError(msg)
+
+        real_apply = session_store._apply
+        session_store._apply = explode
+        try:
+            with pytest.raises(RuntimeError, match="progress record"):
+                store(app, original)
+        finally:
+            session_store._apply = real_apply
+
+        after = session_store.load_agent_session(app, USER, OUTLINE)
+        assert after.turn == 3  # the failed save left the stored turn alone
+
+
+def test_a_failure_part_way_through_a_discard_leaves_the_session_live(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rows are marked, then the commit fails: the learner must still have their session."""
+    with app.app_context():
+        store(app, a_session())
+
+        def explode() -> None:
+            msg = "the commit failed"
+            raise RuntimeError(msg)
+
+        monkeypatch.setattr(db.session, "commit", explode)
+        with pytest.raises(RuntimeError, match="the commit failed"):
+            session_store.discard_agent_session(app, USER, OUTLINE)
+        monkeypatch.undo()
+
+        assert session_store.load_agent_session(app, USER, OUTLINE) is not None
+
+
+def test_each_save_refreshes_the_timestamp_inside_the_document(app: object) -> None:
+    """Otherwise the stored document claims the age of the session's first turn forever."""
+    with app.app_context():
+        session = a_session()
+        store(app, session)
+        first = session_store.load_agent_session(app, USER, OUTLINE).updated_at
+
+        session.turn = 4
+        store(app, session)
+        second = session_store.load_agent_session(app, USER, OUTLINE).updated_at
+
+    assert second > first

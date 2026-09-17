@@ -40,6 +40,15 @@ class LearnAgentSession(db.Model):
             "user_bid",
             "outline_item_bid",
         ),
+        # MySQL treats NULLs as distinct in a unique index, so discarded rows accumulate freely
+        # while at most one live session per learner per lesson can exist. The application's
+        # read-then-insert cannot guarantee that on its own: two requests can both read an empty
+        # range and both insert.
+        Index(
+            "uq_learn_agent_sessions_active",
+            "active_key",
+            unique=True,
+        ),
         {"comment": "Agent lesson sessions"},
     )
 
@@ -108,6 +117,14 @@ class LearnAgentSession(db.Model):
         default=0,
         comment="Whether the row is deleted",
     )
+    active_key = Column(
+        String(80),
+        nullable=True,
+        comment=(
+            "user_bid:outline_item_bid while this row is the live session, NULL once discarded; "
+            "unique, so two concurrent starts cannot both create one"
+        ),
+    )
     created_at = Column(
         DateTime, nullable=False, default=now_utc, comment="Creation time"
     )
@@ -118,3 +135,8 @@ class LearnAgentSession(db.Model):
         onupdate=now_utc,
         comment="Update time",
     )
+
+
+def active_key_for(user_bid: str, outline_item_bid: str) -> str:
+    """Build the value that makes one row the live session for this learner and lesson."""
+    return f"{user_bid}:{outline_item_bid}"
