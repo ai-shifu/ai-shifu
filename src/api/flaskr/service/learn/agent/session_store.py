@@ -56,7 +56,7 @@ class StoredSessionUnusable(Exception):  # noqa: N818 - this is an outcome, not 
 
 
 def load_agent_session(
-    app: Flask, user_bid: str, outline_item_bid: str
+    app: Flask, user_bid: str, outline_item_bid: str, *, preview_mode: bool = False
 ) -> Session | None:
     """Return the learner's session for this lesson, or None if they have not started it.
 
@@ -64,12 +64,15 @@ def load_agent_session(
     version cannot read.
     """
     with app_context_scope(app):
-        return _load(user_bid, outline_item_bid)
+        return _load(user_bid, outline_item_bid, preview_mode=preview_mode)
 
 
-def _load(user_bid: str, outline_item_bid: str) -> Session | None:
+def _load(
+    user_bid: str, outline_item_bid: str, *, preview_mode: bool = False
+) -> Session | None:
     row = LearnAgentSession.query.filter(
-        LearnAgentSession.active_key == active_key_for(user_bid, outline_item_bid)
+        LearnAgentSession.active_key
+        == active_key_for(user_bid, outline_item_bid, preview_mode=preview_mode)
     ).first()
     if row is None:
         return None
@@ -100,6 +103,7 @@ def save_agent_session(
     user_bid: str,
     shifu_bid: str,
     outline_item_bid: str,
+    preview_mode: bool = False,
 ) -> None:
     """Write the session back, replacing the learner's previous one for this lesson.
 
@@ -108,7 +112,7 @@ def save_agent_session(
     would return with the write still pending in the caller's transaction.
     """
     require_transaction_owner("save_agent_session", app)
-    key = active_key_for(user_bid, outline_item_bid)
+    key = active_key_for(user_bid, outline_item_bid, preview_mode=preview_mode)
     with app_context_scope(app), unit_of_work():
         row = LearnAgentSession.query.filter(
             LearnAgentSession.active_key == key
@@ -156,13 +160,27 @@ def discard_agent_session(app: Flask, user_bid: str, outline_item_bid: str) -> N
     """
     require_transaction_owner("discard_agent_session", app)
     with app_context_scope(app), unit_of_work():
-        rows = LearnAgentSession.query.filter(
-            LearnAgentSession.user_bid == user_bid,
-            LearnAgentSession.outline_item_bid == outline_item_bid,
-            LearnAgentSession.deleted == 0,
-        ).all()
-        for row in rows:
-            row.deleted = 1
-            # Releasing the key is what lets the next start claim it; NULLs do not collide, so
-            # every discarded row can keep sitting there for support questions.
-            row.active_key = None
+        stage_agent_session_discard(
+            user_bid=user_bid, outline_item_bid=outline_item_bid
+        )
+
+
+def stage_agent_session_discard(*, user_bid: str, outline_item_bid: str) -> None:
+    """Retire this learner's sessions for the lesson without committing.
+
+    For callers that already own a transaction and need the discard to land with the rest of it --
+    resetting a lesson retires its progress records and its session together, or neither, so a
+    reset cannot half-apply and leave the learner resumed into the conversation they just cleared.
+
+    Both scopes go: an author resetting a lesson means the preview too.
+    """
+    rows = LearnAgentSession.query.filter(
+        LearnAgentSession.user_bid == user_bid,
+        LearnAgentSession.outline_item_bid == outline_item_bid,
+        LearnAgentSession.deleted == 0,
+    ).all()
+    for row in rows:
+        row.deleted = 1
+        # Releasing the key is what lets the next start claim it; NULLs do not collide, so
+        # every discarded row can keep sitting there for support questions.
+        row.active_key = None
