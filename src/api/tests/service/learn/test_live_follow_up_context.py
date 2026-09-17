@@ -8,8 +8,10 @@ import pytest
 from flask import Flask
 from flaskr.service.learn import follow_up_context as context
 from flaskr.service.learn import live_follow_up_routes as routes
+from flaskr.service.learn import utils_v2
 from flaskr.service.learn.gemini_live_token import GeminiLiveHistoryTurn
 from flaskr.service.learn.live_follow_up_session_store import LiveFollowUpSessionBinding
+from flaskr.service.learn.memory import MemorySnapshot
 from flaskr.util.prompt_loader import load_prompt_template
 
 
@@ -81,11 +83,13 @@ def test_live_context_omits_course_prompt_and_preserves_follow_up_context(
     )
     monkeypatch.setattr(
         context,
-        "get_user_profiles",
-        lambda *_args: {
-            "sys_user_nickname": "Alex",
-            "sys_user_background": "Synthetic learner background",
-        },
+        "load_memory",
+        lambda *_args: MemorySnapshot(
+            variables={
+                "sys_user_nickname": "Alex",
+                "sys_user_background": "Synthetic learner background",
+            }
+        ),
     )
     monkeypatch.setattr(context, "get_fmt_prompt", format_prompt)
     monkeypatch.setattr(context, "load_follow_up_history", load_history)
@@ -118,4 +122,37 @@ def test_live_context_omits_course_prompt_and_preserves_follow_up_context(
     assert turns == tuple(
         GeminiLiveHistoryTurn(role=item["role"], text=item["content"])
         for item in history
+    )
+
+
+@pytest.mark.parametrize("resolved_profiles", [{}, {"goal": "practice"}])
+def test_follow_up_reuses_resolved_values_including_empty_values(
+    monkeypatch: pytest.MonkeyPatch, resolved_profiles: dict[str, str]
+) -> None:
+    """Supplied request values prevent fallback reads in both context and formatter."""
+    app = Flask("follow-up-resolved-memory")
+    for module in (context, utils_v2):
+        monkeypatch.setattr(
+            module,
+            "load_memory",
+            lambda *_args: pytest.fail("Resolved values must not trigger another read"),
+        )
+    monkeypatch.setattr(context, "load_follow_up_history", lambda **_kwargs: [])
+    with app.app_context():
+        result = context.build_follow_up_conversation_context(
+            app,
+            user_info=SimpleNamespace(user_id="user-1"),
+            shifu_bid="course-1",
+            outline_item_bid="outline-1",
+            progress_record_bid="progress-1",
+            follow_up_info=SimpleNamespace(ask_prompt=""),
+            course_system_prompt="Goal {goal}",
+            use_learner_language=False,
+            runtime_language="en-US",
+            runtime_profiles=resolved_profiles,
+        )
+    expected_course = "Goal " + resolved_profiles.get("goal", "{goal}")
+    assert (
+        f"<course_prompt>\n{expected_course}\n</course_prompt>"
+        in result.system_instruction
     )

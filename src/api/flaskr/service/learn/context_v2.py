@@ -94,7 +94,6 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_RESET,
 )
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE
-from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.profile.profile_manage import (
     ProfileItemDefinition,
     get_profile_item_definition_list,
@@ -1123,7 +1122,7 @@ class RunScriptPreviewContextV2:
             if isinstance(preview_request.variables, dict)
             else {}
         )
-        variables = get_user_profiles(self.app, user_bid, shifu_bid)
+        variables = load_memory(self.app, user_bid, shifu_bid).as_variables()
         variables.update(request_variables)
 
         request_language = str(
@@ -2427,11 +2426,11 @@ class RunScriptContextV2:
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
         app.logger.info("ask_input: %s", ask_input)
-        runtime_profiles = get_user_profiles(
+        runtime_profiles = load_memory(
             app,
             self._user_info.user_id,
             self._outline_item_info.shifu_bid,
-        )
+        ).as_variables()
         res = handle_input_ask(
             app,
             self,

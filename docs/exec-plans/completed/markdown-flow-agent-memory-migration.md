@@ -17,7 +17,7 @@ Accepted named course interactions continue to save their variables through the
 existing path. There is no new extraction producer or second persistence step.
 
 AI-Shifu already saves these values. The implementation deliverable is a stable
-access boundary, a small integration into the current learning path, and proof
+access boundary, consistent reads across learning paths, and proof
 that the established behavior is preserved. It is not a new memory database or
 a claim that variable persistence was previously missing.
 
@@ -29,44 +29,55 @@ preview, follow-ups, listening/TTS, and billing remain compatibility gates.
 ## Progress
 
 - [x] 2026-09-17 04:29 UTC: Investigated the original engine memory contract
-  and created the initial migration plan.
+      and created the initial migration plan.
 - [x] 2026-09-17 05:16 UTC: Synchronized to `759ac2cbf`, including the
-  vendored MarkdownFlow 2.0 engine from PR #2830.
+      vendored MarkdownFlow 2.0 engine from PR #2830.
 - [x] 2026-09-17 05:48 UTC: Validated the previous provenance-reference
-  proposal; that design is superseded by the user's latest decision.
+      proposal; that design is superseded by the user's latest decision.
 - [x] 2026-09-17 06:24 UTC: Fetched main and fast-forwarded this task branch
-  to `82c0979c538dc4aedb11844cee3cde94dba61ea0`, preserving local docs.
+      to `82c0979c538dc4aedb11844cee3cde94dba61ea0`, preserving local docs.
 - [x] 2026-09-17 06:24 UTC: Rechecked current memory readers, profile-variable
-  writes, assignment commit timing, and the new engine gateway adapter.
+      writes, assignment commit timing, and the new engine gateway adapter.
 - [x] 2026-09-17 06:25 UTC: Redesigned the plan around existing current-value
-  storage, explicit course scope, and a thin memory facade without provenance.
+      storage, explicit course scope, and a thin memory facade without provenance.
 - [x] 2026-09-17 06:28 UTC: Regenerated indexes; repository harness,
-  required-section, timestamp/path, removed-design, and whitespace checks passed.
+      required-section, timestamp/path, removed-design, and whitespace checks passed.
 - [x] 2026-09-17 06:36 UTC: Added the thin facade and integrated the two
-  existing runtime calls; preserved settings/profile and transaction ownership.
+      existing runtime calls; preserved settings/profile and transaction ownership.
 - [x] 2026-09-17 06:39 UTC: Focused memory/value-resolution tests passed
-  (21 tests), including real settings updates, canonical clearing, and rollback.
+      (21 tests), including real settings updates, canonical clearing, and rollback.
 - [x] 2026-09-17 06:40 UTC: Extended the existing profile public API with
-  the staged writer export; architecture and UOW checks passed without waivers.
+      the staged writer export; architecture and UOW checks passed without waivers.
 - [x] 2026-09-17 06:45 UTC: Installed current pinned requirements in an
-  isolated Python 3.11.16 environment; 277 relevant regressions passed and four
-  historical tests skipped, including memory, golden, preview, listen, and profile suites.
+      isolated Python 3.11.16 environment; 277 relevant regressions passed and four
+      historical tests skipped, including memory, golden, preview, listen, and profile suites.
 - [x] 2026-09-17 06:44 UTC: Full `lefthook run pre-commit --all-files`
-  passed, including architecture, UOW, translations, Python, and frontend checks.
+      passed, including architecture, UOW, translations, Python, and frontend checks.
 - [x] 2026-09-17 06:52 UTC: Full backend verification passed in the current
-  pinned environment with process-local proxy settings removed: 4,452 passed,
-  107 skipped, and 46 subtests passed.
+      pinned environment with process-local proxy settings removed: 4,452 passed,
+      107 skipped, and 46 subtests passed.
 - [x] 2026-09-17 06:52 UTC: Completed implementation and verification;
-  archived this plan and prepared the focused change for PR publication.
+      archived this plan and prepared the focused change for PR publication.
 
 - [x] 2026-09-17 07:34 UTC: Reopened the plan after the user requested a
-  memory-oriented contract that can later carry non-variable memories.
+      memory-oriented contract that can later carry non-variable memories.
 - [x] 2026-09-17 07:40 UTC: Replaced variable-named operations and exposed
-  profile DTOs with typed memory envelopes. Focused verification passed:
-  149 tests, four legacy skips, including real persistence and mapped SSE.
+      profile DTOs with typed memory envelopes. Focused verification passed:
+      149 tests, four legacy skips, including real persistence and mapped SSE.
 - [x] 2026-09-17 07:43 UTC: Full backend verification passed: 4,455 tests,
-  107 skips, and 46 subtests. Full lefthook, architecture, UOW, and repository
-  Ruff checks passed; completed the memory-envelope revision for PR #2834.
+      107 skips, and 46 subtests. Full lefthook, architecture, UOW, and repository
+      Ruff checks passed; completed the memory-envelope revision for PR #2834.
+
+- [x] 2026-09-17 08:16 UTC: Verified the remote rebase preserves all three
+      feature commits and aligned this branch to `792f4625b` on main `58a81c1ae`.
+- [x] 2026-09-17 08:20 UTC: Routed preview, Ask, follow-up fallback, and
+      prompt formatting fallback reads through memory. Focused verification:
+      187 passed and four legacy skips; no direct learning-side profile-value
+      reads remain outside the memory adapter.
+- [x] 2026-09-17 08:26 UTC: Full backend verification passed: 4,478 tests,
+      107 skips, and 46 subtests. Full lefthook, Ruff, architecture, and UOW checks
+      passed. The completed read migration is ready for PR #2834; remote checks
+      and review are followed against the published commit.
 
 ## Surprises & Discoveries
 
@@ -109,7 +120,19 @@ preview, follow-ups, listening/TTS, and billing remain compatibility gates.
   proxy environment variables removed for that test process. No repository
   dependency or global proxy setting was changed.
 
+- The optional arena engine suite has four pre-existing mock-signature failures:
+  mocked stream iterators reject `tool_calls_are_output`. The unchanged
+  `792f4625b` archive reproduces the same four failures and 30 passes. The
+  changed preview-isolation arena test passes in both trees; unrelated observer
+  tests are outside this memory migration.
+
 ## Decision Log
+
+- Follow-up scope: all four remaining learning-side profile-value reads must
+  use `load_memory(...).as_variables()`. Preserve caller-supplied resolved
+  values (including an empty dictionary), preview overlays, and language
+  selection without another read or any write. Account-profile writes and
+  the facade's private profile adapter keep their existing ownership.
 
 - Follow-up decision: expose `load_memory` / `stage_memory` with
   `MemorySnapshot` / `MemoryUpdate`. Variables are one explicit category,
@@ -171,14 +194,23 @@ regressions. Full backend verification now passes with 4,455 tests, 107 skips,
 and 46 subtests. Full lefthook and repository checks pass. The 4,452-test result
 above describes the initial facade implementation. Both revisions preserve
 the same storage and transaction authority; non-variable storage remains future
-work. The plan is complete again and the revision is ready for PR #2834. PR publication
-delivers this focused change for review; engine replacement and new memory usage
-remain separate work. Deployment and merge are not part of this execution.
+work. That revision completed the envelope design.
+
+The four-read follow-up is complete: preview, Ask, follow-up context fallback,
+and prompt-formatting fallback all use the memory facade. Focused verification
+passed 187 tests with four legacy skips; the full backend suite passed 4,478
+tests and 46 subtests with 107 skips. Full lefthook and repository checks passed,
+and two obsolete direct-profile architecture exemptions were removed. The
+optional arena suite retains four baseline mock-signature failures, reproduced
+on the unchanged branch head; its changed preview-isolation test passes.
+PR publication delivers this focused change for review; engine replacement
+and new memory usage remain separate work. Deployment and merge are not part
+of this execution.
 
 ## Context and Orientation
 
-Current host baseline: `82c0979c538dc4aedb11844cee3cde94dba61ea0` on
-`sunner/memory-migration-plan`. Paths below are repository-relative.
+Current host baseline: `58a81c1ae` on `sunner/memory-migration-plan`, with
+the prior memory changes rebased to `792f4625b`. Paths below are repository-relative.
 
 The original source investigation used `/Users/sunner/src/markdown-flow-agent`
 at `c31d64fed8d1ad689f2117bcd75448538c5a23cc`, read-only. This is distinct
@@ -186,16 +218,16 @@ from the old `markdown-flow-agent-py` package. Source code is now vendored under
 `src/api/flaskr/service/learn/agent/engine/` and owned by this repository;
 external re-copying is unnecessary.
 
-| Existing component | Location | Use in this plan |
-| --- | --- | --- |
-| Variable definitions and values | `src/api/flaskr/service/profile/models.py` | Existing data model and scope identities; no schema changes. |
-| Runtime read and staged write | `src/api/flaskr/service/profile/funcs.py` | `get_user_profiles` and `save_user_profiles` remain authoritative. |
-| Existing write DTO | `src/api/flaskr/service/profile/dtos.py` | Use `ProfileToSave` only inside the facade adapter; memory callers use their own typed payload. |
-| Broad memory reader | `src/api/flaskr/service/learn/memory/reader.py` | Preserve `MemoryEntry`, `LearnerMemory`, `load_learner_memory`, and `elsewhere`. |
-| Learning integration | `src/api/flaskr/service/learn/context_v2.py` | Route ordinary course preparation and accepted assignment through the facade. |
-| Commit ownership | `src/api/flaskr/service/learn/run/recorder.py` | Existing pointer step commits staged profile rows; no implementation change. |
-| Canonical learner profile | `src/api/flaskr/service/profile/learner_profile.py` | Existing update/clear authority; no duplicate profile memory. |
-| Future engine contract | `src/api/flaskr/service/learn/agent/engine/memory.py`, `session.py` | Engine-local user/session memory requires a later scoped host adapter. |
+| Existing component              | Location                                                            | Use in this plan                                                                                |
+| ------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Variable definitions and values | `src/api/flaskr/service/profile/models.py`                          | Existing data model and scope identities; no schema changes.                                    |
+| Runtime read and staged write   | `src/api/flaskr/service/profile/funcs.py`                           | `get_user_profiles` and `save_user_profiles` remain authoritative.                              |
+| Existing write DTO              | `src/api/flaskr/service/profile/dtos.py`                            | Use `ProfileToSave` only inside the facade adapter; memory callers use their own typed payload. |
+| Broad memory reader             | `src/api/flaskr/service/learn/memory/reader.py`                     | Preserve `MemoryEntry`, `LearnerMemory`, `load_learner_memory`, and `elsewhere`.                |
+| Learning integration            | `src/api/flaskr/service/learn/context_v2.py`                        | Route ordinary course preparation and accepted assignment through the facade.                   |
+| Commit ownership                | `src/api/flaskr/service/learn/run/recorder.py`                      | Existing pointer step commits staged profile rows; no implementation change.                    |
+| Canonical learner profile       | `src/api/flaskr/service/profile/learner_profile.py`                 | Existing update/clear authority; no duplicate profile memory.                                   |
+| Future engine contract          | `src/api/flaskr/service/learn/agent/engine/memory.py`, `session.py` | Engine-local user/session memory requires a later scoped host adapter.                          |
 
 The source engine has a `MemoryStore.load(user_id)` / `save(user_id, dict)`
 protocol and session memory that overrides user memory when merged. It writes
@@ -208,12 +240,12 @@ behaviors should be enabled merely to expose existing course variables.
 
 ### 1. Define memory as current state with existing ownership
 
-| Logical category | Identity | Owner and first-stage behavior |
-| --- | --- | --- |
-| Canonical user fields | User and field name | Existing profile/account services; canonical values override compatibility variable rows exactly as today. |
-| Custom course variables | User, `shifu_bid`, exact variable key | Existing variable service; current selected value follows existing resolution rules. |
-| Global/system variables | User and existing global key | Preserve empty `shifu_bid` routing and existing fallback; no automatic new global facts. |
-| Session state | Existing session/attempt context | Runtime retains messages, temporary answers, and progress; no new persistence layer. |
+| Logical category        | Identity                              | Owner and first-stage behavior                                                                             |
+| ----------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Canonical user fields   | User and field name                   | Existing profile/account services; canonical values override compatibility variable rows exactly as today. |
+| Custom course variables | User, `shifu_bid`, exact variable key | Existing variable service; current selected value follows existing resolution rules.                       |
+| Global/system variables | User and existing global key          | Preserve empty `shifu_bid` routing and existing fallback; no automatic new global facts.                   |
+| Session state           | Existing session/attempt context      | Runtime retains messages, temporary answers, and progress; no new persistence layer.                       |
 
 Course scope spans lessons. Course titles, outline IDs, and session IDs do not
 replace `shifu_bid`. Same-named custom variables in different courses stay
@@ -284,12 +316,14 @@ Accepted named interaction:
   -> existing progress step commits the same staged rows
 ```
 
-Do not call both the facade and original writer. Keep original profile-service
-imports for unrelated call sites that still use them. The separate Ask-context
-read and preview-store mechanisms need no migration in this first stage; they
-already reach the same underlying authority. Inspect any preview path sharing
-the changed methods and prove that its existing scope/rollback behavior is
-unchanged. Do not add stricter parameter checks here that silently alter
+Do not call both the facade and original writer. Complete the learning-side
+read boundary in `_resolve_preview_variables`, `_phase_handle_ask_input`,
+`build_follow_up_conversation_context`, and `get_fmt_prompt`. Each resolves
+`load_memory(...).as_variables()` only where it previously loaded profiles.
+Keep already-resolved request dictionaries authoritative, even when empty,
+so follow-up formatting does not reload or resurrect stored values. Preview
+request overrides apply to the copied variable projection and never mutate
+the memory snapshot. Preview stores retain their existing ownership. Do not add stricter parameter checks here that silently alter
 legacy preview or empty-scope behavior.
 
 Keep list joining, empty-string handling, variable definition IDs, system-label
@@ -349,17 +383,18 @@ persist already-validated variables.
 The implementation follows this inventory; progress and verification are
 recorded above.
 
-| File | Planned change |
-| --- | --- |
-| `src/api/flaskr/service/learn/memory/dtos.py` (new) | Memory snapshot/update envelopes and a variable-specific update payload. |
-| `src/api/flaskr/service/learn/memory/facade.py` (new) | Memory operations and private adaptation to existing profile reads/writes. |
-| `src/api/flaskr/service/learn/memory/__init__.py` | Export the facade alongside existing reader exports; document current-state semantics. |
-| `src/api/flaskr/service/learn/memory/reader.py` | Clarify descriptive text about settings/current values; retain query and DTO behavior. |
-| `src/api/flaskr/service/learn/context_v2.py` | Change the two identified course read/write calls, preserving normalization, SSE, and commit order. |
-| `src/api/flaskr/service/profile/api.py` | Export the existing staged writer alongside the reader to preserve the cross-service architecture boundary. |
-| `src/api/tests/service/learn/memory/test_facade.py` (new) | Behavioral round-trip, scope, settings-update, canonical-field, and staged-write contract coverage. |
-| Relevant existing tests in `src/api/tests/service/learn/` and `tests/golden/` | Adjust directly imported mocks only where the changed call sites require it; retain expected results and fixtures. |
-| This ExecPlan and generated indexes | Keep decisions, scope, milestones, and validation evidence current. |
+| File                                                                          | Planned change                                                                                                       |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `src/api/flaskr/service/learn/memory/dtos.py` (new)                           | Memory snapshot/update envelopes and a variable-specific update payload.                                             |
+| `src/api/flaskr/service/learn/memory/facade.py` (new)                         | Memory operations and private adaptation to existing profile reads/writes.                                           |
+| `src/api/flaskr/service/learn/memory/__init__.py`                             | Export the facade alongside existing reader exports; document current-state semantics.                               |
+| `src/api/flaskr/service/learn/memory/reader.py`                               | Clarify descriptive text about settings/current values; retain query and DTO behavior.                               |
+| `src/api/flaskr/service/learn/context_v2.py`                                  | Use memory for course preparation, preview variables, Ask reads, and accepted writes; preserve SSE and commit order. |
+| `src/api/flaskr/service/learn/follow_up_context.py`, `utils_v2.py`            | Route fallback reads through memory while preserving supplied resolved values and language overlays.                 |
+| `src/api/flaskr/service/profile/api.py`                                       | Export the existing staged writer alongside the reader to preserve the cross-service architecture boundary.          |
+| `src/api/tests/service/learn/memory/test_facade.py` (new)                     | Behavioral round-trip, scope, settings-update, canonical-field, and staged-write contract coverage.                  |
+| Relevant existing tests in `src/api/tests/service/learn/` and `tests/golden/` | Adjust directly imported mocks only where the changed call sites require it; retain expected results and fixtures.   |
+| This ExecPlan and generated indexes                                           | Keep decisions, scope, milestones, and validation evidence current.                                                  |
 
 The profile implementation/DTOs/models, recorder, migrations, config/env examples,
 account cancellation, engine, gateway, frontend, prompts, and billing are reused
@@ -373,8 +408,8 @@ plan; a larger memory architecture is not a prerequisite.
    focused behavior checks using existing profile services. Acceptance: current
    values resolve identically, settings changes are reflected, canonical fields
    keep authority, and writes stage without committing.
-2. **Current learning integration.** Route the two existing calls through the
-   facade. Acceptance: one save per accepted assignment, same mapped SSE
+2. **Current learning integration.** Route the teaching read/write and all
+   four remaining learning-side fallback/preview/Ask reads through the facade. Acceptance: one save per accepted assignment, same mapped SSE
    values, identical prompt inputs, and unchanged progress/rollback behavior.
 3. **Compatibility completion.** Run relevant learning, preview, listening,
    profile, and golden checks, plus required repository gates. Acceptance: no
@@ -443,24 +478,26 @@ engine, its mandatory offline suite is
 
 ## Validation and Acceptance
 
-| Scenario | Expected result |
-| --- | --- |
-| Accepted course assignment, commit, fresh read | Same saved value is available through the facade without a second copy or write. |
-| Same key in two courses or two users | Existing ownership and fallback rules are preserved; no other-course value is merged into runtime variables. |
-| Settings changes an existing course value | Subsequent memory read returns the changed current value; no provenance distinction is claimed. |
-| Pre-existing variable rows | Available under existing read rules immediately, without backfill or origin filtering. |
-| System labels, canonical nickname/language/background | Same mapping and canonical override as the direct profile-service path. |
-| Canonical learner-profile clear | Cleared profile stays empty; no stale variable-row resurrection. |
-| Same-value repeat, changed value, unrelated keys | Same append/reuse behavior as existing writes; no whole-dictionary replacement or deletion of omitted keys. |
-| Multi-select, empty accepted value, Unicode keys | Identical normalization, stored value, DTO mutation, and emitted variable update. |
-| Unnamed input, rejected validation/moderation, Ask, Live | No added variable save; original behavior remains. |
-| Preview and listening | Existing preview isolation and media/interaction behavior are unchanged. |
-| Failure or disconnect around the existing commit | Same staged-row rollback/durability boundary; facade does not commit, retry, or hide errors. |
-| Current read versus broad memory reader | Runtime matches `get_user_profiles`; broad reader keeps `entries`, `elsewhere`, exclusions, and truncation semantics. |
-| Prompt, SSE, model count, progress, billing | Existing fixtures and observable results remain unchanged. |
-| Memory snapshot projection | `as_variables()` returns a copy; runtime overlays cannot mutate the snapshot. |
-| Partial or empty memory patch | Omitted values survive and an empty patch adds no row. |
-| Memory payload to profile adapter | Definition IDs, list/empty normalization, raw stored values, and mapped SSE values survive the boundary. |
+| Scenario                                                 | Expected result                                                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Accepted course assignment, commit, fresh read           | Same saved value is available through the facade without a second copy or write.                                      |
+| Same key in two courses or two users                     | Existing ownership and fallback rules are preserved; no other-course value is merged into runtime variables.          |
+| Settings changes an existing course value                | Subsequent memory read returns the changed current value; no provenance distinction is claimed.                       |
+| Pre-existing variable rows                               | Available under existing read rules immediately, without backfill or origin filtering.                                |
+| System labels, canonical nickname/language/background    | Same mapping and canonical override as the direct profile-service path.                                               |
+| Canonical learner-profile clear                          | Cleared profile stays empty; no stale variable-row resurrection.                                                      |
+| Same-value repeat, changed value, unrelated keys         | Same append/reuse behavior as existing writes; no whole-dictionary replacement or deletion of omitted keys.           |
+| Multi-select, empty accepted value, Unicode keys         | Identical normalization, stored value, DTO mutation, and emitted variable update.                                     |
+| Unnamed input, rejected validation/moderation, Ask, Live | No added variable save; original behavior remains.                                                                    |
+| Preview and listening                                    | Existing preview isolation and media/interaction behavior are unchanged.                                              |
+| Failure or disconnect around the existing commit         | Same staged-row rollback/durability boundary; facade does not commit, retry, or hide errors.                          |
+| Current read versus broad memory reader                  | Runtime matches `get_user_profiles`; broad reader keeps `entries`, `elsewhere`, exclusions, and truncation semantics. |
+| Prompt, SSE, model count, progress, billing              | Existing fixtures and observable results remain unchanged.                                                            |
+| Memory snapshot projection                               | `as_variables()` returns a copy; preview and runtime overlays cannot mutate the snapshot.                             |
+| Resolved values supplied to follow-up/prompt formatting  | Reuse them, including an empty dictionary; no duplicate memory read or revival of stored values.                      |
+| Ask stream completion                                    | Scope the memory read to the current user/course and keep the existing commit after the stream.                       |
+| Partial or empty memory patch                            | Omitted values survive and an empty patch adds no row.                                                                |
+| Memory payload to profile adapter                        | Definition IDs, list/empty normalization, raw stored values, and mapped SSE values survive the boundary.              |
 
 Use fictional learner A with courses Alpha and Beta. Set Alpha's `base_level`
 to `beginner` through an accepted interaction and Beta's to `advanced`. After

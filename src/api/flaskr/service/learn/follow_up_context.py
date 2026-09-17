@@ -15,9 +15,9 @@ from flaskr.service.learn.listen_element_queries import (
     _load_latest_active_element_row,
     find_follow_up_element_rows,
 )
+from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.learn.utils_v2 import FollowUpInfo, get_fmt_prompt
-from flaskr.service.profile.api import get_user_profiles
 from flaskr.service.shifu.api import find_node_with_parents, get_shifu_struct
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
@@ -272,7 +272,7 @@ def build_follow_up_conversation_context(
     profiles = dict(
         runtime_profiles
         if runtime_profiles is not None
-        else (get_user_profiles(app, user_info.user_id, shifu_bid) or {})
+        else load_memory(app, user_info.user_id, shifu_bid).as_variables()
     )
     if use_learner_language and runtime_language:
         profiles.update(

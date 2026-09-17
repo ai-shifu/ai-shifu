@@ -1321,8 +1321,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
         with (
             patch(
-                "flaskr.service.learn.context_v2.get_user_profiles",
-                return_value={"sys_user_nickname": "017"},
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(variables={"sys_user_nickname": "017"}),
             ) as mock_fetch,
             patch(
                 "flaskr.service.learn.context_v2.get_current_language",
@@ -1350,8 +1350,10 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
         with (
             patch(
-                "flaskr.service.learn.context_v2.get_user_profiles",
-                return_value={"sys_user_language": "en-US", "language": "en-US"},
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(
+                    variables={"sys_user_language": "en-US", "language": "en-US"}
+                ),
             ),
             patch(
                 "flaskr.service.learn.context_v2.get_current_language",
@@ -1374,10 +1376,13 @@ class PreviewResolveVariablesTests(unittest.TestCase):
             block_index=0,
             variables={"sys_user_language": "en-US", "language": "zh-CN"},
         )
+        memory = MemorySnapshot(
+            variables={"sys_user_language": "en-US", "language": "en-US"}
+        )
 
         with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={"sys_user_language": "en-US", "language": "en-US"},
+            "flaskr.service.learn.context_v2.load_memory",
+            return_value=memory,
         ):
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
@@ -1387,6 +1392,7 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
         assert variables.get("sys_user_language") == "zh-CN"
         assert variables.get("language") == "zh-CN"
+        assert memory.variables == {"sys_user_language": "en-US", "language": "en-US"}
 
     def test_keeps_existing_sys_user_language(self) -> None:
         app = Flask("preview-variables-existing")
@@ -1397,8 +1403,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         )
 
         with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={"sys_user_nickname": "017"},
+            "flaskr.service.learn.context_v2.load_memory",
+            return_value=MemorySnapshot(variables={"sys_user_nickname": "017"}),
         ) as mock_fetch:
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
@@ -1409,6 +1415,48 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         assert variables.get("sys_user_language") == "fr-FR"
         assert variables.get("language") == "fr-FR"
         mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
+
+
+class AskMemoryTests(unittest.TestCase):
+    """Keep Ask values scoped and independent of the memory snapshot."""
+
+    def test_ask_passes_projected_memory_and_keeps_commit_after_stream(self) -> None:
+        app = Flask("ask-memory")
+        ctx = _make_context()
+        ctx.app = app
+        ctx._last_position = -1
+        ctx._input = {"input": "Explain this"}
+        ctx._user_info = types.SimpleNamespace(user_id="user-ask")
+        ctx._outline_item_info = types.SimpleNamespace(shifu_bid="course-ask")
+        ctx._current_attend = types.SimpleNamespace(progress_record_bid="progress-ask")
+        ctx._trace_args = {}
+        ctx._trace = None
+        ctx._trace_root_span = None
+        ctx._preview_mode = False
+        ctx._run_recorder = MagicMock()
+        memory = MemorySnapshot(variables={"base_level": "beginner"})
+        event = object()
+
+        def answer(*_args: object, **kwargs: object) -> object:
+            assert kwargs["runtime_profiles"] == {"base_level": "beginner"}
+            kwargs["runtime_profiles"]["temporary"] = "request only"
+            yield event
+
+        with (
+            patch.object(context_v2_module, "load_memory", return_value=memory) as load,
+            patch.object(context_v2_module, "handle_input_ask", side_effect=answer),
+            patch.object(ctx, "_should_stream_tts", return_value=False),
+        ):
+            stream = ctx._phase_handle_ask_input(
+                app, types.SimpleNamespace(block_position=3)
+            )
+            assert next(stream) is event
+            ctx._recorder.commit_pending_step.assert_not_called()
+            assert list(stream) == []
+
+        load.assert_called_once_with(app, "user-ask", "course-ask")
+        assert memory.variables == {"base_level": "beginner"}
+        ctx._recorder.commit_pending_step.assert_called_once_with()
 
 
 class CoursePromptCompositionTests(unittest.TestCase):
@@ -1636,11 +1684,13 @@ class CoursePromptCompositionTests(unittest.TestCase):
             },
         )
         with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={
-                "sys_user_nickname": "",
-                "sys_user_background": "Database background",
-            },
+            "flaskr.service.learn.context_v2.load_memory",
+            return_value=MemorySnapshot(
+                variables={
+                    "sys_user_nickname": "",
+                    "sys_user_background": "Database background",
+                }
+            ),
         ):
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
@@ -1684,11 +1734,13 @@ class CoursePromptCompositionTests(unittest.TestCase):
             variables={"sys_user_nickname": ""},
         )
         with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={
-                "sys_user_nickname": "Database learner",
-                "sys_user_background": "Database background",
-            },
+            "flaskr.service.learn.context_v2.load_memory",
+            return_value=MemorySnapshot(
+                variables={
+                    "sys_user_nickname": "Database learner",
+                    "sys_user_background": "Database background",
+                }
+            ),
         ):
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
