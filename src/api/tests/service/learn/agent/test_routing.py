@@ -111,3 +111,33 @@ def test_the_course_identifier_is_matched_after_trimming(
 def test_the_allowlist_is_read_through_the_documented_config_key() -> None:
     """Deployments set this name; a rename here silently strands the env they configured."""
     assert routing.V2_SHIFU_BIDS_CONFIG_KEY == "FLOW_ENGINE_V2_SHIFU_BIDS"
+
+
+def test_the_config_key_is_registered_so_the_environment_reaches_it() -> None:
+    """An unregistered key reads as None however carefully a deployment sets it."""
+    from flaskr.common.config import ENV_VARS
+
+    registered = ENV_VARS[routing.V2_SHIFU_BIDS_CONFIG_KEY]
+    assert registered.type is list
+    assert registered.default == []
+
+
+def test_a_deployment_environment_reaches_the_routing_decision() -> None:
+    """Cover the whole path, not just the parser: a typo in the key name passes every other test."""
+    from flaskr.common.config import ENV_VARS
+
+    registered = ENV_VARS[routing.V2_SHIFU_BIDS_CONFIG_KEY]
+    as_the_config_layer_parses_it = registered.convert_type("shifu-a, shifu-b")
+
+    assert routing._parse_shifu_bids(as_the_config_layer_parses_it) == frozenset(
+        {"shifu-a", "shifu-b"}
+    )
+
+
+def test_an_unset_environment_keeps_courses_on_the_script_engine() -> None:
+    """Production sets nothing, so the registered default decides what production does."""
+    from flaskr.common.config import ENV_VARS
+
+    registered = ENV_VARS[routing.V2_SHIFU_BIDS_CONFIG_KEY]
+
+    assert routing._parse_shifu_bids(registered.convert_type("")) == frozenset()
