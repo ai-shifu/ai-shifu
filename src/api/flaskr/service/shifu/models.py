@@ -23,7 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 
-from .consts import ASK_MODE_DEFAULT
+from .consts import ASK_MODE_DEFAULT, FLOW_ENGINE_DEFAULT
 
 
 class ResourceType:
@@ -204,6 +204,13 @@ class DraftShifu(db.Model):
         nullable=False,
         default=ASK_MODE_DEFAULT,
         comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
+    )
+    flow_engine = Column(
+        SmallInteger,
+        nullable=False,
+        default=FLOW_ENGINE_DEFAULT,
+        server_default=str(FLOW_ENGINE_DEFAULT),
+        comment="MarkdownFlow runtime that teaches this shifu: 1=1.0, 2=2.0",
     )
     ask_llm = Column(
         String(100),
@@ -665,6 +672,13 @@ class PublishedShifu(db.Model):
         nullable=False,
         default=ASK_MODE_DEFAULT,
         comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
+    )
+    flow_engine = Column(
+        SmallInteger,
+        nullable=False,
+        default=FLOW_ENGINE_DEFAULT,
+        server_default=str(FLOW_ENGINE_DEFAULT),
+        comment="MarkdownFlow runtime that teaches this shifu: 1=1.0, 2=2.0",
     )
     ask_llm = Column(
         String(100), nullable=False, default="", comment="Ask agent LLM model"

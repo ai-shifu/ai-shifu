@@ -33,6 +33,7 @@ from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.shifu.consts import (
     ASK_MODE_ENABLE,
+    FLOW_ENGINE_DEFAULT,
 )
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -155,6 +156,11 @@ def publish_shifu_draft(
         shifu_published.updated_at = now_time
         shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
         shifu_published.ask_enabled_status = shifu_draft.ask_enabled_status
+        # Learners run the published row, so an author who switches the runtime and publishes has
+        # to see the switch take effect.
+        shifu_published.flow_engine = getattr(
+            shifu_draft, "flow_engine", FLOW_ENGINE_DEFAULT
+        )
         shifu_published.ask_llm = shifu_draft.ask_llm
         shifu_published.ask_llm_temperature = shifu_draft.ask_llm_temperature
         shifu_published.ask_llm_system_prompt = shifu_draft.ask_llm_system_prompt
