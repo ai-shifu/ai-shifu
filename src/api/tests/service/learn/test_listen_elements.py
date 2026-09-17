@@ -1471,7 +1471,7 @@ def test_listen_run_persists_content_block_before_element_rows(app: object) -> N
                 FakeMarkdownFlow,
             )
             monkeypatch.setattr(
-                "flaskr.service.learn.context_v2.get_user_profiles",
+                "flaskr.service.learn.context_v2.load_course_variables",
                 lambda *_args, **_kwargs: {},
             )
             monkeypatch.setattr(
@@ -1749,7 +1749,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object) -> No
                 FakeMarkdownFlow,
             )
             monkeypatch.setattr(
-                "flaskr.service.learn.context_v2.get_user_profiles",
+                "flaskr.service.learn.context_v2.load_course_variables",
                 lambda *_args, **_kwargs: {},
             )
             monkeypatch.setattr(

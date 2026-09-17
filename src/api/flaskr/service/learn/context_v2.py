@@ -66,6 +66,7 @@ from flaskr.service.learn.learner_profile_prompt import (
 )
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.memory import load_course_variables, stage_course_variables
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -91,7 +92,6 @@ from flaskr.service.profile.constants import SYS_USER_LANGUAGE
 from flaskr.service.profile.funcs import (
     ProfileToSave,
     get_user_profiles,
-    save_user_profiles,
 )
 from flaskr.service.profile.profile_manage import (
     ProfileItemDefinition,
@@ -2536,7 +2536,7 @@ class RunScriptContextV2:
             usage_context,
             usage_scene,
         )
-        stored_user_profile = get_user_profiles(
+        stored_user_profile = load_course_variables(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
         user_profile, runtime_output_language = _resolve_runtime_language_context(
@@ -3077,7 +3077,7 @@ class RunScriptContextV2:
                     value_str = str(value) if value is not None else ""
                 profile_to_save.append(ProfileToSave(key, value_str, profile_id))
 
-            save_user_profiles(
+            stage_course_variables(
                 app,
                 self._user_info.user_id,
                 self._outline_item_info.shifu_bid,
@@ -3095,7 +3095,7 @@ class RunScriptContextV2:
                 )
             self._can_continue = True
             # This step also makes the profile rows saved above durable
-            # (save_user_profiles only flushes; the rows ride into this
+            # (stage_course_variables only flushes; the rows ride into this
             # step's commit, previously the producer's outer commit).
             self._recorder.update_progress_pointer(
                 self._current_attend,

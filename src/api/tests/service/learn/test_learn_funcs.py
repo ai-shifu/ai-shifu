@@ -291,7 +291,7 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_course_variables", return_value={}
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -428,7 +428,7 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_course_variables", return_value={}
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -571,7 +571,7 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_course_variables", return_value={}
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -708,7 +708,7 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_course_variables", return_value={}
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -838,7 +838,7 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_course_variables", return_value={}
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",

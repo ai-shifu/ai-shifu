@@ -57,6 +57,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Learner Profile Dialog](./completed/learner-profile-dialog-redesign.md)
 - [Learner Profile Foundation](./completed/learner-profile-foundation.md)
 - [LiteLLM-First Minimum-Thinking Parameters](./completed/llm-provider-parameter-policies.md)
+- [Expose Existing Course Variables through a Memory Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)

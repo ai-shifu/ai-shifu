@@ -1518,7 +1518,7 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 return_value=object(),
             ),
             patch(
-                "flaskr.service.learn.context_v2.get_user_profiles",
+                "flaskr.service.learn.context_v2.load_course_variables",
                 return_value=profiles,
             ),
             patch(
