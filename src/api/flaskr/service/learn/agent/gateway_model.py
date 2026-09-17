@@ -72,12 +72,22 @@ def map_messages(messages: list[ModelMessage]) -> list[dict[str, Any]]:
     """
     system: list[str] = []
     out: list[dict[str, Any]] = []
+    # Instructions live on the request, not among its parts: an agent built with `instructions=`
+    # puts its whole system prompt there and nowhere else. Every request in the history carries the
+    # value that applied when it was made, so only the last one is in force -- merging them would
+    # resend instructions the agent has already moved on from.
+    current = next(
+        (
+            m.instructions
+            for m in reversed(messages)
+            if isinstance(m, ModelRequest) and m.instructions
+        ),
+        None,
+    )
+    if current:
+        system.append(current)
     for message in messages:
         if isinstance(message, ModelRequest):
-            # Instructions live on the request, not among its parts: an agent built with
-            # `instructions=` puts its whole system prompt here and nowhere else.
-            if message.instructions:
-                system.append(message.instructions)
             for part in message.parts:
                 if isinstance(part, SystemPromptPart):
                     system.append(_text_of(part.content))
@@ -123,21 +133,19 @@ def map_messages(messages: list[ModelMessage]) -> list[dict[str, Any]]:
                 ]
             out.append(entry)
     if system:
-        # The same instructions ride on every request in the history, so keep first occurrences
-        # only: repeating the whole system prompt per turn would bloat the call and break the
-        # provider's prefix cache.
-        seen: set[str] = set()
-        unique = [s for s in system if not (s in seen or seen.add(s))]
-        out.insert(0, {"role": "system", "content": "\n\n".join(unique)})
+        out.insert(0, {"role": "system", "content": "\n\n".join(system)})
     return out
 
 
 def map_tools(parameters: ModelRequestParameters) -> list[dict[str, Any]]:
-    """Describe the engine's tools the way the chat API expects."""
-    definitions: list[ToolDefinition] = [
-        *parameters.function_tools,
-        *parameters.output_tools,
-    ]
+    """Describe the tools the way the chat API expects.
+
+    Takes `declared_tool_defs`, the set the framework resolved for this request, rather than every
+    authored tool: a tool can be withheld until the run reveals it, and sending its schema anyway
+    would let the model call a capability the engine has not offered. Note that `tool_defs` is the
+    wrong one to reach for -- it is a name lookup over everything, withheld tools included.
+    """
+    definitions: list[ToolDefinition] = list(parameters.declared_tool_defs.values())
     return [
         {
             "type": "function",
@@ -205,6 +213,18 @@ class GatewayStreamedResponse(StreamedResponse):
         """When the response started."""
         return self._timestamp
 
+    async def close_stream(self) -> None:
+        """Unwind the gateway generator when the run is cancelled.
+
+        The base class raises instead, so without this a host that stops a lesson gets
+        `NotImplementedError` and the `chat_llm` generator -- and the provider connection under
+        it -- stays open until garbage collection. Safe to call more than once.
+        """
+        chunks, self._chunks = self._chunks, iter(())
+        close = getattr(chunks, "close", None)
+        if close is not None:
+            close()
+
     async def _get_event_iterator(self) -> AsyncIterator[ModelResponseStreamEvent]:
         for chunk in self._chunks:
             if chunk.result:
@@ -249,11 +269,15 @@ class GatewayModel(Model):
         model: str,
         *,
         user_id: str,
-        span: LangfuseObservationHandle | None = None,
+        span: LangfuseObservationHandle,
         generation_name: str = "agent_lesson",
         **chat_llm_kwargs: object,
     ) -> None:
-        """Bind the gateway call this model makes: which app, model and learner it bills to."""
+        """Bind the gateway call this model makes: which app, model and learner it bills to.
+
+        `span` is required, not optional: `chat_llm` opens a generation on it before it reaches a
+        provider, so there is no working call without one.
+        """
         super().__init__()
         self._app = app
         self._model = model
@@ -279,6 +303,7 @@ class GatewayModel(Model):
         settings: ModelSettings | None = None,
     ) -> Generator[LLMStreamResponse, None, None]:
         tools = map_tools(parameters)
+
         kwargs: dict[str, object] = dict(self._chat_llm_kwargs)
         kwargs.update(_settings_to_kwargs(settings))
         if tools:
@@ -303,13 +328,19 @@ class GatewayModel(Model):
         model_request_parameters: ModelRequestParameters,
     ) -> ModelResponse:
         """Run one non-streaming request by draining the stream."""
+        model_settings, model_request_parameters = self.prepare_request(
+            model_settings, model_request_parameters
+        )
         response = GatewayStreamedResponse(
             model_request_parameters=model_request_parameters,
             _model_name=self._model,
             _chunks=self._stream(messages, model_request_parameters, model_settings),
         )
-        async for _ in response:
-            pass
+        try:
+            async for _ in response:
+                pass
+        finally:
+            await response.close_stream()
         return response.get()
 
     @asynccontextmanager
@@ -321,8 +352,17 @@ class GatewayModel(Model):
         run_context: RunContext[Any] | None = None,  # noqa: ARG002 - part of the signature
     ) -> AsyncIterator[StreamedResponse]:
         """Stream one request; the engine consumes the events as they arrive."""
-        yield GatewayStreamedResponse(
+        model_settings, model_request_parameters = self.prepare_request(
+            model_settings, model_request_parameters
+        )
+        response = GatewayStreamedResponse(
             model_request_parameters=model_request_parameters,
             _model_name=self._model,
             _chunks=self._stream(messages, model_request_parameters, model_settings),
         )
+        try:
+            yield response
+        finally:
+            # Leaving the context must unwind the gateway generator too, so an abandoned stream
+            # does not outlive the request that started it.
+            await response.close_stream()
