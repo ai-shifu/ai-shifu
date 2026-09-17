@@ -33,6 +33,7 @@ from flaskr.service.common.native_payment_status import (
     extract_native_trade_status,
     native_snapshot_status,
 )
+from flaskr.service.common.pricing import calculate_percentage_amount
 from flaskr.service.config import config_overrides, get_config
 from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.learn.learn_funcs import get_shifu_info
@@ -375,8 +376,8 @@ def _sync_order_campaign_pricing(
             if coupon.discount_type == COUPON_TYPE_FIXED:
                 coupon_discount_value += coupon_value
             elif coupon.discount_type == COUPON_TYPE_PERCENT:
-                coupon_discount_value += (
-                    decimal.Decimal(buy_record.payable_price) * coupon_value / 100
+                coupon_discount_value += calculate_percentage_amount(
+                    decimal.Decimal(buy_record.payable_price), coupon_value
                 )
     total_discount_value = discount_value + coupon_discount_value
     total_discount_value = min(total_discount_value, buy_record.payable_price)
@@ -2185,15 +2186,17 @@ def calculate_discount_value(
         for discount_record in discount_records:
             discount = coupon_maps.get(discount_record.coupon_bid)
             if discount:
+                coupon_amount = decimal.Decimal(discount.value)
                 if discount.discount_type == COUPON_TYPE_FIXED:
-                    discount_value += discount.value
+                    discount_value += coupon_amount
                 elif discount.discount_type == COUPON_TYPE_PERCENT:
-                    discount_value += discount.value * price / 100
+                    coupon_amount = calculate_percentage_amount(price, coupon_amount)
+                    discount_value += coupon_amount
                 items.append(
                     PayItemDto(
                         _("server.order.payItemCoupon"),
                         _resolve_coupon_display_name(discount),
-                        discount.value,
+                        coupon_amount,
                         is_discount=True,
                         discount_code=discount.code,
                     )
