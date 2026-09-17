@@ -469,9 +469,7 @@ from flask import Flask
 from flaskr.service.profile.dtos import ProfileToSave
 
 
-def load_course_variables(
-    app: Flask, user_bid: str, shifu_bid: str
-) -> dict[str, str]:
+def load_course_variables(app: Flask, user_bid: str, shifu_bid: str) -> dict[str, str]:
     """Read current runtime values using existing profile resolution."""
 
 
