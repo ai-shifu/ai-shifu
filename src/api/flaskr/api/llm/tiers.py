@@ -78,22 +78,54 @@ def selection_metadata(record: object, *, follow_up: bool = False) -> dict:
         "model_selection_record_id": getattr(record, "id", None),
     }
 
-    if tier and values["model_selection_record_id"]:
-        from flask import has_app_context
-
-        from flaskr.service.shifu.models import ModelTierMigrationAudit
-
-        if has_app_context():
-            audit = ModelTierMigrationAudit.query.filter_by(
-                table_name=values["model_selection_table"],
-                row_id=values["model_selection_record_id"],
-                field_name=field + "_tier",
-                new_tier=tier,
-            ).first()
-            if audit:
-                values["model_selection_origin"] = "migrated_default"
-                values["model_migration_batch"] = audit.batch_bid
+    batch = _selection_migration_batch(
+        values["model_selection_table"],
+        values["model_selection_record_id"],
+        field,
+        tier,
+    )
+    if batch:
+        values["model_selection_origin"] = "migrated_default"
+        values["model_migration_batch"] = batch
     return values
+
+
+def _selection_migration_batch(
+    table: str, row_id: int | None, field: str, tier: str | None
+) -> str | None:
+    """Look up immutable cleanup provenance at most once per request selection."""
+    from flask import has_app_context, has_request_context, request
+
+    from flaskr.service.shifu.models import (
+        DraftShifu,
+        ModelTierMigrationAudit,
+        PublishedShifu,
+    )
+
+    # Cleanup only writes Fast on course revisions, never on outlines.
+    if (
+        tier != "fast"
+        or not row_id
+        or table not in {DraftShifu.__tablename__, PublishedShifu.__tablename__}
+        or not has_app_context()
+    ):
+        return None
+    key = (table, row_id, field, tier)
+    cache = None
+    if has_request_context():
+        cache = getattr(request, "_model_tier_migration_batches", None)
+        if cache is None:
+            cache = {}
+            request._model_tier_migration_batches = cache
+        if key in cache:
+            return cache[key]
+    audit = ModelTierMigrationAudit.query.filter_by(
+        table_name=table, row_id=row_id, field_name=field + "_tier", new_tier=tier
+    ).first()
+    batch = audit.batch_bid if audit else None
+    if cache is not None:
+        cache[key] = batch
+    return batch
 
 
 def resolve_tier_model(tier: object) -> str:
