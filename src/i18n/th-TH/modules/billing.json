@@ -464,7 +464,7 @@
         "title": "แค็ตตาล็อกผลิตภัณฑ์สำหรับครู"
       },
       "creatorOrders": {
-        "description": "คำสั่งซื้อของครู รวมถึง sync, refund และ topup ยังเปิดใช้งานอยู่",
+        "description": "คำสั่งซื้อของครู รวมถึง sync, checkout และ topup ยังเปิดใช้งานอยู่",
         "title": "คำสั่งซื้อของครู"
       },
       "creatorSubscriptionCheckout": {

@@ -464,7 +464,7 @@
         "title": "Catalogue enseignant"
       },
       "creatorOrders": {
-        "description": "Les flux de commandes enseignant, synchronisation, remboursement et achat de packs de crédits restent activés.",
+        "description": "Les flux de synchronisation, de paiement et d’achat de packs de crédits restent activés pour les enseignants.",
         "title": "Commandes enseignant"
       },
       "creatorSubscriptionCheckout": {

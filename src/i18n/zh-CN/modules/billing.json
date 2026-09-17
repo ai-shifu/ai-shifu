@@ -464,7 +464,7 @@
         "title": "老师商品目录"
       },
       "creatorOrders": {
-        "description": "老师订单、sync、refund 和 topup 流程当前仍启用。",
+        "description": "老师订单、sync、checkout 和 topup 流程当前仍启用。",
         "title": "老师订单"
       },
       "creatorSubscriptionCheckout": {
