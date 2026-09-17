@@ -232,6 +232,29 @@ pre-release/dev pin:
 
 Pin release versions of both before merging.
 
+## The vendored MarkdownFlow 2.0 engine
+
+`src/api/flaskr/service/learn/agent/engine/` holds the MarkdownFlow 2.0 engine.
+Unlike the two component libraries above, it is **not** a pinned dependency: the
+code was copied in and is edited here, in place. `ai-shifu/markdown-flow-agent`
+still exists to serve the playground and the open-source release, but it is not
+an upstream — nothing is synced back and forth, and the two are expected to
+diverge.
+
+Because the engine no longer has its own repository's gate, its offline tests
+came with it and are the gate now:
+
+```bash
+cd src/api && python -m pytest tests/service/learn/agent/engine/ -q
+```
+
+These tests run on `pydantic-ai`'s `FunctionModel`, so they need no network and
+cost nothing. **They must be green for any change under `engine/`.** They cover
+what the surrounding service tests cannot: pausing and resuming on an
+interaction, several interactions raised in one turn, answers surviving a store
+round trip, variables reaching memory, listen-mode segmentation, 1.0 syntax
+detection, and the confirm guardrails.
+
 ## Tests
 
 - Run the smallest relevant backend, frontend, or script checks first, then
