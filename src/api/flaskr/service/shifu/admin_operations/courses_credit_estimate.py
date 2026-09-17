@@ -563,8 +563,7 @@ def build_operator_course_estimated_credit_cost(
     from flaskr.api.llm.tiers import resolve_selection, selection_metadata
 
     llm_model = str(getattr(course, "llm", "") or "").strip()
-    if getattr(course, "llm_tier", None):
-        llm_model, _ = resolve_selection(llm_model, selection_metadata(course))
+    llm_model, _ = resolve_selection(llm_model, selection_metadata(course))
     llm = _sum_llm_cost(
         app=app,
         model=llm_model,
