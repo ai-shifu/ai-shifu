@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentTurnCapacity": "Trop de leçons sont en cours actuellement. Veuillez réessayer dans un instant.",
     "askProviderAuthFailed": "Échec de l’authentification de la base de connaissances. Veuillez vérifier la clé API et le Client ID.",
     "askProviderNoResults": "Aucun contenu pertinent n’a été trouvé dans la base de connaissances.",
     "askProviderNotMember": "Le compte Dedao Brain n’a pas d’abonnement actif, l’OpenAPI est donc indisponible.",
