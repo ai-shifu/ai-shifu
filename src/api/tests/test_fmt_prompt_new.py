@@ -1,13 +1,17 @@
 """Verify double-brace prompt variables and invalid names."""
 
+from flaskr.service.learn.memory import MemorySnapshot
+
 
 def test_fmt_prompt_replaces_double_braces(app: object, monkeypatch: object) -> None:
     from flaskr.service.learn import utils_v2
 
     monkeypatch.setattr(
         utils_v2,
-        "get_user_profiles",
-        lambda _app, _user_id, _course_id: {"nickname": "Alice"},
+        "load_memory",
+        lambda _app, _user_id, _course_id: MemorySnapshot(
+            variables={"nickname": "Alice"}
+        ),
     )
 
     with app.app_context():
@@ -23,8 +27,10 @@ def test_fmt_prompt_ignores_invalid_variable_names(
 
     monkeypatch.setattr(
         utils_v2,
-        "get_user_profiles",
-        lambda _app, _user_id, _course_id: {"user_name": "Alice"},
+        "load_memory",
+        lambda _app, _user_id, _course_id: MemorySnapshot(
+            variables={"user_name": "Alice"}
+        ),
     )
 
     with app.app_context():

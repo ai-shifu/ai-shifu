@@ -121,6 +121,12 @@ def _ensure_vendored_six_importable() -> None:
     legacy_importer = getattr(six_module, "_importer", None)
     if legacy_importer is None or hasattr(type(legacy_importer), "find_spec"):
         return
+    if any(isinstance(finder, _LegacySixFinder) for finder in sys.meta_path):
+        # The early return above covers the ordinary case, where the modules stay in sys.modules
+        # for the life of the process. Anything that drops them -- a reload, or test isolation --
+        # comes back round to here, and every finder on sys.meta_path is searched on every import
+        # that misses, so they must not accumulate.
+        return
     sys.meta_path.append(_LegacySixFinder(legacy_importer))
 
 

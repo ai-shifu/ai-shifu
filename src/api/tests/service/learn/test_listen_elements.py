@@ -5,6 +5,7 @@ import time
 import types
 
 import pytest
+from flaskr.service.learn.memory import MemorySnapshot
 
 
 def _require_app(app: object) -> None:
@@ -1471,8 +1472,8 @@ def test_listen_run_persists_content_block_before_element_rows(app: object) -> N
                 FakeMarkdownFlow,
             )
             monkeypatch.setattr(
-                "flaskr.service.learn.context_v2.get_user_profiles",
-                lambda *_args, **_kwargs: {},
+                "flaskr.service.learn.context_v2.load_memory",
+                lambda *_args, **_kwargs: MemorySnapshot(),
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -1749,8 +1750,8 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object) -> No
                 FakeMarkdownFlow,
             )
             monkeypatch.setattr(
-                "flaskr.service.learn.context_v2.get_user_profiles",
-                lambda *_args, **_kwargs: {},
+                "flaskr.service.learn.context_v2.load_memory",
+                lambda *_args, **_kwargs: MemorySnapshot(),
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",

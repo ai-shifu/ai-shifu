@@ -165,7 +165,7 @@ def test_cross_model_requests_share_frozen_messages_without_preview_state(
         side_effect=AssertionError("Preview state must not be touched")
     )
     monkeypatch.setattr(context_v2, "_PreviewContextStore", forbidden)
-    monkeypatch.setattr(context_v2, "get_user_profiles", forbidden)
+    monkeypatch.setattr(context_v2, "load_memory", forbidden)
     requests = []
 
     def complete(*_args: object, **kwargs: object) -> object:

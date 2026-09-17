@@ -69,6 +69,15 @@ BLOCK_TYPE_VALUES = {
 BLOCK_TYPE_VALUES_REVERSE = {v: k for k, v in BLOCK_TYPE_VALUES.items()}
 
 
+# Which MarkdownFlow runtime teaches a course. 1.0 parses the script and expands one block at a
+# time; 2.0 hands the whole script to an agent that decides how to teach it. Courses move over one
+# at a time, and an author who does not like the result moves back.
+FLOW_ENGINE_V1 = 1
+FLOW_ENGINE_V2 = 2
+FLOW_ENGINE_DEFAULT = FLOW_ENGINE_V1
+FLOW_ENGINE_VALUES = (FLOW_ENGINE_V1, FLOW_ENGINE_V2)
+
+
 ASK_MODE_DEFAULT = 5101
 ASK_MODE_DISABLE = 5102
 ASK_MODE_ENABLE = 5103

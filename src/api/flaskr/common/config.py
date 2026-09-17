@@ -1681,6 +1681,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Default price assigned to a new shifu",
         group="shifu",
     ),
+    "FLOW_ENGINE_V2_SHIFU_BIDS": EnvVar(
+        name="FLOW_ENGINE_V2_SHIFU_BIDS",
+        default=[],
+        type=list,
+        description=(
+            "Comma separated course business identifiers taught by the 2.0 "
+            "MarkdownFlow engine in this deployment. Empty means every course "
+            "stays on 1.0. It belongs to the deployment rather than to a course "
+            "row because the simulation environment shares production's "
+            "database, so one row cannot mean 2.0 there and 1.0 here."
+        ),
+        group="shifu",
+        required=False,
+    ),
     # TTS Configuration
     "MINIMAX_API_KEY": EnvVar(
         name="MINIMAX_API_KEY",

@@ -49,3 +49,45 @@ def test_pingpp_submodules_using_six_moves_import() -> None:
     assert pingpp.api_requestor is not None
     assert pingpp.http_client is not None
     assert pingpp.wxpub_oauth is not None
+
+
+@pytest.mark.usefixtures("_isolated_pingpp_import")
+def test_repeated_imports_add_only_one_compatibility_finder() -> None:
+    """Every finder on ``sys.meta_path`` is searched on every import miss, so they must not pile up.
+
+    The early return covers the ordinary case, where the modules stay in ``sys.modules`` for the
+    life of the process. Anything that drops them -- a reload, or test isolation like the fixture
+    here -- brings the code back round to the append.
+    """
+    pingxx._ensure_vendored_six_importable()
+    after_first = [f for f in sys.meta_path if isinstance(f, pingxx._LegacySixFinder)]
+
+    for name in list(sys.modules):
+        if name == "pingpp" or name.startswith("pingpp."):
+            del sys.modules[name]
+    pingxx._ensure_vendored_six_importable()
+
+    finders = [f for f in sys.meta_path if isinstance(f, pingxx._LegacySixFinder)]
+    assert len(finders) == len(after_first) <= 1
+
+
+@pytest.mark.usefixtures("_isolated_pingpp_import")
+def test_the_kept_finder_still_serves_a_reimported_pingpp() -> None:
+    """Keeping the first finder is only safe if it still works after the modules are dropped.
+
+    It holds the importer from the first load, so this checks that a second import of ping++ and
+    its vendored six moves still succeeds rather than finding a stale object.
+    """
+    first = pingxx._get_pingpp_client()
+    assert first is sys.modules["pingpp"]
+
+    for name in list(sys.modules):
+        if name == "pingpp" or name.startswith("pingpp."):
+            del sys.modules[name]
+    pingxx._pingpp_client_state.client = None
+    pingxx._pingpp_client_state.import_error = None
+
+    second = pingxx._get_pingpp_client()
+    assert second is sys.modules["pingpp"]
+    assert "pingpp.six" in sys.modules
+    import pingpp.six.moves.urllib.parse  # noqa: F401 - importing it is the assertion
