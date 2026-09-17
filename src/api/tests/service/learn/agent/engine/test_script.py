@@ -74,3 +74,14 @@ def test_a_closing_fence_carries_nothing_else() -> None:
     text = "```\n{{name}}\n``` trailing words\n{{name}}\n```\n{{name}}\n"
     out = substitute_variables(text, {"name": "Ada"})
     assert out.count("{{name}}") == 2  # both lines inside the block are untouched
+
+
+def test_an_indented_marker_does_not_close_a_fence() -> None:
+    """Openings must start at column 0, so an indented marker inside a block is content.
+
+    A lesson that teaches fenced code blocks contains exactly this.
+    """
+    text = "```markdown\n    ```\n{{name}}\n```\n{{name}}\n"
+    out = substitute_variables(text, {"name": "Ada"})
+    assert out.count("{{name}}") == 1  # the one inside the block survives
+    assert out.endswith("Ada\n")

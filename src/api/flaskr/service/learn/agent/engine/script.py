@@ -25,7 +25,9 @@ def _closes_fence(line: str, opening: str) -> bool:
     Keeping the opening length matters: a ``` line inside a ```` block is content, and closing on
     it would expose the rest of the block to variable substitution and 1.0 syntax detection.
     """
-    stripped = line.strip()
+    # rstrip, not strip: the opening fences recognized here must start at column 0, so an indented
+    # marker is content -- a lesson showing a fenced block inside one would otherwise close early.
+    stripped = line.rstrip()
     return len(stripped) >= len(opening) and stripped == opening[0] * len(stripped)
 
 

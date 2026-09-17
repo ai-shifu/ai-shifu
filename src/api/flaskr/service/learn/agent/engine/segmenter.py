@@ -22,7 +22,9 @@ def _closes_fence(line: str, opening: str) -> bool:
 
     It must be the same marker, at least as long as the opener, and carry nothing else.
     """
-    stripped = line.strip()
+    # rstrip, not strip: the opening fences recognized here must start at column 0, so an indented
+    # marker is content -- a lesson showing a fenced block inside one would otherwise close early.
+    stripped = line.rstrip()
     return len(stripped) >= len(opening) and stripped == opening[0] * len(stripped)
 
 

@@ -139,3 +139,13 @@ def test_a_closed_fence_still_drops_its_delimiters() -> None:
     visuals = [p for p in out if isinstance(p, Visual)]
     assert len(visuals) == 1
     assert visuals[0].content.strip() == "<div>x</div>"
+
+
+def test_an_indented_marker_does_not_close_a_visual_fence() -> None:
+    seg = Segmenter()
+    out = list(seg.feed("```html\n<div>a</div>\n    ```\n<div>b</div>\n```\n"))
+    out += list(seg.finish())
+    visuals = [p for p in out if isinstance(p, Visual)]
+    assert len(visuals) == 1
+    assert "<div>a</div>" in visuals[0].content
+    assert "<div>b</div>" in visuals[0].content
