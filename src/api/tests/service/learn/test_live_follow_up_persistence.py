@@ -28,6 +28,7 @@ from flaskr.service.learn.live_follow_up_persistence import (
     load_persisted_live_follow_up_turn,
     persist_live_follow_up_turn,
 )
+from flaskr.service.learn.memory import MemorySnapshot
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.learn.utils_v2 import FollowUpInfo
 from flaskr.service.metering import BillUsageRecord
@@ -474,11 +475,13 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
 
     monkeypatch.setattr(
         follow_up_context_module,
-        "get_user_profiles",
-        lambda *_args: {
-            "sys_user_nickname": "Alex",
-            "sys_user_language": "en-US",
-        },
+        "load_memory",
+        lambda *_args: MemorySnapshot(
+            variables={
+                "sys_user_nickname": "Alex",
+                "sys_user_language": "en-US",
+            }
+        ),
     )
 
     def fake_build_course_prompt(

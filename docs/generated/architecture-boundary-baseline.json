@@ -170,14 +170,6 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
-      "key": "backend.cross_service_import|flaskr/service/learn/context_v2.py|flaskr.service.profile.funcs",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/learn/context_v2.py",
-      "target": "flaskr.service.profile.funcs",
-      "message": "flaskr/service/learn/context_v2.py imports cross-service module flaskr.service.profile.funcs outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
       "key": "backend.cross_service_import|flaskr/service/learn/context_v2.py|flaskr.service.profile.profile_manage",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/learn/context_v2.py",
@@ -471,14 +463,6 @@
       "source": "flaskr/service/learn/runscript_v2.py",
       "target": "flaskr.service.user.repository",
       "message": "flaskr/service/learn/runscript_v2.py imports cross-service module flaskr.service.user.repository outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/learn/utils_v2.py|flaskr.service.profile.funcs",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/learn/utils_v2.py",
-      "target": "flaskr.service.profile.funcs",
-      "message": "flaskr/service/learn/utils_v2.py imports cross-service module flaskr.service.profile.funcs outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {

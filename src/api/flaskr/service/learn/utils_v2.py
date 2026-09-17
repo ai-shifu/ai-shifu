@@ -4,8 +4,8 @@ import re
 
 from flask import Flask
 from flaskr.service.learn.live_follow_up_config import resolve_course_follow_up_model
+from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
-from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -150,7 +150,7 @@ def get_fmt_prompt(
     profiles = (
         dict(resolved_profiles)
         if resolved_profiles is not None
-        else dict(get_user_profiles(app, user_id, course_id) or {})
+        else load_memory(app, user_id, course_id).as_variables()
     )
     if profile_overrides:
         profiles.update(profile_overrides)
