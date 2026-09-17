@@ -81,7 +81,12 @@ def test_a_stored_value_is_kept_separate_from_the_text_the_learner_reads() -> No
     assert rendered == "?[%{{answer}} Yes, please//yes]"
 
 
-def test_a_value_identical_to_the_display_is_not_repeated() -> None:
+def test_a_value_is_written_even_when_it_equals_the_display() -> None:
+    """A value equal to its display is still written out.
+
+    Omitting it changes nothing here, but the same shortcut would silently store the display when
+    the value is an empty string.
+    """
     rendered = legacy_protocol.render_interaction(
         _spec(
             type="single",
@@ -90,7 +95,20 @@ def test_a_value_identical_to_the_display_is_not_repeated() -> None:
             variable="answer",
         )
     )
-    assert rendered == "?[%{{answer}} Yes]"
+    assert rendered == "?[%{{answer}} Yes//Yes]"
+
+
+def test_an_empty_stored_value_is_not_mistaken_for_an_absent_one() -> None:
+    """`Option(value="")` stores the empty string; dropping it would store the display instead."""
+    rendered = legacy_protocol.render_interaction(
+        _spec(
+            type="single",
+            prompt="Pick",
+            options=[Option(display="Skip", value="")],
+            variable="answer",
+        )
+    )
+    assert rendered == "?[%{{answer}} Skip//]"
 
 
 def test_free_text_renders_as_a_trailing_placeholder() -> None:
@@ -211,10 +229,16 @@ def test_a_memory_value_reaches_the_frontend_as_text(
     assert translated.content.variable_value == expected
 
 
-@pytest.mark.parametrize("reason", ["end", "finished"])
-def test_a_turn_that_ran_out_of_content_closes_the_stream(reason: str) -> None:
-    (translated,) = _translate(TurnDone(reason=reason))
+def test_a_finished_lesson_closes_the_stream() -> None:
+    """Only an explicit finish may use DONE: the element adapter marks it terminal."""
+    (translated,) = _translate(TurnDone(reason="finished"))
     assert translated.type == GeneratedType.DONE
+
+
+def test_a_turn_that_ran_out_of_content_leaves_the_lesson_resumable() -> None:
+    """The model often never calls finish. DONE here would close the stream mid-lesson."""
+    (translated,) = _translate(TurnDone(reason="end"))
+    assert translated.type == GeneratedType.BREAK
 
 
 def test_a_turn_waiting_on_the_learner_does_not_close_the_stream() -> None:
@@ -222,10 +246,10 @@ def test_a_turn_waiting_on_the_learner_does_not_close_the_stream() -> None:
     assert _translate(TurnDone(reason="interaction")) == []
 
 
-def test_a_failed_turn_closes_the_stream_rather_than_leaving_it_open() -> None:
-    """1.0 has no error event, and a frontend left waiting never recovers on its own."""
-    (translated,) = _translate(ErrorEvent(message="boom"))
-    assert translated.type == GeneratedType.DONE
+def test_a_failed_turn_never_reports_success() -> None:
+    """The browser reads a terminal DONE as success and clears the failed flag it had set."""
+    assert _translate(ErrorEvent(message="boom")) == []
+    assert _translate(ErrorEvent(message="boom", retryable=True)) == []
 
 
 @pytest.mark.parametrize(
@@ -262,12 +286,18 @@ def test_listen_mode_events_are_left_for_the_change_that_maps_them(
 # --- round trip --------------------------------------------------------------------------
 #
 # Asserting the exact string only proves this module is self-consistent. These parse what it
-# renders with the same library the 1.0 path uses, so a syntax drift fails here rather than in
-# front of a learner.
+# renders with the same library the 1.0 path uses and compare the controls a learner would get,
+# so a syntax drift fails here rather than in front of a learner.
+
+
+def _parse(rendered: str) -> dict:
+    from markdown_flow import InteractionParser
+
+    return InteractionParser().parse(rendered)
 
 
 @pytest.mark.parametrize(
-    ("spec_kwargs", "expected_variables"),
+    ("spec_kwargs", "expected"),
     [
         pytest.param(
             {
@@ -276,7 +306,12 @@ def test_listen_mode_events_are_left_for_the_change_that_maps_them(
                 "options": [Option(display="A"), Option(display="B")],
                 "variable": "choice",
             },
-            ["choice"],
+            {
+                "variable": "choice",
+                "buttons": [("A", "A"), ("B", "B")],
+                "is_multi_select": False,
+                "question": None,
+            },
             id="single",
         ),
         pytest.param(
@@ -286,7 +321,12 @@ def test_listen_mode_events_are_left_for_the_change_that_maps_them(
                 "options": [Option(display="A"), Option(display="B")],
                 "variable": "choices",
             },
-            ["choices"],
+            {
+                "variable": "choices",
+                "buttons": [("A", "A"), ("B", "B")],
+                "is_multi_select": True,
+                "question": None,
+            },
             id="multi",
         ),
         pytest.param(
@@ -296,7 +336,12 @@ def test_listen_mode_events_are_left_for_the_change_that_maps_them(
                 "variable": "story",
                 "placeholder": "Your answer",
             },
-            ["story"],
+            {
+                "variable": "story",
+                "buttons": [],
+                "is_multi_select": False,
+                "question": "Your answer",
+            },
             id="free-text",
         ),
         pytest.param(
@@ -306,7 +351,12 @@ def test_listen_mode_events_are_left_for_the_change_that_maps_them(
                 "options": [Option(display="Yes, please", value="yes")],
                 "variable": "answer",
             },
-            ["answer"],
+            {
+                "variable": "answer",
+                "buttons": [("Yes, please", "yes")],
+                "is_multi_select": False,
+                "question": None,
+            },
             id="display-and-value",
         ),
         pytest.param(
@@ -317,25 +367,143 @@ def test_listen_mode_events_are_left_for_the_change_that_maps_them(
                 "variable": "answer",
                 "placeholder": "Other",
             },
-            ["answer"],
+            {
+                "variable": "answer",
+                "buttons": [("A", "A")],
+                "is_multi_select": False,
+                "question": "Other",
+            },
             id="choice-or-text",
         ),
         pytest.param(
             {"type": "confirm", "prompt": "p", "options": [Option(display="Continue")]},
-            [],
+            {
+                "variable": None,
+                "buttons": [("Continue", "Continue")],
+                "is_multi_select": False,
+                "question": None,
+            },
             id="confirm-stores-nothing",
         ),
     ],
 )
-def test_what_this_renders_parses_back_as_an_interaction(
-    spec_kwargs: dict, expected_variables: list[str]
+def test_the_controls_a_learner_gets_are_the_ones_the_model_asked_for(
+    spec_kwargs: dict, expected: dict
 ) -> None:
-    from markdown_flow import MarkdownFlow
+    parsed = _parse(legacy_protocol.render_interaction(_spec(**spec_kwargs)))
 
-    rendered = legacy_protocol.render_interaction(_spec(**spec_kwargs))
-    parsed = MarkdownFlow(rendered)
+    assert parsed.get("variable") == expected["variable"]
+    assert [
+        (b["display"], b["value"]) for b in (parsed.get("buttons") or [])
+    ] == expected["buttons"]
+    assert bool(parsed.get("is_multi_select")) is expected["is_multi_select"]
+    if expected["question"] is not None:
+        assert parsed.get("question") == expected["question"]
 
-    assert [block.block_type.name for block in parsed.get_all_blocks()] == [
-        "INTERACTION"
+
+def test_the_stored_value_a_learner_returns_is_the_one_the_engine_will_match() -> None:
+    """`normalize_answer` maps a submitted display through the spec's own option strings.
+
+    A renderer that trimmed or dropped text would send the learner a token absent from that map,
+    and a required answer would be rejected with nothing to explain it.
+    """
+    from flaskr.service.learn.agent.engine.interaction import (
+        InteractionAnswer,
+        normalize_answer,
+    )
+
+    spec = _spec(
+        type="single",
+        prompt="p",
+        options=[Option(display="Yes, please", value="yes")],
+        variable="answer",
+    )
+    parsed = _parse(legacy_protocol.render_interaction(spec))
+    submitted = parsed["buttons"][0]["display"]
+
+    assert normalize_answer(spec, InteractionAnswer(values=[submitted])).values == [
+        "yes"
     ]
-    assert parsed.extract_variables() == expected_variables
+
+
+# --- what the grammar cannot carry -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("spec_kwargs", "why"),
+    [
+        pytest.param(
+            {
+                "type": "single",
+                "prompt": "p",
+                "options": [Option(display="A | B")],
+                "variable": "v",
+            },
+            "a bar splits one choice into two",
+            id="bar-in-display",
+        ),
+        pytest.param(
+            {
+                "type": "single",
+                "prompt": "p",
+                "options": [Option(display="A//B")],
+                "variable": "v",
+            },
+            "a double slash gives half the display away to the stored value",
+            id="slashes-in-display",
+        ),
+        pytest.param(
+            {
+                "type": "single",
+                "prompt": "p",
+                "options": [Option(display="A]B")],
+                "variable": "v",
+            },
+            "a bracket ends the interaction early",
+            id="bracket-in-display",
+        ),
+        pytest.param(
+            {
+                "type": "single",
+                "prompt": "p",
+                "options": [Option(display="A...B")],
+                "variable": "v",
+            },
+            "an ellipsis turns the rest into a text box",
+            id="ellipsis-in-display",
+        ),
+        pytest.param(
+            {
+                "type": "single",
+                "prompt": "p",
+                "options": [Option(display=" A ")],
+                "variable": "v",
+            },
+            "the grammar drops surrounding spaces, and the engine matches the untrimmed string",
+            id="padded-display",
+        ),
+    ],
+)
+def test_an_interaction_the_grammar_would_reshape_is_refused(
+    spec_kwargs: dict, why: str
+) -> None:
+    """Rendering it approximately gives the learner controls the engine will not accept."""
+    with pytest.raises(legacy_protocol.UnrepresentableInteractionError):
+        legacy_protocol.render_interaction(_spec(**spec_kwargs))
+    assert why  # documents the case
+
+
+def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -> None:
+    """The caller decides how to degrade; silently sending broken controls is not an option."""
+    with pytest.raises(legacy_protocol.UnrepresentableInteractionError):
+        _translate(
+            InteractionRequest(
+                id="i1",
+                spec=_spec(
+                    type="single",
+                    prompt="q",
+                    options=[Option(display="A | B")],
+                    variable="v",
+                ),
+            )
+        )

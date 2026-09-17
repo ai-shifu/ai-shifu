@@ -7,7 +7,8 @@ payload is what lets a 2.0 lesson reach the existing frontend without changing a
 
 Interactions translate back into MarkdownFlow's own `?[...]` syntax, because that is what 1.0 puts
 on the wire and what the frontend parses. The engine took that syntax apart into an
-`InteractionSpec` to show the model a typed tool; this puts it back together.
+`InteractionSpec` to show the model a typed tool; this puts it back together -- and then parses its
+own output to prove the meaning survived, because that grammar cannot express every string.
 
 Two kinds of event deliberately translate to nothing:
 
@@ -52,21 +53,33 @@ _MULTI_CHOICE_TYPES = frozenset({"multi", "multi_or_text"})
 _FREE_TEXT_TYPES = frozenset({"text", "single_or_text", "multi_or_text"})
 
 
-def _render_option(option: Option) -> str:
-    """Render one choice, keeping a stored value distinct from the text the learner reads."""
-    display = option.display.strip()
-    value = (option.value or "").strip()
-    if value and value != display:
-        return f"{display}{_DISPLAY_VALUE_SEPARATOR}{value}"
-    return display
+class UnrepresentableInteractionError(Exception):
+    """An interaction that MarkdownFlow cannot carry without changing what it asks.
 
+    The grammar has no escape sequence, so option text carrying its delimiters reshapes the
+    controls: a display holding `|` becomes two choices, one holding `//` loses half of itself to
+    the stored value, one holding `...` turns the rest into a text box, and `]` ends the
+    interaction early. Leading and trailing spaces disappear as well, which matters because the
+    engine matches a submitted answer against the option string it was given, unmodified.
 
-def render_interaction(spec: InteractionSpec) -> str:
-    """Rebuild the MarkdownFlow interaction the frontend expects from the engine's typed spec.
-
-    The variable prefix is emitted only when the script named one to store the answer under; a
-    confirm carries none by construction, since pressing continue is not an answer.
+    Raised rather than rendered approximately: a learner answering controls that no longer match
+    what the model asked produces an answer the engine will reject, and neither of them can see
+    why. The caller decides what to do instead -- asking in plain text is one option.
     """
+
+
+def _render_option(option: Option) -> str:
+    """Render one choice, keeping a stored value distinct from the text the learner reads.
+
+    The value is written whenever the spec carries one, including an empty string: `stored` on the
+    spec returns exactly that, so omitting it would silently store the display instead.
+    """
+    if option.value is None:
+        return option.display
+    return f"{option.display}{_DISPLAY_VALUE_SEPARATOR}{option.value}"
+
+
+def _compose(spec: InteractionSpec) -> str:
     separator = (
         _MULTI_CHOICE_SEPARATOR
         if spec.type in _MULTI_CHOICE_TYPES
@@ -74,11 +87,64 @@ def render_interaction(spec: InteractionSpec) -> str:
     )
     parts = [_render_option(option) for option in spec.options]
     if spec.type in _FREE_TEXT_TYPES:
-        parts.append(f"{_FREE_TEXT_MARKER}{(spec.placeholder or '').strip()}")
+        parts.append(f"{_FREE_TEXT_MARKER}{spec.placeholder or ''}")
 
-    variable = (spec.variable or "").strip()
-    prefix = f"%{{{{{variable}}}}} " if variable else ""
+    prefix = f"%{{{{{spec.variable}}}}} " if spec.variable else ""
     return f"?[{prefix}{separator.join(parts)}]"
+
+
+def _verify_round_trip(spec: InteractionSpec, rendered: str) -> None:
+    """Parse what was just rendered and require it to still ask the same thing.
+
+    Checking against the parser the 1.0 path uses beats enumerating dangerous characters: it
+    catches the delimiters, the whitespace the grammar drops, and whatever else the grammar does
+    that this module does not know about.
+    """
+    from markdown_flow import InteractionParser
+
+    parsed = InteractionParser().parse(rendered)
+    if not parsed or parsed.get("type") is None:
+        message = f"MarkdownFlow cannot parse {rendered!r}"
+        raise UnrepresentableInteractionError(message)
+
+    buttons = parsed.get("buttons") or []
+    round_tripped = [(b.get("display"), b.get("value")) for b in buttons]
+    expected = [(option.display, option.stored) for option in spec.options]
+    if round_tripped != expected:
+        message = f"options survive as {round_tripped!r}, not {expected!r}"
+        raise UnrepresentableInteractionError(message)
+
+    if parsed.get("variable") != spec.variable and (
+        spec.variable or parsed.get("variable")
+    ):
+        message = (
+            f"variable survives as {parsed.get('variable')!r}, not {spec.variable!r}"
+        )
+        raise UnrepresentableInteractionError(message)
+
+    if spec.type in _FREE_TEXT_TYPES:
+        placeholder = parsed.get("question")
+        if (placeholder or "") != (spec.placeholder or ""):
+            message = (
+                f"placeholder survives as {placeholder!r}, not {spec.placeholder!r}"
+            )
+            raise UnrepresentableInteractionError(message)
+
+    if bool(parsed.get("is_multi_select")) != (spec.type in _MULTI_CHOICE_TYPES):
+        message = f"{rendered!r} does not preserve how many answers are allowed"
+        raise UnrepresentableInteractionError(message)
+
+
+def render_interaction(spec: InteractionSpec) -> str:
+    """Rebuild the MarkdownFlow interaction the frontend expects from the engine's typed spec.
+
+    Raises `UnrepresentableInteractionError` when the result would ask something other than the spec
+    does. The variable prefix is emitted only when the script named one to store the answer under;
+    a confirm carries none by construction, since pressing continue is not an answer.
+    """
+    rendered = _compose(spec)
+    _verify_round_trip(spec, rendered)
+    return rendered
 
 
 def translate(
@@ -141,29 +207,32 @@ def translate(
         ]
 
     if isinstance(event, TurnDone):
-        # A turn that stopped to ask something is not the end of the lesson: the interaction event
-        # already told the frontend to wait, and announcing "done" here would let it move on.
+        # A turn that stopped to ask something is not a boundary at all: the interaction event
+        # already told the frontend to wait.
         if event.reason == "interaction":
             return []
+        # `end` means this turn ran out of content, not that the lesson is over -- the model often
+        # never calls `finish`, and the host decides from the script whether anything remains. The
+        # element adapter marks DONE terminal and the browser closes the stream on it, so only a
+        # finished lesson may use it; BREAK is the boundary a lesson can continue past.
         return [
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
-                type=GeneratedType.DONE,
+                type=(
+                    GeneratedType.DONE
+                    if event.reason == "finished"
+                    else GeneratedType.BREAK
+                ),
                 content="",
             )
         ]
 
     if isinstance(event, ErrorEvent):
-        # 1.0 has no error event of its own; a failed run ends the stream. Closing the turn keeps
-        # the frontend from waiting forever, and the host logs and decides whether to retry.
-        return [
-            RunMarkdownFlowDTO(
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
-                type=GeneratedType.DONE,
-                content="",
-            )
-        ]
+        # Nothing: 1.0 has no error event, and its DONE is read by the browser as terminal
+        # *success* -- it clears the failed flag and closes the stream. Reporting a failure that
+        # way would be worse than silence. The host ends the request without a terminal event, so
+        # the browser keeps the failure it already recorded.
+        return []
 
     return []
