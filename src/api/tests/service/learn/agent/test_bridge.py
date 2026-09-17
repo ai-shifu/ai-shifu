@@ -42,8 +42,10 @@ def test_an_event_is_not_held_for_a_whole_heartbeat() -> None:
     elapsed = time.monotonic() - started
 
     assert out == ["tick", "tick", "tick"]
-    # Three 50ms gaps. A heartbeat-paced poll would make this at least 1.5s.
-    assert elapsed < 0.8, elapsed
+    # Three 50ms gaps, so ~0.15s of real work; a heartbeat-paced poll would make this at least
+    # 1.5s. The bound sits between the two rather than close to the floor: this detects a tenfold
+    # regression, and a tight one would only go red when the machine is busy.
+    assert elapsed < 1.0, elapsed
 
 
 def test_a_heartbeat_is_emitted_while_the_model_is_quiet() -> None:
@@ -231,3 +233,113 @@ def test_a_real_engine_turn_runs_through_the_bridge() -> None:
     assert request.spec.variable == "feeling"
     assert isinstance(events[-1], TurnDone)
     assert events[-1].reason == "interaction"
+
+
+# -- review follow-up --------------------------------------------------------------------
+
+
+def test_a_turn_parked_on_the_model_is_cancelled_not_merely_asked_to_stop() -> None:
+    """The producer thread has to come back, or enough abandoned turns exhaust the pool.
+
+    `async for` only comes back around when the next event arrives, so a stop flag alone never
+    reaches a turn waiting on a provider that does not answer.
+    """
+    state = {"closed": False}
+
+    async def events() -> AsyncIterator[str]:
+        try:
+            yield "first"
+            await asyncio.sleep(30)  # a provider that never answers
+            yield "never"
+        finally:
+            state["closed"] = True
+
+    stream = bridge.iter_turn(events)
+    assert next(stream) == "first"
+    started = time.monotonic()
+    stream.close()
+    elapsed = time.monotonic() - started
+
+    # Cancellation reaches it, so this does not sit out the full producer-exit timeout.
+    assert elapsed < bridge.PRODUCER_EXIT_TIMEOUT, elapsed
+    deadline = time.monotonic() + 3
+    while not state["closed"] and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert state["closed"] is True
+
+
+def test_a_slow_consumer_does_not_let_events_pile_up_without_limit() -> None:
+    """`SimpleQueue` is unbounded, so the producer has to back off on its own."""
+    produced = {"n": 0}
+
+    async def events() -> AsyncIterator[int]:
+        while True:
+            produced["n"] += 1
+            yield produced["n"]
+            await asyncio.sleep(0)
+
+    stream = bridge.iter_turn(events)
+    assert next(stream) == 1
+    time.sleep(0.4)  # the consumer stalls, as a slow client makes it
+
+    # Without back-pressure an unbounded queue would hold many thousands by now.
+    assert produced["n"] <= bridge.BUFFER_LIMIT + 5, produced["n"]
+    stream.close()
+
+
+def test_back_pressure_releases_once_the_consumer_catches_up() -> None:
+    """Backing off must not deadlock a turn that the consumer is still reading."""
+
+    async def events() -> AsyncIterator[int]:
+        for i in range(bridge.BUFFER_LIMIT * 3):
+            yield i
+            await asyncio.sleep(0)
+
+    assert list(bridge.iter_turn(events)) == list(range(bridge.BUFFER_LIMIT * 3))
+
+
+def test_a_full_worker_refuses_a_turn_instead_of_queueing_it() -> None:
+    """`ThreadPool.spawn` waits for a slot, and a request parked there has not started streaming.
+
+    The learner would see a connection that hangs with no content and no error, so admission is
+    refused on the caller's stack where it can become a response.
+    """
+    original = bridge.MAX_TURNS_IN_FLIGHT
+    bridge.MAX_TURNS_IN_FLIGHT = 2
+    running: list[object] = []
+    try:
+
+        async def slow() -> AsyncIterator[str]:
+            yield "started"
+            await asyncio.sleep(5)
+
+        for _ in range(2):
+            stream = bridge.iter_turn(slow)
+            assert next(stream) == "started"
+            running.append(stream)
+
+        with pytest.raises(bridge.TurnCapacityError):
+            bridge.iter_turn(slow)
+    finally:
+        for stream in running:
+            stream.close()
+        bridge.MAX_TURNS_IN_FLIGHT = original
+
+
+def test_a_finished_turn_gives_its_slot_back() -> None:
+    """Otherwise a worker stops accepting turns after it has served MAX_TURNS_IN_FLIGHT of them."""
+    original = bridge.MAX_TURNS_IN_FLIGHT
+    bridge.MAX_TURNS_IN_FLIGHT = 1
+    try:
+
+        async def quick() -> AsyncIterator[str]:
+            yield "done"
+
+        for _ in range(4):
+            assert list(bridge.iter_turn(quick)) == ["done"]
+            deadline = time.monotonic() + 3
+            while bridge._InFlight.count > 0 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            assert bridge._InFlight.count == 0
+    finally:
+        bridge.MAX_TURNS_IN_FLIGHT = original
