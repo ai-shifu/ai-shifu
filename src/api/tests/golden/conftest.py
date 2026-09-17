@@ -142,6 +142,11 @@ def golden_llm(monkeypatch: object) -> None:
     """Patch a deterministic fake LLM into every namespace the /run path uses."""
     import sys
 
+    # The seeded default selection represents a course after the Fast cleanup.
+    # Provider routing is covered separately; golden tests keep output deterministic.
+    monkeypatch.setattr(
+        "flaskr.api.llm.tiers.resolve_tier_model", lambda _tier: "gpt-test"
+    )
     targets = {
         "flaskr.api.llm": (
             ("chat_llm", golden_chat_llm),
@@ -257,6 +262,7 @@ def golden_shifu(app: object) -> object:
             avatar_res_bid="",
             keywords="golden,regression",
             llm="gpt-test",
+            ask_llm_tier="fast",
             llm_temperature=Decimal(0),
             llm_system_prompt="",
             price=Decimal(0),

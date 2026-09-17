@@ -15,6 +15,8 @@ replace models without editing courses. Keep credit multipliers and Live voice.
 - [x] Implement schema, audited cleanup, selection and runtime contracts.
 - [x] Implement localized selectors and analytics.
 - [x] Complete targeted regressions, type checks and the full repository gate.
+- [x] 2026-09-17: Address PR review gaps in operator copy/list paths, field
+  validation, resolver failures and request-scoped migration provenance reads.
 - [ ] Deploy configured mappings and run audited cleanup in the target environment.
 
 ## Surprises & Discoveries
@@ -34,16 +36,28 @@ replace models without editing courses. Keep credit multipliers and Live voice.
   silently normalize missing selections. Unconfigured tiers fail closed.
 - Preserve legacy values when choosing tiers; record actual invocation models
   and selection metadata in usage/Langfuse. Existing rates still bill actual models.
+- Keep summary generation strict after the required cleanup: missing course
+  follow-up selections are configuration errors rather than main-model fallbacks.
+- Preserve migration provenance with one indexed read per Fast course field per
+  request, including cached misses. Outlines and other tiers never need this
+  ledger lookup; non-request jobs retain direct reads. Cleanup precedes traffic.
+- Operator lists carry the current revision tier and display its configured model
+  even when provider routing is unavailable; missing mappings stay empty.
 - Keep real model details off teacher-facing controls; operator/legacy APIs may
   retain them. This is not a network-data secrecy boundary.
 
 ## Outcomes & Retrospective
 
 Implementation and local validation are complete. The related backend suite
-passed 1420 tests (95 skipped); the settings/model-selector Jest suites passed
+passed 1473 tests (95 skipped) after review fixes; the settings/model-selector Jest suites passed
 70 tests. TypeScript, the full lefthook gate, repository harness, architecture
 boundaries and the unit-of-work ratchet passed. Production configuration and
 cleanup execution remain a deployment operation; no production rows were changed.
+
+Review follow-up preserves the approved Fast cleanup contract. The pre-existing
+non-teacher preview admission behavior is outside this tier change and remains
+open in PR #2840. The golden SSE seed now models the post-cleanup Fast follow-up
+selection; recorded JSON/SSE fixtures remain unchanged.
 
 ## Context and Orientation
 
