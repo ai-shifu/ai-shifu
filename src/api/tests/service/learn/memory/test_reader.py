@@ -130,14 +130,47 @@ def test_deleted_and_other_learners_rows_are_ignored(app: object) -> None:
     assert memory.elsewhere == {}
 
 
-def test_a_long_history_is_capped_and_says_so(app: object) -> None:
+def test_answering_the_same_question_many_times_is_not_a_long_read(app: object) -> None:
+    """The cap counts values in force, not history. Six answers to one question are one value."""
     with app.app_context():
         for i in range(6):
             add_value("mood", f"第{i}次", COURSE)
+        memory = load_learner_memory(app, USER, shifu_bid=COURSE, limit=3)
+
+    assert memory.truncated is False
+    assert memory.get("mood") == "第5次"
+
+
+def test_another_courses_history_cannot_crowd_out_a_live_answer(app: object) -> None:
+    """Keep a live answer that a busier course's history would have displaced.
+
+    Raised in review: the newest row for one course is not the newest row overall, so capping raw
+    rows let a course with a long history push another course's current answer out of the query
+    entirely, leaving only `truncated` to hint at it.
+    """
+    with app.app_context():
+        add_value(
+            "goal", "本课程的目标", COURSE
+        )  # oldest row, still the live value here
+        for i in range(30):
+            add_value("mood", f"第{i}次", OTHER)  # a busier course, all newer
+        memory = load_learner_memory(app, USER, shifu_bid=COURSE, limit=10)
+
+    assert memory.get("goal") == "本课程的目标"
+    assert memory.truncated is False
+    assert [e.value for e in memory.elsewhere["mood"]] == ["第29次"]
+
+
+def test_the_cap_applies_to_distinct_values(app: object) -> None:
+    with app.app_context():
+        for i in range(6):
+            add_value(f"key_{i}", f"值{i}", COURSE)
         capped = load_learner_memory(app, USER, shifu_bid=COURSE, limit=3)
         whole = load_learner_memory(app, USER, shifu_bid=COURSE, limit=100)
 
     assert capped.truncated is True
+    assert len(capped.entries) == 3
     assert whole.truncated is False
-    # Newest first, so a cap drops old history rather than the live value.
-    assert capped.get("mood") == "第5次"
+    assert len(whole.entries) == 6
+    # Newest first, so a cap drops the oldest values rather than the most recent ones.
+    assert set(capped.entries) == {"key_3", "key_4", "key_5"}

@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
+from flaskr.dao import db
 from flaskr.service.profile.models import VariableValue
+from sqlalchemy import func, select
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -24,8 +26,11 @@ ENTITY_OWNED_KEYS = frozenset(
 )
 
 DEFAULT_ROW_LIMIT = 2000
-"""A cap on rows read per learner. The table is append-only and has no composite index, so a
-long-running learner can accumulate thousands; newest first means a cap loses only old history."""
+"""A cap on how many distinct `(scope, key)` values are read for one learner.
+
+The cap is applied *after* collapsing each scope and key to its newest row, never before: the
+newest row for one course is not the newest row overall, so capping raw rows would let a course
+with a long history push another course's still-current answer out of the result entirely."""
 
 Scope = Literal["course", "global"]
 
@@ -112,11 +117,20 @@ def load_learner_memory(
     because their rows here are write-only compatibility data and can disagree with the lesson.
     """
     _ = app  # the session comes from the app context; kept for call-site symmetry
-    rows: list[VariableValue] = (
-        VariableValue.query.filter(
+    # One row per (scope, key): the newest, which is the one in force. Collapsing in the database
+    # is what makes the cap safe -- it then counts live values rather than history, so a course
+    # the learner has answered many times cannot crowd out another course's current answer.
+    live_ids = (
+        db.session.query(func.max(VariableValue.id))
+        .filter(
             VariableValue.user_bid == user_bid,
             VariableValue.deleted == 0,
         )
+        .group_by(VariableValue.shifu_bid, VariableValue.key)
+        .subquery()
+    )
+    rows: list[VariableValue] = (
+        VariableValue.query.filter(VariableValue.id.in_(select(live_ids)))
         .order_by(VariableValue.id.desc())
         .limit(limit + 1)
         .all()
@@ -129,7 +143,7 @@ def load_learner_memory(
     elsewhere: dict[str, list[MemoryEntry]] = {}
     seen_elsewhere: set[tuple[str, str]] = set()
 
-    # Rows arrive newest first, so the first one seen for a (scope, key) is the live one.
+    # Each (scope, key) is already collapsed to its live row, newest scope first.
     for row in rows:
         if not row.key or (row.key in ENTITY_OWNED_KEYS and not include_entity_owned):
             continue
