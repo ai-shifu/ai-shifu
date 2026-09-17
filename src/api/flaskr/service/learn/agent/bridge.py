@@ -43,6 +43,10 @@ if TYPE_CHECKING:
 POLL_INTERVAL = 0.01
 # One pool per worker process, sized to the number of engine turns that worker may run at once.
 GEVENT_POOL_SIZE = 64
+# How many events may sit unread before the producer waits. A streaming client that reads slowly
+# pauses the consumer between events, and without a ceiling a fast turn would keep queueing into
+# memory for as long as it runs.
+BUFFER_LIMIT = 64
 # How long to wait for the producer to notice a stop request before giving up on it.
 PRODUCER_EXIT_TIMEOUT = 2.0
 
@@ -106,6 +110,9 @@ class TurnStream:
     stop: _Stop = field(default_factory=_Stop)
     is_running: Callable[[], bool] | None = None
     error: BaseException | None = None
+    # Set once the producer's loop and task exist, so the consumer can interrupt a turn that is
+    # waiting on the model rather than only asking it to stop at its next event.
+    cancel: Callable[[], None] | None = None
 
 
 _DONE = object()
@@ -135,9 +142,20 @@ def iter_turn(
             async def pump() -> None:
                 try:
                     async for event in agen:
-                        stream.events.put(event)
+                        # Back off while the consumer is behind. `asyncio.sleep` runs on this
+                        # producer's own loop, so the wait needs none of gevent's primitives, and
+                        # it gives the turn somewhere to notice a stop request.
+
+                        # waited for here changes on the consumer's OS thread, and an
+                        # `asyncio.Event` is not safe to set from one.
+                        while (  # noqa: ASYNC110
+                            stream.events.qsize() >= BUFFER_LIMIT
+                            and not stream.stop.requested
+                        ):
+                            await asyncio.sleep(POLL_INTERVAL)
                         if stream.stop.requested:
                             break
+                        stream.events.put(event)
                 finally:
                     # Unwind the engine and whatever it holds open -- the gateway's stream, and the
                     # provider connection under that -- before the loop goes away.
@@ -145,7 +163,16 @@ def iter_turn(
                     if aclose is not None:
                         await aclose()
 
-            loop.run_until_complete(pump())
+            task = loop.create_task(pump())
+            # Cancelling through the loop is what reaches a turn parked on the model. Asking it to
+            # stop is not enough by itself: `async for` only comes back around when the next event
+            # arrives, so a turn awaiting a provider that never answers would hold its thread.
+            stream.cancel = lambda: loop.call_soon_threadsafe(task.cancel)
+            if stream.stop.requested:
+                task.cancel()
+            loop.run_until_complete(task)
+        except asyncio.CancelledError:
+            pass  # the consumer walked away; the generator was closed on the way out
         except (
             BaseException
         ) as exc:  # reported to the consumer, which decides what to do
@@ -183,16 +210,30 @@ def iter_turn(
             yield event
     finally:
         stream.stop.requested = True
+        _request_cancel(stream)
         _drain_until_stopped(stream)
     if stream.error is not None:
         raise stream.error
 
 
+def _request_cancel(stream: TurnStream) -> None:
+    """Interrupt a turn still waiting on the model, if there is one left to interrupt.
+
+    A turn that finished on its own has already closed its loop, and scheduling onto a closed loop
+    raises; there is nothing to cancel in that case anyway.
+    """
+    if stream.cancel is None or stream.is_running is None or not stream.is_running():
+        return
+    with contextlib.suppress(RuntimeError):
+        stream.cancel()
+
+
 def _drain_until_stopped(stream: TurnStream) -> None:
     """Let the producer notice the stop request and unwind, without blocking the hub.
 
-    The queue is drained while waiting: a producer parked on `put` into a full queue would never
-    reach its own cleanup. Waiting is bounded -- a wedged producer must not hold the request open.
+    The queue is drained while waiting, so a producer backing off on a full buffer sees room and can
+    reach its own cleanup. Waiting is bounded: a turn blocked inside a synchronous provider read
+    cannot be interrupted until that read returns, and must not hold the request open meanwhile.
     """
     if stream.is_running is None:
         return
