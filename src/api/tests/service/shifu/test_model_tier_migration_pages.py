@@ -15,12 +15,29 @@ def test_cleanup_pages_without_skipping_rows_or_partial_commits(
     app: object, monkeypatch: pytest.MonkeyPatch, fail_last_page: bool
 ) -> None:
     monkeypatch.setattr(migration, "_MIGRATION_PAGE_SIZE", 2)
+    audit_batch = uuid4().hex
+    monkeypatch.setattr(migration, "generate_id", lambda _app: audit_batch)
     with app.app_context():
         with unit_of_work():
             rows = [
                 DraftShifu(shifu_bid=uuid4().hex, llm="", ask_llm="") for _ in range(5)
             ]
             db.session.add_all(rows)
+            db.session.flush()
+            # The shared SQLite suite can reuse course IDs after other tests
+            # delete courses without deleting their historical audit ledger.
+            db.session.add_all(
+                [
+                    ModelTierMigrationAudit(
+                        batch_bid=uuid4().hex,
+                        table_name=DraftShifu.__tablename__,
+                        row_id=row.id,
+                        field_name="llm_tier",
+                        new_tier="fast",
+                    )
+                    for row in rows[:3]
+                ]
+            )
         row_ids = [row.id for row in rows]
         queries = []
 
@@ -78,6 +95,7 @@ def test_cleanup_pages_without_skipping_rows_or_partial_commits(
             assert row.llm_tier == (None if fail_last_page else "fast")
             assert row.ask_llm_tier == (None if fail_last_page else "fast")
         assert ModelTierMigrationAudit.query.filter(
+            ModelTierMigrationAudit.batch_bid == audit_batch,
             ModelTierMigrationAudit.table_name == DraftShifu.__tablename__,
             ModelTierMigrationAudit.row_id.in_(row_ids),
         ).count() == (0 if fail_last_page else 10)

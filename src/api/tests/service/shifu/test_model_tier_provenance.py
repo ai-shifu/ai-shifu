@@ -6,7 +6,12 @@ from flaskr.api.llm.tiers import selection_metadata
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.shifu.model_tier_migration import migrate_default_model_tiers
-from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, PublishedShifu
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    ModelTierMigrationAudit,
+    PublishedShifu,
+)
 from sqlalchemy import event
 
 
@@ -21,6 +26,14 @@ def test_provenance_queries_once_per_course_field_and_request(app: object) -> No
             )
             other_tier = DraftShifu(shifu_bid=uuid4().hex, llm_tier="ultimate")
             db.session.add_all([migrated, selected, outline, other_tier])
+            db.session.flush()
+            # This case requires a cache miss. SQLite row IDs may have been
+            # reused after another test deleted courses but kept audit rows.
+            ModelTierMigrationAudit.query.filter_by(
+                table_name=DraftShifu.__tablename__,
+                row_id=selected.id,
+                field_name="llm_tier",
+            ).delete(synchronize_session=False)
         result = migrate_default_model_tiers(app, apply=True)
         db.session.expire_all()
         queries = []
