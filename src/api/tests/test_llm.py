@@ -3119,3 +3119,156 @@ def test_chat_llm_forwards_tools_to_litellm(monkeypatch: object, app: object) ->
         )
     assert seen.get("tools") == tools
     assert "emit_tool_calls" not in seen
+
+
+def test_only_one_chunk_claims_to_end_the_stream(
+    monkeypatch: object, app: object
+) -> None:
+    """Keep exactly one end marker on the stream.
+
+    The usage frame trails the one carrying the finish reason, so a caller that stops at the
+    first `is_end` would otherwise never see the token counts it is waiting for.
+    """
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda *_a, **_k: iter(_tool_call_stream())
+    )
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert sum(1 for c in chunks if c.is_end) == 1
+    assert chunks[-1].usage is not None, "usage is the last thing on the stream"
+    assert chunks[-1].is_end is False
+
+
+class _FakeStreamDropError(Exception):
+    """Stand in for the connection-level failure the retry helper is meant to absorb."""
+
+
+def test_a_tool_call_already_sent_stops_the_retry(
+    monkeypatch: object, app: object
+) -> None:
+    """Do not reissue a request whose tool fragments already reached the caller.
+
+    The stream retry is safe only while nothing user-visible has been handed over. Replaying
+    afterwards would deliver the same arguments twice and could run one tool call as two.
+    """
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm, "_retryable_stream_error_types", lambda: (_FakeStreamDropError,)
+    )
+    attempts = {"n": 0}
+
+    def flaky(*_a: object, **_k: object) -> object:
+        attempts["n"] += 1
+
+        def stream() -> object:
+            yield FakeResponse(
+                "c1",
+                tool_calls=[_tool_call_chunk(0, "call_1", "interact", '{"type":')],
+            )
+            raise _FakeStreamDropError
+
+        return stream()
+
+    monkeypatch.setattr(llm.litellm, "completion", flaky)
+    with app.app_context(), pytest.raises(_FakeStreamDropError):
+        list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert attempts["n"] == 1, (
+        "the request must not be reissued after fragments were sent"
+    )
+
+
+def test_the_retry_still_runs_when_only_tool_calls_were_asked_for_but_none_sent(
+    monkeypatch: object, app: object
+) -> None:
+    """Failing before anything reached the caller is still safe to retry."""
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm, "_retryable_stream_error_types", lambda: (_FakeStreamDropError,)
+    )
+    attempts = {"n": 0}
+
+    def flaky(*_a: object, **_k: object) -> object:
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+
+            def failing() -> object:
+                raise _FakeStreamDropError
+                yield  # pragma: no cover - generator marker
+
+            return failing()
+        return iter(_tool_call_stream())
+
+    monkeypatch.setattr(llm.litellm, "completion", flaky)
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert attempts["n"] == 2
+    assert [d["name"] for c in chunks for d in c.tool_call_deltas] == ["interact", None]
+
+
+def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
+    monkeypatch: object, app: object
+) -> None:
+    """Absorb the repeated-chunk fault for a turn that produced only tool calls.
+
+    litellm's fault is tolerated when part of the answer already arrived, and a tool-calling turn
+    can be entirely tool calls, so text alone is the wrong test for that.
+    """
+    _use_fake_provider(monkeypatch)
+
+    def repeating(*_a: object, **_k: object) -> object:
+        def stream() -> object:
+            yield FakeResponse(
+                "c1",
+                tool_calls=[
+                    _tool_call_chunk(0, "call_1", "interact", '{"type": "confirm"}')
+                ],
+            )
+            msg = "Repeated chunk detected"
+            raise llm.litellm.APIError(msg)
+
+        return stream()
+
+    monkeypatch.setattr(llm.litellm, "completion", repeating)
+    monkeypatch.setattr(
+        llm, "_is_litellm_repeated_stream_chunk_error", lambda _exc: True
+    )
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert [d["name"] for c in chunks for d in c.tool_call_deltas] == ["interact"]

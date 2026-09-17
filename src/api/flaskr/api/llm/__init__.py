@@ -530,6 +530,8 @@ def _iter_stream_with_precontent_retry(
     messages: list,
     params: dict,
     kwargs: dict,
+    *,
+    tool_calls_are_output: bool = False,
 ) -> Generator[ModelResponseStream, None, None]:
     """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
 
@@ -541,6 +543,10 @@ def _iter_stream_with_precontent_retry(
     buffered until the attempt produces content or completes, so reasoning
     from an abandoned attempt does not leak into Langfuse. Once content
     flowed, the error is re-raised unchanged.
+
+    `tool_calls_are_output` extends "content" to tool-call fragments. A caller reading those
+    (`chat_llm(..., emit_tool_calls=True)`) has already been handed them, so replaying the request
+    would deliver the same arguments twice and could run one tool call as two.
     """
     attempts = 0
     while True:
@@ -558,6 +564,8 @@ def _iter_stream_with_precontent_retry(
             for res in response:
                 has_choices = bool(len(res.choices))
                 has_content = bool(has_choices and res.choices[0].delta.content)
+                if tool_calls_are_output and has_choices and not has_content:
+                    has_content = bool(_extract_tool_call_deltas(res.choices[0].delta))
                 has_reasoning = bool(
                     has_choices and _extract_reasoning_delta(res.choices[0].delta)
                 )
@@ -1470,6 +1478,7 @@ def chat_llm(
             messages,
             params,
             kwargs,
+            tool_calls_are_output=emit_tool_calls,
         )
         try:
             for res in response:
@@ -1512,11 +1521,13 @@ def chat_llm(
                         "total": res_usage.total_tokens,
                     }
                     if emit_tool_calls:
-                        # A tool-calling caller needs the token counts too, and they only arrive
-                        # on the final chunk, after the last content has been yielded.
+                        # Token counts only arrive on the final frame, which carries no text and
+                        # would otherwise be dropped. It trails the chunk that reported the finish
+                        # reason, so it must not claim to be the end as well: a caller that stops
+                        # at the first `is_end` would then never see the usage it is waiting for.
                         yield LLMStreamResponse(
                             res.id,
-                            is_end=True,
+                            is_end=False,
                             is_truncated=False,
                             result="",
                             finish_reason=finish_reason,
@@ -1527,12 +1538,16 @@ def chat_llm(
                             },
                         )
         except Exception as exc:
-            if not (_is_litellm_repeated_stream_chunk_error(exc) and response_text):
+            # A tool-calling turn can be entirely tool calls, so text alone is the wrong test for
+            # "something already reached the caller".
+            partial = response_text or (tool_call_text if emit_tool_calls else "")
+            if not (_is_litellm_repeated_stream_chunk_error(exc) and partial):
                 raise
             app.logger.warning(
-                "LiteLLM repeated streaming chunk detected; ending stream with partial response | model=%s | response_chars=%s | error=%s",
+                "LiteLLM repeated streaming chunk detected; ending stream with partial response | model=%s | response_chars=%s | tool_call_chars=%s | error=%s",
                 invoke_model,
                 len(response_text),
+                len(tool_call_text),
                 exc,
             )
     else:
