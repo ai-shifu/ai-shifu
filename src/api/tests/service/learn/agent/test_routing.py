@@ -19,6 +19,8 @@ from flaskr.service.learn.agent import routing
         pytest.param(["one", " two "], frozenset({"one", "two"}), id="already-a-list"),
         pytest.param("one,one", frozenset({"one"}), id="duplicates"),
         pytest.param(42, frozenset(), id="wrong-type"),
+        pytest.param({"one": "x"}, frozenset(), id="mapping-keys-are-not-an-allowlist"),
+        pytest.param(("one",), frozenset(), id="tuple-is-not-a-documented-shape"),
     ],
 )
 def test_the_allowlist_is_read_from_either_shape_the_config_layer_returns(
@@ -61,6 +63,25 @@ def test_a_malformed_allowlist_keeps_every_course_on_the_script_engine(
     """Routing a learner into a runtime nobody chose is worse than ignoring a typo."""
     _with_allowlist(monkeypatch, {"unexpected": "shape"})
     assert routing.uses_agent_engine("shifu-a") is False
+
+
+def test_a_mapping_does_not_turn_its_own_keys_into_an_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A mapping is iterable, so iterating one would admit exactly the course it names."""
+    _with_allowlist(monkeypatch, {"shifu-a": "unexpected"})
+    assert routing.uses_agent_engine("shifu-a") is False
+
+
+def test_the_allowlist_never_falls_back_to_shared_database_configuration() -> None:
+    """The service-level helper reads sys_configs, which both deployments share.
+
+    Reading it here would let one row route production into 2.0 with its own variable unset, which
+    is the failure this module exists to avoid.
+    """
+    import flaskr.common.config as common_config
+
+    assert routing.get_config is common_config.get_config
 
 
 @pytest.mark.parametrize(
