@@ -807,3 +807,54 @@ def test_copy_course_rejects_invalid_live_provider_contract(
 
     with app.app_context():
         assert DraftShifu.query.count() == draft_count_before
+
+
+@pytest.mark.parametrize("selection_scope", ["course", "outline", "both"])
+def test_copy_course_preserves_text_tiers_over_retained_live_models(
+    app: object, selection_scope: str
+) -> None:
+    """Inactive Live identities must not reject a valid text-provider copy."""
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    owner_email = _unique_email("tier-copy-owner")
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
+        UserEntity.query.filter_by(user_bid=creator_bid).one().is_creator = 1
+        _seed_course_with_outlines(
+            app, shifu_bid=shifu_bid, creator_user_bid=creator_bid
+        )
+        source = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        outlines = DraftOutlineItem.query.filter_by(shifu_bid=shifu_bid).all()
+        selected = ([source] if selection_scope in {"course", "both"} else []) + (
+            outlines if selection_scope in {"outline", "both"} else []
+        )
+        for row in selected:
+            row.llm = GEMINI_LIVE_MODEL_ID
+            row.ask_llm = GEMINI_LIVE_MODEL_ID
+            row.llm_tier = "ultimate"
+            row.ask_llm_tier = "fast"
+        source.ask_provider_config = json.dumps(
+            {"provider": "dify", "mode": "provider_only", "config": {}}
+        )
+        db.session.commit()
+
+        result = copy_operator_course(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=owner_email,
+            operator_user_bid=SOURCE_OPERATOR_BID,
+        )
+        copied = DraftShifu.query.filter_by(shifu_bid=result["new_shifu_bid"]).one()
+        copied_outlines = DraftOutlineItem.query.filter_by(
+            shifu_bid=result["new_shifu_bid"]
+        ).all()
+        assert json.loads(copied.ask_provider_config)["provider"] == "dify"
+        selected_copies = (
+            [copied] if selection_scope in {"course", "both"} else []
+        ) + (copied_outlines if selection_scope in {"outline", "both"} else [])
+        for row in selected_copies:
+            assert row.llm_tier == "ultimate"
+            assert row.ask_llm_tier == "fast"
+            assert row.llm == GEMINI_LIVE_MODEL_ID
+            assert row.ask_llm == GEMINI_LIVE_MODEL_ID
