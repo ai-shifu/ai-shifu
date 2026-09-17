@@ -73,10 +73,9 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         route_entries=(
             ("POST", "/orders/{bill_order_bid}/sync"),
             ("POST", "/orders/{bill_order_bid}/checkout"),
-            ("POST", "/orders/{bill_order_bid}/refund"),
             ("POST", "/topups/checkout"),
         ),
-        notes=("Creator sync, refund, and topup flows stay enabled.",),
+        notes=("Creator sync, checkout, and topup flows stay enabled.",),
     ),
     BillingCapabilityDefinition(
         key="admin_subscriptions",
