@@ -681,3 +681,55 @@ def test_summary_is_skipped_when_the_course_is_republished_mid_generation(
             ASK_MODE_DEFAULT,
             ASK_MODE_DEFAULT,
         ]
+
+
+def test_publish_carries_the_flow_engine_setting_to_the_published_row(
+    app: object, monkeypatch: object
+) -> None:
+    """Learners run the published row, so an author switching runtime must see it take effect.
+
+    Without the copy the setting would sit in the draft looking correct while every learner kept
+    getting the old runtime, which is the kind of failure nobody reports as a bug.
+    """
+    from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.service.shifu.consts import FLOW_ENGINE_V2
+
+    monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *_args: None)
+    bid = "publish-carries-flow-engine"
+
+    with app.app_context():
+        draft = DraftShifu(
+            shifu_bid=bid,
+            title="Draft",
+            description="Desc",
+            keywords="a",
+            flow_engine=FLOW_ENGINE_V2,
+        )
+        outline = DraftOutlineItem(
+            outline_item_bid=f"{bid}-lesson",
+            shifu_bid=bid,
+            title="Lesson",
+            position="1",
+            type=401,
+            hidden=0,
+            content="# Lesson",
+        )
+        db.session.add_all([draft, outline])
+        db.session.commit()
+
+    module.publish_shifu_draft(
+        app,
+        user_id="user-1",
+        shifu_id=bid,
+        base_url="https://example.com",
+        sync_summary=True,
+    )
+
+    with app.app_context():
+        published = (
+            PublishedShifu.query.filter_by(shifu_bid=bid)
+            .order_by(PublishedShifu.id.desc())
+            .first()
+        )
+        assert published is not None
+        assert published.flow_engine == FLOW_ENGINE_V2
