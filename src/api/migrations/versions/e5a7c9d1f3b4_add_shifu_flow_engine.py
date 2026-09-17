@@ -7,11 +7,16 @@ Create Date: 2026-09-17 17:30:00.000000
 Additive: one column on each of the two shifu tables, defaulting to the 1.0 runtime, so every
 existing course keeps the behaviour it has today.
 
-The ALTER names ALGORITHM=INSTANT rather than relying on MySQL to choose it. Adding a column with a
-default is instant on 8.0, but "usually instant" is not a guarantee: if the conditions ever fail --
-a table that has exhausted its instant-add budget, say -- the server would silently fall back to
-COPY and rebuild a table with tens of thousands of rows while learners are using it. Naming the
-algorithm turns that into a failed migration instead, which is the outcome worth having.
+The ALTER names ALGORITHM=INPLACE, LOCK=NONE rather than letting the server choose. Left to itself
+it would very likely pick something cheap, but "very likely" is not a guarantee: a silent fall back
+to COPY would rebuild tables of 26k and 13k rows while learners are on them. Naming both turns that
+into a failed migration instead, which is the outcome worth having.
+
+LOCK=NONE is the part that matters -- it requires the table to stay readable and writable for the
+whole operation. ALGORITHM=INSTANT would be the stronger claim, but the MySQL build used here
+(8.0.36, "Source distribution") rejects that syntax outright: it has no
+`innodb_instant_alter_column_allowed` variable and returns error 1845 even for a plain add-with-
+default on an empty table. Both dev01 and production run that same build.
 """
 
 from __future__ import annotations
@@ -33,7 +38,7 @@ def upgrade():
             f"ALTER TABLE `{table}` "
             f"ADD COLUMN `flow_engine` SMALLINT NOT NULL DEFAULT 1 "
             f"COMMENT '{_COMMENT}', "
-            f"ALGORITHM=INSTANT"
+            f"ALGORITHM=INPLACE, LOCK=NONE"
         )
 
 
