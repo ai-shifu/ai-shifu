@@ -84,6 +84,7 @@ class OperatorCourseListSeed:
     created_at: datetime | None
     updated_at: datetime | None
     has_course_prompt: bool | None = None
+    llm_tier: str | None = None
 
 
 @dataclass
@@ -105,6 +106,7 @@ class OperatorCourseListCandidate:
     activity_updated_at: datetime | None = None
     activity_updated_user_bid: str = ""
     has_course_prompt: bool | None = None
+    llm_tier: str | None = None
 
 
 def _build_operator_course_list_seed(row: object) -> OperatorCourseListSeed:
@@ -114,6 +116,7 @@ def _build_operator_course_list_seed(row: object) -> OperatorCourseListSeed:
         title=str(row.title or ""),
         price=row.price,
         llm=str(row.llm or ""),
+        llm_tier=getattr(row, "llm_tier", None),
         tts_model=str(getattr(row, "tts_model", "") or ""),
         created_user_bid=str(row.created_user_bid or ""),
         updated_user_bid=str(row.updated_user_bid or ""),
@@ -129,6 +132,7 @@ def _build_operator_course_list_candidate(row: object) -> OperatorCourseListCand
         title=str(row.title or ""),
         price=row.price,
         llm=str(row.llm or ""),
+        llm_tier=getattr(row, "llm_tier", None),
         tts_model=str(getattr(row, "tts_model", "") or ""),
         created_user_bid=str(row.created_user_bid or ""),
         updated_user_bid=str(row.updated_user_bid or ""),
@@ -219,6 +223,7 @@ def _build_latest_operator_course_rows_query(
             latest_nonempty_llm_subquery.c.llm,
             "",
         ).label("llm"),
+        model.llm_tier.label("llm_tier"),
         db.func.coalesce(
             db.func.nullif(model.tts_model, ""),
             latest_nonempty_tts_subquery.c.tts_model,
@@ -405,6 +410,13 @@ def _build_operator_course_candidate_query(
             ),
             else_=db.func.coalesce(published_visible_subquery.c.llm, ""),
         ).label("llm"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.llm_tier,
+            ),
+            else_=published_visible_subquery.c.llm_tier,
+        ).label("llm_tier"),
         case(
             (
                 draft_visible_subquery.c.id.isnot(None),
@@ -758,6 +770,7 @@ def _load_latest_shifus(
             model.title.label("title"),
             model.price.label("price"),
             model.llm.label("llm"),
+            model.llm_tier.label("llm_tier"),
             model.tts_model.label("tts_model"),
             model.created_user_bid.label("created_user_bid"),
             model.updated_user_bid.label("updated_user_bid"),
@@ -810,6 +823,7 @@ def _load_latest_shifu_seeds(
         model.title.label("title"),
         model.price.label("price"),
         model.llm.label("llm"),
+        model.llm_tier.label("llm_tier"),
         model.tts_model.label("tts_model"),
         model.created_user_bid.label("created_user_bid"),
         model.updated_user_bid.label("updated_user_bid"),

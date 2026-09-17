@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import current_app
+from flaskr.service.config import get_config
 from flaskr.service.shifu.admin_dtos_courses import AdminOperationCourseSummaryDTO
 from flaskr.service.shifu.admin_shared import _format_decimal
 
@@ -18,7 +19,12 @@ def build_admin_operation_course_summary(
     resolved_activity = activity or {}
     creator = user_map.get(course.created_user_bid or "", {})
     llm_model = str(course.llm or "").strip()
-    if not llm_model:
+    tier = getattr(course, "llm_tier", None)
+    if tier:
+        # Operators need the configured identity even when its provider is offline.
+        # An unmapped tier must never display a retained legacy/default model.
+        llm_model = str(get_config(f"LLM_TIER_{tier.upper()}_MODEL", "") or "").strip()
+    elif not llm_model:
         llm_model = str(current_app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
     updater_user_bid = str(
         resolved_activity.get("updated_user_bid") or course.updated_user_bid or ""

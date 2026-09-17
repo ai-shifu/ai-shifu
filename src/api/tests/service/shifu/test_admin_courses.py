@@ -1740,6 +1740,7 @@ class FakeMappedModel(FakeModel):
     llm_system_prompt = FakeColumn("llm_system_prompt")
     price = FakeColumn("price")
     llm = FakeColumn("llm")
+    llm_tier = FakeColumn("llm_tier")
     updated_user_bid = FakeColumn("updated_user_bid")
 
 
@@ -1825,3 +1826,60 @@ def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(
     assert len(outer_query.options_calls) == 0
     assert len(outer_query.with_entities_calls) == 1
     assert result[0].shifu_bid == "course-1"
+
+
+@pytest.mark.parametrize("source", ["draft", "published", "draft_over_published"])
+@pytest.mark.parametrize("legacy_model", ["", "retained-old-model"])
+@pytest.mark.parametrize("configured_model", ["mapped-fast-model", ""])
+def test_operator_course_lists_display_current_tier_mapping(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    legacy_model: str,
+    configured_model: str,
+) -> None:
+    """SQL and lightweight projections must preserve the selected revision's tier."""
+    from flaskr.service.shifu import admin_course_summaries, admin_course_summary_mapper
+
+    monkeypatch.setattr(
+        admin_course_summary_mapper,
+        "get_config",
+        lambda key, default="": (
+            configured_model if key == "LLM_TIER_FAST_MODEL" else default
+        ),
+    )
+    bid = uuid.uuid4().hex
+    with app.app_context():
+        model = PublishedShifu if source == "published" else DraftShifu
+        if source == "draft_over_published":
+            db.session.add(
+                PublishedShifu(
+                    shifu_bid=bid,
+                    title="Published",
+                    llm="published-old",
+                    llm_tier="ultimate",
+                )
+            )
+        db.session.add(
+            model(shifu_bid=bid, title="Older", llm="older-model", llm_tier="balanced")
+        )
+        db.session.flush()
+        db.session.add(
+            model(shifu_bid=bid, title="Current", llm=legacy_model, llm_tier="fast")
+        )
+        db.session.commit()
+        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+            result = list_operator_courses(app, 1, 20, {"shifu_bid": bid})
+        assert len(result.items) == 1
+        assert result.items[0].course_name == "Current"
+        assert result.items[0].llm_model == configured_model
+
+        rows = admin_course_summaries._load_latest_courses_by_shifu_bids(
+            model, [bid], lightweight=True
+        )
+        assert len(rows) == 1
+        assert rows[0].llm_tier == "fast"
+        summary = admin_course_summary_mapper.build_admin_operation_course_summary(
+            rows[0], user_map={}, course_status="published"
+        )
+        assert summary.llm_model == configured_model
