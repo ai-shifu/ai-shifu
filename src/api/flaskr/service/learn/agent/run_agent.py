@@ -42,9 +42,11 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     save_agent_session,
 )
+from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 from flaskr.service.learn.memory import (
     MemoryUpdate,
     VariableMemoryUpdate,
+    load_memory,
     stage_memory,
 )
 
@@ -55,23 +57,24 @@ if TYPE_CHECKING:
     from flaskr.service.learn.agent.engine.engine import Engine, TurnInput
     from flaskr.service.learn.agent.engine.events import Event
     from flaskr.service.learn.agent.engine.session import Session
-    from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
 
 
 def _turn_input(session: Session, user_input: str | None) -> TurnInput:
     """Decide what this turn is: a start, an answer, a remark, or simply carrying on.
 
-    A session holding a pending interaction reads any input as its answer, because that is what the
-    learner was asked for. Without one, input is a remark the model should react to, and no input
-    means continue.
+    A session holding a pending interaction answers it, even with nothing: the engine refuses every
+    other turn type while one is pending, so anything else ends the turn with an error and leaves
+    the question unasked. An empty answer is not usable, which makes the engine ask it again --
+    which is what a learner who pressed send on an empty box should see.
+
+    On the first turn the learner's words join the opening prompt, because that is what the engine
+    does with a `MessageTurn` there. Elsewhere, input with nothing pending is a remark to react to.
     """
-    if not session.started:
-        return StartTurn()
     text = (user_input or "").strip()
+    if not session.started:
+        return MessageTurn(text=text) if text else StartTurn()
     if session.pending:
-        if not text:
-            return ContinueTurn()
-        return InteractionResponseTurn(values=[text])
+        return InteractionResponseTurn(values=[text] if text else [])
     if text:
         return MessageTurn(text=text)
     return ContinueTurn()
@@ -82,15 +85,21 @@ def _load_or_start(
     engine: Engine,
     *,
     user_bid: str,
+    shifu_bid: str,
     outline_bid: str,
     script: str,
     listen: bool,
 ) -> Callable[[], Any]:
     """Build the coroutine factory the bridge runs on its producer thread.
 
-    Session loading happens out here because it needs the app context this thread has; creating one
-    happens in there, because the engine builds it and everything the engine touches has to be
-    created on the loop that will drive it.
+    Reading happens out here because it needs the app context this thread has; the session itself
+    is built in there, because everything the engine touches has to be created on the loop that
+    will drive it.
+
+    What the course knows about the learner is read on every turn rather than once at the start.
+    The engine has no memory store to read it for itself, and a stored session carries only the
+    snapshot taken when it was last saved, so an author editing a learner's profile would otherwise
+    never reach the lesson already in progress.
     """
     try:
         stored = load_agent_session(app, user_bid, outline_bid)
@@ -98,11 +107,15 @@ def _load_or_start(
         # Written by code whose sessions this one cannot read. Starting over loses the
         # conversation, which is the point of comparing versions rather than parsing hopefully.
         stored = None
+    user_memory = load_memory(app, user_bid, shifu_bid).as_variables()
 
     async def make_session() -> Session:
         if stored is not None:
+            stored.user_memory = dict(user_memory)
             return stored
-        return await engine.new_session(script, user_id=user_bid, listen_mode=listen)
+        session = await engine.new_session(script, user_id=user_bid, listen_mode=listen)
+        session.user_memory = dict(user_memory)
+        return session
 
     return make_session
 
@@ -132,6 +145,7 @@ def run_agent_lesson(
         app,
         engine,
         user_bid=user_bid,
+        shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         script=script,
         listen=listen,
@@ -181,15 +195,23 @@ def run_agent_lesson(
                 generated_block_bid=generated_block_bid,
             )
         except UnrepresentableInteractionError:
-            # The controls would ask something other than the model did, and an answer to them is
-            # one the engine will reject. Log and carry on: the turn's other events still stand,
-            # and the learner sees the question as text rather than broken controls.
+            # The controls would ask something other than the model did, so they are not sent. The
+            # question still is: `translate` builds it first and loses it with the raise, and a
+            # learner shown neither has nothing to answer while the session keeps waiting for one.
             app.logger.warning(
                 "interaction cannot be rendered as MarkdownFlow: user_bid=%s outline_bid=%s",
                 user_bid,
                 outline_bid,
                 exc_info=True,
             )
+            prompt = getattr(event, "spec", None) and event.spec.prompt
+            if prompt and prompt.strip():
+                yield RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                    type=GeneratedType.CONTENT,
+                    content=prompt,
+                )
 
 
 def _persist(
@@ -207,7 +229,12 @@ def _persist(
     two land together. Ordering them the other way would commit the session and leave the memory
     staged for whoever commits next.
     """
-    if memory:
+    # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
+    # them to the profile would leak a turn's working notes into preview, Ask and follow-up
+    # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
+    # session scope, so this is the common case, not the rare one.
+    durable = [update for update in memory if update.scope == "user"]
+    if durable:
         stage_memory(
             app,
             user_bid,
@@ -218,7 +245,7 @@ def _persist(
                         key=update.key,
                         value="" if update.value is None else str(update.value),
                     )
-                    for update in memory
+                    for update in durable
                 ]
             ),
         )

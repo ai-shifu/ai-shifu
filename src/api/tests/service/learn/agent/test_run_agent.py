@@ -8,6 +8,8 @@ than by checking the end state, which looks identical either way.
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from flaskr.service.learn.agent import run_agent
 from flaskr.service.learn.agent.engine.events import (
@@ -33,6 +35,17 @@ class _Session:
     def __init__(self, *, started: bool = False, pending: list | None = None) -> None:
         self.started = started
         self.pending = pending or []
+        self.user_memory: dict = {}
+
+
+class _Memory:
+    """Stands in for a memory snapshot: the host only projects it to variables."""
+
+    def __init__(self, variables: dict) -> None:
+        self._variables = variables
+
+    def as_variables(self) -> dict:
+        return dict(self._variables)
 
 
 class _Engine:
@@ -83,6 +96,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
     monkeypatch.setattr(run_agent, "stage_memory", _stage)
     monkeypatch.setattr(run_agent, "save_agent_session", _save)
     monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: None)
+    monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
     return recorded
 
 
@@ -142,14 +156,33 @@ def test_input_with_no_question_pending_is_a_remark_to_react_to(calls: list) -> 
     assert calls
 
 
-def test_blank_input_is_not_submitted_as_an_answer(calls: list) -> None:
-    """Whitespace is not an answer, and submitting it would consume the pending question."""
+def test_blank_input_still_answers_the_pending_question_with_nothing(
+    calls: list,
+) -> None:
+    """Blank input answers the pending question with nothing rather than skipping it.
+
+    The engine refuses every other turn type while one is pending, so a continue would end the turn
+    with an error and leave the question unasked. An empty answer is unusable, so the engine asks
+    it again -- which is what pressing send on an empty box should do.
+    """
     engine = _Engine(
         [TurnDone(reason="end")],
         session=_Session(started=True, pending=[object()]),
     )
     _run(engine, user_input="   ")
-    assert engine.turns[0].type == "continue"
+    turn = engine.turns[0]
+    assert turn.type == "interaction.response"
+    assert turn.values == []
+    assert calls
+
+
+def test_a_learner_who_says_something_on_the_first_turn_is_heard(calls: list) -> None:
+    """The engine joins a first-turn message to the opening prompt; a start turn drops it."""
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine, user_input="explain this simply")
+    turn = engine.turns[0]
+    assert turn.type == "message"
+    assert turn.text == "explain this simply"
     assert calls
 
 
@@ -210,10 +243,18 @@ def test_a_memory_write_does_not_reach_the_learner_as_an_event() -> None:
     assert [e.type for e in events] == [GeneratedType.BREAK]
 
 
+class _App:
+    """Only what this module touches on the app: somewhere to log a refused interaction.
+
+    The shared `app` fixture yields None when SKIP_APP_FIXTURE is set, and this path dereferences
+    `app.logger`, so the test would fail on the attribute rather than on the behaviour.
+    """
+
+    logger = logging.getLogger("test_run_agent")
+
+
 @pytest.mark.usefixtures("calls")
-def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn(
-    app: object,
-) -> None:
+def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> None:
     """The rest of the turn still stands; the learner loses the controls, not the lesson."""
     engine = _Engine(
         [
@@ -230,8 +271,13 @@ def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn(
             TurnDone(reason="end"),
         ]
     )
-    events = _run(engine, app=app)
-    assert [e.type for e in events] == [GeneratedType.CONTENT, GeneratedType.BREAK]
+    events = _run(engine, app=_App())
+    assert [e.type for e in events] == [
+        GeneratedType.CONTENT,
+        GeneratedType.CONTENT,
+        GeneratedType.BREAK,
+    ]
+    assert [e.content for e in events[:2]] == ["before", "pick"]
 
 
 # --- when things are written -------------------------------------------------------------
@@ -248,7 +294,10 @@ def test_the_session_is_written_before_the_turn_says_it_is_over(calls: list) -> 
 def test_memory_is_staged_before_the_session_that_commits_it(calls: list) -> None:
     """`stage_memory` does not commit; `save_agent_session` owns the transaction they share."""
     engine = _Engine(
-        [MemoryUpdated(key="name", value="Ada"), TurnDone(reason="finished")]
+        [
+            MemoryUpdated(key="name", value="Ada", scope="user"),
+            TurnDone(reason="finished"),
+        ]
     )
     _run(engine)
     assert [name for name, _ in calls] == ["stage_memory", "save_session"]
@@ -257,8 +306,8 @@ def test_memory_is_staged_before_the_session_that_commits_it(calls: list) -> Non
 def test_every_memory_write_of_a_turn_lands_in_one_patch(calls: list) -> None:
     engine = _Engine(
         [
-            MemoryUpdated(key="a", value="1"),
-            MemoryUpdated(key="b", value="2"),
+            MemoryUpdated(key="a", value="1", scope="user"),
+            MemoryUpdated(key="b", value="2", scope="user"),
             TurnDone(reason="end"),
         ]
     )
@@ -269,7 +318,9 @@ def test_every_memory_write_of_a_turn_lands_in_one_patch(calls: list) -> None:
 
 def test_a_memory_value_is_stored_as_text(calls: list) -> None:
     """The variable writer takes strings; anything else has to be rendered as one."""
-    engine = _Engine([MemoryUpdated(key="n", value=42), TurnDone(reason="end")])
+    engine = _Engine(
+        [MemoryUpdated(key="n", value=42, scope="user"), TurnDone(reason="end")]
+    )
     _run(engine)
     (staged,) = [update for name, update in calls if name == "stage_memory"]
     assert staged.variables[0].value == "42"
@@ -278,7 +329,10 @@ def test_a_memory_value_is_stored_as_text(calls: list) -> None:
 def test_a_failed_turn_still_writes_what_it_produced(calls: list) -> None:
     """The learner said it and the model heard it; losing that would replay a finished exchange."""
     engine = _Engine(
-        [MemoryUpdated(key="name", value="Ada"), ErrorEvent(message="boom")]
+        [
+            MemoryUpdated(key="name", value="Ada", scope="user"),
+            ErrorEvent(message="boom"),
+        ]
     )
     events = _run(engine)
     assert [name for name, _ in calls] == ["stage_memory", "save_session"]
@@ -292,3 +346,71 @@ def test_the_session_is_written_for_the_lesson_the_learner_is_on(calls: list) ->
     assert kwargs["user_bid"] == USER
     assert kwargs["shifu_bid"] == SHIFU
     assert kwargs["outline_item_bid"] == OUTLINE
+
+
+# --- what is worth keeping ---------------------------------------------------------------
+
+
+def test_only_what_outlives_the_session_is_written_to_the_profile(calls: list) -> None:
+    """`remember` defaults to session scope: a turn's working notes are not facts about a learner.
+
+    Writing them through the profile would leak into preview, Ask and follow-up prompts and
+    outlive the session that made sense of them.
+    """
+    engine = _Engine(
+        [
+            MemoryUpdated(key="current_exercise", value="fractions", scope="session"),
+            MemoryUpdated(key="pace", value="slow", scope="user"),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+    (staged,) = [update for name, update in calls if name == "stage_memory"]
+    assert [(v.key, v.value) for v in staged.variables] == [("pace", "slow")]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_turn_that_only_notes_something_for_itself_writes_no_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded: list[str] = []
+    monkeypatch.setattr(
+        run_agent, "stage_memory", lambda *_a, **_k: recorded.append("staged")
+    )
+    engine = _Engine(
+        [
+            MemoryUpdated(key="note", value="x", scope="session"),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+    assert recorded == []
+
+
+def test_what_the_course_knows_about_the_learner_reaches_a_new_session(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """The engine has no memory store to read it for itself."""
+    monkeypatch.setattr(
+        run_agent, "load_memory", lambda *_a, **_k: _Memory({"pace": "slow"})
+    )
+    session = _Session()
+    engine = _Engine([TurnDone(reason="end")], session=session)
+    _run(engine)
+    assert session.user_memory == {"pace": "slow"}
+    assert calls
+
+
+def test_a_resumed_session_sees_a_profile_edited_since_it_was_saved(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """A stored session carries the snapshot taken when it was saved, which may be hours old."""
+    stored = _Session(started=True)
+    stored.user_memory = {"pace": "slow"}
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    monkeypatch.setattr(
+        run_agent, "load_memory", lambda *_a, **_k: _Memory({"pace": "fast"})
+    )
+    _run(_Engine([TurnDone(reason="end")], session=stored))
+    assert stored.user_memory == {"pace": "fast"}
+    assert calls
