@@ -26,6 +26,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.learn.agent.engine.engine import (
     ContinueTurn,
     InteractionResponseTurn,
@@ -36,6 +37,11 @@ from flaskr.service.learn.agent.engine.events import ErrorEvent, MemoryUpdated, 
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
     translate,
+)
+from flaskr.service.learn.agent.lesson_record import (
+    active_progress_record,
+    stage_turn_block,
+    was_reset_since,
 )
 from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
@@ -78,6 +84,20 @@ def learner_values(user_input: str | dict | None) -> list[str]:
         elif value is not None:
             values.append(str(value))
     return [value for value in values if value.strip()]
+
+
+def _progress_record_bid(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> str:
+    """Settle which progress record this turn belongs to, creating one if the lesson is new.
+
+    Committed here rather than with the turn: the element rows the stream writes reference it
+    while the turn is still running, so it has to exist before the first event goes out.
+    """
+    with app_context_scope(app), unit_of_work():
+        return active_progress_record(
+            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        ).progress_record_bid
 
 
 def _turn_input(session: Session, values: list[str]) -> TurnInput:
@@ -182,6 +202,12 @@ def run_agent_lesson(
     # turn is the smallest unit this engine produces that a learner sees as a whole.
     generated_block_bid = uuid.uuid4().hex
     values = learner_values(user_input)
+    # Resolved before the turn runs, and remembered: what it identifies is both where this turn's
+    # elements will hang and the thing a reset marks, so a turn can tell afterwards whether the
+    # lesson it started in is still the one it is finishing.
+    progress_record_bid = _progress_record_bid(
+        app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+    )
     session_holder: dict[str, Session] = {}
 
     def make_events() -> AsyncIterator[Event]:
@@ -213,6 +239,9 @@ def run_agent_lesson(
                     shifu_bid=shifu_bid,
                     outline_bid=outline_bid,
                     preview_mode=preview_mode,
+                    progress_record_bid=progress_record_bid,
+                    generated_block_bid=generated_block_bid,
+                    turn_index=session.turn,
                 )
                 pending_memory = []
 
@@ -251,6 +280,9 @@ def _persist(
     shifu_bid: str,
     outline_bid: str,
     preview_mode: bool,
+    progress_record_bid: str,
+    generated_block_bid: str,
+    turn_index: int,
 ) -> None:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -258,6 +290,24 @@ def _persist(
     two land together. Ordering them the other way would commit the session and leave the memory
     staged for whoever commits next.
     """
+    if was_reset_since(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        progress_record_bid=progress_record_bid,
+    ):
+        # The learner reset this lesson while the turn was running. Checked before anything is
+        # staged, because staged-and-abandoned memory would be committed by whoever commits next.
+        # Writing the session now would hand back the conversation they just cleared -- and the
+        # reset could not have cleared it, since it did not exist yet.
+        app.logger.info(
+            "discarding a turn whose lesson was reset while it ran: "
+            "user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+        )
+        return
+
     # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
     # them to the profile would leak a turn's working notes into preview, Ask and follow-up
     # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
@@ -285,4 +335,12 @@ def _persist(
         shifu_bid=shifu_bid,
         outline_item_bid=outline_bid,
         preview_mode=preview_mode,
+        stage=lambda: stage_turn_block(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            generated_block_bid=generated_block_bid,
+            position=turn_index,
+        ),
     )
