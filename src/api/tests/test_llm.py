@@ -153,12 +153,14 @@ class FakeResponse:
         finish_reason: object = None,
         usage: object = None,
         reasoning_content: object = None,
+        tool_calls: object = None,
     ) -> None:
-        """Capture streamed content, finish state, reasoning, and usage."""
+        """Capture streamed content, finish state, reasoning, tool calls, and usage."""
         self.id = chunk_id
         delta = SimpleNamespace(
             content=content,
             reasoning_content=reasoning_content,
+            tool_calls=tool_calls,
         )
         self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
         self.usage = usage
@@ -2980,3 +2982,140 @@ def test_stream_gateway_completion_preserves_tool_call_chunks(
     assert recorded["extra"]["billing_source"] == "model_gateway"
     assert recorded["input"] == 4
     assert recorded["output"] == 3
+
+
+def _use_fake_provider(monkeypatch: object) -> None:
+    """Point the model resolver at a stub provider so chat_llm reaches litellm."""
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "openai": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test-key", "api_base": "https://example.com"},
+                models=["gpt-test"],
+                prefix="",
+                wildcard_prefixes=("gpt",),
+            )
+        },
+    )
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+
+
+def _tool_call_chunk(
+    index: int,
+    call_id: str | None,
+    name: str | None,
+    arguments: str | None,
+    as_dict: bool = False,
+) -> object:
+    """One streamed tool-call fragment, in either shape a provider may send."""
+    if as_dict:
+        return {
+            "index": index,
+            "id": call_id,
+            "function": {"name": name, "arguments": arguments},
+        }
+    return SimpleNamespace(
+        index=index,
+        id=call_id,
+        function=SimpleNamespace(name=name, arguments=arguments),
+    )
+
+
+def _tool_call_stream(as_dict: bool = False) -> list:
+    """Text, then a tool call whose arguments arrive split over two chunks, then usage."""
+    return [
+        FakeResponse("c1", content="thinking "),
+        FakeResponse(
+            "c1",
+            tool_calls=[_tool_call_chunk(0, "call_1", "interact", '{"type":', as_dict)],
+        ),
+        FakeResponse(
+            "c1",
+            tool_calls=[_tool_call_chunk(0, None, None, '"confirm"}', as_dict)],
+        ),
+        FakeResponse("c1", finish_reason="tool_calls"),
+        FakeResponse(
+            "c1",
+            usage=SimpleNamespace(
+                prompt_tokens=10, completion_tokens=4, total_tokens=14
+            ),
+        ),
+    ]
+
+
+def test_chat_llm_drops_tool_calls_by_default(monkeypatch: object, app: object) -> None:
+    """The 1.0 runtime only reads text; a tool-call chunk must stay invisible to it."""
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda *_a, **_k: iter(_tool_call_stream())
+    )
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app, "u", DummySpan(), "gpt-test", [{"role": "user", "content": "hi"}]
+            )
+        )
+    assert [c.result for c in chunks] == ["thinking "]
+    assert all(c.tool_call_deltas == [] for c in chunks)
+
+
+@pytest.mark.parametrize("as_dict", [False, True])
+def test_chat_llm_emits_tool_call_deltas_when_asked(
+    monkeypatch: object, app: object, as_dict: bool
+) -> None:
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda *_a, **_k: iter(_tool_call_stream(as_dict))
+    )
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert "".join(c.result for c in chunks) == "thinking "
+    deltas = [d for c in chunks for d in c.tool_call_deltas]
+    assert [d["name"] for d in deltas] == ["interact", None]
+    assert "".join(d["arguments"] or "" for d in deltas) == '{"type":"confirm"}'
+    assert [d["index"] for d in deltas] == [0, 0]
+    assert deltas[0]["id"] == "call_1"
+    assert any(c.finish_reason == "tool_calls" and c.is_end for c in chunks)
+    usage_chunks = [c for c in chunks if c.usage is not None]
+    assert len(usage_chunks) == 1
+    assert usage_chunks[0].usage.prompt_tokens == 10
+    assert usage_chunks[0].usage.completion_tokens == 4
+
+
+def test_chat_llm_forwards_tools_to_litellm(monkeypatch: object, app: object) -> None:
+    """`tools` and `tool_choice` must reach litellm; `emit_tool_calls` must not."""
+    seen = {}
+
+    def fake_completion(*_args: object, **kwargs: object) -> object:
+        seen.update(kwargs)
+        return iter([FakeResponse("c1", content="ok", finish_reason="stop")])
+
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    tools = [{"type": "function", "function": {"name": "interact", "parameters": {}}}]
+    with app.app_context():
+        list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+                tools=tools,
+            )
+        )
+    assert seen.get("tools") == tools
+    assert "emit_tool_calls" not in seen
