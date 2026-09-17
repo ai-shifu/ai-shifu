@@ -47,6 +47,12 @@ GEVENT_POOL_SIZE = 64
 # pauses the consumer between events, and without a ceiling a fast turn would keep queueing into
 # memory for as long as it runs.
 BUFFER_LIMIT = 64
+# How many turns one worker process may have in flight. Beyond this a turn is refused rather than
+# queued: `ThreadPool.spawn` waits for a slot -- its own docstring says so, and a pool of two
+# running two-second tasks makes every third spawn wait the full two seconds -- and a request
+# parked inside `spawn` has not started its stream, so the learner sees a connection that simply
+# hangs, with no content and no error.
+MAX_TURNS_IN_FLIGHT = GEVENT_POOL_SIZE
 # How long to wait for the producer to notice a stop request before giving up on it.
 PRODUCER_EXIT_TIMEOUT = 2.0
 
@@ -67,6 +73,28 @@ def _gevent_patched() -> bool:
     return bool(monkey.is_module_patched("threading"))
 
 
+class _InFlight:
+    """Counts the turns this worker process is running, so admission can be refused."""
+
+    lock = threading.Lock()
+    count = 0
+
+    @classmethod
+    def admit(cls) -> None:
+        """Take a slot, or refuse when the worker is already full."""
+        with cls.lock:
+            if cls.count >= MAX_TURNS_IN_FLIGHT:
+                msg = f"this worker is already running {cls.count} agent turns"
+                raise TurnCapacityError(msg)
+            cls.count += 1
+
+    @classmethod
+    def release(cls) -> None:
+        """Give the slot back."""
+        with cls.lock:
+            cls.count = max(0, cls.count - 1)
+
+
 def _spawn(fn: Callable[[], None]) -> Callable[[], bool]:
     """Start `fn` on a real OS thread and return a callable reporting whether it is still running.
 
@@ -85,6 +113,14 @@ def _spawn(fn: Callable[[], None]) -> Callable[[], bool]:
     thread = threading.Thread(target=fn, daemon=True, name="mdf2-engine-turn")
     thread.start()
     return thread.is_alive
+
+
+class TurnCapacityError(RuntimeError):
+    """Raised when this worker is already running as many turns as it can.
+
+    The host should tell the learner the system is busy and let them retry, rather than holding the
+    request open behind a slot that may not free for minutes.
+    """
 
 
 @dataclass
@@ -130,7 +166,28 @@ def iter_turn(
     so that the engine, its session and the generator are all created on the loop that will drive
     them. Closing this iterator early -- a learner leaving the page -- asks the producer to stop and
     waits briefly for it to unwind rather than abandoning it.
+
+    Raises `TurnCapacityError` straight away when the worker is full. This function is deliberately
+    not a generator: a generator body does not run until the first `next()`, and by then the caller
+    has usually committed to a streaming response and can no longer turn a refusal into one.
     """
+    _InFlight.admit()
+    try:
+        return _iter_turn(
+            make_events, heartbeat_interval=heartbeat_interval, heartbeat=heartbeat
+        )
+    except BaseException:
+        _InFlight.release()
+        raise
+
+
+def _iter_turn(
+    make_events: Callable[[], AsyncIterator[Any]],
+    *,
+    heartbeat_interval: float,
+    heartbeat: Callable[[], Any] | None,
+) -> Iterator[Any]:
+    """Drive one turn whose slot the caller has already taken."""
     stream = TurnStream()
 
     def produce() -> None:
@@ -183,9 +240,14 @@ def iter_turn(
                 loop.run_until_complete(loop.shutdown_asyncgens())
             asyncio.set_event_loop(None)
             loop.close()
+            _InFlight.release()
             stream.events.put(_DONE)
 
-    stream.is_running = _spawn(produce)
+    try:
+        stream.is_running = _spawn(produce)
+    except BaseException:
+        _InFlight.release()
+        raise
     last_heartbeat = time.monotonic()
     try:
         while True:

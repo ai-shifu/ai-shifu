@@ -296,3 +296,50 @@ def test_back_pressure_releases_once_the_consumer_catches_up() -> None:
             await asyncio.sleep(0)
 
     assert list(bridge.iter_turn(events)) == list(range(bridge.BUFFER_LIMIT * 3))
+
+
+def test_a_full_worker_refuses_a_turn_instead_of_queueing_it() -> None:
+    """`ThreadPool.spawn` waits for a slot, and a request parked there has not started streaming.
+
+    The learner would see a connection that hangs with no content and no error, so admission is
+    refused on the caller's stack where it can become a response.
+    """
+    original = bridge.MAX_TURNS_IN_FLIGHT
+    bridge.MAX_TURNS_IN_FLIGHT = 2
+    running: list[object] = []
+    try:
+
+        async def slow() -> AsyncIterator[str]:
+            yield "started"
+            await asyncio.sleep(5)
+
+        for _ in range(2):
+            stream = bridge.iter_turn(slow)
+            assert next(stream) == "started"
+            running.append(stream)
+
+        with pytest.raises(bridge.TurnCapacityError):
+            bridge.iter_turn(slow)
+    finally:
+        for stream in running:
+            stream.close()
+        bridge.MAX_TURNS_IN_FLIGHT = original
+
+
+def test_a_finished_turn_gives_its_slot_back() -> None:
+    """Otherwise a worker stops accepting turns after it has served MAX_TURNS_IN_FLIGHT of them."""
+    original = bridge.MAX_TURNS_IN_FLIGHT
+    bridge.MAX_TURNS_IN_FLIGHT = 1
+    try:
+
+        async def quick() -> AsyncIterator[str]:
+            yield "done"
+
+        for _ in range(4):
+            assert list(bridge.iter_turn(quick)) == ["done"]
+            deadline = time.monotonic() + 3
+            while bridge._InFlight.count > 0 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            assert bridge._InFlight.count == 0
+    finally:
+        bridge.MAX_TURNS_IN_FLIGHT = original
