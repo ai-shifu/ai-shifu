@@ -226,3 +226,24 @@ def test_legacy_outline_models_are_ignored_and_not_exported(
     assert "ask_llm_temperature" not in outline_json
     assert outline_json["ask_enabled_status"] == 5103
     assert outline_json["content"] == "Keep the lesson content"
+
+
+@pytest.mark.parametrize("destination", ["generated", "provided", "existing"])
+def test_import_invalid_follow_up_tier_identifies_follow_up_field(
+    app: object, monkeypatch: pytest.MonkeyPatch, destination: str
+) -> None:
+    from flaskr.service.shifu import shifu_import_export_funcs as module
+
+    monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
+    shifu_bid = uuid.uuid4().hex if destination != "generated" else ""
+    if destination == "existing":
+        with app.app_context():
+            db.session.add(DraftShifu(shifu_bid=shifu_bid, title="Existing"))
+            db.session.commit()
+    with pytest.raises(AppError, match="ask_llm_tier"):
+        module.import_shifu(
+            app,
+            shifu_bid,
+            _import_file(shifu={"llm_tier": "fast", "ask_llm_tier": "premium"}),
+            "teacher-1",
+        )

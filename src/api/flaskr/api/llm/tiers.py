@@ -21,9 +21,11 @@ def validate_model_tier(value: object, field: str = "llm_tier") -> str | None:
     return value
 
 
-def normalize_course_tier(tier: object, model: object) -> str | None:
+def normalize_course_tier(
+    tier: object, model: object, field: str = "llm_tier"
+) -> str | None:
     """Materialize the default on writes, while preserving legacy selections."""
-    value = validate_model_tier(tier)
+    value = validate_model_tier(tier, field)
     return value or (None if str(model or "").strip() else "fast")
 
 
@@ -47,7 +49,7 @@ def merge_course_tier(
         current_tier if incoming is TIER_UNSET else validate_model_tier(incoming, field)
     )
     return normalize_course_tier(
-        tier, current_model if incoming_model is None else incoming_model
+        tier, current_model if incoming_model is None else incoming_model, field
     )
 
 

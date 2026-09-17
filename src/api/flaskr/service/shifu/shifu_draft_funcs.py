@@ -338,7 +338,7 @@ def create_shifu_draft(
             keywords=",".join(shifu_keywords) if shifu_keywords else "",
             llm=shifu_model or "",
             llm_tier=normalize_course_tier(llm_tier, shifu_model),
-            ask_llm_tier=normalize_course_tier(ask_llm_tier, ""),
+            ask_llm_tier=normalize_course_tier(ask_llm_tier, "", "ask_llm_tier"),
             llm_temperature=shifu_temperature or 0.3,
             price=_resolve_shifu_price(shifu_price),
             deleted=0,  # not deleted

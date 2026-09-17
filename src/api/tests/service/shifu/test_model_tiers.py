@@ -482,3 +482,15 @@ def test_options_endpoint_keeps_missing_mapping_unavailable(
     assert all(item["available"] is False for item in result)
     assert result[0]["is_default"] is True
     assert all("model" not in item for item in result)
+
+
+def test_create_invalid_follow_up_tier_identifies_follow_up_field(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.shifu import shifu_draft_funcs as module
+
+    monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
+    with pytest.raises(AppError, match="ask_llm_tier"):
+        module.create_shifu_draft(
+            app, "tier-owner", "New course", "", "", ask_llm_tier="premium"
+        )

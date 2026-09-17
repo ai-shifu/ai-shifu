@@ -230,7 +230,9 @@ def import_shifu(
                     shifu_data.get("llm_tier"), shifu_data.get("llm")
                 )
                 new_shifu.ask_llm_tier = normalize_course_tier(
-                    shifu_data.get("ask_llm_tier"), shifu_data.get("ask_llm")
+                    shifu_data.get("ask_llm_tier"),
+                    shifu_data.get("ask_llm"),
+                    "ask_llm_tier",
                 )
                 new_shifu.llm_temperature = Decimal(
                     str(shifu_data.get("llm_temperature", 0))
@@ -284,7 +286,9 @@ def import_shifu(
                         shifu_data.get("llm_tier"), shifu_data.get("llm")
                     ),
                     ask_llm_tier=normalize_course_tier(
-                        shifu_data.get("ask_llm_tier"), shifu_data.get("ask_llm")
+                        shifu_data.get("ask_llm_tier"),
+                        shifu_data.get("ask_llm"),
+                        "ask_llm_tier",
                     ),
                     llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                     llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
@@ -327,7 +331,9 @@ def import_shifu(
                     shifu_data.get("llm_tier"), shifu_data.get("llm")
                 ),
                 ask_llm_tier=normalize_course_tier(
-                    shifu_data.get("ask_llm_tier"), shifu_data.get("ask_llm")
+                    shifu_data.get("ask_llm_tier"),
+                    shifu_data.get("ask_llm"),
+                    "ask_llm_tier",
                 ),
                 llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                 llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
