@@ -15,6 +15,7 @@ import pytest
 from flaskr import dao
 from flaskr.service.order import admin as order_admin
 from flaskr.service.order import coupon_funcs, open_api
+from flaskr.service.order import funs as order_funs
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
@@ -159,6 +160,30 @@ def test_use_percentage_coupon_applies_percent_of_order_price(
 
     assert result.order_id == order_bid
     assert order.paid_price == Decimal("80.00")
+
+
+def test_percentage_coupon_breakdown_uses_discounted_currency_amount(
+    app: object,
+) -> None:
+    order_bid = "uow-b1-percent-breakdown-order"
+    coupon_code = "PERCENT20BREAKDOWN"
+
+    with app.app_context():
+        _seed_coupon_order(
+            order_bid,
+            coupon_code,
+            discount_type=COUPON_TYPE_PERCENT,
+            value=Decimal("20.00"),
+        )
+        coupon = Coupon.query.filter(Coupon.coupon_bid == f"{order_bid}-coupon").first()
+        discount_info = order_funs.calculate_discount_value(
+            Decimal("200.00"),
+            [],
+            [CouponUsage(coupon_bid=coupon.coupon_bid)],
+        )
+
+    assert discount_info.discount_value == Decimal("40.00")
+    assert discount_info.items[0].price == Decimal("40.00")
 
 
 def test_open_api_revoke_notifies_only_after_the_refund_is_committed(

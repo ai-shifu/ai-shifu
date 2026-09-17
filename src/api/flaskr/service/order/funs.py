@@ -2186,17 +2186,17 @@ def calculate_discount_value(
         for discount_record in discount_records:
             discount = coupon_maps.get(discount_record.coupon_bid)
             if discount:
+                coupon_amount = decimal.Decimal(discount.value)
                 if discount.discount_type == COUPON_TYPE_FIXED:
-                    discount_value += discount.value
+                    discount_value += coupon_amount
                 elif discount.discount_type == COUPON_TYPE_PERCENT:
-                    discount_value += calculate_percentage_amount(
-                        price, decimal.Decimal(discount.value)
-                    )
+                    coupon_amount = calculate_percentage_amount(price, coupon_amount)
+                    discount_value += coupon_amount
                 items.append(
                     PayItemDto(
                         _("server.order.payItemCoupon"),
                         _resolve_coupon_display_name(discount),
-                        discount.value,
+                        coupon_amount,
                         is_discount=True,
                         discount_code=discount.code,
                     )
