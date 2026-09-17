@@ -112,6 +112,7 @@ def _load_or_start(
     outline_bid: str,
     script: str,
     listen: bool,
+    preview_mode: bool,
 ) -> Callable[[], Any]:
     """Build the coroutine factory the bridge runs on its producer thread.
 
@@ -125,7 +126,9 @@ def _load_or_start(
     never reach the lesson already in progress.
     """
     try:
-        stored = load_agent_session(app, user_bid, outline_bid)
+        stored = load_agent_session(
+            app, user_bid, outline_bid, preview_mode=preview_mode
+        )
     except StoredSessionUnusable:
         # Written by code whose sessions this one cannot read. Starting over loses the
         # conversation, which is the point of comparing versions rather than parsing hopefully.
@@ -153,6 +156,7 @@ def run_agent_lesson(
     outline_bid: str,
     user_input: str | dict | None = None,
     listen: bool = False,
+    preview_mode: bool = False,
     heartbeat_interval: float = 0.5,
     iter_turn: Callable[..., Any] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -172,6 +176,7 @@ def run_agent_lesson(
         outline_bid=outline_bid,
         script=script,
         listen=listen,
+        preview_mode=preview_mode,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
@@ -207,6 +212,7 @@ def run_agent_lesson(
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
                     outline_bid=outline_bid,
+                    preview_mode=preview_mode,
                 )
                 pending_memory = []
 
@@ -244,6 +250,7 @@ def _persist(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
+    preview_mode: bool,
 ) -> None:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -277,4 +284,5 @@ def _persist(
         user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_item_bid=outline_bid,
+        preview_mode=preview_mode,
     )

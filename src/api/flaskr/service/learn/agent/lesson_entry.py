@@ -197,6 +197,7 @@ def agent_lesson_events(
             outline_bid=outline_bid,
             user_input=user_input,
             listen=False,
+            preview_mode=preview_mode,
             heartbeat_interval=heartbeat_interval,
         )
         end_reason = "completed"
