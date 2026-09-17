@@ -1,4 +1,4 @@
-"""Read a learner's stored answers, with course scope winning over the global scope."""
+"""Read current stored values, including settings edits, with course scope first."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ Scope = Literal["course", "global"]
 
 @dataclass(frozen=True)
 class MemoryEntry:
-    """One thing the learner told us, and where they told us."""
+    """One current stored value and its scope, without interaction provenance."""
 
     key: str
     value: str
@@ -53,10 +53,10 @@ class MemoryEntry:
 
 @dataclass(frozen=True)
 class LearnerMemory:
-    """What is known about a learner when a given course asks.
+    """Current stored values in a course/global view, separate from runtime resolution.
 
     `entries` is what that course would see: its own values, falling back to the global scope,
-    newest first. `elsewhere` is everything the same learner answered in *other* courses, grouped
+    newest first. `elsewhere` is the same learner's stored values in *other* courses, grouped
     by key and never merged into `entries`.
 
     The separation is deliberate. Across production data, 65% of the learners who answered the
@@ -107,7 +107,7 @@ def load_learner_memory(
     include_entity_owned: bool = False,
     limit: int = DEFAULT_ROW_LIMIT,
 ) -> LearnerMemory:
-    """Everything this learner has answered, as the given course would see it.
+    """Read current stored values, whether saved through interactions or settings.
 
     `shifu_bid` selects the course scope; passing None reads the global scope only and reports
     every course's answers under `elsewhere`. Precedence inside `entries` follows what lessons

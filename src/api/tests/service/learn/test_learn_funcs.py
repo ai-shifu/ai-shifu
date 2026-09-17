@@ -32,6 +32,7 @@ from flaskr.service.learn.context_v2 import (
 from flaskr.service.learn.learn_dtos import BlockType, GeneratedType, LikeStatus
 from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.memory import MemorySnapshot
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
@@ -291,7 +292,8 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(),
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -428,7 +430,8 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(),
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -571,7 +574,8 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(),
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -708,7 +712,8 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(),
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
@@ -838,7 +843,8 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
             ),
             unittest.mock.patch(
-                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(),
             ),
             unittest.mock.patch(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
