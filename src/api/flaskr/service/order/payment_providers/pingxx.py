@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import base64
+import importlib.machinery
+import importlib.util
 import json
 import re
+import sys
 import threading
 from collections.abc import (
     Callable,  # noqa: TC003 - decorator annotation is resolved at runtime
@@ -28,6 +31,9 @@ from .base import (
 )
 
 if TYPE_CHECKING:
+    from importlib.machinery import ModuleSpec
+    from types import ModuleType
+
     from flask import Flask
 
 _PINGPP_CONFIG_LOCK = threading.RLock()
@@ -54,6 +60,70 @@ def _serialized_pingpp_config(func: Callable[P, R]) -> Callable[P, R]:
     return wrapped
 
 
+class _LegacySixFinder:
+    """Expose a PEP 302 six importer through the PEP 451 ``find_spec`` API."""
+
+    def __init__(self, legacy_importer: object) -> None:
+        self._legacy_importer = legacy_importer
+
+    def find_spec(
+        self,
+        fullname: str,
+        path: object = None,  # noqa: ARG002 - required by the meta path finder protocol
+        target: object = None,  # noqa: ARG002 - required by the meta path finder protocol
+    ) -> ModuleSpec | None:
+        """Claim only the module names the vendored six importer owns."""
+        known_modules = getattr(self._legacy_importer, "known_modules", ())
+        if fullname not in known_modules:
+            return None
+        return importlib.util.spec_from_loader(fullname, self)
+
+    def create_module(self, spec: ModuleSpec) -> ModuleType:
+        """Build the module with the legacy loader."""
+        load_module = self._legacy_importer.load_module  # type: ignore[attr-defined]
+        return load_module(spec.name)
+
+    def exec_module(self, module: ModuleType) -> None:
+        """Do nothing: ``create_module`` already returned a ready module."""
+
+
+def _ensure_vendored_six_importable() -> None:
+    """Keep ``pingpp.six.moves`` importable on Python 3.12 and later.
+
+    Ping++ vendors six 1.11, whose meta path importer only implements the
+    PEP 302 ``find_module`` hook that Python 3.12 dropped.  Every
+    ``from pingpp.six.moves...`` import then fails, and because those imports
+    run while ``pingpp/__init__.py`` executes, the whole package becomes
+    unimportable.  Loading the vendored six ahead of ``pingpp`` lets us wrap
+    its importer in a ``find_spec`` adapter before anything needs it.
+    """
+    if "pingpp" in sys.modules or "pingpp.six" in sys.modules:
+        return
+    package_spec = importlib.machinery.PathFinder.find_spec("pingpp")
+    locations = (
+        list(package_spec.submodule_search_locations or ()) if package_spec else []
+    )
+    if not locations:
+        return
+    six_path = Path(locations[0]) / "six.py"
+    if not six_path.is_file():
+        return
+    six_spec = importlib.util.spec_from_file_location("pingpp.six", six_path)
+    if six_spec is None or six_spec.loader is None:
+        return
+    six_module = importlib.util.module_from_spec(six_spec)
+    sys.modules["pingpp.six"] = six_module
+    try:
+        six_spec.loader.exec_module(six_module)
+    except Exception:
+        sys.modules.pop("pingpp.six", None)
+        raise
+    legacy_importer = getattr(six_module, "_importer", None)
+    if legacy_importer is None or hasattr(type(legacy_importer), "find_spec"):
+        return
+    sys.meta_path.append(_LegacySixFinder(legacy_importer))
+
+
 def _get_pingpp_client() -> object:
     with _pingpp_client_state.lock:
         if _pingpp_client_state.client is not None:
@@ -61,6 +131,8 @@ def _get_pingpp_client() -> object:
         if _pingpp_client_state.import_error is not None:
             raise _pingpp_client_state.import_error
         try:
+            _ensure_vendored_six_importable()
+
             import pingpp  # type: ignore[import-untyped]
 
             _pingpp_client_state.client = pingpp
