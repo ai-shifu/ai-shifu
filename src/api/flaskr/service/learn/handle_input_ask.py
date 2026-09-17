@@ -191,6 +191,7 @@ def _run_guardrail(
         block_position=last_position,
         llm_settings=llm_settings_cls(
             model=follow_up_model,
+            usage_metadata=getattr(follow_up_info, "usage_metadata", {}),
             temperature=follow_up_info.model_args["temperature"],
         ),
         attend_id=attend_id,
@@ -349,8 +350,11 @@ def handle_input_ask(
 
     # Get model for follow-up Q&A
     follow_up_model = follow_up_info.ask_model
-    if not follow_up_model:
-        follow_up_model = app.config.get("DEFAULT_LLM_MODEL", "")
+    from flaskr.api.llm.tiers import resolve_selection
+
+    follow_up_model, follow_up_usage_metadata = resolve_selection(
+        follow_up_model, getattr(follow_up_info, "usage_metadata", {})
+    )
 
     # Create ask block
     ask_block = _create_ask_block(
@@ -500,7 +504,8 @@ def handle_input_ask(
             app,
             user_info.user_id,
             span,
-            model=follow_up_model,  # Use configured model
+            model=follow_up_model,
+            usage_metadata=follow_up_usage_metadata,  # Use configured model
             json=True,
             stream=True,  # Enable streaming output
             temperature=follow_up_info.model_args[

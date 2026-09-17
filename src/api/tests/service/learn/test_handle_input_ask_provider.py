@@ -272,8 +272,11 @@ def _setup_handle_input_ask_patches(
     monkeypatch: object, module: object, ask_provider_config: object
 ) -> None:
     class _DummyLLMSettings:
-        def __init__(self, model: object, temperature: object) -> None:
+        def __init__(
+            self, model: object, temperature: object, usage_metadata: object = None
+        ) -> None:
             self.model = model
+            self.usage_metadata = usage_metadata
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:

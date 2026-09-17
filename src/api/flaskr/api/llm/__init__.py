@@ -35,6 +35,7 @@ from flaskr.api.langfuse import (
     normalize_langfuse_output_value,
     resolve_langfuse_trace_id,
 )
+from flaskr.api.llm.tiers import resolve_selection
 from flaskr.common.config import (
     get_explicit_env_override,
     parse_llm_model_max_output_tokens,
@@ -1249,7 +1250,7 @@ def invoke_llm(
     request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
     trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
-    model = model.strip()
+    model, usage_metadata = resolve_selection(model, usage_metadata)
     generation_input = []
     if system:
         generation_input.append({"role": "system", "content": system})
@@ -1259,6 +1260,11 @@ def invoke_llm(
         model=model,
         input=generation_input,
         name=generation_name,
+        metadata={
+            key: value
+            for key, value in usage_metadata.items()
+            if key.startswith("model_") or key == "resolved_model"
+        },
         **generation_link,
     )
     app.logger.info(
@@ -1399,7 +1405,14 @@ def invoke_llm(
         input=generation_input,
         output=_build_langfuse_llm_output(response_text, reasoning_text),
         usage=usage,
-        metadata=kwargs,
+        metadata={
+            **kwargs,
+            **{
+                key: value
+                for key, value in usage_metadata.items()
+                if key.startswith("model_") or key == "resolved_model"
+            },
+        },
         completion_start_time=start_completion_time,
     )
     span.update(output=response_text)
@@ -1436,13 +1449,18 @@ def chat_llm(
     request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
     trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
-    model = model.strip()
+    model, usage_metadata = resolve_selection(model, usage_metadata)
     generation_input = messages
     generation_link = build_langfuse_observation_link(span, trace_id)
     generation = span.generation(
         model=model,
         input=generation_input,
         name=generation_name,
+        metadata={
+            key: value
+            for key, value in usage_metadata.items()
+            if key.startswith("model_") or key == "resolved_model"
+        },
         **generation_link,
     )
     app.logger.info(
@@ -1625,7 +1643,14 @@ def chat_llm(
             response_text + tool_call_text, reasoning_text
         ),
         usage=usage,
-        metadata=kwargs,
+        metadata={
+            **kwargs,
+            **{
+                key: value
+                for key, value in usage_metadata.items()
+                if key.startswith("model_") or key == "resolved_model"
+            },
+        },
         completion_start_time=start_completion_time,
     )
 
@@ -2218,3 +2243,31 @@ def get_allowed_models() -> list[str]:
     """Return allowed models."""
     allowed, _ = _resolve_allowed_model_config()
     return allowed
+
+
+def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
+    """Expose fixed product tiers without exposing their configured models."""
+    from flaskr.api.llm.tiers import MODEL_TIERS, resolve_tier_model
+
+    options = []
+    for tier in MODEL_TIERS:
+        option = {
+            "tier": tier,
+            "available": False,
+            "is_default": tier == "fast",
+            "credit_multiplier": None,
+            "credit_multiplier_label": None,
+        }
+        try:
+            model = resolve_tier_model(tier)
+        except Exception:
+            options.append(option)
+            continue
+        rates = _attach_credit_multipliers(app, [{"model": model}])[0]
+        option.update(
+            available=True,
+            credit_multiplier=rates.get("credit_multiplier"),
+            credit_multiplier_label=rates.get("credit_multiplier_label"),
+        )
+        options.append(option)
+    return options

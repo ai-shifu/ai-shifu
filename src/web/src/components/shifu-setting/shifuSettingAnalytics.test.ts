@@ -20,6 +20,8 @@ describe('buildShifuSettingSaveAnalytics', () => {
       use_learner_language: false,
       follow_up_mode: 'live_voice',
       price_tier: 'free',
+      main_model_tier: 'legacy',
+      follow_up_model_tier: 'not_applicable',
     });
     expect(payload).not.toHaveProperty('name');
     expect(payload).not.toHaveProperty('description');
@@ -35,6 +37,8 @@ describe('buildShifuSettingSaveAnalytics', () => {
       [
         'default_listen_mode_enabled',
         'follow_up_mode',
+        'main_model_tier',
+        'follow_up_model_tier',
         'price_tier',
         'save_type',
         'shifu_bid',
@@ -63,6 +67,8 @@ describe('buildShifuSettingSaveAnalytics', () => {
       use_learner_language: true,
       follow_up_mode: 'text',
       price_tier: 'micro_paid',
+      main_model_tier: 'legacy',
+      follow_up_model_tier: 'legacy',
     });
   });
 

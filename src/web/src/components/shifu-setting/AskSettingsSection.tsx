@@ -2,7 +2,8 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Loader2, Minus, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import ModelList from '@/components/model-list';
+import ModelTierList from '@/components/model-list/ModelTierList';
+import type { ModelTier } from '@/types/shifu';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -40,6 +41,11 @@ type AskSettingsSectionProps = {
   askProviderOptions: AskProviderOption[];
   resolvedAskProvider: string;
   askProviderLlmValue: string;
+  askTier?: ModelTier | null;
+  canRestoreText?: boolean;
+  onAskTierChange?: (tier: ModelTier) => void;
+  liveAvailable?: boolean;
+  onFollowUpModeChange?: (mode: 'text' | 'live_voice') => void;
   askModel: string;
   onAskModelChange: (value: string) => void;
   askModelOptions: ModelOption[];
@@ -74,9 +80,11 @@ export default function AskSettingsSection({
   askProviderOptions,
   resolvedAskProvider,
   askProviderLlmValue,
-  askModel,
-  onAskModelChange,
-  askModelOptions,
+  askTier,
+  canRestoreText = false,
+  onAskTierChange,
+  liveAvailable,
+  onFollowUpModeChange,
   isLiveVoiceFollowUp,
   liveVoices,
   liveVoice,
@@ -139,13 +147,40 @@ export default function AskSettingsSection({
             <FormLabel className='text-sm font-medium text-foreground'>
               {t('module.shifuSetting.askModel')}
             </FormLabel>
-            <ModelList
+            <Select
+              value={isLiveVoiceFollowUp ? 'live_voice' : 'text'}
+              onValueChange={value =>
+                onFollowUpModeChange?.(value as 'text' | 'live_voice')
+              }
               disabled={readonly}
-              className='h-9'
-              value={askModel}
-              onChange={onAskModelChange}
-              options={askModelOptions}
-            />
+            >
+              <SelectTrigger className='h-9'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value='text'
+                  disabled={
+                    !textDebugAllowed && !canRestoreText && isLiveVoiceFollowUp
+                  }
+                >
+                  {t('module.shifuSetting.modelTiers.text')}
+                </SelectItem>
+                <SelectItem
+                  value='live_voice'
+                  disabled={!liveAvailable && !isLiveVoiceFollowUp}
+                >
+                  {t('module.shifuSetting.modelTiers.liveVoice')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            {!isLiveVoiceFollowUp && (
+              <ModelTierList
+                value={askTier ?? null}
+                onChange={tier => onAskTierChange?.(tier)}
+                disabled={textConfigurationReadonly}
+              />
+            )}
 
             {isLiveVoiceFollowUp ? (
               <div className='space-y-2 pt-2'>

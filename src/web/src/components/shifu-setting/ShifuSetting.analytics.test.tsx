@@ -127,6 +127,7 @@ jest.mock('next/link', () => ({
 }));
 
 jest.mock('@/components/model-list', () => () => null);
+jest.mock('@/components/model-list/ModelTierList', () => () => null);
 jest.mock('@/components/shifu-setting/AskSettingsSection', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
@@ -266,6 +267,8 @@ describe('ShifuSettingDialog analytics producer', () => {
             use_learner_language: true,
             follow_up_mode: 'text',
             price_tier: 'standard_paid',
+            main_model_tier: 'legacy',
+            follow_up_model_tier: 'legacy',
           },
         );
       });
@@ -652,6 +655,8 @@ describe('ShifuSettingDialog analytics producer', () => {
           use_learner_language: false,
           follow_up_mode: 'text',
           price_tier: 'standard_paid',
+          main_model_tier: 'legacy',
+          follow_up_model_tier: 'legacy',
         },
       );
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
@@ -695,6 +700,8 @@ describe('ShifuSettingDialog analytics producer', () => {
           use_learner_language: true,
           follow_up_mode: 'text',
           price_tier: 'standard_paid',
+          main_model_tier: 'legacy',
+          follow_up_model_tier: 'legacy',
         },
       );
 
@@ -1096,6 +1103,67 @@ describe('ShifuSettingDialog analytics producer', () => {
           mode: 'provider_only',
           config: { live_voice: 'Puck' },
         },
+      }),
+    );
+  });
+});
+
+describe('ShifuSetting tier persistence', () => {
+  it('saves a text tier over a retained Live model without exposing or overwriting it', async () => {
+    jest.clearAllMocks();
+    mockEnvState.billingEnabled = 'false';
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      { model: 'gemini-3.8-live', interaction_mode: 'live_voice', voices: [] },
+    ]);
+    mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
+    mockAskConfig.mockResolvedValue({ providers: [] });
+    mockSaveShifuDetail.mockResolvedValue(undefined);
+    mockTrackEvent.mockImplementation(() => undefined);
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Tier course',
+      description: '',
+      model: 'old-primary',
+      llm_tier: 'ultimate',
+      ask_model: 'gemini-3.8-live',
+      ask_llm_tier: 'fast',
+      follow_up_mode: 'text',
+      price: 1,
+      ask_provider_config: {
+        provider: 'llm',
+        mode: 'provider_only',
+        config: {},
+      },
+    });
+    renderOpenSettings();
+    await screen.findByDisplayValue('Tier course');
+    await waitFor(() =>
+      expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({
+          isLiveVoiceFollowUp: false,
+          askTier: 'fast',
+        }),
+      ),
+    );
+    act(() =>
+      mockAskSettingsSection.mock.calls.at(-1)?.[0].onAskTierChange('balanced'),
+    );
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        llm_tier: 'ultimate',
+        ask_llm_tier: 'balanced',
+      }),
+    );
+    expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBeUndefined();
+    expect(mockSaveShifuDetail.mock.calls[0][0].model).toBeUndefined();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_shifu_setting_save',
+      expect.objectContaining({
+        main_model_tier: 'ultimate',
+        follow_up_model_tier: 'balanced',
+        follow_up_mode: 'text',
       }),
     );
   });

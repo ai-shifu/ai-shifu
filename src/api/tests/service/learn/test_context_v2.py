@@ -1275,33 +1275,15 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     """Verify preview resolve LLM settings behavior."""
 
-    def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self) -> None:
+    def test_preserves_explicit_legacy_model_outside_current_catalog(self) -> None:
         app = Flask("preview-llm-settings")
         app.config.update(
-            DEFAULT_LLM_MODEL="",
-            DEFAULT_LLM_TEMPERATURE=0.3,
+            DEFAULT_LLM_MODEL="different-model", DEFAULT_LLM_TEMPERATURE=0.3
         )
         preview_ctx = RunScriptPreviewContextV2(app)
-        shifu = types.SimpleNamespace(
-            llm="silicon/fishaudio/fish-speech-1.5",
-            llm_temperature=0.7,
-        )
-
-        with (
-            patch(
-                "flaskr.service.learn.context_v2.get_allowed_models",
-                return_value=["ark/deepseek-v3-2"],
-            ),
-            patch(
-                "flaskr.service.learn.context_v2.get_current_models",
-                return_value=[
-                    {"model": "ark/deepseek-v3-2", "display_name": "DeepSeek V3.2"}
-                ],
-            ),
-        ):
-            model, temperature = preview_ctx._resolve_llm_settings(shifu)
-
-        assert model == "ark/deepseek-v3-2"
+        shifu = types.SimpleNamespace(llm="old-model", llm_temperature=None)
+        model, temperature = preview_ctx._resolve_llm_settings(shifu)
+        assert model == "old-model"
         assert temperature == 0.3
 
 
@@ -1767,7 +1749,9 @@ class PreviewRunLlmLoggingTests(unittest.TestCase):
         parent_observation = object()
         provider = RUNLLMProvider(
             app=app,
-            llm_settings=types.SimpleNamespace(model="gpt-test", temperature=0.6),
+            llm_settings=types.SimpleNamespace(
+                model="gpt-test", temperature=0.6, usage_metadata={}
+            ),
             trace=object(),
             parent_observation=parent_observation,
             trace_args={

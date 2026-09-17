@@ -3,7 +3,7 @@
 import re
 
 from flask import Flask
-from flaskr.service.learn.live_follow_up_config import resolve_course_follow_up_model
+from flaskr.api.llm.tiers import selection_metadata, selection_model
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
@@ -39,6 +39,7 @@ class FollowUpInfo:
         model_args: object,
         ask_mode: object,
         ask_provider_config: object = None,
+        usage_metadata: dict | None = None,
     ) -> None:
         """Capture follow-up model, prompt, and limit settings."""
         self.ask_model = ask_model
@@ -48,6 +49,7 @@ class FollowUpInfo:
         self.model_args = model_args
         self.ask_mode = ask_mode
         self.ask_provider_config = ask_provider_config or {}
+        self.usage_metadata = usage_metadata or {}
 
     def __json__(self) -> dict:
         """Return the follow-up info as JSON-compatible data."""
@@ -235,10 +237,8 @@ def get_follow_up_info_v2(
     shifu_ask_provider_config = normalize_ask_provider_config(
         getattr(shifu_info, "ask_provider_config", "{}")
     )
-    ask_model = resolve_course_follow_up_model(
-        shifu_info.llm,
-        shifu_info.ask_llm,
-    )
+    ask_model = selection_model(shifu_info, follow_up=True)
+    usage_metadata = selection_metadata(shifu_info, follow_up=True)
 
     for p in path:
         if p.type == "outline":
@@ -246,6 +246,7 @@ def get_follow_up_info_v2(
             if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
                 return FollowUpInfo(
                     ask_model=ask_model,
+                    usage_metadata=usage_metadata,
                     ask_prompt=outline_info.ask_llm_system_prompt,
                     ask_history_count=10,
                     ask_limit_count=10,
@@ -266,4 +267,5 @@ def get_follow_up_info_v2(
         model_args,
         shifu_info.ask_enabled_status,
         shifu_ask_provider_config,
+        usage_metadata=usage_metadata,
     )

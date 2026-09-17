@@ -186,6 +186,11 @@ class DraftShifu(db.Model):
         default="",
         comment="Avatar resource business identifier",
     )
+    llm_tier = Column(String(16), nullable=True, comment="Course model tier")
+    ask_llm_tier = Column(
+        String(16), nullable=True, comment="Text follow-up model tier"
+    )
+    # Deprecated model identity; new selections use llm_tier.
     llm = Column(String(100), nullable=False, default="", comment="LLM model name")
     llm_temperature = Column(
         DECIMAL(10, 2),
@@ -212,6 +217,7 @@ class DraftShifu(db.Model):
         server_default=str(FLOW_ENGINE_DEFAULT),
         comment="MarkdownFlow runtime that teaches this shifu: 1=1.0, 2=2.0",
     )
+    # Deprecated text model identity; new text selections use ask_llm_tier.
     ask_llm = Column(
         String(100),
         nullable=False,
@@ -336,6 +342,8 @@ class DraftShifu(db.Model):
             description=self.description,
             avatar_res_bid=self.avatar_res_bid,
             llm=self.llm,
+            llm_tier=self.llm_tier,
+            ask_llm_tier=self.ask_llm_tier,
             llm_temperature=self.llm_temperature,
             llm_system_prompt=self.llm_system_prompt,
             ask_enabled_status=self.ask_enabled_status,
@@ -370,6 +378,8 @@ class DraftShifu(db.Model):
             and self.description == other.description
             and self.avatar_res_bid == other.avatar_res_bid
             and self.llm == other.llm
+            and self.llm_tier == other.llm_tier
+            and self.ask_llm_tier == other.ask_llm_tier
             and compare_decimal(self.llm_temperature, other.llm_temperature)
             and self.llm_system_prompt == other.llm_system_prompt
             and self.ask_enabled_status == other.ask_enabled_status
@@ -638,6 +648,11 @@ class PublishedShifu(db.Model):
         default="",
         comment="Avatar resource business identifier",
     )
+    llm_tier = Column(String(16), nullable=True, comment="Course model tier")
+    ask_llm_tier = Column(
+        String(16), nullable=True, comment="Text follow-up model tier"
+    )
+    # Deprecated model identity; new selections use llm_tier.
     llm = Column(String(100), nullable=False, default="", comment="LLM model name")
     llm_temperature = Column(
         DECIMAL(10, 2), nullable=False, default=0, comment="LLM temperature parameter"
@@ -658,6 +673,7 @@ class PublishedShifu(db.Model):
         server_default=str(FLOW_ENGINE_DEFAULT),
         comment="MarkdownFlow runtime that teaches this shifu: 1=1.0, 2=2.0",
     )
+    # Deprecated text model identity; new text selections use ask_llm_tier.
     ask_llm = Column(
         String(100), nullable=False, default="", comment="Ask agent LLM model"
     )
@@ -911,3 +927,20 @@ class LogPublishedStruct(db.Model):
         default="",
         comment="Last updater user business identifier",
     )
+
+
+class ModelTierMigrationAudit(db.Model):
+    """Persist the exact rows changed by the default-to-fast cleanup."""
+
+    __tablename__ = "shifu_model_tier_migration_audit"
+    __table_args__ = (
+        db.Index("ix_model_tier_audit_selection", "table_name", "row_id", "field_name"),
+    )
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    batch_bid = Column(String(32), nullable=False, index=True)
+    table_name = Column(String(64), nullable=False)
+    row_id = Column(BIGINT, nullable=False)
+    field_name = Column(String(32), nullable=False)
+    previous_tier = Column(String(16), nullable=True)
+    new_tier = Column(String(16), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=now_utc)

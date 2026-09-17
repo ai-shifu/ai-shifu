@@ -200,6 +200,16 @@
   "minimaxVoiceGroupBuiltIn": "Built-in voices",
   "minimaxVoiceGroupCloned": "My cloned voices",
   "minimaxVoiceGroupManual": "Manual voice ID",
+  "modelTiers": {
+    "balanced": "Balanced",
+    "fast": "Fast",
+    "hint": "Choose a tier based on speed, quality and credit consumption.",
+    "legacy": "Legacy configuration",
+    "liveVoice": "Live voice",
+    "text": "Text follow-up",
+    "ultimate": "Ultimate",
+    "unavailable": "Unavailable"
+  },
   "number": "Enter a number",
   "permissionContactRequired": "Please enter at least one contact",
   "permissionCount": "Shared users: {count}/{max}",

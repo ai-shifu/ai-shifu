@@ -200,6 +200,16 @@
   "minimaxVoiceGroupBuiltIn": "เสียงในตัว",
   "minimaxVoiceGroupCloned": "เสียงที่ฉันโคลน",
   "minimaxVoiceGroupManual": "ID เสียงที่กรอกเอง",
+  "modelTiers": {
+    "balanced": "สมดุล",
+    "fast": "รวดเร็ว",
+    "hint": "เลือกระดับตามความเร็ว คุณภาพ และการใช้เครดิต",
+    "legacy": "การตั้งค่าเดิม",
+    "liveVoice": "สนทนาด้วยเสียงสด",
+    "text": "คำถามแบบข้อความ",
+    "ultimate": "สูงสุด",
+    "unavailable": "ไม่พร้อมใช้งาน"
+  },
   "number": "กรอกตัวเลข",
   "permissionContactRequired": "โปรดกรอกอย่างน้อยหนึ่งบัญชี",
   "permissionCount": "แชร์แล้ว: {count}/{max}",

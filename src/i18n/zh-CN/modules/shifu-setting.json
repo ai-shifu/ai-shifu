@@ -200,6 +200,16 @@
   "minimaxVoiceGroupBuiltIn": "内置音色",
   "minimaxVoiceGroupCloned": "我的克隆音色",
   "minimaxVoiceGroupManual": "手动音色 ID",
+  "modelTiers": {
+    "balanced": "均衡",
+    "fast": "快速",
+    "hint": "按响应速度、效果和积分消耗选择档位。",
+    "legacy": "历史配置",
+    "liveVoice": "实时语音",
+    "text": "文字追问",
+    "ultimate": "极致",
+    "unavailable": "暂不可用"
+  },
   "number": "输入数字",
   "permissionContactRequired": "请输入至少一个账号",
   "permissionCount": "已共享：{count}/{max}",

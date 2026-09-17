@@ -3272,3 +3272,42 @@ def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
             )
         )
     assert [d["name"] for c in chunks for d in c.tool_call_deltas] == ["interact"]
+
+
+@pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])
+def test_tier_call_uses_one_model_for_provider_usage_and_trace(
+    monkeypatch: pytest.MonkeyPatch, app: object, method: str
+) -> None:
+    from flaskr.api.llm import tiers
+
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(tiers, "get_config", lambda *_args: "gpt-test")
+    captured = {}
+    usage = {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("part", content="done", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    arguments = {
+        "app": app,
+        "user_id": "tier-user",
+        "span": span,
+        "model": "old-model",
+        "usage_metadata": {"model_tier": "fast", "model_selection_record_id": 123},
+    }
+    if method == "invoke_llm":
+        list(llm.invoke_llm(message="hello", **arguments))
+    else:
+        list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
+    assert captured["model"] == "gpt-test"
+    assert usage["model"] == "gpt-test"
+    assert usage["extra"]["resolved_model"] == "gpt-test"
+    assert usage["extra"]["model_tier"] == "fast"
+    assert span.end_args["metadata"]["resolved_model"] == "gpt-test"
+    assert span.end_args["metadata"]["model_selection_record_id"] == 123

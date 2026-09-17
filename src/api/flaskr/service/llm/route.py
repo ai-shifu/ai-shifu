@@ -1,7 +1,11 @@
 """Expose HTTP routes for LLM routing."""
 
 from flask import Flask
-from flaskr.api.llm import get_current_models, get_follow_up_models
+from flaskr.api.llm import (
+    get_current_models,
+    get_follow_up_models,
+    get_model_tier_options,
+)
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.llm.dtos import FollowUpModelOptionDTO
@@ -59,5 +63,10 @@ def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
         return make_common_response(
             [FollowUpModelOptionDTO(**option) for option in get_follow_up_models(app)]
         )
+
+    @app.route(path_prefix + "/model-tier-list", methods=["GET"])
+    def model_tier_list_api() -> str:
+        """Return course tiers with current availability and credit multipliers."""
+        return make_common_response(get_model_tier_options(app))
 
     return app

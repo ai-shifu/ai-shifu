@@ -23,6 +23,7 @@ def _import_file(
     *,
     shifu: dict[str, object],
     outlines: list[dict[str, object]] | None = None,
+    include_structure: bool = False,
 ) -> FileStorage:
     payload = {
         "version": "1.0",
@@ -42,6 +43,15 @@ def _import_file(
             ],
         },
     }
+    if include_structure:
+        payload["structure"] = {
+            "type": "shifu",
+            "bid": "import-root",
+            "children": [
+                {"type": "outline", "bid": item["outline_item_bid"], "children": []}
+                for item in outlines or []
+            ],
+        }
     return FileStorage(
         stream=io.BytesIO(json.dumps(payload).encode()),
         filename="course.json",

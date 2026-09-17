@@ -843,3 +843,83 @@ def test_get_draft_meta_route_allows_view_only_permission(
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["updated_at"] == "2026-07-02T10:00:00Z"
+
+
+def test_tier_only_save_preserves_legacy_fields_and_supports_live_roundtrip(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
+    from flaskr.service.shifu import shifu_draft_funcs as module
+    from flaskr.service.shifu.models import DraftShifu
+
+    _seed_shifu(app, "tier-save-course", "tier-owner", Decimal(1))
+    _mock_shifu_permissions(monkeypatch)
+    with app.app_context():
+
+        def save(**kwargs: object) -> object:
+            defaults = {
+                "shifu_name": None,
+                "shifu_description": None,
+                "shifu_avatar": None,
+                "shifu_keywords": None,
+                "shifu_model": None,
+                "shifu_temperature": None,
+                "shifu_price": None,
+                "shifu_system_prompt": None,
+            }
+            defaults.update(kwargs)
+            return module.save_shifu_draft_info(
+                app=app,
+                user_id="tier-owner",
+                shifu_id="tier-save-course",
+                base_url="http://localhost",
+                **defaults,
+            )
+
+        result = save(llm_tier="ultimate", ask_llm_tier="fast")
+        assert result.llm_tier == "ultimate"
+        assert result.ask_llm_tier == "fast"
+        row = (
+            DraftShifu.query.filter_by(shifu_bid="tier-save-course", deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert row.llm == "gpt-test"
+        assert row.ask_llm == "gpt-ask"
+        first_id = row.id
+        assert save().llm_tier == "ultimate"
+        from flaskr.service.common.models import AppError
+
+        with pytest.raises(AppError):
+            save(shifu_model="other-legacy")
+        result = save(ask_model=GEMINI_LIVE_MODEL_ID, ask_llm_tier=None)
+        assert result.ask_llm_tier is None
+        assert result.follow_up_mode == "live_voice"
+        result = save(ask_llm_tier="balanced")
+        assert result.follow_up_mode == "text"
+        assert result.ask_llm_tier == "balanced"
+        assert result.model == "gpt-test"
+        assert db_latest_id("tier-save-course") > first_id
+        # Explicit clearing reactivates the preserved main legacy selection.
+        assert save(llm_tier=None).llm_tier is None
+        with unit_of_work():
+            row = (
+                DraftShifu.query.filter_by(shifu_bid="tier-save-course", deleted=0)
+                .order_by(DraftShifu.id.desc())
+                .first()
+            )
+            row.llm = ""
+            row.llm_tier = None
+        assert save().llm_tier == "fast"
+
+
+def db_latest_id(bid: str) -> int:
+    from flaskr.service.shifu.models import DraftShifu
+
+    return (
+        DraftShifu.query.filter_by(shifu_bid=bid, deleted=0)
+        .order_by(DraftShifu.id.desc())
+        .first()
+        .id
+    )

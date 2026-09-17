@@ -52,6 +52,7 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
+from flaskr.api.llm.tiers import TIER_UNSET, resolve_selection, validate_model_tier
 from flaskr.common.config import get_config
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
@@ -664,7 +665,14 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         shifu_avatar = request.get_json().get("avatar", "")
         return make_common_response(
             create_shifu_draft(
-                app, user_id, shifu_name, shifu_description, shifu_avatar, []
+                app,
+                user_id,
+                shifu_name,
+                shifu_description,
+                shifu_avatar,
+                [],
+                llm_tier=request.get_json().get("llm_tier"),
+                ask_llm_tier=request.get_json().get("ask_llm_tier"),
             )
         )
 
@@ -892,6 +900,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 use_learner_language=use_learner_language,
                 ask_enabled_status=ask_enabled_status,
                 ask_model=ask_model,
+                llm_tier=json_data.get("llm_tier", TIER_UNSET),
+                ask_llm_tier=json_data.get("ask_llm_tier", TIER_UNSET),
                 ask_temperature=ask_temperature,
                 ask_system_prompt=ask_system_prompt,
                 ask_provider_config=ask_provider_config,
@@ -1310,6 +1320,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 system_prompt,
                 is_hidden,
                 outline_type,
+                llm_tier=request.get_json().get("llm_tier", TIER_UNSET),
+                ask_llm_tier=request.get_json().get("ask_llm_tier", TIER_UNSET),
             )
         )
 
@@ -2179,8 +2191,16 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         )
 
         ask_model = str(json_data.get("ask_model") or "").strip()
-        if not ask_model and require_llm_model:
-            ask_model = str(get_config("DEFAULT_LLM_MODEL") or "").strip()
+        ask_tier = validate_model_tier(json_data.get("ask_llm_tier"), "ask_llm_tier")
+        ask_usage_metadata = {
+            "model_tier": ask_tier,
+            "model_selection_field": "ask_llm",
+            "model_selection_table": "preview",
+        }
+        if require_llm_model:
+            ask_model, ask_usage_metadata = resolve_selection(
+                ask_model, ask_usage_metadata
+            )
         if not ask_model and require_llm_model:
             raise_param_error("ask_model")
         from flaskr.service.learn.api import is_live_follow_up_model
@@ -2240,6 +2260,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                     preview_user_id,
                     preview_span,
                     model=ask_model,
+                    usage_metadata=ask_usage_metadata,
                     messages=stream_messages,
                     generation_name="ask_provider_preview",
                     temperature=ask_temperature,

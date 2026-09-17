@@ -200,6 +200,16 @@
   "minimaxVoiceGroupBuiltIn": "الأصوات المدمجة",
   "minimaxVoiceGroupCloned": "أصواتي المستنسخة",
   "minimaxVoiceGroupManual": "معرّف صوت يدوي",
+  "modelTiers": {
+    "balanced": "متوازن",
+    "fast": "سريع",
+    "hint": "اختر المستوى حسب السرعة والجودة واستهلاك الرصيد.",
+    "legacy": "إعداد سابق",
+    "liveVoice": "محادثة صوتية مباشرة",
+    "text": "متابعة نصية",
+    "ultimate": "فائق",
+    "unavailable": "غير متاح"
+  },
   "number": "أدخل رقمًا",
   "permissionContactRequired": "أدخل حسابًا واحدًا على الأقل",
   "permissionCount": "تمت المشاركة: {count}/{max}",

@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
 from flaskr.api.llm import is_live_follow_up_model_available
+from flaskr.api.llm.tiers import selection_model
 from flaskr.api.tts import (
     AudioSettings,
     VoiceSettings,
@@ -57,7 +58,6 @@ from flaskr.service.learn.listen_element_matching import (
 )
 from flaskr.service.learn.live_follow_up_config import (
     get_follow_up_interaction_mode,
-    resolve_course_follow_up_model,
 )
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
@@ -362,14 +362,7 @@ def get_outline_item_tree(
             outline_item_model.deleted == 0,
         ).all()
         outline_items_db_map = {item.id: item for item in outline_items_dbs}
-        course_follow_up_model = (
-            resolve_course_follow_up_model(
-                getattr(shifu, "llm", ""),
-                getattr(shifu, "ask_llm", ""),
-            )
-            if shifu
-            else ""
-        )
+        course_follow_up_model = selection_model(shifu, follow_up=True) if shifu else ""
         course_ask_mode = getattr(shifu, "ask_enabled_status", ASK_MODE_DEFAULT)
 
         def resolve_follow_up_mode(item: HistoryItem) -> str:

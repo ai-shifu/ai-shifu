@@ -93,6 +93,7 @@ const api = {
   updateChapterOrder: 'POST /shifu/update-chapter-order',
 
   getModelList: 'GET /llm/model-list',
+  getModelTierList: 'GET /llm/model-tier-list',
 
   // TTS api
   askConfig: 'GET /shifu/ask/config',

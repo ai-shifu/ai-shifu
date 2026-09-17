@@ -84,7 +84,7 @@ are not backfilled under another name.
 - Metric definition: raw successful saves/creates and accepted actions per day,
   grouped only by the documented enums or stable business IDs. The follow-up
   adoption view groups successful `creator_shifu_setting_save` rows by
-  `follow_up_mode` and `price_tier`. These are usage counts, not exact user
+  `follow_up_mode`, `price_tier`, `main_model_tier` and `follow_up_model_tier`. These are usage counts, not exact user
   funnels.
 - Actor and surface: authenticated teachers in Cook Web authoring surfaces.
 - Population: normal and read-only-aware producer eligibility as implemented by
@@ -98,10 +98,17 @@ are not backfilled under another name.
   2026-09-02 contract revision adds `follow_up_mode` to
   `creator_shifu_setting_save`; historical rows are not backfilled and a
   missing value must be treated as `legacy_unknown`, never inferred as `text`.
+- The 2026-09-17 revision adds `main_model_tier` and `follow_up_model_tier`
+  to the same successful-save event. Both use `fast|balanced|ultimate|legacy`;
+  Live follow-up uses `not_applicable`. Historical missing fields mean unknown,
+  not Fast. Adoption queries must group these stable enums without inferring
+  providers or physical models. Failed saves, validation failures and read-only
+  courses remain excluded; one successful save emits once. Tracking failure
+  never changes the result of saving.
 
 | Event                          | Exact trigger                                                                | Complete payload                                                                                                               |
 | ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language`, `follow_up_mode`, `price_tier` |
+| `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language`, `follow_up_mode`, `price_tier`, `main_model_tier`, `follow_up_model_tier` |
 | `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`, `prompt_change`                     |
 | `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`, `prompt_change`                                                                       |
 | `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                                                       |

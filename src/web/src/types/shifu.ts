@@ -1,3 +1,5 @@
+export type ModelTier = 'fast' | 'balanced' | 'ultimate';
+
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import type { LearningPermission } from '@/api/studyV2';
 
@@ -20,6 +22,8 @@ export interface ModelOption {
 }
 
 export interface Shifu {
+  llm_tier?: ModelTier | null;
+  ask_llm_tier?: ModelTier | null;
   bid: string;
   name?: string;
   description?: string;

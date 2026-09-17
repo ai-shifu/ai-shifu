@@ -735,6 +735,27 @@ DeepSeek: deepseek-chat
 Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
     ),
+    "LLM_TIER_FAST_MODEL": EnvVar(
+        name="LLM_TIER_FAST_MODEL",
+        default="",
+        description="Routed text model for the fast course tier. Required before enabling tier selections.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_TIER_BALANCED_MODEL": EnvVar(
+        name="LLM_TIER_BALANCED_MODEL",
+        default="",
+        description="Routed text model for the balanced course tier. Required before enabling tier selections.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_TIER_ULTIMATE_MODEL": EnvVar(
+        name="LLM_TIER_ULTIMATE_MODEL",
+        default="",
+        description="Routed text model for the ultimate course tier. Required before enabling tier selections.",
+        group="llm",
+        required=False,
+    ),
     "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": EnvVar(
         name="LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS",
         default="",

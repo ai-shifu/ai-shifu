@@ -200,6 +200,16 @@
   "minimaxVoiceGroupBuiltIn": "Voix intégrées",
   "minimaxVoiceGroupCloned": "Mes voix clonées",
   "minimaxVoiceGroupManual": "ID de voix manuel",
+  "modelTiers": {
+    "balanced": "Équilibré",
+    "fast": "Rapide",
+    "hint": "Choisissez selon la rapidité, la qualité et la consommation de crédits.",
+    "legacy": "Configuration antérieure",
+    "liveVoice": "Conversation vocale",
+    "text": "Questions écrites",
+    "ultimate": "Optimal",
+    "unavailable": "Indisponible"
+  },
   "number": "Saisir un nombre",
   "permissionContactRequired": "Veuillez saisir au moins un contact",
   "permissionCount": "Utilisateurs partagés: {count}/{max}",
