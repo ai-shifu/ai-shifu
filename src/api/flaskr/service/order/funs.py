@@ -1817,27 +1817,20 @@ def sync_native_payment_order(
     payment_channel: str | None = None,
 ) -> dict[str, Any]:
     """Synchronize native payment order."""
-    with _app_context_scope(app), unit_of_work():
-        order = (
-            Order.query.filter(
-                Order.order_bid == order_id,
-                Order.deleted == 0,
-            )
-            .order_by(Order.id.desc())
-            .first()
-        )
-        if not order:
-            raise_error("server.order.orderNotFound")
-        if expected_user and order.user_bid != expected_user:
-            raise_error("server.order.orderNotFound")
-
+    with _app_context_scope(app), unit_of_work(discard=True):
+        order = _load_payment_sync_order(order_id, expected_user=expected_user)
         provider_name = str(payment_channel or order.payment_channel or "").lower()
-        if provider_name == "stripe":
-            return sync_stripe_checkout_session(
-                app,
-                order_id,
-                expected_user=expected_user,
-            )
+
+    if provider_name == "stripe":
+        return sync_stripe_checkout_session(
+            app,
+            order_id,
+            expected_user=expected_user,
+        )
+
+    with payment_lifecycle_lock(order_id), _app_context_scope(app), unit_of_work():
+        order = _load_payment_sync_order(order_id, expected_user=expected_user)
+        provider_name = str(payment_channel or order.payment_channel or "").lower()
         if provider_name not in {"alipay", "wechatpay"}:
             raise_error("server.pay.payChannelNotSupport")
 
@@ -1891,6 +1884,27 @@ def sync_native_payment_order(
             success_buy_record(app, order.order_bid)
         db.session.add(snapshot)
         return get_payment_details(app, order.order_bid)
+
+
+def _load_payment_sync_order(
+    order_id: str,
+    *,
+    expected_user: str | None,
+) -> Order:
+    """Load one learner-owned order for provider synchronization."""
+    order = (
+        Order.query.filter(
+            Order.order_bid == order_id,
+            Order.deleted == 0,
+        )
+        .order_by(Order.id.desc())
+        .first()
+    )
+    if not order:
+        raise_error("server.order.orderNotFound")
+    if expected_user and order.user_bid != expected_user:
+        raise_error("server.order.orderNotFound")
+    return order
 
 
 def _update_stripe_order_snapshot(

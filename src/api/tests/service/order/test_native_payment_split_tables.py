@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
 from flaskr import dao
+from flaskr.dao import uow
 from flaskr.service.billing.checkout import (
     _persist_billing_native_raw_snapshot,
     load_billing_order_for_native_event,
@@ -18,7 +20,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.order.admin import _load_payment_detail
-from flaskr.service.order.consts import ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.funs import sync_native_payment_order
 from flaskr.service.order.models import AlipayOrder, Order, WechatPayOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
@@ -384,6 +386,198 @@ def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
         assert order.status == ORDER_STATUS_TO_BE_PAID
         assert snapshot.status == 1
         assert snapshot.transaction_id == "ali-mismatch-tx-1"
+
+
+def test_common_stripe_sync_dispatches_without_an_outer_unit_of_work(
+    native_payment_split_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with native_payment_split_app.app_context():
+        dao.db.session.add(
+            Order(
+                order_bid="order-common-stripe-sync",
+                shifu_bid="shifu-sync-1",
+                user_bid="user-sync-1",
+                payable_price=Decimal("199.00"),
+                paid_price=Decimal("199.00"),
+                payment_channel="stripe",
+                status=ORDER_STATUS_TO_BE_PAID,
+            )
+        )
+        dao.db.session.commit()
+
+    def _sync_stripe(*_args: object, **_kwargs: object) -> dict[str, object]:
+        assert uow.in_unit_of_work() is False
+        return {"status": 0}
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.sync_stripe_checkout_session",
+        _sync_stripe,
+    )
+
+    details = sync_native_payment_order(
+        native_payment_split_app,
+        "order-common-stripe-sync",
+        expected_user="user-sync-1",
+    )
+
+    assert details == {"status": 0}
+
+
+def test_common_native_sync_holds_the_payment_lifecycle_lock(
+    native_payment_split_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock_held = False
+
+    @contextmanager
+    def _recording_lock(order_bid: str) -> Iterator[None]:
+        nonlocal lock_held
+        assert order_bid == "order-common-native-lock"
+        lock_held = True
+        try:
+            yield
+        finally:
+            lock_held = False
+
+    class _AlipayProvider:
+        def sync_reference(self, **_kwargs: object) -> PaymentNotificationResult:
+            assert lock_held is True
+            return PaymentNotificationResult(
+                order_bid="ali-common-native-lock",
+                status="WAIT_BUYER_PAY",
+                provider_payload={
+                    "trade": {
+                        "out_trade_no": "ali-common-native-lock",
+                        "trade_status": "WAIT_BUYER_PAY",
+                    }
+                },
+            )
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.payment_lifecycle_lock",
+        _recording_lock,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _provider_name: _AlipayProvider(),
+    )
+    with native_payment_split_app.app_context():
+        dao.db.session.add_all(
+            [
+                Order(
+                    order_bid="order-common-native-lock",
+                    shifu_bid="shifu-sync-1",
+                    user_bid="user-sync-1",
+                    payable_price=Decimal("199.00"),
+                    paid_price=Decimal("199.00"),
+                    payment_channel="alipay",
+                    status=ORDER_STATUS_TO_BE_PAID,
+                ),
+                AlipayOrder(
+                    alipay_order_bid="ali-common-native-lock",
+                    biz_domain="order",
+                    user_bid="user-sync-1",
+                    shifu_bid="shifu-sync-1",
+                    order_bid="order-common-native-lock",
+                    provider_attempt_id="ali-common-native-lock",
+                    amount=19900,
+                    currency="CNY",
+                    status=0,
+                    raw_status="pending",
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    sync_native_payment_order(
+        native_payment_split_app,
+        "order-common-native-lock",
+        expected_user="user-sync-1",
+    )
+
+    assert lock_held is False
+
+
+def test_repeated_common_native_sync_notifies_only_once(
+    native_payment_split_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _PaidAlipayProvider:
+        def sync_reference(self, **_kwargs: object) -> PaymentNotificationResult:
+            return PaymentNotificationResult(
+                order_bid="ali-common-native-paid",
+                status="TRADE_SUCCESS",
+                provider_payload={
+                    "trade": {
+                        "out_trade_no": "ali-common-native-paid",
+                        "trade_status": "TRADE_SUCCESS",
+                        "total_amount": "199.00",
+                    }
+                },
+                charge_id="ali-common-native-transaction",
+            )
+
+    notifications: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _provider_name: _PaidAlipayProvider(),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_shifu_creator_bid",
+        lambda *_args: "teacher-sync-1",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.set_shifu_context",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.set_user_state",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu",
+        lambda _app, order_bid: notifications.append(order_bid),
+    )
+    with native_payment_split_app.app_context():
+        dao.db.session.add_all(
+            [
+                Order(
+                    order_bid="order-common-native-paid",
+                    shifu_bid="shifu-sync-1",
+                    user_bid="user-sync-1",
+                    payable_price=Decimal("199.00"),
+                    paid_price=Decimal("199.00"),
+                    payment_channel="alipay",
+                    status=ORDER_STATUS_TO_BE_PAID,
+                ),
+                AlipayOrder(
+                    alipay_order_bid="ali-common-native-paid",
+                    biz_domain="order",
+                    user_bid="user-sync-1",
+                    shifu_bid="shifu-sync-1",
+                    order_bid="order-common-native-paid",
+                    provider_attempt_id="ali-common-native-paid",
+                    amount=19900,
+                    currency="CNY",
+                    status=0,
+                    raw_status="pending",
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    for _ in range(2):
+        sync_native_payment_order(
+            native_payment_split_app,
+            "order-common-native-paid",
+            expected_user="user-sync-1",
+        )
+
+    assert notifications == ["order-common-native-paid"]
+    with native_payment_split_app.app_context():
+        order = Order.query.filter_by(order_bid="order-common-native-paid").one()
+        assert order.status == ORDER_STATUS_SUCCESS
 
 
 def test_billing_native_snapshot_and_transaction_lookup_use_wechat_table(

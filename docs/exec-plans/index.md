@@ -25,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live Voice Follow-Up](./active/gemini-live-voice-follow-up.md)
 - [Gemini TTS Provider](./active/gemini-tts.md)
+- [Keep common payment synchronization idempotent](./active/idempotent-payment-sync.md)
 - [Learner listen playback stability](./active/learner-listen-playback-stability.md)
 - [Lobster Course Entry Analytics](./active/lobster-course-entry-analytics.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./active/markdownflow-model-arena.md)
