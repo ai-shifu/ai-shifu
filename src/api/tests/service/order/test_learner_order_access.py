@@ -1,6 +1,5 @@
 """Regression coverage for learner order ownership and mutable states."""
 
-from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -12,19 +11,15 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_REFUND,
     ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TIMEOUT,
-    ORDER_STATUS_TO_BE_PAID,
 )
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.order.funs import (
-    _resume_pending_charge,
     generate_charge,
     get_payment_details,
     query_buy_record,
 )
 from flaskr.service.order.models import Order, PingxxOrder
-from flaskr.service.promo.consts import COUPON_TYPE_FIXED
-from flaskr.service.promo.models import Coupon, CouponUsage
-from flaskr.util.datetime import now_utc
+from flaskr.service.promo.models import CouponUsage
 
 
 def _seed_order(
@@ -108,225 +103,8 @@ def test_order_services_hide_another_users_order(app: object) -> None:
             call()
 
 
-def test_pending_order_reuses_existing_payment_attempt(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    with app.app_context():
-        order = _seed_order(
-            order_bid="pending-payment-order",
-            status=ORDER_STATUS_TO_BE_PAID,
-        )
-        db.session.add(
-            PingxxOrder(
-                pingxx_order_bid="pending-provider-attempt",
-                biz_domain="order",
-                order_bid=order.order_bid,
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                channel="alipay_qr",
-                extra="{}",
-                charge_object=('{"credential":{"alipay_qr":"https://pay.example/qr"}}'),
-            )
-        )
-        db.session.commit()
-
-    provider_requested = False
-
-    def track_provider_request(_name: str) -> object:
-        nonlocal provider_requested
-        provider_requested = True
-        return object()
-
-    monkeypatch.setattr(
-        "flaskr.service.order.funs.get_payment_provider", track_provider_request
-    )
-
-    result = generate_charge(
-        app,
-        "pending-payment-order",
-        "alipay_qr",
-        "127.0.0.1",
-        expected_user="owner-user",
-    )
-
-    assert provider_requested is False
-    assert result.qr_url == "https://pay.example/qr"
-    assert result.payment_payload == {
-        "qr_url": "https://pay.example/qr",
-        "credential": {"alipay_qr": "https://pay.example/qr"},
-    }
-
-
-def test_pending_order_does_not_resume_an_empty_qr_credential(app: object) -> None:
-    with app.app_context():
-        order = _seed_order(
-            order_bid="pending-empty-payment-order",
-            status=ORDER_STATUS_TO_BE_PAID,
-        )
-        db.session.add(
-            PingxxOrder(
-                pingxx_order_bid="pending-empty-provider-attempt",
-                biz_domain="order",
-                order_bid=order.order_bid,
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                channel="wx_pub_qr",
-                extra="{}",
-                charge_object='{"credential":{"wx_pub_qr":""}}',
-            )
-        )
-        db.session.commit()
-
-        assert _resume_pending_charge(app, order) is None
-
-
-def test_coupon_closes_pending_attempt_before_repricing(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    cancelled: list[tuple[str, str]] = []
-
-    class Provider:
-        def cancel_payment(
-            self,
-            *,
-            provider_reference: str,
-            reference_type: str,
-            app: object,
-        ) -> SimpleNamespace:
-            del app
-            cancelled.append((provider_reference, reference_type))
-            return SimpleNamespace(status="cancelled")
-
-    monkeypatch.setattr(
-        "flaskr.service.order.funs.get_payment_provider", lambda _name: Provider()
-    )
-    now = now_utc()
-    with app.app_context():
-        order = _seed_order(
-            order_bid="coupon-reprices-pending-order",
-            status=ORDER_STATUS_TO_BE_PAID,
-        )
-        db.session.add_all(
-            [
-                PingxxOrder(
-                    pingxx_order_bid="coupon-pending-attempt",
-                    biz_domain="order",
-                    order_bid=order.order_bid,
-                    user_bid=order.user_bid,
-                    shifu_bid=order.shifu_bid,
-                    channel="wx_pub_qr",
-                    amount=20000,
-                    status=0,
-                    charge_id="ch_coupon_pending",
-                    extra="{}",
-                    charge_object='{"credential":{"wx_pub_qr":"https://pay.example/old"}}',
-                ),
-                Coupon(
-                    coupon_bid="coupon-reprice-fixed",
-                    code="REPRICE20",
-                    discount_type=COUPON_TYPE_FIXED,
-                    value=Decimal("20.00"),
-                    start=now - timedelta(days=1),
-                    end=now + timedelta(days=1),
-                    channel="test",
-                    filter="",
-                    total_count=5,
-                    used_count=0,
-                    status=1,
-                ),
-            ]
-        )
-        db.session.commit()
-
-    result = use_coupon_code(
-        app,
-        "owner-user",
-        "REPRICE20",
-        "coupon-reprices-pending-order",
-    )
-
-    assert cancelled == [("ch_coupon_pending", "charge")]
-    assert result is not None
-    assert result.value_to_pay == "180.00"
-    with app.app_context():
-        stored_order = Order.query.filter_by(
-            order_bid="coupon-reprices-pending-order"
-        ).one()
-        stored_attempt = PingxxOrder.query.filter_by(
-            pingxx_order_bid="coupon-pending-attempt"
-        ).one()
-        assert stored_order.status == ORDER_STATUS_INIT
-        assert stored_order.paid_price == Decimal("180.00")
-        assert stored_attempt.status == 3
-
-
-def test_invalid_coupon_keeps_pending_attempt_active(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    provider_requested = False
-
-    def fail_if_provider_requested(_name: str) -> object:
-        nonlocal provider_requested
-        provider_requested = True
-        return object()
-
-    monkeypatch.setattr(
-        "flaskr.service.order.funs.get_payment_provider",
-        fail_if_provider_requested,
-    )
-    with app.app_context():
-        order = _seed_order(
-            order_bid="invalid-coupon-pending-order",
-            status=ORDER_STATUS_TO_BE_PAID,
-        )
-        db.session.add(
-            PingxxOrder(
-                pingxx_order_bid="invalid-coupon-active-attempt",
-                biz_domain="order",
-                order_bid=order.order_bid,
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                channel="wx_pub_qr",
-                amount=20000,
-                status=0,
-                charge_id="ch_still_active",
-                extra="{}",
-                charge_object='{"credential":{"wx_pub_qr":"https://pay.example/current"}}',
-            )
-        )
-        db.session.commit()
-
-    with pytest.raises(AppError, match="voucher code does not exist"):
-        use_coupon_code(
-            app,
-            "owner-user",
-            "DOES-NOT-EXIST",
-            "invalid-coupon-pending-order",
-        )
-
-    assert provider_requested is False
-    with app.app_context():
-        assert (
-            Order.query.filter_by(order_bid="invalid-coupon-pending-order").one().status
-            == ORDER_STATUS_TO_BE_PAID
-        )
-        assert (
-            PingxxOrder.query.filter_by(
-                pingxx_order_bid="invalid-coupon-active-attempt"
-            )
-            .one()
-            .status
-            == 0
-        )
-
-
 @pytest.mark.parametrize(
-    "status",
-    [
-        ORDER_STATUS_SUCCESS,
-        ORDER_STATUS_REFUND,
-        ORDER_STATUS_TIMEOUT,
-    ],
+    "status", [ORDER_STATUS_SUCCESS, ORDER_STATUS_REFUND, ORDER_STATUS_TIMEOUT]
 )
 def test_coupon_rejects_terminal_order_without_mutation(
     app: object, status: int

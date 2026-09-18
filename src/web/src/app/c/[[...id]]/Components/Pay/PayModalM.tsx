@@ -586,7 +586,9 @@ export const PayModalM = ({
       nextSnapshot = snapshot;
       nextOrderId = snapshot?.order_id || '';
     }
-    if (!nextOrderId) return;
+    if (!nextOrderId) {
+      return;
+    }
     let nextChannel = payChannel;
     if (!qrChannelEnabled && isStripeAvailable) {
       nextChannel = PAY_CHANNEL_STRIPE;
@@ -718,12 +720,13 @@ export const PayModalM = ({
   const onPayChannelChange = useCallback(
     (value: string) => {
       setPayChannel(value);
-      if (orderId) {
-        refreshPayment({
-          channel: resolveRequestChannel(value),
-          paymentChannel: resolvePaymentChannel(value),
-        });
+      if (!orderId) {
+        return;
       }
+      refreshPayment({
+        channel: resolveRequestChannel(value),
+        paymentChannel: resolvePaymentChannel(value),
+      });
     },
     [orderId, refreshPayment, resolvePaymentChannel, resolveRequestChannel],
   );
@@ -833,15 +836,10 @@ export const PayModalM = ({
     if (!couponCodeInput) {
       return;
     }
-    const snapshot = await applyCoupon({
+    await applyCoupon({
       code: couponCodeInput,
       channel: resolveRequestChannel(payChannel),
       paymentChannel: resolvePaymentChannel(payChannel),
-    });
-    await refreshPayment({
-      channel: resolveRequestChannel(payChannel),
-      paymentChannel: resolvePaymentChannel(payChannel),
-      snapshot,
     });
     trackLearnerPaymentEventSafely(trackEvent, 'learner_coupon_apply', {
       shifu_bid: courseId,
@@ -854,7 +852,6 @@ export const PayModalM = ({
     couponCodeInput,
     courseId,
     payChannel,
-    refreshPayment,
     resolvePaymentChannel,
     resolveRequestChannel,
     trackEvent,

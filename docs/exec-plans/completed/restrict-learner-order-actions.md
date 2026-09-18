@@ -19,9 +19,6 @@ leave completed, refunded, and expired orders immutable.
   terminal-order attempts, plus response allowlisting.
 - [x] 2026-09-18 11:15 CST: Ran focused backend/frontend and repository
   verification, then moved this plan to `docs/exec-plans/completed/`.
-- [x] 2026-09-18 11:45 CST: Restored the established desktop QR-first cashier,
-  removed the fake QR fallback, and added provider-attempt cancellation before
-  coupon repricing.
 
 ## Surprises & Discoveries
 
@@ -47,49 +44,23 @@ leave completed, refunded, and expired orders immutable.
   Rationale: operator troubleshooting has a different authorization boundary;
   this work only minimizes learner-facing responses.
 - Decision: allow coupon application only while an order is in an unpaid,
-  mutable state before any provider attempt exists (`init`).
-  Rationale: a `to be paid` order already has a live provider attempt at the
-  old amount; repricing it would leave that charge usable. Both coupon
-  redemption and payment creation lock the order row so they cannot race while
-  claiming the initial state.
-- Decision: create a provider payment attempt only for an `init` order and
-  return the stored provider parameters for a `to be paid` order; retain the
-  existing read-only handling for successful orders and explicit rejection for
-  refunded orders.
-  Rationale: mobile confirmation and reopening an unpaid order need the active
-  payment parameters, but a retry must not create another provider charge.
-- Decision: initialize the order when the payment modal opens, but defer
-  provider payment creation until the learner explicitly starts payment.
-  Rationale: this keeps the order in `init` while the learner enters a coupon,
-  so an active provider payment is never repriced.
-- Decision: supersede the deferred-payment decision after deployed UX
-  verification. Keep one business order, close its current unpaid provider
-  attempt before applying a coupon, mark that attempt closed, and create a new
-  attempt at the discounted amount.
-  Rationale: desktop must retain its QR-first cashier. Provider cancellation
-  makes the old credential unusable, while latest-attempt and amount checks
-  prevent delayed callbacks from an older attempt from completing the order.
+  mutable state (`init` or `to be paid`).
+  Rationale: success, refund, and timeout states are historical outcomes and
+  must not have price or coupon records rewritten.
 
 ## Outcomes & Retrospective
 
 Learner order lookup, payment creation, payment detail, and coupon redemption
 now enforce the authenticated order owner in the service layer. Coupon
-redemption closes an existing unpaid provider attempt before repricing, then
-creates a replacement attempt under the same business order. Desktop opens
-with the QR visible as before, mobile can resume its active attempt, and empty
-provider credentials are never rendered as a placeholder QR. Pending orders
-reuse valid stored provider parameters; unusable snapshots are replaced.
-Delayed callbacks only complete the latest pending attempt when its amount
-matches the current order. Learner payment detail responses for Stripe, native
-providers, and Ping++ contain only payment channel, course, order, and provider
-status; operator detail loading still uses full snapshots.
+redemption accepts only unpaid mutable orders. Learner payment detail responses
+for Stripe, native providers, and Ping++ contain only payment channel, course,
+order, and provider status; operator detail loading still uses full snapshots.
 
 Regression coverage exercises all four HTTP entry points, direct service calls,
-payment-attempt and terminal-order immutability, and provider response
-allowlists. Focused order tests, legacy root order tests, frontend payment tests,
-TypeScript, Ruff, formatting, architecture boundaries, and unit-of-work checks
-pass. The final repository-wide pre-commit gate is run after this completed plan
-is written.
+terminal order immutability, and provider response allowlists. Focused order
+tests, legacy root order tests, frontend payment tests, TypeScript, Ruff,
+formatting, architecture boundaries, and unit-of-work checks pass. The final
+repository-wide pre-commit gate is run after this completed plan is written.
 
 ## Context and Orientation
 

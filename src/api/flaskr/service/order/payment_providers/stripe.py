@@ -9,7 +9,6 @@ from flaskr.service.config import get_config
 
 from . import register_payment_provider
 from .base import (
-    PaymentCancellationResult,
     PaymentCreationResult,
     PaymentNotificationResult,
     PaymentProvider,
@@ -274,34 +273,6 @@ class StripeProvider(PaymentProvider):
         stripe, request_options = self._client_options(app)
         session = stripe.checkout.Session.expire(session_id, **request_options)
         return session.to_dict() if hasattr(session, "to_dict") else session
-
-    def cancel_payment(
-        self,
-        *,
-        provider_reference: str,
-        reference_type: str,
-        app: Flask,
-    ) -> PaymentCancellationResult:
-        """Expire Checkout or cancel an uncaptured PaymentIntent."""
-        stripe, request_options = self._client_options(app)
-        normalized_type = str(reference_type or "").strip().lower()
-        if normalized_type == "checkout_session":
-            response = stripe.checkout.Session.expire(
-                provider_reference, **request_options
-            )
-        elif normalized_type == "payment_intent":
-            response = stripe.PaymentIntent.cancel(
-                provider_reference, **request_options
-            )
-        else:
-            message = f"Unsupported Stripe reference type: {reference_type}"
-            raise RuntimeError(message)
-        payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
-        return PaymentCancellationResult(
-            provider_reference=provider_reference,
-            raw_response=payload,
-            status="cancelled",
-        )
 
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:
         """Retrieve a Stripe payment intent."""

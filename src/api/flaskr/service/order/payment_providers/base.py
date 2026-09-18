@@ -73,15 +73,6 @@ class PaymentRefundResult:
     status: str
 
 
-@dataclass(slots=True)
-class PaymentCancellationResult:
-    """Response returned after making a payment attempt unusable."""
-
-    provider_reference: str
-    raw_response: dict[str, Any]
-    status: str
-
-
 class PaymentProvider(ABC):
     """Base abstraction for payment providers."""
 
@@ -148,17 +139,6 @@ class PaymentProvider(ABC):
         message = f"{self.__class__.__name__} does not support refunds"
         raise NotImplementedError(message)
 
-    def cancel_payment(
-        self,
-        *,
-        provider_reference: str,
-        reference_type: str,
-        app: object,
-    ) -> PaymentCancellationResult:
-        """Close an unpaid provider attempt before the order is repriced."""
-        message = f"{self.__class__.__name__} does not support payment cancellation"
-        raise NotImplementedError(message)
-
     def sync_payment_status(
         self, *, order_bid: str, provider_reference: str, app: object
     ) -> PaymentNotificationResult:
@@ -182,9 +162,4 @@ class PaymentProvider(ABC):
     ) -> dict[str, Any]:
         """Expire an open provider checkout session if supported."""
         message = f"{self.__class__.__name__} does not support checkout session expiry"
-        raise NotImplementedError(message)
-
-    def build_jsapi_params(self, *, prepay_id: str) -> dict[str, str]:
-        """Build client parameters for an existing JSAPI payment if supported."""
-        message = f"{self.__class__.__name__} does not support JSAPI payments"
         raise NotImplementedError(message)
