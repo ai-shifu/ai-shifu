@@ -150,13 +150,14 @@ def agent_lesson_events(
     shifu_bid: str,
     outline_bid: str,
     user_input: str | dict | None = None,
+    listen: bool = False,
     preview_mode: bool = False,
     heartbeat_interval: float = 0.5,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Run one turn of an allowlisted lesson and yield the events 1.0 produces.
 
-    Listen mode never reaches here -- routing keeps those requests on 1.0 -- so `listen=False` is
-    a statement of that, not a downgrade of a listening learner's request.
+    `listen` reaches the spoken track, not the engine: the engine's own listen mode stays off, and
+    what it teaches is spoken by the pipeline that speaks a 1.0 lesson. See `agent/listen.py`.
     """
     script, model_name, temperature = _resolve(
         app,
@@ -196,8 +197,9 @@ def agent_lesson_events(
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             user_input=user_input,
-            listen=False,
+            listen=listen,
             preview_mode=preview_mode,
+            shifu_model=_models(preview_mode)[1],
             heartbeat_interval=heartbeat_interval,
         )
         end_reason = "completed"

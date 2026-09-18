@@ -1327,6 +1327,7 @@ class AVStreamingTTSProcessor:
         tts_model: str = "",
         usage_scene: int = BILL_USAGE_SCENE_PROD,
         element_index_offset: int = 0,
+        learning_mode: str = "",
     ) -> None:
         """Initialize AV segmentation configuration and pending-stream state.
 
@@ -1348,6 +1349,7 @@ class AVStreamingTTSProcessor:
         self.tts_model = tts_model
         self.usage_scene = usage_scene
         self.element_index_offset = int(element_index_offset or 0)
+        self.learning_mode = learning_mode
 
         self._position_cursor = 0
         self._current_processor: StreamingTTSProcessor | None = None
@@ -1392,6 +1394,9 @@ class AVStreamingTTSProcessor:
             tts_model=self.tts_model,
             av_contract=self._av_contract,
             usage_scene=self.usage_scene,
+            # Carried through: the inner processor is what records usage, and without this a
+            # listening lesson is billed with no listen attribution.
+            learning_mode=self.learning_mode,
         )
         self._current_segment_has_speakable_text = False
         return self._current_processor
