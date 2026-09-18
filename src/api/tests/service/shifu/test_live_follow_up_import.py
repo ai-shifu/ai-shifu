@@ -56,15 +56,6 @@ def _import_file(
     [
         ({"llm": GEMINI_LIVE_MODEL_ID}, []),
         (
-            {},
-            [
-                {
-                    "outline_item_bid": "outline-primary-live",
-                    "llm": GEMINI_LIVE_MODEL_ID,
-                }
-            ],
-        ),
-        (
             {
                 "ask_llm": GEMINI_LIVE_MODEL_ID,
                 "ask_provider_config": {
@@ -74,21 +65,6 @@ def _import_file(
                 },
             },
             [],
-        ),
-        (
-            {
-                "ask_provider_config": {
-                    "provider": "llm",
-                    "mode": "provider_then_llm",
-                    "config": {"live_voice": "Kore"},
-                }
-            },
-            [
-                {
-                    "outline_item_bid": "outline-follow-up-live",
-                    "ask_llm": GEMINI_LIVE_MODEL_ID,
-                }
-            ],
         ),
     ],
 )
@@ -205,6 +181,7 @@ def test_legacy_outline_models_are_ignored_and_not_exported(
         shifu_bid,
         _import_file(
             shifu={},
+            include_structure=True,
             outlines=[
                 {
                     "outline_item_bid": "old-outline",

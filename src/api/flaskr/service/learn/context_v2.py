@@ -24,7 +24,7 @@ from flaskr.api.langfuse import (
     normalize_langfuse_output_value,
     update_langfuse_trace,
 )
-from flaskr.api.llm import chat_llm, get_allowed_models
+from flaskr.api.llm import chat_llm
 from flaskr.api.llm.tiers import resolve_selection, selection_metadata, selection_model
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.common.i18n_utils import (

@@ -41,8 +41,8 @@ def test_cleanup_persists_defaults_only_and_is_repeatable(app: object) -> None:
         assert published.ask_llm == "fast"
         assert published.llm == "old-main"
         assert chosen.llm == "ultimate"
-        assert outline.llm == ""
-        assert outline.ask_llm == ""
+        assert not hasattr(outline, "llm")
+        assert not hasattr(outline, "ask_llm")
         audit = ModelTierMigrationAudit.query.filter_by(
             batch_bid=result["batch_bid"],
             table_name=DraftShifu.__tablename__,
@@ -88,13 +88,10 @@ def test_cleanup_failure_rolls_back_rows_and_audit(
 
 def test_tier_only_changes_survive_clone_and_equality(app: object) -> None:
     with app.app_context(), unit_of_work():
-        for row in (
-            DraftShifu(shifu_bid=uuid4().hex),
-            DraftOutlineItem(outline_item_bid=uuid4().hex),
-        ):
-            db.session.add(row)
-            db.session.flush()
-            _assert_tier_clone(row)
+        row = DraftShifu(shifu_bid=uuid4().hex)
+        db.session.add(row)
+        db.session.flush()
+        _assert_tier_clone(row)
 
 
 def _assert_tier_clone(row: object) -> None:
@@ -176,7 +173,6 @@ def test_cleaned_defaults_resolve_to_fast_and_keep_audit_provenance(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
-    from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 
     monkeypatch.setattr(tiers, "resolve_tier_model", lambda tier: f"configured-{tier}")
     with app.app_context():
@@ -188,9 +184,7 @@ def test_cleaned_defaults_resolve_to_fast_and_keep_audit_provenance(
         migrate_default_model_tiers(app, apply=True)
         db.session.expire_all()
         context = RunScriptPreviewContextV2(app)
-        model, _ = context._resolve_llm_settings(
-            PlaygroundPreviewRequest(block_index=0), None, row
-        )
+        model, _ = context._resolve_llm_settings(row)
         assert model == "configured-fast"
         assert (
             context._preview_model_selection_metadata["model_selection_origin"]
@@ -214,19 +208,14 @@ def test_preview_rejects_uncleaned_course_and_honors_explicit_tier(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
-    from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 
     monkeypatch.setattr(tiers, "resolve_tier_model", lambda tier: f"configured-{tier}")
     with app.app_context():
         context = RunScriptPreviewContextV2(app)
         with pytest.raises(AppError):
-            context._resolve_llm_settings(
-                PlaygroundPreviewRequest(block_index=0), None, DraftShifu()
-            )
+            context._resolve_llm_settings(DraftShifu())
         model, _ = context._resolve_llm_settings(
-            PlaygroundPreviewRequest(block_index=0, model="ultimate"),
-            None,
-            DraftShifu(llm="fast"),
+            DraftShifu(llm="ultimate"),
         )
         assert model == "configured-ultimate"
 
@@ -306,11 +295,10 @@ def test_new_course_persists_independent_fast_defaults(
         assert row.ask_llm == "fast"
 
 
-def test_outline_tiers_inherit_consistently_in_preview_learning_and_follow_up(
+def test_course_tiers_drive_preview_learning_and_follow_up(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr.service.learn import context_v2, utils_v2
-    from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
     from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_ENABLE
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
@@ -327,8 +315,6 @@ def test_outline_tiers_inherit_consistently_in_preview_learning_and_follow_up(
             parent = DraftOutlineItem(
                 shifu_bid=bid,
                 outline_item_bid=uuid4().hex,
-                llm="balanced",
-                ask_llm="ultimate",
                 ask_enabled_status=ASK_MODE_DEFAULT,
             )
             leaf = DraftOutlineItem(
@@ -338,6 +324,9 @@ def test_outline_tiers_inherit_consistently_in_preview_learning_and_follow_up(
                 ask_enabled_status=ASK_MODE_DEFAULT,
             )
             db.session.add_all([course, parent, leaf])
+        # Even stale in-memory outline attributes cannot override course settings.
+        parent.llm = "balanced"
+        parent.ask_llm = "ultimate"
         struct = HistoryItem(
             bid=bid,
             id=course.id,
@@ -367,37 +356,32 @@ def test_outline_tiers_inherit_consistently_in_preview_learning_and_follow_up(
         settings = runtime.get_llm_settings(leaf.outline_item_bid)
         assert (
             tiers.resolve_selection(settings.model, settings.usage_metadata)[0]
-            == "configured-balanced"
+            == "configured-fast"
         )
         preview = context_v2.RunScriptPreviewContextV2(app)
-        assert (
-            preview._resolve_llm_settings(
-                PlaygroundPreviewRequest(block_index=0), leaf, course
-            )[0]
-            == "configured-balanced"
-        )
+        assert preview._resolve_llm_settings(course)[0] == "configured-fast"
         follow_up = utils_v2.get_follow_up_info_v2(
             app, bid, leaf.outline_item_bid, "", is_preview=True
         )
         assert follow_up.ask_mode == ASK_MODE_ENABLE
         assert (
             tiers.resolve_selection(follow_up.ask_model, follow_up.usage_metadata)[0]
-            == "configured-ultimate"
+            == "configured-fast"
         )
         with unit_of_work():
-            parent.llm = ""
-            parent.ask_llm = ""
+            course.llm = "balanced"
+            course.ask_llm = "ultimate"
         settings = runtime.get_llm_settings(leaf.outline_item_bid)
         assert (
             tiers.resolve_selection(settings.model, settings.usage_metadata)[0]
-            == "configured-fast"
+            == "configured-balanced"
         )
         follow_up = utils_v2.get_follow_up_info_v2(
             app, bid, leaf.outline_item_bid, "", is_preview=True
         )
         assert (
             tiers.resolve_selection(follow_up.ask_model, follow_up.usage_metadata)[0]
-            == "configured-fast"
+            == "configured-ultimate"
         )
 
 

@@ -1,7 +1,7 @@
 """add course model cleanup audit ledger
 
 Revision ID: 5ca8717e482f
-Revises: e5a7c9d1f3b4
+Revises: fde432bceab4
 Create Date: 2026-09-17 19:23:39.747131
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "5ca8717e482f"
-down_revision = "e5a7c9d1f3b4"
+down_revision = "fde432bceab4"
 branch_labels = None
 depends_on = None
 

@@ -21,9 +21,7 @@ def test_provenance_queries_once_per_course_field_and_request(app: object) -> No
         with unit_of_work():
             migrated = PublishedShifu(shifu_bid=uuid4().hex, llm="", ask_llm="")
             selected = DraftShifu(shifu_bid=uuid4().hex, llm="fast")
-            outline = DraftOutlineItem(
-                outline_item_bid=uuid4().hex, llm="fast", ask_llm="fast"
-            )
+            outline = DraftOutlineItem(outline_item_bid=uuid4().hex)
             other_tier = DraftShifu(shifu_bid=uuid4().hex, llm="ultimate")
             db.session.add_all([migrated, selected, outline, other_tier])
             db.session.flush()
@@ -69,7 +67,7 @@ def test_provenance_queries_once_per_course_field_and_request(app: object) -> No
                                 selection_metadata(outline, follow_up=follow_up)[
                                     "model_selection_origin"
                                 ]
-                                == "tier"
+                                == "legacy_model"
                             )
                         assert (
                             selection_metadata(selected)["model_selection_origin"]

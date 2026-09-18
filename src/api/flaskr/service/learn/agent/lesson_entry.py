@@ -18,6 +18,8 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
+from flaskr.api.llm.tiers import selection_model
+from flaskr.service.common.models import raise_error
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.run_agent import run_agent_lesson
@@ -70,7 +72,7 @@ def _resolve(
 ) -> tuple[str, str, float]:
     """Read the script and the model settings for this lesson.
 
-    Model resolution follows the 1.0 order: the course's setting, then the deployment default.
+    Model resolution follows 1.0: use the course selection after default cleanup.
     """
     outline_model, shifu_model = _models(preview_mode)
     # Bound to the course as well as the lesson: an allowlisted course paired with another
@@ -85,14 +87,10 @@ def _resolve(
         app, user_bid=user_bid, shifu=shifu, outline=outline, preview_mode=preview_mode
     )
 
-    course_model = str(getattr(shifu, "llm", "") or "").strip()
-    if course_model:
-        return outline.content, course_model, float(shifu.llm_temperature)
-    return (
-        outline.content,
-        app.config.get("DEFAULT_LLM_MODEL"),
-        float(app.config.get("DEFAULT_LLM_TEMPERATURE")),
-    )
+    course_model = selection_model(shifu)
+    if not course_model:
+        return raise_error("server.llm.modelSelectionNotConfigured")
+    return outline.content, course_model, float(shifu.llm_temperature)
 
 
 def _has_bought(*, user_bid: str, shifu_bid: str) -> bool:

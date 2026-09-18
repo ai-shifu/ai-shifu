@@ -10,6 +10,12 @@ can replace models without editing courses. Preserve explicit legacy model names
 
 ## Progress
 
+- [x] 2026-09-19: Stack on PR #2853 and retain its course-only model and
+  temperature contract. Chain the audit migration after outline-column removal.
+- [x] 2026-09-19: Verify the combined migration and runtime contracts: 1702
+  related backend tests passed (96 skipped), alongside 65 frontend tests,
+  TypeScript and the repository-wide gate.
+
 - [x] 2026-09-18: Replace tier columns with aliases in existing fields and adapt
   authoring/runtime/UI/cleanup. Local regressions and repository gate verified.
 
@@ -26,18 +32,26 @@ can replace models without editing courses. Preserve explicit legacy model names
 
 ## Surprises & Discoveries
 
-- Course draft/published rows and outline draft/published rows explicitly copy
-  settings; clone/equality, import/export and publishing must all carry tiers.
-- Empty outline settings mean inheritance and must not be backfilled.
+- Course draft/published rows explicitly copy model settings; clone/equality,
+  import/export and publishing must preserve aliases in the original fields.
+- PR #2853 removes outline model and temperature columns. Preview, learning and
+  follow-up read only course model selections; outline prompts and follow-up
+  switches retain their existing inheritance.
 - A text alias and a Live model share the original field and cannot be active
   simultaneously. Switching modes replaces the selected value.
 
 ## Decision Log
 
+- 2026-09-19: Stack this PR on #2853 (`sunner/course-only-llm-settings`). Do not
+  restore removed outline or block-preview model overrides. Both learning
+  engines reject uncleaned empty course selections, then route cleaned Fast
+  aliases through the shared gateway. The audit revision follows `fde432bceab4`
+  so the combined migration graph has one head.
+
 - 2026-09-18: Supersede the separate-field design. Store fast/balanced/ultimate
   directly in llm and ask_llm; remove the unmerged tier-column additions.
 - Backfill course rows whose original model field is blank to fast;
-  preserve explicit legacy models and all outline inheritance. Retain audit rows.
+  preserve explicit legacy course models and outline prompts/switches. Retain audit rows.
 - New writes/imports normalize empty course selections to fast. Reads do not
   silently normalize missing selections. Unconfigured tiers fail closed.
 - Resolve follow-up tiers only when an LLM is actually invoked: healthy external
@@ -56,6 +70,12 @@ can replace models without editing courses. Preserve explicit legacy model names
   retain them. This is not a network-data secrecy boundary.
 
 ## Outcomes & Retrospective
+
+The #2853 integration passed 1702 related learning, course, migration and golden
+regressions (96 skipped). The coverage includes one Alembic head, populated
+upgrade/downgrade, both learning engines after cleanup, ignored outline/block
+model overrides, copied/published course aliases and retained prompt inheritance.
+Frontend verification passed all 65 settings/selector tests and TypeScript.
 
 The alias implementation passed 1917 related backend/configuration/golden tests
 (95 skipped), including the new import/default regression cases.
@@ -90,8 +110,8 @@ Use LLM_TIER_FAST_MODEL, LLM_TIER_BALANCED_MODEL and LLM_TIER_ULTIMATE_MODEL.
 Only LLM_TIER_FAST_MODEL is required at startup. Balanced and Ultimate remain
 optional and unavailable until configured. None of the three has a default model.
 Create with fast in both course fields. Omitted update fields preserve values;
-empty course selections normalize to fast. Empty outline selections continue
-inheriting. Existing API model/ask_model fields carry aliases or legacy names.
+empty course selections normalize to fast. Outlines have no model fields.
+Existing course API model/ask_model fields carry aliases or legacy names.
 
 ## Validation and Acceptance
 

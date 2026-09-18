@@ -809,9 +809,8 @@ def test_copy_course_rejects_invalid_live_provider_contract(
         assert DraftShifu.query.count() == draft_count_before
 
 
-@pytest.mark.parametrize("selection_scope", ["course", "outline", "both"])
-def test_copy_course_preserves_text_aliases(app: object, selection_scope: str) -> None:
-    """Model aliases survive copying both courses and outline overrides."""
+def test_copy_course_preserves_text_aliases(app: object) -> None:
+    """Course aliases survive copying without restoring outline overrides."""
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     owner_email = _unique_email("tier-copy-owner")
@@ -822,13 +821,8 @@ def test_copy_course_preserves_text_aliases(app: object, selection_scope: str) -
             app, shifu_bid=shifu_bid, creator_user_bid=creator_bid
         )
         source = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
-        outlines = DraftOutlineItem.query.filter_by(shifu_bid=shifu_bid).all()
-        selected = ([source] if selection_scope in {"course", "both"} else []) + (
-            outlines if selection_scope in {"outline", "both"} else []
-        )
-        for row in selected:
-            row.llm = "ultimate"
-            row.ask_llm = "fast"
+        source.llm = "ultimate"
+        source.ask_llm = "fast"
         source.ask_provider_config = json.dumps(
             {"provider": "dify", "mode": "provider_only", "config": {}}
         )
@@ -846,9 +840,7 @@ def test_copy_course_preserves_text_aliases(app: object, selection_scope: str) -
             shifu_bid=result["new_shifu_bid"]
         ).all()
         assert json.loads(copied.ask_provider_config)["provider"] == "dify"
-        selected_copies = (
-            [copied] if selection_scope in {"course", "both"} else []
-        ) + (copied_outlines if selection_scope in {"outline", "both"} else [])
-        for row in selected_copies:
-            assert row.llm == "ultimate"
-            assert row.ask_llm == "fast"
+        assert copied.llm == "ultimate"
+        assert copied.ask_llm == "fast"
+        assert all(not hasattr(row, "llm") for row in copied_outlines)
+        assert all(not hasattr(row, "ask_llm") for row in copied_outlines)
