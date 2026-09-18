@@ -737,21 +737,18 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
     ),
     "LLM_TIER_FAST_MODEL": EnvVar(
         name="LLM_TIER_FAST_MODEL",
-        default="",
         description="Routed text model for the fast course tier. Required before enabling tier selections.",
         group="llm",
         required=False,
     ),
     "LLM_TIER_BALANCED_MODEL": EnvVar(
         name="LLM_TIER_BALANCED_MODEL",
-        default="",
         description="Routed text model for the balanced course tier. Required before enabling tier selections.",
         group="llm",
         required=False,
     ),
     "LLM_TIER_ULTIMATE_MODEL": EnvVar(
         name="LLM_TIER_ULTIMATE_MODEL",
-        default="",
         description="Routed text model for the ultimate course tier. Required before enabling tier selections.",
         group="llm",
         required=False,
@@ -2271,6 +2268,13 @@ class EnhancedConfig:
                 groups[env_var.group] = []
             groups[env_var.group].append(env_var)
 
+        # Keep course tiers in their user-facing order within the LLM group.
+        tier_order = {
+            "LLM_TIER_FAST_MODEL": "LLM_TIER_1",
+            "LLM_TIER_BALANCED_MODEL": "LLM_TIER_2",
+            "LLM_TIER_ULTIMATE_MODEL": "LLM_TIER_3",
+        }
+
         # Generate output for each group
         for group, group_vars in sorted(groups.items()):
             # Skip empty groups
@@ -2281,7 +2285,9 @@ class EnhancedConfig:
             lines.append(f"# {group.replace('_', ' ').title()}")
             lines.append(f"#{'=' * 60}\n")
 
-            for env_var in sorted(group_vars, key=lambda x: x.name):
+            for env_var in sorted(
+                group_vars, key=lambda x: tier_order.get(x.name, x.name)
+            ):
                 example_value = (
                     env_var.example if env_var.example is not None else env_var.default
                 )
@@ -2295,6 +2301,8 @@ class EnhancedConfig:
                 metadata = []
                 if env_var.required:
                     metadata.append("REQUIRED - must be set")
+                elif env_var.name in tier_order and env_var.default is None:
+                    metadata.append("No default - configure before using this tier")
                 elif env_var.default is None:
                     metadata.append("Optional - handled by libraries")
                 else:
