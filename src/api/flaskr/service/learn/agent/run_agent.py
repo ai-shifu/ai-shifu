@@ -50,6 +50,7 @@ from flaskr.service.learn.agent.lesson_record import (
     retire_unused_block,
     stage_turn_block,
 )
+from flaskr.service.learn.agent.listen import LessonVoice
 from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
     load_agent_session,
@@ -154,7 +155,6 @@ def _load_or_start(
     shifu_bid: str,
     outline_bid: str,
     script: str,
-    listen: bool,
     preview_mode: bool,
 ) -> Callable[[], Any]:
     """Build the coroutine factory the bridge runs on its producer thread.
@@ -182,7 +182,10 @@ def _load_or_start(
         if stored is not None:
             stored.user_memory = dict(user_memory)
             return stored
-        session = await engine.new_session(script, user_id=user_bid, listen_mode=listen)
+        # `listen_mode=False` always. Listening is delivered by the host's spoken track, not by
+        # the engine's own listen mode -- which we do not use, and which a session would keep
+        # switched on for every later read-mode turn once it had been stored with it.
+        session = await engine.new_session(script, user_id=user_bid, listen_mode=False)
         session.user_memory = dict(user_memory)
         return session
 
@@ -200,6 +203,7 @@ def run_agent_lesson(
     user_input: str | dict | None = None,
     listen: bool = False,
     preview_mode: bool = False,
+    shifu_model: type | None = None,
     heartbeat_interval: float = 0.5,
     iter_turn: Callable[..., Any] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -218,7 +222,6 @@ def run_agent_lesson(
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         script=script,
-        listen=listen,
         preview_mode=preview_mode,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
@@ -255,10 +258,24 @@ def run_agent_lesson(
 
         return events()
 
+    voice = (
+        LessonVoice(
+            app,
+            shifu_model=shifu_model,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+        )
+        if listen and progress_record_bid
+        else None
+    )
     try:
         yield from _stream_turn(
             app,
             run_turn_on_thread=run_turn_on_thread,
+            voice=voice,
             make_events=make_events,
             session_holder=session_holder,
             user_bid=user_bid,
@@ -293,6 +310,7 @@ def _stream_turn(
     app: Flask,
     *,
     run_turn_on_thread: Callable[..., Any],
+    voice: LessonVoice | None,
     make_events: Callable[[], Any],
     session_holder: dict[str, Session],
     user_bid: str,
@@ -311,6 +329,10 @@ def _stream_turn(
     for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
         if isinstance(event, ContentDelta):
             taught.append(event.text)
+            if voice is not None:
+                # Before the text itself goes out: audio for a sentence the learner has not been
+                # shown yet is the order listen mode expects.
+                yield from voice.speak(event.text)
 
         if isinstance(event, MemoryUpdated):
             # Held rather than written now: the turn may still fail, and a memory write that
@@ -321,6 +343,11 @@ def _stream_turn(
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
         # question emits one and then re-asks the question and ends the turn properly, so treating
         # it as terminal would write the turn twice and stage its block twice.
+        if isinstance(event, TurnDone) and voice is not None:
+            # Whatever is still mid-synthesis when the text runs out, which is usually the last
+            # sentence of the turn.
+            yield from voice.finish()
+
         if isinstance(event, TurnDone) and not persisted:
             session = session_holder.get("session")
             if session is not None:
@@ -367,6 +394,10 @@ def _stream_turn(
     # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
     # the failures it cannot continue past. What the turn produced still has to be written, or the
     # learner replays an exchange that already happened.
+    if voice is not None and not persisted:
+        # Speech buffered when the turn died would otherwise never reach the learner, while the
+        # synthesis already submitted carries on with nowhere to go.
+        yield from voice.finish()
     session = session_holder.get("session")
     if not persisted and session is not None:
         _persist(

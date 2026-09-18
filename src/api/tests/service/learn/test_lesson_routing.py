@@ -27,7 +27,6 @@ def _routes_to_agent(**kwargs: object) -> bool:
     defaults = {
         "shifu_bid": SHIFU,
         "input_type": None,
-        "listen": False,
         "reload_generated_block_bid": None,
         "reload_element_bid": None,
     }
@@ -57,13 +56,50 @@ def test_a_follow_up_question_keeps_the_script_engine() -> None:
 
 
 @pytest.mark.usefixtures("allowlisted")
-def test_a_listening_learner_keeps_the_script_engine() -> None:
-    """Teaching it in read mode would answer a request for one thing with another.
+def test_a_listening_learner_is_also_taught_by_the_agent_engine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Listening is about how a lesson is delivered, not about who teaches it.
 
-    The engine's segment and narration events have nowhere to go until listen-mode mapping
-    exists, so the request stays with the engine that can serve it.
+    What the engine teaches is spoken by the same pipeline that speaks a 1.0 lesson, so a listening
+    request no longer stays behind -- and `listen` reaches the agent path rather than the routing
+    decision.
     """
-    assert _routes_to_agent(listen=True) is False
+    from flaskr.service.learn.agent import lesson_entry
+
+    seen: dict = {}
+
+    def _agent(_app: object, **kwargs: object) -> list:
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", _agent)
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_lesson_routing")
+
+    list(
+        runscript_v2._lesson_events(
+            app=_App(),
+            user_bid="user-bid",
+            shifu_bid=SHIFU,
+            outline_bid="outline-bid",
+            user_input=None,
+            input_type=None,
+            reload_generated_block_bid=None,
+            reload_element_bid=None,
+            listen=True,
+            learning_mode="listen",
+            preview_mode=False,
+            stop_event=None,
+            element_adapter=None,
+            heartbeat_interval=0.5,
+        )
+    )
+
+    assert seen["listen"] is True
 
 
 @pytest.mark.usefixtures("allowlisted")
