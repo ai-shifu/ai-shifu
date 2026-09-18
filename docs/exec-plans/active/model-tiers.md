@@ -10,6 +10,12 @@ can replace models without editing courses. Preserve explicit legacy model names
 
 ## Progress
 
+- [x] 2026-09-19: Preserve course revision and cleanup provenance through the
+  2.0 gateway; 440 gateway/agent/course-selection regression cases passed.
+- [x] 2026-09-19: Recheck tier availability before Live-to-text transitions and
+  ignore stale responses after close. All 72 settings/selector tests and
+  TypeScript passed; rejected transitions retain Live and its analytics value.
+
 - [x] 2026-09-19: Stack on PR #2853 and retain its course-only model and
   temperature contract. Chain the audit migration after outline-column removal.
 - [x] 2026-09-19: Verify the combined migration and runtime contracts: 1702

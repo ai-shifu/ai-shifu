@@ -21,6 +21,7 @@ const mockSaveShifuDetail = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
 const mockGetFollowUpModelCatalog = jest.fn();
+const mockGetModelTierList = jest.fn();
 const mockAskSettingsSection = jest.fn();
 const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 const mockCurrentShifu = {
@@ -62,6 +63,7 @@ jest.mock('@/api', () => ({
       mockGetMinimaxTtsCloneCost(...args),
     askConfig: (...args: unknown[]) => mockAskConfig(...args),
     askPreview: (...args: unknown[]) => mockAskPreview(...args),
+    getModelTierList: (...args: unknown[]) => mockGetModelTierList(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
     saveShifuDetail: (...args: unknown[]) => mockSaveShifuDetail(...args),
   },
@@ -1164,5 +1166,164 @@ describe('ShifuSetting tier persistence', () => {
         follow_up_mode: 'text',
       }),
     );
+  });
+});
+
+describe('ShifuSetting Live-to-text availability', () => {
+  const liveCourse = {
+    bid: 'course-1',
+    name: 'Private Live course',
+    description: '',
+    model: 'fast',
+    ask_model: 'gemini-3.8-live',
+    follow_up_mode: 'live_voice',
+    price: 1,
+    ask_provider_config: {
+      provider: 'llm',
+      mode: 'provider_only',
+      config: { live_voice: 'Puck' },
+    },
+  };
+  const latest = () => mockAskSettingsSection.mock.calls.at(-1)?.[0];
+  const openLive = async () => {
+    renderOpenSettings();
+    await screen.findByDisplayValue('Private Live course');
+    await waitFor(() => expect(latest().isLiveVoiceFollowUp).toBe(true));
+  };
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetModelTierList.mockReset();
+    mockEnvState.billingEnabled = 'false';
+    mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
+    mockAskConfig.mockResolvedValue({ providers: [] });
+    mockSaveShifuDetail.mockResolvedValue(undefined);
+    mockTrackEvent.mockImplementation(() => undefined);
+    mockGetShifuDetail.mockResolvedValue(liveCourse);
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      { model: 'gemini-3.8-live', interaction_mode: 'live_voice', voices: [] },
+    ]);
+  });
+  it.each(['unavailable', 'missing', 'failure'])(
+    'keeps Live when Fast availability is %s',
+    async status => {
+      if (status === 'failure')
+        mockGetModelTierList.mockRejectedValue(
+          new Error('private provider error'),
+        );
+      else
+        mockGetModelTierList.mockResolvedValue(
+          status === 'missing' ? [] : [{ tier: 'fast', available: false }],
+        );
+      await openLive();
+      await act(async () => latest().onFollowUpModeChange('text'));
+      expect(latest()).toEqual(
+        expect.objectContaining({
+          isLiveVoiceFollowUp: true,
+          askTier: null,
+          checkingTextMode: false,
+        }),
+      );
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.shifuSetting.modelTiers.unavailable',
+        variant: 'destructive',
+      });
+      expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBe(
+        'gemini-3.8-live',
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        expect.objectContaining({
+          follow_up_mode: 'live_voice',
+          follow_up_model_tier: 'not_applicable',
+        }),
+      );
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+        /gemini|private provider error|Private Live course/,
+      );
+    },
+  );
+  it.each([false, true])(
+    'saves available Fast even if tracking fails=%s',
+    async trackingFails => {
+      mockGetModelTierList.mockResolvedValue([
+        { tier: 'fast', available: true },
+      ]);
+      if (trackingFails)
+        mockTrackEvent.mockImplementation(() => {
+          throw new Error('analytics unavailable');
+        });
+      await openLive();
+      await act(async () => latest().onFollowUpModeChange('text'));
+      expect(latest()).toEqual(
+        expect.objectContaining({
+          isLiveVoiceFollowUp: false,
+          askTier: 'fast',
+        }),
+      );
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBe('fast');
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        expect.objectContaining({
+          follow_up_mode: 'text',
+          follow_up_model_tier: 'fast',
+        }),
+      );
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+        /gemini|Private Live course|live_voice/,
+      );
+    },
+  );
+  it('ignores an availability response after the dialog closes', async () => {
+    let resolveOptions!: (options: unknown[]) => void;
+    mockGetModelTierList.mockReturnValue(
+      new Promise(resolve => {
+        resolveOptions = resolve;
+      }),
+    );
+    await openLive();
+    let switching!: Promise<void>;
+    act(() => {
+      switching = latest().onFollowUpModeChange('text');
+    });
+    expect(latest().checkingTextMode).toBe(true);
+    expect(latest().isLiveVoiceFollowUp).toBe(true);
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      resolveOptions([{ tier: 'fast', available: true }]);
+      await switching;
+    });
+    expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBe(
+      'gemini-3.8-live',
+    );
+    expect(latest().isLiveVoiceFollowUp).toBe(true);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+  });
+  it('rechecks the remembered tier instead of silently replacing it with Fast', async () => {
+    mockGetShifuDetail.mockResolvedValue({
+      ...liveCourse,
+      ask_model: 'balanced',
+      follow_up_mode: 'text',
+    });
+    mockGetModelTierList.mockResolvedValue([
+      { tier: 'fast', available: true },
+      { tier: 'balanced', available: false },
+    ]);
+    renderOpenSettings();
+    await screen.findByDisplayValue('Private Live course');
+    await act(async () => latest().onFollowUpModeChange('live_voice'));
+    expect(latest().isLiveVoiceFollowUp).toBe(true);
+    await act(async () => latest().onFollowUpModeChange('text'));
+    expect(latest().isLiveVoiceFollowUp).toBe(true);
+    expect(mockToast).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 });

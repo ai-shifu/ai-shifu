@@ -104,7 +104,10 @@ are not backfilled under another name.
   not Fast. Adoption queries must group these stable enums without inferring
   providers or physical models. Failed saves, validation failures and read-only
   courses remain excluded; one successful save emits once. Tracking failure
-  never changes the result of saving.
+  never changes the result of saving. Live-to-text availability checks do not
+  emit this event. Rejected or cancelled switches preserve the saved mode; only
+  a subsequent successful settings save reports the accepted mode/tier. Existing
+  consumers and historical interpretation remain unchanged.
 
 | Event                          | Exact trigger                                                                | Complete payload                                                                                                               |
 | ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |

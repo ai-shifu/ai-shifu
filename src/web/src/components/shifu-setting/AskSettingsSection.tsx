@@ -43,6 +43,7 @@ type AskSettingsSectionProps = {
   askProviderLlmValue: string;
   askTier?: ModelTier | null;
   canRestoreText?: boolean;
+  checkingTextMode?: boolean;
   onAskTierChange?: (tier: ModelTier) => void;
   liveAvailable?: boolean;
   onFollowUpModeChange?: (mode: 'text' | 'live_voice') => void;
@@ -82,6 +83,7 @@ export default function AskSettingsSection({
   askProviderLlmValue,
   askTier,
   canRestoreText = false,
+  checkingTextMode = false,
   onAskTierChange,
   liveAvailable,
   onFollowUpModeChange,
@@ -161,7 +163,10 @@ export default function AskSettingsSection({
                 <SelectItem
                   value='text'
                   disabled={
-                    !textDebugAllowed && !canRestoreText && isLiveVoiceFollowUp
+                    checkingTextMode ||
+                    (!textDebugAllowed &&
+                      !canRestoreText &&
+                      isLiveVoiceFollowUp)
                   }
                 >
                   {t('module.shifuSetting.modelTiers.text')}

@@ -265,6 +265,8 @@ export default function ShifuSettingDialog({
   const [askModel, setAskModel] = useState('');
   const [askTier, setAskTier] = useState<ModelTier | null>(null);
   const textTierDraftRef = useRef<ModelTier | null>('fast');
+  const followUpModeRequestRef = useRef(0);
+  const [checkingTextMode, setCheckingTextMode] = useState(false);
   const legacyTextModelRef = useRef('');
   const [followUpModels, setFollowUpModels] = useState<
     FollowUpModelCatalogItem[]
@@ -322,6 +324,14 @@ export default function ShifuSettingDialog({
   const updateOpen = useCallback((nextOpen: boolean) => {
     setInternalOpen(nextOpen);
   }, []);
+
+  useEffect(() => {
+    followUpModeRequestRef.current++;
+    setCheckingTextMode(false);
+    return () => {
+      followUpModeRequestRef.current++;
+    };
+  }, [open, shifuId]);
 
   useEffect(() => {
     if (!open) {
@@ -903,6 +913,8 @@ export default function ShifuSettingDialog({
 
   const handleAskModelChange = useCallback(
     (value: string) => {
+      followUpModeRequestRef.current++;
+      setCheckingTextMode(false);
       setAskModel(value);
       const selectedModel = followUpModels.find(item => item.model === value);
       const isLive = selectedModel?.interaction_mode === 'live_voice';
@@ -919,6 +931,50 @@ export default function ShifuSettingDialog({
       setAskPreviewMeta(null);
     },
     [followUpModels],
+  );
+
+  const handleFollowUpModeChange = useCallback(
+    async (mode: 'text' | 'live_voice') => {
+      if (currentShifu?.readonly) return;
+      const version = ++followUpModeRequestRef.current;
+      if (mode === 'live_voice') {
+        const live = followUpModels.find(
+          item => item.interaction_mode === 'live_voice',
+        );
+        if (live) handleAskModelChange(live.model);
+        return;
+      }
+      const model = legacyTextModelRef.current;
+      const tier = textTierDraftRef.current || (model ? null : 'fast');
+      if (tier) {
+        setCheckingTextMode(true);
+        let available = false;
+        try {
+          const options = await api.getModelTierList({});
+          available =
+            Array.isArray(options) &&
+            options.some(
+              option => option.tier === tier && option.available === true,
+            );
+        } catch {
+          // Keep the saved mode when availability cannot be confirmed.
+        }
+        if (version !== followUpModeRequestRef.current) return;
+        setCheckingTextMode(false);
+        if (!available) {
+          toast({
+            title: t('module.shifuSetting.modelTiers.unavailable'),
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      setAskModel(model);
+      setAskTier(tier);
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    },
+    [currentShifu?.readonly, followUpModels, handleAskModelChange, t, toast],
   );
 
   const applyMinimaxManualVoiceId = useCallback(() => {
@@ -1441,11 +1497,13 @@ export default function ShifuSettingDialog({
         setAskModel(result.ask_model || '');
         setAskTier(asModelTier(result.ask_model));
         textTierDraftRef.current =
-          result.follow_up_mode === 'live_voice'
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
             ? 'fast'
             : asModelTier(result.ask_model);
         legacyTextModelRef.current =
-          result.follow_up_mode === 'live_voice' ? '' : result.ask_model || '';
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
+            ? ''
+            : result.ask_model || '';
         setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
         setAskTemperatureInput(
           String(result.ask_temperature ?? ASK_TEMPERATURE_MIN),
@@ -1805,6 +1863,8 @@ export default function ShifuSettingDialog({
         return;
       }
       if (!nextOpen) {
+        followUpModeRequestRef.current++;
+        setCheckingTextMode(false);
         submitForm(true, 'manual');
         return;
       }
@@ -2266,7 +2326,10 @@ export default function ShifuSettingDialog({
                       initialAskConfigurationRef.current?.interactionMode ===
                       'text'
                     }
+                    checkingTextMode={checkingTextMode}
                     onAskTierChange={tier => {
+                      followUpModeRequestRef.current++;
+                      setCheckingTextMode(false);
                       setAskTier(tier);
                       textTierDraftRef.current = tier;
                       setAskPreviewResult('');
@@ -2275,19 +2338,7 @@ export default function ShifuSettingDialog({
                     liveAvailable={followUpModels.some(
                       item => item.interaction_mode === 'live_voice',
                     )}
-                    onFollowUpModeChange={mode => {
-                      if (mode === 'live_voice') {
-                        const live = followUpModels.find(
-                          item => item.interaction_mode === 'live_voice',
-                        );
-                        if (live) handleAskModelChange(live.model);
-                      } else {
-                        setAskModel(legacyTextModelRef.current);
-                        setAskTier(textTierDraftRef.current);
-                        setAskPreviewResult('');
-                        setAskPreviewMeta(null);
-                      }
-                    }}
+                    onFollowUpModeChange={handleFollowUpModeChange}
                     isLiveVoiceFollowUp={isLiveVoiceFollowUp}
                     liveVoices={selectedFollowUpModel?.voices || []}
                     liveVoice={selectedLiveVoice}
