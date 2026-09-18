@@ -298,8 +298,10 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
     )
 
     assert details["payment_channel"] == "alipay"
-    assert details["provider_attempt_id"] == "ali-sync-1"
+    assert details["order_bid"] == "order-native-sync-1"
+    assert details["course_id"] == "shifu-sync-1"
     assert details["status"] == 0
+    assert set(details) == {"payment_channel", "order_bid", "course_id", "status"}
 
     with native_payment_split_app.app_context():
         refreshed = AlipayOrder.query.filter_by(order_bid="order-native-sync-1").one()

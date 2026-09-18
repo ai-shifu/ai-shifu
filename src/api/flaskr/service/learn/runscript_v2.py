@@ -726,7 +726,6 @@ def _lesson_events(
     if _teaches_with_agent(
         shifu_bid=shifu_bid,
         input_type=input_type,
-        listen=listen,
         reload_generated_block_bid=reload_generated_block_bid,
         reload_element_bid=reload_element_bid,
     ):
@@ -751,6 +750,7 @@ def _lesson_events(
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,
                 user_input=user_input,
+                listen=listen,
                 preview_mode=preview_mode,
                 heartbeat_interval=heartbeat_interval,
             )
@@ -806,25 +806,21 @@ def _teaches_with_agent(
     *,
     shifu_bid: str,
     input_type: str | None,
-    listen: bool,
     reload_generated_block_bid: str | None,
     reload_element_bid: str | None,
 ) -> bool:
     """Whether this particular request goes to the 2.0 engine.
 
-    Being on the allowlist is necessary but not sufficient. Three kinds of request keep the 1.0
+    Being on the allowlist is necessary but not sufficient. Two kinds of request keep the 1.0
     path even for an allowlisted course, because 2.0 has no equivalent of them yet:
 
     * a follow-up question, which runs beside the lesson under its own semaphore rather than
       through the lesson's turn loop;
-    * listening, whose segment and narration events have nowhere to go until listen-mode mapping
-      exists -- teaching it in read mode instead would answer a request for one thing with
-      another, so the request stays with the engine that can serve it;
     * regenerating a past block or element, which addresses rows 1.0 wrote and 2.0 does not have.
     """
     if not uses_agent_engine(shifu_bid):
         return False
-    if input_type == INPUT_TYPE_ASK or listen:
+    if input_type == INPUT_TYPE_ASK:
         return False
     return not (reload_generated_block_bid or reload_element_bid)
 
@@ -863,7 +859,6 @@ def run_script(
     teaches_with_agent = _teaches_with_agent(
         shifu_bid=shifu_bid,
         input_type=input_type,
-        listen=listen,
         reload_generated_block_bid=reload_generated_block_bid,
         reload_element_bid=reload_element_bid,
     )

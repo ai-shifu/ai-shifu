@@ -120,7 +120,13 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
     return recorded
 
 
-def _run(engine: _Engine, *, user_input: str | None = None, app: object = None) -> list:
+def _run(
+    engine: _Engine,
+    *,
+    user_input: str | None = None,
+    app: object = None,
+    listen: bool = False,
+) -> list:
     return list(
         run_agent.run_agent_lesson(
             app,
@@ -130,6 +136,7 @@ def _run(engine: _Engine, *, user_input: str | None = None, app: object = None) 
             shifu_bid=SHIFU,
             outline_bid=OUTLINE,
             user_input=user_input,
+            listen=listen,
             iter_turn=_drive,
         )
     )
@@ -783,3 +790,42 @@ def test_a_preview_has_no_block_to_retire(monkeypatch: pytest.MonkeyPatch) -> No
         )
 
     assert retired == []
+
+
+# --- listening is delivery, not a generation mode ------------------------------------------
+
+
+@pytest.mark.usefixtures("calls")
+def test_the_engine_is_never_put_into_its_own_listen_mode() -> None:
+    """The whole approach rests on this: the engine teaches, the host speaks.
+
+    Its listen mode keeps author-marked verbatim content only 64% of the time against 99% in
+    ordinary mode, and drops images the author marked to keep. A session also stores the flag, so
+    switching it on once would keep it on for every later read-mode turn.
+    """
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine, listen=True)
+
+    (call,) = engine.new_session_calls
+    assert call["listen_mode"] is False
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_lesson_whose_course_has_no_tts_is_taught_in_silence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A course with TTS switched off still teaches; the learner just hears nothing."""
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: None,
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine([ContentDelta(text="a"), TurnDone(reason="end")])
+    events = _run(engine, listen=True, app=_App())
+
+    assert [e.type for e in events] == [GeneratedType.CONTENT, GeneratedType.BREAK]
