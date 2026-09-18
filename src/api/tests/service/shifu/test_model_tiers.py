@@ -455,18 +455,26 @@ def test_outline_patch_preserves_omitted_tiers_and_null_restores_inheritance(
             )
             db.session.add(outline)
         result = module.modify_unit(
-            app, "teacher", outline.outline_item_bid, ask_llm_tier="fast"
+            app,
+            "teacher",
+            outline.shifu_bid,
+            outline.outline_item_bid,
+            ask_llm_tier="fast",
         )
         assert result.llm_tier == "balanced"
         assert result.ask_llm_tier == "fast"
         result = module.modify_unit(
-            app, "teacher", outline.outline_item_bid, llm_tier=None
+            app, "teacher", outline.shifu_bid, outline.outline_item_bid, llm_tier=None
         )
         assert result.llm_tier is None
         assert result.ask_llm_tier == "fast"
         with pytest.raises(AppError):
             module.modify_unit(
-                app, "teacher", outline.outline_item_bid, llm_tier="unknown"
+                app,
+                "teacher",
+                outline.shifu_bid,
+                outline.outline_item_bid,
+                llm_tier="unknown",
             )
 
 
