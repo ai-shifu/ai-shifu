@@ -37,7 +37,7 @@ from flaskr.common.shifu_context import (
 from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.common import raise_error
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.const import (
     INPUT_TYPE_ASK,
@@ -120,7 +120,6 @@ from flaskr.service.shifu.shifu_struct_manager import (
     # Kept as a module attribute: run/state.py resolves it through this
     # namespace at call time and tests patch it here.
     get_outline_item_dto_with_mdflow,  # noqa: F401
-    get_shifu_struct,
 )
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.user.exceptions import UserNotLoginError
@@ -853,13 +852,7 @@ class RunScriptPreviewContextV2:
             shifu_bid=shifu_bid,
         )
         document_prompt = self._resolve_document_prompt(
-            preview_request,
-            outline,
-            shifu,
-            shifu_bid,
-            outline_bid,
-            user_bid,
-            resolved_variables,
+            shifu, user_bid, resolved_variables
         )
         self.app.logger.info(
             "preview document prompt | shifu_bid=%s | outline_bid=%s | prompt=%s",
@@ -867,7 +860,7 @@ class RunScriptPreviewContextV2:
             outline_bid,
             (document_prompt or "").strip(),
         )
-        model, temperature = self._resolve_llm_settings(preview_request, outline, shifu)
+        model, temperature = self._resolve_llm_settings(shifu)
         document = preview_request.get_document() or (
             outline.content if outline else ""
         )
@@ -995,8 +988,6 @@ class RunScriptPreviewContextV2:
                 document=document,
                 llm_provider=provider,
                 document_prompt=document_prompt,
-                interaction_prompt=preview_request.interaction_prompt,
-                interaction_error_prompt=preview_request.interaction_error_prompt,
                 use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
                 visual_mode=bool(preview_request.visual_mode),
                 output_language=preview_output_language,
@@ -1287,31 +1278,13 @@ class RunScriptPreviewContextV2:
 
     def _resolve_document_prompt(
         self,
-        preview_request: PlaygroundPreviewRequest,
-        outline: DraftOutlineItem | PublishedOutlineItem | None,
         shifu: DraftShifu | PublishedShifu | None,
-        shifu_bid: str,
-        outline_bid: str,
         user_bid: str,
         variables: dict | None,
     ) -> str | None:
-        course_prompt: str | None = None
-        if preview_request.document_prompt:
-            prompt = preview_request.document_prompt.strip()
-            if prompt:
-                course_prompt = prompt
-
-        if not course_prompt:
-            course_prompt = self._resolve_prompt_from_outline_chain(
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                outline_record=outline,
-            )
-
-        if not course_prompt and shifu:
-            prompt = (getattr(shifu, "llm_system_prompt", None) or "").strip()
-            if prompt:
-                course_prompt = prompt
+        course_prompt = (
+            getattr(shifu, "llm_system_prompt", None) or ""
+        ).strip() or None
 
         if not course_prompt:
             return course_prompt
@@ -1347,90 +1320,8 @@ class RunScriptPreviewContextV2:
             )
             return None
 
-    def _resolve_prompt_from_outline_chain(
-        self,
-        shifu_bid: str,
-        outline_bid: str,
-        outline_record: DraftOutlineItem | PublishedOutlineItem | None,
-    ) -> str | None:
-        target_bid = outline_record.outline_item_bid if outline_record else outline_bid
-        if not target_bid:
-            return None
-
-        preferred_is_draft = isinstance(outline_record, DraftOutlineItem)
-        visited_bids = set()
-
-        if outline_record:
-            prompt = (outline_record.llm_system_prompt or "").strip()
-            if prompt:
-                return prompt
-            visited_bids.add(outline_record.outline_item_bid)
-
-        hierarchy_records = self._load_outline_hierarchy_records(
-            shifu_bid=shifu_bid,
-            outline_bid=target_bid,
-            prefer_draft=preferred_is_draft,
-        )
-        for record in hierarchy_records:
-            if not record or record.outline_item_bid in visited_bids:
-                continue
-            prompt = (record.llm_system_prompt or "").strip()
-            if prompt:
-                return prompt
-            visited_bids.add(record.outline_item_bid)
-        return None
-
-    def _load_outline_hierarchy_records(
-        self,
-        shifu_bid: str,
-        outline_bid: str,
-        prefer_draft: bool,
-    ) -> list[DraftOutlineItem | PublishedOutlineItem]:
-        records: list[DraftOutlineItem | PublishedOutlineItem] = []
-        struct_modes = (
-            [prefer_draft, not prefer_draft]
-            if prefer_draft in (True, False)
-            else [True, False]
-        )
-        struct_modes = list(dict.fromkeys(struct_modes))
-
-        for is_preview in struct_modes:
-            try:
-                struct = get_shifu_struct(self.app, shifu_bid, is_preview)
-            except Exception:
-                self.app.logger.debug(
-                    "outline hierarchy lookup skipped a struct: "
-                    "shifu_bid=%s is_preview=%s",
-                    shifu_bid,
-                    is_preview,
-                    exc_info=True,
-                )
-                continue
-            path = find_node_with_parents(struct, outline_bid)
-            if not path:
-                continue
-            path = list(reversed(path))
-            outline_ids = [item.id for item in path if item.type == "outline"]
-            if not outline_ids:
-                continue
-            outline_model = DraftOutlineItem if is_preview else PublishedOutlineItem
-            outline_items = outline_model.query.filter(
-                outline_model.id.in_(outline_ids),
-                outline_model.deleted == 0,
-            ).all()
-            outline_map = {item.id: item for item in outline_items}
-            for oid in outline_ids:
-                record = outline_map.get(oid)
-                if record:
-                    records.append(record)
-            if records:
-                break
-        return records
-
     def _resolve_llm_settings(
         self,
-        preview_request: PlaygroundPreviewRequest,
-        outline: DraftOutlineItem | PublishedOutlineItem | None,
         shifu: DraftShifu | PublishedShifu | None,
     ) -> tuple[str, float]:
         def _normalize_model(value: object | None) -> str | None:
@@ -1450,21 +1341,10 @@ class RunScriptPreviewContextV2:
             ]
 
         model_candidates: list[tuple[str, str | None]] = [
-            ("request", _normalize_model(preview_request.model)),
-            (
-                "outline",
-                _normalize_model(getattr(outline, "llm", None)) if outline else None,
-            ),
             ("shifu", _normalize_model(getattr(shifu, "llm", None)) if shifu else None),
             ("default", _normalize_model(self.app.config.get("DEFAULT_LLM_MODEL"))),
         ]
         temperature_candidates = [
-            preview_request.temperature,
-            (
-                self._decimal_to_float(getattr(outline, "llm_temperature", None))
-                if outline
-                else None
-            ),
             (
                 self._decimal_to_float(getattr(shifu, "llm_temperature", None))
                 if shifu
@@ -1479,10 +1359,6 @@ class RunScriptPreviewContextV2:
             if not candidate:
                 continue
             if allowlist_enabled and candidate not in allowed_models:
-                if source == "request":
-                    raise_error_with_args(
-                        "server.llm.modelNotSupported", model=candidate
-                    )
                 continue
             model = candidate
             model_source = source
@@ -3647,30 +3523,13 @@ class RunScriptContextV2:
             outline_item_bid=outline_item_bid,
             preview_mode=bool(getattr(self, "_preview_mode", False)),
             outline_path=outline_path,
-            outline_model=self._outline_model,
             shifu_model=self._shifu_model,
         )
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
         """Return the effective LLM settings for this run."""
         path = _find_outline_path_or_raise(self._struct, outline_bid)
-        path.reverse()
-        outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
-        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
-            self._outline_model.query.filter(
-                self._outline_model.id.in_(outline_ids),
-                self._outline_model.deleted == 0,
-            ).all()
-        )
-        outline_item_info_map = {o.id: o for o in outline_item_info_db}
-        for outline_id in outline_ids:
-            outline_item_info = outline_item_info_map.get(outline_id)
-            if outline_item_info and outline_item_info.llm:
-                return LLMSettings(
-                    model=outline_item_info.llm,
-                    temperature=outline_item_info.llm_temperature,
-                )
         shifu_info_db: DraftShifu | PublishedShifu = self._shifu_model.query.filter(
             self._shifu_model.id.in_(shifu_ids),
             self._shifu_model.deleted == 0,

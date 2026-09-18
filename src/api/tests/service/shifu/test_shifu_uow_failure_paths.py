@@ -350,18 +350,14 @@ def test_save_mdflow_retries_a_deadlock_only_when_it_owns_the_transaction(
     assert lock_calls == [shifu_bid]  # no retry inside a caller's transaction
 
 
-def test_publish_rolls_back_and_never_starts_the_summary_when_the_last_step_fails(
+def test_publish_rolls_back_when_the_last_step_fails(
     app: object, monkeypatch: object
 ) -> None:
-    """Publishing is one unit of work; the summary starts only after it commits."""
+    """Publishing is one unit of work, including the final response preparation."""
     from flaskr.service.shifu import shifu_publish_funcs as module
     from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
 
     shifu_bid = "uow-publish-rollback"
-    summaries: list[object] = []
-    monkeypatch.setattr(
-        module, "_run_summary_with_error_handling", lambda *args: summaries.append(args)
-    )
 
     def failing_build_url(*_args: object, **_kwargs: object) -> str:
         message = "url boom"
@@ -392,14 +388,12 @@ def test_publish_rolls_back_and_never_starts_the_summary_when_the_last_step_fail
             user_id="uow-user",
             shifu_id=shifu_bid,
             base_url="https://example.com",
-            sync_summary=True,
         )
 
     with app.app_context():
         dao.db.session.expire_all()
         assert PublishedShifu.query.filter_by(shifu_bid=shifu_bid).count() == 0
         assert PublishedOutlineItem.query.filter_by(shifu_bid=shifu_bid).count() == 0
-    assert summaries == []
 
 
 def test_mdflow_save_persists_no_version_when_a_later_step_fails(

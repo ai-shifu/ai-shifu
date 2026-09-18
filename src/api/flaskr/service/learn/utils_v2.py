@@ -6,15 +6,13 @@ from flask import Flask
 from flaskr.service.learn.live_follow_up_config import resolve_course_follow_up_model
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
-from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
+from flaskr.service.shifu.consts import ASK_MODE_DISABLE
 from flaskr.service.shifu.models import (
-    DraftOutlineItem,
     DraftShifu,
-    PublishedOutlineItem,
     PublishedShifu,
 )
 from flaskr.service.shifu.shifu_draft_funcs import normalize_ask_provider_config
-from flaskr.service.shifu.shifu_struct_manager import HistoryItem, get_shifu_struct
+from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util.uuid import generate_id
 
@@ -211,20 +209,7 @@ def get_follow_up_info_v2(
             ask_mode=ASK_MODE_DISABLE,
             ask_provider_config=normalize_ask_provider_config({}),
         )
-    path = list(reversed(path))
-    path: list[HistoryItem] = [p for p in path if p.type == "outline"]
-    outline_ids = [p.id for p in path]
-    outline_model = PublishedOutlineItem if not is_preview else DraftOutlineItem
     shifu_model = PublishedShifu if not is_preview else DraftShifu
-    outline_infos: list[PublishedOutlineItem | DraftOutlineItem] = (
-        outline_model.query.filter(
-            outline_model.id.in_(outline_ids),
-        ).all()
-    )
-    outline_infos_map: dict[str, PublishedOutlineItem | DraftOutlineItem] = {
-        o.outline_item_bid: o for o in outline_infos
-    }
-
     shifu_info: PublishedShifu | DraftShifu = (
         shifu_model.query.filter(
             shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
@@ -239,20 +224,6 @@ def get_follow_up_info_v2(
         shifu_info.llm,
         shifu_info.ask_llm,
     )
-
-    for p in path:
-        if p.type == "outline":
-            outline_info = outline_infos_map.get(p.bid)
-            if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
-                return FollowUpInfo(
-                    ask_model=outline_info.ask_llm or ask_model,
-                    ask_prompt=outline_info.ask_llm_system_prompt,
-                    ask_history_count=10,
-                    ask_limit_count=10,
-                    model_args={"temperature": outline_info.ask_llm_temperature},
-                    ask_mode=outline_info.ask_enabled_status,
-                    ask_provider_config=shifu_ask_provider_config,
-                )
 
     ask_prompt = shifu_info.ask_llm_system_prompt
     ask_history_count = 10

@@ -414,7 +414,6 @@ class OutlineDto(BaseModel):
     description: str = Field(..., description="outline desc", required=False)
     type: str = Field(..., description="outline type (trial,normal)", required=False)
     index: int = Field(..., description="outline index", required=False)
-    system_prompt: str = Field(..., description="outline system prompt", required=False)
     is_hidden: bool = Field(..., description="outline is hidden", required=False)
 
     def __init__(
@@ -425,7 +424,6 @@ class OutlineDto(BaseModel):
         description: str | None = None,
         type: str | None = None,  # noqa: A002 - serialized DTO field name
         index: int | None = None,
-        system_prompt: str | None = None,
         is_hidden: bool | None = None,
     ) -> None:
         """Build the outline payload."""
@@ -436,7 +434,6 @@ class OutlineDto(BaseModel):
             description=description,
             type=type,
             index=index,
-            system_prompt=system_prompt,
             is_hidden=is_hidden,
         )
 
@@ -449,7 +446,6 @@ class OutlineDto(BaseModel):
             "description": self.description,
             "type": self.type,
             "index": self.index,
-            "system_prompt": self.system_prompt,
             "is_hidden": self.is_hidden,
         }
 

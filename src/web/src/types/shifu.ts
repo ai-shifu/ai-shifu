@@ -61,7 +61,6 @@ export interface Outline {
   shifu_bid?: string;
   is_hidden?: boolean;
   type?: LearningPermission;
-  system_prompt?: string;
   collapsed?: boolean;
 }
 
@@ -69,7 +68,6 @@ export interface LessonCreationSettings {
   name: string;
   learningPermission: LearningPermission;
   isHidden: boolean;
-  systemPrompt: string;
 }
 
 export interface Block {
@@ -348,9 +346,6 @@ export interface ShifuContextType extends ShifuState {
 export interface AIBlockProperties {
   prompt: string;
   profiles?: string[];
-  model?: string;
-  temperature?: string;
-  other_conf?: string;
 }
 
 export interface SolidContentBlockProperties {
@@ -365,8 +360,6 @@ export interface LabelDTO {
 export interface ContentDTO {
   content: string;
   llm_enabled: boolean;
-  llm: string;
-  llm_temperature: number;
 }
 
 export interface ButtonDTO {
@@ -377,8 +370,6 @@ export interface InputDTO {
   placeholder: LabelDTO;
   prompt: string;
   result_variable_bids: string[];
-  llm: string;
-  llm_temperature: number;
 }
 
 export interface OptionItemDTO {

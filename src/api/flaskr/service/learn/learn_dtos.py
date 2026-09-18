@@ -1037,24 +1037,6 @@ class PlaygroundPreviewRequest(BaseModel):
     user_input: dict[str, list[str]] | None = Field(
         default=None, description="User input when previewing interaction blocks"
     )
-    document_prompt: str | None = Field(
-        default=None, description="Document level system prompt"
-    )
-    interaction_prompt: str | None = Field(
-        default=None, description="Interaction render prompt override"
-    )
-    interaction_error_prompt: str | None = Field(
-        default=None, description="Interaction error prompt override"
-    )
-    model: str | None = Field(
-        default=None, description="Target LLM model used during preview"
-    )
-    temperature: float | None = Field(
-        default=None,
-        ge=0.0,
-        le=2.0,
-        description="LLM temperature override used during preview",
-    )
     visual_mode: bool = Field(
         default=False,
         description="Whether to enable MarkdownFlow visual mode for preview",

@@ -50,6 +50,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
+- [Course-only LLM and follow-up settings](./completed/course-only-llm-settings.md)
 - [Charge settings previews to the course owner](./completed/course-owner-preview-billing.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Frontend Unused Function Cleanup Stack](./completed/frontend-unused-function-stack.md)

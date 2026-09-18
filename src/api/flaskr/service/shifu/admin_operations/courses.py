@@ -144,8 +144,6 @@ from flaskr.service.shifu.admin_operations.courses_detail import (
     _load_outline_learning_stats,
     _resolve_content_status,
     _resolve_learning_permission,
-    _resolve_outline_prompt_source,
-    _resolve_prompt_with_fallback,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     get_operator_course_prompt,

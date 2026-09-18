@@ -372,20 +372,9 @@ def get_outline_item_tree(
         )
         course_ask_mode = getattr(shifu, "ask_enabled_status", ASK_MODE_DEFAULT)
 
-        def resolve_follow_up_mode(item: HistoryItem) -> str:
+        def resolve_follow_up_mode() -> str:
             effective_model = course_follow_up_model
             effective_ask_mode = course_ask_mode
-            path = find_node_with_parents(struct, item.bid) or []
-            for path_item in reversed(path):
-                if path_item.type != "outline":
-                    continue
-                configured_item = outline_items_db_map.get(path_item.id)
-                if not configured_item:
-                    continue
-                if configured_item.ask_enabled_status != ASK_MODE_DEFAULT:
-                    effective_ask_mode = configured_item.ask_enabled_status
-                    effective_model = configured_item.ask_llm or course_follow_up_model
-                    break
             if effective_ask_mode == ASK_MODE_DISABLE:
                 return "disabled"
             interaction_mode = get_follow_up_interaction_mode(effective_model)
@@ -485,7 +474,7 @@ def get_outline_item_tree(
                 type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
                 is_paid=is_paid,
                 has_content_update_for_current_user=has_content_update_for_current_user,
-                follow_up_mode=resolve_follow_up_mode(item),
+                follow_up_mode=resolve_follow_up_mode(),
                 children=[],
             )
             if item.children:

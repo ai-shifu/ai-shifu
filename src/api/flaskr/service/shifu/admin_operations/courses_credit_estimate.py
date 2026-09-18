@@ -533,18 +533,7 @@ def build_operator_course_estimated_credit_cost(
     tts_char_count = 0
     lesson_inputs: list[_LessonCreditInputs] = []
     for item in visible_leaf_items:
-        prompt = str(getattr(item, "llm_system_prompt", "") or "").strip()
-        parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
-        visited = {str(getattr(item, "outline_item_bid", "") or "").strip()}
-        while not prompt and parent_bid and parent_bid not in visited:
-            visited.add(parent_bid)
-            parent = item_map.get(parent_bid)
-            if parent is None:
-                break
-            prompt = str(getattr(parent, "llm_system_prompt", "") or "").strip()
-            parent_bid = str(getattr(parent, "parent_bid", "") or "").strip()
-        if not prompt:
-            prompt = course_prompt
+        prompt = course_prompt
         content = str(getattr(item, "content", "") or "")
         item_prompt_char_count = len(prompt)
         item_content_char_count = len(content)

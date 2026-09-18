@@ -732,7 +732,6 @@ def _seed_outline(
     updated_at: datetime,
     updated_user_bid: str = "creator-1",
     content: str = "",
-    llm_system_prompt: str = "",
 ) -> None:
     db.session.add(
         model(
@@ -743,13 +742,6 @@ def _seed_outline(
             position=position,
             hidden=hidden,
             type=item_type,
-            llm="",
-            llm_temperature=0,
-            llm_system_prompt=llm_system_prompt,
-            ask_enabled_status=0,
-            ask_llm="",
-            ask_llm_temperature=0,
-            ask_llm_system_prompt="",
             content=content,
             deleted=0,
             created_at=updated_at,
@@ -815,7 +807,6 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             updated_at=updated_at,
             updated_user_bid="modifier-1",
             content="# Lesson 1 content",
-            llm_system_prompt="lesson system prompt",
         )
         _seed_outline(
             shifu_bid="course-detail",
@@ -1124,6 +1115,7 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             created_at=datetime(2026, 4, 1, 9, 0, 0),
             updated_at=datetime(2026, 4, 1, 9, 0, 0),
             llm="gpt-test",
+            llm_system_prompt="abcde",
             tts_enabled=0,
             tts_provider="minimax",
             tts_model="speech-test",
@@ -1135,7 +1127,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             title="Chapter",
             position="1",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
-            llm_system_prompt="abcdef",
         )
         _seed_outline(
             shifu_bid="course-detail",
@@ -1146,7 +1137,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             position="1.1",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="abcdefghij",
-            llm_system_prompt="abcd",
         )
         _seed_outline(
             shifu_bid="course-detail",
@@ -1168,7 +1158,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             hidden=1,
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="this hidden content is ignored",
-            llm_system_prompt="hidden",
         )
         _seed_outline(
             shifu_bid="course-detail",
@@ -1178,7 +1167,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             position="2",
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="this visible chapter content is ignored",
-            llm_system_prompt="visible chapter prompt ignored",
         )
         _seed_outline(
             shifu_bid="course-detail",
@@ -1190,7 +1178,6 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             hidden=1,
             updated_at=datetime(2026, 4, 1, 10, 0, 0),
             content="hidden child content is ignored",
-            llm_system_prompt="hidden child prompt ignored",
         )
         for billing_metric in (
             BILLING_METRIC_LLM_INPUT_TOKENS,
@@ -1261,16 +1248,16 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
     assert response.status_code == 200
     assert payload["code"] == 0
     estimate = payload["data"]["estimated_credit_cost"]
-    assert estimate["read"]["min"] == 46
-    assert estimate["read"]["max"] == 82
-    assert estimate["classroom"]["min"] == 46
-    assert estimate["classroom"]["max"] == 82
+    assert estimate["read"]["min"] == 47
+    assert estimate["read"]["max"] == 85
+    assert estimate["classroom"]["min"] == 47
+    assert estimate["classroom"]["max"] == 85
     assert estimate["listen"]["enabled"] is False
-    assert estimate["listen"]["min"] == 73
-    assert estimate["listen"]["max"] == 115
+    assert estimate["listen"]["min"] == 74
+    assert estimate["listen"]["max"] == 118
     assert estimate["listen"]["llm"] == {
-        "min": 46,
-        "max": 82,
+        "min": 47,
+        "max": 85,
         "model": "gpt-test",
         "model_label": "GPT Test",
         "multiplier": "3x",
@@ -1441,6 +1428,7 @@ def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
             creator_user_bid="creator-1",
             created_at=updated_at,
             updated_at=updated_at,
+            llm_system_prompt="course system prompt",
         )
         _seed_outline(
             shifu_bid="course-detail",
@@ -1451,7 +1439,6 @@ def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
             parent_bid="chapter-1",
             updated_at=updated_at,
             content="# Lesson 1 content",
-            llm_system_prompt="lesson system prompt",
         )
         db.session.commit()
 
@@ -1467,12 +1454,12 @@ def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
         "outline_item_bid": "lesson-1",
         "title": "Lesson 1",
         "content": "# Lesson 1 content",
-        "llm_system_prompt": "lesson system prompt",
-        "llm_system_prompt_source": "lesson",
+        "llm_system_prompt": "course system prompt",
+        "llm_system_prompt_source": "course",
     }
 
 
-def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_course(
+def test_admin_operation_course_chapter_detail_route_uses_course_prompt(
     app: object,
     test_client: object,
     monkeypatch: object,
@@ -1507,7 +1494,6 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_c
             title="Chapter 1",
             position="1",
             updated_at=updated_at,
-            llm_system_prompt="chapter system prompt",
         )
         _seed_outline(
             shifu_bid="course-detail",
@@ -1533,8 +1519,8 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_c
         "outline_item_bid": "lesson-1",
         "title": "Lesson 1",
         "content": "# Lesson 1 content",
-        "llm_system_prompt": "chapter system prompt",
-        "llm_system_prompt_source": "chapter",
+        "llm_system_prompt": "course system prompt",
+        "llm_system_prompt_source": "course",
     }
 
 
@@ -1667,13 +1653,6 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
                 position="1",
                 hidden=0,
                 type=UNIT_TYPE_VALUE_GUEST,
-                llm="",
-                llm_temperature=0,
-                llm_system_prompt="",
-                ask_enabled_status=0,
-                ask_llm="",
-                ask_llm_temperature=0,
-                ask_llm_system_prompt="",
                 content="",
                 deleted=0,
                 created_at=updated_at,
@@ -1691,13 +1670,6 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
                 position="1",
                 hidden=0,
                 type=UNIT_TYPE_VALUE_GUEST,
-                llm="",
-                llm_temperature=0,
-                llm_system_prompt="",
-                ask_enabled_status=0,
-                ask_llm="",
-                ask_llm_temperature=0,
-                ask_llm_system_prompt="",
                 content="",
                 deleted=1,
                 created_at=updated_at,

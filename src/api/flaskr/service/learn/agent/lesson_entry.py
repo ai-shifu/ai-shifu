@@ -70,8 +70,7 @@ def _resolve(
 ) -> tuple[str, str, float]:
     """Read the script and the model settings for this lesson.
 
-    Model resolution follows the 1.0 order -- the lesson's own setting, then the course's, then the
-    deployment default -- so moving a course to 2.0 does not silently move it to another model.
+    Model resolution follows the 1.0 order: the course's setting, then the deployment default.
     """
     outline_model, shifu_model = _models(preview_mode)
     # Bound to the course as well as the lesson: an allowlisted course paired with another
@@ -86,9 +85,8 @@ def _resolve(
         app, user_bid=user_bid, shifu=shifu, outline=outline, preview_mode=preview_mode
     )
 
-    for source in (outline, shifu):
-        if source is not None and source.llm:
-            return outline.content, source.llm, float(source.llm_temperature)
+    if shifu is not None and shifu.llm:
+        return outline.content, shifu.llm, float(shifu.llm_temperature)
     return (
         outline.content,
         app.config.get("DEFAULT_LLM_MODEL"),
