@@ -92,6 +92,7 @@ class TestEnvironmentVariableInterpolation:
             "mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:3306/test?charset=utf8mb4",
         )
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
@@ -110,6 +111,7 @@ class TestEnvironmentVariableInterpolation:
             "SQLALCHEMY_DATABASE_URI", "mysql://user:pass@${MISSING_HOST}:3306/test"
         )
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
@@ -128,6 +130,7 @@ class TestConfigurationValidation:
         """Test that missing all LLM API keys fails validation."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         # Don't set any LLM keys
 
@@ -143,6 +146,7 @@ class TestConfigurationValidation:
         """Test that having at least one LLM key succeeds."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
 
         # Test with different LLM keys
@@ -177,6 +181,7 @@ class TestConfigurationValidation:
         """Test that invalid type conversion falls back to default."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "invalid-port")  # Invalid integer
@@ -236,6 +241,7 @@ class TestConfigurationCaching:
         """Test that caching improves performance."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -263,6 +269,7 @@ class TestConfigurationCaching:
         """Test that cache is cleared when values are updated."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "original")
@@ -344,6 +351,7 @@ class TestErrorHandling:
         """Test that validation errors provide details."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "99999")  # Invalid port

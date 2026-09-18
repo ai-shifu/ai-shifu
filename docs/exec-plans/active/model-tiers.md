@@ -83,6 +83,8 @@ also handles TTS and must retain its generic behavior.
 ## Concrete Steps
 
 Use LLM_TIER_FAST_MODEL, LLM_TIER_BALANCED_MODEL and LLM_TIER_ULTIMATE_MODEL.
+Only LLM_TIER_FAST_MODEL is required at startup. Balanced and Ultimate remain
+optional and unavailable until configured. None of the three has a default model.
 Create with fast in both course fields. Omitted update fields preserve values;
 explicit null restores the legacy model, or normalizes an empty course to fast.
 An outline with neither tier nor model continues inheriting. A legacy client

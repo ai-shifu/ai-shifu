@@ -737,19 +737,19 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
     ),
     "LLM_TIER_FAST_MODEL": EnvVar(
         name="LLM_TIER_FAST_MODEL",
-        description="Routed text model for the fast course tier. Required before enabling tier selections.",
+        description="Routed text model for the fast course tier. Required at startup; no default.",
         group="llm",
-        required=False,
+        required=True,
     ),
     "LLM_TIER_BALANCED_MODEL": EnvVar(
         name="LLM_TIER_BALANCED_MODEL",
-        description="Routed text model for the balanced course tier. Required before enabling tier selections.",
+        description="Routed text model for the balanced course tier. Optional; configure before using this tier. No default.",
         group="llm",
         required=False,
     ),
     "LLM_TIER_ULTIMATE_MODEL": EnvVar(
         name="LLM_TIER_ULTIMATE_MODEL",
-        description="Routed text model for the ultimate course tier. Required before enabling tier selections.",
+        description="Routed text model for the ultimate course tier. Optional; configure before using this tier. No default.",
         group="llm",
         required=False,
     ),
@@ -2302,7 +2302,7 @@ class EnhancedConfig:
                 if env_var.required:
                     metadata.append("REQUIRED - must be set")
                 elif env_var.name in tier_order and env_var.default is None:
-                    metadata.append("No default - configure before using this tier")
+                    metadata.append("Optional - no default")
                 elif env_var.default is None:
                     metadata.append("Optional - handled by libraries")
                 else:

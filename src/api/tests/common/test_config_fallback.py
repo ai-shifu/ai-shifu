@@ -21,6 +21,7 @@ class TestEnvironmentVariableFallback:
         # Set required environment variables
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db-uri")
         monkeypatch.setenv("SECRET_KEY", "test-secret")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         # Set undefined test variables
@@ -201,6 +202,7 @@ class TestIntegrationWithFlask:
         # Set required vars
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db-uri")
         monkeypatch.setenv("SECRET_KEY", "test-secret")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         # Set custom vars for the app
@@ -232,6 +234,7 @@ class TestIntegrationWithFlask:
         # Set required vars
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db-uri")
         monkeypatch.setenv("SECRET_KEY", "test-secret")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         # Set undefined var

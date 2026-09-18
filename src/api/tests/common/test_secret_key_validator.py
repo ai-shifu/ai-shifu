@@ -114,6 +114,7 @@ class TestSecretKeyValidator:
             "SQLALCHEMY_DATABASE_URI", "mysql://test:test@localhost/test"
         )
         monkeypatch.setenv("SECRET_KEY", "valid-secret-key-12345")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         config = EnhancedConfig(ENV_VARS)
@@ -129,6 +130,7 @@ class TestSecretKeyValidator:
             "SQLALCHEMY_DATABASE_URI", "mysql://test:test@localhost/test"
         )
         monkeypatch.setenv("SECRET_KEY", "!@#$%^&*()_+-=[]{}|;:,.<>?/~`")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         config = EnhancedConfig(ENV_VARS)
@@ -144,6 +146,7 @@ class TestSecretKeyValidator:
         """Test that SECRET_KEY is trimmed during get operation."""
         # Set SECRET_KEY with surrounding whitespace
         monkeypatch.setenv("SECRET_KEY", "  secret_with_spaces  ")
+        monkeypatch.setenv("LLM_TIER_FAST_MODEL", "gpt-test")
         monkeypatch.setenv(
             "SQLALCHEMY_DATABASE_URI", "mysql://test:test@localhost/test"
         )

@@ -114,6 +114,7 @@ def app() -> Iterator[Flask | None]:
     os.environ["SECRET_KEY"] = "test-secret-key"
     os.environ["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     os.environ["DEFAULT_LLM_MODEL"] = "gpt-test"
+    os.environ["LLM_TIER_FAST_MODEL"] = "gpt-test"
     os.environ["OPENAI_API_KEY"] = "test-key"
     os.environ["CELERY_BROKER_URL"] = "memory://"
     os.environ["CELERY_RESULT_BACKEND"] = "cache+memory://"

@@ -68,6 +68,45 @@ class TestEnhancedConfigValidation:
         with pytest.raises(EnvironmentConfigError, match=variable_name):
             config.validate_environment()
 
+    @pytest.mark.parametrize("fast_model", [None, "", "   "])
+    def test_fast_tier_model_is_required(
+        self, monkeypatch: pytest.MonkeyPatch, fast_model: str | None
+    ) -> None:
+        """Reject startup when the required Fast model is missing or blank."""
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        if fast_model is None:
+            monkeypatch.delenv("LLM_TIER_FAST_MODEL", raising=False)
+        else:
+            monkeypatch.setenv("LLM_TIER_FAST_MODEL", fast_model)
+        config = EnhancedConfig(
+            {name: ENV_VARS[name] for name in ("OPENAI_API_KEY", "LLM_TIER_FAST_MODEL")}
+        )
+        with pytest.raises(EnvironmentConfigError, match="LLM_TIER_FAST_MODEL"):
+            config.validate_environment()
+
+    def test_fast_only_tier_configuration_is_valid(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Allow startup with only Fast and leave optional tiers unconfigured."""
+        names = (
+            "LLM_TIER_FAST_MODEL",
+            "LLM_TIER_BALANCED_MODEL",
+            "LLM_TIER_ULTIMATE_MODEL",
+        )
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        monkeypatch.setenv(names[0], "gpt-test")
+        for name in names[1:]:
+            monkeypatch.delenv(name, raising=False)
+        config = EnhancedConfig(
+            {name: ENV_VARS[name] for name in ("OPENAI_API_KEY", *names)}
+        )
+        config.validate_environment()
+        assert config.get(names[0]) == "gpt-test"
+        assert all(config.get(name) is None for name in names[1:])
+        required_example = config.export_env_example_filtered(filter_type="required")
+        assert names[0] in required_example
+        assert all(name not in required_example for name in names[1:])
+
     def test_validate_missing_required(self, monkeypatch: object) -> None:
         """Test validation fails when required variables are missing."""
         # Set up environment without required variables
