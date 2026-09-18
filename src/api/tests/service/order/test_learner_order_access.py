@@ -11,6 +11,7 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_REFUND,
     ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TIMEOUT,
+    ORDER_STATUS_TO_BE_PAID,
 )
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.order.funs import (
@@ -104,7 +105,13 @@ def test_order_services_hide_another_users_order(app: object) -> None:
 
 
 @pytest.mark.parametrize(
-    "status", [ORDER_STATUS_SUCCESS, ORDER_STATUS_REFUND, ORDER_STATUS_TIMEOUT]
+    "status",
+    [
+        ORDER_STATUS_TO_BE_PAID,
+        ORDER_STATUS_SUCCESS,
+        ORDER_STATUS_REFUND,
+        ORDER_STATUS_TIMEOUT,
+    ],
 )
 def test_coupon_rejects_terminal_order_without_mutation(
     app: object, status: int

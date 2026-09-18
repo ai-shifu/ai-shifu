@@ -44,23 +44,28 @@ leave completed, refunded, and expired orders immutable.
   Rationale: operator troubleshooting has a different authorization boundary;
   this work only minimizes learner-facing responses.
 - Decision: allow coupon application only while an order is in an unpaid,
-  mutable state (`init` or `to be paid`).
-  Rationale: success, refund, and timeout states are historical outcomes and
-  must not have price or coupon records rewritten.
+  mutable state before any provider attempt exists (`init`).
+  Rationale: a `to be paid` order already has a live provider attempt at the
+  old amount; repricing it would leave that charge usable. Both coupon
+  redemption and payment creation lock the order row so they cannot race while
+  claiming the initial state.
 
 ## Outcomes & Retrospective
 
 Learner order lookup, payment creation, payment detail, and coupon redemption
 now enforce the authenticated order owner in the service layer. Coupon
-redemption accepts only unpaid mutable orders. Learner payment detail responses
-for Stripe, native providers, and Ping++ contain only payment channel, course,
-order, and provider status; operator detail loading still uses full snapshots.
+redemption accepts only initial orders before a provider attempt exists, and
+payment creation and coupon redemption serialize on the order row. Learner
+payment detail responses for Stripe, native providers, and Ping++ contain only
+payment channel, course, order, and provider status; operator detail loading
+still uses full snapshots.
 
 Regression coverage exercises all four HTTP entry points, direct service calls,
-terminal order immutability, and provider response allowlists. Focused order
-tests, legacy root order tests, frontend payment tests, TypeScript, Ruff,
-formatting, architecture boundaries, and unit-of-work checks pass. The final
-repository-wide pre-commit gate is run after this completed plan is written.
+payment-attempt and terminal-order immutability, and provider response
+allowlists. Focused order tests, legacy root order tests, frontend payment tests,
+TypeScript, Ruff, formatting, architecture boundaries, and unit-of-work checks
+pass. The final repository-wide pre-commit gate is run after this completed plan
+is written.
 
 ## Context and Orientation
 
