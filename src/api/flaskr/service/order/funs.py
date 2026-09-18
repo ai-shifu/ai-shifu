@@ -1730,7 +1730,7 @@ def sync_stripe_checkout_session(
     expected_user: str | None = None,
 ) -> dict[str, Any]:
     """Synchronize stripe checkout session."""
-    with _app_context_scope(app), unit_of_work():
+    with payment_lifecycle_lock(order_id), _app_context_scope(app), unit_of_work():
         order = (
             Order.query.filter(
                 Order.order_bid == order_id,
@@ -2222,7 +2222,7 @@ def handle_stripe_webhook(
             "event_type": event_type,
         }, 202
 
-    with _app_context_scope(app), unit_of_work():
+    with payment_lifecycle_lock(order_bid), _app_context_scope(app), unit_of_work():
         stripe_attempt_bid = str(metadata.get("stripe_order_bid") or "")
         stripe_query = legacy_stripe_snapshot_query().filter(
             StripeOrder.order_bid == order_bid
@@ -2249,9 +2249,7 @@ def handle_stripe_webhook(
         success_events = {
             "payment_intent.succeeded",
             "checkout.session.completed",
-        }
-        fail_events = {
-            "payment_intent.payment_failed",
+            "checkout.session.async_payment_succeeded",
         }
         refund_events = {
             "charge.refunded",
@@ -2267,7 +2265,7 @@ def handle_stripe_webhook(
                 Order.deleted == 0,
             ).first()
             session = (
-                data_object if event_type == "checkout.session.completed" else None
+                data_object if event_type.startswith("checkout.session.") else None
             )
             intent = data_object if event_type == "payment_intent.succeeded" else None
             if (
@@ -2285,6 +2283,7 @@ def handle_stripe_webhook(
                 )
                 and _stripe_attempt_can_complete(order, stripe_order)
             ):
+                _assert_payment_lifecycle_lock_owned()
                 if notification.charge_id:
                     stripe_order.latest_charge_id = notification.charge_id
                 if metadata:
@@ -2313,8 +2312,8 @@ def handle_stripe_webhook(
                 http_status = 200
             else:
                 response_status = "ignored"
-        elif event_type in fail_events and _stripe_intent_event_matches_attempt(
-            stripe_order, data_object, metadata
+        elif event_type == "payment_intent.payment_failed" and (
+            _stripe_intent_event_matches_attempt(stripe_order, data_object, metadata)
         ):
             if notification.charge_id:
                 stripe_order.latest_charge_id = notification.charge_id
@@ -2330,6 +2329,22 @@ def handle_stripe_webhook(
             stripe_order.failure_message = error_info.get("message", "")
             response_status = "failed"
             http_status = 200
+        elif event_type == "checkout.session.async_payment_failed":
+            order = Order.query.filter(
+                Order.order_bid == order_bid,
+                Order.deleted == 0,
+            ).first()
+            if order and _stripe_provider_objects_match_attempt(
+                order=order,
+                stripe_order=stripe_order,
+                notification_order_bid=str(order_bid),
+                session=data_object,
+                intent=None,
+            ):
+                stripe_order.checkout_session_object = _stringify_payload(data_object)
+                stripe_order.status = 4
+                response_status = "failed"
+                http_status = 200
         elif event_type in refund_events:
             stripe_order.status = 2
             response_status = "refunded"

@@ -475,20 +475,27 @@ def test_stripe_webhook_does_not_fulfill_a_complete_but_unpaid_session(
         )
 
 
+@pytest.mark.parametrize(
+    "event_type",
+    ["checkout.session.completed", "checkout.session.async_payment_succeeded"],
+)
 def test_stripe_checkout_webhook_persists_the_refundable_payment_intent(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
+    event_type: str,
 ) -> None:
-    order_bid = "webhook-persist-intent"
-    attempt_bid = "webhook-persist-intent"
+    case_id = event_type.rsplit(".", 1)[-1]
+    order_bid = f"webhook-persist-intent-{case_id}"
+    attempt_bid = f"webhook-persist-intent-{case_id}"
+    session_id = f"cs_webhook-persist-intent-{case_id}"
     notification = PaymentNotificationResult(
         order_bid=order_bid,
-        status="checkout.session.completed",
+        status=event_type,
         provider_payload={
-            "type": "checkout.session.completed",
+            "type": event_type,
             "data": {
                 "object": {
-                    "id": "cs_webhook-persist-intent",
+                    "id": session_id,
                     "metadata": {
                         "order_bid": order_bid,
                         "stripe_order_bid": attempt_bid,
@@ -513,7 +520,7 @@ def test_stripe_checkout_webhook_persists_the_refundable_payment_intent(
     with app.app_context():
         _seed_stripe_order(
             order_bid=order_bid,
-            session_id="cs_webhook-persist-intent",
+            session_id=session_id,
             attempt_bid=attempt_bid,
         )
         StripeOrder.query.filter_by(
@@ -528,6 +535,61 @@ def test_stripe_checkout_webhook_persists_the_refundable_payment_intent(
     with app.app_context():
         attempt = StripeOrder.query.filter_by(stripe_order_bid=attempt_bid).one()
         assert attempt.payment_intent_id == "pi_late-created"
+
+
+@pytest.mark.parametrize(
+    ("session_id", "expected_status", "expected_http_status"),
+    [
+        ("cs_async-failed", 4, 200),
+        ("cs_superseded", 0, 202),
+    ],
+)
+def test_stripe_async_failure_only_updates_its_current_session(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    session_id: str,
+    expected_status: int,
+    expected_http_status: int,
+) -> None:
+    order_bid = f"webhook-async-failed-{session_id}"
+    attempt_bid = f"attempt-async-failed-{session_id}"
+    notification = PaymentNotificationResult(
+        order_bid=order_bid,
+        status="checkout.session.async_payment_failed",
+        provider_payload={
+            "type": "checkout.session.async_payment_failed",
+            "data": {
+                "object": {
+                    "id": session_id,
+                    "metadata": {
+                        "order_bid": order_bid,
+                        "stripe_order_bid": attempt_bid,
+                    },
+                    "currency": "cny",
+                    "amount_total": 20000,
+                    "payment_intent": f"pi_{attempt_bid}",
+                }
+            },
+        },
+    )
+    provider = SimpleNamespace(verify_webhook=lambda **_kwargs: notification)
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: provider
+    )
+    with app.app_context():
+        _seed_stripe_order(
+            order_bid=order_bid,
+            session_id="cs_async-failed",
+            attempt_bid=attempt_bid,
+        )
+
+    payload, status_code = handle_stripe_webhook(app, b"{}", "signature")
+
+    assert status_code == expected_http_status
+    assert payload["status"] == ("failed" if expected_status == 4 else "acknowledged")
+    with app.app_context():
+        attempt = StripeOrder.query.filter_by(stripe_order_bid=attempt_bid).one()
+        assert attempt.status == expected_status
 
 
 @pytest.mark.parametrize(

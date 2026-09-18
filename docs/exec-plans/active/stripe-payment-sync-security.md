@@ -20,6 +20,9 @@ must use the same completion rules so one path cannot bypass the other.
 - [x] 2026-09-18 20:02 CST: Corrected review findings for Stripe's real
   metadata shape, refundable PaymentIntent persistence, and delayed failure or
   cancellation events from superseded attempts.
+- [x] 2026-09-18 20:18 CST: Serialized Stripe completion with repricing and
+  added delayed Checkout success/failure handling for asynchronous payment
+  methods.
 
 ## Surprises & Discoveries
 
@@ -32,6 +35,9 @@ must use the same completion rules so one path cannot bypass the other.
 - Legacy payment-mode Checkout Sessions carry ownership metadata on the
   PaymentIntent but not the Session itself. New Sessions now carry both, while
   synchronization retains compatibility with the existing provider shape.
+- Alipay and WeChat Pay Checkout Sessions can complete before settlement;
+  fulfillment must wait for `checkout.session.async_payment_succeeded`, while
+  the corresponding failure event may only update its matching current Session.
 
 ## Decision Log
 
