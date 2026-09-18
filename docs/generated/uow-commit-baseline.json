@@ -30,7 +30,6 @@
   "service/learn/runscript_v2.py": 3,
   "service/metering/recorder.py": 1,
   "service/order/admin.py": 2,
-  "service/order/coupon_funcs.py": 1,
   "service/order/open_api.py": 1,
   "service/profile/profile_manage.py": 4,
   "service/promo/admin.py": 6,

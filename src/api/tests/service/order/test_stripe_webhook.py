@@ -249,6 +249,121 @@ def test_handle_stripe_webhook_marks_order_paid(
         assert refreshed_stripe_order.status == 1
 
 
+def test_handle_stripe_webhook_accepts_current_recoverable_failed_attempt(
+    stripe_webhook_app: object, monkeypatch: object
+) -> None:
+    with stripe_webhook_app.app_context():
+        order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-retry")
+        dao.db.session.add(
+            StripeOrder(
+                order_bid=order.order_bid,
+                stripe_order_bid="stripe-order-retry",
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                payment_intent_id="pi_retry",
+                amount=100,
+                currency="usd",
+                status=4,
+            )
+        )
+        dao.db.session.commit()
+
+    notification = PaymentNotificationResult(
+        order_bid="order-webhook-retry",
+        status="payment_intent.succeeded",
+        provider_payload={
+            "type": "payment_intent.succeeded",
+            "data": {
+                "object": {
+                    "id": "pi_retry",
+                    "metadata": {
+                        "order_bid": "order-webhook-retry",
+                        "stripe_order_bid": "stripe-order-retry",
+                    },
+                }
+            },
+        },
+        charge_id="ch_retry",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _channel: DummyStripeProvider(notification),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu",
+        lambda *_args, **_kwargs: None,
+    )
+
+    payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")
+
+    assert status_code == 200
+    assert payload["status"] == "paid"
+
+
+def test_handle_stripe_webhook_ignores_an_out_of_order_superseded_attempt(
+    stripe_webhook_app: object, monkeypatch: object
+) -> None:
+    with stripe_webhook_app.app_context():
+        order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-superseded")
+        dao.db.session.add_all(
+            [
+                StripeOrder(
+                    order_bid=order.order_bid,
+                    stripe_order_bid="stripe-order-old",
+                    user_bid=order.user_bid,
+                    shifu_bid=order.shifu_bid,
+                    payment_intent_id="pi_old",
+                    amount=100,
+                    currency="usd",
+                    status=0,
+                ),
+                StripeOrder(
+                    order_bid=order.order_bid,
+                    stripe_order_bid="stripe-order-current",
+                    user_bid=order.user_bid,
+                    shifu_bid=order.shifu_bid,
+                    payment_intent_id="pi_current",
+                    amount=100,
+                    currency="usd",
+                    status=0,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    notification = PaymentNotificationResult(
+        order_bid="order-webhook-superseded",
+        status="payment_intent.succeeded",
+        provider_payload={
+            "type": "payment_intent.succeeded",
+            "data": {
+                "object": {
+                    "id": "pi_old",
+                    "metadata": {
+                        "order_bid": "order-webhook-superseded",
+                        "stripe_order_bid": "stripe-order-old",
+                    },
+                }
+            },
+        },
+        charge_id="ch_old",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _channel: DummyStripeProvider(notification),
+    )
+
+    payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")
+
+    assert status_code == 202
+    assert payload["status"] == "ignored"
+    with stripe_webhook_app.app_context():
+        assert (
+            Order.query.filter_by(order_bid="order-webhook-superseded").one().status
+            == ORDER_STATUS_TO_BE_PAID
+        )
+
+
 def test_stripe_webhook_route_marks_legacy_order_paid(
     stripe_webhook_app: object, monkeypatch: object
 ) -> None:
