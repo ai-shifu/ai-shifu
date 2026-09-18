@@ -1953,9 +1953,12 @@ def _stripe_provider_objects_match_attempt(
         return False
     if notification_order_bid != order.order_bid:
         return False
-    if session and session_metadata.get("order_bid") != order.order_bid:
+    session_order_bid = session_metadata.get("order_bid")
+    if session and session_order_bid and session_order_bid != order.order_bid:
         return False
     if intent and intent_metadata.get("order_bid") != order.order_bid:
+        return False
+    if session and not session_order_bid and not intent:
         return False
 
     remote_session_id = str(session.get("id") or "")
@@ -2008,6 +2011,23 @@ def _stripe_attempt_can_complete(order: Order, stripe_order: StripeOrder) -> boo
         stripe_order.status in {0, 4}
         and _stripe_attempt_matches_order(order, stripe_order)
         and order.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
+    )
+
+
+def _stripe_intent_event_matches_attempt(
+    stripe_order: StripeOrder,
+    data_object: dict[str, object],
+    metadata: dict[str, object],
+) -> bool:
+    """Reject delayed PaymentIntent events from another payment attempt."""
+    remote_intent_id = str(data_object.get("id") or "")
+    if not remote_intent_id.startswith("pi_"):
+        return False
+    local_intent_id = str(stripe_order.payment_intent_id or "")
+    if local_intent_id:
+        return remote_intent_id == local_intent_id
+    return str(metadata.get("stripe_order_bid") or "") == str(
+        stripe_order.stripe_order_bid or ""
     )
 
 
@@ -2270,8 +2290,14 @@ def handle_stripe_webhook(
                 if metadata:
                     stripe_order.metadata_json = _stringify_payload(metadata)
                 if session:
+                    payment_intent_id = str(session.get("payment_intent") or "")
+                    if payment_intent_id:
+                        stripe_order.payment_intent_id = payment_intent_id
                     stripe_order.checkout_session_object = _stringify_payload(session)
                 if intent:
+                    stripe_order.payment_intent_id = str(
+                        intent.get("id") or stripe_order.payment_intent_id or ""
+                    )
                     stripe_order.payment_intent_object = _stringify_payload(intent)
                     stripe_order.payment_method = intent.get(
                         "payment_method", stripe_order.payment_method
@@ -2287,7 +2313,9 @@ def handle_stripe_webhook(
                 http_status = 200
             else:
                 response_status = "ignored"
-        elif event_type in fail_events:
+        elif event_type in fail_events and _stripe_intent_event_matches_attempt(
+            stripe_order, data_object, metadata
+        ):
             if notification.charge_id:
                 stripe_order.latest_charge_id = notification.charge_id
             payment_intent_id = data_object.get("id")
@@ -2306,7 +2334,9 @@ def handle_stripe_webhook(
             stripe_order.status = 2
             response_status = "refunded"
             http_status = 200
-        elif event_type in cancel_events:
+        elif event_type in cancel_events and _stripe_intent_event_matches_attempt(
+            stripe_order, data_object, metadata
+        ):
             stripe_order.status = 3
             response_status = "cancelled"
             http_status = 200

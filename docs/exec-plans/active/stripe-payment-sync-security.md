@@ -17,6 +17,9 @@ must use the same completion rules so one path cannot bypass the other.
   guards before snapshot mutation and fulfillment.
 - [x] 2026-09-18 19:04 CST: Passed focused and order-wide tests plus Ruff,
   compilation, architecture, UoW, and repository-harness checks.
+- [x] 2026-09-18 20:02 CST: Corrected review findings for Stripe's real
+  metadata shape, refundable PaymentIntent persistence, and delayed failure or
+  cancellation events from superseded attempts.
 
 ## Surprises & Discoveries
 
@@ -26,6 +29,9 @@ must use the same completion rules so one path cannot bypass the other.
   attempt, amount, or mutable order state enforced by the webhook path.
 - Stripe Checkout can report `status=complete` while `payment_status=unpaid`;
   completion alone is therefore not proof that funds were paid.
+- Legacy payment-mode Checkout Sessions carry ownership metadata on the
+  PaymentIntent but not the Session itself. New Sessions now carry both, while
+  synchronization retains compatibility with the existing provider shape.
 
 ## Decision Log
 

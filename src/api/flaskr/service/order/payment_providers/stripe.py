@@ -120,6 +120,13 @@ class StripeProvider(PaymentProvider):
                     metadata.update(existing_metadata)
                 payment_intent_data["metadata"] = metadata
                 params["payment_intent_data"] = payment_intent_data
+                session_metadata = params.get("metadata") or {}
+                if hasattr(session_metadata, "to_dict"):
+                    session_metadata = session_metadata.to_dict()
+                params["metadata"] = {
+                    **dict(session_metadata),
+                    **metadata,
+                }
             is_subscription_mode = params.get("mode") == "subscription"
             params["payment_method_types"] = ["card"]
             if not is_subscription_mode and get_config("STRIPE_ALIPAY_ENABLED"):
@@ -408,6 +415,8 @@ class StripeProvider(PaymentProvider):
                     if charges:
                         charge_id = str(charges[0].get("id") or "")
             metadata = session.get("metadata", {}) or {}
+            if not metadata.get("order_bid") and intent:
+                metadata = intent.get("metadata", {}) or {}
             return PaymentNotificationResult(
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
