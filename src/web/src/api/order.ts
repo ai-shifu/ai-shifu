@@ -39,56 +39,12 @@ export type PayUrlRequest = {
   paymentChannel?: PaymentChannel;
 };
 
-export interface StripePaymentDetail {
-  payment_channel: 'stripe';
+export interface PaymentDetailResponse {
+  payment_channel: PaymentChannel;
   order_bid: string;
   course_id: string;
-  payment_intent_id: string;
-  checkout_session_id: string;
-  latest_charge_id: string;
   status: number;
-  receipt_url: string;
-  payment_method: string;
-  metadata: Record<string, any>;
-  payment_intent_object: Record<string, any>;
-  checkout_session_object: Record<string, any>;
 }
-
-export interface PingxxPaymentDetail {
-  payment_channel: 'pingxx';
-  order_bid: string;
-  course_id: string;
-  charge_id: string;
-  transaction_no: string;
-  status: number;
-  amount: number;
-  currency: string;
-  channel: string;
-  extra: Record<string, any>;
-  charge_object: Record<string, any>;
-}
-
-export interface NativePaymentDetail {
-  payment_channel: 'alipay' | 'wechatpay';
-  order_bid: string;
-  course_id: string;
-  provider_attempt_id: string;
-  transaction_id: string;
-  status: number;
-  raw_status: string;
-  amount: number;
-  currency: string;
-  channel: string;
-  metadata: Record<string, any>;
-  raw_request: Record<string, any>;
-  raw_response: Record<string, any>;
-  raw_notification: Record<string, any>;
-}
-
-export type PaymentDetailResponse =
-  | StripePaymentDetail
-  | PingxxPaymentDetail
-  | NativePaymentDetail;
 
 // Create order
 export const initOrder = (course_id: string) => {
