@@ -18,7 +18,6 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.order.funs import (
-    _assert_payment_lifecycle_lock_owned,
     _payment_lock_ownership_events,
     _resume_pending_charge,
     cancel_pending_payment_for_repricing,
@@ -657,15 +656,87 @@ def test_invalid_coupon_does_not_clear_an_inherited_repricing_claim(
         )
 
 
-def test_payment_provider_work_stops_after_lifecycle_lock_ownership_is_lost() -> None:
+def test_payment_provider_work_stops_after_lifecycle_lock_ownership_is_lost(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_calls: list[str] = []
+
+    class Provider:
+        def create_payment(self, **_kwargs: object) -> None:
+            provider_calls.append("create")
+
+        def cancel_payment(self, **_kwargs: object) -> None:
+            provider_calls.append("cancel")
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: Provider()
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_shifu_creator_bid", lambda *_args: "teacher"
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.set_shifu_context", lambda *_args: None
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_shifu_info",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            bid="course-lock-lost-create",
+            price=Decimal("200.00"),
+            title="Course",
+            description="Course",
+        ),
+    )
+    with app.app_context():
+        _seed_order(
+            order_bid="lock-lost-create",
+            status=ORDER_STATUS_INIT,
+            payment_channel="alipay",
+        )
+        cancel_order = _seed_order(
+            order_bid="lock-lost-cancel",
+            status=ORDER_STATUS_TO_BE_PAID,
+        )
+        db.session.add(
+            PingxxOrder(
+                pingxx_order_bid="lock-lost-cancel-attempt",
+                biz_domain="order",
+                order_bid=cancel_order.order_bid,
+                user_bid=cancel_order.user_bid,
+                shifu_bid=cancel_order.shifu_bid,
+                channel="wx_pub_qr",
+                amount=20000,
+                status=0,
+                charge_id="ch_lock_lost",
+                extra="{}",
+                charge_object="{}",
+            )
+        )
+        db.session.commit()
+
     ownership_lost = Event()
     ownership_lost.set()
     token = _payment_lock_ownership_events.set((ownership_lost,))
     try:
         with pytest.raises(AppError):
-            _assert_payment_lifecycle_lock_owned()
+            generate_charge(
+                app,
+                "lock-lost-create",
+                "alipay_qr",
+                "127.0.0.1",
+                payment_channel="alipay",
+                expected_user="owner-user",
+            )
+        with pytest.raises(AppError):
+            cancel_pending_payment_for_repricing(
+                app,
+                "lock-lost-cancel",
+                expected_user="owner-user",
+            )
     finally:
         _payment_lock_ownership_events.reset(token)
+
+    assert provider_calls == []
 
 
 @pytest.mark.parametrize(
