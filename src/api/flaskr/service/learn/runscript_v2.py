@@ -777,6 +777,10 @@ def _lesson_events(
                 shifu_bid,
                 outline_bid,
             )
+            # The adapter was built for the agent engine, which writes an element only once it is
+            # final. 1.0 relies on each update being written -- a mid-stream refresh reads the
+            # latest row -- so this run gets the adapter back the way 1.0 expects it.
+            element_adapter.persist_only_final = False
         else:
             return
 
