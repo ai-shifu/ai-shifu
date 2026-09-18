@@ -148,8 +148,6 @@ def publish_shifu_draft(
         shifu_published.avatar_res_bid = shifu_draft.avatar_res_bid
         shifu_published.keywords = shifu_draft.keywords
         shifu_published.llm = shifu_draft.llm
-        shifu_published.llm_tier = shifu_draft.llm_tier
-        shifu_published.ask_llm_tier = shifu_draft.ask_llm_tier
         shifu_published.llm_temperature = shifu_draft.llm_temperature
         shifu_published.price = shifu_draft.price
         shifu_published.created_user_bid = shifu_draft.created_user_bid

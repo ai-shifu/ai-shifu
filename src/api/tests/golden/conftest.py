@@ -262,7 +262,7 @@ def golden_shifu(app: object) -> object:
             avatar_res_bid="",
             keywords="golden,regression",
             llm="gpt-test",
-            ask_llm_tier="fast",
+            ask_llm="fast",
             llm_temperature=Decimal(0),
             llm_system_prompt="",
             price=Decimal(0),

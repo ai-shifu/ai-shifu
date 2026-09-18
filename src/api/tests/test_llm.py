@@ -3298,7 +3298,7 @@ def test_tier_call_uses_one_model_for_provider_usage_and_trace(
         "app": app,
         "user_id": "tier-user",
         "span": span,
-        "model": "old-model",
+        "model": "fast",
         "usage_metadata": {"model_tier": "fast", "model_selection_record_id": 123},
     }
     if method == "invoke_llm":

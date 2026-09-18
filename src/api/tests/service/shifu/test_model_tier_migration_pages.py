@@ -32,8 +32,8 @@ def test_cleanup_pages_without_skipping_rows_or_partial_commits(
                         batch_bid=uuid4().hex,
                         table_name=DraftShifu.__tablename__,
                         row_id=row.id,
-                        field_name="llm_tier",
-                        new_tier="fast",
+                        field_name="llm",
+                        new_model="fast",
                     )
                     for row in rows[:3]
                 ]
@@ -92,8 +92,8 @@ def test_cleanup_pages_without_skipping_rows_or_partial_commits(
         assert all("LIMIT" in query for query in queries)
         db.session.expire_all()
         for row in rows:
-            assert row.llm_tier == (None if fail_last_page else "fast")
-            assert row.ask_llm_tier == (None if fail_last_page else "fast")
+            assert row.llm == ("" if fail_last_page else "fast")
+            assert row.ask_llm == ("" if fail_last_page else "fast")
         assert ModelTierMigrationAudit.query.filter(
             ModelTierMigrationAudit.batch_bid == audit_batch,
             ModelTierMigrationAudit.table_name == DraftShifu.__tablename__,

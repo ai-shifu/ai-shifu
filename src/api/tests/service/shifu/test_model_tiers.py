@@ -23,36 +23,33 @@ def test_cleanup_persists_defaults_only_and_is_repeatable(app: object) -> None:
         with unit_of_work():
             draft = DraftShifu(shifu_bid=bid, llm=" \t\n", ask_llm="old-ask", deleted=1)
             published = PublishedShifu(shifu_bid=bid, llm="old-main", ask_llm="")
-            chosen = DraftShifu(
-                shifu_bid=bid, llm="", llm_tier="ultimate", ask_llm="live-model"
-            )
+            chosen = DraftShifu(shifu_bid=bid, llm="ultimate", ask_llm="live-model")
             outline = DraftOutlineItem(shifu_bid=bid, outline_item_bid=uuid4().hex)
             db.session.add_all([draft, published, chosen, outline])
         original_updated = draft.updated_at
         before = migrate_default_model_tiers(app)
         assert any(
-            change["row_id"] == draft.id and change["field"] == "llm_tier"
+            change["row_id"] == draft.id and change["field"] == "llm"
             for change in before["changes"]
         )
-        assert draft.llm_tier is None
+        assert draft.llm == " \t\n"
         result = migrate_default_model_tiers(app, apply=True)
         db.session.expire_all()
-        assert draft.llm_tier == "fast"
-        assert draft.ask_llm_tier is None
-        assert draft.llm == " \t\n"
+        assert draft.llm == "fast"
+        assert draft.ask_llm == "old-ask"
         assert draft.updated_at == original_updated
-        assert published.ask_llm_tier == "fast"
-        assert published.llm_tier is None
-        assert chosen.llm_tier == "ultimate"
-        assert outline.llm_tier is None
-        assert outline.ask_llm_tier is None
+        assert published.ask_llm == "fast"
+        assert published.llm == "old-main"
+        assert chosen.llm == "ultimate"
+        assert outline.llm == ""
+        assert outline.ask_llm == ""
         audit = ModelTierMigrationAudit.query.filter_by(
             batch_bid=result["batch_bid"],
             table_name=DraftShifu.__tablename__,
             row_id=draft.id,
         ).one()
-        assert audit.previous_tier is None
-        assert audit.new_tier == "fast"
+        assert audit.previous_model == " \t\n"
+        assert audit.new_model == "fast"
         assert audit.created_at is not None
         assert migrate_default_model_tiers(app, apply=True)["count"] == 0
 
@@ -80,7 +77,7 @@ def test_cleanup_failure_rolls_back_rows_and_audit(
         with pytest.raises(RuntimeError, match="audit failure"):
             migrate_default_model_tiers(app, apply=True)
         db.session.expire_all()
-        assert db.session.get(DraftShifu, row_id).llm_tier is None
+        assert db.session.get(DraftShifu, row_id).llm == ""
         assert (
             ModelTierMigrationAudit.query.filter_by(
                 table_name=DraftShifu.__tablename__, row_id=row_id
@@ -101,52 +98,21 @@ def test_tier_only_changes_survive_clone_and_equality(app: object) -> None:
 
 
 def _assert_tier_clone(row: object) -> None:
-    row.llm_tier = "fast"
-    row.ask_llm_tier = "ultimate"
+    row.llm = "fast"
+    row.ask_llm = "ultimate"
     clone = row.clone()
-    assert clone.llm_tier == "fast"
-    assert clone.ask_llm_tier == "ultimate"
+    assert clone.llm == "fast"
+    assert clone.ask_llm == "ultimate"
     assert row.eq(clone)
-    clone.llm_tier = "balanced"
+    clone.llm = "balanced"
     assert not row.eq(clone)
 
 
 @pytest.mark.parametrize(
-    ("legacy", "expected"), [("", "fast"), (" \t", "fast"), ("old", None)]
+    ("legacy", "expected"), [("", "fast"), (" \t", "fast"), ("old", "old")]
 )
 def test_course_writes_materialize_default(legacy: str, expected: str | None) -> None:
-    assert tiers.normalize_course_tier(None, legacy) == expected
-
-
-def test_legacy_client_cannot_overwrite_a_tier(app: object) -> None:
-    with app.app_context(), pytest.raises(AppError):
-        tiers.merge_course_tier(
-            tiers.TIER_UNSET,
-            current_tier="fast",
-            current_model="old",
-            incoming_model="new",
-            field="llm_tier",
-        )
-    assert (
-        tiers.merge_course_tier(
-            tiers.TIER_UNSET,
-            current_tier="fast",
-            current_model="old",
-            incoming_model="old",
-            field="llm_tier",
-        )
-        == "fast"
-    )
-    assert (
-        tiers.merge_course_tier(
-            None,
-            current_tier="fast",
-            current_model="old",
-            incoming_model=None,
-            field="llm_tier",
-        )
-        is None
-    )
+    assert tiers.normalize_course_model(legacy) == expected
 
 
 def test_mapping_changes_new_calls_without_reinterpreting_usage(
@@ -160,9 +126,7 @@ def test_mapping_changes_new_calls_without_reinterpreting_usage(
         "flaskr.api.llm.get_litellm_params_and_model",
         lambda model: ({"api_key": "test"}, model, "provider"),
     )
-    record = SimpleNamespace(
-        llm="old-model", llm_tier="fast", id=42, __tablename__="shifu_draft_shifus"
-    )
+    record = SimpleNamespace(llm="fast", id=42, __tablename__="shifu_draft_shifus")
     source = tiers.selection_metadata(record)
     first, snapshot = tiers.resolve_selection(tiers.selection_model(record), source)
     mapping["LLM_TIER_FAST_MODEL"] = "provider/two"
@@ -172,7 +136,7 @@ def test_mapping_changes_new_calls_without_reinterpreting_usage(
     assert snapshot["resolved_model"] == first
     assert snapshot["model_selection_record_id"] == 42
     assert tiers.resolve_selection(first, snapshot)[0] == first
-    assert record.llm == "old-model"
+    assert record.llm == "fast"
 
 
 def test_missing_tier_configuration_does_not_fall_back(
@@ -180,7 +144,7 @@ def test_missing_tier_configuration_does_not_fall_back(
 ) -> None:
     monkeypatch.setattr(tiers, "get_config", lambda *_args: "")
     with app.app_context(), pytest.raises(AppError):
-        tiers.resolve_selection("old-model", {"model_tier": "fast"})
+        tiers.resolve_selection("fast")
     with app.app_context(), pytest.raises(AppError):
         tiers.resolve_selection("", {})
 
@@ -260,9 +224,9 @@ def test_preview_rejects_uncleaned_course_and_honors_explicit_tier(
                 PlaygroundPreviewRequest(block_index=0), None, DraftShifu()
             )
         model, _ = context._resolve_llm_settings(
-            PlaygroundPreviewRequest(block_index=0, llm_tier="ultimate"),
+            PlaygroundPreviewRequest(block_index=0, model="ultimate"),
             None,
-            DraftShifu(llm_tier="fast"),
+            DraftShifu(llm="fast"),
         )
         assert model == "configured-ultimate"
 
@@ -277,7 +241,7 @@ def test_schema_migration_keeps_legacy_rows_and_supports_downgrade() -> None:
 
     path = (
         Path(__file__).parents[3]
-        / "migrations/versions/5ca8717e482f_add_independent_course_model_tiers.py"
+        / "migrations/versions/5ca8717e482f_add_course_model_cleanup_audit.py"
     )
     spec = importlib.util.spec_from_file_location("tier_revision", path)
     revision = importlib.util.module_from_spec(spec)
@@ -306,11 +270,13 @@ def test_schema_migration_keeps_legacy_rows_and_supports_downgrade() -> None:
                 migrated = sa.table(
                     table,
                     sa.column("llm"),
-                    sa.column("llm_tier"),
-                    sa.column("ask_llm_tier"),
+                    sa.column("ask_llm"),
                 )
                 row = connection.execute(sa.select(migrated)).one()
-                assert tuple(row) == ("legacy", None, None)
+                assert tuple(row) == ("legacy", "")
+                assert {
+                    c["name"] for c in sa.inspect(connection).get_columns(table)
+                } == {"id", "llm", "ask_llm"}
             assert (
                 "shifu_model_tier_migration_audit"
                 in sa.inspect(connection).get_table_names()
@@ -332,14 +298,12 @@ def test_new_course_persists_independent_fast_defaults(
 
     monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
     result = module.create_shifu_draft(
-        app, "tier-new-owner", "New course", "", "", llm_tier=main_tier
+        app, "tier-new-owner", "New course", "", "", shifu_model=main_tier
     )
     with app.app_context():
         row = DraftShifu.query.filter_by(shifu_bid=result.bid).one()
-        assert row.llm_tier == expected
-        assert row.ask_llm_tier == "fast"
-        assert row.llm == ""
-        assert row.ask_llm == ""
+        assert row.llm == expected
+        assert row.ask_llm == "fast"
 
 
 def test_outline_tiers_inherit_consistently_in_preview_learning_and_follow_up(
@@ -356,15 +320,15 @@ def test_outline_tiers_inherit_consistently_in_preview_learning_and_follow_up(
         with unit_of_work():
             course = DraftShifu(
                 shifu_bid=bid,
-                llm_tier="fast",
-                ask_llm_tier="fast",
+                llm="fast",
+                ask_llm="fast",
                 ask_enabled_status=ASK_MODE_ENABLE,
             )
             parent = DraftOutlineItem(
                 shifu_bid=bid,
                 outline_item_bid=uuid4().hex,
-                llm_tier="balanced",
-                ask_llm_tier="ultimate",
+                llm="balanced",
+                ask_llm="ultimate",
                 ask_enabled_status=ASK_MODE_DEFAULT,
             )
             leaf = DraftOutlineItem(
@@ -421,8 +385,8 @@ def test_outline_tiers_inherit_consistently_in_preview_learning_and_follow_up(
             == "configured-ultimate"
         )
         with unit_of_work():
-            parent.llm_tier = None
-            parent.ask_llm_tier = None
+            parent.llm = ""
+            parent.ask_llm = ""
         settings = runtime.get_llm_settings(leaf.outline_item_bid)
         assert (
             tiers.resolve_selection(settings.model, settings.usage_metadata)[0]
@@ -435,47 +399,6 @@ def test_outline_tiers_inherit_consistently_in_preview_learning_and_follow_up(
             tiers.resolve_selection(follow_up.ask_model, follow_up.usage_metadata)[0]
             == "configured-fast"
         )
-
-
-def test_outline_patch_preserves_omitted_tiers_and_null_restores_inheritance(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from flaskr.service.shifu import shifu_outline_funcs as module
-
-    monkeypatch.setattr(module, "save_outline_history", lambda *_args: None)
-    monkeypatch.setattr(module, "cleanup_outline_history_versions", lambda *_args: None)
-    with app.app_context():
-        with unit_of_work():
-            outline = DraftOutlineItem(
-                shifu_bid=uuid4().hex,
-                outline_item_bid=uuid4().hex,
-                position="1",
-                llm_tier="balanced",
-                ask_llm_tier="ultimate",
-            )
-            db.session.add(outline)
-        result = module.modify_unit(
-            app,
-            "teacher",
-            outline.shifu_bid,
-            outline.outline_item_bid,
-            ask_llm_tier="fast",
-        )
-        assert result.llm_tier == "balanced"
-        assert result.ask_llm_tier == "fast"
-        result = module.modify_unit(
-            app, "teacher", outline.shifu_bid, outline.outline_item_bid, llm_tier=None
-        )
-        assert result.llm_tier is None
-        assert result.ask_llm_tier == "fast"
-        with pytest.raises(AppError):
-            module.modify_unit(
-                app,
-                "teacher",
-                outline.shifu_bid,
-                outline.outline_item_bid,
-                llm_tier="unknown",
-            )
 
 
 def test_options_endpoint_keeps_missing_mapping_unavailable(
@@ -495,13 +418,16 @@ def test_options_endpoint_keeps_missing_mapping_unavailable(
     assert all("model" not in item for item in result)
 
 
-def test_create_invalid_follow_up_tier_identifies_follow_up_field(
-    app: object, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("model_type", [DraftShifu, PublishedShifu])
+def test_new_course_rows_default_both_existing_fields_to_fast(
+    app: object, model_type: type
 ) -> None:
-    from flaskr.service.shifu import shifu_draft_funcs as module
-
-    monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
-    with pytest.raises(AppError, match="ask_llm_tier"):
-        module.create_shifu_draft(
-            app, "tier-owner", "New course", "", "", ask_llm_tier="premium"
-        )
+    """Both persistence paths use Fast without adding any tier columns."""
+    with app.app_context(), unit_of_work():
+        row = model_type(shifu_bid=uuid4().hex)
+        db.session.add(row)
+        db.session.flush()
+        assert row.llm == "fast"
+        assert row.ask_llm == "fast"
+        assert "llm_tier" not in model_type.__table__.columns
+        assert "ask_llm_tier" not in model_type.__table__.columns

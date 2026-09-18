@@ -34,14 +34,6 @@ def _import_file(
             **shifu,
         },
         "outline_items": outlines or [],
-        "structure": {
-            "bid": "old-course",
-            "type": "shifu",
-            "children": [
-                {"bid": item["outline_item_bid"], "type": "outline", "children": []}
-                for item in (outlines or [])
-            ],
-        },
     }
     if include_structure:
         payload["structure"] = {
@@ -64,6 +56,15 @@ def _import_file(
     [
         ({"llm": GEMINI_LIVE_MODEL_ID}, []),
         (
+            {},
+            [
+                {
+                    "outline_item_bid": "outline-primary-live",
+                    "llm": GEMINI_LIVE_MODEL_ID,
+                }
+            ],
+        ),
+        (
             {
                 "ask_llm": GEMINI_LIVE_MODEL_ID,
                 "ask_provider_config": {
@@ -73,6 +74,21 @@ def _import_file(
                 },
             },
             [],
+        ),
+        (
+            {
+                "ask_provider_config": {
+                    "provider": "llm",
+                    "mode": "provider_then_llm",
+                    "config": {"live_voice": "Kore"},
+                }
+            },
+            [
+                {
+                    "outline_item_bid": "outline-follow-up-live",
+                    "ask_llm": GEMINI_LIVE_MODEL_ID,
+                }
+            ],
         ),
     ],
 )
@@ -228,10 +244,60 @@ def test_legacy_outline_models_are_ignored_and_not_exported(
     assert outline_json["content"] == "Keep the lesson content"
 
 
-@pytest.mark.parametrize("destination", ["generated", "provided", "existing"])
-def test_import_invalid_follow_up_tier_identifies_follow_up_field(
-    app: object, monkeypatch: pytest.MonkeyPatch, destination: str
+def test_import_export_retains_tiers_and_normalizes_old_defaults(
+    app: object, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    from flaskr.service.shifu import shifu_import_export_funcs as module
+    from flaskr.service.shifu.models import DraftOutlineItem
+
+    monkeypatch.setattr(
+        module, "check_text_with_risk_control", lambda *_args, **_kwargs: None
+    )
+    shifu_bid = f"tier-import-{uuid.uuid4().hex[:12]}"
+    module.import_shifu(
+        app,
+        shifu_bid,
+        _import_file(
+            shifu={"llm": "ultimate", "ask_llm": " \t"},
+            include_structure=True,
+            outlines=[
+                {
+                    "outline_item_bid": "tier-child",
+                    "title": "Child",
+                    "llm": "balanced",
+                },
+                {"outline_item_bid": "inherited", "title": "Inherited"},
+            ],
+        ),
+        "teacher-1",
+    )
+    with app.app_context():
+        course = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert course.llm == "ultimate"
+        assert course.ask_llm == "fast"
+        outlines = DraftOutlineItem.query.filter_by(shifu_bid=shifu_bid).all()
+        assert all(not hasattr(item, "llm") for item in outlines)
+    path = tmp_path / "tiers.json"
+    module.export_shifu(app, shifu_bid, str(path))
+    exported = json.loads(path.read_text())
+    assert exported["shifu"]["llm"] == "ultimate"
+    assert exported["shifu"]["ask_llm"] == "fast"
+    assert all("llm" not in item for item in exported["outline_items"])
+
+
+@pytest.mark.parametrize("destination", ["generated", "provided", "existing"])
+@pytest.mark.parametrize("selection", ["", "balanced", "gpt-main"])
+def test_import_uses_existing_model_fields_for_every_destination(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    destination: str,
+    selection: str,
+) -> None:
+    """Normalize course defaults without altering aliases or explicit models."""
     from flaskr.service.shifu import shifu_import_export_funcs as module
 
     monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
@@ -240,10 +306,17 @@ def test_import_invalid_follow_up_tier_identifies_follow_up_field(
         with app.app_context():
             db.session.add(DraftShifu(shifu_bid=shifu_bid, title="Existing"))
             db.session.commit()
-    with pytest.raises(AppError, match="ask_llm_tier"):
-        module.import_shifu(
-            app,
-            shifu_bid,
-            _import_file(shifu={"llm_tier": "fast", "ask_llm_tier": "premium"}),
-            "teacher-1",
+    imported_bid = module.import_shifu(
+        app,
+        shifu_bid,
+        _import_file(shifu={"llm": selection, "ask_llm": selection}),
+        "teacher-1",
+    )
+    with app.app_context():
+        course = (
+            DraftShifu.query.filter_by(shifu_bid=imported_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
         )
+        assert course.llm == (selection or "fast")
+        assert course.ask_llm == (selection or "fast")

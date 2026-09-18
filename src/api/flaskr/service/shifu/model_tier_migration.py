@@ -24,24 +24,14 @@ def migrate_default_model_tiers(app: object, *, apply: bool = False) -> dict:
     # ORM whitespace checks include tabs/newlines, not just SQL TRIM spaces.
     with unit_of_work():
         for model_type in (DraftShifu, PublishedShifu):
-            query = (
-                model_type.query.options(
-                    load_only(
-                        model_type.id,
-                        model_type.llm,
-                        model_type.ask_llm,
-                        model_type.llm_tier,
-                        model_type.ask_llm_tier,
-                        model_type.updated_at,
-                    )
+            query = model_type.query.options(
+                load_only(
+                    model_type.id,
+                    model_type.llm,
+                    model_type.ask_llm,
+                    model_type.updated_at,
                 )
-                .filter(
-                    db.or_(
-                        model_type.llm_tier.is_(None), model_type.ask_llm_tier.is_(None)
-                    )
-                )
-                .order_by(model_type.id)
-            )
+            ).order_by(model_type.id)
             if apply:
                 query = query.with_for_update()
             last_id = 0
@@ -56,28 +46,25 @@ def migrate_default_model_tiers(app: object, *, apply: bool = False) -> dict:
                 last_id = records[-1].id
                 for record in records:
                     for field in ("llm", "ask_llm"):
-                        tier_field = field + "_tier"
-                        if (
-                            getattr(record, tier_field) is not None
-                            or str(getattr(record, field) or "").strip()
-                        ):
+                        previous_model = getattr(record, field)
+                        if str(previous_model or "").strip():
                             continue
                         changes.append(
                             {
                                 "table": model_type.__tablename__,
                                 "row_id": record.id,
-                                "field": tier_field,
+                                "field": field,
                             }
                         )
                         if apply:
-                            # Updating a compatibility column must not alter the
+                            # Updating a model selection must not alter the
                             # authoring revision's original modification timestamp.
                             db.session.execute(
                                 db.update(model_type)
                                 .where(model_type.id == record.id)
                                 .values(
                                     **{
-                                        tier_field: "fast",
+                                        field: "fast",
                                         "updated_at": record.updated_at,
                                     }
                                 )
@@ -87,9 +74,9 @@ def migrate_default_model_tiers(app: object, *, apply: bool = False) -> dict:
                                     batch_bid=batch_bid,
                                     table_name=model_type.__tablename__,
                                     row_id=record.id,
-                                    field_name=tier_field,
-                                    previous_tier=None,
-                                    new_tier="fast",
+                                    field_name=field,
+                                    previous_model=previous_model,
+                                    new_model="fast",
                                     created_at=created_at,
                                 )
                             )

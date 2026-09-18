@@ -1740,7 +1740,6 @@ class FakeMappedModel(FakeModel):
     llm_system_prompt = FakeColumn("llm_system_prompt")
     price = FakeColumn("price")
     llm = FakeColumn("llm")
-    llm_tier = FakeColumn("llm_tier")
     updated_user_bid = FakeColumn("updated_user_bid")
 
 
@@ -1829,13 +1828,11 @@ def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(
 
 
 @pytest.mark.parametrize("source", ["draft", "published", "draft_over_published"])
-@pytest.mark.parametrize("legacy_model", ["", "retained-old-model"])
 @pytest.mark.parametrize("configured_model", ["mapped-fast-model", ""])
 def test_operator_course_lists_display_current_tier_mapping(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     source: str,
-    legacy_model: str,
     configured_model: str,
 ) -> None:
     """SQL and lightweight projections must preserve the selected revision's tier."""
@@ -1856,17 +1853,12 @@ def test_operator_course_lists_display_current_tier_mapping(
                 PublishedShifu(
                     shifu_bid=bid,
                     title="Published",
-                    llm="published-old",
-                    llm_tier="ultimate",
+                    llm="ultimate",
                 )
             )
-        db.session.add(
-            model(shifu_bid=bid, title="Older", llm="older-model", llm_tier="balanced")
-        )
+        db.session.add(model(shifu_bid=bid, title="Older", llm="balanced"))
         db.session.flush()
-        db.session.add(
-            model(shifu_bid=bid, title="Current", llm=legacy_model, llm_tier="fast")
-        )
+        db.session.add(model(shifu_bid=bid, title="Current", llm="fast"))
         db.session.commit()
         with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
             result = list_operator_courses(app, 1, 20, {"shifu_bid": bid})
@@ -1878,7 +1870,7 @@ def test_operator_course_lists_display_current_tier_mapping(
             model, [bid], lightweight=True
         )
         assert len(rows) == 1
-        assert rows[0].llm_tier == "fast"
+        assert rows[0].llm == "fast"
         summary = admin_course_summary_mapper.build_admin_operation_course_summary(
             rows[0], user_map={}, course_status="published"
         )

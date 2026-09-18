@@ -52,7 +52,7 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
-from flaskr.api.llm.tiers import TIER_UNSET, resolve_selection, validate_model_tier
+from flaskr.api.llm.tiers import normalize_course_model, resolve_selection
 from flaskr.common.config import get_config
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
@@ -671,8 +671,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 shifu_description,
                 shifu_avatar,
                 [],
-                llm_tier=request.get_json().get("llm_tier"),
-                ask_llm_tier=request.get_json().get("ask_llm_tier"),
             )
         )
 
@@ -900,8 +898,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 use_learner_language=use_learner_language,
                 ask_enabled_status=ask_enabled_status,
                 ask_model=ask_model,
-                llm_tier=json_data.get("llm_tier", TIER_UNSET),
-                ask_llm_tier=json_data.get("ask_llm_tier", TIER_UNSET),
                 ask_temperature=ask_temperature,
                 ask_system_prompt=ask_system_prompt,
                 ask_provider_config=ask_provider_config,
@@ -1320,8 +1316,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 system_prompt,
                 is_hidden,
                 outline_type,
-                llm_tier=request.get_json().get("llm_tier", TIER_UNSET),
-                ask_llm_tier=request.get_json().get("ask_llm_tier", TIER_UNSET),
             )
         )
 
@@ -2190,10 +2184,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             or requested_provider in ASK_PROVIDERS_WITH_LLM_SYNTHESIS
         )
 
-        ask_model = str(json_data.get("ask_model") or "").strip()
-        ask_tier = validate_model_tier(json_data.get("ask_llm_tier"), "ask_llm_tier")
+        ask_model = normalize_course_model(json_data.get("ask_model"), "ask_model")
         ask_usage_metadata = {
-            "model_tier": ask_tier,
             "model_selection_field": "ask_llm",
             "model_selection_table": "preview",
         }

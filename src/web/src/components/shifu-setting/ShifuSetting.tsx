@@ -136,13 +136,16 @@ import {
   type FollowUpModelCatalogItem,
 } from '@/lib/liveVoiceFollowUp';
 
+const asModelTier = (model: string | null | undefined): ModelTier | null =>
+  model === 'fast' || model === 'balanced' || model === 'ultimate'
+    ? model
+    : null;
+
 interface Shifu {
   description: string;
   bid: string;
   keywords: string[];
   model: string;
-  llm_tier?: ModelTier | null;
-  ask_llm_tier?: ModelTier | null;
   name: string;
   preview_url: string;
   price: number;
@@ -1113,7 +1116,6 @@ export default function ShifuSettingDialog({
       .min(0, t('module.shifuSetting.shifuDescriptionEmpty'))
       .max(500, t('module.shifuSetting.shifuDescriptionMaxLength')),
     model: z.string(),
-    llm_tier: z.enum(['fast', 'balanced', 'ultimate']).nullable(),
     systemPrompt: z
       .string()
       .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
@@ -1141,7 +1143,6 @@ export default function ShifuSettingDialog({
       name: '',
       description: '',
       model: '',
-      llm_tier: null as ModelTier | null,
       systemPrompt: '',
       price: '',
       temperature: '',
@@ -1264,15 +1265,14 @@ export default function ShifuSettingDialog({
           description: data.description,
           shifu_bid: shifuId,
           keywords: keywords,
-          llm_tier: data.llm_tier,
+          model: data.model,
           name: data.name,
           price: Number(data.price),
           avatar: uploadedImageUrl,
           temperature: Number(data.temperature),
           system_prompt: data.systemPrompt,
           ask_enabled_status: ASK_MODE_ENABLE,
-          ask_model: isLiveVoiceFollowUp || !askTier ? askModel : undefined,
-          ask_llm_tier: isLiveVoiceFollowUp ? null : askTier,
+          ask_model: askTier || askModel,
           ask_temperature: askTemperatureForSubmit,
           ask_system_prompt: '',
           ask_provider_config: {
@@ -1313,7 +1313,7 @@ export default function ShifuSettingDialog({
                 useLearnerLanguage,
                 followUpMode: isLiveVoiceFollowUp ? 'live_voice' : 'text',
                 price: Number(data.price),
-                mainModelTier: data.llm_tier ?? null,
+                mainModelTier: asModelTier(data.model),
                 followUpModelTier: askTier,
               }),
             ),
@@ -1396,7 +1396,6 @@ export default function ShifuSettingDialog({
           description: result.description,
           price: (result.price ?? 0).toFixed(2),
           model: result.model || '',
-          llm_tier: result.llm_tier ?? null,
           temperature: result.temperature + '',
           systemPrompt: result.system_prompt || '',
         });
@@ -1440,11 +1439,11 @@ export default function ShifuSettingDialog({
           },
         };
         setAskModel(result.ask_model || '');
-        setAskTier(result.ask_llm_tier ?? null);
+        setAskTier(asModelTier(result.ask_model));
         textTierDraftRef.current =
           result.follow_up_mode === 'live_voice'
             ? 'fast'
-            : (result.ask_llm_tier ?? null);
+            : asModelTier(result.ask_model);
         legacyTextModelRef.current =
           result.follow_up_mode === 'live_voice' ? '' : result.ask_model || '';
         setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
@@ -1893,8 +1892,7 @@ export default function ShifuSettingDialog({
         {
           shifu_bid: shifuId,
           query,
-          ask_model: askModel,
-          ask_llm_tier: askTier,
+          ask_model: askTier || askModel,
           ask_temperature: askTemperatureForSubmit,
           ask_system_prompt: '',
           ask_provider_config: {
@@ -2129,7 +2127,7 @@ export default function ShifuSettingDialog({
 
                 <FormField
                   control={form.control}
-                  name='llm_tier'
+                  name='model'
                   render={({ field }) => (
                     <FormItem className='space-y-2 mb-4'>
                       <FormLabel className='text-sm font-medium text-foreground'>
@@ -2141,7 +2139,7 @@ export default function ShifuSettingDialog({
                       <FormControl>
                         <ModelTierList
                           disabled={currentShifu?.readonly}
-                          value={field.value}
+                          value={asModelTier(field.value)}
                           onChange={field.onChange}
                         />
                       </FormControl>

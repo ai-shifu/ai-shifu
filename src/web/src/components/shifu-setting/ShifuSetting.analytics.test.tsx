@@ -1123,10 +1123,8 @@ describe('ShifuSetting tier persistence', () => {
       bid: 'course-1',
       name: 'Tier course',
       description: '',
-      model: 'old-primary',
-      llm_tier: 'ultimate',
-      ask_model: 'gemini-3.8-live',
-      ask_llm_tier: 'fast',
+      model: 'ultimate',
+      ask_model: 'fast',
       follow_up_mode: 'text',
       price: 1,
       ask_provider_config: {
@@ -1152,12 +1150,12 @@ describe('ShifuSetting tier persistence', () => {
     await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
     expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        llm_tier: 'ultimate',
-        ask_llm_tier: 'balanced',
+        model: 'ultimate',
+        ask_model: 'balanced',
       }),
     );
-    expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBeUndefined();
-    expect(mockSaveShifuDetail.mock.calls[0][0].model).toBeUndefined();
+    expect(mockSaveShifuDetail.mock.calls[0][0].ask_llm_tier).toBeUndefined();
+    expect(mockSaveShifuDetail.mock.calls[0][0].llm_tier).toBeUndefined();
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_shifu_setting_save',
       expect.objectContaining({

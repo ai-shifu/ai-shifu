@@ -1,4 +1,4 @@
-"""Course model selection, distinct from provider/model identities."""
+"""Resolve reserved course model aliases at the provider boundary."""
 
 from __future__ import annotations
 
@@ -14,10 +14,9 @@ from flaskr.service.config import get_config
 
 ModelTier = Literal["fast", "balanced", "ultimate"]
 MODEL_TIERS = ("fast", "balanced", "ultimate")
-TIER_UNSET = object()
 
 
-def validate_model_tier(value: object, field: str = "llm_tier") -> str | None:
+def validate_model_tier(value: object, field: str = "model") -> str | None:
     """Validate a nullable tier without accepting arbitrary model names."""
     if value is None:
         return None
@@ -26,50 +25,24 @@ def validate_model_tier(value: object, field: str = "llm_tier") -> str | None:
     return value
 
 
-def normalize_course_tier(
-    tier: object, model: object, field: str = "llm_tier"
-) -> str | None:
-    """Materialize the default on writes, while preserving legacy selections."""
-    value = validate_model_tier(tier, field)
-    return value or (None if str(model or "").strip() else "fast")
-
-
-def merge_course_tier(
-    incoming: object,
-    *,
-    current_tier: str | None,
-    current_model: str,
-    incoming_model: str | None,
-    field: str,
-) -> str | None:
-    """Preserve PATCH omission and reject conflicting legacy-client writes."""
-    if (
-        current_tier
-        and incoming is TIER_UNSET
-        and incoming_model is not None
-        and incoming_model != current_model
-    ):
+def normalize_course_model(model: object, field: str = "model") -> str:
+    """Store explicit Fast defaults in existing course model fields."""
+    if model is not None and not isinstance(model, str):
         raise_param_error(field)
-    tier = (
-        current_tier if incoming is TIER_UNSET else validate_model_tier(incoming, field)
-    )
-    return normalize_course_tier(
-        tier, current_model if incoming_model is None else incoming_model, field
-    )
+    return str(model or "").strip() or "fast"
 
 
 def selection_model(record: object, *, follow_up: bool = False) -> str:
-    """Return the legacy identity only when no tier overrides it (no I/O)."""
+    """Read a model alias or legacy identity without contacting a provider."""
     field = "ask_llm" if follow_up else "llm"
-    if getattr(record, field + "_tier", None):
-        return ""
     return str(getattr(record, field, "") or "").strip()
 
 
 def selection_metadata(record: object, *, follow_up: bool = False) -> dict:
     """Carry the selected revision through runtime usage recording."""
     field = "ask_llm" if follow_up else "llm"
-    tier = getattr(record, field + "_tier", None)
+    model = selection_model(record, follow_up=follow_up)
+    tier = model if model in MODEL_TIERS else None
     values = {
         "model_tier": tier,
         "model_selection_origin": "tier" if tier else "legacy_model",
@@ -121,7 +94,7 @@ def _selection_migration_batch(
             return cache[key]
     audit = (
         ModelTierMigrationAudit.query.filter_by(
-            table_name=table, row_id=row_id, field_name=field + "_tier", new_tier=tier
+            table_name=table, row_id=row_id, field_name=field, new_model=tier
         )
         .order_by(ModelTierMigrationAudit.id.desc())
         .first()
@@ -141,7 +114,7 @@ def resolve_tier_model(tier: object) -> str:
     if normalized is None:
         raise_error("server.llm.modelSelectionNotConfigured")
     model = str(get_config(f"LLM_TIER_{normalized.upper()}_MODEL", "") or "").strip()
-    if not model or is_live_follow_up_model(model):
+    if not model or model in MODEL_TIERS or is_live_follow_up_model(model):
         raise_error("server.llm.modelTierUnavailable")
     try:
         params, _, _ = get_litellm_params_and_model(model)
@@ -160,10 +133,12 @@ def resolve_selection(model: str, metadata: dict | None = None) -> tuple[str, di
     values = dict(metadata or {})
     if values.get("resolved_model") and model == values["resolved_model"]:
         return model, values
-    tier = values.get("model_tier")
-    resolved = resolve_tier_model(tier) if tier else str(model or "").strip()
+    selected = str(model or "").strip()
+    tier = selected if selected in MODEL_TIERS else None
+    values["model_tier"] = tier
+    values.setdefault("model_selection_origin", "tier" if tier else "legacy_model")
+    resolved = resolve_tier_model(tier) if tier else selected
     if not resolved:
         raise_error("server.llm.modelSelectionNotConfigured")
-    if "model_tier" in values:
-        values["resolved_model"] = resolved
+    values["resolved_model"] = resolved
     return resolved, values

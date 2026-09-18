@@ -20,11 +20,11 @@ def test_provenance_queries_once_per_course_field_and_request(app: object) -> No
     with app.app_context():
         with unit_of_work():
             migrated = PublishedShifu(shifu_bid=uuid4().hex, llm="", ask_llm="")
-            selected = DraftShifu(shifu_bid=uuid4().hex, llm_tier="fast")
+            selected = DraftShifu(shifu_bid=uuid4().hex, llm="fast")
             outline = DraftOutlineItem(
-                outline_item_bid=uuid4().hex, llm_tier="fast", ask_llm_tier="fast"
+                outline_item_bid=uuid4().hex, llm="fast", ask_llm="fast"
             )
-            other_tier = DraftShifu(shifu_bid=uuid4().hex, llm_tier="ultimate")
+            other_tier = DraftShifu(shifu_bid=uuid4().hex, llm="ultimate")
             db.session.add_all([migrated, selected, outline, other_tier])
             db.session.flush()
             # This case requires a cache miss. SQLite row IDs may have been
@@ -32,7 +32,7 @@ def test_provenance_queries_once_per_course_field_and_request(app: object) -> No
             ModelTierMigrationAudit.query.filter_by(
                 table_name=DraftShifu.__tablename__,
                 row_id=selected.id,
-                field_name="llm_tier",
+                field_name="llm",
             ).delete(synchronize_session=False)
         result = migrate_default_model_tiers(app, apply=True)
         db.session.expire_all()
@@ -92,8 +92,8 @@ def test_provenance_uses_latest_batch_after_cleanup_recovery(app: object) -> Non
             db.session.add(row)
         original = migrate_default_model_tiers(app, apply=True)
         with unit_of_work():
-            row.llm_tier = None
-            row.ask_llm_tier = None
+            row.llm = ""
+            row.ask_llm = ""
         latest = migrate_default_model_tiers(app, apply=True)
         assert original["batch_bid"] != latest["batch_bid"]
         db.session.expire_all()

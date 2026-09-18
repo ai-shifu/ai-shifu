@@ -112,9 +112,7 @@ class ShifuDetailDto(BaseModel):
     description: str = Field(..., description="shifu description", required=False)
     avatar: str = Field(..., description="shifu avatar", required=False)
     keywords: list[str] = Field(..., description="shifu keywords", required=False)
-    model: str = Field(..., description="Deprecated legacy shifu model", required=False)
-    llm_tier: Literal["fast", "balanced", "ultimate"] | None = None
-    ask_llm_tier: Literal["fast", "balanced", "ultimate"] | None = None
+    model: str = Field(..., description="shifu model", required=False)
     temperature: float = Field(..., description="shifu temperature", required=False)
     price: float = Field(..., description="shifu price", required=False)
     preview_url: str = Field(..., description="shifu preview url", required=False)
@@ -225,8 +223,6 @@ class ShifuDetailDto(BaseModel):
         ask_system_prompt: str = "",
         ask_provider_config: dict[str, object] | None = None,
         follow_up_mode: Literal["text", "live_voice"] = "text",
-        llm_tier: str | None = None,
-        ask_llm_tier: str | None = None,
     ) -> None:
         """Build the shifu detail payload."""
         super().__init__(
@@ -236,8 +232,6 @@ class ShifuDetailDto(BaseModel):
             avatar=shifu_avatar,
             keywords=shifu_keywords,
             model=shifu_model,
-            llm_tier=llm_tier,
-            ask_llm_tier=ask_llm_tier,
             temperature=shifu_temperature,
             price=shifu_price,
             preview_url=shifu_preview_url,
@@ -274,8 +268,6 @@ class ShifuDetailDto(BaseModel):
             "avatar": self.avatar,
             "keywords": self.keywords,
             "model": self.model,
-            "llm_tier": self.llm_tier,
-            "ask_llm_tier": self.ask_llm_tier,
             "price": self.price,
             "preview_url": self.preview_url,
             "url": self.url,
@@ -416,8 +408,6 @@ class ShifuOutlineTreeNode:
 class OutlineDto(BaseModel):
     """Outline dto."""
 
-    llm_tier: Literal["fast", "balanced", "ultimate"] | None = None
-    ask_llm_tier: Literal["fast", "balanced", "ultimate"] | None = None
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline no", required=False)
     name: str = Field(..., description="outline name", required=False)
@@ -437,8 +427,6 @@ class OutlineDto(BaseModel):
         index: int | None = None,
         system_prompt: str | None = None,
         is_hidden: bool | None = None,
-        llm_tier: str | None = None,
-        ask_llm_tier: str | None = None,
     ) -> None:
         """Build the outline payload."""
         super().__init__(
@@ -450,15 +438,11 @@ class OutlineDto(BaseModel):
             index=index,
             system_prompt=system_prompt,
             is_hidden=is_hidden,
-            llm_tier=llm_tier,
-            ask_llm_tier=ask_llm_tier,
         )
 
     def __json__(self) -> dict:
         """Return the outline as JSON-compatible data."""
         return {
-            "llm_tier": self.llm_tier,
-            "ask_llm_tier": self.ask_llm_tier,
             "bid": self.bid,
             "position": self.position,
             "name": self.name,

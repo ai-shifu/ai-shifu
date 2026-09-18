@@ -1050,7 +1050,7 @@ def _run_tiered_ask(app: object, module: object) -> list:
 
 def _use_follow_up_tier(monkeypatch: object, module: object, config: dict) -> None:
     info = _DummyFollowUpInfo(config)
-    info.ask_model = ""
+    info.ask_model = "fast"
     info.usage_metadata = {"model_tier": "fast", "model_selection_record_id": 42}
     monkeypatch.setattr(module, "get_follow_up_info_v2", lambda *_args: info)
 
@@ -1159,6 +1159,7 @@ def test_actual_llm_routes_snapshot_tier_model_and_metadata(
         "model_tier": "fast",
         "model_selection_record_id": 42,
         "resolved_model": "mapped-fast",
+        "model_selection_origin": "tier",
     }
 
 

@@ -19,10 +19,10 @@ def build_admin_operation_course_summary(
     resolved_activity = activity or {}
     creator = user_map.get(course.created_user_bid or "", {})
     llm_model = str(course.llm or "").strip()
-    tier = getattr(course, "llm_tier", None)
-    if tier:
+    tier = getattr(course, "llm", None)
+    if tier in ("fast", "balanced", "ultimate"):
         # Operators need the configured identity even when its provider is offline.
-        # An unmapped tier must never display a retained legacy/default model.
+        # An unmapped alias must never fall back to the global default model.
         llm_model = str(get_config(f"LLM_TIER_{tier.upper()}_MODEL", "") or "").strip()
     elif not llm_model:
         llm_model = str(current_app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()

@@ -5,10 +5,13 @@ title: Course model tiers
 ## Purpose / Big Picture
 
 Offer Fast, Balanced and Ultimate for course generation and text follow-up,
-independently. Persist tiers separately from legacy model names so operators can
-replace models without editing courses. Keep credit multipliers and Live voice.
+independently. Store reserved tier aliases in the existing llm and ask_llm fields so operators
+can replace models without editing courses. Preserve explicit legacy model names. Keep credit multipliers and Live voice.
 
 ## Progress
+
+- [x] 2026-09-18: Replace tier columns with aliases in existing fields and adapt
+  authoring/runtime/UI/cleanup. Local regressions and repository gate verified.
 
 - [x] 2026-09-17: Confirmed independent tier fields, Fast defaults, legacy-model
   compatibility and explicit data cleanup rather than runtime empty fallback.
@@ -26,20 +29,21 @@ replace models without editing courses. Keep credit multipliers and Live voice.
 - Course draft/published rows and outline draft/published rows explicitly copy
   settings; clone/equality, import/export and publishing must all carry tiers.
 - Empty outline settings mean inheritance and must not be backfilled.
-- Live interaction detection currently reads the legacy model. A selected text
-  tier must take precedence over a retained historical Live model.
+- A text alias and a Live model share the original field and cannot be active
+  simultaneously. Switching modes replaces the selected value.
 
 ## Decision Log
 
-- Add nullable llm_tier and ask_llm_tier with fast/balanced/ultimate values.
-- Backfill course rows whose tier is null and legacy model is blank to fast;
+- 2026-09-18: Supersede the separate-field design. Store fast/balanced/ultimate
+  directly in llm and ask_llm; remove the unmerged tier-column additions.
+- Backfill course rows whose original model field is blank to fast;
   preserve explicit legacy models and all outline inheritance. Retain audit rows.
 - New writes/imports normalize empty course selections to fast. Reads do not
   silently normalize missing selections. Unconfigured tiers fail closed.
 - Resolve follow-up tiers only when an LLM is actually invoked: healthy external
   provider answers do not require unused LLM mappings, while fallback, synthesis
   and guardrail rejection replies still resolve and snapshot their model.
-- Preserve legacy values when choosing tiers; record actual invocation models
+- Preserve existing explicit model choices until a teacher changes them; record actual invocation models
   and selection metadata in usage/Langfuse. Existing rates still bill actual models.
 - Keep summary generation strict after the required cleanup: missing course
   follow-up selections are configuration errors rather than main-model fallbacks.
@@ -53,10 +57,10 @@ replace models without editing courses. Keep credit multipliers and Live voice.
 
 ## Outcomes & Retrospective
 
-Implementation and local validation are complete. The related backend suite
-passed 1508 tests (95 skipped), including golden contracts, after review fixes.
-The latest external-provider routing and golden/LLM regressions passed 165 tests.
-The settings/model-selector Jest suites passed 70 tests. TypeScript, the full lefthook gate, repository harness, architecture
+The alias implementation passed 1917 related backend/configuration/golden tests
+(95 skipped), including the new import/default regression cases.
+The settings/model-selector Jest suites passed 65 tests. TypeScript, the full
+lefthook gate, repository harness, architecture
 boundaries and the unit-of-work ratchet passed. Production configuration and
 cleanup execution remain a deployment operation; no production rows were changed.
 
@@ -74,7 +78,7 @@ also handles TTS and must retain its generic behavior.
 
 ## Plan of Work
 
-1. Add fields and schema revision, an audited/idempotent cleanup CLI and tests.
+1. Reuse existing model fields; add only a cleanup audit ledger, CLI and tests.
 2. Add system tier mappings, options API, write normalization and runtime
    selection throughout preview, learning, follow-up and publication.
 3. Add tier selectors, separate text/Live choice, translations and analytics.
@@ -86,9 +90,8 @@ Use LLM_TIER_FAST_MODEL, LLM_TIER_BALANCED_MODEL and LLM_TIER_ULTIMATE_MODEL.
 Only LLM_TIER_FAST_MODEL is required at startup. Balanced and Ultimate remain
 optional and unavailable until configured. None of the three has a default model.
 Create with fast in both course fields. Omitted update fields preserve values;
-explicit null restores the legacy model, or normalizes an empty course to fast.
-An outline with neither tier nor model continues inheriting. A legacy client
-cannot change a legacy model behind an already-selected tier.
+empty course selections normalize to fast. Empty outline selections continue
+inheriting. Existing API model/ask_model fields carry aliases or legacy names.
 
 ## Validation and Acceptance
 
@@ -107,15 +110,15 @@ prompt or arbitrary text is collected. Tracking failure cannot affect saving.
 
 ## Idempotence and Recovery
 
-Cleanup only changes null tier plus blank legacy values. Preserve old fields,
-record table/row/field/batch/UTC time and old/new tier in the same transaction.
+Cleanup only changes blank course model values. Preserve original values in the
+audit ledger with table/row/field/batch/UTC time and old/new model selections.
 Preview before apply and audit after. Schema and cleanup precede enabling tier
 reads. Stop old writers during final deployment verification. Do not roll back
 to code unaware of tiers after teachers start saving them.
 
 ## Interfaces and Dependencies
 
-Course and outline DTOs accept/return llm_tier and ask_llm_tier. GET
+Course DTOs keep model/ask_model and exports keep llm/ask_llm. GET
 /api/llm/model-tier-list returns three stable tier values, availability and credit
 multipliers. Legacy model and follow-up capability endpoints remain compatible.
 Keep existing provider routing, usage recording, billing and UTC helpers.
@@ -123,8 +126,8 @@ Keep existing provider routing, usage recording, billing and UTC helpers.
 ## Deployment Runbook
 
 This change uses a maintenance cutover because the same release contains strict
-tier reads. Configure all three mappings and their provider credentials before
-cutover. Stop traffic, background workers and all old writers; run the new image
+tier reads. Configure Fast and its provider credentials before cutover; configure Balanced
+and Ultimate only when enabling those choices. Stop traffic, background workers and all old writers; run the new image
 as a maintenance job before allowing its API or web assets to serve users.
 Do not perform a rolling switch with uncleaned course rows.
 
@@ -157,7 +160,7 @@ The deployment is not complete just because the schema migration succeeded.
 
 Before any new tier selections have been saved, an operator can use the audit
 batch to restore only the recorded table/row/field pairs whose current tier
-still equals `new_tier`; restore `previous_tier` while preserving `updated_at`.
+still equals `new_model`; restore `previous_model` while preserving `updated_at`.
 Take a database snapshot first and keep the audit ledger. After new selections
 exist, use a forward fix: an old binary cannot interpret them correctly.
 
@@ -169,7 +172,7 @@ audit ID. New cloned revisions retain their tiers and have their own row identit
 migration ledger continues identifying the original cleaned revisions. Provider
 routing and metering use the same resolved identity for each invocation.
 
-The schema was generated with Flask-Migrate against an isolated SQLite baseline
-and reviewed; upgrade/downgrade are exercised through Alembic operations. No
+The unmerged schema revision now creates only the audit ledger. No tier columns
+are added to course or outline tables; upgrade/downgrade remain covered. No
 production configuration, schema upgrade or data cleanup has been executed by
 this implementation task.

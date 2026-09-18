@@ -810,10 +810,8 @@ def test_copy_course_rejects_invalid_live_provider_contract(
 
 
 @pytest.mark.parametrize("selection_scope", ["course", "outline", "both"])
-def test_copy_course_preserves_text_tiers_over_retained_live_models(
-    app: object, selection_scope: str
-) -> None:
-    """Inactive Live identities must not reject a valid text-provider copy."""
+def test_copy_course_preserves_text_aliases(app: object, selection_scope: str) -> None:
+    """Model aliases survive copying both courses and outline overrides."""
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     owner_email = _unique_email("tier-copy-owner")
@@ -829,10 +827,8 @@ def test_copy_course_preserves_text_tiers_over_retained_live_models(
             outlines if selection_scope in {"outline", "both"} else []
         )
         for row in selected:
-            row.llm = GEMINI_LIVE_MODEL_ID
-            row.ask_llm = GEMINI_LIVE_MODEL_ID
-            row.llm_tier = "ultimate"
-            row.ask_llm_tier = "fast"
+            row.llm = "ultimate"
+            row.ask_llm = "fast"
         source.ask_provider_config = json.dumps(
             {"provider": "dify", "mode": "provider_only", "config": {}}
         )
@@ -854,7 +850,5 @@ def test_copy_course_preserves_text_tiers_over_retained_live_models(
             [copied] if selection_scope in {"course", "both"} else []
         ) + (copied_outlines if selection_scope in {"outline", "both"} else [])
         for row in selected_copies:
-            assert row.llm_tier == "ultimate"
-            assert row.ask_llm_tier == "fast"
-            assert row.llm == GEMINI_LIVE_MODEL_ID
-            assert row.ask_llm == GEMINI_LIVE_MODEL_ID
+            assert row.llm == "ultimate"
+            assert row.ask_llm == "fast"

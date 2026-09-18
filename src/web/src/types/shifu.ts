@@ -22,8 +22,6 @@ export interface ModelOption {
 }
 
 export interface Shifu {
-  llm_tier?: ModelTier | null;
-  ask_llm_tier?: ModelTier | null;
   bid: string;
   name?: string;
   description?: string;

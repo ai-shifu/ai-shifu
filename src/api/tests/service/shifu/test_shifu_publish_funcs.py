@@ -297,10 +297,8 @@ def test_publish_shifu_draft_preserves_outline_updated_at(
         draft = DraftShifu(
             shifu_bid="publish-preserve-outline-updated-at",
             title="Draft",
-            llm="old-main",
-            ask_llm="old-ask",
-            llm_tier="ultimate",
-            ask_llm_tier="fast",
+            llm="ultimate",
+            ask_llm="fast",
             description="Desc",
             keywords="a,b",
             tts_enabled=1,
@@ -310,8 +308,7 @@ def test_publish_shifu_draft_preserves_outline_updated_at(
             outline_item_bid="publish-preserve-outline-lesson",
             shifu_bid="publish-preserve-outline-updated-at",
             title="Lesson",
-            llm="old-outline",
-            llm_tier="balanced",
+            llm="balanced",
             position="1",
             type=401,
             hidden=0,
@@ -352,13 +349,10 @@ def test_publish_shifu_draft_preserves_outline_updated_at(
     assert published_outline.updated_at == draft_updated_at
     assert published_shifu is not None
     assert published_shifu.default_listen_mode_enabled == 1
-    assert published_shifu.llm_tier == "ultimate"
-    assert published_shifu.ask_llm_tier == "fast"
-    assert published_shifu.llm == "old-main"
-    assert published_shifu.ask_llm == "old-ask"
-    assert published_outline.llm_tier == "balanced"
-    assert published_outline.ask_llm_tier is None
-    assert published_outline.llm == "old-outline"
+    assert published_shifu.llm == "ultimate"
+    assert published_shifu.ask_llm == "fast"
+    assert published_outline.llm == "balanced"
+    assert published_outline.ask_llm == ""
     assert outline_load_calls == [
         (("publish-preserve-outline-updated-at",), {"include_content": True})
     ]

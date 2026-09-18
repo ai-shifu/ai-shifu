@@ -38,7 +38,7 @@ def test_estimate_prices_legacy_or_resolved_tier_model(
     with app.app_context(), pytest.raises(RuntimeError, match="pricing reached"):
         estimates.build_operator_course_estimated_credit_cost(
             app,
-            course=SimpleNamespace(llm="legacy-model", llm_tier=tier),
+            course=SimpleNamespace(llm=tier or "legacy-model"),
             outline_items=[],
             visible_leaf_outline_bids=[],
         )
