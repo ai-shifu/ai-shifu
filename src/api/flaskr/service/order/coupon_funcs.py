@@ -7,7 +7,7 @@ from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.dao import db
 from flaskr.service.common import raise_error
-from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.consts import ORDER_STATUS_INIT
 from flaskr.service.order.funs import (
     AICourseBuyRecordDTO,
     query_buy_record,
@@ -166,14 +166,18 @@ def use_coupon_code(
     """
     with app.app_context():
         now = now_utc()
-        buy_record: Order = Order.query.filter(
-            Order.order_bid == order_id,
-            Order.user_bid == user_id,
-            Order.deleted == 0,
-        ).first()
+        buy_record: Order = (
+            Order.query.filter(
+                Order.order_bid == order_id,
+                Order.user_bid == user_id,
+                Order.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+        )
         if not buy_record:
             raise_error("server.order.orderNotFound")
-        if buy_record.status not in {ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID}:
+        if buy_record.status != ORDER_STATUS_INIT:
             raise_error("server.order.orderStatusError")
         order_coupon_useage: CouponUsageModel = CouponUsageModel.query.filter(
             CouponUsageModel.order_bid == order_id,

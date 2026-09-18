@@ -558,11 +558,15 @@ def generate_charge(
     with _app_context_scope(app), unit_of_work():
         app.logger.info("generate charge for record:%s channel:%s", record_id, channel)
 
-        buy_record: Order = Order.query.filter(
-            Order.order_bid == record_id,
-            Order.status != ORDER_STATUS_TIMEOUT,
-            Order.deleted == 0,
-        ).first()
+        buy_record: Order = (
+            Order.query.filter(
+                Order.order_bid == record_id,
+                Order.status != ORDER_STATUS_TIMEOUT,
+                Order.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+        )
         if not buy_record:
             raise_error("server.order.orderNotFound")
         if expected_user and buy_record.user_bid != expected_user:
