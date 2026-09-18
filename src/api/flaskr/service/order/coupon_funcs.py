@@ -249,7 +249,12 @@ def use_coupon_code(
         raise_error: If the coupon code is not found or the coupon is already used.
 
     """
-    with payment_lifecycle_lock(str(order_id or "")):
+    # The coupon lock prevents another order from consuming the last use
+    # between validation and cancellation of this order's payment attempt.
+    with (
+        payment_lifecycle_lock(str(order_id or "")),
+        payment_lifecycle_lock(f"coupon:{coupon_code or ''!s}"),
+    ):
         try:
             return _use_coupon_code_locked(app, user_id, coupon_code, order_id)
         except Exception:

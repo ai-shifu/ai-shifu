@@ -170,17 +170,31 @@ class AlipayProvider(PaymentProvider):
         biz_model = sdk["AlipayTradeCloseModel"]()
         biz_model.out_trade_no = provider_reference
         close_request = sdk["AlipayTradeCloseRequest"](biz_model=biz_model)
-        raw_response = client.execute(close_request)
-        payload = _parse_alipay_response(
-            raw_response,
-            "alipay_trade_close_response",
-        )
-        if str(payload.get("code") or "") != "10000":
-            raise RuntimeError(
-                payload.get("sub_msg")
-                or payload.get("msg")
-                or "Alipay trade close failed"
+        close_error: Exception | None = None
+        try:
+            raw_response = client.execute(close_request)
+            payload = _parse_alipay_response(
+                raw_response,
+                "alipay_trade_close_response",
             )
+        except Exception as exc:
+            close_error = exc
+            payload = {}
+        if close_error is not None or str(payload.get("code") or "") != "10000":
+            notification = self.sync_reference(
+                provider_reference=provider_reference,
+                reference_type=reference_type,
+                app=app,
+            )
+            payload = dict(notification.provider_payload.get("trade") or {})
+            if str(payload.get("trade_status") or "").upper() != "TRADE_CLOSED":
+                if close_error is not None:
+                    raise close_error
+                raise RuntimeError(
+                    payload.get("sub_msg")
+                    or payload.get("msg")
+                    or "Alipay trade close failed"
+                )
         return PaymentCancellationResult(
             provider_reference=provider_reference,
             raw_response=payload,

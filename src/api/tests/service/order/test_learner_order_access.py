@@ -17,11 +17,12 @@ from flaskr.service.order.consts import (
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.order.funs import (
     _resume_pending_charge,
+    cancel_pending_payment_for_repricing,
     generate_charge,
     get_payment_details,
     query_buy_record,
 )
-from flaskr.service.order.models import Order, PingxxOrder
+from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED
 from flaskr.service.promo.models import Coupon, CouponUsage
 from flaskr.util.datetime import now_utc
@@ -172,6 +173,8 @@ def test_pending_order_does_not_resume_an_empty_qr_credential(app: object) -> No
                 user_bid=order.user_bid,
                 shifu_bid=order.shifu_bid,
                 channel="wx_pub_qr",
+                amount=20000,
+                status=0,
                 extra="{}",
                 charge_object='{"credential":{"wx_pub_qr":""}}',
             )
@@ -279,6 +282,107 @@ def test_coupon_closes_pending_attempt_before_repricing(
         assert stored_order.paid_price == Decimal("180.00")
         assert stored_attempt.status == 3
         assert second_attempt.status == 3
+
+
+def test_repricing_cancels_a_recoverable_failed_stripe_attempt(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cancelled: list[tuple[str, str]] = []
+
+    class Provider:
+        def cancel_payment(self, **kwargs: object) -> SimpleNamespace:
+            cancelled.append(
+                (str(kwargs["provider_reference"]), str(kwargs["reference_type"]))
+            )
+            return SimpleNamespace(status="cancelled")
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: Provider()
+    )
+    with app.app_context():
+        order = _seed_order(
+            order_bid="recoverable-stripe-repricing",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="stripe",
+        )
+        db.session.add(
+            StripeOrder(
+                stripe_order_bid="stripe-recoverable-attempt",
+                biz_domain="order",
+                order_bid=order.order_bid,
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                payment_intent_id="pi_recoverable",
+                amount=20000,
+                currency="cny",
+                status=4,
+            )
+        )
+        db.session.commit()
+
+    assert cancel_pending_payment_for_repricing(
+        app,
+        "recoverable-stripe-repricing",
+        expected_user="owner-user",
+    )
+    assert cancelled == [("pi_recoverable", "payment_intent")]
+    with app.app_context():
+        assert (
+            StripeOrder.query.filter_by(stripe_order_bid="stripe-recoverable-attempt")
+            .one()
+            .status
+            == 3
+        )
+
+
+def test_repricing_does_not_close_a_completed_stripe_attempt(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Provider:
+        def cancel_payment(self, **_kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(status="completed")
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: Provider()
+    )
+    with app.app_context():
+        order = _seed_order(
+            order_bid="completed-stripe-repricing",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel="stripe",
+        )
+        db.session.add(
+            StripeOrder(
+                stripe_order_bid="stripe-completed-attempt",
+                biz_domain="order",
+                order_bid=order.order_bid,
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                checkout_session_id="cs_completed",
+                amount=20000,
+                currency="cny",
+                status=0,
+            )
+        )
+        db.session.commit()
+
+    with pytest.raises(AppError):
+        cancel_pending_payment_for_repricing(
+            app,
+            "completed-stripe-repricing",
+            expected_user="owner-user",
+        )
+    with app.app_context():
+        assert (
+            StripeOrder.query.filter_by(stripe_order_bid="stripe-completed-attempt")
+            .one()
+            .status
+            == 0
+        )
+        assert (
+            Order.query.filter_by(order_bid="completed-stripe-repricing").one().status
+            == ORDER_STATUS_TO_BE_PAID
+        )
 
 
 def test_invalid_coupon_keeps_pending_attempt_active(

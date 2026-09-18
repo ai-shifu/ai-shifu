@@ -302,10 +302,8 @@ class StripeProvider(PaymentProvider):
                 response = stripe.checkout.Session.retrieve(
                     provider_reference, **request_options
                 )
-                terminal = str(response.get("status") or "").lower() in {
-                    "complete",
-                    "expired",
-                }
+                recovered_status = str(response.get("status") or "").lower()
+                terminal = recovered_status in {"complete", "expired"}
             elif normalized_type == "payment_intent":
                 response = stripe.PaymentIntent.retrieve(
                     provider_reference, **request_options
@@ -314,10 +312,16 @@ class StripeProvider(PaymentProvider):
             if not terminal:
                 raise
         payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
+        cancellation_status = "cancelled"
+        if (
+            normalized_type == "checkout_session"
+            and str(payload.get("status") or "").lower() == "complete"
+        ):
+            cancellation_status = "completed"
         return PaymentCancellationResult(
             provider_reference=provider_reference,
             raw_response=payload,
-            status="cancelled",
+            status=cancellation_status,
         )
 
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:

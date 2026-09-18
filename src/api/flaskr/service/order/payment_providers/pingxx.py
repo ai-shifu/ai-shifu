@@ -261,7 +261,15 @@ class PingxxProvider(PaymentProvider):
             message = f"Unsupported Pingxx reference type: {reference_type}"
             raise RuntimeError(message)
         client = self._ensure_client(app)
-        response = client.Charge.reverse(provider_reference)
+        try:
+            response = client.Charge.reverse(provider_reference)
+        except Exception:
+            response = client.Charge.retrieve(provider_reference)
+            recovered = bool(response.get("reversed")) or str(
+                response.get("status") or ""
+            ).lower() in {"reversed", "closed", "cancelled", "canceled"}
+            if not recovered:
+                raise
         payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
         return PaymentCancellationResult(
             provider_reference=provider_reference,

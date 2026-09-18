@@ -120,15 +120,25 @@ class WechatPayProvider(PaymentProvider):
             message = f"Unsupported WeChat Pay reference type: {reference_type}"
             raise RuntimeError(message)
         path = f"/v3/pay/transactions/out-trade-no/{provider_reference}/close"
-        payload = self._request(
-            method="POST",
-            path=path,
-            body=json.dumps(
-                {"mchid": _required_config("WECHATPAY_MCH_ID")},
-                separators=(",", ":"),
-            ),
-            app=app,
-        )
+        try:
+            payload = self._request(
+                method="POST",
+                path=path,
+                body=json.dumps(
+                    {"mchid": _required_config("WECHATPAY_MCH_ID")},
+                    separators=(",", ":"),
+                ),
+                app=app,
+            )
+        except Exception:
+            notification = self.sync_reference(
+                provider_reference=provider_reference,
+                reference_type=reference_type,
+                app=app,
+            )
+            payload = dict(notification.provider_payload.get("trade") or {})
+            if str(payload.get("trade_state") or "").upper() != "CLOSED":
+                raise
         return PaymentCancellationResult(
             provider_reference=provider_reference,
             raw_response=payload,

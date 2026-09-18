@@ -23,6 +23,12 @@ current amount without leaving a paid learner stuck in an unpaid state.
   expired or cancelled remote object and recover local state after failures.
 - [x] 2026-09-18 13:40 CST: Passed 137 order tests, 38 frontend payment tests,
   TypeScript, Ruff, formatting, architecture, and unit-of-work checks.
+- [x] 2026-09-18 15:10 CST: Preserved completed Stripe sessions, closed
+  recoverable failed Stripe attempts before replacement, and made repeated
+  cancellation converge for Ping++, Alipay, and WeChat Pay.
+- [x] 2026-09-18 15:10 CST: Added lease renewal to the order lifecycle lock,
+  serialized redemption of the same coupon across orders, and added focused
+  cancellation and out-of-order callback regressions.
 - [ ] 2026-09-18 13:40 CST: Complete real-environment payment smoke tests on
   dev02 before marking the plan complete.
 
@@ -37,6 +43,11 @@ current amount without leaving a paid learner stuck in an unpaid state.
   payment mode rather than assuming every credential is a URL.
 - MySQL repeatable-read snapshots can hide the first coupon request from a
   concurrent request when ordinary reads occur before acquiring the order lock.
+- Stripe Checkout reports a completed session when expiration races with
+  payment; that state must block repricing instead of being treated as a
+  successful cancellation.
+- A cache lock timeout is a lease duration. Provider work needs ownership-safe
+  renewal rather than assuming the initial lease covers every network call.
 
 ## Decision Log
 
@@ -53,6 +64,13 @@ current amount without leaving a paid learner stuck in an unpaid state.
   reads that participate in the mutation decision.
   Rationale: this avoids establishing a stale MySQL repeatable-read snapshot
   before serialization.
+- Decision: serialize the same coupon code across orders while validation,
+  provider cancellation, and redemption complete.
+  Rationale: it prevents the last redemption from being consumed by another
+  order after this order has irreversibly cancelled its current credential.
+- Decision: treat provider cancellation as a convergent operation.
+  Rationale: a remote close may succeed even when the local persistence step
+  fails, so retries must recognize an already-closed remote attempt.
 - Decision: the historical Stripe manual-sync callback gate and Checkout
   Session ownership gap are follow-up security work, not part of this pull
   request.

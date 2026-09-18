@@ -5,6 +5,7 @@ import datetime
 import decimal
 import json
 import re
+import threading
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext, suppress
 from typing import Any
@@ -589,13 +590,36 @@ def payment_lifecycle_lock(order_bid: str) -> Iterator[None]:
         f"order-payment-lifecycle:{order_bid}",
         timeout=60,
         blocking_timeout=60,
+        thread_local=False,
     )
     if not lock.acquire(blocking=True):
         raise_error("server.order.orderStatusError")
+    stop_renewal = threading.Event()
+    ownership_lost = threading.Event()
+
+    def renew_lease() -> None:
+        while not stop_renewal.wait(20):
+            try:
+                if not lock.extend(60, replace_ttl=True):
+                    ownership_lost.set()
+                    return
+            except Exception:
+                ownership_lost.set()
+                return
+
+    renewal = threading.Thread(target=renew_lease, daemon=True)
+    renewal.start()
     try:
         yield
     finally:
-        lock.release()
+        stop_renewal.set()
+        renewal.join(timeout=1)
+        try:
+            lock.release()
+        except Exception:
+            ownership_lost.set()
+        if ownership_lost.is_set():
+            raise_error("server.order.orderStatusError")
 
 
 def _resume_or_close_pending_charge(
@@ -993,7 +1017,10 @@ def cancel_pending_payment_for_repricing(
         elif payment_channel == "stripe":
             snapshots = (
                 legacy_stripe_snapshot_query()
-                .filter(StripeOrder.order_bid == order_bid, StripeOrder.status == 0)
+                .filter(
+                    StripeOrder.order_bid == order_bid,
+                    StripeOrder.status.in_([0, 4]),
+                )
                 .order_by(StripeOrder.id.desc())
                 .all()
             )
@@ -1038,11 +1065,13 @@ def cancel_pending_payment_for_repricing(
             for provider_reference, reference_type in attempts:
                 if not provider_reference:
                     raise_error("server.order.orderStatusError")
-                provider.cancel_payment(
+                cancellation = provider.cancel_payment(
                     provider_reference=provider_reference,
                     reference_type=reference_type,
                     app=app,
                 )
+                if cancellation.status != "cancelled":
+                    raise_error("server.order.orderStatusError")
     except Exception:
         app.logger.exception(
             "Failed to close payment attempts before repricing order=%s provider=%s",
@@ -1065,9 +1094,10 @@ def cancel_pending_payment_for_repricing(
             )
             if not locked_order or locked_order.status != ORDER_STATUS_REPRICING:
                 raise_error("server.order.orderStatusError")
+            active_statuses = [0, 4] if snapshot_model is StripeOrder else [0]
             locked_snapshots = snapshot_model.query.filter(
                 snapshot_model.id.in_(snapshot_ids),
-                snapshot_model.status == 0,
+                snapshot_model.status.in_(active_statuses),
             ).all()
             if len(locked_snapshots) != len(snapshot_ids):
                 raise_error("server.order.orderStatusError")
