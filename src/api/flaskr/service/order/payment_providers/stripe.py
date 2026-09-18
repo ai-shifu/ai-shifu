@@ -9,6 +9,7 @@ from flaskr.service.config import get_config
 
 from . import register_payment_provider
 from .base import (
+    PaymentCancellationResult,
     PaymentCreationResult,
     PaymentNotificationResult,
     PaymentProvider,
@@ -273,6 +274,55 @@ class StripeProvider(PaymentProvider):
         stripe, request_options = self._client_options(app)
         session = stripe.checkout.Session.expire(session_id, **request_options)
         return session.to_dict() if hasattr(session, "to_dict") else session
+
+    def cancel_payment(
+        self,
+        *,
+        provider_reference: str,
+        reference_type: str,
+        app: Flask,
+    ) -> PaymentCancellationResult:
+        """Expire Checkout or cancel an uncaptured PaymentIntent."""
+        stripe, request_options = self._client_options(app)
+        normalized_type = str(reference_type or "").strip().lower()
+        if normalized_type not in {"checkout_session", "payment_intent"}:
+            message = f"Unsupported Stripe reference type: {reference_type}"
+            raise RuntimeError(message)
+        try:
+            if normalized_type == "checkout_session":
+                response = stripe.checkout.Session.expire(
+                    provider_reference, **request_options
+                )
+            else:
+                response = stripe.PaymentIntent.cancel(
+                    provider_reference, **request_options
+                )
+        except Exception:
+            if normalized_type == "checkout_session":
+                response = stripe.checkout.Session.retrieve(
+                    provider_reference, **request_options
+                )
+                recovered_status = str(response.get("status") or "").lower()
+                terminal = recovered_status in {"complete", "expired"}
+            elif normalized_type == "payment_intent":
+                response = stripe.PaymentIntent.retrieve(
+                    provider_reference, **request_options
+                )
+                terminal = str(response.get("status") or "").lower() == "canceled"
+            if not terminal:
+                raise
+        payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
+        cancellation_status = "cancelled"
+        if (
+            normalized_type == "checkout_session"
+            and str(payload.get("status") or "").lower() == "complete"
+        ):
+            cancellation_status = "completed"
+        return PaymentCancellationResult(
+            provider_reference=provider_reference,
+            raw_response=payload,
+            status=cancellation_status,
+        )
 
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:
         """Retrieve a Stripe payment intent."""
