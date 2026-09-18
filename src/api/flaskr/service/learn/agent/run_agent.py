@@ -47,6 +47,7 @@ from flaskr.service.learn.agent.lesson_record import (
     claim_for_writing,
     mark_lesson_finished,
     record_turn_content,
+    retire_unused_block,
     stage_turn_block,
 )
 from flaskr.service.learn.agent.session_store import (
@@ -254,6 +255,55 @@ def run_agent_lesson(
 
         return events()
 
+    try:
+        yield from _stream_turn(
+            app,
+            run_turn_on_thread=run_turn_on_thread,
+            make_events=make_events,
+            session_holder=session_holder,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=preview_mode,
+            progress_record_bid=progress_record_bid,
+            generated_block_bid=generated_block_bid,
+            heartbeat_interval=heartbeat_interval,
+        )
+    except BaseException:
+        # The turn died before it could record what it taught -- an engine error, or the learner
+        # closing the page. The block reserved for it would otherwise stay behind as an empty
+        # assistant turn. GeneratorExit is caught too: a disconnect is the common case.
+        if progress_record_bid:
+            _retire_block(app, generated_block_bid=generated_block_bid)
+        raise
+
+
+def _retire_block(app: Flask, *, generated_block_bid: str) -> None:
+    try:
+        with app_context_scope(app), unit_of_work():
+            retire_unused_block(generated_block_bid=generated_block_bid)
+    except Exception:
+        # Cleanup must not replace the failure that brought us here.
+        app.logger.warning(
+            "could not retire the unused block %s", generated_block_bid, exc_info=True
+        )
+
+
+def _stream_turn(
+    app: Flask,
+    *,
+    run_turn_on_thread: Callable[..., Any],
+    make_events: Callable[[], Any],
+    session_holder: dict[str, Session],
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
+    progress_record_bid: str,
+    generated_block_bid: str,
+    heartbeat_interval: float,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
     taught: list[str] = []
     persisted = False

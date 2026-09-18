@@ -106,6 +106,25 @@ def mark_lesson_finished(record: LearnProgressRecord) -> None:
     record.status = LEARN_STATUS_COMPLETED
 
 
+def retire_unused_block(*, generated_block_bid: str) -> None:
+    """Drop a block the turn never filled in.
+
+    The block is created before the turn streams, because the element rows reference it while it
+    runs. A turn that dies before it finishes -- an engine error, a learner closing the page --
+    never records its text, and the row left behind is an empty assistant turn that the 1.0 run
+    would read as part of the conversation if the course moved back off the allowlist.
+
+    Only an untouched block is dropped: one that already has text belongs to a turn that finished.
+    """
+    block = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.generated_block_bid == generated_block_bid,
+        LearnGeneratedBlock.deleted == 0,
+    ).first()
+    if block is not None and not (block.generated_content or "").strip():
+        block.deleted = 1
+        block.status = 0
+
+
 def record_turn_content(*, generated_block_bid: str, content: str) -> None:
     """Fill in what the turn taught, now that it is over.
 

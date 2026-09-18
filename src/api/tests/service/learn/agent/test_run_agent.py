@@ -685,3 +685,101 @@ def test_the_block_records_what_the_turn_taught(calls: list) -> None:
 
     staged = next(kw for name, kw in calls if name == "record_content")
     assert staged["content"] == "Hello world."
+
+
+# --- a turn that dies before it finishes -------------------------------------------------
+
+
+def test_a_turn_that_fails_before_any_event_retires_its_block(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """The block is reserved before the turn streams, so a turn that dies leaves it behind.
+
+    An empty block is an empty assistant turn, which the 1.0 run would read as part of the
+    conversation if the course moved back off the allowlist.
+    """
+    retired: list[str] = []
+    monkeypatch.setattr(
+        run_agent,
+        "_retire_block",
+        lambda _app, **kwargs: retired.append(kwargs["generated_block_bid"]),
+    )
+
+    def _explodes(_make_events: object, **_kwargs: object) -> object:
+        message = "provider is down"
+        raise RuntimeError(message)
+
+    engine = _Engine([])
+    with pytest.raises(RuntimeError):
+        list(
+            run_agent.run_agent_lesson(
+                None,
+                engine=engine,
+                script=SCRIPT,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_bid=OUTLINE,
+                iter_turn=_explodes,
+            )
+        )
+
+    assert len(retired) == 1
+    assert calls == []
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_learner_closing_the_page_retires_the_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A disconnect is the common case, so GeneratorExit has to reach the cleanup too."""
+    retired: list[str] = []
+    monkeypatch.setattr(
+        run_agent,
+        "_retire_block",
+        lambda _app, **kwargs: retired.append(kwargs["generated_block_bid"]),
+    )
+
+    engine = _Engine([ContentDelta(text="a"), TurnDone(reason="end")])
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    next(stream)
+    stream.close()
+
+    assert len(retired) == 1
+
+
+def test_a_preview_has_no_block_to_retire(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A preview reserves nothing, so there is nothing to clean up."""
+    retired: list[str] = []
+    monkeypatch.setattr(
+        run_agent, "_retire_block", lambda *_a, **_k: retired.append("called")
+    )
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: None)
+    monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
+
+    def _explodes(_make_events: object, **_kwargs: object) -> object:
+        message = "provider is down"
+        raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError):
+        list(
+            run_agent.run_agent_lesson(
+                None,
+                engine=_Engine([]),
+                script=SCRIPT,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_bid=OUTLINE,
+                preview_mode=True,
+                iter_turn=_explodes,
+            )
+        )
+
+    assert retired == []
