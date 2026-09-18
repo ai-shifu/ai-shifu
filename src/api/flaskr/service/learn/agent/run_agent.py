@@ -1,0 +1,409 @@
+"""Teach one lesson turn with the 2.0 engine, speaking the events 1.0 already produces.
+
+This is the whole of a turn as the host sees it: pick up where the learner left off, decide what
+this turn is a response to, run it, and hand back `RunMarkdownFlowDTO` events. What consumes those
+-- persisting elements, TTS, the SSE frames -- is the existing 1.0 machinery, unchanged.
+
+Three orderings here are not stylistic:
+
+* **The session is saved before the turn's last event goes out.** The engine streams as it works,
+  so a caller that forwarded a terminal event before the write leaves the learner believing a turn
+  succeeded that the next request will not find -- answers, pending questions and the finished flag
+  all revert.
+* **Memory is staged, not committed, and staged before that save.** `stage_memory` writes through
+  the profile writer without committing, and `save_agent_session` owns the transaction, so the two
+  land together or not at all. A memory write that survived a failed session save would describe a
+  learner who never said it.
+* **The engine is given no memory store.** It runs on the bridge's producer thread, which has no
+  app context and has no business doing synchronous database work. It emits `MemoryUpdated` and the
+  host writes it here instead.
+
+Nothing calls this yet: routing a lesson to it is the next change.
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import TYPE_CHECKING, Any
+
+from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.learn.agent.engine.engine import (
+    ContinueTurn,
+    InteractionResponseTurn,
+    MessageTurn,
+    StartTurn,
+)
+from flaskr.service.learn.agent.engine.events import (
+    ContentDelta,
+    MemoryUpdated,
+    TurnDone,
+)
+from flaskr.service.learn.agent.legacy_protocol import (
+    UnrepresentableInteractionError,
+    translate,
+)
+from flaskr.service.learn.agent.lesson_record import (
+    active_progress_record,
+    claim_for_writing,
+    mark_lesson_finished,
+    stage_turn_block,
+)
+from flaskr.service.learn.agent.session_store import (
+    StoredSessionUnusable,
+    load_agent_session,
+    save_agent_session,
+)
+from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+from flaskr.service.learn.memory import (
+    MemoryUpdate,
+    VariableMemoryUpdate,
+    load_memory,
+    stage_memory,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable, Generator
+
+    from flask import Flask
+    from flaskr.service.learn.agent.engine.engine import Engine, TurnInput
+    from flaskr.service.learn.agent.engine.events import Event
+    from flaskr.service.learn.agent.engine.session import Session
+
+
+def learner_values(user_input: str | dict | None) -> list[str]:
+    """Flatten what the browser sent into the values the learner chose or typed.
+
+    Every lesson input arrives as a map, including free text: the study client normalises a plain
+    string to `{"input": ["..."]}` before sending it. Values are kept apart rather than joined,
+    because a multi-select answer is several of them and the engine matches each against the
+    option it came from.
+    """
+    if isinstance(user_input, str):
+        return [user_input] if user_input.strip() else []
+    if not isinstance(user_input, dict):
+        return []
+    values: list[str] = []
+    for value in user_input.values():
+        if isinstance(value, list):
+            values.extend(str(item) for item in value if item is not None)
+        elif value is not None:
+            values.append(str(value))
+    return [value for value in values if value.strip()]
+
+
+def _progress_record_bid(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> str:
+    """Settle which progress record this turn belongs to, creating one if the lesson is new.
+
+    Committed here rather than with the turn: the element rows the stream writes reference it
+    while the turn is still running, so it has to exist before the first event goes out.
+    """
+    with app_context_scope(app), unit_of_work():
+        return active_progress_record(
+            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        ).progress_record_bid
+
+
+def _turn_input(session: Session, values: list[str]) -> TurnInput:
+    """Decide what this turn is: a start, an answer, a remark, or simply carrying on.
+
+    A session holding a pending interaction answers it, even with nothing: the engine refuses every
+    other turn type while one is pending, so anything else ends the turn with an error and leaves
+    the question unasked. An empty answer is not usable, which makes the engine ask it again --
+    which is what a learner who pressed send on an empty box should see.
+
+    On the first turn the learner's words join the opening prompt, because that is what the engine
+    does with a `MessageTurn` there. Elsewhere, input with nothing pending is a remark to react to.
+    """
+    # Everything but an interaction answer is prose, so several values become one message the way
+    # the 1.0 path joins them.
+    text = ",".join(values)
+    if not session.started:
+        return MessageTurn(text=text) if text else StartTurn()
+    if session.pending:
+        return InteractionResponseTurn(values=list(values))
+    if text:
+        return MessageTurn(text=text)
+    return ContinueTurn()
+
+
+def _load_or_start(
+    app: Flask,
+    engine: Engine,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    script: str,
+    listen: bool,
+    preview_mode: bool,
+) -> Callable[[], Any]:
+    """Build the coroutine factory the bridge runs on its producer thread.
+
+    Reading happens out here because it needs the app context this thread has; the session itself
+    is built in there, because everything the engine touches has to be created on the loop that
+    will drive it.
+
+    What the course knows about the learner is read on every turn rather than once at the start.
+    The engine has no memory store to read it for itself, and a stored session carries only the
+    snapshot taken when it was last saved, so an author editing a learner's profile would otherwise
+    never reach the lesson already in progress.
+    """
+    try:
+        stored = load_agent_session(
+            app, user_bid, outline_bid, preview_mode=preview_mode
+        )
+    except StoredSessionUnusable:
+        # Written by code whose sessions this one cannot read. Starting over loses the
+        # conversation, which is the point of comparing versions rather than parsing hopefully.
+        stored = None
+    user_memory = load_memory(app, user_bid, shifu_bid).as_variables()
+
+    async def make_session() -> Session:
+        if stored is not None:
+            stored.user_memory = dict(user_memory)
+            return stored
+        session = await engine.new_session(script, user_id=user_bid, listen_mode=listen)
+        session.user_memory = dict(user_memory)
+        return session
+
+    return make_session
+
+
+def run_agent_lesson(
+    app: Flask,
+    *,
+    engine: Engine,
+    script: str,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    user_input: str | dict | None = None,
+    listen: bool = False,
+    preview_mode: bool = False,
+    heartbeat_interval: float = 0.5,
+    iter_turn: Callable[..., Any] | None = None,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
+
+    `iter_turn` is injectable so a test can drive the turn without a thread; the default is the
+    bridge, which runs the engine on its own loop and yields events as they arrive.
+    """
+    from flaskr.service.learn.agent.bridge import iter_turn as bridge_iter_turn
+
+    run_turn_on_thread = iter_turn or bridge_iter_turn
+    make_session = _load_or_start(
+        app,
+        engine,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        script=script,
+        listen=listen,
+        preview_mode=preview_mode,
+    )
+    # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
+    # turn is the smallest unit this engine produces that a learner sees as a whole.
+    generated_block_bid = uuid.uuid4().hex
+    values = learner_values(user_input)
+    # Resolved before the turn runs, and remembered: what it identifies is both where this turn's
+    # elements will hang and the thing a reset marks, so a turn can tell afterwards whether the
+    # lesson it started in is still the one it is finishing.
+    # A preview writes no learner progress. The author is the same person as the learner and the
+    # lesson identifier is the same, so a progress record, a block or a completion written here
+    # would land in that learner's own history -- their preview turns showing up as lessons they
+    # took. Their session is still stored, under its own key, so the preview resumes.
+    progress_record_bid = (
+        ""
+        if preview_mode
+        else _progress_record_bid(
+            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        )
+    )
+    session_holder: dict[str, Session] = {}
+
+    def make_events() -> AsyncIterator[Event]:
+        async def events() -> AsyncIterator[Event]:
+            session = await make_session()
+            session_holder["session"] = session
+            async for event in engine.run_turn(session, _turn_input(session, values)):
+                yield event
+
+        return events()
+
+    pending_memory: list[MemoryUpdated] = []
+    taught: list[str] = []
+    persisted = False
+
+    for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
+        if isinstance(event, ContentDelta):
+            taught.append(event.text)
+
+        if isinstance(event, MemoryUpdated):
+            # Held rather than written now: the turn may still fail, and a memory write that
+            # outlived a failed session save would describe a learner who never said it.
+            pending_memory.append(event)
+            continue
+
+        # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
+        # question emits one and then re-asks the question and ends the turn properly, so treating
+        # it as terminal would write the turn twice and stage its block twice.
+        if isinstance(event, TurnDone) and not persisted:
+            session = session_holder.get("session")
+            if session is not None:
+                persisted = True
+                _persist(
+                    app,
+                    session,
+                    memory=pending_memory,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    preview_mode=preview_mode,
+                    progress_record_bid=progress_record_bid,
+                    generated_block_bid=generated_block_bid,
+                    turn_index=session.turn,
+                    taught="".join(taught),
+                )
+                pending_memory = []
+
+        try:
+            yield from translate(
+                event,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+            )
+        except UnrepresentableInteractionError:
+            # The controls would ask something other than the model did, so they are not sent. The
+            # question still is: `translate` builds it first and loses it with the raise, and a
+            # learner shown neither has nothing to answer while the session keeps waiting for one.
+            app.logger.warning(
+                "interaction cannot be rendered as MarkdownFlow: user_bid=%s outline_bid=%s",
+                user_bid,
+                outline_bid,
+                exc_info=True,
+            )
+            prompt = getattr(event, "spec", None) and event.spec.prompt
+            if prompt and prompt.strip():
+                yield RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                    type=GeneratedType.CONTENT,
+                    content=prompt,
+                )
+
+    # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
+    # the failures it cannot continue past. What the turn produced still has to be written, or the
+    # learner replays an exchange that already happened.
+    session = session_holder.get("session")
+    if not persisted and session is not None:
+        _persist(
+            app,
+            session,
+            memory=pending_memory,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=preview_mode,
+            progress_record_bid=progress_record_bid,
+            generated_block_bid=generated_block_bid,
+            turn_index=session.turn,
+            taught="".join(taught),
+        )
+
+
+class _TurnDiscardedError(Exception):
+    """The lesson was reset while this turn ran, so nothing it produced may be written."""
+
+
+def _persist(
+    app: Flask,
+    session: Session,
+    *,
+    memory: list[MemoryUpdated],
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
+    progress_record_bid: str,
+    generated_block_bid: str,
+    turn_index: int,
+    taught: str,
+) -> None:
+    """Write what the turn produced, memory first so it commits with the session.
+
+    `stage_memory` stages without committing and `save_agent_session` owns the transaction, so the
+    two land together. Ordering them the other way would commit the session and leave the memory
+    staged for whoever commits next.
+    """
+
+    def stage_everything() -> None:
+        """Everything this turn writes, inside the session's own transaction.
+
+        The claim comes first and holds a lock until the transaction commits, so a reset either
+        happens before it -- and this turn writes nothing -- or after, when it can see the session
+        and clear it. Staging anything ahead of that check would leave it in the session for
+        whoever commits next, a write from a turn that was meant to be discarded.
+        """
+        record = None
+        if progress_record_bid:
+            record = claim_for_writing(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=progress_record_bid,
+            )
+            if record is None:
+                raise _TurnDiscardedError
+
+        # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
+        # them to the profile would leak a turn's working notes into preview, Ask and follow-up
+        # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
+        # session scope, so this is the common case, not the rare one.
+        durable = [update for update in memory if update.scope == "user"]
+        if durable:
+            stage_memory(
+                app,
+                user_bid,
+                shifu_bid,
+                MemoryUpdate(
+                    variables=[
+                        VariableMemoryUpdate(
+                            key=update.key,
+                            value="" if update.value is None else str(update.value),
+                        )
+                        for update in durable
+                    ]
+                ),
+            )
+        if record is not None:
+            stage_turn_block(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                position=turn_index,
+                content=taught,
+            )
+            if session.finished:
+                mark_lesson_finished(record)
+
+    try:
+        save_agent_session(
+            app,
+            session,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            preview_mode=preview_mode,
+            stage=stage_everything,
+        )
+    except _TurnDiscardedError:
+        app.logger.info(
+            "discarding a turn whose lesson was reset while it ran: "
+            "user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+        )

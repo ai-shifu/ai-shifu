@@ -464,7 +464,7 @@
         "title": "دليل منتجات المعلمين"
       },
       "creatorOrders": {
-        "description": "لا تزال عمليات طلبات المعلمين وsync وrefund وtopup مفعّلة.",
+        "description": "لا تزال عمليات طلبات المعلمين وsync وcheckout وtopup مفعّلة.",
         "title": "طلبات المعلمين"
       },
       "creatorSubscriptionCheckout": {

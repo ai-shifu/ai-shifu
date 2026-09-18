@@ -306,3 +306,76 @@ def test_each_save_refreshes_the_timestamp_inside_the_document(app: object) -> N
         second = session_store.load_agent_session(app, USER, OUTLINE).updated_at
 
     assert second > first
+
+
+def test_previewing_a_lesson_does_not_touch_the_learner_who_is_taking_it(
+    app: object,
+) -> None:
+    """The same person and lesson in two scopes: an author's draft run and a learner's real one."""
+    with app.app_context():
+        taking = a_session()
+        taking.memory["scope"] = "published"
+        store(app, taking)
+
+        previewing = a_session()
+        previewing.memory["scope"] = "preview"
+        session_store.save_agent_session(
+            app,
+            previewing,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_item_bid=OUTLINE,
+            preview_mode=True,
+        )
+
+        loaded_taking = session_store.load_agent_session(app, USER, OUTLINE)
+        loaded_preview = session_store.load_agent_session(
+            app, USER, OUTLINE, preview_mode=True
+        )
+
+    assert loaded_taking is not None
+    assert loaded_preview is not None
+    assert loaded_taking.id == taking.id
+    assert loaded_preview.id == previewing.id
+    assert loaded_taking.memory["scope"] == "published"
+    assert loaded_preview.memory["scope"] == "preview"
+
+
+def test_resetting_a_lesson_retires_its_session(app: object) -> None:
+    """A reset that left the session behind would resume the conversation it just cleared.
+
+    Worse, a session holding `finished=True` reports the lesson complete on the next request and
+    never starts it again -- which also breaks taking a course back off the allowlist as a way out.
+    """
+    from flaskr.service.learn.learn_funcs import reset_learn_record
+
+    with app.app_context():
+        finished = a_session()
+        finished.finished = True
+        store(app, finished)
+
+        reset_learn_record(app, SHIFU, OUTLINE, USER)
+
+        assert session_store.load_agent_session(app, USER, OUTLINE) is None
+
+
+def test_resetting_a_lesson_retires_the_preview_session_too(app: object) -> None:
+    """An author resetting a lesson means the preview as well."""
+    from flaskr.service.learn.learn_funcs import reset_learn_record
+
+    with app.app_context():
+        session_store.save_agent_session(
+            app,
+            a_session(),
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_item_bid=OUTLINE,
+            preview_mode=True,
+        )
+
+        reset_learn_record(app, SHIFU, OUTLINE, USER)
+
+        assert (
+            session_store.load_agent_session(app, USER, OUTLINE, preview_mode=True)
+            is None
+        )

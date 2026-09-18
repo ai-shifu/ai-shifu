@@ -24,6 +24,9 @@ from flaskr.api.tts import (
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.learn.agent.session_store import (
+    stage_agent_session_discard,
+)
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
@@ -703,15 +706,28 @@ def reset_learn_record(
 ) -> bool:
     """Reset learn record."""
     with app_context_scope(app), unit_of_work():
-        progress_records = LearnProgressRecord.query.filter(
-            LearnProgressRecord.user_bid == user_bid,
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.outline_item_bid == outline_bid,
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        ).all()
+        progress_records = (
+            LearnProgressRecord.query.filter(
+                LearnProgressRecord.user_bid == user_bid,
+                LearnProgressRecord.shifu_bid == shifu_bid,
+                LearnProgressRecord.outline_item_bid == outline_bid,
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+            )
+            # Locked, because a 2.0 turn already running claims the same row before it writes.
+            # Without this the two interleave: the turn sees a live lesson, this finds no session
+            # to discard, and the turn inserts one afterwards -- returning the conversation the
+            # learner just cleared. Taking the lock makes one of them go first, either way.
+            .with_for_update()
+            .all()
+        )
         for progress_record in progress_records:
             progress_record.status = LEARN_STATUS_RESET
+        # A 2.0 lesson keeps its conversation in its own table, which resetting the progress
+        # records does not touch. Left behind, the next run resumes a session that may hold
+        # `finished=True` -- it would report the lesson complete immediately and never start it
+        # again, which also breaks taking a course back off the allowlist as a way out.
+        stage_agent_session_discard(user_bid=user_bid, outline_item_bid=outline_bid)
         return True
 
 

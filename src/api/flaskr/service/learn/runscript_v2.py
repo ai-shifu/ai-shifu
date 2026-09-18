@@ -28,6 +28,7 @@ from flaskr.dao import (
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common.models import AppError, raise_error
+from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.exceptions import BreakError
@@ -697,6 +698,133 @@ def _make_audio_backfill_ready_event(
     )
 
 
+def _lesson_events(
+    *,
+    app: Flask,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    user_input: str | dict | None,
+    input_type: str | None,
+    reload_generated_block_bid: str | None,
+    reload_element_bid: str | None,
+    listen: bool,
+    learning_mode: str,
+    preview_mode: bool,
+    stop_event: threading.Event,
+    element_adapter: ListenElementRunAdapter,
+    heartbeat_interval: float,
+) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
+    """Produce this lesson's events with whichever engine teaches it.
+
+    The choice is per deployment, not per course row: only a deployment that names this course in
+    its allowlist runs 2.0, so the same course and the same data stay on 1.0 everywhere else.
+
+    Everything downstream is shared -- the lock this runs inside, the element adapter, TTS, the SSE
+    framing -- so serialisation and persistence hold for both engines without being reimplemented.
+    """
+    if _teaches_with_agent(
+        shifu_bid=shifu_bid,
+        input_type=input_type,
+        listen=listen,
+        reload_generated_block_bid=reload_generated_block_bid,
+        reload_element_bid=reload_element_bid,
+    ):
+        from flaskr.service.learn.agent.bridge import TurnCapacityError
+        from flaskr.service.learn.agent.lesson_entry import (
+            LessonNotTeachable,
+            agent_lesson_events,
+        )
+
+        # The only record of how much traffic 2.0 carries: the decision is per deployment, so it
+        # cannot be counted from the database. It is what a decision to raise the worker's turn
+        # ceiling would be based on.
+        app.logger.info(
+            "teaching with the 2.0 engine: shifu_bid=%s outline_bid=%s",
+            shifu_bid,
+            outline_bid,
+        )
+        try:
+            yield from agent_lesson_events(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_input=user_input,
+                preview_mode=preview_mode,
+                heartbeat_interval=heartbeat_interval,
+            )
+        except TurnCapacityError:
+            # This worker is already running as many turns as it can. Refusing is the bridge's
+            # deliberate choice over queueing -- a request parked waiting for a slot has not
+            # started its stream, so the learner sees a page that simply hangs. Logged at warning
+            # because sustained capacity refusals are the signal to raise the ceiling.
+            app.logger.warning(
+                "2.0 turn refused, worker at capacity: shifu_bid=%s outline_bid=%s",
+                shifu_bid,
+                outline_bid,
+            )
+            # Translated to an AppError because the stream's error handler shows an AppError's own
+            # message and renders everything else as "unknown error". Being told the system is
+            # busy is something a learner can act on; being told nothing is not.
+            raise_error("server.learn.agentTurnCapacity")
+        except LessonNotTeachable:
+            # An allowlisted course whose lesson has no script: 1.0 knows what to do with that,
+            # and refusing the learner over a configuration mistake would be worse.
+            app.logger.warning(
+                "agent engine has no script for this lesson, using 1.0: "
+                "shifu_bid=%s outline_bid=%s",
+                shifu_bid,
+                outline_bid,
+            )
+        else:
+            return
+
+    yield from run_script_inner(
+        app=app,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        user_input=user_input,
+        input_type=input_type,
+        reload_generated_block_bid=reload_generated_block_bid,
+        reload_element_bid=reload_element_bid,
+        listen=listen,
+        learning_mode=learning_mode,
+        preview_mode=preview_mode,
+        stop_event=stop_event,
+        element_adapter=element_adapter,
+        manage_app_context=False,
+    )
+
+
+def _teaches_with_agent(
+    *,
+    shifu_bid: str,
+    input_type: str | None,
+    listen: bool,
+    reload_generated_block_bid: str | None,
+    reload_element_bid: str | None,
+) -> bool:
+    """Whether this particular request goes to the 2.0 engine.
+
+    Being on the allowlist is necessary but not sufficient. Three kinds of request keep the 1.0
+    path even for an allowlisted course, because 2.0 has no equivalent of them yet:
+
+    * a follow-up question, which runs beside the lesson under its own semaphore rather than
+      through the lesson's turn loop;
+    * listening, whose segment and narration events have nowhere to go until listen-mode mapping
+      exists -- teaching it in read mode instead would answer a request for one thing with
+      another, so the request stays with the engine that can serve it;
+    * regenerating a past block or element, which addresses rows 1.0 wrote and 2.0 does not have.
+    """
+    if not uses_agent_engine(shifu_bid):
+        return False
+    if input_type == INPUT_TYPE_ASK or listen:
+        return False
+    return not (reload_generated_block_bid or reload_element_bid)
+
+
 def run_script(
     app: Flask,
     shifu_bid: str,
@@ -796,7 +924,7 @@ def run_script(
             # Keep the producer thread as the sole owner of the app context for
             # the streaming generator to avoid cross-thread context teardown.
             with app.app_context():
-                res = run_script_inner(
+                res = _lesson_events(
                     app=app,
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
@@ -810,7 +938,7 @@ def run_script(
                     preview_mode=preview_mode,
                     stop_event=stop_event,
                     element_adapter=element_adapter,
-                    manage_app_context=False,
+                    heartbeat_interval=heartbeat_interval,
                 )
                 producer_exc: BaseException | None = None
                 exhausted = False

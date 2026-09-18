@@ -137,6 +137,15 @@ class LearnAgentSession(db.Model):
     )
 
 
-def active_key_for(user_bid: str, outline_item_bid: str) -> str:
-    """Build the value that makes one row the live session for this learner and lesson."""
-    return f"{user_bid}:{outline_item_bid}"
+def active_key_for(
+    user_bid: str, outline_item_bid: str, *, preview_mode: bool = False
+) -> str:
+    """Build the value that makes one row the live session for this learner and lesson.
+
+    Previewing is a separate scope from taking the course. An author previewing a lesson they are
+    writing is the same person with the same lesson identifier as a learner taking the published
+    one, so a key without this would hand each of them the other's conversation -- and the
+    author's drafts would be written into the history of a real learner's lesson.
+    """
+    scope = "preview" if preview_mode else "published"
+    return f"{user_bid}:{outline_item_bid}:{scope}"

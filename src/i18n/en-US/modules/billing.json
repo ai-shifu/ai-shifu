@@ -464,7 +464,7 @@
         "title": "Teacher catalog"
       },
       "creatorOrders": {
-        "description": "Teacher orders, sync, refund, and topup flows remain enabled.",
+        "description": "Teacher order sync, checkout, and topup flows remain enabled.",
         "title": "Teacher orders"
       },
       "creatorSubscriptionCheckout": {

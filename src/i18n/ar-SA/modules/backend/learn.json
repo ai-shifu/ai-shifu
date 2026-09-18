@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentTurnCapacity": "يوجد عدد كبير من الدروس الجارية الآن. يرجى المحاولة مرة أخرى بعد قليل.",
     "askProviderAuthFailed": "فشلت مصادقة قاعدة المعرفة، يرجى التحقق من صحة API Key وClient ID",
     "askProviderNoResults": "لم يتم العثور على محتوى ذي صلة في قاعدة المعرفة",
     "askProviderNotMember": "لم يفعّل حساب Dedao Brain العضوية، ولا يمكنه استدعاء الواجهة المفتوحة",
