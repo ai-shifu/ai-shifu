@@ -33,7 +33,11 @@ from flaskr.service.learn.agent.engine.engine import (
     MessageTurn,
     StartTurn,
 )
-from flaskr.service.learn.agent.engine.events import MemoryUpdated, TurnDone
+from flaskr.service.learn.agent.engine.events import (
+    ContentDelta,
+    MemoryUpdated,
+    TurnDone,
+)
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
     translate,
@@ -206,8 +210,16 @@ def run_agent_lesson(
     # Resolved before the turn runs, and remembered: what it identifies is both where this turn's
     # elements will hang and the thing a reset marks, so a turn can tell afterwards whether the
     # lesson it started in is still the one it is finishing.
-    progress_record_bid = _progress_record_bid(
-        app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+    # A preview writes no learner progress. The author is the same person as the learner and the
+    # lesson identifier is the same, so a progress record, a block or a completion written here
+    # would land in that learner's own history -- their preview turns showing up as lessons they
+    # took. Their session is still stored, under its own key, so the preview resumes.
+    progress_record_bid = (
+        ""
+        if preview_mode
+        else _progress_record_bid(
+            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        )
     )
     session_holder: dict[str, Session] = {}
 
@@ -221,9 +233,13 @@ def run_agent_lesson(
         return events()
 
     pending_memory: list[MemoryUpdated] = []
+    taught: list[str] = []
     persisted = False
 
     for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
+        if isinstance(event, ContentDelta):
+            taught.append(event.text)
+
         if isinstance(event, MemoryUpdated):
             # Held rather than written now: the turn may still fail, and a memory write that
             # outlived a failed session save would describe a learner who never said it.
@@ -248,6 +264,7 @@ def run_agent_lesson(
                     progress_record_bid=progress_record_bid,
                     generated_block_bid=generated_block_bid,
                     turn_index=session.turn,
+                    taught="".join(taught),
                 )
                 pending_memory = []
 
@@ -292,6 +309,7 @@ def run_agent_lesson(
             progress_record_bid=progress_record_bid,
             generated_block_bid=generated_block_bid,
             turn_index=session.turn,
+            taught="".join(taught),
         )
 
 
@@ -311,6 +329,7 @@ def _persist(
     progress_record_bid: str,
     generated_block_bid: str,
     turn_index: int,
+    taught: str,
 ) -> None:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -327,14 +346,16 @@ def _persist(
         and clear it. Staging anything ahead of that check would leave it in the session for
         whoever commits next, a write from a turn that was meant to be discarded.
         """
-        record = claim_for_writing(
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            progress_record_bid=progress_record_bid,
-        )
-        if record is None:
-            raise _TurnDiscardedError
+        record = None
+        if progress_record_bid:
+            record = claim_for_writing(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=progress_record_bid,
+            )
+            if record is None:
+                raise _TurnDiscardedError
 
         # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
         # them to the profile would leak a turn's working notes into preview, Ask and follow-up
@@ -356,16 +377,18 @@ def _persist(
                     ]
                 ),
             )
-        stage_turn_block(
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            progress_record_bid=progress_record_bid,
-            generated_block_bid=generated_block_bid,
-            position=turn_index,
-        )
-        if session.finished:
-            mark_lesson_finished(record)
+        if record is not None:
+            stage_turn_block(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                position=turn_index,
+                content=taught,
+            )
+            if session.finished:
+                mark_lesson_finished(record)
 
     try:
         save_agent_session(

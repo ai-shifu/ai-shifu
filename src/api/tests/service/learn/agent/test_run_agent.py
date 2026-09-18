@@ -613,3 +613,82 @@ def test_a_lesson_still_in_progress_is_not_marked_finished(
 
     assert marked == []
     assert calls
+
+
+# --- previewing writes no learner progress -----------------------------------------------
+
+
+def test_previewing_a_lesson_writes_no_progress_for_the_learner(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """The author is the same person as the learner, with the same lesson identifier.
+
+    A progress record, a block or a completion written here would show up as a lesson they took.
+    """
+    resolved: list[bool] = []
+    monkeypatch.setattr(
+        run_agent,
+        "_progress_record_bid",
+        lambda *_a, **_k: resolved.append(True) or PROGRESS,
+    )
+
+    session = _Session()
+    session.finished = True
+    engine = _Engine([ContentDelta(text="draft"), TurnDone(reason="finished")], session)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+
+    assert resolved == []
+    assert [name for name, _ in calls] == ["save_session"]
+
+
+def test_previewing_still_stores_its_own_session(calls: list) -> None:
+    """Otherwise the preview would restart from the top on every turn."""
+    engine = _Engine([TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+
+    kwargs = next(kw for name, kw in calls if name == "save_session")
+    assert kwargs["preview_mode"] is True
+
+
+# --- what the turn taught ----------------------------------------------------------------
+
+
+def test_the_block_records_what_the_turn_taught(calls: list) -> None:
+    """The 1.0 run reads this column for the assistant's side when it builds model context.
+
+    It does not fall back to the element rows, so a course moving back off the allowlist would
+    otherwise resume with its own questions answered by silence.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="Hello "),
+            ContentDelta(text="world."),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+
+    staged = next(kw for name, kw in calls if name == "stage_block")
+    assert staged["content"] == "Hello world."

@@ -114,12 +114,18 @@ def stage_turn_block(
     progress_record_bid: str,
     generated_block_bid: str,
     position: int,
+    content: str = "",
 ) -> LearnGeneratedBlock:
     """Record this turn as one generated block, so its elements can be found again.
 
     The element pipeline reads `progress_record_bid` off this row; history retrieval walks from the
     progress record to its blocks and admits the elements hanging off them. Without it the stream
     still reaches the learner and disappears on the next page load.
+
+    `content` is what the turn taught. The 1.0 run builds its model context from these rows and
+    reads this column for the assistant's side of the conversation -- it does not fall back to the
+    element rows. Leaving it empty would matter the moment a course moves back off the allowlist:
+    1.0 would resume the lesson seeing its own questions answered by silence.
     """
     block = LearnGeneratedBlock()
     block.progress_record_bid = progress_record_bid
@@ -132,7 +138,7 @@ def stage_turn_block(
     # The identifier is the one the turn's events already carry, not a fresh one: the element rows
     # reference it, so a different value here would leave them orphaned.
     block.generated_block_bid = generated_block_bid
-    block.generated_content = ""
+    block.generated_content = content
     block.status = 1
     block.block_content_conf = ""
     block.position = position
