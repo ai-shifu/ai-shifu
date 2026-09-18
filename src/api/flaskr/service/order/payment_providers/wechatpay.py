@@ -265,6 +265,13 @@ class WechatPayProvider(PaymentProvider):
             "paySign": pay_sign,
         }
 
+    def build_jsapi_params(self, *, prepay_id: str) -> dict[str, str]:
+        """Build fresh client parameters for an existing JSAPI prepay ID."""
+        if not prepay_id:
+            message = "WeChat JSAPI payment requires prepay_id"
+            raise RuntimeError(message)
+        return self._build_jsapi_params(prepay_id=prepay_id)
+
     def _verify_notification_signature(
         self,
         *,

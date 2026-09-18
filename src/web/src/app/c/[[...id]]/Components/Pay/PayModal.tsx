@@ -489,7 +489,7 @@ export const PayModal = ({
     const fallbackChannel = resolveDefaultChannel();
     if (fallbackChannel && fallbackChannel !== payChannel) {
       setPayChannel(fallbackChannel);
-      if (orderId) {
+      if (orderId && paymentInfo.channel) {
         refreshPayment({
           channel: resolveRequestChannel(fallbackChannel),
           paymentChannel: resolvePaymentChannel(fallbackChannel),
@@ -505,18 +505,12 @@ export const PayModal = ({
     resolveRequestChannel,
     payChannel,
     orderId,
+    paymentInfo.channel,
     refreshPayment,
   ]);
 
   const loadPayInfo = useCallback(async () => {
-    let nextOrderId = orderId;
-    let nextSnapshot = null;
-    if (!nextOrderId) {
-      const snapshot = await initializeOrder();
-      nextSnapshot = snapshot;
-      nextOrderId = snapshot?.order_id || '';
-    }
-    if (!nextOrderId) {
+    if (orderId) {
       return;
     }
     let nextChannel = payChannel;
@@ -531,19 +525,26 @@ export const PayModal = ({
         setPayChannel(nextChannel);
       }
     }
-    await refreshPayment({
-      channel: resolveRequestChannel(nextChannel),
-      paymentChannel: resolvePaymentChannel(nextChannel),
-      snapshot: nextSnapshot,
-    });
+    await initializeOrder();
   }, [
     availableQrChannels,
     initializeOrder,
     isStripeAvailable,
     orderId,
     payChannel,
-    refreshPayment,
     resolveDefaultChannel,
+  ]);
+
+  const paymentStarted = Boolean(paymentInfo.channel);
+
+  const startPayment = useCallback(async () => {
+    await refreshPayment({
+      channel: resolveRequestChannel(payChannel),
+      paymentChannel: resolvePaymentChannel(payChannel),
+    });
+  }, [
+    payChannel,
+    refreshPayment,
     resolvePaymentChannel,
     resolveRequestChannel,
   ]);
@@ -837,15 +838,20 @@ export const PayModal = ({
   const onPayChannelSelectChange = useCallback(
     ({ channel }: { channel: string }) => {
       setPayChannel(channel);
-      if (!orderId) {
-        return;
+      if (orderId && paymentStarted) {
+        refreshPayment({
+          channel: resolveRequestChannel(channel),
+          paymentChannel: resolvePaymentChannel(channel),
+        });
       }
-      refreshPayment({
-        channel: resolveRequestChannel(channel),
-        paymentChannel: resolvePaymentChannel(channel),
-      });
     },
-    [orderId, refreshPayment, resolvePaymentChannel, resolveRequestChannel],
+    [
+      orderId,
+      paymentStarted,
+      refreshPayment,
+      resolvePaymentChannel,
+      resolveRequestChannel,
+    ],
   );
 
   useEffect(() => {
@@ -1053,7 +1059,17 @@ export const PayModal = ({
                           </div>
                         ) : null}
                       </div>
-                      {isStripeSelected ? (
+                      {!paymentStarted ? (
+                        <div className='space-y-3 text-center'>
+                          <Button
+                            className={styles.stripeCheckoutButton}
+                            onClick={startPayment}
+                            disabled={effectiveLoading}
+                          >
+                            {t('module.pay.pay')}
+                          </Button>
+                        </div>
+                      ) : isStripeSelected ? (
                         <div className={styles.stripePanel}>
                           {stripeMode === 'checkout_session' ||
                           !stripePayload.client_secret ? (

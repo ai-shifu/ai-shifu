@@ -1,5 +1,6 @@
 """Implement business operations for legacy orders."""
 
+import ast
 import datetime
 import decimal
 import json
@@ -567,7 +568,12 @@ def generate_charge(
             Order.query.filter(
                 Order.order_bid == record_id,
                 Order.status.in_(
-                    [ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS, ORDER_STATUS_REFUND]
+                    [
+                        ORDER_STATUS_INIT,
+                        ORDER_STATUS_TO_BE_PAID,
+                        ORDER_STATUS_SUCCESS,
+                        ORDER_STATUS_REFUND,
+                    ]
                 ),
                 Order.deleted == 0,
             )
@@ -580,6 +586,8 @@ def generate_charge(
             raise_error("server.order.orderNotFound")
         if buy_record.status == ORDER_STATUS_REFUND:
             raise_error("server.order.orderStatusError")
+        if buy_record.status == ORDER_STATUS_TO_BE_PAID:
+            return _resume_pending_charge(app, buy_record)
         creator_bid = get_shifu_creator_bid(app, buy_record.shifu_bid) or ""
         set_shifu_context(buy_record.shifu_bid, creator_bid)
         buy_record.creator_bid = creator_bid
@@ -703,6 +711,123 @@ def generate_charge(
         app.logger.error("payment channel not support: %s", payment_channel)
         raise_error("server.pay.payChannelNotSupport")
     return None
+
+
+def _parse_stored_mapping(value: object) -> dict[str, Any]:
+    parsed = _parse_json_payload(value)
+    if isinstance(parsed, dict):
+        return parsed
+    if isinstance(parsed, str):
+        try:
+            legacy_parsed = ast.literal_eval(parsed)
+        except (SyntaxError, ValueError):
+            return {}
+        return legacy_parsed if isinstance(legacy_parsed, dict) else {}
+    return {}
+
+
+def _resume_pending_charge(app: Flask, buy_record: Order) -> BuyRecordDTO:
+    """Return the existing provider attempt without creating another charge."""
+    payment_channel = str(buy_record.payment_channel or "").strip().lower()
+    if payment_channel == "pingxx":
+        snapshot = (
+            legacy_pingxx_snapshot_query()
+            .filter(PingxxOrder.order_bid == buy_record.order_bid)
+            .order_by(PingxxOrder.id.desc())
+            .first()
+        )
+        if snapshot:
+            charge = _parse_stored_mapping(snapshot.charge_object)
+            credential = charge.get("credential") or {}
+            qr_url = credential.get(snapshot.channel) or ""
+            return BuyRecordDTO(
+                buy_record.order_bid,
+                buy_record.user_bid,
+                buy_record.paid_price,
+                snapshot.channel,
+                qr_url,
+                payment_channel="pingxx",
+                payment_payload={"qr_url": qr_url, "credential": credential},
+            )
+    elif payment_channel == "stripe":
+        snapshot = (
+            legacy_stripe_snapshot_query()
+            .filter(StripeOrder.order_bid == buy_record.order_bid)
+            .order_by(StripeOrder.id.desc())
+            .first()
+        )
+        if snapshot:
+            intent = _parse_stored_mapping(snapshot.payment_intent_object)
+            checkout = _parse_stored_mapping(snapshot.checkout_session_object)
+            mode = (
+                "checkout_session" if snapshot.checkout_session_id else "payment_intent"
+            )
+            checkout_url = str(checkout.get("url") or "")
+            client_secret = str(intent.get("client_secret") or "")
+            return BuyRecordDTO(
+                buy_record.order_bid,
+                buy_record.user_bid,
+                buy_record.paid_price,
+                _format_response_channel("stripe", mode),
+                checkout_url or client_secret,
+                payment_channel="stripe",
+                payment_payload={
+                    "mode": mode,
+                    "client_secret": client_secret,
+                    "checkout_session_url": checkout_url,
+                    "checkout_session_id": snapshot.checkout_session_id,
+                    "payment_intent_id": snapshot.payment_intent_id,
+                    "latest_charge_id": snapshot.latest_charge_id,
+                },
+            )
+    elif payment_channel in {"alipay", "wechatpay"}:
+        model = native_snapshot_model(payment_channel)
+        snapshot = (
+            legacy_native_snapshot_query(payment_channel)
+            .filter(model.order_bid == buy_record.order_bid)
+            .order_by(model.id.desc())
+            .first()
+        )
+        if snapshot:
+            response = _parse_stored_mapping(snapshot.raw_response)
+            metadata = _parse_stored_mapping(snapshot.metadata_json)
+            qr_url = str(
+                response.get("qr_code")
+                or response.get("code_url")
+                or metadata.get("qr_url")
+                or ""
+            )
+            payment_payload: dict[str, Any] = {
+                "qr_url": qr_url,
+                "credential": {snapshot.channel: qr_url} if qr_url else {},
+            }
+            if snapshot.channel == "wx_pub":
+                prepay_id = str(
+                    metadata.get("prepay_id") or response.get("prepay_id") or ""
+                )
+                with _order_credential_scope(app, buy_record):
+                    provider = get_payment_provider("wechatpay")
+                    jsapi_params = provider.build_jsapi_params(prepay_id=prepay_id)
+                payment_payload.update(
+                    {
+                        "mode": "jsapi",
+                        "prepay_id": prepay_id,
+                        "jsapi_params": jsapi_params,
+                    }
+                )
+            return BuyRecordDTO(
+                buy_record.order_bid,
+                buy_record.user_bid,
+                buy_record.paid_price,
+                snapshot.channel,
+                qr_url,
+                payment_channel=payment_channel,
+                payment_payload=payment_payload,
+            )
+    app.logger.error(
+        "pending payment snapshot not found for order:%s", buy_record.order_bid
+    )
+    return raise_error("server.order.orderStatusError")
 
 
 def _order_credential_scope(
