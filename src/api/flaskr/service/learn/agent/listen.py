@@ -99,9 +99,12 @@ class LessonVoice:
                 progress_record_bid=self._progress_record_bid,
                 user_bid=self._user_bid,
                 generated_block_bid=self._generated_block_bid,
-                # The engine's own listen mode is not used, so as far as the pipeline is
-                # concerned this is a lesson being read aloud.
                 learning_mode="listen",
+                # The engine's listen mode is off, so its text carries no MarkdownFlow stream
+                # parts and the element adapter has no other source of visual boundaries. This
+                # processor derives them from the text as it streams and attaches them to its
+                # audio events, which is what makes the slides change with the narration.
+                derive_visuals_from_text=True,
             )
             if self._processor is None:
                 # No TTS configured for this course, or settings that do not validate. Said once,

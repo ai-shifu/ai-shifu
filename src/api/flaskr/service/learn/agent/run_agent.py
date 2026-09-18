@@ -155,7 +155,6 @@ def _load_or_start(
     shifu_bid: str,
     outline_bid: str,
     script: str,
-    listen: bool,
     preview_mode: bool,
 ) -> Callable[[], Any]:
     """Build the coroutine factory the bridge runs on its producer thread.
@@ -183,7 +182,10 @@ def _load_or_start(
         if stored is not None:
             stored.user_memory = dict(user_memory)
             return stored
-        session = await engine.new_session(script, user_id=user_bid, listen_mode=listen)
+        # `listen_mode=False` always. Listening is delivered by the host's spoken track, not by
+        # the engine's own listen mode -- which we do not use, and which a session would keep
+        # switched on for every later read-mode turn once it had been stored with it.
+        session = await engine.new_session(script, user_id=user_bid, listen_mode=False)
         session.user_memory = dict(user_memory)
         return session
 
@@ -220,7 +222,6 @@ def run_agent_lesson(
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         script=script,
-        listen=listen,
         preview_mode=preview_mode,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
@@ -393,6 +394,10 @@ def _stream_turn(
     # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
     # the failures it cannot continue past. What the turn produced still has to be written, or the
     # learner replays an exchange that already happened.
+    if voice is not None and not persisted:
+        # Speech buffered when the turn died would otherwise never reach the learner, while the
+        # synthesis already submitted carries on with nowhere to go.
+        yield from voice.finish()
     session = session_holder.get("session")
     if not persisted and session is not None:
         _persist(
