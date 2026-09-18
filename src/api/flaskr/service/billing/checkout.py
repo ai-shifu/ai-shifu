@@ -2737,6 +2737,7 @@ def _sync_stripe_order(
     session = sync_result.provider_payload.get("checkout_session", {}) or {}
     intent = sync_result.provider_payload.get("payment_intent") or None
     _validate_stripe_checkout_evidence(
+        app,
         order,
         expected_session_id=resolved_session_id,
         session=session,
@@ -2820,6 +2821,7 @@ def _sync_stripe_order(
 
 
 def _validate_stripe_checkout_evidence(
+    app: Flask,
     order: BillingOrder,
     *,
     expected_session_id: str,
@@ -2835,6 +2837,17 @@ def _validate_stripe_checkout_evidence(
         for payload in (session, intent or {})
         if isinstance(payload, dict)
     ]
+    for candidate in metadata_candidates:
+        if not isinstance(candidate, dict):
+            continue
+        for key, expected_value in (
+            ("bill_order_bid", order.bill_order_bid),
+            ("creator_bid", order.creator_bid),
+            ("product_bid", order.product_bid),
+        ):
+            actual_value = _normalize_bid(candidate.get(key))
+            if actual_value and actual_value != _normalize_bid(expected_value):
+                raise_error("server.order.orderStatusError")
     metadata = next(
         (
             candidate
@@ -2844,6 +2857,16 @@ def _validate_stripe_checkout_evidence(
         None,
     )
     if metadata is None:
+        # Stripe has attached nothing to match against. A payment-mode
+        # session has no PaymentIntent until the buyer starts paying, and
+        # sessions created before the provider began writing session metadata
+        # carry none at all.
+        if _is_unbound_unpaid_stripe_checkout(session, intent):
+            app.logger.warning(
+                "Accepted metadata-free unpaid Stripe Checkout Session for billing order: %s",
+                order.bill_order_bid,
+            )
+            return
         raise_error("server.order.orderStatusError")
 
     if _normalize_bid(metadata.get("bill_order_bid")) != order.bill_order_bid:
@@ -2855,6 +2878,26 @@ def _validate_stripe_checkout_evidence(
         actual_value = _normalize_bid(metadata.get(key))
         if actual_value and actual_value != _normalize_bid(expected_value):
             raise_error("server.order.orderStatusError")
+
+
+def _is_unbound_unpaid_stripe_checkout(
+    session: dict[str, object],
+    intent: dict[str, object] | None,
+) -> bool:
+    """Accept an unpaid Session that carries nothing to match the order against.
+
+    The session id has already been matched against the reference stored on
+    the order, and every identity key either payload does carry has already
+    been checked, so the only evidence still missing is proof of payment --
+    which an unpaid session cannot produce. Waiting for Stripe to expire the
+    session first would leave the order failing every scan for as long as
+    Stripe keeps the session open: 24 hours by default, against a local
+    deadline of 30 minutes.
+
+    Expiring the order is not final. A payment that lands afterwards still
+    moves it to paid through sync or webhook.
+    """
+    return not _is_stripe_checkout_paid(session, intent)
 
 
 def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:
