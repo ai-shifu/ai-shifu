@@ -1789,83 +1789,21 @@ class RunScriptContextV2:
         stream_element_type: str | None = None,
     ) -> "StreamingTTSProcessor | None":
         """Create StreamingTTSProcessor if TTS is configured, else return None."""
-        try:
-            from flaskr.common.config import get_config
-            from flaskr.service.learn.learn_funcs import _resolve_runtime_tts_voice_id
-            from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
-            from flaskr.service.tts.validation import validate_tts_settings_strict
+        from flaskr.service.learn.lesson_tts import create_tts_processor
 
-            effective_shifu_bid = shifu_bid or self._outline_item_info.shifu_bid
-            shifu_record = (
-                self._shifu_model.query.filter(
-                    self._shifu_model.shifu_bid == effective_shifu_bid,
-                    self._shifu_model.deleted == 0,
-                )
-                .order_by(self._shifu_model.id.desc())
-                .first()
-            )
-            if not shifu_record or not getattr(shifu_record, "tts_enabled", False):
-                return None
-
-            provider_name = (
-                (getattr(shifu_record, "tts_provider", "") or "").strip().lower()
-            )
-            if provider_name == "default":
-                provider_name = ""
-
-            try:
-                validated = validate_tts_settings_strict(
-                    provider=provider_name,
-                    model=(getattr(shifu_record, "tts_model", "") or "").strip(),
-                    voice_id=(getattr(shifu_record, "tts_voice_id", "") or "").strip(),
-                    speed=getattr(shifu_record, "tts_speed", None),
-                    pitch=getattr(shifu_record, "tts_pitch", None),
-                    emotion=(getattr(shifu_record, "tts_emotion", "") or "").strip(),
-                )
-            except Exception as exc:
-                self.app.logger.warning(
-                    "TTS settings invalid; skip streaming TTS: %s", exc
-                )
-                return None
-
-            if not validated:
-                return None
-
-            runtime_voice_id = _resolve_runtime_tts_voice_id(
-                self.app,
-                validated.provider,
-                validated.voice_id,
-                shifu_bid=effective_shifu_bid,
-            )
-
-            max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
-            if not max_segment_chars:
-                max_segment_chars = 300
-            return StreamingTTSProcessor(
-                app=self.app,
-                generated_block_bid=generated_block_bid,
-                outline_bid=self._outline_item_info.bid,
-                progress_record_bid=self._current_attend.progress_record_bid,
-                user_bid=self._user_info.user_id,
-                shifu_bid=effective_shifu_bid,
-                position=int(position or 0),
-                voice_id=runtime_voice_id,
-                speed=validated.speed,
-                pitch=validated.pitch,
-                emotion=validated.emotion,
-                max_segment_chars=int(max_segment_chars),
-                tts_provider=validated.provider,
-                tts_model=validated.model,
-                stream_element_number=stream_element_number,
-                stream_element_type=stream_element_type,
-                learning_mode=self._get_learning_mode(),
-            )
-        except Exception as exc:
-            self.app.logger.warning(
-                "Create TTS processor failed: %s", exc, exc_info=True
-            )
-            cleanup_session_after(exc, source="create tts processor")
-            return None
+        return create_tts_processor(
+            self.app,
+            shifu_model=self._shifu_model,
+            shifu_bid=shifu_bid or self._outline_item_info.shifu_bid,
+            outline_bid=self._outline_item_info.bid,
+            progress_record_bid=self._current_attend.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            generated_block_bid=generated_block_bid,
+            learning_mode=self._get_learning_mode(),
+            position=position,
+            stream_element_number=stream_element_number,
+            stream_element_type=stream_element_type,
+        )
 
     def _finalize_stream_tts_processor(
         self,
