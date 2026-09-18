@@ -643,6 +643,124 @@ def test_stripe_webhook_ignores_delayed_events_from_a_superseded_intent(
 
 
 @pytest.mark.parametrize(
+    "delayed_event_type",
+    [
+        "payment_intent.payment_failed",
+        "payment_intent.canceled",
+        "checkout.session.async_payment_failed",
+    ],
+)
+def test_delayed_negative_event_cannot_downgrade_a_successful_payment(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    delayed_event_type: str,
+) -> None:
+    case_id = delayed_event_type.rsplit(".", 1)[-1]
+    order_bid = f"webhook-success-before-{case_id}"
+    attempt_bid = f"attempt-success-before-{case_id}"
+    session_id = f"cs_success-before-{case_id}"
+    intent_id = f"pi_{attempt_bid}"
+    provider_state: dict[str, PaymentNotificationResult] = {
+        "webhook": PaymentNotificationResult(
+            order_bid=order_bid,
+            status="payment_intent.succeeded",
+            provider_payload={
+                "type": "payment_intent.succeeded",
+                "data": {
+                    "object": {
+                        "id": intent_id,
+                        "status": "succeeded",
+                        "amount": 20000,
+                        "currency": "cny",
+                        "metadata": {
+                            "order_bid": order_bid,
+                            "stripe_order_bid": attempt_bid,
+                        },
+                    }
+                },
+            },
+        )
+    }
+    paid_sync = _paid_sync_result(
+        order_bid=order_bid,
+        session_id=session_id,
+        payment_intent_id=intent_id,
+    )
+
+    class Provider:
+        def verify_webhook(self, **_kwargs: object) -> PaymentNotificationResult:
+            return provider_state["webhook"]
+
+        def sync_reference(self, **_kwargs: object) -> PaymentNotificationResult:
+            return paid_sync
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: Provider()
+    )
+    notifications: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu",
+        lambda _app, notified_order_bid: notifications.append(notified_order_bid),
+    )
+    monkeypatch.setattr("flaskr.service.order.funs.set_user_state", lambda *_args: None)
+    with app.app_context():
+        _seed_stripe_order(
+            order_bid=order_bid,
+            session_id=session_id,
+            attempt_bid=attempt_bid,
+        )
+
+    success_payload, success_status = handle_stripe_webhook(app, b"{}", "signature")
+    assert success_status == 200
+    assert success_payload["status"] == "paid"
+
+    is_session_event = delayed_event_type.startswith("checkout.session.")
+    delayed_object_id = session_id if is_session_event else intent_id
+    provider_state["webhook"] = PaymentNotificationResult(
+        order_bid=order_bid,
+        status=delayed_event_type,
+        provider_payload={
+            "type": delayed_event_type,
+            "data": {
+                "object": {
+                    "id": delayed_object_id,
+                    "amount_total": 20000,
+                    "currency": "cny",
+                    "payment_intent": intent_id,
+                    "metadata": {
+                        "order_bid": order_bid,
+                        "stripe_order_bid": attempt_bid,
+                    },
+                    "last_payment_error": {
+                        "code": "card_declined",
+                        "message": "declined",
+                    },
+                }
+            },
+        },
+    )
+
+    delayed_payload, delayed_status = handle_stripe_webhook(app, b"{}", "signature")
+    assert delayed_status == 202
+    assert delayed_payload["status"] == "acknowledged"
+
+    details = sync_stripe_checkout_session(
+        app,
+        order_bid,
+        session_id=session_id,
+        expected_user="owner-user",
+    )
+
+    assert details["status"] == 1
+    assert notifications == [order_bid]
+    with app.app_context():
+        order = Order.query.filter_by(order_bid=order_bid).one()
+        attempt = StripeOrder.query.filter_by(stripe_order_bid=attempt_bid).one()
+        assert order.status == ORDER_STATUS_SUCCESS
+        assert attempt.status == 1
+
+
+@pytest.mark.parametrize(
     ("case_id", "event_type", "object_id", "amount"),
     [
         ("session", "checkout.session.completed", "cs_foreign", 20000),

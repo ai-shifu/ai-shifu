@@ -2314,6 +2314,7 @@ def handle_stripe_webhook(
                 response_status = "ignored"
         elif event_type == "payment_intent.payment_failed" and (
             _stripe_intent_event_matches_attempt(stripe_order, data_object, metadata)
+            and stripe_order.status != 1
         ):
             if notification.charge_id:
                 stripe_order.latest_charge_id = notification.charge_id
@@ -2334,12 +2335,16 @@ def handle_stripe_webhook(
                 Order.order_bid == order_bid,
                 Order.deleted == 0,
             ).first()
-            if order and _stripe_provider_objects_match_attempt(
-                order=order,
-                stripe_order=stripe_order,
-                notification_order_bid=str(order_bid),
-                session=data_object,
-                intent=None,
+            if (
+                order
+                and stripe_order.status != 1
+                and _stripe_provider_objects_match_attempt(
+                    order=order,
+                    stripe_order=stripe_order,
+                    notification_order_bid=str(order_bid),
+                    session=data_object,
+                    intent=None,
+                )
             ):
                 stripe_order.checkout_session_object = _stringify_payload(data_object)
                 stripe_order.status = 4
@@ -2349,8 +2354,12 @@ def handle_stripe_webhook(
             stripe_order.status = 2
             response_status = "refunded"
             http_status = 200
-        elif event_type in cancel_events and _stripe_intent_event_matches_attempt(
-            stripe_order, data_object, metadata
+        elif (
+            event_type in cancel_events
+            and _stripe_intent_event_matches_attempt(
+                stripe_order, data_object, metadata
+            )
+            and stripe_order.status != 1
         ):
             stripe_order.status = 3
             response_status = "cancelled"

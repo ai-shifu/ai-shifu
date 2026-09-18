@@ -23,6 +23,9 @@ must use the same completion rules so one path cannot bypass the other.
 - [x] 2026-09-18 20:18 CST: Serialized Stripe completion with repricing and
   added delayed Checkout success/failure handling for asynchronous payment
   methods.
+- [x] 2026-09-18 20:42 CST: Made confirmed-success Stripe snapshots
+  monotonic so delayed failure or cancellation events cannot break idempotent
+  return-page synchronization.
 
 ## Surprises & Discoveries
 
