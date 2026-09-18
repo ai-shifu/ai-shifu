@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentTurnCapacity": "มีบทเรียนกำลังทำงานพร้อมกันมากเกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่",
     "askProviderAuthFailed": "ยืนยันตัวตนกับคลังความรู้ไม่สำเร็จ โปรดตรวจสอบว่า API Key และ Client ID ถูกต้อง",
     "askProviderNoResults": "ไม่พบเนื้อหาที่เกี่ยวข้องในคลังความรู้",
     "askProviderNotMember": "บัญชี Dedao Brain ยังไม่ได้เปิดสมาชิก จึงเรียกใช้ Open API ไม่ได้",

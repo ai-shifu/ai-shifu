@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentTurnCapacity": "Too many lessons are running right now. Please try again in a moment.",
     "askProviderAuthFailed": "Knowledge base authentication failed. Please check the API Key and Client ID.",
     "askProviderNoResults": "No relevant knowledge base content was found.",
     "askProviderNotMember": "The Dedao Brain account has no active membership, so the OpenAPI is unavailable.",
