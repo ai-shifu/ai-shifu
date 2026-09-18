@@ -200,7 +200,7 @@ export const usePaymentFlow = ({
           refreshSequence !== paymentRefreshSequenceRef.current ||
           !current
         ) {
-          return current;
+          return null;
         }
         updateFromOrder(current);
         const currentSnapshot = current;
@@ -217,7 +217,7 @@ export const usePaymentFlow = ({
           refreshSequence !== paymentRefreshSequenceRef.current ||
           !payload
         ) {
-          return payload;
+          return null;
         }
         setPaymentInfo({
           channel: payload.channel,

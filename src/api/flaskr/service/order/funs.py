@@ -415,13 +415,20 @@ def init_buy_record(
                 Order.user_bid == user_id,
                 Order.shifu_bid == course_id,
                 Order.status.in_(
-                    [ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_SUCCESS]
+                    [
+                        ORDER_STATUS_INIT,
+                        ORDER_STATUS_TO_BE_PAID,
+                        ORDER_STATUS_REPRICING,
+                        ORDER_STATUS_SUCCESS,
+                    ]
                 ),
             )
             .order_by(Order.id.desc())
             .first()
         )
         if origin_record:
+            if origin_record.status == ORDER_STATUS_REPRICING:
+                return query_buy_record(app, origin_record.order_bid)
             if origin_record.status != ORDER_STATUS_SUCCESS:
                 order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
             if order_timeout_make_new_order:
@@ -859,6 +866,16 @@ def _parse_stored_mapping(value: object) -> dict[str, Any]:
     return {}
 
 
+def _payment_payload_has_expired(payload: dict[str, Any], field: str) -> bool:
+    raw_expiry = payload.get(field)
+    if raw_expiry in (None, ""):
+        return False
+    try:
+        return float(raw_expiry) <= now_utc().timestamp()
+    except (TypeError, ValueError):
+        return True
+
+
 def _resume_pending_charge(
     app: Flask,
     buy_record: Order,
@@ -884,6 +901,8 @@ def _resume_pending_charge(
         )
         if snapshot and (not provider_channel or snapshot.channel == provider_channel):
             charge = _parse_stored_mapping(snapshot.charge_object)
+            if _payment_payload_has_expired(charge, "time_expire"):
+                return None
             credential = charge.get("credential") or {}
             qr_url = credential.get(snapshot.channel) or ""
             if not isinstance(qr_url, (str, dict)) or not qr_url:
@@ -918,6 +937,8 @@ def _resume_pending_charge(
                 return None
             checkout_url = str(checkout.get("url") or "")
             client_secret = str(intent.get("client_secret") or "")
+            if checkout_url and _payment_payload_has_expired(checkout, "expires_at"):
+                return None
             if not checkout_url and not client_secret:
                 return None
             return BuyRecordDTO(
@@ -2174,7 +2195,7 @@ def handle_stripe_webhook(
                     or int(stripe_order.amount or 0)
                     == int(decimal.Decimal(order.paid_price) * 100)
                 )
-                and order.status == ORDER_STATUS_TO_BE_PAID
+                and order.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
             ):
                 stripe_order.status = 1
                 success_buy_record(app, order_bid)
@@ -2445,7 +2466,8 @@ def success_buy_record_from_native(
                         or int(native_order.amount or 0)
                         == int(decimal.Decimal(buy_record.paid_price) * 100)
                     )
-                    and buy_record.status == ORDER_STATUS_TO_BE_PAID
+                    and buy_record.status
+                    in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
                 ):
                     success_buy_record(app, buy_record.order_bid)
                 return True
@@ -2510,7 +2532,8 @@ def success_buy_record_from_pingxx(
                             or int(pingxx_order.amount or 0)
                             == int(decimal.Decimal(buy_record.paid_price) * 100)
                         )
-                        and buy_record.status == ORDER_STATUS_TO_BE_PAID
+                        and buy_record.status
+                        in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
                     ):
                         # Pre-uow behavior: the snapshot mutation was never
                         # committed on this path, so do not mutate it at all.

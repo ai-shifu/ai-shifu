@@ -25,8 +25,17 @@ from flaskr.service.order.funs import (
     generate_charge,
     get_payment_details,
     query_buy_record,
+    success_buy_record_from_native,
+    success_buy_record_from_pingxx,
 )
-from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
+from flaskr.service.order.models import (
+    AlipayOrder,
+    Order,
+    PingxxOrder,
+    StripeOrder,
+    WechatPayOrder,
+)
+from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED
 from flaskr.service.promo.models import Coupon, CouponUsage
 from flaskr.util.datetime import now_utc
@@ -186,6 +195,181 @@ def test_pending_order_does_not_resume_an_empty_qr_credential(app: object) -> No
         db.session.commit()
 
         assert _resume_pending_charge(app, order) is None
+
+
+@pytest.mark.parametrize(
+    ("payment_channel", "snapshot_factory"),
+    [
+        (
+            "pingxx",
+            lambda order: PingxxOrder(
+                pingxx_order_bid="expired-pingxx-attempt",
+                biz_domain="order",
+                order_bid=order.order_bid,
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                channel="wx_pub_qr",
+                amount=20000,
+                status=0,
+                extra="{}",
+                charge_object=(
+                    '{"time_expire":1,"credential":'
+                    '{"wx_pub_qr":"https://pay.example/expired"}}'
+                ),
+            ),
+        ),
+        (
+            "stripe",
+            lambda order: StripeOrder(
+                stripe_order_bid="expired-stripe-attempt",
+                biz_domain="order",
+                order_bid=order.order_bid,
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                amount=20000,
+                status=0,
+                checkout_session_object=(
+                    '{"url":"https://stripe.example/expired","expires_at":1}'
+                ),
+            ),
+        ),
+    ],
+)
+def test_pending_order_does_not_resume_expired_payment_credentials(
+    app: object,
+    payment_channel: str,
+    snapshot_factory: object,
+) -> None:
+    with app.app_context():
+        order = _seed_order(
+            order_bid=f"expired-{payment_channel}-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+            payment_channel=payment_channel,
+        )
+        db.session.add(snapshot_factory(order))
+        db.session.commit()
+
+        assert _resume_pending_charge(app, order) is None
+
+
+@pytest.mark.parametrize(
+    ("provider", "snapshot_model", "raw_status", "provider_payload"),
+    [
+        (
+            "alipay",
+            AlipayOrder,
+            "TRADE_SUCCESS",
+            {"trade_status": "TRADE_SUCCESS", "total_amount": "200.00"},
+        ),
+        (
+            "wechatpay",
+            WechatPayOrder,
+            "SUCCESS",
+            {"trade_state": "SUCCESS", "amount": {"total": 20000}},
+        ),
+    ],
+)
+def test_native_success_during_repricing_completes_the_order(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    snapshot_model: object,
+    raw_status: str,
+    provider_payload: dict[str, object],
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu", lambda *_args: None
+    )
+    monkeypatch.setattr("flaskr.service.order.funs.set_user_state", lambda *_args: None)
+    with app.app_context():
+        order = _seed_order(
+            order_bid=f"repricing-{provider}-order",
+            status=ORDER_STATUS_REPRICING,
+            payment_channel=provider,
+        )
+        prefix = "alipay" if provider == "alipay" else "wechatpay"
+        snapshot = snapshot_model(
+            **{
+                f"{prefix}_order_bid": f"{provider}-snapshot",
+                "biz_domain": "order",
+                "order_bid": order.order_bid,
+                "user_bid": order.user_bid,
+                "shifu_bid": order.shifu_bid,
+                "provider_attempt_id": f"{provider}-attempt",
+                "amount": 20000,
+                "currency": "CNY",
+                "status": 0,
+                "raw_status": "pending",
+            }
+        )
+        db.session.add(snapshot)
+        db.session.commit()
+        order_bid = order.order_bid
+
+    accepted = success_buy_record_from_native(
+        app,
+        provider,
+        PaymentNotificationResult(
+            order_bid=f"{provider}-attempt",
+            status=raw_status,
+            provider_payload=provider_payload,
+            charge_id=f"{provider}-transaction",
+        ),
+    )
+
+    assert accepted is True
+    with app.app_context():
+        assert (
+            Order.query.filter_by(order_bid=order_bid).one().status
+            == ORDER_STATUS_SUCCESS
+        )
+
+
+def test_pingxx_success_during_repricing_completes_the_order(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_shifu_creator_bid", lambda *_args: "teacher"
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.set_shifu_context", lambda *_args: None
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu", lambda *_args: None
+    )
+    monkeypatch.setattr("flaskr.service.order.funs.set_user_state", lambda *_args: None)
+    with app.app_context():
+        order = _seed_order(
+            order_bid="repricing-pingxx-order",
+            status=ORDER_STATUS_REPRICING,
+        )
+        db.session.add(
+            PingxxOrder(
+                pingxx_order_bid="repricing-pingxx-attempt",
+                biz_domain="order",
+                order_bid=order.order_bid,
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                channel="wx_pub_qr",
+                amount=20000,
+                status=0,
+                charge_id="ch_repricing",
+                extra="{}",
+                charge_object="{}",
+            )
+        )
+        db.session.commit()
+        order_bid = order.order_bid
+
+    result = success_buy_record_from_pingxx(app, "ch_repricing", {"paid": True})
+
+    assert result is not None
+    with app.app_context():
+        assert (
+            Order.query.filter_by(order_bid=order_bid).one().status
+            == ORDER_STATUS_SUCCESS
+        )
 
 
 def test_coupon_closes_pending_attempt_before_repricing(

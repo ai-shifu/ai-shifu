@@ -23,7 +23,11 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.consts import (
+    ORDER_STATUS_REPRICING,
+    ORDER_STATUS_SUCCESS,
+    ORDER_STATUS_TO_BE_PAID,
+)
 from flaskr.service.order.funs import handle_stripe_webhook
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
@@ -178,11 +182,14 @@ def _ensure_billing_stripe_raw_snapshot(bill_order_bid: object) -> object:
     return raw_order
 
 
+@pytest.mark.parametrize(
+    "initial_status", [ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING]
+)
 def test_handle_stripe_webhook_marks_order_paid(
-    stripe_webhook_app: object, monkeypatch: object
+    stripe_webhook_app: object, monkeypatch: object, initial_status: int
 ) -> None:
     with stripe_webhook_app.app_context():
-        order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-1")
+        order = _ensure_order(initial_status, "order-webhook-1")
 
         stripe_order = StripeOrder(
             order_bid=order.order_bid,

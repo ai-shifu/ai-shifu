@@ -16,6 +16,7 @@ from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
+    ORDER_STATUS_REPRICING,
     ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TO_BE_PAID,
 )
@@ -267,6 +268,44 @@ def test_successful_order_retry_does_not_reprice_purchase_history(
 
     assert result.order_id == "paid-order"
     assert Decimal(result.value_to_pay) == Decimal("20.00")
+
+
+def test_repricing_order_retry_reuses_the_same_business_order(
+    legacy_order_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.order import funs as order_funs
+
+    monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda *_args: "u1")
+    monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args: None)
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        lambda *_args, **_kwargs: SimpleNamespace(price=Decimal("200.00")),
+    )
+    with legacy_order_app.app_context():
+        dao.db.session.add(
+            Order(
+                order_bid="repricing-order",
+                user_bid="repricing-user",
+                shifu_bid="repricing-course",
+                creator_bid="u1",
+                payable_price=Decimal("200.00"),
+                paid_price=Decimal("200.00"),
+                status=ORDER_STATUS_REPRICING,
+            )
+        )
+        dao.db.session.commit()
+
+    result = init_buy_record(
+        legacy_order_app,
+        "repricing-user",
+        "repricing-course",
+    )
+
+    assert result.order_id == "repricing-order"
+    with legacy_order_app.app_context():
+        assert Order.query.filter_by(user_bid="repricing-user").count() == 1
 
 
 class _FakeSaasConfigFuncs:

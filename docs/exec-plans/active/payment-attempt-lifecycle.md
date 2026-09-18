@@ -32,6 +32,13 @@ current amount without leaving a paid learner stuck in an unpaid state.
 - [x] 2026-09-18 16:20 CST: Prevented invalid coupon retries from clearing an
   inherited repricing claim and stopped new provider side effects after lock
   renewal loses ownership; all 147 order tests pass.
+- [x] 2026-09-18 16:55 CST: Made valid payment-success callbacks win a race
+  with repricing, reused the in-progress business order, rejected expired
+  Ping++ and Stripe credentials, and prevented mobile callers from consuming a
+  stale channel response.
+- [x] 2026-09-18 17:05 CST: Passed all 154 order tests, 31 focused frontend
+  payment tests, TypeScript, Ruff, Prettier, ESLint, architecture, and
+  unit-of-work checks for the final blocker fixes.
 - [ ] 2026-09-18 13:40 CST: Complete real-environment payment smoke tests on
   dev02 before marking the plan complete.
 
@@ -51,6 +58,9 @@ current amount without leaving a paid learner stuck in an unpaid state.
   successful cancellation.
 - A cache lock timeout is a lease duration. Provider work needs ownership-safe
   renewal rather than assuming the initial lease covers every network call.
+- Provider success can arrive after repricing has claimed an order but before
+  cancellation completes. The callback must fulfill that valid payment; the
+  repricing path then observes the terminal order and aborts its price change.
 
 ## Decision Log
 
