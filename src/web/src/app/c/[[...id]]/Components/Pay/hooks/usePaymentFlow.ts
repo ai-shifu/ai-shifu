@@ -89,6 +89,7 @@ export const usePaymentFlow = ({
 }: UsePaymentFlowOptions) => {
   const mountedRef = useRef(true);
   const nativeSyncLastAtRef = useRef(0);
+  const paymentRefreshSequenceRef = useRef(0);
   useEffect(() => {
     return () => {
       mountedRef.current = false;
@@ -161,6 +162,7 @@ export const usePaymentFlow = ({
     setIsTimeout(false);
     setCountDownMs(MAX_TIMEOUT);
     setPaymentInfo(defaultPaymentInfo);
+    paymentRefreshSequenceRef.current += 1;
     nativeSyncLastAtRef.current = 0;
     try {
       const snapshot = await initOrderUniform();
@@ -185,6 +187,7 @@ export const usePaymentFlow = ({
   const refreshPayment = useCallback(
     async ({ channel, paymentChannel, snapshot }: PaymentActionParams) => {
       if (!orderIdRef.current) return null;
+      const refreshSequence = ++paymentRefreshSequenceRef.current;
       setIsLoading(true);
       try {
         const current =
@@ -192,7 +195,11 @@ export const usePaymentFlow = ({
           ((await queryOrder({
             orderId: orderIdRef.current,
           })) as OrderSnapshot | null);
-        if (!mountedRef.current || !current) {
+        if (
+          !mountedRef.current ||
+          refreshSequence !== paymentRefreshSequenceRef.current ||
+          !current
+        ) {
           return current;
         }
         updateFromOrder(current);
@@ -205,7 +212,11 @@ export const usePaymentFlow = ({
           orderId: orderIdRef.current,
           paymentChannel,
         } as PayUrlRequest);
-        if (!mountedRef.current || !payload) {
+        if (
+          !mountedRef.current ||
+          refreshSequence !== paymentRefreshSequenceRef.current ||
+          !payload
+        ) {
           return payload;
         }
         setPaymentInfo({
@@ -227,7 +238,10 @@ export const usePaymentFlow = ({
         }
         return payload;
       } finally {
-        if (mountedRef.current) {
+        if (
+          mountedRef.current &&
+          refreshSequence === paymentRefreshSequenceRef.current
+        ) {
           setIsLoading(false);
         }
       }
