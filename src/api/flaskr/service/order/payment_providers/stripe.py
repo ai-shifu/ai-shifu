@@ -116,7 +116,9 @@ class StripeProvider(PaymentProvider):
                 if existing_metadata:
                     if hasattr(existing_metadata, "to_dict"):
                         existing_metadata = existing_metadata.to_dict()
-                    metadata.update(existing_metadata)
+                    # Caller keys are kept, but the order evidence wins: it is
+                    # what a later sync matches the order against.
+                    metadata = {**dict(existing_metadata), **metadata}
                 payment_intent_data["metadata"] = metadata
                 params["payment_intent_data"] = payment_intent_data
             # The session itself has to carry the evidence as well. A

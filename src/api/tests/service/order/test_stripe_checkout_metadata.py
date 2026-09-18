@@ -129,3 +129,29 @@ def test_caller_session_metadata_never_overwrites_the_order_evidence(
 
     assert captured_session["metadata"]["bill_order_bid"] == "bill-order-metadata"
     assert captured_session["metadata"]["campaign"] == "spring"
+
+
+def test_caller_payment_intent_metadata_never_overwrites_the_order_evidence(
+    monkeypatch: object,
+) -> None:
+    """Both destinations must keep the evidence a later sync matches on."""
+    captured_session: dict[str, Any] = {}
+    provider = _install_fake_stripe(monkeypatch, captured_session)
+
+    provider.create_payment(
+        request=_checkout_request(
+            {
+                "metadata": {"bill_order_bid": "bill-order-metadata"},
+                "payment_intent_data": {
+                    "metadata": {"bill_order_bid": "spoofed", "campaign": "spring"}
+                },
+            }
+        ),
+        app=Flask(__name__),
+    )
+
+    intent_metadata = captured_session["payment_intent_data"]["metadata"]
+    assert intent_metadata["bill_order_bid"] == "bill-order-metadata"
+    assert intent_metadata["campaign"] == "spring"
+    assert captured_session["metadata"]["bill_order_bid"] == "bill-order-metadata"
+    assert captured_session["metadata"]["campaign"] == "spring"

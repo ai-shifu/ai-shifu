@@ -409,3 +409,67 @@ def test_a_stripe_checkout_belonging_to_another_order_is_refused(
 
     persisted = _committed_order(app, bill_order_bid)
     assert persisted.status == BILLING_ORDER_STATUS_PENDING
+
+
+def test_an_unpaid_stripe_checkout_naming_another_creator_is_refused(
+    app: object, monkeypatch: object
+) -> None:
+    """Partial evidence pointing elsewhere is a mismatch, not absence.
+
+    Metadata with no bill_order_bid is treated as "Stripe attached nothing
+    yet", but whatever identity it does carry still has to match this order,
+    otherwise the order would be expired on the strength of someone else's
+    session.
+    """
+    from flaskr.service.common.models import AppError
+
+    session_id = "cs_test_foreign_creator"
+    bill_order_bid = _seed_expired_stripe_checkout_order(app, session_id)
+    _install_sync_provider(
+        monkeypatch,
+        {
+            "checkout_session": {
+                "id": session_id,
+                "status": "open",
+                "payment_status": "unpaid",
+                "metadata": {"creator_bid": "some-other-creator"},
+                "payment_intent": None,
+            },
+            "payment_intent": {},
+        },
+    )
+
+    with pytest.raises(AppError):
+        checkout.sync_billing_order(app, _CREATOR, bill_order_bid, {})
+
+    persisted = _committed_order(app, bill_order_bid)
+    assert persisted.status == BILLING_ORDER_STATUS_PENDING
+
+
+def test_an_unpaid_stripe_checkout_naming_another_product_is_refused(
+    app: object, monkeypatch: object
+) -> None:
+    """The same holds for a product that belongs to a different order."""
+    from flaskr.service.common.models import AppError
+
+    session_id = "cs_test_foreign_product"
+    bill_order_bid = _seed_expired_stripe_checkout_order(app, session_id)
+    _install_sync_provider(
+        monkeypatch,
+        {
+            "checkout_session": {
+                "id": session_id,
+                "status": "open",
+                "payment_status": "unpaid",
+                "metadata": {},
+                "payment_intent": None,
+            },
+            "payment_intent": {"metadata": {"product_bid": "some-other-product"}},
+        },
+    )
+
+    with pytest.raises(AppError):
+        checkout.sync_billing_order(app, _CREATOR, bill_order_bid, {})
+
+    persisted = _committed_order(app, bill_order_bid)
+    assert persisted.status == BILLING_ORDER_STATUS_PENDING
