@@ -13,12 +13,12 @@ current amount without leaving a paid learner stuck in an unpaid state.
 - [x] 2026-09-18 12:00 CST: Split the unfinished payment-attempt work from the
   learner order authorization pull request and preserved it on a dedicated
   branch.
-- [ ] 2026-09-18 12:05 CST: Fix latest-attempt selection and callback handling
+- [x] 2026-09-18 13:05 CST: Fixed latest-attempt selection and callback handling
   for multiple provider records and recoverable Stripe failures.
-- [ ] 2026-09-18 12:05 CST: Match reusable attempts to the requested provider,
+- [x] 2026-09-18 13:05 CST: Matched reusable attempts to the requested provider,
   channel, and payment mode.
-- [ ] 2026-09-18 12:05 CST: Make coupon repricing close every obsolete live
-  attempt and serialize concurrent coupon requests without stale snapshots.
+- [ ] 2026-09-18 13:05 CST: Added a shared order lifecycle lock and close-all
+  behavior; add the dedicated MySQL concurrency regression before completion.
 - [ ] 2026-09-18 12:05 CST: Make provider cancellation and local recovery
   idempotent after timeouts, already-closed responses, and commit failures.
 - [ ] 2026-09-18 12:05 CST: Add full HTTP, service, callback, and frontend

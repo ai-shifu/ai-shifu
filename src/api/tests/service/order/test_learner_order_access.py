@@ -124,6 +124,7 @@ def test_pending_order_reuses_existing_payment_attempt(
                 user_bid=order.user_bid,
                 shifu_bid=order.shifu_bid,
                 channel="alipay_qr",
+                amount=20000,
                 extra="{}",
                 charge_object=('{"credential":{"alipay_qr":"https://pay.example/qr"}}'),
             )

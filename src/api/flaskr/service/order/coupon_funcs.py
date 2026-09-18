@@ -14,6 +14,7 @@ from flaskr.service.order.funs import (
     AICourseBuyRecordDTO,
     assign_free_order_payment_channel,
     cancel_pending_payment_for_repricing,
+    payment_lifecycle_lock,
     query_buy_record,
     success_buy_record,
 )
@@ -243,11 +244,17 @@ def use_coupon_code(
         raise_error: If the coupon code is not found or the coupon is already used.
 
     """
+    with payment_lifecycle_lock(str(order_id or "")):
+        return _use_coupon_code_locked(app, user_id, coupon_code, order_id)
+
+
+def _use_coupon_code_locked(
+    app: Flask, user_id: object, coupon_code: object, order_id: object
+) -> AICourseBuyRecordDTO | None:
+    """Validate, cancel, and apply a coupon under the order lifecycle lock."""
     _validate_coupon_before_closing_payment(app, user_id, coupon_code, order_id)
     cancel_pending_payment_for_repricing(
-        app,
-        str(order_id or ""),
-        expected_user=str(user_id or ""),
+        app, str(order_id or ""), expected_user=str(user_id or "")
     )
     with app_context_scope(app), unit_of_work():
         now = now_utc()
