@@ -7,9 +7,10 @@ from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.dao import db
 from flaskr.service.common import raise_error
-from flaskr.service.order.consts import ORDER_STATUS_INIT
+from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.funs import (
     AICourseBuyRecordDTO,
+    cancel_pending_payment_for_repricing,
     query_buy_record,
     success_buy_record,
 )
@@ -148,6 +149,81 @@ def send_feishu_coupon_code(
         send_notify(app, title, msgs)
 
 
+def _validate_coupon_before_closing_payment(
+    app: Flask, user_id: object, coupon_code: object, order_id: object
+) -> None:
+    """Reject an invalid coupon without disrupting the learner's current QR."""
+    with app.app_context():
+        order = Order.query.filter(
+            Order.order_bid == order_id,
+            Order.user_bid == user_id,
+            Order.deleted == 0,
+        ).first()
+        if not order:
+            raise_error("server.order.orderNotFound")
+        if order.status == ORDER_STATUS_INIT:
+            return
+        if order.status != ORDER_STATUS_TO_BE_PAID:
+            raise_error("server.order.orderStatusError")
+        if CouponUsageModel.query.filter(
+            CouponUsageModel.order_bid == order_id,
+            CouponUsageModel.status == COUPON_STATUS_USED,
+        ).first():
+            raise_error("server.discount.orderDiscountAlreadyUsed")
+
+        active_usages = (
+            CouponUsageModel.query.filter(
+                CouponUsageModel.code == coupon_code,
+                CouponUsageModel.status == COUPON_STATUS_ACTIVE,
+                CouponUsageModel.deleted == 0,
+            )
+            .order_by(CouponUsageModel.id.desc())
+            .all()
+        )
+        coupon_bids = {usage.coupon_bid for usage in active_usages if usage.coupon_bid}
+        coupons_by_bid = {
+            coupon.coupon_bid: coupon
+            for coupon in (
+                Coupon.query.filter(
+                    Coupon.coupon_bid.in_(coupon_bids),
+                    Coupon.deleted == 0,
+                ).all()
+                if coupon_bids
+                else []
+            )
+        }
+        coupons_by_code = (
+            Coupon.query.filter(
+                Coupon.code == coupon_code,
+                Coupon.deleted == 0,
+                build_coupon_enabled_expression(Coupon),
+                Coupon.usage_type != COUPON_APPLY_TYPE_SPECIFIC,
+            )
+            .order_by(Coupon.id.desc())
+            .all()
+        )
+        coupon_usage, coupon, has_candidate = _pick_coupon_candidate(
+            active_usages,
+            coupons_by_bid,
+            coupons_by_code,
+            order.shifu_bid,
+            user_id,
+        )
+        if not coupon:
+            if has_candidate:
+                raise_error("server.discount.discountNotApply")
+            raise_error("server.discount.discountNotFound")
+        now = now_utc()
+        if coupon_usage is not None and coupon_usage.status != COUPON_STATUS_ACTIVE:
+            raise_error("server.discount.discountAlreadyUsed")
+        if coupon.start > now:
+            raise_error("server.discount.discountNotStart")
+        if coupon.end < now:
+            raise_error("server.discount.discountAlreadyExpired")
+        if coupon.used_count + 1 > coupon.total_count:
+            raise_error("server.discount.discountLimitExceeded")
+
+
 def use_coupon_code(
     app: Flask, user_id: object, coupon_code: object, order_id: object
 ) -> AICourseBuyRecordDTO | None:
@@ -164,6 +240,12 @@ def use_coupon_code(
         raise_error: If the coupon code is not found or the coupon is already used.
 
     """
+    _validate_coupon_before_closing_payment(app, user_id, coupon_code, order_id)
+    cancel_pending_payment_for_repricing(
+        app,
+        str(order_id or ""),
+        expected_user=str(user_id or ""),
+    )
     with app.app_context():
         now = now_utc()
         buy_record: Order = (

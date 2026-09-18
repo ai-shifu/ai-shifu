@@ -20,6 +20,7 @@ from flaskr.service.config import get_config
 
 from . import register_payment_provider
 from .base import (
+    PaymentCancellationResult,
     PaymentCreationResult,
     PaymentNotificationResult,
     PaymentProvider,
@@ -168,6 +169,27 @@ class PingxxProvider(PaymentProvider):
         """Retrieve a charge from the payment provider."""
         client = self._ensure_client(app)
         return client.Charge.retrieve(charge_id)
+
+    @_serialized_pingpp_config
+    def cancel_payment(
+        self,
+        *,
+        provider_reference: str,
+        reference_type: str,
+        app: Flask,
+    ) -> PaymentCancellationResult:
+        """Reverse an unpaid Ping++ charge so its credential stops working."""
+        if str(reference_type or "").lower() not in {"charge", "payment"}:
+            message = f"Unsupported Pingxx reference type: {reference_type}"
+            raise RuntimeError(message)
+        client = self._ensure_client(app)
+        response = client.Charge.reverse(provider_reference)
+        payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
+        return PaymentCancellationResult(
+            provider_reference=provider_reference,
+            raw_response=payload,
+            status="cancelled",
+        )
 
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask

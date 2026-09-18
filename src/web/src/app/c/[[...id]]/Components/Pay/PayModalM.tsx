@@ -555,7 +555,7 @@ export const PayModalM = ({
     const fallbackChannel = resolveDefaultChannel();
     if (fallbackChannel && fallbackChannel !== payChannel) {
       setPayChannel(fallbackChannel);
-      if (orderId && paymentInfo.channel) {
+      if (orderId) {
         refreshPayment({
           channel: resolveRequestChannel(fallbackChannel),
           paymentChannel: resolvePaymentChannel(fallbackChannel),
@@ -571,7 +571,6 @@ export const PayModalM = ({
     resolveRequestChannel,
     payChannel,
     orderId,
-    paymentInfo.channel,
     refreshPayment,
     wechatPaymentAvailable,
   ]);
@@ -580,9 +579,14 @@ export const PayModalM = ({
     if (!isLoggedIn) {
       return;
     }
-    if (orderId) {
-      return;
+    let nextOrderId = orderId;
+    let nextSnapshot = null;
+    if (!nextOrderId) {
+      const snapshot = await initializeOrder();
+      nextSnapshot = snapshot;
+      nextOrderId = snapshot?.order_id || '';
     }
+    if (!nextOrderId) return;
     let nextChannel = payChannel;
     if (!qrChannelEnabled && isStripeAvailable) {
       nextChannel = PAY_CHANNEL_STRIPE;
@@ -599,7 +603,11 @@ export const PayModalM = ({
         setPayChannel(nextChannel);
       }
     }
-    await initializeOrder();
+    await refreshPayment({
+      channel: resolveRequestChannel(nextChannel),
+      paymentChannel: resolvePaymentChannel(nextChannel),
+      snapshot: nextSnapshot,
+    });
   }, [
     alipayPaymentAvailable,
     initializeOrder,
@@ -609,7 +617,10 @@ export const PayModalM = ({
     orderId,
     payChannel,
     qrChannelEnabled,
+    refreshPayment,
     resolveDefaultChannel,
+    resolvePaymentChannel,
+    resolveRequestChannel,
     wechatPaymentAvailable,
   ]);
 
@@ -707,20 +718,14 @@ export const PayModalM = ({
   const onPayChannelChange = useCallback(
     (value: string) => {
       setPayChannel(value);
-      if (orderId && paymentInfo.channel) {
+      if (orderId) {
         refreshPayment({
           channel: resolveRequestChannel(value),
           paymentChannel: resolvePaymentChannel(value),
         });
       }
     },
-    [
-      orderId,
-      paymentInfo.channel,
-      refreshPayment,
-      resolvePaymentChannel,
-      resolveRequestChannel,
-    ],
+    [orderId, refreshPayment, resolvePaymentChannel, resolveRequestChannel],
   );
 
   const onPayChannelWechatClick = useCallback(() => {
@@ -828,10 +833,15 @@ export const PayModalM = ({
     if (!couponCodeInput) {
       return;
     }
-    await applyCoupon({
+    const snapshot = await applyCoupon({
       code: couponCodeInput,
       channel: resolveRequestChannel(payChannel),
       paymentChannel: resolvePaymentChannel(payChannel),
+    });
+    await refreshPayment({
+      channel: resolveRequestChannel(payChannel),
+      paymentChannel: resolvePaymentChannel(payChannel),
+      snapshot,
     });
     trackLearnerPaymentEventSafely(trackEvent, 'learner_coupon_apply', {
       shifu_bid: courseId,
@@ -844,6 +854,7 @@ export const PayModalM = ({
     couponCodeInput,
     courseId,
     payChannel,
+    refreshPayment,
     resolvePaymentChannel,
     resolveRequestChannel,
     trackEvent,

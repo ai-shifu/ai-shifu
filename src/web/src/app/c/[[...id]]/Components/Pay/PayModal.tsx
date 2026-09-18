@@ -65,8 +65,6 @@ import paySucessBg from '@/assets/newchat/pay-success@2x.png';
 import payInfoBgCn from '@/assets/newchat/pay-info-bg-cn.png';
 import payInfoBgEn from '@/assets/newchat/pay-info-bg-en.png';
 
-const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
-
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
   return (
@@ -489,7 +487,7 @@ export const PayModal = ({
     const fallbackChannel = resolveDefaultChannel();
     if (fallbackChannel && fallbackChannel !== payChannel) {
       setPayChannel(fallbackChannel);
-      if (orderId && paymentInfo.channel) {
+      if (orderId) {
         refreshPayment({
           channel: resolveRequestChannel(fallbackChannel),
           paymentChannel: resolvePaymentChannel(fallbackChannel),
@@ -505,14 +503,18 @@ export const PayModal = ({
     resolveRequestChannel,
     payChannel,
     orderId,
-    paymentInfo.channel,
     refreshPayment,
   ]);
 
   const loadPayInfo = useCallback(async () => {
-    if (orderId) {
-      return;
+    let nextOrderId = orderId;
+    let nextSnapshot = null;
+    if (!nextOrderId) {
+      const snapshot = await initializeOrder();
+      nextSnapshot = snapshot;
+      nextOrderId = snapshot?.order_id || '';
     }
+    if (!nextOrderId) return;
     let nextChannel = payChannel;
     if (!availableQrChannels.includes(nextChannel) && isStripeAvailable) {
       nextChannel = PAY_CHANNEL_STRIPE;
@@ -525,26 +527,19 @@ export const PayModal = ({
         setPayChannel(nextChannel);
       }
     }
-    await initializeOrder();
+    await refreshPayment({
+      channel: resolveRequestChannel(nextChannel),
+      paymentChannel: resolvePaymentChannel(nextChannel),
+      snapshot: nextSnapshot,
+    });
   }, [
     availableQrChannels,
     initializeOrder,
     isStripeAvailable,
     orderId,
     payChannel,
-    resolveDefaultChannel,
-  ]);
-
-  const paymentStarted = Boolean(paymentInfo.channel);
-
-  const startPayment = useCallback(async () => {
-    await refreshPayment({
-      channel: resolveRequestChannel(payChannel),
-      paymentChannel: resolvePaymentChannel(payChannel),
-    });
-  }, [
-    payChannel,
     refreshPayment,
+    resolveDefaultChannel,
     resolvePaymentChannel,
     resolveRequestChannel,
   ]);
@@ -636,10 +631,15 @@ export const PayModal = ({
 
   const onCouponCodeOk = useCallback(
     async values => {
-      await applyCoupon({
+      const snapshot = await applyCoupon({
         code: values.couponCode,
         channel: resolveRequestChannel(payChannel),
         paymentChannel: resolvePaymentChannel(payChannel),
+      });
+      await refreshPayment({
+        channel: resolveRequestChannel(payChannel),
+        paymentChannel: resolvePaymentChannel(payChannel),
+        snapshot,
       });
       trackLearnerPaymentEventSafely(trackEvent, 'learner_coupon_apply', {
         shifu_bid: courseId,
@@ -652,6 +652,7 @@ export const PayModal = ({
       courseId,
       onCouponCodeModalClose,
       payChannel,
+      refreshPayment,
       resolvePaymentChannel,
       resolveRequestChannel,
       trackEvent,
@@ -838,20 +839,14 @@ export const PayModal = ({
   const onPayChannelSelectChange = useCallback(
     ({ channel }: { channel: string }) => {
       setPayChannel(channel);
-      if (orderId && paymentStarted) {
+      if (orderId) {
         refreshPayment({
           channel: resolveRequestChannel(channel),
           paymentChannel: resolvePaymentChannel(channel),
         });
       }
     },
-    [
-      orderId,
-      paymentStarted,
-      refreshPayment,
-      resolvePaymentChannel,
-      resolveRequestChannel,
-    ],
+    [orderId, refreshPayment, resolvePaymentChannel, resolveRequestChannel],
   );
 
   useEffect(() => {
@@ -1059,17 +1054,7 @@ export const PayModal = ({
                           </div>
                         ) : null}
                       </div>
-                      {!paymentStarted ? (
-                        <div className='space-y-3 text-center'>
-                          <Button
-                            className={styles.stripeCheckoutButton}
-                            onClick={startPayment}
-                            disabled={effectiveLoading}
-                          >
-                            {t('module.pay.pay')}
-                          </Button>
-                        </div>
-                      ) : isStripeSelected ? (
+                      {isStripeSelected ? (
                         <div className={styles.stripePanel}>
                           {stripeMode === 'checkout_session' ||
                           !stripePayload.client_secret ? (
@@ -1116,11 +1101,13 @@ export const PayModal = ({
                           </div>
                         ) : (
                           <div className={cn(styles.qrcodeWrapper, 'relative')}>
-                            <QRCodeSVG
-                              value={paymentInfo.qrUrl || DEFAULT_QRCODE}
-                              size={175}
-                              level={'M'}
-                            />
+                            {paymentInfo.qrUrl ? (
+                              <QRCodeSVG
+                                value={paymentInfo.qrUrl}
+                                size={175}
+                                level={'M'}
+                              />
+                            ) : null}
                             {qrcodeStatus !== 'active' ? (
                               <div className='absolute left-0 top-0 right-0 bottom-0 flex flex-col items-center justify-center pointer-events-none bg-white/50 backdrop-blur-[1px] transition-opacity duration-200'>
                                 {qrcodeStatus === 'loading' ? (

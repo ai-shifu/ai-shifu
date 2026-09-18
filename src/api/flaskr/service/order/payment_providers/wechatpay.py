@@ -20,6 +20,7 @@ from flaskr.service.config import get_config
 
 from . import register_payment_provider
 from .base import (
+    PaymentCancellationResult,
     PaymentCreationResult,
     PaymentNotificationResult,
     PaymentProvider,
@@ -105,6 +106,33 @@ class WechatPayProvider(PaymentProvider):
             status="manual_sync",
             provider_payload={"trade": response_payload},
             charge_id=str(response_payload.get("transaction_id") or "") or None,
+        )
+
+    def cancel_payment(
+        self,
+        *,
+        provider_reference: str,
+        reference_type: str,
+        app: Flask,
+    ) -> PaymentCancellationResult:
+        """Close an unpaid WeChat Pay transaction by merchant attempt ID."""
+        if str(reference_type or "").lower() not in {"payment", "trade"}:
+            message = f"Unsupported WeChat Pay reference type: {reference_type}"
+            raise RuntimeError(message)
+        path = f"/v3/pay/transactions/out-trade-no/{provider_reference}/close"
+        payload = self._request(
+            method="POST",
+            path=path,
+            body=json.dumps(
+                {"mchid": _required_config("WECHATPAY_MCH_ID")},
+                separators=(",", ":"),
+            ),
+            app=app,
+        )
+        return PaymentCancellationResult(
+            provider_reference=provider_reference,
+            raw_response=payload,
+            status="cancelled",
         )
 
     def refund_payment(
