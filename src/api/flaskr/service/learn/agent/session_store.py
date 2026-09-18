@@ -33,6 +33,8 @@ from flaskr.service.learn.agent.models import (
 from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from flask import Flask
 
 
@@ -104,8 +106,12 @@ def save_agent_session(
     shifu_bid: str,
     outline_item_bid: str,
     preview_mode: bool = False,
+    stage: Callable[[], object] | None = None,
 ) -> None:
     """Write the session back, replacing the learner's previous one for this lesson.
+
+    `stage` runs inside this transaction, for rows that only make sense together with the session
+    -- the block a turn's elements hang off, which would orphan them if it landed without one.
 
     Returns once the row is committed. Callers that stream events must not tell the learner a turn
     finished before this returns, and must not call this inside their own unit of work: nested, it
@@ -114,6 +120,8 @@ def save_agent_session(
     require_transaction_owner("save_agent_session", app)
     key = active_key_for(user_bid, outline_item_bid, preview_mode=preview_mode)
     with app_context_scope(app), unit_of_work():
+        if stage is not None:
+            stage()
         row = LearnAgentSession.query.filter(
             LearnAgentSession.active_key == key
         ).first()
