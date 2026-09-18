@@ -643,6 +643,91 @@ def test_stripe_webhook_ignores_delayed_events_from_a_superseded_intent(
 
 
 @pytest.mark.parametrize(
+    "event_type",
+    [
+        "payment_intent.payment_failed",
+        "payment_intent.canceled",
+        "checkout.session.async_payment_failed",
+    ],
+)
+def test_stripe_webhook_ignores_negative_events_for_an_older_attempt(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    event_type: str,
+) -> None:
+    case_id = event_type.rsplit(".", 1)[-1]
+    order_bid = f"webhook-old-attempt-{case_id}"
+    old_attempt_bid = f"attempt-old-{case_id}"
+    latest_attempt_bid = f"attempt-latest-{case_id}"
+    object_id = (
+        f"cs_{old_attempt_bid}"
+        if event_type.startswith("checkout.session.")
+        else f"pi_{old_attempt_bid}"
+    )
+    notification = PaymentNotificationResult(
+        order_bid=order_bid,
+        status=event_type,
+        provider_payload={
+            "type": event_type,
+            "data": {
+                "object": {
+                    "id": object_id,
+                    "metadata": {
+                        "order_bid": order_bid,
+                        "stripe_order_bid": old_attempt_bid,
+                    },
+                    "amount_total": 20000,
+                    "currency": "cny",
+                    "payment_intent": f"pi_{old_attempt_bid}",
+                    "last_payment_error": {
+                        "code": "card_declined",
+                        "message": "declined",
+                    },
+                }
+            },
+        },
+    )
+    provider = SimpleNamespace(verify_webhook=lambda **_kwargs: notification)
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: provider
+    )
+    with app.app_context():
+        _seed_stripe_order(
+            order_bid=order_bid,
+            session_id=f"cs_{old_attempt_bid}",
+            attempt_bid=old_attempt_bid,
+        )
+        dao.db.session.add(
+            StripeOrder(
+                stripe_order_bid=latest_attempt_bid,
+                biz_domain="order",
+                order_bid=order_bid,
+                user_bid="owner-user",
+                shifu_bid=f"course-{order_bid}",
+                checkout_session_id=f"cs_{latest_attempt_bid}",
+                payment_intent_id=f"pi_{latest_attempt_bid}",
+                amount=20000,
+                currency="cny",
+                status=0,
+            )
+        )
+        dao.db.session.commit()
+
+    payload, status_code = handle_stripe_webhook(app, b"{}", "signature")
+
+    assert status_code == 202
+    assert payload["status"] == "acknowledged"
+    with app.app_context():
+        attempts = StripeOrder.query.filter_by(order_bid=order_bid).order_by(
+            StripeOrder.id
+        )
+        old_attempt, latest_attempt = attempts.all()
+        assert old_attempt.status == 0
+        assert old_attempt.failure_code in {None, ""}
+        assert latest_attempt.status == 0
+
+
+@pytest.mark.parametrize(
     "delayed_event_type",
     [
         "payment_intent.payment_failed",

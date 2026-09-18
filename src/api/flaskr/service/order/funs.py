@@ -2258,12 +2258,12 @@ def handle_stripe_webhook(
         cancel_events = {
             "payment_intent.canceled",
         }
+        order = Order.query.filter(
+            Order.order_bid == order_bid,
+            Order.deleted == 0,
+        ).first()
 
         if event_type in success_events:
-            order = Order.query.filter(
-                Order.order_bid == order_bid,
-                Order.deleted == 0,
-            ).first()
             session = (
                 data_object if event_type.startswith("checkout.session.") else None
             )
@@ -2313,7 +2313,11 @@ def handle_stripe_webhook(
             else:
                 response_status = "ignored"
         elif event_type == "payment_intent.payment_failed" and (
-            _stripe_intent_event_matches_attempt(stripe_order, data_object, metadata)
+            order
+            and _stripe_attempt_matches_order(order, stripe_order)
+            and _stripe_intent_event_matches_attempt(
+                stripe_order, data_object, metadata
+            )
             and stripe_order.status != 1
         ):
             if notification.charge_id:
@@ -2331,13 +2335,10 @@ def handle_stripe_webhook(
             response_status = "failed"
             http_status = 200
         elif event_type == "checkout.session.async_payment_failed":
-            order = Order.query.filter(
-                Order.order_bid == order_bid,
-                Order.deleted == 0,
-            ).first()
             if (
                 order
                 and stripe_order.status != 1
+                and _stripe_attempt_matches_order(order, stripe_order)
                 and _stripe_provider_objects_match_attempt(
                     order=order,
                     stripe_order=stripe_order,
@@ -2356,6 +2357,8 @@ def handle_stripe_webhook(
             http_status = 200
         elif (
             event_type in cancel_events
+            and order
+            and _stripe_attempt_matches_order(order, stripe_order)
             and _stripe_intent_event_matches_attempt(
                 stripe_order, data_object, metadata
             )
