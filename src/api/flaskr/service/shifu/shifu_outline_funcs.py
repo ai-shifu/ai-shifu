@@ -747,12 +747,15 @@ def reorder_outline_tree(
         return True
 
 
-def get_unit_by_id(app: object, user_id: str, unit_id: str) -> OutlineDto:
+def get_unit_by_id(
+    app: object, user_id: str, shifu_id: str, unit_id: str
+) -> OutlineDto:
     """Get unit by id.
 
     Args:
         app: Flask application instance
         user_id: User ID
+        shifu_id: Shifu ID
         unit_id: Unit ID
     Returns:
         OutlineDto: Outline dto.
@@ -765,6 +768,7 @@ def get_unit_by_id(app: object, user_id: str, unit_id: str) -> OutlineDto:
     with app.app_context():
         unit: DraftOutlineItem = (
             DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_id,
                 DraftOutlineItem.outline_item_bid == unit_id,
                 DraftOutlineItem.deleted == 0,
             )
@@ -794,6 +798,7 @@ def get_unit_by_id(app: object, user_id: str, unit_id: str) -> OutlineDto:
 def modify_unit(
     app: object,
     user_id: str,
+    shifu_id: str,
     unit_id: str,
     unit_name: str | None = None,
     unit_description: str | None = None,
@@ -806,6 +811,7 @@ def modify_unit(
     Args:
         app: Flask application instance
         user_id: User ID
+        shifu_id: Shifu ID
         unit_id: Unit ID
         unit_name: Unit name
         unit_description: Unit description
@@ -822,6 +828,7 @@ def modify_unit(
         # find existing unit
         existing_unit = (
             DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_id,
                 DraftOutlineItem.outline_item_bid == unit_id,
                 DraftOutlineItem.deleted == 0,
             )
@@ -884,12 +891,13 @@ def modify_unit(
         )
 
 
-def delete_unit(app: object, user_id: str, unit_id: str) -> bool:
+def delete_unit(app: object, user_id: str, shifu_id: str, unit_id: str) -> bool:
     """Delete unit.
 
     Args:
         app: Flask application instance
         user_id: User ID
+        shifu_id: Shifu ID
         unit_id: Unit ID
 
     Returns:
@@ -901,6 +909,7 @@ def delete_unit(app: object, user_id: str, unit_id: str) -> bool:
         # find the unit to delete
         unit_to_delete = (
             DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_id,
                 DraftOutlineItem.outline_item_bid == unit_id,
                 DraftOutlineItem.deleted == 0,
             )
@@ -943,6 +952,7 @@ def delete_unit(app: object, user_id: str, unit_id: str) -> bool:
         for item_id in ids_to_delete:
             item: DraftOutlineItem = (
                 DraftOutlineItem.query.filter(
+                    DraftOutlineItem.shifu_bid == shifu_id,
                     DraftOutlineItem.outline_item_bid == item_id,
                 )
                 .order_by(DraftOutlineItem.id.desc())
