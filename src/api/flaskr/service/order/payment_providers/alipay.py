@@ -13,6 +13,7 @@ from flaskr.service.config import get_config
 
 from . import register_payment_provider
 from .base import (
+    PaymentCancellationResult,
     PaymentCreationResult,
     PaymentNotificationResult,
     PaymentProvider,
@@ -153,6 +154,39 @@ class AlipayProvider(PaymentProvider):
             charge_id=str(response_payload.get("trade_no") or "") or None,
         )
 
+    def cancel_payment(
+        self,
+        *,
+        provider_reference: str,
+        reference_type: str,
+        app: Flask,
+    ) -> PaymentCancellationResult:
+        """Close an unpaid Alipay trade by merchant attempt ID."""
+        if str(reference_type or "").lower() not in {"payment", "trade"}:
+            message = f"Unsupported Alipay reference type: {reference_type}"
+            raise RuntimeError(message)
+        client = self._ensure_client(app)
+        sdk = self._load_sdk(app)
+        biz_model = sdk["AlipayTradeCloseModel"]()
+        biz_model.out_trade_no = provider_reference
+        close_request = sdk["AlipayTradeCloseRequest"](biz_model=biz_model)
+        raw_response = client.execute(close_request)
+        payload = _parse_alipay_response(
+            raw_response,
+            "alipay_trade_close_response",
+        )
+        if str(payload.get("code") or "") != "10000":
+            raise RuntimeError(
+                payload.get("sub_msg")
+                or payload.get("msg")
+                or "Alipay trade close failed"
+            )
+        return PaymentCancellationResult(
+            provider_reference=provider_reference,
+            raw_response=payload,
+            status="cancelled",
+        )
+
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
@@ -191,11 +225,17 @@ class AlipayProvider(PaymentProvider):
         try:
             from alipay.aop.api.AlipayClientConfig import AlipayClientConfig
             from alipay.aop.api.DefaultAlipayClient import DefaultAlipayClient
+            from alipay.aop.api.domain.AlipayTradeCloseModel import (
+                AlipayTradeCloseModel,
+            )
             from alipay.aop.api.domain.AlipayTradePrecreateModel import (
                 AlipayTradePrecreateModel,
             )
             from alipay.aop.api.domain.AlipayTradeQueryModel import (
                 AlipayTradeQueryModel,
+            )
+            from alipay.aop.api.request.AlipayTradeCloseRequest import (
+                AlipayTradeCloseRequest,
             )
             from alipay.aop.api.request.AlipayTradePrecreateRequest import (
                 AlipayTradePrecreateRequest,
@@ -212,8 +252,10 @@ class AlipayProvider(PaymentProvider):
             "AlipayClientConfig": AlipayClientConfig,
             "DefaultAlipayClient": DefaultAlipayClient,
             "AlipayTradePrecreateModel": AlipayTradePrecreateModel,
+            "AlipayTradeCloseModel": AlipayTradeCloseModel,
             "AlipayTradeQueryModel": AlipayTradeQueryModel,
             "AlipayTradePrecreateRequest": AlipayTradePrecreateRequest,
+            "AlipayTradeCloseRequest": AlipayTradeCloseRequest,
             "AlipayTradeQueryRequest": AlipayTradeQueryRequest,
         }
 
