@@ -19,6 +19,9 @@ leave completed, refunded, and expired orders immutable.
   terminal-order attempts, plus response allowlisting.
 - [x] 2026-09-18 11:15 CST: Ran focused backend/frontend and repository
   verification, then moved this plan to `docs/exec-plans/completed/`.
+- [x] 2026-09-18 11:45 CST: Restored the established desktop QR-first cashier,
+  removed the fake QR fallback, and added provider-attempt cancellation before
+  coupon repricing.
 
 ## Surprises & Discoveries
 
@@ -59,16 +62,25 @@ leave completed, refunded, and expired orders immutable.
   provider payment creation until the learner explicitly starts payment.
   Rationale: this keeps the order in `init` while the learner enters a coupon,
   so an active provider payment is never repriced.
+- Decision: supersede the deferred-payment decision after deployed UX
+  verification. Keep one business order, close its current unpaid provider
+  attempt before applying a coupon, mark that attempt closed, and create a new
+  attempt at the discounted amount.
+  Rationale: desktop must retain its QR-first cashier. Provider cancellation
+  makes the old credential unusable, while latest-attempt and amount checks
+  prevent delayed callbacks from an older attempt from completing the order.
 
 ## Outcomes & Retrospective
 
 Learner order lookup, payment creation, payment detail, and coupon redemption
 now enforce the authenticated order owner in the service layer. Coupon
-redemption accepts only initial orders before a provider attempt exists, and
-payment creation and coupon redemption serialize on the order row. The desktop
-and mobile payment surfaces defer provider creation until payment starts, and
-pending orders reuse their stored provider parameters instead of creating a
-duplicate attempt. Learner payment detail responses for Stripe, native
+redemption closes an existing unpaid provider attempt before repricing, then
+creates a replacement attempt under the same business order. Desktop opens
+with the QR visible as before, mobile can resume its active attempt, and empty
+provider credentials are never rendered as a placeholder QR. Pending orders
+reuse valid stored provider parameters; unusable snapshots are replaced.
+Delayed callbacks only complete the latest pending attempt when its amount
+matches the current order. Learner payment detail responses for Stripe, native
 providers, and Ping++ contain only payment channel, course, order, and provider
 status; operator detail loading still uses full snapshots.
 

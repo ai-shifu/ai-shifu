@@ -73,6 +73,15 @@ class PaymentRefundResult:
     status: str
 
 
+@dataclass(slots=True)
+class PaymentCancellationResult:
+    """Response returned after making a payment attempt unusable."""
+
+    provider_reference: str
+    raw_response: dict[str, Any]
+    status: str
+
+
 class PaymentProvider(ABC):
     """Base abstraction for payment providers."""
 
@@ -137,6 +146,17 @@ class PaymentProvider(ABC):
     ) -> PaymentRefundResult:
         """Trigger a refund on the provider."""
         message = f"{self.__class__.__name__} does not support refunds"
+        raise NotImplementedError(message)
+
+    def cancel_payment(
+        self,
+        *,
+        provider_reference: str,
+        reference_type: str,
+        app: object,
+    ) -> PaymentCancellationResult:
+        """Close an unpaid provider attempt before the order is repriced."""
+        message = f"{self.__class__.__name__} does not support payment cancellation"
         raise NotImplementedError(message)
 
     def sync_payment_status(

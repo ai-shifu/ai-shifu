@@ -587,7 +587,9 @@ def generate_charge(
         if buy_record.status == ORDER_STATUS_REFUND:
             raise_error("server.order.orderStatusError")
         if buy_record.status == ORDER_STATUS_TO_BE_PAID:
-            return _resume_pending_charge(app, buy_record)
+            resumed_charge = _resume_pending_charge(app, buy_record)
+            if resumed_charge is not None:
+                return resumed_charge
         creator_bid = get_shifu_creator_bid(app, buy_record.shifu_bid) or ""
         set_shifu_context(buy_record.shifu_bid, creator_bid)
         buy_record.creator_bid = creator_bid
@@ -726,7 +728,7 @@ def _parse_stored_mapping(value: object) -> dict[str, Any]:
     return {}
 
 
-def _resume_pending_charge(app: Flask, buy_record: Order) -> BuyRecordDTO:
+def _resume_pending_charge(app: Flask, buy_record: Order) -> BuyRecordDTO | None:
     """Return the existing provider attempt without creating another charge."""
     payment_channel = str(buy_record.payment_channel or "").strip().lower()
     if payment_channel == "pingxx":
@@ -740,6 +742,8 @@ def _resume_pending_charge(app: Flask, buy_record: Order) -> BuyRecordDTO:
             charge = _parse_stored_mapping(snapshot.charge_object)
             credential = charge.get("credential") or {}
             qr_url = credential.get(snapshot.channel) or ""
+            if not isinstance(qr_url, str) or not qr_url.strip():
+                return None
             return BuyRecordDTO(
                 buy_record.order_bid,
                 buy_record.user_bid,
@@ -764,6 +768,8 @@ def _resume_pending_charge(app: Flask, buy_record: Order) -> BuyRecordDTO:
             )
             checkout_url = str(checkout.get("url") or "")
             client_secret = str(intent.get("client_secret") or "")
+            if not checkout_url and not client_secret:
+                return None
             return BuyRecordDTO(
                 buy_record.order_bid,
                 buy_record.user_bid,
@@ -805,6 +811,8 @@ def _resume_pending_charge(app: Flask, buy_record: Order) -> BuyRecordDTO:
                 prepay_id = str(
                     metadata.get("prepay_id") or response.get("prepay_id") or ""
                 )
+                if not prepay_id:
+                    return None
                 with _order_credential_scope(app, buy_record):
                     provider = get_payment_provider("wechatpay")
                     jsapi_params = provider.build_jsapi_params(prepay_id=prepay_id)
@@ -815,6 +823,8 @@ def _resume_pending_charge(app: Flask, buy_record: Order) -> BuyRecordDTO:
                         "jsapi_params": jsapi_params,
                     }
                 )
+            elif not qr_url:
+                return None
             return BuyRecordDTO(
                 buy_record.order_bid,
                 buy_record.user_bid,
@@ -824,10 +834,113 @@ def _resume_pending_charge(app: Flask, buy_record: Order) -> BuyRecordDTO:
                 payment_channel=payment_channel,
                 payment_payload=payment_payload,
             )
-    app.logger.error(
-        "pending payment snapshot not found for order:%s", buy_record.order_bid
+    app.logger.warning(
+        "pending payment snapshot cannot be resumed for order:%s; creating a replacement attempt",
+        buy_record.order_bid,
     )
-    return raise_error("server.order.orderStatusError")
+    return None
+
+
+def cancel_pending_payment_for_repricing(
+    app: Flask, order_bid: str, *, expected_user: str
+) -> bool:
+    """Close the current provider attempt before a coupon changes its amount."""
+    with _app_context_scope(app):
+        order = Order.query.filter(
+            Order.order_bid == order_bid,
+            Order.user_bid == expected_user,
+            Order.deleted == 0,
+        ).first()
+        if not order:
+            raise_error("server.order.orderNotFound")
+        if order.status == ORDER_STATUS_INIT:
+            return False
+        if order.status != ORDER_STATUS_TO_BE_PAID:
+            raise_error("server.order.orderStatusError")
+
+        payment_channel = str(order.payment_channel or "pingxx").strip().lower()
+        snapshot: PingxxOrder | StripeOrder | Any | None
+        reference_type = "payment"
+        if payment_channel == "pingxx":
+            snapshot = (
+                legacy_pingxx_snapshot_query()
+                .filter(PingxxOrder.order_bid == order_bid, PingxxOrder.status == 0)
+                .order_by(PingxxOrder.id.desc())
+                .first()
+            )
+            provider_reference = str(snapshot.charge_id if snapshot else "")
+            reference_type = "charge"
+        elif payment_channel == "stripe":
+            snapshot = (
+                legacy_stripe_snapshot_query()
+                .filter(StripeOrder.order_bid == order_bid, StripeOrder.status == 0)
+                .order_by(StripeOrder.id.desc())
+                .first()
+            )
+            if snapshot and snapshot.checkout_session_id:
+                provider_reference = str(snapshot.checkout_session_id)
+                reference_type = "checkout_session"
+            else:
+                provider_reference = str(snapshot.payment_intent_id if snapshot else "")
+                reference_type = "payment_intent"
+        elif payment_channel in {"alipay", "wechatpay"}:
+            model = native_snapshot_model(payment_channel)
+            snapshot = (
+                legacy_native_snapshot_query(payment_channel)
+                .filter(model.order_bid == order_bid, model.status == 0)
+                .order_by(model.id.desc())
+                .first()
+            )
+            provider_reference = str(snapshot.provider_attempt_id if snapshot else "")
+            reference_type = "trade"
+        else:
+            raise_error("server.pay.payChannelNotSupport")
+
+        if snapshot is None or not provider_reference:
+            raise_error("server.order.orderStatusError")
+        snapshot_id = snapshot.id
+        with _order_credential_scope(app, order):
+            provider = get_payment_provider(payment_channel)
+            try:
+                provider.cancel_payment(
+                    provider_reference=provider_reference,
+                    reference_type=reference_type,
+                    app=app,
+                )
+            except Exception:
+                app.logger.exception(
+                    "Failed to close payment attempt before repricing order=%s provider=%s reference=%s",
+                    order_bid,
+                    payment_channel,
+                    provider_reference,
+                )
+                raise_error("server.order.orderStatusError")
+
+        with unit_of_work():
+            locked_order = (
+                Order.query.filter(
+                    Order.order_bid == order_bid,
+                    Order.user_bid == expected_user,
+                    Order.deleted == 0,
+                )
+                .with_for_update()
+                .first()
+            )
+            if not locked_order or locked_order.status != ORDER_STATUS_TO_BE_PAID:
+                raise_error("server.order.orderStatusError")
+            locked_snapshot = snapshot.__class__.query.filter(
+                snapshot.__class__.id == snapshot_id,
+                snapshot.__class__.status == 0,
+            ).first()
+            if locked_snapshot is None:
+                raise_error("server.order.orderStatusError")
+            locked_snapshot.status = 3
+            locked_snapshot.updated_at = now_utc()
+            locked_order.status = ORDER_STATUS_INIT
+            locked_order.updated_at = now_utc()
+            db.session.add(locked_snapshot)
+            db.session.add(locked_order)
+        return True
 
 
 def _order_credential_scope(
@@ -1761,12 +1874,17 @@ def handle_stripe_webhook(
         }, 202
 
     with _app_context_scope(app), unit_of_work():
-        stripe_order: StripeOrder | None = (
-            legacy_stripe_snapshot_query()
-            .filter(StripeOrder.order_bid == order_bid)
-            .order_by(StripeOrder.id.desc())
-            .first()
+        stripe_attempt_bid = str(metadata.get("stripe_order_bid") or "")
+        stripe_query = legacy_stripe_snapshot_query().filter(
+            StripeOrder.order_bid == order_bid
         )
+        if stripe_attempt_bid:
+            stripe_query = stripe_query.filter(
+                StripeOrder.stripe_order_bid == stripe_attempt_bid
+            )
+        stripe_order: StripeOrder | None = stripe_query.order_by(
+            StripeOrder.id.desc()
+        ).first()
         if not stripe_order:
             app.logger.warning("Stripe order not found for order_bid=%s", order_bid)
             return {
@@ -1820,10 +1938,34 @@ def handle_stripe_webhook(
         }
 
         if event_type in success_events:
-            stripe_order.status = 1
-            success_buy_record(app, order_bid)
-            response_status = "paid"
-            http_status = 200
+            order = Order.query.filter(
+                Order.order_bid == order_bid,
+                Order.deleted == 0,
+            ).first()
+            latest_attempt_id = (
+                legacy_stripe_snapshot_query()
+                .filter(StripeOrder.order_bid == order_bid)
+                .order_by(StripeOrder.id.desc())
+                .with_entities(StripeOrder.id)
+                .scalar()
+            )
+            if (
+                order
+                and stripe_order.status == 0
+                and stripe_order.id == latest_attempt_id
+                and (
+                    decimal.Decimal(order.paid_price or 0) <= 0
+                    or int(stripe_order.amount or 0)
+                    == int(decimal.Decimal(order.paid_price) * 100)
+                )
+                and order.status == ORDER_STATUS_TO_BE_PAID
+            ):
+                stripe_order.status = 1
+                success_buy_record(app, order_bid)
+                response_status = "paid"
+                http_status = 200
+            else:
+                response_status = "ignored"
         elif event_type in fail_events:
             stripe_order.status = 4
             error_info = data_object.get("last_payment_error", {}) or {}
@@ -2058,6 +2200,7 @@ def success_buy_record_from_native(
                 if not buy_record:
                     return False
 
+                was_pending_attempt = native_order.status == 0
                 _apply_native_snapshot_update(
                     snapshot=native_order,
                     provider=provider,
@@ -2070,6 +2213,20 @@ def success_buy_record_from_native(
                     _is_native_payment_successful(
                         provider,
                         notification.provider_payload or {},
+                    )
+                    and was_pending_attempt
+                    and native_order.id
+                    == (
+                        legacy_native_snapshot_query(provider)
+                        .filter(native_model.order_bid == native_order.order_bid)
+                        .order_by(native_model.id.desc())
+                        .with_entities(native_model.id)
+                        .scalar()
+                    )
+                    and (
+                        decimal.Decimal(buy_record.paid_price or 0) <= 0
+                        or int(native_order.amount or 0)
+                        == int(decimal.Decimal(buy_record.paid_price) * 100)
                     )
                     and buy_record.status == ORDER_STATUS_TO_BE_PAID
                 ):
@@ -2120,7 +2277,22 @@ def success_buy_record_from_pingxx(
                         )
 
                     if not (
-                        buy_record and buy_record.status == ORDER_STATUS_TO_BE_PAID
+                        buy_record
+                        and pingxx_order.status == 0
+                        and pingxx_order.id
+                        == (
+                            legacy_pingxx_snapshot_query()
+                            .filter(PingxxOrder.order_bid == pingxx_order.order_bid)
+                            .order_by(PingxxOrder.id.desc())
+                            .with_entities(PingxxOrder.id)
+                            .scalar()
+                        )
+                        and (
+                            decimal.Decimal(buy_record.paid_price or 0) <= 0
+                            or int(pingxx_order.amount or 0)
+                            == int(decimal.Decimal(buy_record.paid_price) * 100)
+                        )
+                        and buy_record.status == ORDER_STATUS_TO_BE_PAID
                     ):
                         # Pre-uow behavior: the snapshot mutation was never
                         # committed on this path, so do not mutate it at all.
