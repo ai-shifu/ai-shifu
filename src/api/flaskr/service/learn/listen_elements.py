@@ -68,6 +68,7 @@ class ListenElementRunAdapter(
         outline_bid: str,
         user_bid: str,
         run_session_bid: str | None = None,
+        persist_only_final: bool = False,
     ) -> None:
         """Initialize a legacy listen-mode adaptation run and ordering state.
 
@@ -80,6 +81,17 @@ class ListenElementRunAdapter(
         self.outline_bid = outline_bid
         self.user_bid = user_bid
         self.run_session_bid = run_session_bid or uuid.uuid4().hex
+        # Whether a streaming element is written on every update or only once it is final.
+        #
+        # 1.0 writes each update as a new row holding the whole text so far, retiring the previous
+        # one -- a snapshot trail nothing ever reads back, since every read path filters on
+        # status == 1. It is affordable there because a script block is small. A 2.0 turn is a
+        # whole lesson segment: one measured turn of 13KB produced 6394 rows and 35MB of retired
+        # snapshots, against 4 rows and 21KB that the learner can actually see.
+        #
+        # Deferring costs the mid-stream snapshot, which only a learner refreshing during
+        # generation would have seen, and which the session restores anyway.
+        self.persist_only_final = persist_only_final
         self._run_event_seq = 0
         self._sequence_number = 0
         self._state_machine = TypeStateMachine()
