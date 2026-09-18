@@ -3311,3 +3311,92 @@ def test_tier_call_uses_one_model_for_provider_usage_and_trace(
     assert usage["extra"]["model_tier"] == "fast"
     assert span.end_args["metadata"]["resolved_model"] == "gpt-test"
     assert span.end_args["metadata"]["model_selection_record_id"] == 123
+
+
+@pytest.mark.parametrize("preview", [True, False])
+@pytest.mark.parametrize("selection", ["fast", "balanced", "ultimate", "gpt-test", ""])
+def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
+    monkeypatch: pytest.MonkeyPatch, app: object, preview: bool, selection: str
+) -> None:
+    """The 2.0 entry point carries revision and cleanup identity into actual usage."""
+    from uuid import uuid4
+
+    from flaskr.api.llm import tiers
+    from flaskr.dao import db
+    from flaskr.service.learn.agent import lesson_entry
+    from flaskr.service.shifu.model_tier_migration import migrate_default_model_tiers
+    from flaskr.service.shifu.models import ModelTierMigrationAudit
+    from pydantic_ai.models import ModelRequestParameters
+
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(tiers, "get_config", lambda *_args: "gpt-test")
+    captured, usage = {}, {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("part", content="done", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    monkeypatch.setattr(
+        lesson_entry, "create_trace_with_root_span", lambda **_kw: (None, span)
+    )
+    monkeypatch.setattr(lesson_entry, "finalize_langfuse_trace", lambda **_kw: None)
+    monkeypatch.setattr(
+        lesson_entry,
+        "Engine",
+        lambda model, **kwargs: SimpleNamespace(
+            model=model, settings=kwargs["model_settings"]
+        ),
+    )
+
+    def run_gateway(_app: object, *, engine: object, **_kwargs: object) -> object:
+        yield from engine.model._stream([], ModelRequestParameters(), engine.settings)
+
+    monkeypatch.setattr(lesson_entry, "run_agent_lesson", run_gateway)
+    with app.test_request_context():
+        outline_type, course_type = lesson_entry._models(preview)
+        course_bid, outline_bid = uuid4().hex, uuid4().hex
+        course = course_type(shifu_bid=course_bid, llm=selection, llm_temperature=0.4)
+        outline = outline_type(
+            shifu_bid=course_bid, outline_item_bid=outline_bid, content="Teach."
+        )
+        db.session.add_all([course, outline])
+        db.session.flush()
+        ModelTierMigrationAudit.query.filter_by(
+            table_name=course_type.__tablename__, row_id=course.id
+        ).delete(synchronize_session=False)
+        db.session.commit()
+        batch = (
+            migrate_default_model_tiers(app, apply=True)["batch_bid"]
+            if not selection
+            else None
+        )
+        list(
+            lesson_entry.agent_lesson_events(
+                app,
+                user_bid="tier-user",
+                shifu_bid=course_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview,
+            )
+        )
+        assert captured["model"] == usage["model"] == "gpt-test"
+        assert captured["temperature"] == 0.4
+        metadata = usage["extra"]
+        assert metadata["resolved_model"] == "gpt-test"
+        assert metadata["model_tier"] == (
+            None if selection == "gpt-test" else selection or "fast"
+        )
+        assert metadata["model_selection_table"] == course_type.__tablename__
+        assert metadata["model_selection_record_id"] == course.id
+        assert metadata["model_selection_field"] == "llm"
+        if batch:
+            assert metadata["model_selection_origin"] == "migrated_default"
+            assert metadata["model_migration_batch"] == batch
+        for key in metadata:
+            if key.startswith("model_") or key == "resolved_model":
+                assert span.end_args["metadata"][key] == metadata[key]

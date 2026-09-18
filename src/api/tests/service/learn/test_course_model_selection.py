@@ -129,13 +129,15 @@ def test_course_settings_drive_both_engines_and_follow_up(
         settings = ctx.get_llm_settings(lesson_bid)
         assert settings.model == expected_model
         assert float(settings.temperature) == expected_temperature
-        assert lesson_entry._resolve(
+        script, agent_settings = lesson_entry._resolve(
             app,
             user_bid="teacher-1",
             shifu_bid=shifu_bid,
             outline_bid=lesson_bid,
             preview_mode=preview,
-        ) == (lesson.content, expected_model, expected_temperature)
+        )
+        assert script == lesson.content
+        assert agent_settings == settings
 
         info = get_follow_up_info_v2(app, shifu_bid, lesson_bid, "", is_preview=preview)
         assert info.ask_model == (ask_model or "fast")
