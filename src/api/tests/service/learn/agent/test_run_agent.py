@@ -26,6 +26,7 @@ from flaskr.service.learn.learn_dtos import GeneratedType
 USER = "user-bid"
 SHIFU = "shifu-bid"
 OUTLINE = "outline-bid"
+PROGRESS = "progress-record-bid"
 SCRIPT = "# Lesson\n\nSome content."
 
 
@@ -36,6 +37,15 @@ class _Session:
         self.started = started
         self.pending = pending or []
         self.user_memory: dict = {}
+        self.turn = 0
+        self.finished = False
+
+
+class _Record:
+    """Stands in for the locked progress record a turn writes under."""
+
+    def __init__(self) -> None:
+        self.status = 602
 
 
 class _Memory:
@@ -91,12 +101,23 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
         return True
 
     def _save(_app: object, _session: object, **kwargs: object) -> None:
+        stage = kwargs.pop("stage", None)
+        if stage is not None:
+            stage()
         recorded.append(("save_session", kwargs))
+
+    def _stage_block(**kwargs: object) -> object:
+        recorded.append(("stage_block", kwargs))
+        return object()
 
     monkeypatch.setattr(run_agent, "stage_memory", _stage)
     monkeypatch.setattr(run_agent, "save_agent_session", _save)
     monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: None)
     monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
+    monkeypatch.setattr(run_agent, "stage_turn_block", _stage_block)
+    monkeypatch.setattr(run_agent, "_progress_record_bid", lambda *_a, **_k: PROGRESS)
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", lambda _r: None)
     return recorded
 
 
@@ -287,7 +308,7 @@ def test_the_session_is_written_before_the_turn_says_it_is_over(calls: list) -> 
     """Otherwise the learner is told a turn succeeded that the next request will not find."""
     engine = _Engine([ContentDelta(text="a"), TurnDone(reason="finished")])
     events = _run(engine)
-    assert [name for name, _ in calls] == ["save_session"]
+    assert [name for name, _ in calls] == ["stage_block", "save_session"]
     assert events[-1].type == GeneratedType.DONE
 
 
@@ -300,7 +321,13 @@ def test_memory_is_staged_before_the_session_that_commits_it(calls: list) -> Non
         ]
     )
     _run(engine)
-    assert [name for name, _ in calls] == ["stage_memory", "save_session"]
+    # The block is staged inside the session's own transaction, so a turn's elements can never
+    # reference a block that landed without the session they belong to.
+    assert [name for name, _ in calls] == [
+        "stage_memory",
+        "stage_block",
+        "save_session",
+    ]
 
 
 def test_every_memory_write_of_a_turn_lands_in_one_patch(calls: list) -> None:
@@ -335,14 +362,18 @@ def test_a_failed_turn_still_writes_what_it_produced(calls: list) -> None:
         ]
     )
     events = _run(engine)
-    assert [name for name, _ in calls] == ["stage_memory", "save_session"]
+    assert [name for name, _ in calls] == [
+        "stage_memory",
+        "stage_block",
+        "save_session",
+    ]
     assert events == []
 
 
 def test_the_session_is_written_for_the_lesson_the_learner_is_on(calls: list) -> None:
     engine = _Engine([TurnDone(reason="end")])
     _run(engine)
-    (_name, kwargs) = calls[0]
+    kwargs = next(kw for name, kw in calls if name == "save_session")
     assert kwargs["user_bid"] == USER
     assert kwargs["shifu_bid"] == SHIFU
     assert kwargs["outline_item_bid"] == OUTLINE
@@ -468,3 +499,196 @@ def test_every_choice_of_a_multi_select_reaches_the_engine(calls: list) -> None:
     _run(engine, user_input={"topics": ["a", "b"]})
     assert engine.turns[0].values == ["a", "b"]
     assert calls
+
+
+# --- a lesson reset while the turn was running -------------------------------------------
+
+
+def test_a_turn_whose_lesson_was_reset_while_it_ran_writes_nothing(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """A first turn holds no session row, so the reset had nothing to clear.
+
+    Writing it afterwards would hand the learner back the conversation they had just cleared. The
+    check runs before anything is staged, because staged-and-abandoned memory would be committed
+    by whoever commits next.
+    """
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
+    engine = _Engine(
+        [
+            MemoryUpdated(key="name", value="Ada", scope="user"),
+            TurnDone(reason="finished"),
+        ]
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    _run(engine, app=_App())
+
+    assert calls == []
+
+
+def test_the_block_a_turn_records_is_the_one_its_elements_reference(
+    calls: list,
+) -> None:
+    """A different identifier here would leave every element of the turn orphaned."""
+    engine = _Engine([ContentDelta(text="a"), TurnDone(reason="end")])
+    events = _run(engine)
+
+    staged = next(kw for name, kw in calls if name == "stage_block")
+    assert staged["generated_block_bid"] == events[0].generated_block_bid
+    assert staged["progress_record_bid"] == PROGRESS
+    assert staged["user_bid"] == USER
+    assert staged["shifu_bid"] == SHIFU
+    assert staged["outline_bid"] == OUTLINE
+
+
+# --- a turn is written once -------------------------------------------------------------
+
+
+def test_an_error_followed_by_a_proper_ending_writes_the_turn_once(
+    calls: list,
+) -> None:
+    """The engine does exactly this when a pending question gets a blank answer.
+
+    It emits a retryable error, re-asks the question, and ends the turn properly. Treating the
+    error as terminal would write the turn twice and stage its block twice under one identifier.
+    """
+    engine = _Engine(
+        [
+            ErrorEvent(message="needs an answer", retryable=True),
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single", prompt="q", options=[Option(display="A")]
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    _run(engine)
+
+    assert [name for name, _ in calls].count("stage_block") == 1
+    assert [name for name, _ in calls].count("save_session") == 1
+
+
+def test_a_turn_that_only_fails_is_still_written(calls: list) -> None:
+    """The engine returns after a bare error for failures it cannot continue past.
+
+    What the turn produced still has to land, or the learner replays an exchange that happened.
+    """
+    engine = _Engine([ErrorEvent(message="boom")])
+    _run(engine)
+
+    assert [name for name, _ in calls].count("save_session") == 1
+
+
+def test_a_finished_lesson_is_marked_where_progress_is_read(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """Progress comes from the record's status, not from the session's own flag."""
+    marked: list[object] = []
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", marked.append)
+
+    session = _Session()
+    session.finished = True
+    engine = _Engine([TurnDone(reason="finished")], session=session)
+    _run(engine)
+
+    assert len(marked) == 1
+    assert calls
+
+
+def test_a_lesson_still_in_progress_is_not_marked_finished(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    marked: list[object] = []
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", marked.append)
+
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine)
+
+    assert marked == []
+    assert calls
+
+
+# --- previewing writes no learner progress -----------------------------------------------
+
+
+def test_previewing_a_lesson_writes_no_progress_for_the_learner(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """The author is the same person as the learner, with the same lesson identifier.
+
+    A progress record, a block or a completion written here would show up as a lesson they took.
+    """
+    resolved: list[bool] = []
+    monkeypatch.setattr(
+        run_agent,
+        "_progress_record_bid",
+        lambda *_a, **_k: resolved.append(True) or PROGRESS,
+    )
+
+    session = _Session()
+    session.finished = True
+    engine = _Engine([ContentDelta(text="draft"), TurnDone(reason="finished")], session)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+
+    assert resolved == []
+    assert [name for name, _ in calls] == ["save_session"]
+
+
+def test_previewing_still_stores_its_own_session(calls: list) -> None:
+    """Otherwise the preview would restart from the top on every turn."""
+    engine = _Engine([TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+
+    kwargs = next(kw for name, kw in calls if name == "save_session")
+    assert kwargs["preview_mode"] is True
+
+
+# --- what the turn taught ----------------------------------------------------------------
+
+
+def test_the_block_records_what_the_turn_taught(calls: list) -> None:
+    """The 1.0 run reads this column for the assistant's side when it builds model context.
+
+    It does not fall back to the element rows, so a course moving back off the allowlist would
+    otherwise resume with its own questions answered by silence.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="Hello "),
+            ContentDelta(text="world."),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+
+    staged = next(kw for name, kw in calls if name == "stage_block")
+    assert staged["content"] == "Hello world."
