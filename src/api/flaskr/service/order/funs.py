@@ -1766,6 +1766,8 @@ def sync_stripe_checkout_session(
 
         if not resolved_session_id:
             raise_error("server.order.orderNotFound")
+        if resolved_session_id != stripe_order.checkout_session_id:
+            raise_error("server.order.orderNotFound")
 
         provider = get_payment_provider("stripe")
         with _order_credential_scope(app, order):
@@ -1776,11 +1778,30 @@ def sync_stripe_checkout_session(
             )
         session = sync_result.provider_payload.get("checkout_session", {}) or {}
         intent = sync_result.provider_payload.get("payment_intent") or None
+        if not _stripe_provider_objects_match_attempt(
+            order=order,
+            stripe_order=stripe_order,
+            notification_order_bid=sync_result.order_bid,
+            session=session,
+            intent=intent,
+        ):
+            raise_error("server.order.orderNotFound")
+
+        paid = _is_stripe_payment_successful(session=session, intent=intent)
+        if paid:
+            already_completed = (
+                order.status == ORDER_STATUS_SUCCESS
+                and stripe_order.status == 1
+                and _stripe_attempt_matches_order(order, stripe_order)
+            )
+            if not already_completed and not _stripe_attempt_can_complete(
+                order, stripe_order
+            ):
+                raise_error("server.order.orderStatusError")
 
         _update_stripe_order_snapshot(
             stripe_order=stripe_order, session=session, intent=intent
         )
-        paid = _is_stripe_payment_successful(session=session, intent=intent)
 
         if paid and order.status != ORDER_STATUS_SUCCESS:
             success_buy_record(app, order.order_bid)
@@ -1885,7 +1906,7 @@ def _update_stripe_order_snapshot(
         stripe_order.checkout_session_object = _stringify_payload(session)
         payment_status = session.get("payment_status")
         status = session.get("status")
-        if payment_status == "paid" or status == "complete":
+        if payment_status == "paid":
             stripe_order.status = 1
         elif status == "expired":
             stripe_order.status = 3
@@ -1910,12 +1931,84 @@ def _update_stripe_order_snapshot(
 def _is_stripe_payment_successful(
     *, session: dict[str, object] | None, intent: dict[str, object] | None
 ) -> bool:
-    if session:
-        if session.get("payment_status") == "paid":
-            return True
-        if session.get("status") == "complete":
-            return True
+    if session and session.get("payment_status") == "paid":
+        return True
     return bool(intent and intent.get("status") == "succeeded")
+
+
+def _stripe_provider_objects_match_attempt(
+    *,
+    order: Order,
+    stripe_order: StripeOrder,
+    notification_order_bid: str,
+    session: dict[str, object] | None,
+    intent: dict[str, object] | None,
+) -> bool:
+    """Verify remote Stripe objects belong to the local payment attempt."""
+    session = session or {}
+    intent = intent or {}
+    session_metadata = session.get("metadata") or {}
+    intent_metadata = intent.get("metadata") or {}
+    if not isinstance(session_metadata, dict) or not isinstance(intent_metadata, dict):
+        return False
+    if notification_order_bid != order.order_bid:
+        return False
+    if session and session_metadata.get("order_bid") != order.order_bid:
+        return False
+    if intent and intent_metadata.get("order_bid") != order.order_bid:
+        return False
+
+    remote_session_id = str(session.get("id") or "")
+    if session and remote_session_id != str(stripe_order.checkout_session_id or ""):
+        return False
+    remote_intent_id = str(intent.get("id") or session.get("payment_intent") or "")
+    session_intent_id = str(session.get("payment_intent") or "")
+    if intent and session_intent_id and remote_intent_id != session_intent_id:
+        return False
+    local_intent_id = str(stripe_order.payment_intent_id or "")
+    if local_intent_id and remote_intent_id != local_intent_id:
+        return False
+
+    local_amount = int(stripe_order.amount or 0)
+    for payload, field in ((session, "amount_total"), (intent, "amount")):
+        if not payload or payload.get(field) in (None, ""):
+            continue
+        try:
+            if int(payload[field]) != local_amount:
+                return False
+        except (TypeError, ValueError):
+            return False
+    local_currency = str(stripe_order.currency or "").lower()
+    for payload in (session, intent):
+        remote_currency = str((payload or {}).get("currency") or "").lower()
+        if remote_currency and local_currency and remote_currency != local_currency:
+            return False
+    return True
+
+
+def _stripe_attempt_matches_order(order: Order, stripe_order: StripeOrder) -> bool:
+    """Check that an attempt is the current snapshot for the order amount."""
+    latest_attempt = (
+        legacy_stripe_snapshot_query()
+        .filter(StripeOrder.order_bid == order.order_bid)
+        .order_by(StripeOrder.id.desc())
+        .with_entities(StripeOrder.id)
+        .first()
+    )
+    latest_attempt_id = latest_attempt[0] if latest_attempt else None
+    amount_matches = decimal.Decimal(order.paid_price or 0) <= 0 or int(
+        stripe_order.amount or 0
+    ) == int(decimal.Decimal(order.paid_price) * 100)
+    return bool(stripe_order.id == latest_attempt_id and amount_matches)
+
+
+def _stripe_attempt_can_complete(order: Order, stripe_order: StripeOrder) -> bool:
+    """Apply the lifecycle gate shared by Stripe sync and webhooks."""
+    return bool(
+        stripe_order.status in {0, 4}
+        and _stripe_attempt_matches_order(order, stripe_order)
+        and order.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
+    )
 
 
 def _apply_native_snapshot_update(
@@ -2133,31 +2226,6 @@ def handle_stripe_webhook(
         response_status = "acknowledged"
         http_status = 202
 
-        if notification.charge_id:
-            stripe_order.latest_charge_id = notification.charge_id
-        payment_intent_id = data_object.get("payment_intent") or data_object.get("id")
-        if payment_intent_id and payment_intent_id.startswith("pi_"):
-            stripe_order.payment_intent_id = payment_intent_id
-        if metadata:
-            stripe_order.metadata_json = _stringify_payload(metadata)
-
-        if event_type == "checkout.session.completed":
-            stripe_order.checkout_session_id = data_object.get(
-                "id", stripe_order.checkout_session_id
-            )
-            stripe_order.checkout_session_object = _stringify_payload(data_object)
-
-        if event_type.startswith("payment_intent"):
-            stripe_order.payment_intent_object = _stringify_payload(data_object)
-            stripe_order.payment_method = data_object.get(
-                "payment_method", stripe_order.payment_method
-            )
-            charges = data_object.get("charges", {}).get("data", [])
-            if charges:
-                stripe_order.receipt_url = charges[0].get(
-                    "receipt_url", stripe_order.receipt_url
-                )
-
         success_events = {
             "payment_intent.succeeded",
             "checkout.session.completed",
@@ -2178,25 +2246,41 @@ def handle_stripe_webhook(
                 Order.order_bid == order_bid,
                 Order.deleted == 0,
             ).first()
-            latest_attempt_id = (
-                legacy_stripe_snapshot_query()
-                .filter(StripeOrder.order_bid == order_bid)
-                .order_by(StripeOrder.id.desc())
-                .with_entities(StripeOrder.id)
-                .first()
+            session = (
+                data_object if event_type == "checkout.session.completed" else None
             )
-            latest_attempt_id = latest_attempt_id[0] if latest_attempt_id else None
+            intent = data_object if event_type == "payment_intent.succeeded" else None
             if (
                 order
-                and stripe_order.status in {0, 4}
-                and stripe_order.id == latest_attempt_id
-                and (
-                    decimal.Decimal(order.paid_price or 0) <= 0
-                    or int(stripe_order.amount or 0)
-                    == int(decimal.Decimal(order.paid_price) * 100)
+                and _stripe_provider_objects_match_attempt(
+                    order=order,
+                    stripe_order=stripe_order,
+                    notification_order_bid=str(order_bid),
+                    session=session,
+                    intent=intent,
                 )
-                and order.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
+                and (
+                    event_type == "payment_intent.succeeded"
+                    or _is_stripe_payment_successful(session=session, intent=intent)
+                )
+                and _stripe_attempt_can_complete(order, stripe_order)
             ):
+                if notification.charge_id:
+                    stripe_order.latest_charge_id = notification.charge_id
+                if metadata:
+                    stripe_order.metadata_json = _stringify_payload(metadata)
+                if session:
+                    stripe_order.checkout_session_object = _stringify_payload(session)
+                if intent:
+                    stripe_order.payment_intent_object = _stringify_payload(intent)
+                    stripe_order.payment_method = intent.get(
+                        "payment_method", stripe_order.payment_method
+                    )
+                    charges = intent.get("charges", {}).get("data", [])
+                    if charges:
+                        stripe_order.receipt_url = charges[0].get(
+                            "receipt_url", stripe_order.receipt_url
+                        )
                 stripe_order.status = 1
                 success_buy_record(app, order_bid)
                 response_status = "paid"
@@ -2204,6 +2288,14 @@ def handle_stripe_webhook(
             else:
                 response_status = "ignored"
         elif event_type in fail_events:
+            if notification.charge_id:
+                stripe_order.latest_charge_id = notification.charge_id
+            payment_intent_id = data_object.get("id")
+            if payment_intent_id and payment_intent_id.startswith("pi_"):
+                stripe_order.payment_intent_id = payment_intent_id
+            if metadata:
+                stripe_order.metadata_json = _stringify_payload(metadata)
+            stripe_order.payment_intent_object = _stringify_payload(data_object)
             stripe_order.status = 4
             error_info = data_object.get("last_payment_error", {}) or {}
             stripe_order.failure_code = error_info.get("code", "")
