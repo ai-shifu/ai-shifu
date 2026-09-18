@@ -106,6 +106,39 @@ def mark_lesson_finished(record: LearnProgressRecord) -> None:
     record.status = LEARN_STATUS_COMPLETED
 
 
+def retire_unused_block(*, generated_block_bid: str) -> None:
+    """Drop a block the turn never filled in.
+
+    The block is created before the turn streams, because the element rows reference it while it
+    runs. A turn that dies before it finishes -- an engine error, a learner closing the page --
+    never records its text, and the row left behind is an empty assistant turn that the 1.0 run
+    would read as part of the conversation if the course moved back off the allowlist.
+
+    Only an untouched block is dropped: one that already has text belongs to a turn that finished.
+    """
+    block = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.generated_block_bid == generated_block_bid,
+        LearnGeneratedBlock.deleted == 0,
+    ).first()
+    if block is not None and not (block.generated_content or "").strip():
+        block.deleted = 1
+        block.status = 0
+
+
+def record_turn_content(*, generated_block_bid: str, content: str) -> None:
+    """Fill in what the turn taught, now that it is over.
+
+    The row itself is created before the turn streams, because the element rows reference it while
+    it runs. Its text is only known at the end.
+    """
+    block = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.generated_block_bid == generated_block_bid,
+        LearnGeneratedBlock.deleted == 0,
+    ).first()
+    if block is not None:
+        block.generated_content = content
+
+
 def stage_turn_block(
     *,
     user_bid: str,
@@ -122,10 +155,15 @@ def stage_turn_block(
     progress record to its blocks and admits the elements hanging off them. Without it the stream
     still reaches the learner and disappears on the next page load.
 
-    `content` is what the turn taught. The 1.0 run builds its model context from these rows and
-    reads this column for the assistant's side of the conversation -- it does not fall back to the
-    element rows. Leaving it empty would matter the moment a course moves back off the allowlist:
-    1.0 would resume the lesson seeing its own questions answered by silence.
+    Created before the turn streams, not after: the element pipeline resolves an element's
+    progress record by reading this row, so a block that appeared only at the end left every
+    element of the turn with an empty progress reference.
+
+    `content` is filled in by `record_turn_content` once the turn is over. The 1.0 run builds its
+    model context from these rows and reads that column for the assistant's side of the
+    conversation -- it does not fall back to the element rows. Leaving it empty would matter the
+    moment a course moves back off the allowlist: 1.0 would resume the lesson seeing its own
+    questions answered by silence.
     """
     block = LearnGeneratedBlock()
     block.progress_record_bid = progress_record_bid

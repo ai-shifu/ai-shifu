@@ -777,6 +777,10 @@ def _lesson_events(
                 shifu_bid,
                 outline_bid,
             )
+            # The adapter was built for the agent engine, which writes an element only once it is
+            # final. 1.0 relies on each update being written -- a mid-stream refresh reads the
+            # latest row -- so this run gets the adapter back the way 1.0 expects it.
+            element_adapter.persist_only_final = False
         else:
             return
 
@@ -852,11 +856,23 @@ def run_script(
     # Learner run SSE now always speaks the element protocol. The listen flag
     # still controls run-time behaviors such as segmented TTS generation.
     use_element_protocol = True
+    # Decided here as well as in `_lesson_events`, because the adapter is built before the
+    # producer starts and needs to know which engine it is serving. The predicate reads the
+    # deployment's allowlist and this request's own arguments, so asking twice costs nothing and
+    # cannot disagree.
+    teaches_with_agent = _teaches_with_agent(
+        shifu_bid=shifu_bid,
+        input_type=input_type,
+        listen=listen,
+        reload_generated_block_bid=reload_generated_block_bid,
+        reload_element_bid=reload_element_bid,
+    )
     element_adapter = ListenElementRunAdapter(
         app,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         user_bid=user_bid,
+        persist_only_final=teaches_with_agent,
     )
     stream_element_adapter = element_adapter
     if is_ask:
