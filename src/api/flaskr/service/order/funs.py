@@ -41,6 +41,7 @@ from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_REFUND,
+    ORDER_STATUS_REPRICING,
     ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_TO_BE_PAID,
@@ -954,22 +955,32 @@ def _resume_pending_charge(
 
 
 def cancel_pending_payment_for_repricing(
-    app: Flask, order_bid: str, *, expected_user: str
+    app: Flask,
+    order_bid: str,
+    *,
+    expected_user: str,
+    keep_repricing_claim: bool = False,
 ) -> bool:
     """Close the current provider attempt before a coupon changes its amount."""
-    with _app_context_scope(app):
-        order = Order.query.filter(
-            Order.order_bid == order_bid,
-            Order.user_bid == expected_user,
-            Order.deleted == 0,
-        ).first()
+    with _app_context_scope(app), unit_of_work():
+        order = (
+            Order.query.filter(
+                Order.order_bid == order_bid,
+                Order.user_bid == expected_user,
+                Order.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+        )
         if not order:
             raise_error("server.order.orderNotFound")
         if order.status == ORDER_STATUS_INIT:
             return False
-        if order.status != ORDER_STATUS_TO_BE_PAID:
+        if order.status not in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}:
             raise_error("server.order.orderStatusError")
-
+        order.status = ORDER_STATUS_REPRICING
+        order.updated_at = now_utc()
+        db.session.add(order)
         payment_channel = str(order.payment_channel or "pingxx").strip().lower()
         snapshots: list[PingxxOrder | StripeOrder | Any]
         if payment_channel == "pingxx":
@@ -998,55 +1009,50 @@ def cancel_pending_payment_for_repricing(
             raise_error("server.pay.payChannelNotSupport")
 
         if not snapshots:
-            with unit_of_work():
-                locked_order = (
-                    Order.query.filter(
-                        Order.order_bid == order_bid,
-                        Order.user_bid == expected_user,
-                        Order.deleted == 0,
-                    )
-                    .with_for_update()
-                    .first()
-                )
-                if not locked_order or locked_order.status != ORDER_STATUS_TO_BE_PAID:
-                    raise_error("server.order.orderStatusError")
-                locked_order.status = ORDER_STATUS_INIT
-                locked_order.updated_at = now_utc()
-                db.session.add(locked_order)
+            if not keep_repricing_claim:
+                order.status = ORDER_STATUS_INIT
             return False
         snapshot_ids = [snapshot.id for snapshot in snapshots]
-        with _order_credential_scope(app, order):
+        snapshot_model = snapshots[0].__class__
+        attempts: list[tuple[str, str]] = []
+        for snapshot in snapshots:
+            if payment_channel == "pingxx":
+                attempts.append((str(snapshot.charge_id or ""), "charge"))
+            elif payment_channel == "stripe" and snapshot.checkout_session_id:
+                attempts.append((str(snapshot.checkout_session_id), "checkout_session"))
+            elif payment_channel == "stripe":
+                attempts.append(
+                    (str(snapshot.payment_intent_id or ""), "payment_intent")
+                )
+            else:
+                attempts.append((str(snapshot.provider_attempt_id or ""), "trade"))
+        credential_order = Order(
+            creator_bid=str(order.creator_bid or ""),
+            payment_channel=str(order.payment_channel or ""),
+            payment_integration_bid=str(order.payment_integration_bid or ""),
+        )
+
+    try:
+        with _app_context_scope(app), _order_credential_scope(app, credential_order):
             provider = get_payment_provider(payment_channel)
-            for snapshot in snapshots:
-                if payment_channel == "pingxx":
-                    provider_reference = str(snapshot.charge_id or "")
-                    reference_type = "charge"
-                elif payment_channel == "stripe" and snapshot.checkout_session_id:
-                    provider_reference = str(snapshot.checkout_session_id)
-                    reference_type = "checkout_session"
-                elif payment_channel == "stripe":
-                    provider_reference = str(snapshot.payment_intent_id or "")
-                    reference_type = "payment_intent"
-                else:
-                    provider_reference = str(snapshot.provider_attempt_id or "")
-                    reference_type = "trade"
+            for provider_reference, reference_type in attempts:
                 if not provider_reference:
                     raise_error("server.order.orderStatusError")
-                try:
-                    provider.cancel_payment(
-                        provider_reference=provider_reference,
-                        reference_type=reference_type,
-                        app=app,
-                    )
-                except Exception:
-                    app.logger.exception(
-                        "Failed to close payment attempt before repricing order=%s provider=%s reference=%s",
-                        order_bid,
-                        payment_channel,
-                        provider_reference,
-                    )
-                    raise_error("server.order.orderStatusError")
+                provider.cancel_payment(
+                    provider_reference=provider_reference,
+                    reference_type=reference_type,
+                    app=app,
+                )
+    except Exception:
+        app.logger.exception(
+            "Failed to close payment attempts before repricing order=%s provider=%s",
+            order_bid,
+            payment_channel,
+        )
+        restore_repricing_order(app, order_bid, expected_user=expected_user)
+        raise_error("server.order.orderStatusError")
 
+    with _app_context_scope(app):
         with unit_of_work():
             locked_order = (
                 Order.query.filter(
@@ -1057,9 +1063,8 @@ def cancel_pending_payment_for_repricing(
                 .with_for_update()
                 .first()
             )
-            if not locked_order or locked_order.status != ORDER_STATUS_TO_BE_PAID:
+            if not locked_order or locked_order.status != ORDER_STATUS_REPRICING:
                 raise_error("server.order.orderStatusError")
-            snapshot_model = snapshots[0].__class__
             locked_snapshots = snapshot_model.query.filter(
                 snapshot_model.id.in_(snapshot_ids),
                 snapshot_model.status == 0,
@@ -1070,10 +1075,35 @@ def cancel_pending_payment_for_repricing(
                 locked_snapshot.status = 3
                 locked_snapshot.updated_at = now_utc()
                 db.session.add(locked_snapshot)
-            locked_order.status = ORDER_STATUS_INIT
-            locked_order.updated_at = now_utc()
-            db.session.add(locked_order)
+            if not keep_repricing_claim:
+                locked_order.status = ORDER_STATUS_INIT
+                locked_order.updated_at = now_utc()
+                db.session.add(locked_order)
         return True
+
+
+def restore_repricing_order(
+    app: Flask,
+    order_bid: str,
+    *,
+    expected_user: str,
+    target_status: int = ORDER_STATUS_TO_BE_PAID,
+) -> None:
+    """Return an interrupted repricing claim to its payable state."""
+    with _app_context_scope(app), unit_of_work():
+        order = (
+            Order.query.filter(
+                Order.order_bid == order_bid,
+                Order.user_bid == expected_user,
+                Order.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+        )
+        if order and order.status == ORDER_STATUS_REPRICING:
+            order.status = target_status
+            order.updated_at = now_utc()
+            db.session.add(order)
 
 
 def _order_credential_scope(

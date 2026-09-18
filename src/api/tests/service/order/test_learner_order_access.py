@@ -222,6 +222,19 @@ def test_coupon_closes_pending_attempt_before_repricing(
                     extra="{}",
                     charge_object='{"credential":{"wx_pub_qr":"https://pay.example/old"}}',
                 ),
+                PingxxOrder(
+                    pingxx_order_bid="coupon-second-pending-attempt",
+                    biz_domain="order",
+                    order_bid=order.order_bid,
+                    user_bid=order.user_bid,
+                    shifu_bid=order.shifu_bid,
+                    channel="wx_pub",
+                    amount=20000,
+                    status=0,
+                    charge_id="ch_coupon_second_pending",
+                    extra="{}",
+                    charge_object='{"credential":{"wx_pub":{"package":"prepay_id=test"}}}',
+                ),
                 Coupon(
                     coupon_bid="coupon-reprice-fixed",
                     code="REPRICE20",
@@ -246,7 +259,10 @@ def test_coupon_closes_pending_attempt_before_repricing(
         "coupon-reprices-pending-order",
     )
 
-    assert cancelled == [("ch_coupon_pending", "charge")]
+    assert cancelled == [
+        ("ch_coupon_second_pending", "charge"),
+        ("ch_coupon_pending", "charge"),
+    ]
     assert result is not None
     assert result.value_to_pay == "180.00"
     with app.app_context():
@@ -256,9 +272,13 @@ def test_coupon_closes_pending_attempt_before_repricing(
         stored_attempt = PingxxOrder.query.filter_by(
             pingxx_order_bid="coupon-pending-attempt"
         ).one()
+        second_attempt = PingxxOrder.query.filter_by(
+            pingxx_order_bid="coupon-second-pending-attempt"
+        ).one()
         assert stored_order.status == ORDER_STATUS_INIT
         assert stored_order.paid_price == Decimal("180.00")
         assert stored_attempt.status == 3
+        assert second_attempt.status == 3
 
 
 def test_invalid_coupon_keeps_pending_attempt_active(

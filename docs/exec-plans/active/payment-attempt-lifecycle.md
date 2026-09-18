@@ -17,12 +17,14 @@ current amount without leaving a paid learner stuck in an unpaid state.
   for multiple provider records and recoverable Stripe failures.
 - [x] 2026-09-18 13:05 CST: Matched reusable attempts to the requested provider,
   channel, and payment mode.
-- [ ] 2026-09-18 13:05 CST: Added a shared order lifecycle lock and close-all
-  behavior; add the dedicated MySQL concurrency regression before completion.
-- [ ] 2026-09-18 12:05 CST: Make provider cancellation and local recovery
-  idempotent after timeouts, already-closed responses, and commit failures.
-- [ ] 2026-09-18 12:05 CST: Add full HTTP, service, callback, and frontend
-  regressions, then run the repository verification gates.
+- [x] 2026-09-18 13:35 CST: Added a durable repricing state plus the shared
+  order lifecycle lock, and close every live old-price attempt before repricing.
+- [x] 2026-09-18 13:35 CST: Made Stripe cancellation recover from an already
+  expired or cancelled remote object and recover local state after failures.
+- [x] 2026-09-18 13:40 CST: Passed 137 order tests, 38 frontend payment tests,
+  TypeScript, Ruff, formatting, architecture, and unit-of-work checks.
+- [ ] 2026-09-18 13:40 CST: Complete real-environment payment smoke tests on
+  dev02 before marking the plan complete.
 
 ## Surprises & Discoveries
 
@@ -60,8 +62,13 @@ current amount without leaving a paid learner stuck in an unpaid state.
 
 ## Outcomes & Retrospective
 
-Work is in progress. This section will record the final behavior, verification,
-and remaining provider-environment limitations before the plan is completed.
+The implementation now selects reusable attempts by provider, sub-channel,
+mode, amount, and live state. Coupon repricing persists a claim before provider
+calls, closes every old-price attempt, and applies the discount before clearing
+the claim. Callback selection is deterministic with multiple attempts, Stripe
+recoverable failures may later succeed, and stale frontend refresh responses no
+longer overwrite a newer channel selection. Real-provider smoke testing remains
+before the plan can be completed.
 
 ## Context and Orientation
 

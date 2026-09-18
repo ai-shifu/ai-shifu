@@ -91,6 +91,35 @@ def test_stripe_cancellation_expires_checkout_session(monkeypatch: object) -> No
     assert result.status == "cancelled"
 
 
+def test_stripe_cancellation_recovers_when_session_is_already_expired(
+    monkeypatch: object,
+) -> None:
+    session = SimpleNamespace(
+        expire=lambda _session_id, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("already expired")
+        ),
+        retrieve=lambda session_id, **_kwargs: {
+            "id": session_id,
+            "status": "expired",
+        },
+    )
+    provider = StripeProvider()
+    monkeypatch.setattr(
+        provider,
+        "_client_options",
+        lambda _app: (SimpleNamespace(checkout=SimpleNamespace(Session=session)), {}),
+    )
+
+    result = provider.cancel_payment(
+        provider_reference="cs_expired",
+        reference_type="checkout_session",
+        app=SimpleNamespace(),
+    )
+
+    assert result.provider_reference == "cs_expired"
+    assert result.status == "cancelled"
+
+
 def test_alipay_cancellation_closes_trade(monkeypatch: object) -> None:
     class Model:
         out_trade_no = ""

@@ -9,13 +9,18 @@ from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common import raise_error
 from flaskr.service.common.pricing import calculate_percentage_amount
-from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.consts import (
+    ORDER_STATUS_INIT,
+    ORDER_STATUS_REPRICING,
+    ORDER_STATUS_TO_BE_PAID,
+)
 from flaskr.service.order.funs import (
     AICourseBuyRecordDTO,
     assign_free_order_payment_channel,
     cancel_pending_payment_for_repricing,
     payment_lifecycle_lock,
     query_buy_record,
+    restore_repricing_order,
     success_buy_record,
 )
 from flaskr.service.order.models import Order
@@ -167,7 +172,7 @@ def _validate_coupon_before_closing_payment(
             raise_error("server.order.orderNotFound")
         if order.status == ORDER_STATUS_INIT:
             return
-        if order.status != ORDER_STATUS_TO_BE_PAID:
+        if order.status not in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}:
             raise_error("server.order.orderStatusError")
         if CouponUsageModel.query.filter(
             CouponUsageModel.order_bid == order_id,
@@ -245,7 +250,16 @@ def use_coupon_code(
 
     """
     with payment_lifecycle_lock(str(order_id or "")):
-        return _use_coupon_code_locked(app, user_id, coupon_code, order_id)
+        try:
+            return _use_coupon_code_locked(app, user_id, coupon_code, order_id)
+        except Exception:
+            restore_repricing_order(
+                app,
+                str(order_id or ""),
+                expected_user=str(user_id or ""),
+                target_status=ORDER_STATUS_INIT,
+            )
+            raise
 
 
 def _use_coupon_code_locked(
@@ -254,7 +268,10 @@ def _use_coupon_code_locked(
     """Validate, cancel, and apply a coupon under the order lifecycle lock."""
     _validate_coupon_before_closing_payment(app, user_id, coupon_code, order_id)
     cancel_pending_payment_for_repricing(
-        app, str(order_id or ""), expected_user=str(user_id or "")
+        app,
+        str(order_id or ""),
+        expected_user=str(user_id or ""),
+        keep_repricing_claim=True,
     )
     with app_context_scope(app), unit_of_work():
         now = now_utc()
@@ -269,7 +286,7 @@ def _use_coupon_code_locked(
         )
         if not buy_record:
             raise_error("server.order.orderNotFound")
-        if buy_record.status != ORDER_STATUS_INIT:
+        if buy_record.status not in {ORDER_STATUS_INIT, ORDER_STATUS_REPRICING}:
             raise_error("server.order.orderStatusError")
         order_coupon_useage: CouponUsageModel = CouponUsageModel.query.filter(
             CouponUsageModel.order_bid == order_id,
@@ -382,6 +399,7 @@ def _use_coupon_code_locked(
             # Joins this unit of work: the coupon usage and the SUCCESS flip
             # commit together, and the order notification fires after that.
             return success_buy_record(app, buy_record.order_bid)
+        buy_record.status = ORDER_STATUS_INIT
         coupon_name = coupon.code
         coupon_value = coupon.value
         uow.on_commit(
