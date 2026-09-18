@@ -57,6 +57,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
 - [Learner Profile Dialog](./completed/learner-profile-dialog-redesign.md)
 - [Learner Profile Foundation](./completed/learner-profile-foundation.md)
+- [Recover legacy Stripe billing timeouts](./completed/legacy-stripe-billing-timeout-recovery.md)
 - [LiteLLM-First Minimum-Thinking Parameters](./completed/llm-provider-parameter-policies.md)
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
