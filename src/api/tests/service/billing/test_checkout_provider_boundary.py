@@ -38,7 +38,13 @@ def _committed_order(app: object, bill_order_bid: str) -> object:
         ).first()
 
 
-def _seed_pending_topup_order(app: object) -> tuple[str, str]:
+def _seed_pending_topup_order(
+    app: object,
+    *,
+    payment_provider: str = "pingxx",
+    channel: str = "alipay_qr",
+    provider_reference_id: str = "",
+) -> tuple[str, str]:
     bill_order_bid = f"checkout-boundary-{uuid.uuid4().hex[:12]}"
     product_bid = f"product-{uuid.uuid4().hex[:12]}"
     with app.app_context():
@@ -69,9 +75,9 @@ def _seed_pending_topup_order(app: object) -> tuple[str, str]:
                     currency="CNY",
                     payable_amount=100,
                     paid_amount=0,
-                    payment_provider="pingxx",
-                    channel="alipay_qr",
-                    provider_reference_id="",
+                    payment_provider=payment_provider,
+                    channel=channel,
+                    provider_reference_id=provider_reference_id,
                     status=BILLING_ORDER_STATUS_PENDING,
                     metadata_json={},
                 ),
@@ -87,6 +93,40 @@ def _install_provider(monkeypatch: object, create_payment: object) -> None:
         "get_payment_provider",
         lambda _name: SimpleNamespace(create_payment=create_payment),
     )
+
+
+def _install_sync_provider(
+    monkeypatch: object, provider_payload: dict[str, object]
+) -> None:
+    def sync_reference(
+        *, provider_reference: str, reference_type: str, app: object
+    ) -> object:
+        _ = (provider_reference, reference_type, app)
+        return SimpleNamespace(provider_payload=provider_payload)
+
+    monkeypatch.setattr(
+        checkout,
+        "get_payment_provider",
+        lambda _name: SimpleNamespace(sync_reference=sync_reference),
+    )
+
+
+def _seed_expired_stripe_checkout_order(app: object, session_id: str) -> str:
+    from datetime import timedelta
+
+    from flaskr.util.datetime import now_utc
+
+    bill_order_bid, _product_bid = _seed_pending_topup_order(
+        app,
+        payment_provider="stripe",
+        channel="checkout_session",
+        provider_reference_id=session_id,
+    )
+    with app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+        order.expires_at = now_utc() - timedelta(minutes=5)
+        dao.db.session.commit()
+    return bill_order_bid
 
 
 def test_the_order_is_committed_before_the_provider_is_called(
@@ -273,3 +313,99 @@ def test_an_expired_topup_leaves_pending_after_a_sync(app: object) -> None:
 
     persisted = _committed_order(app, bill_order_bid)
     assert persisted.status == BILLING_ORDER_STATUS_TIMEOUT
+
+
+def test_an_abandoned_stripe_checkout_times_out(
+    app: object, monkeypatch: object
+) -> None:
+    """A checkout the buyer never opened must still reach a terminal state.
+
+    Stripe creates no PaymentIntent until the buyer starts paying, so the
+    timeout scan reads a session that carries no metadata at all. That is
+    absence of payment, not evidence of a mismatched order, and it must not
+    stop the order from expiring.
+    """
+    from flaskr.service.billing.consts import BILLING_ORDER_STATUS_TIMEOUT
+
+    session_id = "cs_test_abandoned_checkout"
+    bill_order_bid = _seed_expired_stripe_checkout_order(app, session_id)
+    _install_sync_provider(
+        monkeypatch,
+        {
+            "checkout_session": {
+                "id": session_id,
+                "status": "open",
+                "payment_status": "unpaid",
+                "metadata": {},
+                "payment_intent": None,
+            },
+            "payment_intent": {},
+        },
+    )
+
+    checkout.sync_billing_order(app, _CREATOR, bill_order_bid, {})
+
+    persisted = _committed_order(app, bill_order_bid)
+    assert persisted.status == BILLING_ORDER_STATUS_TIMEOUT
+
+
+def test_a_paid_stripe_checkout_without_evidence_is_refused(
+    app: object, monkeypatch: object
+) -> None:
+    """A session that claims to be paid must still prove whose order it is."""
+    from flaskr.service.common.models import AppError
+
+    session_id = "cs_test_paid_without_evidence"
+    bill_order_bid = _seed_expired_stripe_checkout_order(app, session_id)
+    _install_sync_provider(
+        monkeypatch,
+        {
+            "checkout_session": {
+                "id": session_id,
+                "status": "complete",
+                "payment_status": "paid",
+                "metadata": {},
+                "payment_intent": "pi_paid_without_evidence",
+            },
+            "payment_intent": {
+                "id": "pi_paid_without_evidence",
+                "status": "succeeded",
+                "metadata": {},
+            },
+        },
+    )
+
+    with pytest.raises(AppError):
+        checkout.sync_billing_order(app, _CREATOR, bill_order_bid, {})
+
+    persisted = _committed_order(app, bill_order_bid)
+    assert persisted.status == BILLING_ORDER_STATUS_PENDING
+
+
+def test_a_stripe_checkout_belonging_to_another_order_is_refused(
+    app: object, monkeypatch: object
+) -> None:
+    """Metadata that names a different order is a mismatch, not absence."""
+    from flaskr.service.common.models import AppError
+
+    session_id = "cs_test_foreign_metadata"
+    bill_order_bid = _seed_expired_stripe_checkout_order(app, session_id)
+    _install_sync_provider(
+        monkeypatch,
+        {
+            "checkout_session": {
+                "id": session_id,
+                "status": "open",
+                "payment_status": "unpaid",
+                "metadata": {"bill_order_bid": "some-other-order"},
+                "payment_intent": None,
+            },
+            "payment_intent": {},
+        },
+    )
+
+    with pytest.raises(AppError):
+        checkout.sync_billing_order(app, _CREATOR, bill_order_bid, {})
+
+    persisted = _committed_order(app, bill_order_bid)
+    assert persisted.status == BILLING_ORDER_STATUS_PENDING
