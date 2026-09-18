@@ -1143,7 +1143,7 @@ describe('learner payment modal analytics producers', () => {
     );
     await waitFor(() => {
       expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
-      expect(mockRefreshPayment).toHaveBeenCalled();
+      expect(mockRefreshPayment).not.toHaveBeenCalled();
     });
 
     mockRefreshPayment.mockResolvedValueOnce(null);
@@ -1157,7 +1157,7 @@ describe('learner payment modal analytics producers', () => {
     fireEvent.click(screen.getByText('module.pay.clickRefresh'));
 
     await waitFor(() => {
-      expect(mockRefreshPayment).toHaveBeenCalledTimes(2);
+      expect(mockRefreshPayment).toHaveBeenCalledTimes(1);
     });
     expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
   });
@@ -1188,6 +1188,39 @@ describe('learner payment modal analytics producers', () => {
     );
     expect(JSON.stringify(eventCalls('learner_coupon_apply'))).not.toContain(
       'desktop-sensitive-coupon',
+    );
+  });
+
+  it('applies a desktop coupon before creating the provider payment', async () => {
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      orderId: '',
+      paymentInfo: {
+        channel: '',
+        qrUrl: '',
+        paymentPayload: {},
+      },
+    };
+
+    render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    await waitFor(() => expect(mockInitializeOrder).toHaveBeenCalledTimes(1));
+    expect(mockRefreshPayment).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('module.groupon.useOtherPayment'));
+    fireEvent.click(screen.getByTestId('desktop-coupon-submit'));
+    await waitFor(() => expect(mockApplyCoupon).toHaveBeenCalledTimes(1));
+    expect(mockRefreshPayment).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('module.pay.pay'));
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalledTimes(1));
+    expect(mockApplyCoupon.mock.invocationCallOrder[0]).toBeLessThan(
+      mockRefreshPayment.mock.invocationCallOrder[0],
     );
   });
 
@@ -1571,7 +1604,7 @@ describe('learner payment modal analytics producers', () => {
     fireEvent.click(screen.getByText('module.pay.pay'));
 
     await waitFor(() => {
-      expect(mockRefreshPayment).toHaveBeenCalledTimes(2);
+      expect(mockRefreshPayment).toHaveBeenCalledTimes(1);
     });
     expect(eventCalls('learner_payment_attempt')).toHaveLength(0);
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
