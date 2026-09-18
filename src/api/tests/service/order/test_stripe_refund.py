@@ -141,7 +141,7 @@ def test_refund_order_payment_updates_status(app: object, monkeypatch: object) -
         assert billing_snapshot.status == 0
 
 
-def test_get_payment_details_returns_stripe_payload(app: object) -> None:
+def test_get_payment_details_returns_minimal_stripe_payload(app: object) -> None:
     with app.app_context():
         order_bid = "order-details-1"
         order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
@@ -191,8 +191,10 @@ def test_get_payment_details_returns_stripe_payload(app: object) -> None:
         )
         db.session.commit()
 
-    details = get_payment_details(app, order_bid)
-    assert details["payment_channel"] == "stripe"
-    assert details["payment_intent_id"] == "pi_test"
-    assert details["checkout_session_id"] == "cs_test"
-    assert details["metadata"] == {}
+    details = get_payment_details(app, order_bid, expected_user="user-1")
+    assert details == {
+        "payment_channel": "stripe",
+        "course_id": "shifu-1",
+        "order_bid": order_bid,
+        "status": 1,
+    }

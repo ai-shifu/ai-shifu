@@ -557,6 +557,7 @@ def generate_charge(
     channel: str,
     client_ip: str,
     payment_channel: str | None = None,
+    expected_user: str | None = None,
 ) -> BuyRecordDTO:
     """Generate charge."""
     with _app_context_scope(app), unit_of_work():
@@ -565,9 +566,14 @@ def generate_charge(
         buy_record: Order = Order.query.filter(
             Order.order_bid == record_id,
             Order.status != ORDER_STATUS_TIMEOUT,
+            Order.deleted == 0,
         ).first()
         if not buy_record:
             raise_error("server.order.orderNotFound")
+        if expected_user and buy_record.user_bid != expected_user:
+            raise_error("server.order.orderNotFound")
+        if buy_record.status == ORDER_STATUS_REFUND:
+            raise_error("server.order.orderStatusError")
         creator_bid = get_shifu_creator_bid(app, buy_record.shifu_bid) or ""
         set_shifu_context(buy_record.shifu_bid, creator_bid)
         buy_record.creator_bid = creator_bid
@@ -1783,13 +1789,20 @@ def refund_order_payment(
     }
 
 
-def get_payment_details(app: Flask, order_bid: str) -> dict[str, object]:
+def get_payment_details(
+    app: Flask, order_bid: str, expected_user: str | None = None
+) -> dict[str, object]:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
     """Return payment details."""
     with _app_context_scope(app):
-        order = Order.query.filter(Order.order_bid == order_bid).first()
+        order = Order.query.filter(
+            Order.order_bid == order_bid,
+            Order.deleted == 0,
+        ).first()
         if not order:
+            raise_error("server.order.orderNotFound")
+        if expected_user and order.user_bid != expected_user:
             raise_error("server.order.orderNotFound")
 
         payment_channel = order.payment_channel or "pingxx"
@@ -1806,19 +1819,7 @@ def get_payment_details(app: Flask, order_bid: str) -> dict[str, object]:
                 "payment_channel": "stripe",
                 "course_id": order.shifu_bid,
                 "order_bid": order_bid,
-                "payment_intent_id": stripe_order.payment_intent_id,
-                "checkout_session_id": stripe_order.checkout_session_id,
-                "latest_charge_id": stripe_order.latest_charge_id,
                 "status": stripe_order.status,
-                "receipt_url": stripe_order.receipt_url,
-                "payment_method": stripe_order.payment_method,
-                "metadata": _parse_json_payload(stripe_order.metadata_json),
-                "payment_intent_object": _parse_json_payload(
-                    stripe_order.payment_intent_object
-                ),
-                "checkout_session_object": _parse_json_payload(
-                    stripe_order.checkout_session_object
-                ),
             }
 
         if payment_channel in {"alipay", "wechatpay"}:
@@ -1837,17 +1838,7 @@ def get_payment_details(app: Flask, order_bid: str) -> dict[str, object]:
                 "payment_channel": payment_channel,
                 "course_id": order.shifu_bid,
                 "order_bid": order_bid,
-                "provider_attempt_id": native_order.provider_attempt_id,
-                "transaction_id": native_order.transaction_id,
                 "status": native_order.status,
-                "raw_status": native_order.raw_status,
-                "amount": native_order.amount,
-                "currency": native_order.currency,
-                "channel": native_order.channel,
-                "metadata": _parse_json_payload(native_order.metadata_json),
-                "raw_request": _parse_json_payload(native_order.raw_request),
-                "raw_response": _parse_json_payload(native_order.raw_response),
-                "raw_notification": _parse_json_payload(native_order.raw_notification),
             }
 
         pingxx_order = (
@@ -1862,14 +1853,7 @@ def get_payment_details(app: Flask, order_bid: str) -> dict[str, object]:
             "payment_channel": "pingxx",
             "course_id": order.shifu_bid,
             "order_bid": order_bid,
-            "charge_id": pingxx_order.charge_id,
-            "transaction_no": pingxx_order.transaction_no,
             "status": pingxx_order.status,
-            "amount": pingxx_order.amount,
-            "currency": pingxx_order.currency,
-            "channel": pingxx_order.channel,
-            "extra": pingxx_order.extra,
-            "charge_object": pingxx_order.charge_object,
         }
 
 
@@ -2205,13 +2189,20 @@ def calculate_discount_value(
     return DiscountInfo(discount_value, items)
 
 
-def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
+def query_buy_record(
+    app: Flask, record_id: str, expected_user: str | None = None
+) -> AICourseBuyRecordDTO:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
     """Query buy record."""
     with _app_context_scope(app):
         app.logger.info('query buy record:"%s"', record_id)
-        buy_record: Order = Order.query.filter(Order.order_bid == record_id).first()
+        buy_record: Order = Order.query.filter(
+            Order.order_bid == record_id,
+            Order.deleted == 0,
+        ).first()
+        if buy_record and expected_user and buy_record.user_bid != expected_user:
+            raise_error("server.order.orderNotFound")
         if buy_record:
             item = []
             item.append(
