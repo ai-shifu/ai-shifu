@@ -44,7 +44,6 @@
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live Voice Follow-Up | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-tts.md` | Gemini TTS Provider | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/learner-listen-playback-stability.md` | Learner listen playback stability | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/legacy-stripe-billing-timeout-recovery.md` | Recover legacy Stripe billing timeouts | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -73,6 +72,7 @@
 | `docs/exec-plans/completed/learn-run-decomposition.md` | ExecPlan: Learn /run Chain Decomposition (B6) | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-dialog-redesign.md` | Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-foundation.md` | Learner Profile Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/legacy-stripe-billing-timeout-recovery.md` | Recover legacy Stripe billing timeouts | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/llm-provider-parameter-policies.md` | LiteLLM-First Minimum-Thinking Parameters | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/markdown-flow-agent-memory-migration.md` | Expose Learner Memory through a Typed Host Facade | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/markdown-flow-scroll-controls.md` | MarkdownFlow Scroll Controls | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
