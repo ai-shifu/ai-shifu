@@ -811,7 +811,7 @@ def _teaches_with_agent(
 ) -> bool:
     """Whether this particular request goes to the 2.0 engine.
 
-    Being on the allowlist is necessary but not sufficient. Three kinds of request keep the 1.0
+    Being on the allowlist is necessary but not sufficient. Two kinds of request keep the 1.0
     path even for an allowlisted course, because 2.0 has no equivalent of them yet:
 
     * a follow-up question, which runs beside the lesson under its own semaphore rather than

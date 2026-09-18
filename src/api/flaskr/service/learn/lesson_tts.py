@@ -117,6 +117,7 @@ def create_tts_processor(
                 max_segment_chars=int(max_segment_chars),
                 tts_provider=validated.provider,
                 tts_model=validated.model,
+                learning_mode=learning_mode,
             )
         return create_streaming_tts_processor(
             app=app,

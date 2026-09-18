@@ -144,3 +144,39 @@ def test_a_failure_while_finishing_is_also_survivable(
     list(voice.speak("a"))
 
     assert list(voice.finish()) == []
+
+
+def test_the_voice_asks_for_the_processor_that_carries_the_slides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without this flag the audio arrives with no AV contract.
+
+    The element adapter has nothing else to rebuild visual boundaries from for a 2.0 turn, so the
+    learner would hear the lesson against one unchanging block of text -- a regression that looks
+    like nothing at all in the other tests here, since they patch the factory away.
+    """
+    asked: dict = {}
+
+    def _factory(_app: object, **kwargs: object) -> object:
+        asked.update(kwargs)
+        return _Processor()
+
+    monkeypatch.setattr(listen, "create_tts_processor", _factory)
+    voice = listen.LessonVoice(
+        _App(),
+        shifu_model=object,
+        shifu_bid="shifu-bid",
+        outline_bid="outline-bid",
+        progress_record_bid="progress-bid",
+        user_bid="user-bid",
+        generated_block_bid="block-bid",
+    )
+
+    list(voice.speak("text"))
+
+    assert asked["derive_visuals_from_text"] is True
+    # Usage is recorded by the processor, and a listening lesson billed without this reads as a
+    # reading one.
+    assert asked["learning_mode"] == "listen"
+    assert asked["generated_block_bid"] == "block-bid"
+    assert asked["progress_record_bid"] == "progress-bid"
