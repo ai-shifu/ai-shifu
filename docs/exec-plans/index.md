@@ -70,6 +70,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Localize profile-onboarding assistant prompts for every supported language](./completed/profile-onboarding-multilingual-assistant-prompts.md)
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
+- [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Safe Frontend Dead Code Cleanup](./completed/safe-frontend-dead-code-cleanup.md)
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)

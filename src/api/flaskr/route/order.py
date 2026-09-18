@@ -171,6 +171,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         channel = payload.get("channel", "")
         payment_channel = payload.get("payment_channel")
         client_ip = request.client_ip
+        user_id = request.user.user_id
         return make_common_response(
             generate_charge(
                 app,
@@ -178,6 +179,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
                 channel,
                 client_ip,
                 payment_channel=payment_channel,
+                expected_user=user_id,
             )
         )
 
@@ -255,7 +257,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
                                     $ref: "#/components/schemas/AICourseBuyRecordDTO"
         """
         order_id = request.get_json().get("order_id", "")
-        return make_common_response(query_buy_record(app, order_id))
+        user_id = request.user.user_id
+        return make_common_response(
+            query_buy_record(app, order_id, expected_user=user_id)
+        )
 
     @app.route(path_prefix + "/apply-discount", methods=["POST"])
     def apply_discount() -> str:
@@ -338,7 +343,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         order_id = request.get_json().get("order_id", "")
         if not order_id:
             raise_param_error("order_id")
-        return make_common_response(get_payment_details(app, order_id))
+        user_id = request.user.user_id
+        return make_common_response(
+            get_payment_details(app, order_id, expected_user=user_id)
+        )
 
     @app.route(path_prefix + "/stripe/sync", methods=["POST"])
     def stripe_sync() -> str:
