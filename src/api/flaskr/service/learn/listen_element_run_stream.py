@@ -383,7 +383,14 @@ class ListenElementRunStreamMixin:
         audio: ElementAudioDTO | None = None,
         audio_segments: list[dict[str, object]] | None = None,
     ) -> RunElementSSEMessageDTO:
-        return self._element_message(
+        # `_stream_only_element_message` sends the update without writing a row. The final one is
+        # always written: it is what every read path returns.
+        send = (
+            self._stream_only_element_message
+            if getattr(self, "persist_only_final", False) and not is_final
+            else self._element_message
+        )
+        return send(
             self._build_stream_element(
                 state=state,
                 role=role,

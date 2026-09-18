@@ -106,16 +106,15 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
             stage()
         recorded.append(("save_session", kwargs))
 
-    def _stage_block(**kwargs: object) -> object:
-        recorded.append(("stage_block", kwargs))
-        return object()
+    def _record_content(**kwargs: object) -> None:
+        recorded.append(("record_content", kwargs))
 
     monkeypatch.setattr(run_agent, "stage_memory", _stage)
     monkeypatch.setattr(run_agent, "save_agent_session", _save)
     monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: None)
     monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
-    monkeypatch.setattr(run_agent, "stage_turn_block", _stage_block)
-    monkeypatch.setattr(run_agent, "_progress_record_bid", lambda *_a, **_k: PROGRESS)
+    monkeypatch.setattr(run_agent, "record_turn_content", _record_content)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: PROGRESS)
     monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
     monkeypatch.setattr(run_agent, "mark_lesson_finished", lambda _r: None)
     return recorded
@@ -308,7 +307,7 @@ def test_the_session_is_written_before_the_turn_says_it_is_over(calls: list) -> 
     """Otherwise the learner is told a turn succeeded that the next request will not find."""
     engine = _Engine([ContentDelta(text="a"), TurnDone(reason="finished")])
     events = _run(engine)
-    assert [name for name, _ in calls] == ["stage_block", "save_session"]
+    assert [name for name, _ in calls] == ["record_content", "save_session"]
     assert events[-1].type == GeneratedType.DONE
 
 
@@ -325,7 +324,7 @@ def test_memory_is_staged_before_the_session_that_commits_it(calls: list) -> Non
     # reference a block that landed without the session they belong to.
     assert [name for name, _ in calls] == [
         "stage_memory",
-        "stage_block",
+        "record_content",
         "save_session",
     ]
 
@@ -364,7 +363,7 @@ def test_a_failed_turn_still_writes_what_it_produced(calls: list) -> None:
     events = _run(engine)
     assert [name for name, _ in calls] == [
         "stage_memory",
-        "stage_block",
+        "record_content",
         "save_session",
     ]
     assert events == []
@@ -538,12 +537,8 @@ def test_the_block_a_turn_records_is_the_one_its_elements_reference(
     engine = _Engine([ContentDelta(text="a"), TurnDone(reason="end")])
     events = _run(engine)
 
-    staged = next(kw for name, kw in calls if name == "stage_block")
+    staged = next(kw for name, kw in calls if name == "record_content")
     assert staged["generated_block_bid"] == events[0].generated_block_bid
-    assert staged["progress_record_bid"] == PROGRESS
-    assert staged["user_bid"] == USER
-    assert staged["shifu_bid"] == SHIFU
-    assert staged["outline_bid"] == OUTLINE
 
 
 # --- a turn is written once -------------------------------------------------------------
@@ -571,7 +566,7 @@ def test_an_error_followed_by_a_proper_ending_writes_the_turn_once(
     )
     _run(engine)
 
-    assert [name for name, _ in calls].count("stage_block") == 1
+    assert [name for name, _ in calls].count("record_content") == 1
     assert [name for name, _ in calls].count("save_session") == 1
 
 
@@ -627,9 +622,7 @@ def test_previewing_a_lesson_writes_no_progress_for_the_learner(
     """
     resolved: list[bool] = []
     monkeypatch.setattr(
-        run_agent,
-        "_progress_record_bid",
-        lambda *_a, **_k: resolved.append(True) or PROGRESS,
+        run_agent, "_open_turn", lambda *_a, **_k: resolved.append(True) or PROGRESS
     )
 
     session = _Session()
@@ -690,5 +683,5 @@ def test_the_block_records_what_the_turn_taught(calls: list) -> None:
     )
     _run(engine)
 
-    staged = next(kw for name, kw in calls if name == "stage_block")
+    staged = next(kw for name, kw in calls if name == "record_content")
     assert staged["content"] == "Hello world."

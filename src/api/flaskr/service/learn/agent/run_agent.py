@@ -46,6 +46,7 @@ from flaskr.service.learn.agent.lesson_record import (
     active_progress_record,
     claim_for_writing,
     mark_lesson_finished,
+    record_turn_content,
     stage_turn_block,
 )
 from flaskr.service.learn.agent.session_store import (
@@ -91,18 +92,34 @@ def learner_values(user_input: str | dict | None) -> list[str]:
     return [value for value in values if value.strip()]
 
 
-def _progress_record_bid(
-    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
+def _open_turn(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    generated_block_bid: str,
+    position: int,
 ) -> str:
-    """Settle which progress record this turn belongs to, creating one if the lesson is new.
+    """Settle where this turn's rows belong, before any of them are written.
 
-    Committed here rather than with the turn: the element rows the stream writes reference it
-    while the turn is still running, so it has to exist before the first event goes out.
+    Committed here rather than with the turn, because the element rows the stream writes reference
+    both of these while the turn is still running: the progress record is what history retrieval
+    starts from, and the block is what the element pipeline reads that record off.
     """
     with app_context_scope(app), unit_of_work():
-        return active_progress_record(
+        record = active_progress_record(
             app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
-        ).progress_record_bid
+        )
+        stage_turn_block(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=record.progress_record_bid,
+            generated_block_bid=generated_block_bid,
+            position=position,
+        )
+        return record.progress_record_bid
 
 
 def _turn_input(session: Session, values: list[str]) -> TurnInput:
@@ -217,8 +234,13 @@ def run_agent_lesson(
     progress_record_bid = (
         ""
         if preview_mode
-        else _progress_record_bid(
-            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        else _open_turn(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+            position=0,
         )
     )
     session_holder: dict[str, Session] = {}
@@ -263,7 +285,6 @@ def run_agent_lesson(
                     preview_mode=preview_mode,
                     progress_record_bid=progress_record_bid,
                     generated_block_bid=generated_block_bid,
-                    turn_index=session.turn,
                     taught="".join(taught),
                 )
                 pending_memory = []
@@ -308,7 +329,6 @@ def run_agent_lesson(
             preview_mode=preview_mode,
             progress_record_bid=progress_record_bid,
             generated_block_bid=generated_block_bid,
-            turn_index=session.turn,
             taught="".join(taught),
         )
 
@@ -328,7 +348,6 @@ def _persist(
     preview_mode: bool,
     progress_record_bid: str,
     generated_block_bid: str,
-    turn_index: int,
     taught: str,
 ) -> None:
     """Write what the turn produced, memory first so it commits with the session.
@@ -378,15 +397,7 @@ def _persist(
                 ),
             )
         if record is not None:
-            stage_turn_block(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                progress_record_bid=progress_record_bid,
-                generated_block_bid=generated_block_bid,
-                position=turn_index,
-                content=taught,
-            )
+            record_turn_content(generated_block_bid=generated_block_bid, content=taught)
             if session.finished:
                 mark_lesson_finished(record)
 
