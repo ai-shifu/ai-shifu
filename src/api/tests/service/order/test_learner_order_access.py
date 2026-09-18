@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from decimal import Decimal
+from threading import Event
 from types import SimpleNamespace
 
 import pytest
@@ -10,12 +11,15 @@ from flaskr.service.common.models import AppError
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_REFUND,
+    ORDER_STATUS_REPRICING,
     ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_TO_BE_PAID,
 )
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.order.funs import (
+    _assert_payment_lifecycle_lock_owned,
+    _payment_lock_ownership_events,
     _resume_pending_charge,
     cancel_pending_payment_for_repricing,
     generate_charge,
@@ -443,6 +447,41 @@ def test_invalid_coupon_keeps_pending_attempt_active(
             .status
             == 0
         )
+
+
+def test_invalid_coupon_does_not_clear_an_inherited_repricing_claim(
+    app: object,
+) -> None:
+    with app.app_context():
+        _seed_order(
+            order_bid="inherited-repricing-order",
+            status=ORDER_STATUS_REPRICING,
+        )
+
+    with pytest.raises(AppError, match="voucher code does not exist"):
+        use_coupon_code(
+            app,
+            "owner-user",
+            "DOES-NOT-EXIST",
+            "inherited-repricing-order",
+        )
+
+    with app.app_context():
+        assert (
+            Order.query.filter_by(order_bid="inherited-repricing-order").one().status
+            == ORDER_STATUS_REPRICING
+        )
+
+
+def test_payment_provider_work_stops_after_lifecycle_lock_ownership_is_lost() -> None:
+    ownership_lost = Event()
+    ownership_lost.set()
+    token = _payment_lock_ownership_events.set((ownership_lost,))
+    try:
+        with pytest.raises(AppError):
+            _assert_payment_lifecycle_lock_owned()
+    finally:
+        _payment_lock_ownership_events.reset(token)
 
 
 @pytest.mark.parametrize(

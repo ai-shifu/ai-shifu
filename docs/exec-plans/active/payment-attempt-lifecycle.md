@@ -29,6 +29,9 @@ current amount without leaving a paid learner stuck in an unpaid state.
 - [x] 2026-09-18 15:10 CST: Added lease renewal to the order lifecycle lock,
   serialized redemption of the same coupon across orders, and added focused
   cancellation and out-of-order callback regressions.
+- [x] 2026-09-18 16:20 CST: Prevented invalid coupon retries from clearing an
+  inherited repricing claim and stopped new provider side effects after lock
+  renewal loses ownership; all 147 order tests pass.
 - [ ] 2026-09-18 13:40 CST: Complete real-environment payment smoke tests on
   dev02 before marking the plan complete.
 

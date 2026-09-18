@@ -8,6 +8,7 @@ import re
 import threading
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext, suppress
+from contextvars import ContextVar
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -583,6 +584,16 @@ def generate_charge(
         )
 
 
+_payment_lock_ownership_events: ContextVar[tuple[threading.Event, ...]] = ContextVar(
+    "payment_lock_ownership_events", default=()
+)
+
+
+def _assert_payment_lifecycle_lock_owned() -> None:
+    if any(event.is_set() for event in _payment_lock_ownership_events.get()):
+        raise_error("server.order.orderStatusError")
+
+
 @contextmanager
 def payment_lifecycle_lock(order_bid: str) -> Iterator[None]:
     """Serialize external provider work that belongs to one business order."""
@@ -596,6 +607,9 @@ def payment_lifecycle_lock(order_bid: str) -> Iterator[None]:
         raise_error("server.order.orderStatusError")
     stop_renewal = threading.Event()
     ownership_lost = threading.Event()
+    ownership_token = _payment_lock_ownership_events.set(
+        (*_payment_lock_ownership_events.get(), ownership_lost)
+    )
 
     def renew_lease() -> None:
         while not stop_renewal.wait(20):
@@ -618,8 +632,11 @@ def payment_lifecycle_lock(order_bid: str) -> Iterator[None]:
             lock.release()
         except Exception:
             ownership_lost.set()
-        if ownership_lost.is_set():
-            raise_error("server.order.orderStatusError")
+        try:
+            if ownership_lost.is_set():
+                raise_error("server.order.orderStatusError")
+        finally:
+            _payment_lock_ownership_events.reset(ownership_token)
 
 
 def _resume_or_close_pending_charge(
@@ -1063,6 +1080,7 @@ def cancel_pending_payment_for_repricing(
         with _app_context_scope(app), _order_credential_scope(app, credential_order):
             provider = get_payment_provider(payment_channel)
             for provider_reference, reference_type in attempts:
+                _assert_payment_lifecycle_lock_owned()
                 if not provider_reference:
                     raise_error("server.order.orderStatusError")
                 cancellation = provider.cancel_payment(
@@ -1320,6 +1338,7 @@ def _generate_pingxx_charge(
         client_ip=client_ip,
         extra=provider_options,
     )
+    _assert_payment_lifecycle_lock_owned()
     result = provider.create_payment(request=payment_request, app=app)
     charge = result.raw_response
     credential = charge.get("credential", {}) or {}
@@ -1423,6 +1442,7 @@ def _generate_stripe_charge(
         client_ip=client_ip,
         extra=provider_options,
     )
+    _assert_payment_lifecycle_lock_owned()
     result = provider.create_payment(request=payment_request, app=app)
 
     stripe_order = StripeOrder()
@@ -1527,6 +1547,7 @@ def _generate_alipay_charge(
             }
         },
     )
+    _assert_payment_lifecycle_lock_owned()
     result = provider.create_payment(request=payment_request, app=app)
     credential = result.extra.get("credential", {}) or {}
     qr_url = str(result.extra.get("qr_url") or credential.get("alipay_qr") or "")
@@ -1625,6 +1646,7 @@ def _generate_wechatpay_charge(
         client_ip=client_ip,
         extra=extra,
     )
+    _assert_payment_lifecycle_lock_owned()
     result = provider.create_payment(request=payment_request, app=app)
     credential = result.extra.get("credential", {}) or {}
     qr_url = str(result.extra.get("qr_url") or credential.get("wx_pub_qr") or "")
