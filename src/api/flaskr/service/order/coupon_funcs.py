@@ -255,8 +255,17 @@ def use_coupon_code(
         payment_lifecycle_lock(str(order_id or "")),
         payment_lifecycle_lock(f"coupon:{coupon_code or ''!s}"),
     ):
+        # Validate before installing this request's recovery handler. An invalid
+        # retry must not clear a durable repricing claim left by earlier work.
+        _validate_coupon_before_closing_payment(app, user_id, coupon_code, order_id)
         try:
-            return _use_coupon_code_locked(app, user_id, coupon_code, order_id)
+            return _use_coupon_code_locked(
+                app,
+                user_id,
+                coupon_code,
+                order_id,
+                prevalidated=True,
+            )
         except Exception:
             restore_repricing_order(
                 app,
@@ -268,10 +277,16 @@ def use_coupon_code(
 
 
 def _use_coupon_code_locked(
-    app: Flask, user_id: object, coupon_code: object, order_id: object
+    app: Flask,
+    user_id: object,
+    coupon_code: object,
+    order_id: object,
+    *,
+    prevalidated: bool = False,
 ) -> AICourseBuyRecordDTO | None:
     """Validate, cancel, and apply a coupon under the order lifecycle lock."""
-    _validate_coupon_before_closing_payment(app, user_id, coupon_code, order_id)
+    if not prevalidated:
+        _validate_coupon_before_closing_payment(app, user_id, coupon_code, order_id)
     cancel_pending_payment_for_repricing(
         app,
         str(order_id or ""),
