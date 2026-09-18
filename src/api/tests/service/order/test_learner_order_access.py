@@ -104,14 +104,27 @@ def test_order_services_hide_another_users_order(app: object) -> None:
             call()
 
 
-def test_pending_order_cannot_create_another_payment_attempt(
+def test_pending_order_reuses_existing_payment_attempt(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with app.app_context():
-        _seed_order(
+        order = _seed_order(
             order_bid="pending-payment-order",
             status=ORDER_STATUS_TO_BE_PAID,
         )
+        db.session.add(
+            PingxxOrder(
+                pingxx_order_bid="pending-provider-attempt",
+                biz_domain="order",
+                order_bid=order.order_bid,
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                channel="alipay_qr",
+                extra="{}",
+                charge_object=('{"credential":{"alipay_qr":"https://pay.example/qr"}}'),
+            )
+        )
+        db.session.commit()
 
     provider_requested = False
 
@@ -124,16 +137,20 @@ def test_pending_order_cannot_create_another_payment_attempt(
         "flaskr.service.order.funs.get_payment_provider", track_provider_request
     )
 
-    with pytest.raises(AppError, match="Order Not Found"):
-        generate_charge(
-            app,
-            "pending-payment-order",
-            "alipay_qr",
-            "127.0.0.1",
-            expected_user="owner-user",
-        )
+    result = generate_charge(
+        app,
+        "pending-payment-order",
+        "alipay_qr",
+        "127.0.0.1",
+        expected_user="owner-user",
+    )
 
     assert provider_requested is False
+    assert result.qr_url == "https://pay.example/qr"
+    assert result.payment_payload == {
+        "qr_url": "https://pay.example/qr",
+        "credential": {"alipay_qr": "https://pay.example/qr"},
+    }
 
 
 @pytest.mark.parametrize(

@@ -163,3 +163,8 @@ class PaymentProvider(ABC):
         """Expire an open provider checkout session if supported."""
         message = f"{self.__class__.__name__} does not support checkout session expiry"
         raise NotImplementedError(message)
+
+    def build_jsapi_params(self, *, prepay_id: str) -> dict[str, str]:
+        """Build client parameters for an existing JSAPI payment if supported."""
+        message = f"{self.__class__.__name__} does not support JSAPI payments"
+        raise NotImplementedError(message)

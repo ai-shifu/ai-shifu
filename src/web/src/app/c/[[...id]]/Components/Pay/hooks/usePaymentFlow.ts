@@ -236,7 +236,7 @@ export const usePaymentFlow = ({
   );
 
   const applyCoupon = useCallback(
-    async ({ code, channel, paymentChannel }: PaymentCouponParams) => {
+    async ({ code }: PaymentCouponParams) => {
       if (!orderIdRef.current) return null;
       const resp = await applyDiscountCode({
         orderId: orderIdRef.current,
@@ -247,19 +247,9 @@ export const usePaymentFlow = ({
       }
       setCouponCode(code);
       updateFromOrder(resp as OrderSnapshot);
-      if (
-        resp.status === ORDER_STATUS.BUY_STATUS_INIT ||
-        resp.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID
-      ) {
-        await refreshPayment({
-          channel,
-          paymentChannel,
-          snapshot: resp as OrderSnapshot,
-        });
-      }
       return resp;
     },
-    [refreshPayment, updateFromOrder],
+    [updateFromOrder],
   );
 
   useInterval(
