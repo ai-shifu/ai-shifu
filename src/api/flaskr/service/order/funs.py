@@ -561,7 +561,9 @@ def generate_charge(
         buy_record: Order = (
             Order.query.filter(
                 Order.order_bid == record_id,
-                Order.status != ORDER_STATUS_TIMEOUT,
+                Order.status.in_(
+                    [ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS, ORDER_STATUS_REFUND]
+                ),
                 Order.deleted == 0,
             )
             .with_for_update()

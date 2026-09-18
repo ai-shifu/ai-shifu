@@ -49,16 +49,22 @@ leave completed, refunded, and expired orders immutable.
   old amount; repricing it would leave that charge usable. Both coupon
   redemption and payment creation lock the order row so they cannot race while
   claiming the initial state.
+- Decision: create a provider payment attempt only for an `init` order; retain
+  the existing read-only handling for successful orders and explicit rejection
+  for refunded orders.
+  Rationale: a `to be paid` order already owns a live provider attempt, so a
+  retry must not create another charge for the same legacy order.
 
 ## Outcomes & Retrospective
 
 Learner order lookup, payment creation, payment detail, and coupon redemption
 now enforce the authenticated order owner in the service layer. Coupon
 redemption accepts only initial orders before a provider attempt exists, and
-payment creation and coupon redemption serialize on the order row. Learner
-payment detail responses for Stripe, native providers, and Ping++ contain only
-payment channel, course, order, and provider status; operator detail loading
-still uses full snapshots.
+payment creation and coupon redemption serialize on the order row. Pending
+orders cannot create duplicate provider payment attempts. Learner payment
+detail responses for Stripe, native providers, and Ping++ contain only payment
+channel, course, order, and provider status; operator detail loading still uses
+full snapshots.
 
 Regression coverage exercises all four HTTP entry points, direct service calls,
 payment-attempt and terminal-order immutability, and provider response
