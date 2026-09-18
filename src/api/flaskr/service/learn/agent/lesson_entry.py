@@ -85,8 +85,9 @@ def _resolve(
         app, user_bid=user_bid, shifu=shifu, outline=outline, preview_mode=preview_mode
     )
 
-    if shifu is not None and shifu.llm:
-        return outline.content, shifu.llm, float(shifu.llm_temperature)
+    course_model = str(getattr(shifu, "llm", "") or "").strip()
+    if course_model:
+        return outline.content, course_model, float(shifu.llm_temperature)
     return (
         outline.content,
         app.config.get("DEFAULT_LLM_MODEL"),

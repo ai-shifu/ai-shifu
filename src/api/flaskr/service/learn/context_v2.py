@@ -3642,9 +3642,10 @@ class RunScriptContextV2:
             self._shifu_model.id.in_(shifu_ids),
             self._shifu_model.deleted == 0,
         ).first()
-        if shifu_info_db and shifu_info_db.llm:
+        course_model = str(getattr(shifu_info_db, "llm", "") or "").strip()
+        if course_model:
             return LLMSettings(
-                model=shifu_info_db.llm, temperature=shifu_info_db.llm_temperature
+                model=course_model, temperature=shifu_info_db.llm_temperature
             )
         return self._get_default_llm_settings()
 

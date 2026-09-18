@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.parametrize("preview", [True, False])
-@pytest.mark.parametrize("course_model", ["course-main", ""])
+@pytest.mark.parametrize("course_model", ["course-main", "", "   ", " course-main "])
 @pytest.mark.parametrize("ask_model", ["course-ask", ""])
 @pytest.mark.parametrize("outline_ask_mode", [5101, 5102, 5103])
 def test_course_settings_drive_both_engines_and_follow_up(
@@ -101,10 +101,11 @@ def test_course_settings_drive_both_engines_and_follow_up(
             outline.llm_temperature = Decimal("1.8")
             outline.ask_llm_temperature = Decimal("1.9")
 
-        expected_model = course_model or app.config["DEFAULT_LLM_MODEL"]
+        normalized_course_model = course_model.strip()
+        expected_model = normalized_course_model or app.config["DEFAULT_LLM_MODEL"]
         expected_temperature = (
             float(course.llm_temperature)
-            if course_model
+            if normalized_course_model
             else float(app.config["DEFAULT_LLM_TEMPERATURE"])
         )
         ctx = context_v2.RunScriptContextV2.__new__(context_v2.RunScriptContextV2)
@@ -126,7 +127,7 @@ def test_course_settings_drive_both_engines_and_follow_up(
         ) == (lesson.content, expected_model, expected_temperature)
 
         info = get_follow_up_info_v2(app, shifu_bid, lesson_bid, "", is_preview=preview)
-        assert info.ask_model == (ask_model or course_model)
+        assert info.ask_model == (ask_model or normalized_course_model)
         assert info.ask_prompt == (
             "Chapter follow-up prompt"
             if outline_ask_mode == 5101
@@ -142,11 +143,11 @@ def test_course_settings_drive_both_engines_and_follow_up(
             app, shifu_bid, lesson_bid, "", is_preview=preview
         )
         assert disabled.ask_mode == 5102
-        assert disabled.ask_model == (ask_model or course_model)
+        assert disabled.ask_model == (ask_model or normalized_course_model)
         db.session.rollback()
 
 
-@pytest.mark.parametrize("course_model", ["course-main", ""])
+@pytest.mark.parametrize("course_model", ["course-main", "", "   ", " course-main "])
 def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     app: Flask, monkeypatch: pytest.MonkeyPatch, course_model: str
 ) -> None:
@@ -160,7 +161,7 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     course = SimpleNamespace(llm=course_model, llm_temperature=0.7)
     ctx = context_v2.RunScriptPreviewContextV2(app)
     model, temperature = ctx._resolve_llm_settings(course)
-    assert model == (course_model or app.config["DEFAULT_LLM_MODEL"])
+    assert model == (course_model.strip() or app.config["DEFAULT_LLM_MODEL"])
     assert temperature == 0.7
     assert {"model", "temperature"}.isdisjoint(request.model_dump())
     assert request.document_prompt == "Legacy request prompt"
