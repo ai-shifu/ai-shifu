@@ -104,6 +104,38 @@ def test_order_services_hide_another_users_order(app: object) -> None:
             call()
 
 
+def test_pending_order_cannot_create_another_payment_attempt(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with app.app_context():
+        _seed_order(
+            order_bid="pending-payment-order",
+            status=ORDER_STATUS_TO_BE_PAID,
+        )
+
+    provider_requested = False
+
+    def track_provider_request(_name: str) -> object:
+        nonlocal provider_requested
+        provider_requested = True
+        return object()
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", track_provider_request
+    )
+
+    with pytest.raises(AppError, match="Order Not Found"):
+        generate_charge(
+            app,
+            "pending-payment-order",
+            "alipay_qr",
+            "127.0.0.1",
+            expected_user="owner-user",
+        )
+
+    assert provider_requested is False
+
+
 @pytest.mark.parametrize(
     "status",
     [
