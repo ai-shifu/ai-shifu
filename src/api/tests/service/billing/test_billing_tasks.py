@@ -1159,12 +1159,55 @@ def test_legacy_stripe_timeout_compatibility_remains_fail_closed(
         product_bid="product-guard",
     )
 
+    app = Flask(__name__)
     with pytest.raises(AppError):
         _validate_stripe_checkout_evidence(
+            app,
             order,
             expected_session_id=expected_session_id,
             session=session,
             intent=None,
+        )
+
+
+@pytest.mark.parametrize("metadata_owner", ["session", "intent"])
+@pytest.mark.parametrize(
+    ("metadata_key", "foreign_value"),
+    [
+        ("creator_bid", "creator-other"),
+        ("product_bid", "product-other"),
+    ],
+)
+def test_legacy_stripe_timeout_rejects_partial_foreign_metadata(
+    metadata_owner: str,
+    metadata_key: str,
+    foreign_value: str,
+) -> None:
+    from flaskr.service.billing.checkout import _validate_stripe_checkout_evidence
+    from flaskr.service.common.models import AppError
+
+    session: dict[str, object] = {
+        "id": "cs_partial-foreign",
+        "status": "expired",
+        "payment_status": "unpaid",
+        "metadata": {},
+    }
+    intent: dict[str, object] = {"metadata": {}}
+    target = session if metadata_owner == "session" else intent
+    target["metadata"] = {metadata_key: foreign_value}
+    order = BillingOrder(
+        bill_order_bid="bill-order-partial-foreign",
+        creator_bid="creator-owner",
+        product_bid="product-owner",
+    )
+
+    with pytest.raises(AppError):
+        _validate_stripe_checkout_evidence(
+            Flask(__name__),
+            order,
+            expected_session_id="cs_partial-foreign",
+            session=session,
+            intent=intent,
         )
 
 

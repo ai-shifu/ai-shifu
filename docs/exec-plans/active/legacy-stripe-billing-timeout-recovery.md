@@ -14,6 +14,8 @@ compatibility path must never be usable to accept payment or grant credits.
   rule plus paid, mismatched-ID, and foreign-metadata rejection regressions.
 - [x] 2026-09-18 21:42 CST: Passed focused billing Checkout and timeout-task
   verification plus repository structural checks.
+- [x] 2026-09-18 21:51 CST: Rejected partial foreign metadata from either
+  Stripe object and made every legacy compatibility use visible in logs.
 
 ## Surprises & Discoveries
 

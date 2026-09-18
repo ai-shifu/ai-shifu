@@ -2737,6 +2737,7 @@ def _sync_stripe_order(
     session = sync_result.provider_payload.get("checkout_session", {}) or {}
     intent = sync_result.provider_payload.get("payment_intent") or None
     _validate_stripe_checkout_evidence(
+        app,
         order,
         expected_session_id=resolved_session_id,
         session=session,
@@ -2820,6 +2821,7 @@ def _sync_stripe_order(
 
 
 def _validate_stripe_checkout_evidence(
+    app: Flask,
     order: BillingOrder,
     *,
     expected_session_id: str,
@@ -2835,6 +2837,17 @@ def _validate_stripe_checkout_evidence(
         for payload in (session, intent or {})
         if isinstance(payload, dict)
     ]
+    for candidate in metadata_candidates:
+        if not isinstance(candidate, dict):
+            continue
+        for key, expected_value in (
+            ("bill_order_bid", order.bill_order_bid),
+            ("creator_bid", order.creator_bid),
+            ("product_bid", order.product_bid),
+        ):
+            actual_value = _normalize_bid(candidate.get(key))
+            if actual_value and actual_value != _normalize_bid(expected_value):
+                raise_error("server.order.orderStatusError")
     metadata = next(
         (
             candidate
@@ -2845,6 +2858,10 @@ def _validate_stripe_checkout_evidence(
     )
     if metadata is None:
         if _is_legacy_unbound_expired_stripe_checkout(session, intent):
+            app.logger.warning(
+                "Accepted metadata-free expired Stripe Checkout Session for legacy billing order: %s",
+                order.bill_order_bid,
+            )
             return
         raise_error("server.order.orderStatusError")
 
