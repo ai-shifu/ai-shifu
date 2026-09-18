@@ -16,14 +16,23 @@ synchronizations must not schedule duplicate success side effects.
   lock.
 - [x] 2026-09-18 22:34 CST: Added transaction-boundary, lock ownership, and
   repeat-notification coverage; 44 focused and 181 order tests pass.
+- [x] 2026-09-18 22:52 CST: Unified native webhook and sync finalization on
+  the order lifecycle lock, moved provider I/O outside database transactions,
+  and made lost-lock failures roll back before notices; 72 focused and 187
+  order tests pass.
 
 ## Decision Log
 
 - Decision: perform an ownership/channel preflight in a discarded unit of
-  work, then dispatch Stripe outside that boundary and reload native orders
-  under the existing payment lifecycle lock.
+  work, perform provider I/O outside a database transaction, then dispatch
+  Stripe to its owner or reload and finalize native orders under the existing
+  payment lifecycle lock.
   Rationale: provider-specific synchronization owns its transaction, while the
   reload prevents authorization or provider changes between preflight and use.
+- Decision: enter the final unit of work before the native payment lifecycle
+  lock so lock-exit ownership validation occurs before the transaction commits.
+  Rationale: losing the Redis lease must roll back payment completion and drop
+  post-commit notifications rather than report the loss after durable effects.
 
 ## Context and Orientation
 
@@ -34,10 +43,12 @@ synchronization plus success side effects.
 ## Validation and Acceptance
 
 - Common Stripe sync enters the dedicated function with no active outer UoW.
-- Alipay and WeChat Pay sync provider work and finalization run under the
-  per-order payment lifecycle lock.
+- Alipay and WeChat Pay provider I/O runs outside a database transaction, while
+  sync and webhook finalization share the per-order payment lifecycle lock.
 - Repeated successful synchronization does not repeat fulfillment or notices.
 - Ownership and payment-channel validation are rerun inside the native lock.
+- Losing the lifecycle lock before commit rolls back completion and suppresses
+  post-commit notices.
 
 ## Interfaces and Dependencies
 

@@ -1817,9 +1817,36 @@ def sync_native_payment_order(
     payment_channel: str | None = None,
 ) -> dict[str, Any]:
     """Synchronize native payment order."""
+    uow.require_transaction_owner("payment synchronization", app)
     with _app_context_scope(app), unit_of_work(discard=True):
         order = _load_payment_sync_order(order_id, expected_user=expected_user)
         provider_name = str(payment_channel or order.payment_channel or "").lower()
+        provider_attempt_id = ""
+        credential_context = None
+        if provider_name in {"alipay", "wechatpay"}:
+            native_model = native_snapshot_model(provider_name)
+            snapshot = (
+                legacy_native_snapshot_query(provider_name)
+                .filter(native_model.order_bid == order.order_bid)
+                .order_by(native_model.id.desc())
+                .first()
+            )
+            if snapshot is None or not snapshot.provider_attempt_id:
+                raise_error("server.order.orderNotFound")
+            provider_attempt_id = str(snapshot.provider_attempt_id)
+            integration_bid = str(order.payment_integration_bid or "")
+            if integration_bid:
+                credential_context = resolve_provider_credential_context(
+                    app,
+                    creator_bid=str(order.creator_bid or ""),
+                    provider=provider_name,
+                    integration_bid=integration_bid,
+                )
+                if (
+                    credential_context is None
+                    or credential_context.integration_bid != integration_bid
+                ):
+                    raise_error("server.pay.payChannelNotSupport")
 
     if provider_name == "stripe":
         return sync_stripe_checkout_session(
@@ -1827,11 +1854,26 @@ def sync_native_payment_order(
             order_id,
             expected_user=expected_user,
         )
+    if provider_name not in {"alipay", "wechatpay"}:
+        raise_error("server.pay.payChannelNotSupport")
 
-    with payment_lifecycle_lock(order_id), _app_context_scope(app), unit_of_work():
+    provider = get_payment_provider(provider_name)
+    credential_scope = (
+        config_overrides(build_provider_config_overrides(credential_context))
+        if credential_context is not None
+        else nullcontext()
+    )
+    with _app_context_scope(app), credential_scope:
+        sync_result = provider.sync_reference(
+            provider_reference=provider_attempt_id,
+            reference_type="payment",
+            app=app,
+        )
+
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_id):
         order = _load_payment_sync_order(order_id, expected_user=expected_user)
-        provider_name = str(payment_channel or order.payment_channel or "").lower()
-        if provider_name not in {"alipay", "wechatpay"}:
+        current_provider = str(payment_channel or order.payment_channel or "").lower()
+        if current_provider != provider_name:
             raise_error("server.pay.payChannelNotSupport")
 
         native_model = native_snapshot_model(provider_name)
@@ -1843,18 +1885,12 @@ def sync_native_payment_order(
             .order_by(native_model.id.desc())
             .first()
         )
-        if snapshot is None:
-            raise_error("server.order.orderNotFound")
-        if not snapshot.provider_attempt_id:
+        if (
+            snapshot is None
+            or str(snapshot.provider_attempt_id or "") != provider_attempt_id
+        ):
             raise_error("server.order.orderNotFound")
 
-        provider = get_payment_provider(provider_name)
-        with _order_credential_scope(app, order):
-            sync_result = provider.sync_reference(
-                provider_reference=snapshot.provider_attempt_id,
-                reference_type="payment",
-                app=app,
-            )
         _apply_native_snapshot_update(
             snapshot=snapshot,
             provider=provider_name,
@@ -1883,6 +1919,7 @@ def sync_native_payment_order(
         ):
             success_buy_record(app, order.order_bid)
         db.session.add(snapshot)
+        _assert_payment_lifecycle_lock_owned()
         return get_payment_details(app, order.order_bid)
 
 
@@ -2272,12 +2309,12 @@ def handle_stripe_webhook(
         cancel_events = {
             "payment_intent.canceled",
         }
+        order = Order.query.filter(
+            Order.order_bid == order_bid,
+            Order.deleted == 0,
+        ).first()
 
         if event_type in success_events:
-            order = Order.query.filter(
-                Order.order_bid == order_bid,
-                Order.deleted == 0,
-            ).first()
             session = (
                 data_object if event_type.startswith("checkout.session.") else None
             )
@@ -2327,7 +2364,11 @@ def handle_stripe_webhook(
             else:
                 response_status = "ignored"
         elif event_type == "payment_intent.payment_failed" and (
-            _stripe_intent_event_matches_attempt(stripe_order, data_object, metadata)
+            order
+            and _stripe_attempt_matches_order(order, stripe_order)
+            and _stripe_intent_event_matches_attempt(
+                stripe_order, data_object, metadata
+            )
             and stripe_order.status != 1
         ):
             if notification.charge_id:
@@ -2345,13 +2386,10 @@ def handle_stripe_webhook(
             response_status = "failed"
             http_status = 200
         elif event_type == "checkout.session.async_payment_failed":
-            order = Order.query.filter(
-                Order.order_bid == order_bid,
-                Order.deleted == 0,
-            ).first()
             if (
                 order
                 and stripe_order.status != 1
+                and _stripe_attempt_matches_order(order, stripe_order)
                 and _stripe_provider_objects_match_attempt(
                     order=order,
                     stripe_order=stripe_order,
@@ -2370,6 +2408,8 @@ def handle_stripe_webhook(
             http_status = 200
         elif (
             event_type in cancel_events
+            and order
+            and _stripe_attempt_matches_order(order, stripe_order)
             and _stripe_intent_event_matches_attempt(
                 stripe_order, data_object, metadata
             )
@@ -2533,7 +2573,8 @@ def success_buy_record_from_native(
     notification: PaymentNotificationResult,
 ) -> bool:
     """Apply a successful native-payment notification to the purchase record."""
-    with _app_context_scope(app):
+    uow.require_transaction_owner("native payment notification", app)
+    with _app_context_scope(app), unit_of_work(discard=True):
         provider = str(provider_name or "").strip().lower()
         if provider not in {"alipay", "wechatpay"}:
             raise_error("server.pay.payChannelNotSupport")
@@ -2557,82 +2598,70 @@ def success_buy_record_from_native(
             native_order = None
         if native_order is None:
             return False
+        order_bid = str(native_order.order_bid or "")
+        native_order_id = native_order.id
 
-        lock_key = (
-            "success_buy_record_from_native"
-            f":{provider}:{provider_attempt_id or transaction_id or native_order.id}"
+    with (
+        _app_context_scope(app),
+        unit_of_work(),
+        payment_lifecycle_lock(order_bid),
+    ):
+        native_order = native_model.query.filter(
+            native_model.id == native_order_id,
+            native_model.deleted == 0,
+        ).first()
+        if native_order is None:
+            return False
+
+        actual_amount = _extract_native_notification_amount(
+            provider,
+            notification.provider_payload or {},
         )
-        lock = cache_provider.lock(lock_key, timeout=10, blocking_timeout=10)
-        if not lock:
-            app.logger.error("native payment success lock unavailable key=%s", lock_key)
+        if actual_amount is not None and int(native_order.amount or 0) != actual_amount:
+            message = "Native payment amount mismatch"
+            raise RuntimeError(message)
+
+        buy_record: Order = Order.query.filter(
+            Order.order_bid == native_order.order_bid,
+            Order.deleted == 0,
+        ).first()
+        if not buy_record:
             return False
-        if not lock.acquire(blocking=True):
-            app.logger.error("native payment success lock failed key=%s", lock_key)
-            return False
 
-        try:
-            with unit_of_work():
-                native_order = native_model.query.filter(
-                    native_model.id == native_order.id,
-                    native_model.deleted == 0,
-                ).first()
-                if native_order is None:
-                    return False
+        was_pending_attempt = native_order.status == 0
+        _apply_native_snapshot_update(
+            snapshot=native_order,
+            provider=provider,
+            notification=notification,
+            source="webhook",
+        )
+        db.session.add(native_order)
 
-                actual_amount = _extract_native_notification_amount(
-                    provider,
-                    notification.provider_payload or {},
-                )
-                if (
-                    actual_amount is not None
-                    and int(native_order.amount or 0) != actual_amount
-                ):
-                    message = "Native payment amount mismatch"
-                    raise RuntimeError(message)
-
-                buy_record: Order = Order.query.filter(
-                    Order.order_bid == native_order.order_bid,
-                    Order.deleted == 0,
-                ).first()
-                if not buy_record:
-                    return False
-
-                was_pending_attempt = native_order.status == 0
-                _apply_native_snapshot_update(
-                    snapshot=native_order,
-                    provider=provider,
-                    notification=notification,
-                    source="webhook",
-                )
-                db.session.add(native_order)
-
-                if (
-                    _is_native_payment_successful(
-                        provider,
-                        notification.provider_payload or {},
-                    )
-                    and was_pending_attempt
-                    and native_order.id
-                    == (
-                        legacy_native_snapshot_query(provider)
-                        .filter(native_model.order_bid == native_order.order_bid)
-                        .order_by(native_model.id.desc())
-                        .with_entities(native_model.id)
-                        .first()
-                        or (None,)
-                    )[0]
-                    and (
-                        decimal.Decimal(buy_record.paid_price or 0) <= 0
-                        or int(native_order.amount or 0)
-                        == int(decimal.Decimal(buy_record.paid_price) * 100)
-                    )
-                    and buy_record.status
-                    in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
-                ):
-                    success_buy_record(app, buy_record.order_bid)
-                return True
-        finally:
-            lock.release()
+        if (
+            _is_native_payment_successful(
+                provider,
+                notification.provider_payload or {},
+            )
+            and was_pending_attempt
+            and native_order.id
+            == (
+                legacy_native_snapshot_query(provider)
+                .filter(native_model.order_bid == native_order.order_bid)
+                .order_by(native_model.id.desc())
+                .with_entities(native_model.id)
+                .first()
+                or (None,)
+            )[0]
+            and (
+                decimal.Decimal(buy_record.paid_price or 0) <= 0
+                or int(native_order.amount or 0)
+                == int(decimal.Decimal(buy_record.paid_price) * 100)
+            )
+            and buy_record.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
+        ):
+            success_buy_record(app, buy_record.order_bid)
+        _assert_payment_lifecycle_lock_owned()
+        return True
 
 
 def success_buy_record_from_pingxx(

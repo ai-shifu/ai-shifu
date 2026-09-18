@@ -21,7 +21,10 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.order.admin import _load_payment_detail
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
-from flaskr.service.order.funs import sync_native_payment_order
+from flaskr.service.order.funs import (
+    success_buy_record_from_native,
+    sync_native_payment_order,
+)
 from flaskr.service.order.models import AlipayOrder, Order, WechatPayOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 from flaskr.service.order.raw_snapshots import (
@@ -424,7 +427,24 @@ def test_common_stripe_sync_dispatches_without_an_outer_unit_of_work(
     assert details == {"status": 0}
 
 
-def test_common_native_sync_holds_the_payment_lifecycle_lock(
+def test_common_payment_sync_rejects_a_caller_owned_transaction(
+    native_payment_split_app: object,
+) -> None:
+    with (
+        native_payment_split_app.app_context(),
+        uow.unit_of_work(),
+        pytest.raises(
+            RuntimeError,
+            match="payment synchronization owns its own transaction",
+        ),
+    ):
+        sync_native_payment_order(
+            native_payment_split_app,
+            "order-does-not-matter",
+        )
+
+
+def test_common_native_sync_calls_provider_outside_transaction_then_locks_finalize(
     native_payment_split_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -442,7 +462,8 @@ def test_common_native_sync_holds_the_payment_lifecycle_lock(
 
     class _AlipayProvider:
         def sync_reference(self, **_kwargs: object) -> PaymentNotificationResult:
-            assert lock_held is True
+            assert lock_held is False
+            assert uow.in_unit_of_work() is False
             return PaymentNotificationResult(
                 order_bid="ali-common-native-lock",
                 status="WAIT_BUYER_PAY",
@@ -497,6 +518,161 @@ def test_common_native_sync_holds_the_payment_lifecycle_lock(
     )
 
     assert lock_held is False
+
+
+def test_native_webhook_uses_the_order_payment_lifecycle_lock(
+    native_payment_split_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    locked_order_bids: list[str] = []
+
+    @contextmanager
+    def _recording_lock(order_bid: str) -> Iterator[None]:
+        locked_order_bids.append(order_bid)
+        yield
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.payment_lifecycle_lock",
+        _recording_lock,
+    )
+    with native_payment_split_app.app_context():
+        dao.db.session.add_all(
+            [
+                Order(
+                    order_bid="order-native-webhook-lock",
+                    shifu_bid="shifu-sync-1",
+                    user_bid="user-sync-1",
+                    payable_price=Decimal("199.00"),
+                    paid_price=Decimal("199.00"),
+                    payment_channel="alipay",
+                    status=ORDER_STATUS_TO_BE_PAID,
+                ),
+                AlipayOrder(
+                    alipay_order_bid="ali-native-webhook-lock",
+                    biz_domain="order",
+                    user_bid="user-sync-1",
+                    shifu_bid="shifu-sync-1",
+                    order_bid="order-native-webhook-lock",
+                    provider_attempt_id="ali-native-webhook-lock",
+                    amount=19900,
+                    currency="CNY",
+                    status=0,
+                    raw_status="pending",
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    accepted = success_buy_record_from_native(
+        native_payment_split_app,
+        "alipay",
+        PaymentNotificationResult(
+            order_bid="ali-native-webhook-lock",
+            status="WAIT_BUYER_PAY",
+            provider_payload={
+                "trade": {
+                    "out_trade_no": "ali-native-webhook-lock",
+                    "trade_status": "WAIT_BUYER_PAY",
+                }
+            },
+        ),
+    )
+
+    assert accepted is True
+    assert locked_order_bids == ["order-native-webhook-lock"]
+
+
+def test_native_sync_rolls_back_when_payment_lock_is_lost_before_commit(
+    native_payment_split_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @contextmanager
+    def _lost_lock(_order_bid: str) -> Iterator[None]:
+        yield
+        message = "payment lock lease lost"
+        raise RuntimeError(message)
+
+    class _PaidAlipayProvider:
+        def sync_reference(self, **_kwargs: object) -> PaymentNotificationResult:
+            return PaymentNotificationResult(
+                order_bid="ali-native-lost-lock",
+                status="TRADE_SUCCESS",
+                provider_payload={
+                    "trade": {
+                        "out_trade_no": "ali-native-lost-lock",
+                        "trade_status": "TRADE_SUCCESS",
+                        "total_amount": "199.00",
+                    }
+                },
+                charge_id="ali-native-lost-lock-transaction",
+            )
+
+    notifications: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.payment_lifecycle_lock",
+        _lost_lock,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _provider_name: _PaidAlipayProvider(),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_shifu_creator_bid",
+        lambda *_args: "teacher-sync-1",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.set_shifu_context",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.set_user_state",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu",
+        lambda _app, order_bid: notifications.append(order_bid),
+    )
+    with native_payment_split_app.app_context():
+        dao.db.session.add_all(
+            [
+                Order(
+                    order_bid="order-native-lost-lock",
+                    shifu_bid="shifu-sync-1",
+                    user_bid="user-sync-1",
+                    payable_price=Decimal("199.00"),
+                    paid_price=Decimal("199.00"),
+                    payment_channel="alipay",
+                    status=ORDER_STATUS_TO_BE_PAID,
+                ),
+                AlipayOrder(
+                    alipay_order_bid="ali-native-lost-lock",
+                    biz_domain="order",
+                    user_bid="user-sync-1",
+                    shifu_bid="shifu-sync-1",
+                    order_bid="order-native-lost-lock",
+                    provider_attempt_id="ali-native-lost-lock",
+                    amount=19900,
+                    currency="CNY",
+                    status=0,
+                    raw_status="pending",
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    with pytest.raises(RuntimeError, match="payment lock lease lost"):
+        sync_native_payment_order(
+            native_payment_split_app,
+            "order-native-lost-lock",
+            expected_user="user-sync-1",
+        )
+
+    assert notifications == []
+    with native_payment_split_app.app_context():
+        order = Order.query.filter_by(order_bid="order-native-lost-lock").one()
+        snapshot = AlipayOrder.query.filter_by(order_bid=order.order_bid).one()
+        assert order.status == ORDER_STATUS_TO_BE_PAID
+        assert snapshot.status == 0
 
 
 def test_repeated_common_native_sync_notifies_only_once(
