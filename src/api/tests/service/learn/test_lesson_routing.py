@@ -106,6 +106,9 @@ def test_a_lesson_with_no_script_falls_back_rather_than_failing(
 
         logger = logging.getLogger("test_lesson_routing")
 
+    class _Adapter:
+        persist_only_final = True
+
     list(
         runscript_v2._lesson_events(
             app=_App(),
@@ -120,7 +123,7 @@ def test_a_lesson_with_no_script_falls_back_rather_than_failing(
             learning_mode="read",
             preview_mode=False,
             stop_event=None,
-            element_adapter=None,
+            element_adapter=_Adapter(),
             heartbeat_interval=0.5,
         )
     )
@@ -254,3 +257,51 @@ def test_the_input_the_browser_sends_reaches_the_agent_path(
         )
     )
     assert seen["user_input"] == sent
+
+
+@pytest.mark.usefixtures("allowlisted")
+def test_falling_back_to_the_script_engine_restores_per_update_writes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The adapter is built for the agent engine and shared with the fallback path.
+
+    1.0 relies on every update being written — a learner refreshing mid-stream reads the latest
+    row — so a fallback that kept the agent's write-once mode would change 1.0's behaviour.
+    """
+    from flaskr.service.learn.agent import lesson_entry
+
+    def _no_script(*_args: object, **_kwargs: object) -> None:
+        raise lesson_entry.LessonNotTeachable
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", _no_script)
+    monkeypatch.setattr(runscript_v2, "run_script_inner", lambda **_kwargs: [])
+
+    class _Adapter:
+        persist_only_final = True
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_lesson_routing")
+
+    adapter = _Adapter()
+    list(
+        runscript_v2._lesson_events(
+            app=_App(),
+            user_bid="user-bid",
+            shifu_bid=SHIFU,
+            outline_bid="outline-bid",
+            user_input=None,
+            input_type=None,
+            reload_generated_block_bid=None,
+            reload_element_bid=None,
+            listen=False,
+            learning_mode="read",
+            preview_mode=False,
+            stop_event=None,
+            element_adapter=adapter,
+            heartbeat_interval=0.5,
+        )
+    )
+
+    assert adapter.persist_only_final is False
