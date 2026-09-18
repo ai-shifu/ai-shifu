@@ -211,8 +211,8 @@ def test_legacy_outline_models_are_ignored_and_not_exported(
     outline_json = exported["outline_items"][0]
     assert "llm" not in outline_json
     assert "ask_llm" not in outline_json
-    assert "llm_system_prompt" not in outline_json
-    assert "ask_llm_system_prompt" not in outline_json
+    assert outline_json["llm_system_prompt"] == "Keep the teaching prompt"
+    assert outline_json["ask_llm_system_prompt"] == "Keep the follow-up prompt"
     assert "ask_llm_temperature" not in outline_json
-    assert "ask_enabled_status" not in outline_json
+    assert outline_json["ask_enabled_status"] == 5103
     assert outline_json["content"] == "Keep the lesson content"

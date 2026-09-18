@@ -946,6 +946,14 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/shifu/shifu_publish_funcs.py|flaskr.service.metering",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/shifu_publish_funcs.py",
+      "target": "flaskr.service.metering",
+      "message": "flaskr/service/shifu/shifu_publish_funcs.py imports cross-service module flaskr.service.metering outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/shifu/tts_preview.py|flaskr.service.metering",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/shifu/tts_preview.py",

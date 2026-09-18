@@ -3,6 +3,8 @@
   "addLesson": "إضافة",
   "chapterName": "اسم الفصل",
   "chapterNamePlaceholder": "أدخل اسم الفصل",
+  "chapterPrompt": "موجه الفصل",
+  "chapterPromptHint": "ضع قيودًا على الجمهور والنبرة والاحتياطات عند إنشاء محتوى الفصل كاملًا",
   "chapterSettingsTitle": "إعدادات الفصل",
   "free": "مجاني",
   "guest": "بدون تسجيل الدخول",
@@ -11,7 +13,11 @@
   "learningPermission": "صلاحية التعلم",
   "lessonName": "اسم الدرس",
   "lessonNamePlaceholder": "أدخل اسم الدرس",
+  "lessonPrompt": "موجه الدرس",
+  "lessonPromptHint": "ضع قيودًا على الجمهور والنبرة والاحتياطات عند إنشاء محتوى الدرس كاملًا",
+  "lessonPromptPlaceholder": "أدخل الموجه. إذا تركته فارغًا، فسيتم تقييد إنشاء محتوى الدرس بمحتوى موجه الفصل الذي ينتمي إليه",
   "lessonSettingsTitle": "إعدادات الدرس",
   "paid": "مدفوع",
+  "promptPlaceholder": "أدخل الموجه",
   "visible": "مرئي"
 }

@@ -473,6 +473,18 @@ class DraftOutlineItem(db.Model):
         default="",
         comment="Prerequisite outline item business identifiers",
     )
+    llm_system_prompt = Column(
+        Text, nullable=False, default="", comment="LLM system prompt"
+    )
+    ask_enabled_status = Column(
+        SmallInteger,
+        nullable=False,
+        default=ASK_MODE_DEFAULT,
+        comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
+    )
+    ask_llm_system_prompt = Column(
+        Text, nullable=False, default="", comment="Ask mode LLM system prompt"
+    )
     content = Column(Text, nullable=False, default="", comment="MarkdownFlow content")
     deleted = Column(
         SmallInteger,
@@ -512,6 +524,9 @@ class DraftOutlineItem(db.Model):
             parent_bid=self.parent_bid,
             position=self.position,
             prerequisite_item_bids=self.prerequisite_item_bids,
+            llm_system_prompt=self.llm_system_prompt,
+            ask_enabled_status=self.ask_enabled_status,
+            ask_llm_system_prompt=self.ask_llm_system_prompt,
             content=self.content,
             type=self.type,
             hidden=self.hidden,
@@ -533,12 +548,15 @@ class DraftOutlineItem(db.Model):
             and self.prerequisite_item_bids == other.prerequisite_item_bids
             and self.type == other.type
             and self.hidden == other.hidden
+            and self.llm_system_prompt == other.llm_system_prompt
+            and self.ask_enabled_status == other.ask_enabled_status
+            and self.ask_llm_system_prompt == other.ask_llm_system_prompt
             and self.content == other.content
         )
 
     def get_str_to_check(self) -> str:
         """Return concatenated draft fields for comparison without normalization."""
-        return self.title
+        return f"{self.title} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
 
 class LogDraftStruct(db.Model):
@@ -794,6 +812,18 @@ class PublishedOutlineItem(db.Model):
         nullable=False,
         default="",
         comment="Prerequisite outline item business identifiers",
+    )
+    llm_system_prompt = Column(
+        Text, nullable=False, default="", comment="LLM system prompt"
+    )
+    ask_enabled_status = Column(
+        SmallInteger,
+        nullable=False,
+        default=ASK_MODE_DEFAULT,
+        comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
+    )
+    ask_llm_system_prompt = Column(
+        Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
     content = Column(Text, nullable=False, default="", comment="MarkdownFlow content")
     deleted = Column(

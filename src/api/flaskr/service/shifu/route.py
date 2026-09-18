@@ -1119,6 +1119,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                     type:
                         type: string
                         description: outline type (normal,trial,guest)
+                    system_prompt:
+                        type: string
+                        description: outline system prompt
                     is_hidden:
                         type: boolean
                         description: outline is hidden
@@ -1151,6 +1154,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         # No defaults: None is passed through to create_outline, which applies its
         # own fallback (a new outline still needs a concrete type/visibility).
         outline_type = json_data.get("type")
+        system_prompt = json_data.get("system_prompt", None)
         is_hidden = json_data.get("is_hidden")
         if isinstance(is_hidden, str):
             is_hidden = is_hidden.lower() == "true"
@@ -1162,6 +1166,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 parent_bid,
                 name,
                 outline_type,
+                system_prompt,
                 is_hidden,
             )
         )
@@ -1197,6 +1202,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                 name:
                                     type: string
                                 type:
+                                    type: string
+                                system_prompt:
                                     type: string
                                 is_hidden:
                                     type: boolean
@@ -1256,6 +1263,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                     index:
                         type: integer
                         description: outline index
+                    system_prompt:
+                        type: string
+                        description: outline system prompt
                     is_hidden:
                         type: boolean
                         description: outline is hidden
@@ -1282,6 +1292,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         user_id = request.user.user_id
         name = request.get_json().get("name")
         description = request.get_json().get("description")
+        system_prompt = request.get_json().get("system_prompt", None)
         # No defaults: an omitted type/is_hidden stays None and is preserved by
         # modify_unit (PATCH semantics), instead of resetting to guest/visible.
         is_hidden = request.get_json().get("is_hidden")
@@ -1296,6 +1307,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 outline_bid,
                 name,
                 description,
+                system_prompt,
                 is_hidden,
                 outline_type,
             )

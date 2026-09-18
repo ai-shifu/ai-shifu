@@ -30,11 +30,13 @@ if TYPE_CHECKING:
 @pytest.mark.parametrize("preview", [True, False])
 @pytest.mark.parametrize("course_model", ["course-main", ""])
 @pytest.mark.parametrize("ask_model", ["course-ask", ""])
+@pytest.mark.parametrize("outline_ask_mode", [5101, 5102, 5103])
 def test_course_settings_drive_both_engines_and_follow_up(
     app: Flask,
     preview: bool,
     course_model: str,
     ask_model: str,
+    outline_ask_mode: int,
 ) -> None:
     shifu_type = DraftShifu if preview else PublishedShifu
     outline_type = DraftOutlineItem if preview else PublishedOutlineItem
@@ -54,12 +56,17 @@ def test_course_settings_drive_both_engines_and_follow_up(
         chapter = outline_type(
             shifu_bid=shifu_bid,
             outline_item_bid=chapter_bid,
+            llm_system_prompt="Chapter teaching prompt",
+            ask_llm_system_prompt="Chapter follow-up prompt",
+            ask_enabled_status=5103,
         )
         lesson = outline_type(
             shifu_bid=shifu_bid,
             outline_item_bid=lesson_bid,
             parent_bid=chapter_bid,
             content="Teach this lesson.",
+            ask_llm_system_prompt="Lesson follow-up prompt",
+            ask_enabled_status=outline_ask_mode,
             type=401,
         )
         db.session.add_all([course, chapter, lesson])
@@ -91,9 +98,7 @@ def test_course_settings_drive_both_engines_and_follow_up(
         for outline in (chapter, lesson):
             outline.llm = "legacy-outline-main"
             outline.ask_llm = "gemini-3.8-live"
-            outline.ask_enabled_status = 5102
-            outline.llm_system_prompt = "Legacy outline teaching rules"
-            outline.ask_llm_system_prompt = "Legacy outline follow-up rules"
+            outline.llm_temperature = Decimal("1.8")
             outline.ask_llm_temperature = Decimal("1.9")
 
         expected_model = course_model or app.config["DEFAULT_LLM_MODEL"]
@@ -106,8 +111,9 @@ def test_course_settings_drive_both_engines_and_follow_up(
         ctx.app = app
         ctx._struct = tree
         ctx._shifu_model = shifu_type
+        ctx._outline_model = outline_type
         ctx._preview_mode = preview
-        assert ctx.get_system_prompt(lesson_bid) == "Course teaching prompt"
+        assert ctx.get_system_prompt(lesson_bid) == "Chapter teaching prompt"
         settings = ctx.get_llm_settings(lesson_bid)
         assert settings.model == expected_model
         assert float(settings.temperature) == expected_temperature
@@ -121,9 +127,15 @@ def test_course_settings_drive_both_engines_and_follow_up(
 
         info = get_follow_up_info_v2(app, shifu_bid, lesson_bid, "", is_preview=preview)
         assert info.ask_model == (ask_model or course_model)
-        assert info.ask_prompt == "Course follow-up prompt"
+        assert info.ask_prompt == (
+            "Chapter follow-up prompt"
+            if outline_ask_mode == 5101
+            else "Lesson follow-up prompt"
+        )
         assert info.model_args == {"temperature": Decimal("0.4")}
-        assert info.ask_mode == 5103
+        assert info.ask_mode == (5103 if outline_ask_mode == 5101 else outline_ask_mode)
+        chapter.ask_enabled_status = 5101
+        lesson.ask_enabled_status = 5101
         course.ask_enabled_status = 5102
         db.session.commit()
         disabled = get_follow_up_info_v2(
@@ -150,10 +162,5 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     model, temperature = ctx._resolve_llm_settings(course)
     assert model == (course_model or app.config["DEFAULT_LLM_MODEL"])
     assert temperature == 0.7
-    assert {
-        "model",
-        "temperature",
-        "document_prompt",
-        "interaction_prompt",
-        "interaction_error_prompt",
-    }.isdisjoint(request.model_dump())
+    assert {"model", "temperature"}.isdisjoint(request.model_dump())
+    assert request.document_prompt == "Legacy request prompt"

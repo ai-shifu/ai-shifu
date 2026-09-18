@@ -148,7 +148,7 @@ def test_get_outline_item_tree_preview_mode(app: object) -> None:
     assert result.outline_items[0].follow_up_mode == "text"
 
 
-def test_get_outline_item_tree_uses_course_model_and_ask_status(
+def test_get_outline_item_tree_uses_course_model_with_outline_ask_status(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -178,6 +178,7 @@ def test_get_outline_item_tree_uses_course_model_and_ask_status(
             position="1",
             type=401,
             hidden=0,
+            ask_enabled_status=5103,
         )
         inherited_lesson = DraftOutlineItem(
             outline_item_bid="lesson-inherited-text-follow-up",
@@ -186,6 +187,7 @@ def test_get_outline_item_tree_uses_course_model_and_ask_status(
             position="1.1",
             type=401,
             hidden=0,
+            ask_enabled_status=5101,
         )
         live_lesson = DraftOutlineItem(
             outline_item_bid="lesson-live-follow-up",
@@ -194,6 +196,7 @@ def test_get_outline_item_tree_uses_course_model_and_ask_status(
             position="2",
             type=401,
             hidden=0,
+            ask_enabled_status=5101,
         )
         disabled_lesson = DraftOutlineItem(
             outline_item_bid="lesson-disabled-follow-up",
@@ -202,6 +205,7 @@ def test_get_outline_item_tree_uses_course_model_and_ask_status(
             position="3",
             type=401,
             hidden=0,
+            ask_enabled_status=5102,
         )
         db.session.add_all(
             [course, text_chapter, inherited_lesson, live_lesson, disabled_lesson]
@@ -254,7 +258,7 @@ def test_get_outline_item_tree_uses_course_model_and_ask_status(
     assert result.outline_items[0].follow_up_mode == "live_voice"
     assert result.outline_items[0].children[0].follow_up_mode == "live_voice"
     assert result.outline_items[1].follow_up_mode == "live_voice"
-    assert result.outline_items[2].follow_up_mode == "live_voice"
+    assert result.outline_items[2].follow_up_mode == "disabled"
 
     live_availability["enabled"] = False
     unavailable_result = get_outline_item_tree(
@@ -292,9 +296,10 @@ def test_get_outline_item_tree_uses_course_model_and_ask_status(
         app, shifu_bid, "teacher-1", preview_mode=True
     )
 
-    assert course_disabled_result.outline_items[0].follow_up_mode == "disabled"
+    assert course_disabled_result.outline_items[0].follow_up_mode == "live_voice"
     assert (
-        course_disabled_result.outline_items[0].children[0].follow_up_mode == "disabled"
+        course_disabled_result.outline_items[0].children[0].follow_up_mode
+        == "live_voice"
     )
     assert course_disabled_result.outline_items[1].follow_up_mode == "disabled"
     assert course_disabled_result.outline_items[2].follow_up_mode == "disabled"
@@ -323,6 +328,7 @@ def test_get_outline_item_tree_never_infers_live_mode_from_primary_model(
             position="1",
             type=401,
             hidden=0,
+            ask_enabled_status=5101,
         )
         db.session.add_all([course, lesson])
         db.session.commit()

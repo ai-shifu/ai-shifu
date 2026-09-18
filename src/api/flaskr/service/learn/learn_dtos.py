@@ -1037,6 +1037,15 @@ class PlaygroundPreviewRequest(BaseModel):
     user_input: dict[str, list[str]] | None = Field(
         default=None, description="User input when previewing interaction blocks"
     )
+    document_prompt: str | None = Field(
+        default=None, description="Document level system prompt"
+    )
+    interaction_prompt: str | None = Field(
+        default=None, description="Interaction render prompt override"
+    )
+    interaction_error_prompt: str | None = Field(
+        default=None, description="Interaction error prompt override"
+    )
     visual_mode: bool = Field(
         default=False,
         description="Whether to enable MarkdownFlow visual mode for preview",

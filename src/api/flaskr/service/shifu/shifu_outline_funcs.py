@@ -318,6 +318,7 @@ def __insert_outline_locked(
     parent_id: str,
     outline_name: str,
     outline_type: str,
+    system_prompt: str,
     is_hidden: bool,
     now_time: object,
     outline_bid: str,
@@ -380,6 +381,9 @@ def __insert_outline_locked(
         parent_bid=parent_id or "",
         position=new_position,
         prerequisite_item_bids="",
+        llm_system_prompt=system_prompt or "",
+        ask_enabled_status=5101,  # ASK_MODE_DEFAULT
+        ask_llm_system_prompt="",
         deleted=0,
         created_at=now_time,
         updated_at=now_time,
@@ -414,6 +418,7 @@ def create_outline(
     parent_id: str,
     outline_name: str,
     outline_type: str = UNIT_TYPE_GUEST,
+    system_prompt: str | None = None,
     is_hidden: bool = False,
 ) -> SimpleOutlineDto:
     """Create outline.
@@ -425,6 +430,7 @@ def create_outline(
         parent_id: Parent ID
         outline_name: Outline name
         outline_type: Outline type
+        system_prompt: System prompt
         is_hidden: Is hidden
     Returns:
         SimpleOutlineDto: Outline dto.
@@ -436,7 +442,9 @@ def create_outline(
         # per-shifu lock, so no network I/O happens while the lock is held.
         outline_name = __normalize_outline_name(outline_name)
         outline_bid = generate_id(app)
-        check_text_with_risk_control(app, outline_bid, user_id, outline_name)
+        check_text_with_risk_control(
+            app, outline_bid, user_id, f"{outline_name} {system_prompt or ''}"
+        )
         __lock_shifu_for_outline_write(shifu_id)
         return __insert_outline_locked(
             app,
@@ -445,6 +453,7 @@ def create_outline(
             parent_id,
             outline_name,
             outline_type,
+            system_prompt,
             is_hidden,
             now_time,
             outline_bid,
@@ -479,6 +488,7 @@ def create_default_outlines_for_new_shifu(
         "",
         normalized_chapter_name,
         UNIT_TYPE_GUEST,
+        None,
         is_hidden=False,
         now_time=now_time,
         outline_bid=chapter_bid,
@@ -491,6 +501,7 @@ def create_default_outlines_for_new_shifu(
         chapter_bid,
         normalized_lesson_name,
         UNIT_TYPE_GUEST,
+        None,
         is_hidden=False,
         now_time=now_time,
         outline_bid=lesson_bid,
@@ -567,7 +578,7 @@ def create_outlines_batch(
         shifu_id: Shifu bid the outlines belong to
         user_id: User bid performing the batch create
         outlines: nested nodes, each a dict with keys ``name`` (required),
-            ``type``, ``is_hidden``, and ``children`` (a list
+            ``type``, ``system_prompt``, ``is_hidden``, and ``children`` (a list
             of the same shape).
         parent_id: parent outline bid the whole batch is nested under ("" = root).
 
@@ -591,13 +602,17 @@ def create_outlines_batch(
                 if not isinstance(node, dict):
                     raise_param_error("outlines")
                 name = __normalize_outline_name(node.get("name"))
+                system_prompt = node.get("system_prompt")
                 outline_bid = generate_id(app)
-                check_text_with_risk_control(app, outline_bid, user_id, name)
+                check_text_with_risk_control(
+                    app, outline_bid, user_id, f"{name} {system_prompt or ''}"
+                )
                 prepared.append(
                     {
                         "bid": outline_bid,
                         "name": name,
                         "type": node.get("type"),
+                        "system_prompt": system_prompt,
                         "is_hidden": node.get("is_hidden"),
                         "children": _prepare(node.get("children") or []),
                     }
@@ -618,6 +633,7 @@ def create_outlines_batch(
                     node_parent_id,
                     node["name"],
                     node["type"],
+                    node["system_prompt"],
                     node["is_hidden"],
                     now_time,
                     node["bid"],
@@ -766,6 +782,9 @@ def get_unit_by_id(
             description=unit.title,
             index=unit.position,
             type=unit_type,
+            system_prompt=unit.llm_system_prompt
+            if unit.llm_system_prompt is not None
+            else "",
             is_hidden=is_hidden,
         )
 
@@ -777,6 +796,7 @@ def modify_unit(
     unit_id: str,
     unit_name: str | None = None,
     unit_description: str | None = None,
+    unit_system_prompt: str | None = None,
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
 ) -> OutlineDto:
@@ -789,6 +809,7 @@ def modify_unit(
         unit_id: Unit ID
         unit_name: Unit name
         unit_description: Unit description
+        unit_system_prompt: Unit system prompt
         unit_is_hidden: Unit is hidden
         unit_type: Unit type
     Returns:
@@ -827,6 +848,8 @@ def modify_unit(
         # than reset it (this is what made a plain rename wipe the permission).
         if unit_name is not None:
             new_unit.title = unit_name
+        if unit_system_prompt is not None:
+            new_unit.llm_system_prompt = unit_system_prompt
         if unit_is_hidden is not None:
             new_unit.hidden = 1 if unit_is_hidden else 0
         if unit_type is not None:
@@ -857,6 +880,7 @@ def modify_unit(
             # Reflect the actually-stored values, not the (possibly None) inputs.
             type=UNIT_TYPE_VALUES_REVERSE.get(existing_unit.type, UNIT_TYPE_GUEST),
             index=int(existing_unit.position),
+            system_prompt=existing_unit.llm_system_prompt or "",
             is_hidden=bool(existing_unit.hidden),
         )
 

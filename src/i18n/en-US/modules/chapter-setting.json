@@ -3,6 +3,8 @@
   "addLesson": "Add Lesson",
   "chapterName": "Chapter Name",
   "chapterNamePlaceholder": "Please enter the chapter name",
+  "chapterPrompt": "Chapter Prompt",
+  "chapterPromptHint": "Define the chapter's content generation, audience, tone, and guardrails",
   "chapterSettingsTitle": "Chapter Settings",
   "free": "Free",
   "guest": "Login-free",
@@ -11,7 +13,11 @@
   "learningPermission": "Learning Permission",
   "lessonName": "Lesson Name",
   "lessonNamePlaceholder": "Please enter the lesson name",
+  "lessonPrompt": "Lesson Prompt",
+  "lessonPromptHint": "Define the lesson's content generation, audience, tone, and guardrails",
+  "lessonPromptPlaceholder": "Please enter the prompt. If this is empty, the lesson content generation will be constrained by the chapter prompt content",
   "lessonSettingsTitle": "Lesson Settings",
   "paid": "Paid",
+  "promptPlaceholder": "Please enter the prompt",
   "visible": "Visible"
 }

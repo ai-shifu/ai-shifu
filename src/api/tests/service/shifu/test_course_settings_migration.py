@@ -20,12 +20,20 @@ def test_migration_preserves_course_settings_and_outline_content() -> None:
     spec.loader.exec_module(migration)
     engine = sa.create_engine("sqlite://")
     metadata = sa.MetaData()
+    retained = {
+        "llm_system_prompt": "Keep chapter teaching prompt",
+        "ask_llm_system_prompt": "Keep chapter follow-up prompt",
+        "ask_enabled_status": 5102,
+    }
     for name in migration._TABLES:
         sa.Table(
             name,
             metadata,
             sa.Column("id", sa.Integer, primary_key=True),
             sa.Column("content", sa.Text, nullable=False),
+            sa.Column("llm_system_prompt", sa.Text, nullable=False),
+            sa.Column("ask_llm_system_prompt", sa.Text, nullable=False),
+            sa.Column("ask_enabled_status", sa.Integer, nullable=False),
             *(
                 sa.Column(column, sa.String, nullable=False)
                 for column in migration._COLUMNS
@@ -50,6 +58,7 @@ def test_migration_preserves_course_settings_and_outline_content() -> None:
                 .values(
                     id=1,
                     content="Keep lesson content",
+                    **retained,
                     **dict.fromkeys(migration._COLUMNS, "old-setting"),
                 )
             )
@@ -72,13 +81,23 @@ def test_migration_preserves_course_settings_and_outline_content() -> None:
                 for name in migration._TABLES:
                     assert {
                         c["name"] for c in sa.inspect(connection).get_columns(name)
-                    } == {"id", "content"}
+                    } == {"id", "content", *retained}
                     assert (
                         connection.execute(
                             sa.select(metadata.tables[name].c.content)
                         ).scalar_one()
                         == "Keep lesson content"
                     )
+                    preserved = (
+                        connection.execute(
+                            sa.select(
+                                *(metadata.tables[name].c[key] for key in retained)
+                            )
+                        )
+                        .mappings()
+                        .one()
+                    )
+                    assert dict(preserved) == retained
                 for name in ("shifu_draft_shifus", "shifu_published_shifus"):
                     row = (
                         connection.execute(metadata.tables[name].select())
@@ -99,6 +118,7 @@ def test_migration_preserves_course_settings_and_outline_content() -> None:
                         "id",
                         "content",
                         *migration._COLUMNS,
+                        *retained,
                     }
                     assert all(not c["nullable"] for c in columns)
                     row = connection.execute(
@@ -108,5 +128,5 @@ def test_migration_preserves_course_settings_and_outline_content() -> None:
                             metadata.tables[name].c.ask_enabled_status,
                         )
                     ).one()
-                    assert tuple(row) == ("", "", 5101)
+                    assert tuple(row) == ("", "", 5102)
     engine.dispose()

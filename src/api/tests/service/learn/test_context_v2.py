@@ -1283,7 +1283,8 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
         )
         preview_ctx = RunScriptPreviewContextV2(app)
         shifu = types.SimpleNamespace(
-            llm="silicon/fishaudio/fish-speech-1.5", llm_temperature=None
+            llm="silicon/fishaudio/fish-speech-1.5",
+            llm_temperature=None,
         )
 
         with (
@@ -1461,22 +1462,21 @@ class CoursePromptCompositionTests(unittest.TestCase):
         ctx.app = app
         ctx._struct = object()
 
+        outline_model = MagicMock()
+        outline_model.query.filter.return_value.all.return_value = [
+            types.SimpleNamespace(id="outline-db-1", llm_system_prompt="COURSE RULE")
+        ]
+        ctx._outline_model = outline_model
         ctx._shifu_model = MagicMock()
-        ctx._shifu_model.query.filter.return_value.order_by.return_value.first.return_value = types.SimpleNamespace(
-            llm_system_prompt="COURSE RULE"
-        )
 
         with patch(
             "flaskr.service.learn.context_v2._find_outline_path_or_raise",
-            return_value=[
-                types.SimpleNamespace(id="course-db-1", type="shifu"),
-                types.SimpleNamespace(id="outline-db-1", type="outline"),
-            ],
+            return_value=[types.SimpleNamespace(id="outline-db-1", type="outline")],
         ):
             prompt = ctx.get_system_prompt("outline-1")
 
         assert prompt == "COURSE RULE"
-        ctx._shifu_model.query.filter.assert_called_once()
+        ctx._shifu_model.query.filter.assert_not_called()
 
     def test_teaching_composes_prompt_after_loading_effective_profiles(self) -> None:
         class FakeColumn:
@@ -1595,13 +1595,21 @@ class CoursePromptCompositionTests(unittest.TestCase):
     def test_formal_preview_composes_from_effective_variables(self) -> None:
         app = Flask("preview-course-prompt-variables")
         preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+        )
         variables = {
             "sys_user_nickname": "Debug Alex",
             "sys_user_background": "Debug background",
         }
 
         prompt = preview_ctx._resolve_document_prompt(
-            shifu=types.SimpleNamespace(llm_system_prompt="PREVIEW COURSE RULE"),
+            preview_request,
+            outline=None,
+            shifu=types.SimpleNamespace(llm_system_prompt="FALLBACK RULE"),
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
             user_bid="user-1",
             variables=variables,
         )
@@ -1620,13 +1628,21 @@ class CoursePromptCompositionTests(unittest.TestCase):
     def test_formal_preview_omits_account_identifier_as_nickname(self) -> None:
         app = Flask("preview-course-prompt-account-identifier")
         preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+        )
 
         with patch(
             "flaskr.service.learn.context_v2.load_user_aggregate",
             return_value=types.SimpleNamespace(identify="legacy-account-name"),
         ):
             prompt = preview_ctx._resolve_document_prompt(
-                shifu=types.SimpleNamespace(llm_system_prompt="PREVIEW COURSE RULE"),
+                preview_request,
+                outline=None,
+                shifu=None,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
                 user_bid="user-1",
                 variables={
                     "sys_user_nickname": "legacy-account-name",
@@ -1677,7 +1693,11 @@ class CoursePromptCompositionTests(unittest.TestCase):
             )
 
         prompt = preview_ctx._resolve_document_prompt(
-            shifu=types.SimpleNamespace(llm_system_prompt="PREVIEW COURSE RULE"),
+            preview_request,
+            outline=None,
+            shifu=None,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
             user_bid="user-1",
             variables=variables,
         )
@@ -1723,7 +1743,11 @@ class CoursePromptCompositionTests(unittest.TestCase):
             )
 
         prompt = preview_ctx._resolve_document_prompt(
-            shifu=types.SimpleNamespace(llm_system_prompt="PREVIEW COURSE RULE"),
+            preview_request,
+            outline=None,
+            shifu=None,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
             user_bid="user-1",
             variables=variables,
         )

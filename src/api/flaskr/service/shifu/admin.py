@@ -472,6 +472,8 @@ _OPERATOR_COURSE_COMPAT_EXPORTS = (
     "_load_latest_outline_items",
     "_resolve_learning_permission",
     "_resolve_content_status",
+    "_resolve_outline_prompt_source",
+    "_resolve_prompt_with_fallback",
     "_build_chapter_tree",
     "_load_outline_learning_stats",
     "_load_operator_course_outline_items",
@@ -542,6 +544,8 @@ _load_operator_course_detail_source = (
 _load_latest_outline_items = _operator_courses._load_latest_outline_items
 _resolve_learning_permission = _operator_courses._resolve_learning_permission
 _resolve_content_status = _operator_courses._resolve_content_status
+_resolve_outline_prompt_source = _operator_courses._resolve_outline_prompt_source
+_resolve_prompt_with_fallback = _operator_courses._resolve_prompt_with_fallback
 _build_chapter_tree = _operator_courses._build_chapter_tree
 _load_outline_learning_stats = _operator_courses._load_outline_learning_stats
 _load_operator_course_outline_items = (
@@ -722,6 +726,8 @@ __all__ = (
     "_resolve_follow_up_source_from_element",
     "_resolve_learning_permission",
     "_resolve_operator_credit_grant_type",
+    "_resolve_outline_prompt_source",
+    "_resolve_prompt_with_fallback",
     "_resolve_visible_leaf_outline_bids",
     "_run_course_copy_draft_risk_check",
     "_run_course_copy_outline_risk_check",

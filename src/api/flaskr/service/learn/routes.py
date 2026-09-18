@@ -497,6 +497,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                         description: chat context forwarded to LLM
                         items:
                             type: object
+                    document_prompt:
+                        type: string
+                        required: false
+                        description: document prompt
                     variables:
                         type: object
                         required: false
@@ -505,6 +509,14 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                         type: object
                         required: false
                         description: user input map (legacy alias: input)
+                    interaction_prompt:
+                        type: string
+                        required: false
+                        description: override interaction render prompt
+                    interaction_error_prompt:
+                        type: string
+                        required: false
+                        description: override interaction error prompt
                     visual_mode:
                         type: boolean
                         required: false
@@ -538,6 +550,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             "context": payload.get("context"),
             "variables": payload.get("variables"),
             "user_input": normalized_user_input,
+            "document_prompt": payload.get("document_prompt"),
+            "interaction_prompt": payload.get("interaction_prompt"),
+            "interaction_error_prompt": payload.get("interaction_error_prompt"),
             "visual_mode": visual_mode,
         }
         try:

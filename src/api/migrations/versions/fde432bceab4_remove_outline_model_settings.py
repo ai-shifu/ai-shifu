@@ -1,12 +1,13 @@
-"""Remove outline model settings in favor of course-owned settings.
+"""Remove outline models and temperatures in favor of course-owned settings.
 
 Revision ID: fde432bceab4
 Revises: e5a7c9d1f3b4
-Create Date: 2026-09-18 10:31:32 UTC
+Create Date: 2026-09-18 10:59:38 UTC
 
-Generated from the SQLAlchemy model change, then narrowed to the two outline
-tables. Deploy with the matching application code; older versions read these
-columns. Downgrade restores empty inherited settings, not discarded overrides.
+Regenerated from the narrowed SQLAlchemy change; prompts and follow-up status
+remain on both outline tables. Deploy with the matching application code; older
+versions read these columns. Downgrade restores empty inherited settings, not
+discarded overrides.
 """
 
 from alembic import op
@@ -21,16 +22,13 @@ _TABLES = ("shifu_draft_outline_items", "shifu_published_outline_items")
 _COLUMNS = (
     "llm",
     "llm_temperature",
-    "llm_system_prompt",
-    "ask_enabled_status",
     "ask_llm",
     "ask_llm_temperature",
-    "ask_llm_system_prompt",
 )
 
 
 def upgrade() -> None:
-    """Remove only outline settings, preserving course settings and content."""
+    """Remove outline models and temperatures, preserving prompts and content."""
     for table in _TABLES:
         if op.get_bind().dialect.name == "mysql":
             # One online table rebuild; refuse a fallback that would lock writers.
@@ -48,19 +46,11 @@ def downgrade() -> None:
         definitions = (
             ("llm", sa.String(100), "", "LLM model name"),
             ("llm_temperature", sa.DECIMAL(10, 2), 0, "LLM temperature parameter"),
-            ("llm_system_prompt", sa.Text(), "", "LLM system prompt"),
-            (
-                "ask_enabled_status",
-                sa.SmallInteger(),
-                5101,
-                "Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
-            ),
             ("ask_llm", sa.String(100), "", "Ask agent LLM model"),
             ("ask_llm_temperature", sa.DECIMAL(10, 2), 0, "Ask agent LLM temperature"),
-            ("ask_llm_system_prompt", sa.Text(), "", "Ask agent LLM system prompt"),
         )
         # Add nullable columns first so populated tables can be downgraded,
-        # including MySQL versions that disallow literal defaults for TEXT.
+        # without replacing retained prompts or follow-up status.
         with op.batch_alter_table(table) as batch_op:
             for name, column_type, _default, comment in definitions:
                 batch_op.add_column(

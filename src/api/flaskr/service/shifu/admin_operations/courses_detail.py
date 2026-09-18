@@ -39,6 +39,9 @@ from flaskr.service.shifu.admin_operations.courses_credit_usage import (
     _build_operator_course_credit_metrics,
 )
 from flaskr.service.shifu.admin_operations.courses_shared import (
+    PROMPT_SOURCE_CHAPTER,
+    PROMPT_SOURCE_COURSE,
+    PROMPT_SOURCE_LESSON,
     _build_course_order_amount_expr,
     _format_average_score,
     _format_decimal,
@@ -58,6 +61,10 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from flask import Flask
+    from flaskr.service.shifu.models import (
+        DraftOutlineItem,
+        PublishedOutlineItem,
+    )
 
 
 def _resolve_learning_permission(item_type: int | None) -> str:
@@ -74,6 +81,41 @@ def _resolve_content_status(item: object) -> str:
     if str(getattr(item, "content", "") or "").strip():
         return "has"
     return "empty"
+
+
+def _resolve_outline_prompt_source(item: object) -> str:
+    parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
+    if parent_bid:
+        return PROMPT_SOURCE_LESSON
+    return PROMPT_SOURCE_CHAPTER
+
+
+def _resolve_prompt_with_fallback(
+    *,
+    outline_item: object,
+    outline_item_map: dict[str, DraftOutlineItem | PublishedOutlineItem],
+    course: object,
+    field_name: str,
+) -> tuple[str, str]:
+    current_item = outline_item
+    visited_bids: set[str] = set()
+
+    while current_item is not None:
+        prompt_value = str(getattr(current_item, field_name, "") or "").strip()
+        if prompt_value:
+            return prompt_value, _resolve_outline_prompt_source(current_item)
+
+        parent_bid = str(getattr(current_item, "parent_bid", "") or "").strip()
+        if not parent_bid or parent_bid in visited_bids:
+            break
+        visited_bids.add(parent_bid)
+        current_item = outline_item_map.get(parent_bid)
+
+    course_prompt_value = str(getattr(course, field_name, "") or "").strip()
+    if course_prompt_value:
+        return course_prompt_value, PROMPT_SOURCE_COURSE
+
+    return "", ""
 
 
 def _build_chapter_tree(
@@ -385,8 +427,12 @@ def get_operator_course_chapter_detail(
         if outline_item is None:
             raise_error("server.shifu.outlineItemNotFound")
 
-        llm_system_prompt = str(getattr(course, "llm_system_prompt", "") or "").strip()
-        llm_system_prompt_source = "course" if llm_system_prompt else ""
+        llm_system_prompt, llm_system_prompt_source = _resolve_prompt_with_fallback(
+            outline_item=outline_item,
+            outline_item_map=outline_item_map,
+            course=course,
+            field_name="llm_system_prompt",
+        )
         return AdminOperationCourseChapterDetailDTO(
             outline_item_bid=normalized_outline_item_bid,
             title=outline_item.title or "",

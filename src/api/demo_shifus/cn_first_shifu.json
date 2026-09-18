@@ -25,6 +25,9 @@
       "parent_bid": "",
       "position": "01",
       "prerequisite_item_bids": "",
+      "llm_system_prompt": "",
+      "ask_enabled_status": 5101,
+      "ask_llm_system_prompt": "",
       "content": ""
     },
     {
@@ -35,6 +38,9 @@
       "parent_bid": "85bf8e2578954c8899016cf1f4a94a64",
       "position": "0101",
       "prerequisite_item_bids": "",
+      "llm_system_prompt": "",
+      "ask_enabled_status": 5101,
+      "ask_llm_system_prompt": "",
       "content": "!===\n\n🎉 欢迎使用 AI 师傅！！🎉\n你只需要给到内容， AI 师傅会做千人千面的讲解。\n\n👉第一步：请在这里写下任意的讲解要求。\n比如：讲解金字塔原理\n \n👉第二步： 请点击 **预览课程** 查看效果。\n\n👉第三步：回到上一级 **师傅** 主界面，查看 [AI 师傅创作指导课](https://app.ai-shifu.cn/c/3aab99292889400f9f3c935a45ab2b0e)，了解如何使用AI 师傅进行创作。\n\n\n现在让我们开始吧！！\n请删除这里所有内容，写一个你想要讲述的内容吧。\n\n!==="
     }
   ],

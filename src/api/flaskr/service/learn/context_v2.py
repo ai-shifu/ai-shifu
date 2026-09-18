@@ -120,6 +120,7 @@ from flaskr.service.shifu.shifu_struct_manager import (
     # Kept as a module attribute: run/state.py resolves it through this
     # namespace at call time and tests patch it here.
     get_outline_item_dto_with_mdflow,  # noqa: F401
+    get_shifu_struct,
 )
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.user.exceptions import UserNotLoginError
@@ -852,7 +853,13 @@ class RunScriptPreviewContextV2:
             shifu_bid=shifu_bid,
         )
         document_prompt = self._resolve_document_prompt(
-            shifu, user_bid, resolved_variables
+            preview_request,
+            outline,
+            shifu,
+            shifu_bid,
+            outline_bid,
+            user_bid,
+            resolved_variables,
         )
         self.app.logger.info(
             "preview document prompt | shifu_bid=%s | outline_bid=%s | prompt=%s",
@@ -988,6 +995,8 @@ class RunScriptPreviewContextV2:
                 document=document,
                 llm_provider=provider,
                 document_prompt=document_prompt,
+                interaction_prompt=preview_request.interaction_prompt,
+                interaction_error_prompt=preview_request.interaction_error_prompt,
                 use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
                 visual_mode=bool(preview_request.visual_mode),
                 output_language=preview_output_language,
@@ -1278,13 +1287,31 @@ class RunScriptPreviewContextV2:
 
     def _resolve_document_prompt(
         self,
+        preview_request: PlaygroundPreviewRequest,
+        outline: DraftOutlineItem | PublishedOutlineItem | None,
         shifu: DraftShifu | PublishedShifu | None,
+        shifu_bid: str,
+        outline_bid: str,
         user_bid: str,
         variables: dict | None,
     ) -> str | None:
-        course_prompt = (
-            getattr(shifu, "llm_system_prompt", None) or ""
-        ).strip() or None
+        course_prompt: str | None = None
+        if preview_request.document_prompt:
+            prompt = preview_request.document_prompt.strip()
+            if prompt:
+                course_prompt = prompt
+
+        if not course_prompt:
+            course_prompt = self._resolve_prompt_from_outline_chain(
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                outline_record=outline,
+            )
+
+        if not course_prompt and shifu:
+            prompt = (getattr(shifu, "llm_system_prompt", None) or "").strip()
+            if prompt:
+                course_prompt = prompt
 
         if not course_prompt:
             return course_prompt
@@ -1319,6 +1346,86 @@ class RunScriptPreviewContextV2:
                 type(exc).__name__,
             )
             return None
+
+    def _resolve_prompt_from_outline_chain(
+        self,
+        shifu_bid: str,
+        outline_bid: str,
+        outline_record: DraftOutlineItem | PublishedOutlineItem | None,
+    ) -> str | None:
+        target_bid = outline_record.outline_item_bid if outline_record else outline_bid
+        if not target_bid:
+            return None
+
+        preferred_is_draft = isinstance(outline_record, DraftOutlineItem)
+        visited_bids = set()
+
+        if outline_record:
+            prompt = (outline_record.llm_system_prompt or "").strip()
+            if prompt:
+                return prompt
+            visited_bids.add(outline_record.outline_item_bid)
+
+        hierarchy_records = self._load_outline_hierarchy_records(
+            shifu_bid=shifu_bid,
+            outline_bid=target_bid,
+            prefer_draft=preferred_is_draft,
+        )
+        for record in hierarchy_records:
+            if not record or record.outline_item_bid in visited_bids:
+                continue
+            prompt = (record.llm_system_prompt or "").strip()
+            if prompt:
+                return prompt
+            visited_bids.add(record.outline_item_bid)
+        return None
+
+    def _load_outline_hierarchy_records(
+        self,
+        shifu_bid: str,
+        outline_bid: str,
+        prefer_draft: bool,
+    ) -> list[DraftOutlineItem | PublishedOutlineItem]:
+        records: list[DraftOutlineItem | PublishedOutlineItem] = []
+        struct_modes = (
+            [prefer_draft, not prefer_draft]
+            if prefer_draft in (True, False)
+            else [True, False]
+        )
+        struct_modes = list(dict.fromkeys(struct_modes))
+
+        for is_preview in struct_modes:
+            try:
+                struct = get_shifu_struct(self.app, shifu_bid, is_preview)
+            except Exception:
+                self.app.logger.debug(
+                    "outline hierarchy lookup skipped a struct: "
+                    "shifu_bid=%s is_preview=%s",
+                    shifu_bid,
+                    is_preview,
+                    exc_info=True,
+                )
+                continue
+            path = find_node_with_parents(struct, outline_bid)
+            if not path:
+                continue
+            path = list(reversed(path))
+            outline_ids = [item.id for item in path if item.type == "outline"]
+            if not outline_ids:
+                continue
+            outline_model = DraftOutlineItem if is_preview else PublishedOutlineItem
+            outline_items = outline_model.query.filter(
+                outline_model.id.in_(outline_ids),
+                outline_model.deleted == 0,
+            ).all()
+            outline_map = {item.id: item for item in outline_items}
+            for oid in outline_ids:
+                record = outline_map.get(oid)
+                if record:
+                    records.append(record)
+            if records:
+                break
+        return records
 
     def _resolve_llm_settings(
         self,
@@ -3523,6 +3630,7 @@ class RunScriptContextV2:
             outline_item_bid=outline_item_bid,
             preview_mode=bool(getattr(self, "_preview_mode", False)),
             outline_path=outline_path,
+            outline_model=self._outline_model,
             shifu_model=self._shifu_model,
         )
 
