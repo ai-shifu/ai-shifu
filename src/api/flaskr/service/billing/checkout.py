@@ -2844,6 +2844,8 @@ def _validate_stripe_checkout_evidence(
         None,
     )
     if metadata is None:
+        if _is_legacy_unbound_expired_stripe_checkout(session, intent):
+            return
         raise_error("server.order.orderStatusError")
 
     if _normalize_bid(metadata.get("bill_order_bid")) != order.bill_order_bid:
@@ -2855,6 +2857,17 @@ def _validate_stripe_checkout_evidence(
         actual_value = _normalize_bid(metadata.get(key))
         if actual_value and actual_value != _normalize_bid(expected_value):
             raise_error("server.order.orderStatusError")
+
+
+def _is_legacy_unbound_expired_stripe_checkout(
+    session: dict[str, object],
+    intent: dict[str, object] | None,
+) -> bool:
+    """Accept only unpaid expired Sessions created before metadata was copied."""
+    return bool(
+        session.get("status") == "expired"
+        and not _is_stripe_checkout_paid(session, intent)
+    )
 
 
 def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:
