@@ -131,6 +131,7 @@ class Transport(Protocol):
         headers: Mapping[str, str],
         body: bytes | None,
         timeout: Timeout,
+        deadline: float,
     ) -> HTTPResponse:
         """Open one request without resolving the hostname again."""
         ...
@@ -174,7 +175,13 @@ class SafeOutboundResponse:
         try:
             while True:
                 _check_deadline(self._deadline)
-                chunk = read(min(chunk_size, self._max_bytes - total + 1))
+                try:
+                    chunk = read(min(chunk_size, self._max_bytes - total + 1))
+                except Exception as exc:
+                    if time.monotonic() >= self._deadline:
+                        message = "outbound request exceeded its total timeout"
+                        raise OutboundDeadlineExceededError(message) from exc
+                    raise
                 _check_deadline(self._deadline)
                 if not chunk:
                     return
@@ -380,6 +387,7 @@ class SafeOutboundClient:
                         connect=min(self.policy.connect_timeout_seconds, remaining),
                         read=min(self.policy.read_timeout_seconds, remaining),
                     ),
+                    deadline=deadline,
                 )
             except (ConnectTimeoutError, NewConnectionError) as exc:
                 last_error = exc

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ipaddress
+import socket
 import threading
+import time
 from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -35,6 +37,32 @@ def _resolver(*addresses: str) -> Resolver:
         return addresses
 
     return resolve
+
+
+def _start_slow_http_server(
+    response_parts: Iterable[tuple[float, bytes]],
+) -> tuple[int, threading.Thread]:
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+
+    def serve() -> None:
+        with listener:
+            connection, _address = listener.accept()
+            with connection:
+                connection.recv(4096)
+                for delay, data in response_parts:
+                    time.sleep(delay)
+                    try:
+                        connection.sendall(data)
+                    except OSError:
+                        return
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    return port, thread
 
 
 @pytest.mark.parametrize(
@@ -147,8 +175,9 @@ class _FakeTransport:
         headers: Mapping[str, str],
         body: bytes | None,
         timeout: Timeout,
+        deadline: float,
     ) -> HTTPResponse:
-        del timeout
+        del deadline, timeout
         self.calls.append((method, target, address, dict(headers), body))
         reply = self.replies.pop(0)
         return HTTPResponse(
@@ -553,6 +582,53 @@ def test_response_stream_enforces_wall_clock_deadline(
 
     with pytest.raises(OutboundDeadlineExceededError, match="total timeout"):
         list(response.iter_bytes(chunk_size=2))
+
+
+def test_total_deadline_interrupts_slow_response_headers() -> None:
+    response_parts = [(0.03, b"x") for _index in range(20)]
+    response_parts.insert(0, (0.0, b"HTTP/1.1 200 OK\r\nX-Slow: "))
+    port, server_thread = _start_slow_http_server(response_parts)
+    origin = f"http://localhost:{port}"
+    client = SafeOutboundClient(
+        policy=OutboundUrlPolicy(
+            trusted_origins=frozenset({origin}),
+            total_timeout_seconds=0.15,
+            read_timeout_seconds=1,
+        ),
+        resolver=_resolver("127.0.0.1"),
+    )
+    started_at = time.monotonic()
+
+    with pytest.raises(OutboundDeadlineExceededError, match="total timeout"):
+        client.request("GET", f"{origin}/slow-headers")
+
+    assert time.monotonic() - started_at < 0.5
+    server_thread.join(timeout=1)
+
+
+def test_total_deadline_interrupts_slow_chunk_length_line() -> None:
+    response_parts = [
+        (0.0, b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"),
+        *[(0.03, b"1") for _index in range(20)],
+    ]
+    port, server_thread = _start_slow_http_server(response_parts)
+    origin = f"http://localhost:{port}"
+    client = SafeOutboundClient(
+        policy=OutboundUrlPolicy(
+            trusted_origins=frozenset({origin}),
+            total_timeout_seconds=0.15,
+            read_timeout_seconds=1,
+        ),
+        resolver=_resolver("127.0.0.1"),
+    )
+    response = client.request("GET", f"{origin}/slow-chunk")
+    started_at = time.monotonic()
+
+    with pytest.raises(OutboundDeadlineExceededError, match="total timeout"):
+        list(response.iter_bytes())
+
+    assert time.monotonic() - started_at < 0.5
+    server_thread.join(timeout=1)
 
 
 def test_client_enforces_deadline_during_dns_resolution() -> None:
