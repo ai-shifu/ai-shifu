@@ -72,9 +72,20 @@ import necessarily loads rules twice.
 
 ## Validation
 
-`scripts/check_repo_harness.py` retains the required sections and shared
-constraints of the root, backend, and frontend entry points, along with
-repository knowledge metadata checks.
+`scripts/check_repo_harness.py` validates instruction structure, required
+shared constraints, references, and repository knowledge metadata without
+rendering instruction bodies. It rejects tracked `CLAUDE.md` and
+`CLAUDE.local.md` files, Markdown files under any `.claude/rules/` directory,
+and stale generated-instruction markers. Untracked or ignored personal files
+remain allowed under the user-level configuration described above.
+
+Instruction links use repository-local paths or explicit `http`, `https`, or
+`mailto` URLs. Host-specific file URLs, UNC paths, and other schemes are rejected;
+remote URLs are not fetched during validation.
+Use Markdown syntax for links and images; raw HTML navigation or resource
+attributes are rejected. HTML formatting and comments remain allowed.
+The Copilot entry point must contain a Markdown link resolving to the local
+root `AGENTS.md`; a plain mention or external link does not establish that route.
 
 `scripts/build_repo_knowledge_index.py` remains responsible for the generated
 knowledge indexes, document inventory, and harness reports. CI regenerates

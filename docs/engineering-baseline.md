@@ -58,7 +58,7 @@ npm install -g @evilmartians/lefthook
 Then install the remaining development tools:
 
 ```bash
-pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0
+python -m pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0 markdown-it-py==4.0.0
 (cd src/web && npm ci)   # provides prettier + eslint
 lefthook install
 ```

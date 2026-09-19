@@ -86,6 +86,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 - [Unify Frontend Source Directories](./completed/unify-frontend-directories.md)
 - [Unit-of-Work Commit-Site Migration](./completed/uow-commit-site-migration.md)
+- [Validate Agent Instructions](./completed/validate-manual-agent-instructions.md)
 - [Reuse Email and SMS Verification Login](./completed/verification-code-login-reuse.md)
 
 ## Supporting Tracker
