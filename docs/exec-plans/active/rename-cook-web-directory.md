@@ -199,14 +199,16 @@ stack startup, endpoint readiness, and the browser smoke flow against
 Before this migration, `src/cook-web/` owned the Next.js application, Jest and
 Playwright tests, package manifests, Dockerfiles, local frontend guidance, and
 focused skills. Repository-level consumers include `.github/workflows/`, `docker/`,
-`.codex/environments/`, `.cursor/`, `scripts/`, `lefthook.yml`, instruction
-generators, generated knowledge indexes, and developer documentation.
+`.codex/environments/`, `.cursor/`, `scripts/`, `lefthook.yml`,
+generated knowledge indexes, and developer documentation.
 
 The primary structural sources of truth are `ARCHITECTURE.md`, `AGENTS.md`,
 `SKILL.md`, `docs/engineering-baseline.md`, and the frontend-local guidance moved
-from `src/cook-web/` to `src/web/`. Generated `CLAUDE.md`, Cursor rules, GitHub
-instructions, and repository inventories must be regenerated through their
-own generators rather than hand-maintained independently.
+from `src/cook-web/` to `src/web/`. The layered `AGENTS.md` files own
+collaboration instructions; tool entry points follow the
+[AI tool compatibility design](../../design-docs/ai-tool-compat.md).
+Regenerate repository knowledge indexes and inventories with
+`python scripts/build_repo_knowledge_index.py`.
 
 ## Plan of Work
 
@@ -217,8 +219,9 @@ own generators rather than hand-maintained independently.
 3. Rename internal path-oriented labels and files where the old directory name
    would be misleading, while preserving Cook Web branding and external
    container/image/environment contracts.
-4. Update generators and checkers first, then regenerate their declared
-   outputs and refresh the knowledge index.
+4. Update instruction references in the owning `AGENTS.md` files. Update
+   affected generators and checkers, then regenerate their declared outputs
+   and refresh the knowledge index.
 5. Validate path filters, caches, working directories, package commands,
    Docker build contexts, Compose rendering, generated-file determinism, and
    frontend behavior.
@@ -235,8 +238,9 @@ own generators rather than hand-maintained independently.
 - Update Docker build contexts, `COPY` paths, mounted source paths, and helper
   commands while preserving `ai-shifu-cook-web` service/image compatibility.
 - Update environment setup, Cursor launchers, hooks, scripts, checkers, and
-  generated guidance ownership maps.
-- Regenerate AI collaboration docs and repository knowledge indexes.
+  instruction entry points.
+- Regenerate repository knowledge indexes with
+  `python scripts/build_repo_knowledge_index.py`.
 - Run the acceptance commands below and record their observable results.
 
 ## Validation and Acceptance

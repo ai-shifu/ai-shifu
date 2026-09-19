@@ -3,7 +3,7 @@
 ## Principles
 
 - Keep secrets and environment-specific credentials out of versioned docs,
-  scripts, compose files, and generated instruction mirrors.
+  scripts, compose files, and instruction files.
 - Route browser smoke tests through the existing local dev stack without
   introducing privileged bypasses.
 - Prefer request-id correlation and trace hints over dumping broad logs into

@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import ipaddress
+import threading
 from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.common.safe_outbound import (
+    OutboundDeadlineExceededError,
     OutboundRedirectError,
     OutboundResponseTooLargeError,
     OutboundUrlPolicy,
     Resolver,
     SafeOutboundClient,
+    SafeOutboundResponse,
     UnsafeOutboundUrlError,
     ValidatedOutboundUrl,
     validate_outbound_url,
@@ -69,6 +72,13 @@ def test_validation_rejects_mixed_public_and_private_dns_results() -> None:
 def test_validation_rejects_malformed_or_disallowed_urls(url: str) -> None:
     with pytest.raises(UnsafeOutboundUrlError):
         validate_outbound_url(url, resolver=_resolver("93.184.216.34"))
+
+
+def test_validation_rejects_invalid_dns_label_as_unsafe_url() -> None:
+    invalid_host = "a" * 64 + ".example"
+
+    with pytest.raises(UnsafeOutboundUrlError, match="could not be resolved"):
+        validate_outbound_url(f"https://{invalid_host}/resource")
 
 
 def test_validation_normalizes_public_url_and_addresses() -> None:
@@ -178,6 +188,39 @@ def test_response_iter_lines_decodes_utf8_and_normalizes_crlf() -> None:
     ]
 
 
+def test_response_iter_lines_handles_bare_cr_and_split_crlf() -> None:
+    class ChunkedRawResponse:
+        def __init__(self) -> None:
+            self.chunks = [
+                b"data: one\rdata: two\r",
+                b"\ndata: three\r",
+            ]
+
+        def read1(self, _size: int) -> bytes:
+            return self.chunks.pop(0) if self.chunks else b""
+
+        def read(self, size: int) -> bytes:
+            return self.read1(size)
+
+        def close(self) -> None:
+            pass
+
+    response = SafeOutboundResponse(
+        status=200,
+        headers={},
+        url="https://example.com/events",
+        _raw=ChunkedRawResponse(),
+        _max_bytes=1024,
+        _deadline=float("inf"),
+    )
+
+    assert list(response.iter_lines(decode_unicode=True)) == [
+        "data: one",
+        "data: two",
+        "data: three",
+    ]
+
+
 def test_default_https_transport_uses_pinned_ip_with_original_tls_host(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -216,7 +259,65 @@ def test_default_https_transport_uses_pinned_ip_with_original_tls_host(
     request_kwargs = captured["request_kwargs"]
     assert isinstance(request_kwargs, dict)
     assert request_kwargs["headers"]["Host"] == "example.com"
+    assert "host" not in request_kwargs["headers"]
     assert captured["path"] == "/resource?q=1"
+
+
+def test_default_transport_replaces_caller_host_case_insensitively(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakePool:
+        def __init__(self, _host: str, **_kwargs: object) -> None:
+            pass
+
+        def urlopen(self, _method: str, _path: str, **kwargs: object) -> HTTPResponse:
+            captured["headers"] = kwargs["headers"]
+            return HTTPResponse(body=BytesIO(b"ok"), status=200, preload_content=False)
+
+    monkeypatch.setattr(
+        "flaskr.common.safe_outbound_transport.urllib3.HTTPSConnectionPool",
+        FakePool,
+    )
+    client = SafeOutboundClient(resolver=_resolver("93.184.216.34"))
+
+    response = client.request(
+        "GET",
+        "https://example.com/resource",
+        headers={"host": "attacker.example"},
+    )
+
+    assert response.content == b"ok"
+    assert captured["headers"] == {"Host": "example.com"}
+
+
+def test_client_tries_later_validated_address_after_connection_failure() -> None:
+    transport = _FakeTransport([_Reply(200, {}, b"ok")])
+    attempted: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+
+    def fail_first(
+        method: str,
+        target: ValidatedOutboundUrl,
+        address: ipaddress.IPv4Address | ipaddress.IPv6Address,
+        **kwargs: object,
+    ) -> HTTPResponse:
+        attempted.append(address)
+        if len(attempted) == 1:
+            message = "unreachable"
+            raise OSError(message)
+        return transport(method, target, address, **kwargs)
+
+    client = SafeOutboundClient(
+        resolver=_resolver("2001:4860:4860::8888", "93.184.216.34"),
+        transport=fail_first,
+    )
+
+    assert client.request("GET", "https://example.com/resource").content == b"ok"
+    assert attempted == [
+        ipaddress.ip_address("2001:4860:4860::8888"),
+        ipaddress.ip_address("93.184.216.34"),
+    ]
 
 
 def test_client_revalidates_and_rejects_private_redirect() -> None:
@@ -289,13 +390,25 @@ def test_client_rejects_cross_origin_redirect_for_request_with_body() -> None:
         ),
     )
 
-    with pytest.raises(OutboundRedirectError, match="requests with a body"):
+    with pytest.raises(OutboundRedirectError, match="bodyless safe requests"):
         client.request(
             "POST",
             "https://example.com/start",
             headers={"Authorization": "Bearer secret"},
             body=b"payload",
         )
+
+
+def test_client_rejects_cross_origin_get_redirect_with_body() -> None:
+    client = SafeOutboundClient(
+        resolver=_resolver("93.184.216.34"),
+        transport=_FakeTransport(
+            [_Reply(307, {"Location": "https://other.example/final"})]
+        ),
+    )
+
+    with pytest.raises(OutboundRedirectError, match="bodyless safe requests"):
+        client.request("GET", "https://example.com/start", body=b"payload")
 
 
 def test_client_keeps_authorization_on_same_origin_redirect() -> None:
@@ -388,6 +501,31 @@ def test_post_redirect_303_becomes_get_without_body() -> None:
     assert (transport.calls[1][0], transport.calls[1][4]) == ("GET", None)
 
 
+def test_cross_origin_post_redirect_303_becomes_safe_get() -> None:
+    transport = _FakeTransport(
+        [
+            _Reply(303, {"Location": "https://results.example/final"}),
+            _Reply(200, {}, b"ok"),
+        ]
+    )
+    client = SafeOutboundClient(
+        resolver=_resolver("93.184.216.34"),
+        transport=transport,
+    )
+
+    response = client.request(
+        "POST",
+        "https://example.com/start",
+        headers={"Authorization": "Bearer secret", "Content-Type": "text/plain"},
+        body=b"payload",
+    )
+
+    assert response.content == b"ok"
+    assert (transport.calls[1][0], transport.calls[1][4]) == ("GET", None)
+    assert "Authorization" not in transport.calls[1][3]
+    assert "Content-Type" not in transport.calls[1][3]
+
+
 def test_response_can_be_consumed_as_bounded_stream() -> None:
     client = SafeOutboundClient(
         resolver=_resolver("93.184.216.34"),
@@ -397,4 +535,40 @@ def test_response_can_be_consumed_as_bounded_stream() -> None:
     response = client.request("GET", "https://example.com/stream")
 
     assert list(response.iter_bytes(chunk_size=2)) == [b"ab", b"cd", b"ef"]
-    assert response.content == b"abcdef"
+
+
+def test_response_stream_enforces_wall_clock_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = [0.0]
+    monkeypatch.setattr("flaskr.common.safe_outbound.time.monotonic", lambda: clock[0])
+    client = SafeOutboundClient(
+        policy=OutboundUrlPolicy(total_timeout_seconds=1),
+        resolver=_resolver("93.184.216.34"),
+        transport=_FakeTransport([_Reply(200, {}, b"abcdef")]),
+    )
+    response = client.request("GET", "https://example.com/stream")
+    clock[0] = 2.0
+
+    with pytest.raises(OutboundDeadlineExceededError, match="total timeout"):
+        list(response.iter_bytes(chunk_size=2))
+
+
+def test_client_enforces_deadline_during_dns_resolution() -> None:
+    release_resolver = threading.Event()
+
+    def stalled_resolver(_hostname: str, _port: int) -> tuple[str, ...]:
+        release_resolver.wait(timeout=1)
+        return ("93.184.216.34",)
+
+    client = SafeOutboundClient(
+        policy=OutboundUrlPolicy(total_timeout_seconds=0.01),
+        resolver=stalled_resolver,
+        transport=_FakeTransport([_Reply(200, {}, b"ok")]),
+    )
+
+    try:
+        with pytest.raises(OutboundDeadlineExceededError, match="DNS resolution"):
+            client.request("GET", "https://example.com/resource")
+    finally:
+        release_resolver.set()

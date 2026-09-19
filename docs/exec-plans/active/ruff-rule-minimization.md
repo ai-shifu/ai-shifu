@@ -548,8 +548,8 @@ Start with these files:
 - `AGENTS.md` owns repository-wide coding-agent rules.
 - `docs/engineering-baseline.md` owns the detailed Ruff finding and rule-
   adoption workflow.
-- `scripts/generate_ai_collab_docs.py` owns generated Cursor and Copilot
-  mirrors; run it whenever shared AI guidance changes.
+- Shared AI guidance belongs in the owning `AGENTS.md`; the instruction
+  generator and duplicate tool routers have been retired.
 - `scripts/check_repo_harness.py` verifies instruction and generated knowledge
   surfaces.
 - `src/api/AGENTS.md` and the nearest service `AGENTS.md` files constrain
@@ -688,7 +688,7 @@ earliest unmerged branch first, then replay successors in order.
 - Flasgger consumes route docstrings as YAML after the `---` marker; pydocstyle
   fixes must not rewrite YAML keys as prose sections.
 - Applied Alembic revisions are immutable even when a style rule flags them.
-- Generated Cursor and Copilot instruction files depend on
-  `scripts/generate_ai_collab_docs.py`; do not edit generated mirrors by hand.
+- Keep the Copilot entry point limited to navigation rather than duplicating
+  shared rules.
 - Stacked PR bases are GitHub branch dependencies. Keep each base branch alive
   until its direct successor is retargeted after merge.
