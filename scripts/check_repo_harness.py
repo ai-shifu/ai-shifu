@@ -235,8 +235,12 @@ def check_instruction_content(path: Path, errors: list[str]) -> None:
             ROOT / decoded_path.lstrip("/")
             if decoded_path.startswith("/")
             else path.parent / decoded_path
-        )
-        if not destination.exists():
+        ).resolve()
+        if not destination.is_relative_to(ROOT.resolve()):
+            errors.append(
+                f"Instruction link leaves the repository '{target}' in {path}"
+            )
+        elif not destination.exists():
             errors.append(f"Broken instruction link '{target}' in {path}")
 
 

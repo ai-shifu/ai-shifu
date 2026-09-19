@@ -76,6 +76,26 @@ class RepoInstructionsTest(unittest.TestCase):
         assert len(errors) == 1
         assert "Broken instruction link '../docs/deleted.md'" in errors[0]
 
+    def test_rejects_links_that_escape_through_parents_or_symlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as outside:
+            external = Path(outside) / "rules.md"
+            external.write_text("# External rules\n", encoding="utf-8")
+            (self.root / "external.md").symlink_to(external)
+            self.write("docs/reference.md", "# Reference\n")
+            (self.root / "internal.md").symlink_to("docs/reference.md")
+            self.write(
+                "module/AGENTS.md",
+                "# Module\n"
+                f"[Parents](../../{Path(outside).name}/rules.md)\n"
+                f"[Encoded](%2e%2e/%2e%2e/{Path(outside).name}/rules.md)\n"
+                "[External symlink](../external.md)\n"
+                "[Internal symlink](../internal.md)\n",
+            )
+            errors: list[str] = []
+            harness.check_instruction_files(errors)
+        assert len(errors) == 3
+        assert all("leaves the repository" in error for error in errors)
+
     def test_requires_shared_guardrails_and_primary_entry_points(self) -> None:
         agent = self.write(
             "AGENTS.md",
