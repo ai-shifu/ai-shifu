@@ -58,7 +58,7 @@ npm install -g @evilmartians/lefthook
 Then install the remaining development tools:
 
 ```bash
-pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0
+python -m pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0 markdown-it-py==4.0.0
 (cd src/web && npm ci)   # provides prettier + eslint
 lefthook install
 ```
@@ -590,8 +590,8 @@ does not replace test coverage. Before committing, also run
   changes while reporting a successful no-op check for unrelated PRs.
 - `prettier-check.yml`: checks Cook Web formatting for frontend changes.
 - `repo-harness.yml`: the `Static Checks` job validates architecture
-  boundaries, generated AI and knowledge artifacts, translation parity and
-  locale metadata, and the MarkdownFlow release pins on PRs into `main`.
+  boundaries, instructions, generated knowledge artifacts, translation
+  parity and locale metadata, and the MarkdownFlow release pins on PRs into `main`.
 - `runtime-harness.yml`: runs the Docker-backed Playwright smoke harness for
   runtime-affecting backend, frontend, Docker, and script changes.
 - `prepare-release.yml`: manually prepares a release draft from a requested

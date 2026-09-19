@@ -28,7 +28,9 @@ def open_pinned_request(
     timeout: Timeout,
 ) -> HTTPResponse:
     """Connect to a validated IP while preserving HTTP Host and HTTPS SNI."""
-    request_headers = dict(headers)
+    request_headers = {
+        key: value for key, value in headers.items() if key.lower() != "host"
+    }
     request_headers["Host"] = _host_header(target.hostname, target.port, target.scheme)
     parsed_url = urlsplit(target.url)
     path = parsed_url.path or "/"
