@@ -25,7 +25,7 @@ from flaskr.api.langfuse import (
     update_langfuse_trace,
 )
 from flaskr.api.llm import chat_llm
-from flaskr.api.llm.tiers import resolve_selection, selection_metadata, selection_model
+from flaskr.api.llm.tiers import selection_metadata, selection_model
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.common.i18n_utils import (
     get_markdownflow_output_language,
@@ -1438,11 +1438,9 @@ class RunScriptPreviewContextV2:
         self,
         shifu: DraftShifu | PublishedShifu | None,
     ) -> tuple[str, float]:
-        """Resolve the course selection and its temperature for preview."""
-        model, metadata = resolve_selection(
-            selection_model(shifu), selection_metadata(shifu)
-        )
-        self._preview_model_selection_metadata = metadata
+        """Prepare preview settings without routing models for static content."""
+        model = selection_model(shifu)
+        self._preview_model_selection_metadata = selection_metadata(shifu)
         temperature = self._decimal_to_float(getattr(shifu, "llm_temperature", None))
         if temperature is None:
             temperature = float(self.app.config.get("DEFAULT_LLM_TEMPERATURE"))

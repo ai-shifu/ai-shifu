@@ -165,7 +165,11 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     ctx = context_v2.RunScriptPreviewContextV2(app)
     with app.app_context():
         model, temperature = ctx._resolve_llm_settings(course)
-    assert model == "configured-1"
+    assert model == course_model
+    assert (
+        tiers.resolve_selection(model, ctx._preview_model_selection_metadata)[0]
+        == "configured-1"
+    )
     assert temperature == (
         course_temperature if course_temperature is not None else 0.3
     )

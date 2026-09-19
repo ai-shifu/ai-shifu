@@ -78,8 +78,11 @@ def test_preview_falls_back_without_modifying_original_values(
         db.session.flush()
         updated = row.updated_at
         context = RunScriptPreviewContextV2(app)
-        assert context._resolve_llm_settings(row)[0] == "configured-1"
+        model, _temperature = context._resolve_llm_settings(row)
+        assert model == selection
         metadata = context._preview_model_selection_metadata
+        assert "resolved_model" not in metadata
+        assert tiers.resolve_selection(model, metadata)[0] == "configured-1"
         assert metadata["model_selection_original"] == selection
         assert metadata["model_selection_record_id"] == row.id
         assert metadata["model_index"] == "1"
@@ -176,7 +179,13 @@ def test_course_tiers_drive_preview_learning_and_follow_up(
             == "configured-1"
         )
         preview = context_v2.RunScriptPreviewContextV2(app)
-        assert preview._resolve_llm_settings(course)[0] == "configured-1"
+        preview_model, _temperature = preview._resolve_llm_settings(course)
+        assert (
+            tiers.resolve_selection(
+                preview_model, preview._preview_model_selection_metadata
+            )[0]
+            == "configured-1"
+        )
         follow_up = utils_v2.get_follow_up_info_v2(
             app, bid, leaf.outline_item_bid, "", is_preview=True
         )

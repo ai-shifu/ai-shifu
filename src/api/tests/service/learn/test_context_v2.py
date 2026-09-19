@@ -1275,7 +1275,9 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     """Verify preview resolve LLM settings behavior."""
 
-    def test_resolves_numbered_models_without_rewriting_saved_selections(self) -> None:
+    def test_prepares_model_metadata_without_routing_or_rewriting_selections(
+        self,
+    ) -> None:
         app = Flask("preview-llm-settings")
         app.config.update(
             DEFAULT_LLM_MODEL="different-model", DEFAULT_LLM_TEMPERATURE=0.3
@@ -1289,10 +1291,10 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
         }
         preview_ctx = RunScriptPreviewContextV2(app)
         cases = [
-            ("old-model", "1", "test/default", "invalid_selection", None),
-            ("", "1", "test/default", "missing_selection", None),
-            ("7", "1", "test/default", "unconfigured_index", None),
-            ("3", "3", "test/advanced", None, 0.8),
+            ("old-model", "1", "invalid_selection", None),
+            ("", "1", "missing_selection", None),
+            ("7", "1", "unconfigured_index", None),
+            ("3", "3", None, 0.8),
         ]
         with (
             patch(
@@ -1301,10 +1303,10 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
             ),
             patch(
                 "flaskr.api.llm.get_litellm_params_and_model",
-                return_value=({"api_key": "test"}, "unused", "test"),
-            ),
+                side_effect=AssertionError("Preview setup must not route models"),
+            ) as route,
         ):
-            for saved, index, resolved, reason, saved_temperature in cases:
+            for saved, index, reason, saved_temperature in cases:
                 with self.subTest(saved=saved):
                     shifu = types.SimpleNamespace(
                         llm=saved,
@@ -1313,7 +1315,7 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
                         __tablename__="draft_shifu",
                     )
                     model, temperature = preview_ctx._resolve_llm_settings(shifu)
-                    assert model == resolved
+                    assert model == saved
                     assert temperature == (
                         0.3 if saved_temperature is None else saved_temperature
                     )
@@ -1321,11 +1323,122 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
                     metadata = preview_ctx._preview_model_selection_metadata
                     assert metadata["model_selection_original"] == saved
                     assert metadata["model_index"] == index
-                    assert metadata["resolved_model"] == resolved
+                    assert "resolved_model" not in metadata
                     assert metadata["model_selection_fallback"] is (reason is not None)
                     assert metadata["model_selection_fallback_reason"] == reason
                     assert metadata["model_selection_record_id"] == 23
                     assert metadata["model_selection_table"] == "draft_shifu"
+            route.assert_not_called()
+
+
+@pytest.mark.no_mock_llm
+@pytest.mark.parametrize(
+    ("document", "provider_available"),
+    [
+        ("!===\nStatic preview content\n!===", False),
+        ("Generate preview content.", False),
+        ("Generate preview content.", True),
+    ],
+)
+def test_preview_resolves_models_only_when_content_calls_llm(
+    document: str, provider_available: bool
+) -> None:
+    """Real preview parsing keeps static content independent from provider routing."""
+    from flaskr.api import llm
+    from flaskr.service.common.models import ERROR_CODE, AppError
+
+    app = Flask("preview-model-resolution-timing")
+    preview_ctx = RunScriptPreviewContextV2(app)
+    course = types.SimpleNamespace(
+        llm="3", llm_temperature=0.2, id=23, __tablename__="draft_shifu"
+    )
+    config = {
+        "LLM_MODEL_1_ID": "test/default",
+        "LLM_MODEL_3_ID": "test/advanced",
+    }
+    is_static = document.startswith("!===")
+    preview_request = PlaygroundPreviewRequest(
+        block_index=0, content=document, context=[], visual_mode=False
+    )
+    chunk = types.SimpleNamespace(
+        id="preview-chunk",
+        choices=[
+            types.SimpleNamespace(
+                delta=types.SimpleNamespace(content="Generated preview content"),
+                finish_reason="stop",
+            )
+        ],
+        usage=None,
+    )
+    with (
+        patch.object(preview_ctx, "_get_outline_record", return_value=None),
+        patch.object(preview_ctx, "_get_shifu_record", return_value=course),
+        patch.object(preview_ctx, "_resolve_preview_variables", return_value={}),
+        patch.object(preview_ctx, "_resolve_document_prompt", return_value=""),
+        patch.object(context_v2_module, "_PreviewContextStore"),
+        patch.object(context_v2_module, "get_langfuse_client", return_value=None),
+        patch.object(
+            context_v2_module,
+            "create_trace_with_root_span",
+            return_value=(MagicMock(), MagicMock()),
+        ),
+        patch.object(context_v2_module, "chat_llm", wraps=llm.chat_llm) as chat,
+        patch.object(llm, "_iter_stream_with_precontent_retry", return_value=[chunk]),
+        patch.object(llm, "_prepare_litellm_request_kwargs", return_value={}),
+        patch.object(llm, "record_llm_usage") as usage,
+        patch(
+            "flaskr.api.llm.tiers.get_config",
+            side_effect=lambda key, default=None: config.get(key, default),
+        ),
+        patch.object(
+            llm,
+            "get_litellm_params_and_model",
+            return_value=(
+                {"api_key": "test"} if provider_available else None,
+                "test/advanced",
+                "test",
+            ),
+        ) as route,
+    ):
+        stream = preview_ctx.stream_preview(
+            preview_request=preview_request,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            session_id="preview-session-1",
+        )
+        if not is_static and not provider_available:
+            with pytest.raises(AppError) as error:
+                list(stream)
+            assert error.value.code == ERROR_CODE["server.llm.modelTierUnavailable"]
+        else:
+            messages = list(stream)
+            expected = "Static preview content" if is_static else "Generated preview"
+            assert any(
+                expected in getattr(message.content, "content_text", "")
+                for message in messages
+            )
+
+        assert course.llm == "3"
+        if is_static:
+            route.assert_not_called()
+            chat.assert_not_called()
+            usage.assert_not_called()
+        else:
+            chat.assert_called_once()
+            assert chat.call_args.kwargs["model"] == "3"
+            assert {call.args[0] for call in route.call_args_list} == {"test/advanced"}
+            if not provider_available:
+                usage.assert_not_called()
+            else:
+                usage.assert_called_once()
+                assert usage.call_args.kwargs["model"] == "test/advanced"
+                metadata = usage.call_args.kwargs["extra"]
+                assert metadata["model_index"] == "3"
+                assert metadata["resolved_model"] == "test/advanced"
+                assert metadata["model_selection_original"] == "3"
+                assert metadata["model_selection_record_id"] == 23
+                assert metadata["model_selection_table"] == "draft_shifu"
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):

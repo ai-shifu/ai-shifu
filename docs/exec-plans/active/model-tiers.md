@@ -34,6 +34,8 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   preserve raw stored values and active Live follow-up validation.
 - [x] 2026-09-19 UTC: Use model 1 for the gateway default alias when the legacy
   default setting is blank; preserve explicit overrides and rate eligibility.
+- [x] 2026-09-19 UTC: Defer preview provider resolution until an LLM block runs,
+  preserving static previews and actual-call model metadata and error behavior.
 
 ## Surprises & Discoveries
 
@@ -64,6 +66,10 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   Numbered-only deployments need the gateway alias to use model 1 when that
   optional setting is blank, while preserving explicit gateway defaults and
   the existing route and rate eligibility checks.
+- Eager preview model resolution rejected static MarkdownFlow documents when
+  their configured provider was unavailable. Carry selection metadata through
+  preview setup and resolve the physical binding only at the shared LLM call
+  boundary, as learner execution already does.
 
 ## Decision Log
 
