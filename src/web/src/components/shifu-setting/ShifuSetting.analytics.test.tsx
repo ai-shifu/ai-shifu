@@ -24,6 +24,7 @@ const mockGetFollowUpModelCatalog = jest.fn();
 const mockGetModelTierList = jest.fn();
 const mockAskSettingsSection = jest.fn();
 const mockMainModelSelector = jest.fn();
+const mockFormMethods = jest.fn();
 const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 const mockCurrentShifu = {
   bid: 'course-1',
@@ -130,6 +131,17 @@ jest.mock('next/link', () => ({
 }));
 
 jest.mock('@/components/model-list', () => () => null);
+jest.mock('@/components/ui/Form', () => {
+  const actual = jest.requireActual('@/components/ui/Form');
+  return {
+    ...actual,
+    Form: (props: Record<string, unknown>) => {
+      mockFormMethods(props);
+      const ActualForm = actual.Form;
+      return <ActualForm {...props} />;
+    },
+  };
+});
 jest.mock('@/components/model-list/ModelTierList', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
@@ -1519,6 +1531,23 @@ describe('ShifuSetting Live-to-text availability', () => {
 describe('ShifuSetting compatibility fallback and explicit selection', () => {
   const main = () => mockMainModelSelector.mock.calls.at(-1)?.[0];
   const followUp = () => mockAskSettingsSection.mock.calls.at(-1)?.[0];
+  const submitSettings = (submission: string) => {
+    if (submission === 'close') {
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      return;
+    }
+    // Supply the existing schema's required bounds so native submission
+    // reaches its success callback instead of passing cancellation tests
+    // merely because unrelated full-form validation failed.
+    act(() => {
+      const form = mockFormMethods.mock.calls.at(-1)?.[0];
+      form.setValue('temperature_min', 0);
+      form.setValue('temperature_max', 2);
+    });
+    fireEvent.submit(
+      screen.getByDisplayValue('Compatibility course').closest('form')!,
+    );
+  };
   const detail = {
     bid: 'course-1',
     name: 'Compatibility course',
@@ -1850,12 +1879,17 @@ describe('ShifuSetting compatibility fallback and explicit selection', () => {
     );
     expect(mockSaveShifuDetail.mock.calls[1][0].name).toBe('Queued title');
   });
-  it.each(['main', 'followUp'])(
-    'captures the latest %s choice when it changes during async form validation',
-    async field => {
+  it.each([
+    ['main', 'close'],
+    ['followUp', 'close'],
+    ['main', 'submit'],
+    ['followUp', 'submit'],
+  ])(
+    'captures the latest %s choice when it changes during async %s validation',
+    async (field, submission) => {
       await open();
-      fireEvent.click(screen.getByLabelText('close-settings'));
-      // submitForm is awaiting its first form.trigger at this point.
+      submitSettings(submission);
+      // Both submit paths await validation before their success callbacks.
       expect(mockSaveShifuDetail).not.toHaveBeenCalled();
       act(() =>
         field === 'main'
@@ -1868,6 +1902,52 @@ describe('ShifuSetting compatibility fallback and explicit selection', () => {
           field === 'main' ? 'model' : 'ask_model'
         ],
       ).toBe('3');
+    },
+  );
+  it.each([
+    ['close', 'before'],
+    ['submit', 'before'],
+    ['submit', 'after'],
+  ])(
+    'cancels %s started %s a different course begins loading',
+    async (submission, timing) => {
+      const nextDetail = createDeferred<typeof detail>();
+      const onSave = jest.fn();
+      const { rerender } = render(
+        <ShifuSettingDialog
+          shifuId='course-1'
+          openSignal='course-context-test'
+          onSave={onSave}
+        />,
+      );
+      await screen.findByDisplayValue('Compatibility course');
+      act(() => main().onChange('3'));
+      if (timing === 'before') submitSettings(submission);
+      expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+
+      mockGetShifuDetail.mockReturnValueOnce(nextDetail.promise);
+      rerender(
+        <ShifuSettingDialog
+          shifuId='course-2'
+          openSignal='course-context-test'
+          onSave={onSave}
+        />,
+      );
+      if (timing === 'after') submitSettings(submission);
+      await act(async () => {});
+
+      expect(mockGetShifuDetail).toHaveBeenLastCalledWith({
+        shifu_bid: 'course-2',
+      });
+      expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+      await act(async () => {
+        nextDetail.resolve({ ...detail, bid: 'course-2', name: 'Next course' });
+        await nextDetail.promise;
+      });
+      expect(screen.getByDisplayValue('Next course')).toBeInTheDocument();
+      expect(screen.getByLabelText('close-settings')).toBeInTheDocument();
     },
   );
 });

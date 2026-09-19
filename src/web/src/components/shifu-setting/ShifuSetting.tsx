@@ -1943,8 +1943,15 @@ export default function ShifuSettingDialog({
       }
       // The optional catalog must not gate saving/closing. The loaded course
       // configuration is preserved when its model is not in the catalog yet.
+      const settingsRequestSnapshot = settingsRequestSeqRef.current;
       const isNameValid = await form.trigger('name');
+      if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+        return false;
       const isPriceValid = await form.trigger('price');
+      // A newer callback may belong to another course. Cancel the old submit
+      // before reading its form values or applying its validation outcome.
+      if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+        return false;
       if (!isPriceValid) {
         if (needClose) {
           updateOpen(true);
@@ -2200,9 +2207,18 @@ export default function ShifuSettingDialog({
           <div className='h-px w-full bg-border' />
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit(data =>
-                latestOnSubmitRef.current(data, true, 'manual'),
-              )}
+              onSubmit={event => {
+                if (settingsLoading) {
+                  event.preventDefault();
+                  return;
+                }
+                const settingsRequestSnapshot = settingsRequestSeqRef.current;
+                return form.handleSubmit(data => {
+                  if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+                    return;
+                  return latestOnSubmitRef.current(data, true, 'manual');
+                })(event);
+              }}
               className='flex-1 flex flex-col overflow-hidden'
             >
               <div className='flex-1 overflow-y-auto px-6 pt-6'>

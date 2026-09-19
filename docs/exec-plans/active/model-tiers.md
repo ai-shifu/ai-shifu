@@ -18,6 +18,10 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   imports and publication; update selectors and analytics.
 - [x] 2026-09-19 UTC: Remove cleanup tooling, update deployment guidance and Arena.
 - [x] 2026-09-19 UTC: Complete regression checks and prepare the PR #2840 update.
+- [x] 2026-09-19 UTC: Replace the stale preview test with numbered-model
+  resolution and unchanged-selection coverage after the full backend CI run.
+- [x] 2026-09-19 UTC: Guard both settings submission paths against course changes
+  during validation and replacement-detail loading; verify 81 settings tests.
 
 ## Surprises & Discoveries
 
@@ -34,6 +38,9 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   Remove that LLM backfill so reads preserve blanks and agree with runtime model 1.
 - Serialize settings writes and align model values with edit-version snapshots
   across async validation and saves; stale requests cannot acknowledge newer edits.
+- A latest-callback ref can switch course identity during asynchronous form
+  validation. Cancel the old submission before reading the next course's callback,
+  for both close-to-save and native form submission.
 
 ## Decision Log
 
@@ -68,6 +75,14 @@ pre-existing observer mocks failing because their signatures omit the existing
 `tool_calls_are_output` keyword; those unrelated tests and production calls are
 unchanged from the starting commit. No production data or deployment configuration
 has been changed by this work.
+
+Review follow-up corrected a stale preview-model assertion found by backend CI;
+the full preview context module now passes 80 tests with four skipped. Settings
+review reproduced old-course data being submitted to a newly selected course
+during validation. Both submission paths now cancel when the context changes,
+and native submissions are blocked while replacement details load. All 81
+settings tests and TypeScript checks pass, including same-course edits during
+validation and absence of save callbacks or analytics for canceled submissions.
 
 ## Context and Orientation
 
