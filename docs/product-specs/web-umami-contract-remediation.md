@@ -120,7 +120,11 @@ Chapter and lesson prompt editors are shown only while their current prompt
 contains non-whitespace content. Empty, missing, and whitespace-only prompts
 hide the label, hint, and editor. Clearing an existing prompt hides its editor
 but preserves the pending empty value for the existing automatic or manual
-save. These saves remain covered by `creator_outline_prompt_save` for chapters
+save. At runtime, empty and whitespace-only chapter and lesson prompts do not
+override inherited instructions: resolution continues to the nearest ancestor
+with content, then the course prompt. Substantive prompts retain their original
+text and precedence, and stored values do not require a migration.
+These saves remain covered by `creator_outline_prompt_save` for chapters
 and `creator_outline_setting_save` for lessons, only after the API succeeds.
 Visibility changes emit no event. Names, payloads, count units, and downstream
 authoring adoption queries are unchanged; no migration or backfill is needed.
