@@ -32,7 +32,6 @@ import contextlib
 import json
 import re
 import tempfile
-import uuid
 from collections.abc import Callable, Generator
 from enum import Enum
 from functools import wraps
@@ -314,17 +313,31 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 normalized.append(trimmed)
         return normalized
 
-    def _admit_creator_debug_usage() -> None:
+    def _admit_creator_debug_usage(raw_shifu_bid: object) -> str:
         request_user = getattr(request, "user", None)
-        creator_bid = str(getattr(request_user, "user_id", "") or "").strip()
-        if not creator_bid or not getattr(request_user, "is_creator", False):
-            return
+        user_bid = str(getattr(request_user, "user_id", "") or "").strip()
+        if not user_bid:
+            raise_error("server.user.userNotLogin")
+        if not isinstance(raw_shifu_bid, str) or not raw_shifu_bid.strip():
+            raise_param_error("shifu_bid is required")
+        shifu_bid = raw_shifu_bid.strip()
+        if not shifu_permission_verification(
+            app, user_bid, shifu_bid, ShifuPermission.EDIT.value
+        ):
+            raise_error("server.shifu.noPermission")
+        creator_bid = get_shifu_creator_bid(app, shifu_bid)
+        if not creator_bid:
+            raise_error("server.shifu.shifuNotFound")
+        # Resolve the payer from the authorized course, never from client fields
+        # or the caller's teacher role. Settings previews cannot opt out of billing.
         assert_creator_debug_allowed(app, creator_bid)
         admit_creator_usage(
             app,
             creator_bid=creator_bid,
+            shifu_bid=shifu_bid,
             usage_scene=BILL_USAGE_SCENE_DEBUG,
         )
+        return shifu_bid
 
     def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
@@ -2073,7 +2086,11 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 application/json:
                     schema:
                         type: object
+                        required: [shifu_bid]
                         properties:
+                            shifu_bid:
+                                type: string
+                                description: Course to preview; requires edit permission
                             query:
                                 type: string
                                 description: Test question content
@@ -2182,17 +2199,14 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             raise_param_error("ask_temperature")
 
         ask_system_prompt = str(json_data.get("ask_system_prompt") or "").strip()
-        _admit_creator_debug_usage()
+        preview_shifu_bid = _admit_creator_debug_usage(json_data.get("shifu_bid"))
 
         messages: list[dict[str, str]] = []
         if ask_system_prompt:
             messages.append({"role": "system", "content": ask_system_prompt})
         messages.append({"role": "user", "content": query})
 
-        preview_user_id = (
-            str(getattr(getattr(request, "user", None), "user_id", "")).strip()
-            or f"ask-preview-{uuid.uuid4().hex[:8]}"
-        )
+        preview_user_id = str(request.user.user_id).strip()
         preview_scene = "ask_provider_preview"
         preview_title = "ask_provider_preview"
         preview_trace, preview_span = create_trace_with_root_span(
@@ -2218,12 +2232,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         )
 
         def _build_llm_runtime() -> AskProviderRuntime:
-            runtime_billable = (
-                1
-                if bool(getattr(getattr(request, "user", None), "is_creator", False))
-                else 0
-            )
-
             def _chat_llm_stream(
                 stream_messages: list[dict[str, str]],
             ) -> Generator[Any, None, None]:
@@ -2237,11 +2245,12 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                     temperature=ask_temperature,
                     usage_context=UsageContext(
                         user_bid=preview_user_id,
+                        shifu_bid=preview_shifu_bid,
                         usage_scene=BILL_USAGE_SCENE_DEBUG,
-                        billable=runtime_billable,
+                        billable=1,
                     ),
                     usage_scene=BILL_USAGE_SCENE_DEBUG,
-                    billable=runtime_billable,
+                    billable=1,
                     stream=True,
                 )
 
@@ -2513,7 +2522,11 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 application/json:
                     schema:
                         type: object
+                        required: [shifu_bid]
                         properties:
+                            shifu_bid:
+                                type: string
+                                description: Course to preview; requires edit permission
                             voice_id:
                                 type: string
                                 description: Voice ID for synthesis
@@ -2541,12 +2554,12 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         from flaskr.service.shifu.tts_preview import build_tts_preview_response
 
         json_data = request.get_json() or {}
-        _admit_creator_debug_usage()
+        preview_shifu_bid = _admit_creator_debug_usage(json_data.get("shifu_bid"))
         request_user = getattr(request, "user", None)
         return build_tts_preview_response(
             json_data,
+            shifu_bid=preview_shifu_bid,
             request_user_id=str(getattr(request_user, "user_id", "") or "").strip(),
-            request_user_is_creator=bool(getattr(request_user, "is_creator", False)),
         )
 
     return app
