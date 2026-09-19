@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Protocol, Self
 from urllib.parse import SplitResult, urljoin, urlsplit, urlunsplit
 
+from urllib3.exceptions import HTTPError
 from urllib3.util import Timeout
 
 if TYPE_CHECKING:
@@ -21,9 +25,13 @@ DEFAULT_MAX_REDIRECTS = 3
 DEFAULT_MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 DEFAULT_CONNECT_TIMEOUT_SECONDS = 5.0
 DEFAULT_READ_TIMEOUT_SECONDS = 15.0
+DEFAULT_TOTAL_TIMEOUT_SECONDS = 30.0
 REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 SAFE_CROSS_ORIGIN_HEADERS = frozenset(
     {"accept", "accept-encoding", "accept-language", "user-agent"}
+)
+_DNS_EXECUTOR = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="safe-outbound-dns"
 )
 
 
@@ -39,6 +47,10 @@ class OutboundRedirectError(ValueError):
     """Raised when an outbound response has an invalid redirect chain."""
 
 
+class OutboundDeadlineExceededError(TimeoutError):
+    """Raised when an outbound request exceeds its wall-clock deadline."""
+
+
 @dataclass(frozen=True)
 class OutboundUrlPolicy:
     """Security and resource limits for an outbound request."""
@@ -50,6 +62,7 @@ class OutboundUrlPolicy:
     max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES
     connect_timeout_seconds: float = DEFAULT_CONNECT_TIMEOUT_SECONDS
     read_timeout_seconds: float = DEFAULT_READ_TIMEOUT_SECONDS
+    total_timeout_seconds: float = DEFAULT_TOTAL_TIMEOUT_SECONDS
 
     def __post_init__(self) -> None:
         """Normalize and validate the immutable policy values."""
@@ -74,7 +87,11 @@ class OutboundUrlPolicy:
         if self.max_response_bytes <= 0:
             message = "max_response_bytes must be positive"
             raise ValueError(message)
-        if self.connect_timeout_seconds <= 0 or self.read_timeout_seconds <= 0:
+        if (
+            self.connect_timeout_seconds <= 0
+            or self.read_timeout_seconds <= 0
+            or self.total_timeout_seconds <= 0
+        ):
             message = "outbound timeouts must be positive"
             raise ValueError(message)
         object.__setattr__(self, "allowed_schemes", normalized_schemes)
@@ -128,6 +145,7 @@ class SafeOutboundResponse:
     url: str
     _raw: HTTPResponse = field(repr=False)
     _max_bytes: int = field(repr=False)
+    _deadline: float = field(repr=False)
     _cached_body: bytes | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -151,19 +169,19 @@ class SafeOutboundResponse:
                 yield self._cached_body
             return
 
-        chunks: list[bytes] = []
         total = 0
+        read = getattr(self._raw, "read1", self._raw.read)
         try:
             while True:
-                chunk = self._raw.read(min(chunk_size, self._max_bytes - total + 1))
+                _check_deadline(self._deadline)
+                chunk = read(min(chunk_size, self._max_bytes - total + 1))
+                _check_deadline(self._deadline)
                 if not chunk:
-                    self._cached_body = b"".join(chunks)
                     return
                 total += len(chunk)
                 if total > self._max_bytes:
                     message = "outbound response exceeds the configured byte limit"
                     raise OutboundResponseTooLargeError(message)
-                chunks.append(chunk)
                 yield chunk
         finally:
             self.close()
@@ -218,23 +236,21 @@ class SafeOutboundClient:
         current_method = normalized_method
         current_body = body
         request_headers = dict(headers or {})
+        deadline = time.monotonic() + self.policy.total_timeout_seconds
 
         for redirect_count in range(self.policy.max_redirects + 1):
             target = validate_outbound_url(
                 current_url,
                 policy=self.policy,
-                resolver=self._resolver,
+                resolver=self._deadline_resolver(deadline),
             )
-            response = self._transport(
+            _check_deadline(deadline)
+            response = self._open_validated_target(
                 current_method,
                 target,
-                target.addresses[0],
                 headers=request_headers,
                 body=current_body,
-                timeout=Timeout(
-                    connect=self.policy.connect_timeout_seconds,
-                    read=self.policy.read_timeout_seconds,
-                ),
+                deadline=deadline,
             )
             if response.status not in REDIRECT_STATUSES:
                 try:
@@ -244,6 +260,7 @@ class SafeOutboundClient:
                         url=target.url,
                         _raw=response,
                         _max_bytes=self.policy.max_response_bytes,
+                        _deadline=deadline,
                     )
                 except Exception:
                     response.close()
@@ -261,31 +278,79 @@ class SafeOutboundClient:
                 next_target = validate_outbound_url(
                     next_url,
                     policy=self.policy,
-                    resolver=self._resolver,
+                    resolver=self._deadline_resolver(deadline),
                 )
+                next_method = current_method
+                next_body = current_body
+                if response.status == 303 or (
+                    response.status in {301, 302} and current_method == "POST"
+                ):
+                    next_method = "GET"
+                    next_body = None
                 if next_target.origin != target.origin:
-                    if current_method not in {"GET", "HEAD"}:
+                    if next_method not in {"GET", "HEAD"} or next_body is not None:
                         message = (
-                            "cross-origin redirects are not allowed for "
-                            "requests with a body"
+                            "cross-origin redirects must become bodyless safe requests"
                         )
                         raise OutboundRedirectError(message)
                     request_headers = _safe_cross_origin_headers(request_headers)
                 current_url = next_target.url
-                if response.status == 303 or (
-                    response.status in {301, 302} and current_method == "POST"
-                ):
-                    current_method = "GET"
-                    current_body = None
+                if next_method != current_method or next_body is not current_body:
                     request_headers = _without_headers(
                         request_headers,
                         frozenset({"content-length", "content-type"}),
                     )
+                current_method = next_method
+                current_body = next_body
             finally:
                 response.close()
 
         message = "redirect loop must return or raise"
         raise AssertionError(message)
+
+    def _deadline_resolver(self, deadline: float) -> Resolver:
+        def resolve(hostname: str, port: int) -> tuple[str, ...]:
+            future = _DNS_EXECUTOR.submit(lambda: tuple(self._resolver(hostname, port)))
+            try:
+                return future.result(timeout=_remaining_seconds(deadline))
+            except FutureTimeoutError as exc:
+                future.cancel()
+                message = "outbound DNS resolution exceeded the total timeout"
+                raise OutboundDeadlineExceededError(message) from exc
+
+        return resolve
+
+    def _open_validated_target(
+        self,
+        method: str,
+        target: ValidatedOutboundUrl,
+        *,
+        headers: Mapping[str, str],
+        body: bytes | None,
+        deadline: float,
+    ) -> HTTPResponse:
+        last_error: HTTPError | OSError | None = None
+        for address in target.addresses:
+            remaining = _remaining_seconds(deadline)
+            try:
+                return self._transport(
+                    method,
+                    target,
+                    address,
+                    headers=headers,
+                    body=body,
+                    timeout=Timeout(
+                        total=remaining,
+                        connect=min(self.policy.connect_timeout_seconds, remaining),
+                        read=min(self.policy.read_timeout_seconds, remaining),
+                    ),
+                )
+            except (HTTPError, OSError) as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
+        message = "validated outbound target has no addresses"
+        raise UnsafeOutboundUrlError(message)
 
 
 def validate_outbound_url(
@@ -415,11 +480,23 @@ def _resolve_addresses(hostname: str, port: int) -> tuple[str, ...]:
                 type=socket.SOCK_STREAM,
                 proto=socket.IPPROTO_TCP,
             )
-        except socket.gaierror as exc:
+        except (socket.gaierror, UnicodeError) as exc:
             message = "outbound URL host could not be resolved"
             raise UnsafeOutboundUrlError(message) from exc
         return tuple(result[4][0] for result in results)
     return (str(literal),)
+
+
+def _remaining_seconds(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        message = "outbound request exceeded its total timeout"
+        raise OutboundDeadlineExceededError(message)
+    return remaining
+
+
+def _check_deadline(deadline: float) -> None:
+    _remaining_seconds(deadline)
 
 
 def _safe_cross_origin_headers(headers: Mapping[str, str]) -> dict[str, str]:
