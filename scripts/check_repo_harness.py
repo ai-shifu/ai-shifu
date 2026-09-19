@@ -236,7 +236,7 @@ def check_instruction_content(
     if not text.strip():
         errors.append(f"Empty instruction file: {path}")
     if RETIRED_GENERATED_MARKER in text:
-        errors.append(f"Instruction file must be hand-maintained: {path}")
+        errors.append(f"Retired generated-instruction marker in {path}")
     tokens = INSTRUCTION_MARKDOWN.parse(text)
     found_required_link = required_destination is None
     while tokens:
@@ -288,7 +288,7 @@ def check_instruction_content(
 
 
 def check_instruction_files(errors: list[str]) -> None:
-    """Validate manual instructions without walking dependency or cache trees."""
+    """Validate instruction files without walking dependency or cache trees."""
     for directory, subdirs, filenames in os.walk(ROOT):
         subdirs[:] = sorted(name for name in subdirs if name not in SKIP_TREE_PARTS)
         for name in sorted(filenames):
@@ -343,10 +343,10 @@ def check_tracked_claude_instructions(errors: list[str]) -> None:
 
 
 def check_manual_agents(errors: list[str]) -> None:
-    """Check manual agents."""
+    """Check required AGENTS entry points."""
     for path, markers in MANUAL_AGENTS.items():
         if not path.exists():
-            errors.append(f"Missing manual AGENTS file: {path}")
+            errors.append(f"Missing required AGENTS file: {path}")
             continue
         text = check_instruction_content(path, errors)
         if text is None:

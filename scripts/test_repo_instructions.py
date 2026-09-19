@@ -14,7 +14,7 @@ import check_repo_harness as harness
 
 
 class RepoInstructionsTest(unittest.TestCase):
-    """Protect manual ownership, navigation, and required instruction guardrails."""
+    """Protect instruction ownership, navigation, and required instruction guardrails."""
 
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
@@ -97,7 +97,7 @@ class RepoInstructionsTest(unittest.TestCase):
         assert len(errors) == 1
         assert "Unable to enumerate tracked Claude instructions" in errors[0]
 
-    def test_accepts_concise_manual_module_with_local_headings(self) -> None:
+    def test_accepts_concise_module_with_local_headings(self) -> None:
         self.write("AGENTS.md", "# Shared rules\n\nKeep secrets out of source.\n")
         self.write(
             "module/AGENTS.md",
@@ -113,7 +113,7 @@ class RepoInstructionsTest(unittest.TestCase):
         errors: list[str] = []
         harness.check_instruction_files(errors)
         assert len(errors) == 2
-        assert any("hand-maintained" in error for error in errors)
+        assert any("Retired generated-instruction marker" in error for error in errors)
         assert any("Empty instruction" in error for error in errors)
 
     def test_skips_dependency_instruction_trees(self) -> None:
@@ -261,7 +261,7 @@ class RepoInstructionsTest(unittest.TestCase):
             harness.check_manual_agents(errors)
         assert len(errors) == 2
         assert any("required guardrail" in error for error in errors)
-        assert any("Missing manual AGENTS" in error for error in errors)
+        assert any("Missing required AGENTS" in error for error in errors)
 
     def test_rejects_external_instruction_symlinks_at_every_entry_point(self) -> None:
         self.write("AGENTS.md", "# Root\n")

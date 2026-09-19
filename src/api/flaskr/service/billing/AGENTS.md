@@ -1,5 +1,3 @@
-<!-- Hand-maintained. Edit when this module's ownership changes. -->
-
 # Backend Service: billing
 
 This file adds local guidance for `src/api/flaskr/service/billing`. Read the

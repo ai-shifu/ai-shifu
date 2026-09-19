@@ -11,12 +11,12 @@ canonical: true
 ## Instruction Ownership
 
 The root and nested `AGENTS.md` files are the only project-instruction body.
-Edit them directly. Each file adds constraints for its directory to the rules
+Each file adds constraints for its directory to the rules
 in its ancestors; keep module files focused on their own behavior, contracts,
 and verification. There is no instruction generator or minimum line count.
 
 Root, backend, frontend, GitHub automation, Docker, and repository scripts
-retain their own hand-maintained entry points. Mandatory constraints belong
+retain their own entry points. Mandatory constraints belong
 in these instructions, close to the work they govern. The
 [engineering baseline](../engineering-baseline.md) supplies expanded rationale,
 examples, and troubleshooting, including the CI/CD and release workflow.
@@ -33,7 +33,7 @@ workflow are retired.
 - Codex and Cursor use the layered `AGENTS.md` tree. Cursor supports nested
   instructions, so no `.mdc` pointers or `.cursorrules` are needed. See
   [Cursor rules](https://cursor.com/docs/rules#agentsmd).
-- `.github/copilot-instructions.md` is one short, manual navigation entry
+- `.github/copilot-instructions.md` is one short navigation entry
   pointing to the root and relevant nested `AGENTS.md` files. It covers
   Copilot surfaces whose native agent-instruction support differs; no
   parallel `.github/instructions/` tree is maintained. See the
@@ -77,8 +77,7 @@ shared constraints, references, and repository knowledge metadata without
 rendering instruction bodies. It rejects tracked `CLAUDE.md` and
 `CLAUDE.local.md` files and stale generated-instruction markers. Untracked or
 ignored personal files with either name remain allowed under the user-level
-configuration described above. Instruction edits do not require changing
-Python metadata or regenerating mirrors.
+configuration described above.
 
 Instruction links use repository-local paths or explicit `http`, `https`, or
 `mailto` URLs. Host-specific file URLs, UNC paths, and other schemes are rejected;

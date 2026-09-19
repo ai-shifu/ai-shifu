@@ -1,8 +1,8 @@
-# Validate Manual Agent Instructions
+# Validate Agent Instructions
 
 ## Purpose / Big Picture
 
-Validate directly maintained instruction files after PR #2861 retires their
+Validate instruction files after PR #2861 retires their
 generator. Keep these checks, tests, and toolchain changes in a separate PR so
 the documentation cleanup can be reviewed independently.
 
@@ -45,7 +45,7 @@ retirement wiring. No application runtime code changes were required.
 ## Context and Orientation
 
 `scripts/check_repo_harness.py` owns instruction and knowledge validation.
-`scripts/test_repo_instructions.py` exercises manual ownership, tracked-file
+`scripts/test_repo_instructions.py` exercises instruction ownership, tracked-file
 policy, Markdown navigation, and filesystem boundaries. `repo-harness.yml`
 runs these checks in CI; `lefthook.yml` runs the local gates. The compatibility
 design and installation guides describe the resulting contract and tools.
