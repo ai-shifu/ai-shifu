@@ -97,13 +97,15 @@ def test_legacy_and_invalid_choices_use_default(
     assert tiers.normalize_course_model(saved) == "1"
 
 
-def test_incomplete_slots_are_not_selectable(model_config: dict[str, str]) -> None:
-    """Optional pairs need both a nonblank display name and a model binding."""
+def test_slots_without_model_bindings_are_not_selectable(
+    model_config: dict[str, str],
+) -> None:
+    """A missing or blank model binding cannot activate an optional slot."""
     model_config.update(
         LLM_MODEL_2_NAME="Name only",
-        LLM_MODEL_4_ID="test/model-only",
+        LLM_MODEL_4_ID="",
         LLM_MODEL_5_NAME="   ",
-        LLM_MODEL_5_ID="test/blank-name",
+        LLM_MODEL_5_ID=" \t ",
     )
     assert [slot["index"] for slot in tiers.get_configured_model_slots()] == [
         "1",
@@ -116,6 +118,68 @@ def test_incomplete_slots_are_not_selectable(model_config: dict[str, str]) -> No
             "fallback": True,
             "fallback_reason": "unconfigured_index",
         }
+
+
+@pytest.mark.parametrize("index", ["1", "3", "7"])
+@pytest.mark.parametrize("name", [None, "", " \t "])
+def test_unnamed_slots_use_model_ids_without_changing_selection(
+    model_config: dict[str, str], index: str, name: str | None
+) -> None:
+    """Default and sparse optional slots only need a nonblank model ID."""
+    name_key = f"LLM_MODEL_{index}_NAME"
+    if name is None:
+        model_config.pop(name_key)
+    else:
+        model_config[name_key] = name
+    model = model_config[f"LLM_MODEL_{index}_ID"]
+    model_config[f"LLM_MODEL_{index}_ID"] = f" \t{model}\n "
+
+    slots = tiers.get_configured_model_slots()
+    assert [slot["index"] for slot in slots] == ["1", "3", "7"]
+    assert next(slot for slot in slots if slot["index"] == index) == {
+        "index": index,
+        "display_name": model,
+        "model": model,
+    }
+    assert tiers.course_model_selection(index) == {
+        "index": index,
+        "fallback": False,
+        "fallback_reason": None,
+    }
+    resolved, metadata = tiers.resolve_course_selection(index)
+    assert resolved == model
+    assert metadata["model_index"] == index
+    assert metadata["model_selection_fallback"] is False
+    for catalog in (
+        llm.get_model_tier_options(object()),
+        llm.get_course_models(object()),
+    ):
+        option = next(item for item in catalog if item["index"] == index)
+        assert option["display_name"] == model
+        assert option["available"] is True
+        assert option["is_default"] is (index == "1")
+
+
+def test_unnamed_duplicate_binding_keeps_lowest_slot_label(
+    model_config: dict[str, str],
+) -> None:
+    """Physical deduplication retains the first slot's fallback display name."""
+    del model_config["LLM_MODEL_3_NAME"]
+    model_config["LLM_MODEL_7_NAME"] = "  Named duplicate  "
+    course_options = llm.get_course_models(object())
+    assert [(item["model"], item["display_name"]) for item in course_options] == [
+        ("1", "Daily"),
+        ("3", "test/advanced"),
+        ("7", "Named duplicate"),
+    ]
+    assert llm.get_current_models(object()) == [
+        {"model": "test/default", "display_name": "Daily", "credit_multiplier": 2},
+        {
+            "model": "test/advanced",
+            "display_name": "test/advanced",
+            "credit_multiplier": 2,
+        },
+    ]
 
 
 def test_missing_default_binding_errors(model_config: dict[str, str]) -> None:

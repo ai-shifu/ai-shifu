@@ -737,9 +737,9 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
     ),
     "LLM_MODEL_1_NAME": EnvVar(
         name="LLM_MODEL_1_NAME",
-        description="Display name for course model 1. Required at startup; no default.",
+        description="Optional display name for course model 1. Uses LLM_MODEL_1_ID when unset or blank.",
         group="llm",
-        required=True,
+        required=False,
     ),
     "LLM_MODEL_1_ID": EnvVar(
         name="LLM_MODEL_1_ID",
@@ -749,97 +749,97 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
     ),
     "LLM_MODEL_2_NAME": EnvVar(
         name="LLM_MODEL_2_NAME",
-        description="Display name for course model 2. Optional; used only when both NAME and ID are set; no default.",
+        description="Optional display name for course model 2. Uses LLM_MODEL_2_ID when unset or blank.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_2_ID": EnvVar(
         name="LLM_MODEL_2_ID",
-        description="Routed text model ID for course model 2. Optional; used only when both NAME and ID are set; no default.",
+        description="Routed text model ID for course model 2. Configuring this ID enables the model; no default.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_3_NAME": EnvVar(
         name="LLM_MODEL_3_NAME",
-        description="Display name for course model 3. Optional; used only when both NAME and ID are set; no default.",
+        description="Optional display name for course model 3. Uses LLM_MODEL_3_ID when unset or blank.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_3_ID": EnvVar(
         name="LLM_MODEL_3_ID",
-        description="Routed text model ID for course model 3. Optional; used only when both NAME and ID are set; no default.",
+        description="Routed text model ID for course model 3. Configuring this ID enables the model; no default.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_4_NAME": EnvVar(
         name="LLM_MODEL_4_NAME",
-        description="Display name for course model 4. Optional; used only when both NAME and ID are set; no default.",
+        description="Optional display name for course model 4. Uses LLM_MODEL_4_ID when unset or blank.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_4_ID": EnvVar(
         name="LLM_MODEL_4_ID",
-        description="Routed text model ID for course model 4. Optional; used only when both NAME and ID are set; no default.",
+        description="Routed text model ID for course model 4. Configuring this ID enables the model; no default.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_5_NAME": EnvVar(
         name="LLM_MODEL_5_NAME",
-        description="Display name for course model 5. Optional; used only when both NAME and ID are set; no default.",
+        description="Optional display name for course model 5. Uses LLM_MODEL_5_ID when unset or blank.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_5_ID": EnvVar(
         name="LLM_MODEL_5_ID",
-        description="Routed text model ID for course model 5. Optional; used only when both NAME and ID are set; no default.",
+        description="Routed text model ID for course model 5. Configuring this ID enables the model; no default.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_6_NAME": EnvVar(
         name="LLM_MODEL_6_NAME",
-        description="Display name for course model 6. Optional; used only when both NAME and ID are set; no default.",
+        description="Optional display name for course model 6. Uses LLM_MODEL_6_ID when unset or blank.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_6_ID": EnvVar(
         name="LLM_MODEL_6_ID",
-        description="Routed text model ID for course model 6. Optional; used only when both NAME and ID are set; no default.",
+        description="Routed text model ID for course model 6. Configuring this ID enables the model; no default.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_7_NAME": EnvVar(
         name="LLM_MODEL_7_NAME",
-        description="Display name for course model 7. Optional; used only when both NAME and ID are set; no default.",
+        description="Optional display name for course model 7. Uses LLM_MODEL_7_ID when unset or blank.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_7_ID": EnvVar(
         name="LLM_MODEL_7_ID",
-        description="Routed text model ID for course model 7. Optional; used only when both NAME and ID are set; no default.",
+        description="Routed text model ID for course model 7. Configuring this ID enables the model; no default.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_8_NAME": EnvVar(
         name="LLM_MODEL_8_NAME",
-        description="Display name for course model 8. Optional; used only when both NAME and ID are set; no default.",
+        description="Optional display name for course model 8. Uses LLM_MODEL_8_ID when unset or blank.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_8_ID": EnvVar(
         name="LLM_MODEL_8_ID",
-        description="Routed text model ID for course model 8. Optional; used only when both NAME and ID are set; no default.",
+        description="Routed text model ID for course model 8. Configuring this ID enables the model; no default.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_9_NAME": EnvVar(
         name="LLM_MODEL_9_NAME",
-        description="Display name for course model 9. Optional; used only when both NAME and ID are set; no default.",
+        description="Optional display name for course model 9. Uses LLM_MODEL_9_ID when unset or blank.",
         group="llm",
         required=False,
     ),
     "LLM_MODEL_9_ID": EnvVar(
         name="LLM_MODEL_9_ID",
-        description="Routed text model ID for course model 9. Optional; used only when both NAME and ID are set; no default.",
+        description="Routed text model ID for course model 9. Configuring this ID enables the model; no default.",
         group="llm",
         required=False,
     ),
@@ -2315,14 +2315,14 @@ class EnhancedConfig:
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
                 "# These are the bare minimum values that must be set.",
                 "# Start from docker/.env.example.full and configure a provider API key.",
-                "# Set LLM_MODEL_1_NAME and LLM_MODEL_1_ID before startup; no defaults.",
+                "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
                 "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
                 "# Copy this file to docker/.env (or .env) and configure a provider API key.",
-                "# Set LLM_MODEL_1_NAME and LLM_MODEL_1_ID before startup; no defaults.",
+                "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
                 "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
 
@@ -2373,7 +2373,11 @@ class EnhancedConfig:
                 if env_var.required:
                     metadata.append("REQUIRED - must be set")
                 elif env_var.name in model_order and env_var.default is None:
-                    metadata.append("Optional - no default")
+                    if env_var.name.endswith("_NAME"):
+                        model_id = env_var.name.removesuffix("_NAME") + "_ID"
+                        metadata.append(f"Optional - defaults to {model_id}")
+                    else:
+                        metadata.append("Optional - no default")
                 elif env_var.default is None:
                     metadata.append("Optional - handled by libraries")
                 else:

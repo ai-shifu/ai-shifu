@@ -19,13 +19,15 @@ def _slot_config(key: str) -> str:
 
 
 def get_configured_model_slots() -> list[dict[str, str]]:
-    """Read complete independent slots, retaining their stable numbers."""
+    """Read bound slots, using their model IDs when display names are absent."""
     slots = []
     for index in MODEL_INDEXES:
         name = _slot_config(f"LLM_MODEL_{index}_NAME")
         model = _slot_config(f"LLM_MODEL_{index}_ID")
-        if name and model:
-            slots.append({"index": index, "display_name": name, "model": model})
+        if model:
+            slots.append(
+                {"index": index, "display_name": name or model, "model": model}
+            )
     return slots
 
 
@@ -82,7 +84,7 @@ def selection_metadata(record: object, *, follow_up: bool = False) -> dict:
 
 
 def resolve_tier_model(index: object) -> str:
-    """Resolve one complete numbered slot, rejecting unusable text routes."""
+    """Resolve one bound numbered slot, rejecting unusable text routes."""
     from flaskr.api.llm import (
         MODEL_SUPPORTED_GENERATION_METHODS,
         get_litellm_params_and_model,

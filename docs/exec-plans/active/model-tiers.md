@@ -5,8 +5,9 @@ title: Numbered course models
 ## Purpose / Big Picture
 
 Offer up to nine independently configured course text models. Teachers see
-administrator-defined names and credit multipliers; stable numeric selections
-are stored in the existing llm and ask_llm strings. Historical selections need
+administrator-defined names, or the configured model IDs when names are absent,
+and credit multipliers; stable numeric selections are stored in the existing
+llm and ask_llm strings. Historical selections need
 no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 
 ## Progress
@@ -26,6 +27,8 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   user confirmed the table-creation migration had never run.
 - [x] 2026-09-19 UTC: Align operator course model keys with the numbered label
   catalog; verify 33 backend course-list tests and 22 operator-page tests.
+- [x] 2026-09-19 UTC: Document optional names for every model number; only the
+  model 1 ID is required, and unnamed options display their configured IDs.
 
 ## Surprises & Discoveries
 
@@ -46,14 +49,16 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   validation. Cancel the old submission before reading the next course's callback,
   for both close-to-save and native form submission.
 - Operator course summaries must expose the same effective numeric key as the
-  course model catalog so configured display names resolve correctly. Physical
-  identities remain specific to usage, pricing and model invocation.
+  course model catalog so display labels resolve correctly. Selection keys stay
+  numeric even when a configured model ID serves as the fallback display label.
 
 ## Decision Log
 
 - 2026-09-19: Supersede fixed Fast/Balanced/Ultimate tiers and all cleanup plans.
-  LLM_MODEL_1_NAME and LLM_MODEL_1_ID are required, without defaults. Pairs 2-9
-  are optional; incomplete pairs are omitted. Numeric identifiers may have gaps.
+  Only LLM_MODEL_1_ID is required and has no default. Nonblank IDs enable optional
+  numbers 2-9. Names for all numbers are optional; absent or blank names display
+  the configured model ID. Names without IDs do not enable options. Numeric
+  identifiers may have gaps.
 - 2026-09-19: Keep llm and ask_llm as strings. New courses store "1" in both.
   Existing blank values, physical IDs, old aliases and unconfigured numbers
   resolve to 1 at runtime. Only explicit model saves normalize stored values.
@@ -107,9 +112,11 @@ model edits; the shared model selector renders server-provided names.
 
 ## Concrete Steps
 
-Configure LLM_MODEL_<1..9>_NAME and LLM_MODEL_<1..9>_ID. Both values are needed
-for a slot; slot 1 is mandatory and always the course default. Resolve valid
-configured numbers as themselves and everything else as 1. Provider routing
+Configure LLM_MODEL_<1..9>_ID, with optional LLM_MODEL_<1..9>_NAME labels.
+Only a nonblank ID is needed for a slot; slot 1 is mandatory and always the
+course default. Missing, empty or whitespace-only names use the corresponding
+configured model ID as the label; names without IDs do not enable slots. Resolve
+valid configured numbers as themselves and everything else as 1. Provider routing
 errors do not change the chosen slot. Follow-up blanks use 1 independently of
 the main course choice. Live-only follow-up IDs retain their existing meaning.
 
@@ -121,8 +128,9 @@ metadata, with a bounded fallback reason and course revision identity.
 
 ## Validation and Acceptance
 
-Cover sparse/incomplete configuration, mandatory slot 1, legacy values, deletion
-and restoration, direct physical calls and Live isolation. Verify reads and
+Cover sparse configuration, mandatory model 1 ID, omitted/blank/whitespace-only
+names, name-only slots, legacy values, deletion and restoration, direct physical
+calls and Live isolation. Verify reads and
 unrelated saves do not change stored values; explicitly selecting the displayed
 fallback 1 must save it. Check edits made while saving are not lost. Cover both
 learning engines, preview, follow-up, credit estimate, imports, gateway and
@@ -130,8 +138,9 @@ physical-rate identity. Verify old variables/DB keys no longer affect catalogs.
 
 Settings-save analytics remain best-effort and fire once after an editable save
 succeeds. Record effective indexes and fallback booleans only; omit text-model
-selection for Live. Never send raw IDs, configured names or provider data. Update
-producers, consumers and compatibility documentation together; historical tier
+selection for Live. Never send raw IDs, configured names or provider data,
+including model IDs displayed as fallback labels. Update producers, consumers
+and compatibility documentation together; historical tier
 payloads retain their original meaning.
 
 ## Idempotence and Recovery
@@ -147,7 +156,9 @@ Keep GET /api/llm/model-tier-list as the course option endpoint; options contain
 index, display_name, available, is_default and credit_multiplier. Older teacher
 text catalogs return numeric values in their existing model field. Course detail
 returns effective model/ask_model and model_fallback/ask_model_fallback booleans.
-Raw values remain in persisted fields and export files, not teacher model controls.
+Raw saved values remain in persisted fields and export files. Teacher model
+controls use numeric option values and show the configured name, falling back
+to the configured model ID when the name is absent or blank.
 
 Internal physical catalogs deduplicate identical bindings by the lowest slot
 number, while course choices retain every slot. Existing gateway client
@@ -155,8 +166,9 @@ allowlisting, provider wrappers and physical-rate accounting remain in place.
 
 ## Deployment Runbook
 
-1. Set a provider credential plus LLM_MODEL_1_NAME and LLM_MODEL_1_ID; configure
-   optional complete pairs through 9. Remove obsolete tier/allowed variables.
+1. Set a provider credential plus LLM_MODEL_1_ID; configure optional IDs through
+   9. Names are optional for all numbers; missing or blank names display the
+   configured model IDs. Remove obsolete tier/allowed variables.
 2. No database migration or course-data cleanup is needed for this change.
 3. Deploy matching API/workers and web. Verify a legacy course falls back to 1,
    sparse configured choices work, and unrelated saves preserve old selections.

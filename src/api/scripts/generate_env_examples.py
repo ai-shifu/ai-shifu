@@ -75,7 +75,8 @@ def generate_env_examples() -> None:
     print(
         "  1. Copy docker/.env.example.full to docker/.env (or the root .env you prefer)"
     )
-    print("  2. Configure a provider key, LLM_MODEL_1_NAME and LLM_MODEL_1_ID")
+    print("  2. Configure a provider key and LLM_MODEL_1_ID")
+    print("     LLM_MODEL_1_NAME is optional; blank displays the configured model ID")
     print(
         "  3. Existing installs: follow INSTALL_MANUAL.md#upgrading-to-numbered-models"
     )

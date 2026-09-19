@@ -1033,7 +1033,8 @@ jobs:
             cd docker
             cp .env.example.full .env
             # Configure a provider API key in .env and set LLM_MODEL_1_ID
-            # to a text model served by that provider. Set LLM_MODEL_1_NAME as well; neither value has a default.
+            # to a text model served by that provider (required; no default).
+            # LLM_MODEL_1_NAME is optional; an empty name displays the configured model ID.
             docker compose up
             ```
 

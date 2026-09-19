@@ -51,7 +51,8 @@ cd ai-shifu/docker
 cp .env.example.full .env
 
 # Edit .env: configure an LLM provider API key and set LLM_MODEL_1_ID
-# to a text model ID served by that provider. Set LLM_MODEL_1_NAME to its display name; neither value has a default.
+# to a text model ID served by that provider (required; no default).
+# LLM_MODEL_1_NAME is optional; an empty name displays the model ID.
 
 # Start all services
 docker compose -f docker-compose.latest.yml up -d
@@ -59,7 +60,7 @@ docker compose -f docker-compose.latest.yml up -d
 
 Notes
 
-- `LLM_MODEL_1_NAME` and `LLM_MODEL_1_ID` are required. Configure optional complete NAME/ID pairs for numbers 2-9; gaps are supported. Historical selections automatically use model 1 when they do not reference a configured number; no data cleanup is needed.
+- `LLM_MODEL_1_ID` is required and has no default. Configure optional model IDs for numbers 2-9; gaps are supported. All `LLM_MODEL_<number>_NAME` values are optional: omitted or blank names display the configured model ID. A name without a model ID does not enable an option. Historical selections automatically use model 1 when they do not reference a configured number; no data cleanup is needed.
 - For an existing installation, follow [Upgrading to numbered models](INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new images. This applies to latest, pinned-release and development Compose modes.
 - First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
 - Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
@@ -74,9 +75,9 @@ cd ai-shifu/docker
 # Copy the full template (contains defaults for Docker usage)
 cp .env.example.full .env
 
-# Edit .env: both a provider key and a model 1 name and binding are required:
+# Edit .env: a provider key and the model 1 binding are required:
 # - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
-# - LLM_MODEL_1_NAME: the display name shown to teachers (no default)
+# - LLM_MODEL_1_NAME: optional display name; blank uses the configured model ID
 # - LLM_MODEL_1_ID: a configured text model ID (no default)
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
@@ -96,7 +97,8 @@ cd ai-shifu/docker
 
 cp .env.example.full .env
 # Edit .env: set your LLM API key(s) and map LLM_MODEL_1_ID
-# to a text model ID available through the configured provider; set LLM_MODEL_1_NAME too.
+# to a text model ID available through the configured provider.
+# Optionally set LLM_MODEL_1_NAME; blank uses the configured model ID.
 
 ./dev_in_docker.sh
 ```

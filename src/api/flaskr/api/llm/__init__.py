@@ -2170,7 +2170,7 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
 
 
 def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
-    """Expose stable numbered choices without their configured physical IDs."""
+    """Expose stable numbered choices with configured or ID-based display labels."""
     from flaskr.api.llm.tiers import get_configured_model_slots, resolve_tier_model
 
     options = []

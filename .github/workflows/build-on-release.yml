@@ -228,7 +228,8 @@ jobs:
             echo '# Start with Docker Compose (production-ready)' >> $GITHUB_STEP_SUMMARY
             echo 'cd docker' >> $GITHUB_STEP_SUMMARY
             echo '# Configure a provider API key in .env and map LLM_MODEL_1_ID' >> $GITHUB_STEP_SUMMARY
-            echo '# to its configured text model before startup; Set LLM_MODEL_1_NAME as well; neither value has a default.' >> $GITHUB_STEP_SUMMARY
+            echo '# to its configured text model before startup (required; no default).' >> $GITHUB_STEP_SUMMARY
+            echo '# LLM_MODEL_1_NAME is optional; an empty name displays the configured model ID.' >> $GITHUB_STEP_SUMMARY
             echo 'docker compose -f docker-compose.yml up -d' >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

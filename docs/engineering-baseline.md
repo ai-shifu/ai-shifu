@@ -27,8 +27,9 @@ details behind those rules.
 ### Essential Environment Variables
 
 Before starting the backend or running Flask migration commands, configure a
-provider API key plus `LLM_MODEL_1_NAME` and `LLM_MODEL_1_ID`. Model 1 has no
-default name or physical model; complete pairs 2-9 are optional.
+provider API key plus `LLM_MODEL_1_ID`, which has no default. Model IDs 2-9
+are optional. Names for all numbers are optional; omitted or blank names display
+the configured model ID. A name without a model ID does not enable a number.
 For an existing database, follow [Upgrading to numbered models](../INSTALL_MANUAL.md#upgrading-to-numbered-models).
 
 ```bash
@@ -670,9 +671,11 @@ does not replace test coverage. Before committing, also run
 - Example Docker file: `docker/.env.example.full`
 - Important groups: LLM API keys and numbered model configurations, database, Redis, auth, storage, app config
 
-Every backend environment requires a provider key, `LLM_MODEL_1_NAME` and
-`LLM_MODEL_1_ID`. Neither slot-1 value has a default; `DEFAULT_LLM_MODEL` does not
-replace them. Optional complete pairs 2-9 use stable identifiers and may have gaps.
+Every backend environment requires a provider key and `LLM_MODEL_1_ID`, which
+has no default; `DEFAULT_LLM_MODEL` does not replace it. Nonblank IDs enable
+optional numbers 2-9, using stable identifiers that may have gaps. Names for all
+numbers are optional and fall back to their configured model IDs when omitted
+or blank. Names without IDs do not enable options.
 Invalid historical course selections fall back to 1 without rewriting course
 rows. Existing installations need the new environment configuration, not data
 cleanup; see [Upgrading to numbered models](../INSTALL_MANUAL.md#upgrading-to-numbered-models).

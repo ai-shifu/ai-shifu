@@ -68,12 +68,12 @@ class TestEnhancedConfigValidation:
         with pytest.raises(EnvironmentConfigError, match=variable_name):
             config.validate_environment()
 
-    @pytest.mark.parametrize("required_name", ["LLM_MODEL_1_NAME", "LLM_MODEL_1_ID"])
     @pytest.mark.parametrize("value", [None, "", "   "])
-    def test_default_model_configuration_is_required(
-        self, monkeypatch: pytest.MonkeyPatch, required_name: str, value: str | None
+    def test_default_model_id_is_required(
+        self, monkeypatch: pytest.MonkeyPatch, value: str | None
     ) -> None:
-        """Reject startup when either part of the default slot is missing or blank."""
+        """Reject startup when the default model ID is missing or blank."""
+        required_name = "LLM_MODEL_1_ID"
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("LLM_MODEL_1_NAME", "Default")
         monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
@@ -90,10 +90,11 @@ class TestEnhancedConfigValidation:
         with pytest.raises(EnvironmentConfigError, match=required_name):
             config.validate_environment()
 
-    def test_only_default_model_configuration_is_required(
-        self, monkeypatch: pytest.MonkeyPatch
+    @pytest.mark.parametrize("display_name", [None, "", "   "])
+    def test_only_default_model_id_is_required(
+        self, monkeypatch: pytest.MonkeyPatch, display_name: str | None
     ) -> None:
-        """Require only slot one and allow optional slots to remain absent."""
+        """Allow startup with only slot one's ID and absent or blank names."""
         names = tuple(
             f"LLM_MODEL_{index}_{suffix}"
             for index in range(1, 10)
@@ -102,22 +103,36 @@ class TestEnhancedConfigValidation:
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         for name in names:
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv("LLM_MODEL_1_NAME", "Default")
+            if name.endswith("_NAME") and display_name is not None:
+                monkeypatch.setenv(name, display_name)
         monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
         config = EnhancedConfig(
             {name: ENV_VARS[name] for name in ("OPENAI_API_KEY", *names)}
         )
         config.validate_environment()
         assert config.get("LLM_MODEL_1_ID") == "gpt-test"
-        assert all(config.get(name) is None for name in names[2:])
+        assert all(
+            config.get(name) is None for name in names[2:] if name.endswith("_ID")
+        )
+        assert all(
+            not ENV_VARS[name].required for name in names if name != "LLM_MODEL_1_ID"
+        )
         required_example = config.export_env_example_filtered(filter_type="required")
-        assert all(name in required_example for name in names[:2])
-        assert all(name not in required_example for name in names[2:])
+        assert 'LLM_MODEL_1_ID=""' in required_example
+        assert all(
+            f"{name}=" not in required_example
+            for name in names
+            if name != "LLM_MODEL_1_ID"
+        )
         full_example = config.export_env_example()
         assert full_example.index("LLM_MODEL_1_NAME=") < full_example.index(
             "LLM_MODEL_1_ID="
         )
         assert "Optional - no default" in full_example
+        assert all(
+            f"Optional - defaults to LLM_MODEL_{index}_ID" in full_example
+            for index in range(1, 10)
+        )
         assert "LLM_ALLOWED_MODELS" not in ENV_VARS
         assert "LLM_ALLOWED_MODEL_DISPLAY_NAMES" not in ENV_VARS
         assert not any(name.startswith("LLM_TIER_") for name in ENV_VARS)
