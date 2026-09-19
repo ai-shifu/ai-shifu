@@ -148,20 +148,30 @@ def test_course_settings_drive_both_engines_and_follow_up(
 
 
 @pytest.mark.parametrize("course_model", ["course-main", "", "   ", " course-main "])
+@pytest.mark.parametrize("course_temperature", [0.0, 0.7, None])
 def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
-    app: Flask, monkeypatch: pytest.MonkeyPatch, course_model: str
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    course_model: str,
+    course_temperature: float | None,
 ) -> None:
     monkeypatch.setattr(context_v2, "get_allowed_models", list)
+    monkeypatch.setitem(app.config, "DEFAULT_LLM_TEMPERATURE", 0.3)
     request = PlaygroundPreviewRequest(
         block_index=0,
         model="legacy-block-model",
         temperature=1.8,
         document_prompt="Legacy request prompt",
     )
-    course = SimpleNamespace(llm=course_model, llm_temperature=0.7)
+    course = SimpleNamespace(llm=course_model, llm_temperature=course_temperature)
     ctx = context_v2.RunScriptPreviewContextV2(app)
     model, temperature = ctx._resolve_llm_settings(course)
     assert model == (course_model.strip() or app.config["DEFAULT_LLM_MODEL"])
-    assert temperature == 0.7
+    expected_temperature = (
+        course_temperature
+        if course_model.strip() and course_temperature is not None
+        else 0.3
+    )
+    assert temperature == expected_temperature
     assert {"model", "temperature"}.isdisjoint(request.model_dump())
     assert request.document_prompt == "Legacy request prompt"

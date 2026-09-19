@@ -1284,7 +1284,7 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
         preview_ctx = RunScriptPreviewContextV2(app)
         shifu = types.SimpleNamespace(
             llm="silicon/fishaudio/fish-speech-1.5",
-            llm_temperature=None,
+            llm_temperature=0.7,
         )
 
         with (

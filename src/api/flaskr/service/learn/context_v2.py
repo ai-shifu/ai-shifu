@@ -1431,6 +1431,8 @@ class RunScriptPreviewContextV2:
         self,
         shifu: DraftShifu | PublishedShifu | None,
     ) -> tuple[str, float]:
+        """Resolve preview temperature from the selected model's settings source."""
+
         def _normalize_model(value: object | None) -> str | None:
             if value is None:
                 return None
@@ -1451,15 +1453,6 @@ class RunScriptPreviewContextV2:
             ("shifu", _normalize_model(getattr(shifu, "llm", None)) if shifu else None),
             ("default", _normalize_model(self.app.config.get("DEFAULT_LLM_MODEL"))),
         ]
-        temperature_candidates = [
-            (
-                self._decimal_to_float(getattr(shifu, "llm_temperature", None))
-                if shifu
-                else None
-            ),
-            float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
-        ]
-
         model_source = "unset"
         model = None
         for source, candidate in model_candidates:
@@ -1479,10 +1472,13 @@ class RunScriptPreviewContextV2:
                 message = "No allowed LLM models are available"
                 raise ValueError(message)
 
-        temperature = next(
-            (t for t in temperature_candidates if t is not None),
-            float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
+        temperature = (
+            self._decimal_to_float(getattr(shifu, "llm_temperature", None))
+            if model_source == "shifu"
+            else None
         )
+        if temperature is None:
+            temperature = float(self.app.config.get("DEFAULT_LLM_TEMPERATURE"))
 
         if not model:
             message = "LLM model is not configured"
