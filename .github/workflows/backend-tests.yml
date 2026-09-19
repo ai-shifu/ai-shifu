@@ -201,6 +201,7 @@ jobs:
           def is_control_plane_backend_path(path: str) -> bool:
               if path in {
                   "src/api/AGENTS.md",
+                  "src/api/CLAUDE.md",
                   "src/api/SKILL.md",
               }:
                   return True

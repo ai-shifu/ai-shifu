@@ -12,11 +12,13 @@ points needed for compatibility. Runtime application behavior is unchanged.
 - [x] 2026-09-19 06:12 UTC: Synced PR #2861 and inventoried instruction owners,
       generated files, compatibility entry points, and checker dependencies.
 - [x] 2026-09-19 06:21 UTC: Converted module instructions to concise manual docs
-      and removed the generator, routers, old checker alias, and superseded designs.
-- [x] 2026-09-19 06:21 UTC: Decoupled harness validation and updated CI, hooks,
+      and removed the generator, routers, and superseded designs.
+- [x] 2026-09-19 06:21 UTC: Removed obsolete generator checks and updated CI, hooks,
       shared instructions, canonical design, and generated knowledge indexes.
-- [x] 2026-09-19 06:21 UTC: Passed focused regressions and repository gates;
+- [x] 2026-09-19 06:21 UTC: Passed repository gates;
       independent review confirmed all module constraints and skill references remain.
+- [x] 2026-09-19 07:20 UTC: Separated new validation capabilities and their
+      toolchain changes from the instruction-document cleanup.
 
 ## Surprises & Discoveries
 
@@ -38,20 +40,23 @@ points needed for compatibility. Runtime application behavior is unchanged.
   required entry points and guardrails without regenerating instruction bodies.
 - 2026-09-19: Keep the knowledge-index generator, architecture checks, and
   runtime configuration. These still derive useful facts or validate contracts.
+- 2026-09-19: At the user's request, publish new instruction checks, tests,
+  parser tooling, and removal of the old checker alias in a separate dependent
+  PR. This plan covers the document cleanup and only the wiring required to
+  stop invoking or importing the removed generator.
 
 ## Outcomes & Retrospective
 
-Removed the instruction generator and 24 redundant files. The 25 module
+Removed the instruction generator and redundant instruction files. The 25 module
 instructions now contain 788 lines instead of 2234, preserving every local
-constraint and restoring eight invariants omitted by the old renderer. The
-harness validates manual instructions independently; only knowledge indexes
-remain generated.
+constraint and restoring eight invariants omitted by the old renderer. Existing
+checks for the root, backend, and frontend instruction entry points remain;
+only knowledge indexes are regenerated.
 
-All seven focused instruction-checker regressions passed. The development-tool
-doctor passed with the pinned Ruff 0.16.5 in an isolated temporary environment,
-and `lefthook run pre-commit --all-files` passed all 20 checks. Independent
-review verified module metadata preservation and found no live dependency on
-the retired generator. The implementation is ready for publication in PR #2861.
+The development-tool doctor and `lefthook run pre-commit --all-files` passed.
+Independent review verified module metadata preservation and found no live
+dependency on the retired generator. New instruction-validation regression
+tests and parser dependencies belong to the separate validation PR.
 
 ## Context and Orientation
 
@@ -65,16 +70,16 @@ The canonical replacement is `docs/design-docs/ai-tool-compat.md`.
 
 Convert the 25 module documents to manual ownership, retaining all local rules.
 Delete empty tool routing layers and consolidate the historical design decisions.
-Remove generator dependencies from validation and automation. Preserve explicit
-checks for key shared rules and add focused tests for manual instruction files,
-broken links, retired generated markers, and compatibility entry points.
+Remove generator dependencies from validation and automation. Preserve the
+existing checks for shared rules and repository knowledge without introducing
+new instruction-validation behavior in this PR.
 
 ## Concrete Steps
 
 1. Update module files, shared entry points, and the canonical compatibility doc.
 2. Remove retired files and update all live command references and CI steps.
 3. Run `python3 scripts/build_repo_knowledge_index.py`.
-4. Run focused checker tests, the harness, architecture checks, and Ruff.
+4. Run the existing harness, architecture checks, and Ruff.
 5. Run `python3 scripts/check_dev_tools.py` with the pinned toolchain and
    `lefthook run pre-commit --all-files`; inspect any auto-fixes before committing.
 6. Update this plan and PR #2861 with the final implementation and verification.
@@ -82,12 +87,10 @@ broken links, retired generated markers, and compatibility entry points.
 ## Validation and Acceptance
 
 No instruction generator or redundant router remains. Module files retain their
-local constraints without generated markers. Required root and subtree guidance,
-Copilot navigation, and the Gemini link validate independently of templates.
-Broken local instruction links and tracked `CLAUDE.md` files are rejected;
-short valid manual instructions and personal ignored Claude files are accepted.
-Knowledge regeneration is deterministic, focused tests and repository gates
-pass, and the PR points at the verified commit.
+local constraints without generated markers. The Copilot navigation file and
+Gemini link still lead to shared instructions. Existing primary-entry-point
+and repository knowledge checks run without importing generator templates.
+Knowledge regeneration is deterministic and repository gates pass.
 
 ## Idempotence and Recovery
 
@@ -97,10 +100,8 @@ is safe to rerun. Temporary verification environments are outside the repository
 
 ## Interfaces and Dependencies
 
-Instruction authors edit `AGENTS.md` directly. The Python harness uses
-markdown-it-py 4.0.0 to parse Markdown links and no longer imports the retired
-generator. Local tooling and CI install the pinned parser. CI keeps
-knowledge-index generation and all existing architecture, translation, and
-runtime gates. Claude users need a version and session configuration that
-supports native `AGENTS.md`;
-the canonical compatibility document describes those requirements.
+Instruction authors edit `AGENTS.md` directly. The existing harness remains a
+standard-library Python script and no longer imports the retired generator.
+CI keeps knowledge-index generation and the existing architecture, translation,
+and runtime gates. Claude users need a version and session configuration that
+supports native `AGENTS.md`; the compatibility document describes those requirements.

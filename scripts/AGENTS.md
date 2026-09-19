@@ -80,8 +80,8 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 - When translation scripts change, rerun translation parity, translation usage,
   and locale-metadata checks in the same task.
 
-- When instruction validation changes, run its focused tests and
-  `python scripts/check_repo_harness.py`. Regenerate knowledge indexes only
+- After instruction edits, run `python scripts/check_repo_harness.py`.
+  Regenerate knowledge indexes only
   when their source documents or metadata change, then run lefthook checks.
 
 ## Related Skills
