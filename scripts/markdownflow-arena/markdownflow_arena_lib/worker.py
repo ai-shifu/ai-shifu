@@ -41,10 +41,9 @@ def build_app(config: dict) -> Flask:
 
     if not os.environ.get("SKIP_LOAD_DOTENV"):
         load_dotenv()
-    routes = config.get("model_routes")
-    if routes:
-        # The override belongs to this short-lived evaluation process only.
-        _configure_model_slots(routes, config["models"])
+    routes = config.get("model_routes") or config["models"]
+    # The override belongs to this short-lived evaluation process only.
+    _configure_model_slots(routes, config["models"])
     import pymysql
     from flask import Flask
     from flaskr import dao

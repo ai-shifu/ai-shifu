@@ -24,7 +24,15 @@ cases fail clearly rather than filling the batch with other task types.
 
 The default is twelve cases with a two-case smoke stage. The exact five model IDs
 are `gemini-3.8-flash`, `doubao-seed-2-0-lite-260428`,
-`deepseek-v4-flash-0731`, `qwen3.8-flash`, and `glm-5.3-flash`. Production catalog resolution must
+`deepseek-v4-flash-0731`, `qwen3.8-flash`, and `glm-5.3-flash`. Each worker binds
+these five requested IDs to process-local numbered slots before initializing the
+backend configuration. This also works when the deployment configures only one
+course model. Optional `model_routes` supplies all five actual provider routes in
+the same order as `models`; absent or empty routes use the requested IDs. Provider
+credentials are still required, and unavailable bindings fail normally. The
+override does not modify environment files or saved course selections.
+
+Production catalog resolution must
 match each exactly, retaining provider prefixes and version suffixes; missing or
 ambiguous matches fail. Vendor letter casing may differ (for example, the
 configured route `qwen/ZHIPU/GLM-5.3-Flash`); suffix comparison ignores letter

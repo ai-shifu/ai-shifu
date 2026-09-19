@@ -16,6 +16,9 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   model, explain its effect on speed and quality, simplify the course-prompt
   guidance, and remove the fallback notice while preserving selection and
   analytics behavior.
+- [x] 2026-09-19 UTC: Give the default Arena example its own five numbered
+  bindings inside each worker, so it does not depend on deployment course slots;
+  retain optional exact provider-route overrides.
 - [x] 2026-09-19 UTC: Align course model option functions, HTTP endpoint, frontend
   selector, error keys, tests and documentation with numbered selections; direct
   unavailable or missing-model messages to the administrator in every locale.
@@ -204,6 +207,9 @@ settings-save analytics retain the fallback flags.
 Internal physical catalogs deduplicate identical bindings by the lowest slot
 number, while course choices retain every slot. Existing gateway client
 allowlisting, provider wrappers and physical-rate accounting remain in place.
+Arena workers bind their five requested IDs to isolated process-local slots even
+when model_routes is omitted; explicit routes override those IDs in the same
+order, preserving the requested versions and normal provider availability checks.
 The gateway default alias preserves an explicit DEFAULT_LLM_MODEL; when absent
 or blank, it uses model 1's physical binding. An unavailable or unrated default
 does not select another physical model.
