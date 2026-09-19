@@ -43,5 +43,5 @@ invite relations, reward audit rows, and referral-specific operator read models.
 
 ## Related Skills
 
-- `src/api/SKILL.md`
-- `SKILL.md`
+- [Backend skill routing](../../../SKILL.md)
+- [Repository skill routing](../../../../../SKILL.md)
