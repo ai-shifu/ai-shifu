@@ -1,7 +1,8 @@
 """Verify stripe refund behavior."""
 
+import json
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 
 import pytest
 from flask import Flask
@@ -10,7 +11,11 @@ from flaskr.dao import db
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.funs import get_payment_details, refund_order_payment
 from flaskr.service.order.models import Order, StripeOrder
-from flaskr.service.order.payment_providers.base import PaymentRefundResult
+from flaskr.service.order.payment_providers.base import (
+    PaymentRefundRequest,
+    PaymentRefundResult,
+)
+from flaskr.service.order.payment_providers.stripe import StripeProvider
 
 
 class DummyStripeRefundProvider:
@@ -23,6 +28,44 @@ class DummyStripeRefundProvider:
     def refund_payment(self, *, request: object, app: object) -> object:  # pylint: disable=unused-argument
         _ = (request, app)
         return self._result
+
+
+def test_stripe_refund_passes_the_stable_idempotency_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class _RefundResult:
+        def to_dict(self) -> dict[str, str]:
+            return {"id": "re_idempotent", "status": "succeeded"}
+
+    class _Refund:
+        @staticmethod
+        def create(**kwargs: object) -> object:
+            captured.update(kwargs)
+            return _RefundResult()
+
+    provider = StripeProvider()
+    monkeypatch.setattr(
+        provider,
+        "_client_options",
+        lambda _app: (type("Stripe", (), {"Refund": _Refund}), {}),
+    )
+
+    provider.refund_payment(
+        request=PaymentRefundRequest(
+            order_bid="order-idempotent-refund",
+            amount=100,
+            metadata={
+                "payment_intent_id": "pi_idempotent",
+                "idempotency_key": "order-refund:stable-key",
+            },
+        ),
+        app=object(),
+    )
+
+    assert captured["idempotency_key"] == "order-refund:stable-key"
+    assert "idempotency_key" not in captured["metadata"]
 
 
 @pytest.fixture
@@ -146,11 +189,16 @@ def test_refund_rolls_back_when_lifecycle_lock_is_lost_before_commit(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    lock_calls = 0
+
     @contextmanager
     def _lost_lock(_order_bid: str) -> Iterator[None]:
+        nonlocal lock_calls
+        lock_calls += 1
         yield
-        message = "payment lock lease lost"
-        raise RuntimeError(message)
+        if lock_calls == 2:
+            message = "payment lock lease lost"
+            raise RuntimeError(message)
 
     order_bid = "order-refund-lost-lock"
     with app.app_context():
@@ -193,7 +241,25 @@ def test_refund_rolls_back_when_lifecycle_lock_is_lost_before_commit(
         stripe_order = StripeOrder.query.filter_by(order_bid=order_bid).one()
         assert order.status == ORDER_STATUS_SUCCESS
         assert stripe_order.status == 1
+        operation = json.loads(stripe_order.metadata_json)["refund_operation"]
+        assert operation["status"] == "pending"
         assert "last_refund_id" not in stripe_order.metadata_json
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.payment_lifecycle_lock",
+        lambda _order_bid: nullcontext(),
+    )
+    payload = refund_order_payment(app, order_bid)
+
+    assert payload["refund_id"] == "re_lost_lock"
+    with app.app_context():
+        order = Order.query.filter_by(order_bid=order_bid).one()
+        stripe_order = StripeOrder.query.filter_by(order_bid=order_bid).one()
+        operation = json.loads(stripe_order.metadata_json)["refund_operation"]
+        assert order.status == ORDER_STATUS_REFUND
+        assert stripe_order.status == 2
+        assert operation["status"] == "succeeded"
+        assert operation["provider_reference"] == "re_lost_lock"
 
 
 def test_get_payment_details_returns_minimal_stripe_payload(app: object) -> None:

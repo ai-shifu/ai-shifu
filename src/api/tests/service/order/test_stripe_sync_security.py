@@ -791,6 +791,64 @@ def test_stripe_webhook_ignores_negative_events_for_an_older_attempt(
         assert latest_attempt.status == 0
 
 
+def test_stripe_webhook_ignores_a_refund_for_an_older_attempt(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order_bid = "webhook-old-refund"
+    notification = PaymentNotificationResult(
+        order_bid=order_bid,
+        status="refund.created",
+        provider_payload={
+            "type": "refund.created",
+            "data": {
+                "object": {
+                    "id": "re_old",
+                    "payment_intent": "pi_attempt-old-refund",
+                    "charge": "ch_old-refund",
+                    "metadata": {"order_bid": order_bid},
+                }
+            },
+        },
+    )
+    provider = SimpleNamespace(verify_webhook=lambda **_kwargs: notification)
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: provider
+    )
+    with app.app_context():
+        _seed_stripe_order(
+            order_bid=order_bid,
+            session_id="cs_old-refund",
+            attempt_bid="attempt-old-refund",
+        )
+        dao.db.session.add(
+            StripeOrder(
+                stripe_order_bid="attempt-current-refund",
+                biz_domain="order",
+                order_bid=order_bid,
+                user_bid="owner-user",
+                shifu_bid=f"course-{order_bid}",
+                checkout_session_id="cs_current-refund",
+                payment_intent_id="pi_attempt-current-refund",
+                latest_charge_id="ch_current-refund",
+                amount=20000,
+                currency="cny",
+                status=0,
+            )
+        )
+        dao.db.session.commit()
+
+    payload, status_code = handle_stripe_webhook(app, b"{}", "signature")
+
+    assert status_code == 202
+    assert payload["status"] == "acknowledged"
+    with app.app_context():
+        current = StripeOrder.query.filter_by(
+            stripe_order_bid="attempt-current-refund"
+        ).one()
+        assert current.status == 0
+
+
 @pytest.mark.parametrize(
     "delayed_event_type",
     [

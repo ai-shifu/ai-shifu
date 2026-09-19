@@ -2034,6 +2034,25 @@ def _stripe_intent_event_matches_attempt(
     )
 
 
+def _stripe_refund_event_matches_attempt(
+    stripe_order: StripeOrder,
+    data_object: dict[str, object],
+    event_type: str,
+) -> bool:
+    """Match refund evidence to the stored PaymentIntent or charge."""
+    payment_intent_id = str(data_object.get("payment_intent") or "")
+    charge_id = str(data_object.get("charge") or "")
+    if event_type == "charge.refunded":
+        charge_id = str(data_object.get("id") or charge_id)
+    return bool(
+        (
+            payment_intent_id
+            and payment_intent_id == str(stripe_order.payment_intent_id or "")
+        )
+        or (charge_id and charge_id == str(stripe_order.latest_charge_id or ""))
+    )
+
+
 def _apply_native_snapshot_update(
     *,
     snapshot: object,
@@ -2361,6 +2380,9 @@ def handle_stripe_webhook(
             event_type in refund_events
             and order
             and _stripe_attempt_matches_order(order, stripe_order)
+            and _stripe_refund_event_matches_attempt(
+                stripe_order, data_object, event_type
+            )
         ):
             stripe_order.status = 2
             response_status = "refunded"
@@ -2393,6 +2415,7 @@ def refund_order_payment(
     reason: str | None = None,
 ) -> dict[str, object]:
     """Refund order payment."""
+    uow.require_transaction_owner("Stripe refund", app)
     with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_bid):
         order = (
             Order.query.filter(Order.order_bid == order_bid).with_for_update().first()
@@ -2418,28 +2441,95 @@ def refund_order_payment(
             raise_error("server.order.orderNotFound")
 
         refund_amount = amount if amount is not None else stripe_order.amount
-        metadata = {
-            "order_bid": order_bid,
-            "payment_intent_id": stripe_order.payment_intent_id,
-            "charge_id": stripe_order.latest_charge_id,
-        }
-
-        refund_request = PaymentRefundRequest(
-            order_bid=order_bid,
-            amount=refund_amount,
-            reason=reason,
-            metadata=metadata,
+        refund_key = (
+            f"order-refund:{order_bid}:{stripe_order.stripe_order_bid}:{refund_amount}"
         )
-
-        with _order_credential_scope(app, order):
-            result = provider.refund_payment(request=refund_request, app=app)
-
         metadata_dict = {}
         if stripe_order.metadata_json:
             try:
                 metadata_dict = json.loads(stripe_order.metadata_json)
             except json.JSONDecodeError:
                 metadata_dict = {}
+        existing_operation = metadata_dict.get("refund_operation") or {}
+        if (
+            existing_operation.get("idempotency_key") == refund_key
+            and existing_operation.get("status") == "succeeded"
+        ):
+            return {
+                "status": "succeeded",
+                "order_bid": order_bid,
+                "refund_id": existing_operation.get("provider_reference", ""),
+                "amount": refund_amount,
+            }
+        metadata_dict["refund_operation"] = {
+            "idempotency_key": refund_key,
+            "status": "pending",
+            "amount": refund_amount,
+        }
+        stripe_order.metadata_json = json.dumps(metadata_dict)
+        stripe_attempt_bid = str(stripe_order.stripe_order_bid or "")
+        request_metadata = {
+            "order_bid": order_bid,
+            "payment_intent_id": stripe_order.payment_intent_id,
+            "charge_id": stripe_order.latest_charge_id,
+            "idempotency_key": refund_key,
+        }
+        refund_request = PaymentRefundRequest(
+            order_bid=order_bid,
+            amount=refund_amount,
+            reason=reason,
+            metadata=request_metadata,
+        )
+        credential_context = None
+        integration_bid = str(order.payment_integration_bid or "")
+        if integration_bid:
+            credential_context = resolve_provider_credential_context(
+                app,
+                creator_bid=str(order.creator_bid or ""),
+                provider="stripe",
+                integration_bid=integration_bid,
+            )
+            if (
+                credential_context is None
+                or credential_context.integration_bid != integration_bid
+            ):
+                raise_error("server.pay.payChannelNotSupport")
+        _assert_payment_lifecycle_lock_owned()
+
+    credential_scope = (
+        config_overrides(build_provider_config_overrides(credential_context))
+        if credential_context is not None
+        else nullcontext()
+    )
+    with _app_context_scope(app), credential_scope:
+        result = provider.refund_payment(request=refund_request, app=app)
+
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_bid):
+        order = (
+            Order.query.filter(Order.order_bid == order_bid).with_for_update().first()
+        )
+        stripe_order = (
+            legacy_stripe_snapshot_query()
+            .filter(
+                StripeOrder.order_bid == order_bid,
+                StripeOrder.stripe_order_bid == stripe_attempt_bid,
+            )
+            .with_for_update()
+            .first()
+        )
+        if not order or not stripe_order:
+            raise_error("server.order.orderNotFound")
+        metadata_dict = json.loads(stripe_order.metadata_json or "{}")
+        operation = metadata_dict.get("refund_operation") or {}
+        if operation.get("idempotency_key") != refund_key:
+            raise_error("server.order.orderStatusError")
+        operation.update(
+            {
+                "status": result.status,
+                "provider_reference": result.provider_reference,
+            }
+        )
+        metadata_dict["refund_operation"] = operation
         metadata_dict["last_refund_id"] = result.provider_reference
         stripe_order.metadata_json = json.dumps(metadata_dict)
         stripe_order.payment_intent_object = _stringify_payload(result.raw_response)
