@@ -1410,7 +1410,7 @@ def test_preview_resolves_models_only_when_content_calls_llm(
         if not is_static and not provider_available:
             with pytest.raises(AppError) as error:
                 list(stream)
-            assert error.value.code == ERROR_CODE["server.llm.modelTierUnavailable"]
+            assert error.value.code == ERROR_CODE["server.llm.modelUnavailable"]
         else:
             messages = list(stream)
             expected = "Static preview content" if is_static else "Generated preview"

@@ -21,7 +21,7 @@ const mockSaveShifuDetail = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
 const mockGetFollowUpModelCatalog = jest.fn();
-const mockGetModelTierList = jest.fn();
+const mockGetCourseModelOptions = jest.fn();
 const mockAskSettingsSection = jest.fn();
 const mockMainModelSelector = jest.fn();
 const mockFormMethods = jest.fn();
@@ -65,7 +65,8 @@ jest.mock('@/api', () => ({
       mockGetMinimaxTtsCloneCost(...args),
     askConfig: (...args: unknown[]) => mockAskConfig(...args),
     askPreview: (...args: unknown[]) => mockAskPreview(...args),
-    getModelTierList: (...args: unknown[]) => mockGetModelTierList(...args),
+    getCourseModelOptions: (...args: unknown[]) =>
+      mockGetCourseModelOptions(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
     saveShifuDetail: (...args: unknown[]) => mockSaveShifuDetail(...args),
   },
@@ -142,7 +143,7 @@ jest.mock('@/components/ui/Form', () => {
     },
   };
 });
-jest.mock('@/components/model-list/ModelTierList', () => ({
+jest.mock('@/components/model-list/CourseModelSelect', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
     mockMainModelSelector(props);
@@ -934,9 +935,9 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
-  const configureTierProvider = (tier: string, provider: string) => {
+  const configureModelProvider = (modelIndex: string, provider: string) => {
     mockGetFollowUpModelCatalog.mockResolvedValue([
-      { model: tier, interaction_mode: 'text', voices: [] },
+      { model: modelIndex, interaction_mode: 'text', voices: [] },
     ]);
     mockAskConfig.mockResolvedValue({
       providers: [
@@ -956,14 +957,14 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
     mockGetShifuDetail.mockResolvedValue({
       bid: 'course-1',
-      name: 'Private tier course',
+      name: 'Private numbered model course',
       description: '',
       keywords: [],
-      model: tier,
+      model: modelIndex,
       price: 1,
       avatar: '',
       temperature: 0,
-      ask_model: tier,
+      ask_model: modelIndex,
       ask_temperature: 0,
       follow_up_mode: 'text',
       ask_provider_config: {
@@ -989,22 +990,22 @@ describe('ShifuSettingDialog analytics producer', () => {
   };
 
   it.each(
-    ['1', '3', '7'].flatMap(tier =>
+    ['1', '3', '7'].flatMap(modelIndex =>
       ['dify', 'coze'].flatMap(provider =>
         ['provider', 'scalar', 'object'].map(edit => ({
-          tier,
+          modelIndex,
           provider,
           edit,
         })),
       ),
     ),
   )(
-    'saves $edit edits for $provider with the $tier tier',
-    async ({ tier, provider, edit }) => {
+    'saves $edit edits for $provider with model index $modelIndex',
+    async ({ modelIndex, provider, edit }) => {
       const initialProvider = edit === 'provider' ? 'llm' : provider;
-      const latestProps = configureTierProvider(tier, initialProvider);
+      const latestProps = configureModelProvider(modelIndex, initialProvider);
       renderOpenSettings();
-      await screen.findByDisplayValue('Private tier course');
+      await screen.findByDisplayValue('Private numbered model course');
       await waitFor(() =>
         expect(latestProps().resolvedAskProvider).toBe(initialProvider),
       );
@@ -1052,10 +1053,10 @@ describe('ShifuSettingDialog analytics producer', () => {
           use_learner_language: false,
           follow_up_mode: 'text',
           price_tier: 'standard_paid',
-          main_model_index: tier,
+          main_model_index: modelIndex,
           main_model_fallback: false,
           follow_up_model_fallback: false,
-          follow_up_model_index: tier,
+          follow_up_model_index: modelIndex,
         },
       );
       expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
@@ -1066,13 +1067,13 @@ describe('ShifuSettingDialog analytics producer', () => {
 
   it.each(['1', '3', '7'])(
     'preserves untouched %s provider settings when its provider metadata is missing',
-    async tier => {
-      const latestProps = configureTierProvider(tier, 'dify');
+    async modelIndex => {
+      const latestProps = configureModelProvider(modelIndex, 'dify');
       mockAskConfig.mockResolvedValue({
         providers: [{ provider: 'llm', json_schema: { properties: {} } }],
       });
       renderOpenSettings();
-      await screen.findByDisplayValue('Private tier course');
+      await screen.findByDisplayValue('Private numbered model course');
       await waitFor(() =>
         expect(latestProps().resolvedAskProvider).toBe('llm'),
       );
@@ -1091,11 +1092,11 @@ describe('ShifuSettingDialog analytics producer', () => {
   );
 
   it.each(['required', 'invalid_json'])(
-    'validates %s errors in edited tier provider settings before saving',
+    'validates %s errors in edited model provider settings before saving',
     async error => {
-      const latestProps = configureTierProvider('1', 'dify');
+      const latestProps = configureModelProvider('1', 'dify');
       renderOpenSettings();
-      await screen.findByDisplayValue('Private tier course');
+      await screen.findByDisplayValue('Private numbered model course');
       await waitFor(() =>
         expect(latestProps().resolvedAskProvider).toBe('dify'),
       );
@@ -1312,7 +1313,7 @@ describe('ShifuSettingDialog analytics producer', () => {
 });
 
 describe('ShifuSetting numbered model persistence', () => {
-  it('saves a text tier over a retained Live model without exposing or overwriting it', async () => {
+  it('saves a text model index over a retained Live model without exposing or overwriting it', async () => {
     jest.clearAllMocks();
     mockEnvState.billingEnabled = 'false';
     mockGetFollowUpModelCatalog.mockResolvedValue([
@@ -1324,7 +1325,7 @@ describe('ShifuSetting numbered model persistence', () => {
     mockTrackEvent.mockImplementation(() => undefined);
     mockGetShifuDetail.mockResolvedValue({
       bid: 'course-1',
-      name: 'Tier course',
+      name: 'Numbered model course',
       description: '',
       model: '7',
       ask_model: '1',
@@ -1337,7 +1338,7 @@ describe('ShifuSetting numbered model persistence', () => {
       },
     });
     renderOpenSettings();
-    await screen.findByDisplayValue('Tier course');
+    await screen.findByDisplayValue('Numbered model course');
     await waitFor(() =>
       expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
         expect.objectContaining({
@@ -1394,7 +1395,7 @@ describe('ShifuSetting Live-to-text availability', () => {
   };
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetModelTierList.mockReset();
+    mockGetCourseModelOptions.mockReset();
     mockEnvState.billingEnabled = 'false';
     mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
     mockAskConfig.mockResolvedValue({ providers: [] });
@@ -1406,14 +1407,14 @@ describe('ShifuSetting Live-to-text availability', () => {
     ]);
   });
   it.each(['unavailable', 'missing', 'failure'])(
-    'keeps Live when Fast availability is %s',
+    'keeps Live when default model availability is %s',
     async status => {
       if (status === 'failure')
-        mockGetModelTierList.mockRejectedValue(
+        mockGetCourseModelOptions.mockRejectedValue(
           new Error('private provider error'),
         );
       else
-        mockGetModelTierList.mockResolvedValue(
+        mockGetCourseModelOptions.mockResolvedValue(
           status === 'missing' ? [] : [{ index: '1', available: false }],
         );
       await openLive();
@@ -1426,7 +1427,7 @@ describe('ShifuSetting Live-to-text availability', () => {
         }),
       );
       expect(mockToast).toHaveBeenCalledWith({
-        title: 'module.shifuSetting.modelTiers.unavailable',
+        title: 'module.shifuSetting.modelOptions.unavailable',
         variant: 'destructive',
       });
       expect(mockSaveShifuDetail).not.toHaveBeenCalled();
@@ -1449,9 +1450,11 @@ describe('ShifuSetting Live-to-text availability', () => {
     },
   );
   it.each([false, true])(
-    'saves available Fast even if tracking fails=%s',
+    'saves the available default model even if tracking fails=%s',
     async trackingFails => {
-      mockGetModelTierList.mockResolvedValue([{ index: '1', available: true }]);
+      mockGetCourseModelOptions.mockResolvedValue([
+        { index: '1', available: true },
+      ]);
       if (trackingFails)
         mockTrackEvent.mockImplementation(() => {
           throw new Error('analytics unavailable');
@@ -1483,7 +1486,7 @@ describe('ShifuSetting Live-to-text availability', () => {
   );
   it('ignores an availability response after the dialog closes', async () => {
     let resolveOptions!: (options: unknown[]) => void;
-    mockGetModelTierList.mockReturnValue(
+    mockGetCourseModelOptions.mockReturnValue(
       new Promise(resolve => {
         resolveOptions = resolve;
       }),
@@ -1507,13 +1510,13 @@ describe('ShifuSetting Live-to-text availability', () => {
     expect(latest().isLiveVoiceFollowUp).toBe(true);
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
   });
-  it('rechecks the remembered tier instead of silently replacing it with Fast', async () => {
+  it('rechecks the remembered model index instead of silently replacing it with the default', async () => {
     mockGetShifuDetail.mockResolvedValue({
       ...liveCourse,
       ask_model: '3',
       follow_up_mode: 'text',
     });
-    mockGetModelTierList.mockResolvedValue([
+    mockGetCourseModelOptions.mockResolvedValue([
       { index: '1', available: true },
       { index: '3', available: false },
     ]);
@@ -1737,7 +1740,7 @@ describe('ShifuSetting compatibility fallback and explicit selection', () => {
     mockGetFollowUpModelCatalog.mockResolvedValue([
       { model: 'gemini-3.8-live', interaction_mode: 'live_voice', voices: [] },
     ]);
-    mockGetModelTierList.mockResolvedValue([
+    mockGetCourseModelOptions.mockResolvedValue([
       { index: '1', display_name: 'Default label', available: true },
     ]);
     await open();

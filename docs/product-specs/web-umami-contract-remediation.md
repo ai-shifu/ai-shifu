@@ -99,8 +99,8 @@ are not backfilled under another name.
   2026-09-02 contract revision adds `follow_up_mode` to
   `creator_shifu_setting_save`; historical rows are not backfilled and a
   missing value must be treated as `legacy_unknown`, never inferred as `text`.
-- The numbered-model revision replaces `main_model_tier` and
-  `follow_up_model_tier` with `main_model_index` and `follow_up_model_index`.
+- The numbered-model revision replaces historical fixed-level model
+  selections with `main_model_index` and `follow_up_model_index`.
   Indexes are canonical strings `1` through `9`; Live follow-up uses
   `not_applicable`. Add `main_model_fallback` and `follow_up_model_fallback`
   booleans (the latter is false for Live). These fields describe the effective
@@ -110,9 +110,9 @@ are not backfilled under another name.
 - The decision supported is whether teachers adopt configured model choices and
   how often saved course settings still depend on compatibility fallback. The
   daily consumer groups successful saves by effective index and fallback flag;
-  it must keep historical `fast|balanced|ultimate|legacy` tier rows separate,
+  it must keep historical `fast|balanced|ultimate|legacy` fixed-level rows separate,
   never reinterpret them as numbered choices or backfill missing flags as false.
-  No checked-in dashboard or query consumes the replaced tier fields.
+  No checked-in dashboard or query consumes the retired selection fields.
 - Eligible population is authenticated teachers editing writable courses,
   including drafts; learners, guest learners and learner preview are excluded.
   Failed validation, rejected API calls and read-only courses emit nothing.

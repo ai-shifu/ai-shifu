@@ -153,8 +153,8 @@ def test_unnamed_slots_use_model_ids_without_changing_selection(
     assert metadata["model_index"] == index
     assert metadata["model_selection_fallback"] is False
     for catalog in (
-        llm.get_model_tier_options(object()),
-        llm.get_course_models(object()),
+        llm.get_course_model_options(object()),
+        llm.get_legacy_course_model_options(object()),
     ):
         option = next(item for item in catalog if item["index"] == index)
         assert option["display_name"] == model
@@ -168,7 +168,7 @@ def test_unnamed_duplicate_binding_keeps_lowest_slot_label(
     """Physical deduplication retains the first slot's fallback display name."""
     del model_config["LLM_MODEL_3_NAME"]
     model_config["LLM_MODEL_7_NAME"] = "  Named duplicate  "
-    course_options = llm.get_course_models(object())
+    course_options = llm.get_legacy_course_model_options(object())
     assert [(item["model"], item["display_name"]) for item in course_options] == [
         ("1", "Daily"),
         ("3", "test/advanced"),
@@ -240,13 +240,15 @@ def test_generic_physical_models_and_live_are_not_course_normalized() -> None:
 
 def test_course_and_physical_catalogs_share_slots_without_leaking_ids() -> None:
     """Course slots remain distinct while the physical catalog deduplicates bindings."""
-    options = llm.get_model_tier_options(object())
+    options = llm.get_course_model_options(object())
     assert [option["index"] for option in options] == ["1", "3", "7"]
     assert [option["is_default"] for option in options] == [True, False, False]
     assert all(option["available"] for option in options)
     assert all("model" not in option for option in options)
     assert "test/" not in str(options)
-    assert [option["model"] for option in llm.get_course_models(object())] == [
+    assert [
+        option["model"] for option in llm.get_legacy_course_model_options(object())
+    ] == [
         "1",
         "3",
         "7",
@@ -277,7 +279,7 @@ def test_old_allowlist_and_discovered_models_never_define_catalog(
         },
     )
     assert llm.get_current_models(object()) == []
-    assert llm.get_model_tier_options(object()) == []
+    assert llm.get_course_model_options(object()) == []
 
 
 def test_reusing_metadata_with_a_new_selection_resolves_the_new_slot() -> None:
@@ -305,7 +307,7 @@ def test_configured_nontext_bindings_fail_without_default_switch(
     with pytest.raises(AppError):
         model_selection.resolve_course_selection("3")
     option = next(
-        item for item in llm.get_model_tier_options(object()) if item["index"] == "3"
+        item for item in llm.get_course_model_options(object()) if item["index"] == "3"
     )
     assert option["available"] is False
 

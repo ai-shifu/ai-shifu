@@ -3314,7 +3314,7 @@ def test_numbered_call_uses_one_model_for_provider_usage_and_trace(
     span = DummySpan()
     arguments = {
         "app": app,
-        "user_id": "tier-user",
+        "user_id": "selection-user",
         "span": span,
         "model": "legacy-model",
         "usage_metadata": {
@@ -3394,7 +3394,7 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
         list(
             lesson_entry.agent_lesson_events(
                 app,
-                user_bid="tier-user",
+                user_bid="selection-user",
                 shifu_bid=course_bid,
                 outline_bid=outline_bid,
                 preview_mode=preview,

@@ -200,7 +200,7 @@
   "minimaxVoiceGroupBuiltIn": "الأصوات المدمجة",
   "minimaxVoiceGroupCloned": "أصواتي المستنسخة",
   "minimaxVoiceGroupManual": "معرّف صوت يدوي",
-  "modelTiers": {
+  "modelOptions": {
     "fallback": "إعداد النموذج المحفوظ غير متاح، ويُستخدم النموذج الافتراضي حاليًا. اختر نموذجًا واحفظ لتحديث هذا الإعداد.",
     "hint": "اختر نموذجًا أعدّه مسؤول النظام.",
     "liveVoice": "محادثة صوتية مباشرة",

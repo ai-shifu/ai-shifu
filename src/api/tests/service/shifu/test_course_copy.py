@@ -843,7 +843,7 @@ def test_copy_course_preserves_original_model_selections(
     provider = "llm" if follow_up_model == GEMINI_LIVE_MODEL_ID else "dify"
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
-    owner_email = _unique_email("tier-copy-owner")
+    owner_email = _unique_email("selection-copy-owner")
     with app.app_context():
         _seed_user(app, user_bid=creator_bid, email=owner_email)
         UserEntity.query.filter_by(user_bid=creator_bid).one().is_creator = 1

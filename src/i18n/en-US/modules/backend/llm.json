@@ -5,6 +5,6 @@
     "requestFailed": "Model {model} invocation failed: {message}",
     "specifiedLlmNotConfigured": "Model {model} is not configured. Check .env file variable: {config_var}"
   },
-  "modelSelectionNotConfigured": "The model selection is not configured. Please contact the course owner.",
-  "modelTierUnavailable": "This tier is currently unavailable. Please try again later."
+  "modelSelectionNotConfigured": "The model is not configured. Please contact your administrator.",
+  "modelUnavailable": "This model is currently unavailable. Please contact your administrator."
 }

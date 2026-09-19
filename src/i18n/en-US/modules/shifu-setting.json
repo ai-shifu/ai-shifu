@@ -200,7 +200,7 @@
   "minimaxVoiceGroupBuiltIn": "Built-in voices",
   "minimaxVoiceGroupCloned": "My cloned voices",
   "minimaxVoiceGroupManual": "Manual voice ID",
-  "modelTiers": {
+  "modelOptions": {
     "fallback": "The saved model configuration is unavailable. The default model is being used. Select a model and save to update this setting.",
     "hint": "Choose a model configured by your administrator.",
     "liveVoice": "Live voice",

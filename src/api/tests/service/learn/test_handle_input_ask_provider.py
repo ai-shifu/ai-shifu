@@ -1031,16 +1031,19 @@ def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(
     assert context.langfuse_outputs == ["guardrail response"]
 
 
-def _run_tiered_ask(app: object, module: object) -> list:
+def _run_numbered_ask(app: object, module: object) -> list:
     return list(
         module.handle_input_ask(
             app=app,
             context=_Context(),
-            user_info=types.SimpleNamespace(user_id="tier-user"),
-            attend_id="tier-attend",
+            user_info=types.SimpleNamespace(user_id="selection-user"),
+            attend_id="selection-attend",
             user_input="hello",
             outline_item_info=types.SimpleNamespace(
-                shifu_bid="tier-course", bid="tier-outline", title="Outline", position=1
+                shifu_bid="selection-course",
+                bid="selection-outline",
+                title="Outline",
+                position=1,
             ),
             trace_args={},
             trace=_DummyTrace(),
@@ -1048,7 +1051,7 @@ def _run_tiered_ask(app: object, module: object) -> list:
     )
 
 
-def _use_follow_up_tier(monkeypatch: object, module: object, config: dict) -> None:
+def _use_follow_up_selection(monkeypatch: object, module: object, config: dict) -> None:
     info = _DummyFollowUpInfo(config)
     info.ask_model = "fast"
     info.usage_metadata = {
@@ -1061,7 +1064,7 @@ def _use_follow_up_tier(monkeypatch: object, module: object, config: dict) -> No
 @pytest.mark.parametrize("provider", ["dify", "coze"])
 @pytest.mark.parametrize("mode", ["provider_only", "provider_then_llm"])
 @pytest.mark.parametrize("provider_fails", [False, True])
-def test_external_answers_only_require_a_tier_for_actual_fallback(
+def test_external_answers_only_require_a_selection_for_actual_fallback(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     provider: str,
@@ -1074,7 +1077,7 @@ def test_external_answers_only_require_a_tier_for_actual_fallback(
 
     config = {"provider": provider, "mode": mode, "config": {}}
     _setup_handle_input_ask_patches(monkeypatch, module, config)
-    _use_follow_up_tier(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
     monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
     provider_calls = []
 
@@ -1096,14 +1099,14 @@ def test_external_answers_only_require_a_tier_for_actual_fallback(
     with app.app_context():
         if provider_fails and mode == "provider_then_llm":
             with pytest.raises(AppError) as captured:
-                _run_tiered_ask(app, module)
+                _run_numbered_ask(app, module)
             assert (
                 captured.value.code
                 == ERROR_CODE["server.llm.modelSelectionNotConfigured"]
             )
             assert provider_calls == [provider, "llm"]
         else:
-            events = _run_tiered_ask(app, module)
+            events = _run_numbered_ask(app, module)
             expected = (
                 "server.learn.askProviderUnavailable"
                 if provider_fails
@@ -1114,7 +1117,7 @@ def test_external_answers_only_require_a_tier_for_actual_fallback(
 
 
 @pytest.mark.parametrize("route", ["llm", "fallback", "synthesis"])
-def test_actual_llm_routes_snapshot_tier_model_and_metadata(
+def test_actual_llm_routes_snapshot_selection_model_and_metadata(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     route: str,
@@ -1134,14 +1137,14 @@ def test_actual_llm_routes_snapshot_tier_model_and_metadata(
         "config": {},
     }
     _setup_handle_input_ask_patches(monkeypatch, module, config)
-    _use_follow_up_tier(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
     resolve = Mock(return_value="mapped-fast")
     monkeypatch.setattr(model_selection, "resolve_model_slot", resolve)
     llm_calls = []
 
     def chat(*_args: object, **kwargs: object) -> object:
         llm_calls.append(kwargs)
-        yield _LLMChunk("tier-answer")
+        yield _LLMChunk("selection-answer")
 
     def stream(**kwargs: object) -> object:
         if route == "fallback" and kwargs["provider"] == "dify":
@@ -1158,7 +1161,9 @@ def test_actual_llm_routes_snapshot_tier_model_and_metadata(
     monkeypatch.setattr(module, "chat_llm", chat)
     monkeypatch.setattr(module, "stream_ask_provider_response", stream)
     with app.app_context():
-        assert _collect_content_chunks(_run_tiered_ask(app, module)) == ["tier-answer"]
+        assert _collect_content_chunks(_run_numbered_ask(app, module)) == [
+            "selection-answer"
+        ]
     resolve.assert_called_once_with("1")
     assert llm_calls[0]["model"] == "mapped-fast"
     assert llm_calls[0]["usage_metadata"] == {
@@ -1174,7 +1179,7 @@ def test_actual_llm_routes_snapshot_tier_model_and_metadata(
 
 @pytest.mark.no_mock_llm
 @pytest.mark.parametrize("reject", [False, True])
-def test_guardrail_only_resolves_a_tier_when_it_needs_an_llm_response(
+def test_guardrail_only_resolves_a_selection_when_it_needs_an_llm_response(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     reject: bool,
@@ -1189,7 +1194,7 @@ def test_guardrail_only_resolves_a_tier_when_it_needs_an_llm_response(
 
     config = {"provider": "dify", "mode": "provider_only", "config": {}}
     _setup_handle_input_ask_patches(monkeypatch, module, config)
-    _use_follow_up_tier(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
     monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
     monkeypatch.setattr(
         module, "check_text_with_llm_response", check_text.check_text_with_llm_response
@@ -1215,14 +1220,14 @@ def test_guardrail_only_resolves_a_tier_when_it_needs_an_llm_response(
     with app.app_context():
         if reject:
             with pytest.raises(AppError) as captured:
-                _run_tiered_ask(app, module)
+                _run_numbered_ask(app, module)
             assert (
                 captured.value.code
                 == ERROR_CODE["server.llm.modelSelectionNotConfigured"]
             )
             provider.assert_not_called()
         else:
-            assert _collect_content_chunks(_run_tiered_ask(app, module)) == [
+            assert _collect_content_chunks(_run_numbered_ask(app, module)) == [
                 "external-answer"
             ]
             provider.assert_called_once()

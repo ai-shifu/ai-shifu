@@ -1,4 +1,4 @@
-"""Keep tier configuration errors distinct from unexpected resolver failures."""
+"""Keep selection configuration errors distinct from unexpected resolver failures."""
 
 import pytest
 from flaskr.api import llm
@@ -11,10 +11,10 @@ from flaskr.service.common.models import ERROR_CODE, AppError
     [RuntimeError("resolver failed"), AppError("storage failed", 9999)],
 )
 @pytest.mark.parametrize("failure_site", ["configuration", "provider", "resolver"])
-def test_tier_options_propagate_unexpected_failures(
+def test_selection_options_propagate_unexpected_failures(
     app: object, monkeypatch: pytest.MonkeyPatch, error: Exception, failure_site: str
 ) -> None:
-    """Only missing tier/provider configuration becomes ordinary unavailability."""
+    """Only missing selection/provider configuration becomes ordinary unavailability."""
     monkeypatch.setattr(
         model_selection, "get_config", lambda *_args: "configured-model"
     )
@@ -29,11 +29,11 @@ def test_tier_options_propagate_unexpected_failures(
     else:
         monkeypatch.setattr(model_selection, "resolve_model_slot", fail)
     with app.app_context(), pytest.raises(type(error)) as captured:
-        llm.get_model_tier_options(app)
+        llm.get_course_model_options(app)
     assert captured.value is error
 
 
-def test_tier_options_hide_expected_provider_configuration_errors(
+def test_selection_options_hide_expected_provider_configuration_errors(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
@@ -51,18 +51,18 @@ def test_tier_options_hide_expected_provider_configuration_errors(
 
     monkeypatch.setattr(llm, "get_litellm_params_and_model", missing_provider)
     with app.app_context():
-        options = llm.get_model_tier_options(app)
+        options = llm.get_course_model_options(app)
     assert len(options) == 9
     assert all(item["available"] is False for item in options)
     assert "private-model" not in str(options)
 
 
 @pytest.mark.parametrize("alias", ["1", "3", "9"])
-def test_tier_mapping_cannot_point_to_another_reserved_alias(
+def test_selection_mapping_cannot_point_to_another_reserved_alias(
     app: object, monkeypatch: pytest.MonkeyPatch, alias: str
 ) -> None:
     """A mapping must end at a concrete model instead of creating an alias loop."""
     monkeypatch.setattr(model_selection, "get_config", lambda *_args: alias)
     with app.app_context(), pytest.raises(AppError) as captured:
         model_selection.resolve_model_slot("1")
-    assert captured.value.code == ERROR_CODE["server.llm.modelTierUnavailable"]
+    assert captured.value.code == ERROR_CODE["server.llm.modelUnavailable"]

@@ -27,19 +27,21 @@ def test_estimate_rejects_missing_course_selection_before_pricing(
     pricing.assert_not_called()
 
 
-@pytest.mark.parametrize("tier", [None, "fast"])
-def test_estimate_prices_legacy_or_resolved_tier_model(
-    app: object, monkeypatch: pytest.MonkeyPatch, tier: str | None
+@pytest.mark.parametrize("selection", [None, "fast"])
+def test_estimate_prices_legacy_or_resolved_selection_model(
+    app: object, monkeypatch: pytest.MonkeyPatch, selection: str | None
 ) -> None:
     """Capture the pricing boundary without mocking selection resolution itself."""
-    monkeypatch.setattr(model_selection, "resolve_model_slot", lambda _tier: "mapped-1")
+    monkeypatch.setattr(
+        model_selection, "resolve_model_slot", lambda _selection: "mapped-1"
+    )
     expected = "mapped-1"
     pricing = Mock(side_effect=RuntimeError("pricing reached"))
     monkeypatch.setattr(estimates, "_sum_llm_cost", pricing)
     with app.app_context(), pytest.raises(RuntimeError, match="pricing reached"):
         estimates.build_operator_course_estimated_credit_cost(
             app,
-            course=SimpleNamespace(llm=tier or "legacy-model"),
+            course=SimpleNamespace(llm=selection or "legacy-model"),
             outline_items=[],
             visible_leaf_outline_bids=[],
         )

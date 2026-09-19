@@ -1908,7 +1908,7 @@ def test_operator_summary_matches_numbered_catalog_when_provider_is_unavailable(
     expected_label: str,
 ) -> None:
     """Operator labels join the same numbered catalog used by the course UI."""
-    from flaskr.api.llm import get_course_models, model_selection
+    from flaskr.api.llm import get_legacy_course_model_options, model_selection
     from flaskr.service.common.models import ERROR_CODE
     from flaskr.service.shifu.admin_course_summary_mapper import (
         build_admin_operation_course_summary,
@@ -1939,14 +1939,14 @@ def test_operator_summary_matches_numbered_catalog_when_provider_is_unavailable(
         model_selection,
         "resolve_model_slot",
         side_effect=AppError(
-            "Provider unavailable", ERROR_CODE["server.llm.modelTierUnavailable"]
+            "Provider unavailable", ERROR_CODE["server.llm.modelUnavailable"]
         ),
     ) as resolve_model:
         summary = build_admin_operation_course_summary(
             course, user_map={}, course_status="published"
         )
         resolve_model.assert_not_called()
-        catalog = get_course_models(Flask(__name__))
+        catalog = get_legacy_course_model_options(Flask(__name__))
 
     assert summary.llm_model == expected_index
     assert all(option["available"] is False for option in catalog)

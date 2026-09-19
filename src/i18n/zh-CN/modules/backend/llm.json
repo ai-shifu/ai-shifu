@@ -5,6 +5,6 @@
     "requestFailed": "模型 {model} 调用失败：{message}",
     "specifiedLlmNotConfigured": "模型 {model} 没有配置，请检查 .env 中的变量：{config_var}"
   },
-  "modelSelectionNotConfigured": "模型档位尚未配置，请联系课程负责人。",
-  "modelTierUnavailable": "该档位暂不可用，请稍后重试。"
+  "modelSelectionNotConfigured": "模型尚未配置，请联系管理员。",
+  "modelUnavailable": "该模型暂不可用，请联系管理员。"
 }

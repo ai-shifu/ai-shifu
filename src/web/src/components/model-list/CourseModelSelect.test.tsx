@@ -6,12 +6,12 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import ModelTierList from './ModelTierList';
+import CourseModelSelect from './CourseModelSelect';
 
 const mockOptions = jest.fn();
 jest.mock('@/api', () => ({
   __esModule: true,
-  default: { getModelTierList: () => mockOptions() },
+  default: { getCourseModelOptions: () => mockOptions() },
 }));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key.split('.').at(-1) }),
@@ -37,7 +37,7 @@ const options = [
   },
 ].map(option => ({ ...option, model: 'hidden-physical-model' }));
 
-describe('ModelTierList numbered choices', () => {
+describe('CourseModelSelect numbered choices', () => {
   beforeAll(() => {
     Element.prototype.scrollIntoView = jest.fn();
   });
@@ -48,7 +48,7 @@ describe('ModelTierList numbered choices', () => {
   it('sorts sparse configured indexes, uses configured names and hides physical IDs', async () => {
     const onChange = jest.fn();
     render(
-      <ModelTierList
+      <CourseModelSelect
         value='1'
         onChange={onChange}
       />,
@@ -77,7 +77,7 @@ describe('ModelTierList numbered choices', () => {
     async method => {
       const onChange = jest.fn();
       render(
-        <ModelTierList
+        <CourseModelSelect
           value='1'
           onChange={onChange}
           fallback
@@ -101,7 +101,7 @@ describe('ModelTierList numbered choices', () => {
   it('keeps the saved display label when the catalog fails and respects read-only', async () => {
     mockOptions.mockRejectedValue(new Error('offline'));
     render(
-      <ModelTierList
+      <CourseModelSelect
         value='1'
         displayName='Everyday'
         onChange={jest.fn()}

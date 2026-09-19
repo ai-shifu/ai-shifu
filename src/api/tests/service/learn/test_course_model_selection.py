@@ -154,7 +154,9 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     course_temperature: float | None,
 ) -> None:
     monkeypatch.setattr(
-        model_selection, "resolve_model_slot", lambda tier: f"configured-{tier}"
+        model_selection,
+        "resolve_model_slot",
+        lambda selection: f"configured-{selection}",
     )
     monkeypatch.setitem(app.config, "DEFAULT_LLM_TEMPERATURE", 0.3)
     request = PlaygroundPreviewRequest(

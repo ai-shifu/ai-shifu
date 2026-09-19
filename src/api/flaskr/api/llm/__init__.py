@@ -2118,7 +2118,7 @@ def get_current_models(app: Flask) -> list[dict[str, object]]:
             litellm_models.append(resolve_model_slot(slot["index"]))
         except AppError as exc:
             if exc.code not in {
-                ERROR_CODE["server.llm.modelTierUnavailable"],
+                ERROR_CODE["server.llm.modelUnavailable"],
                 ERROR_CODE["server.llm.modelSelectionNotConfigured"],
             }:
                 raise
@@ -2162,7 +2162,7 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
             "billing_mode": "billable",
             "voices": [],
         }
-        for option in get_course_models(app)
+        for option in get_legacy_course_model_options(app)
     ]
     for model in GEMINI_LIVE_MODEL_ALLOWLIST:
         if not is_live_follow_up_model_available(model):
@@ -2183,8 +2183,8 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
     return options
 
 
-def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
-    """Expose stable numbered choices with configured or ID-based display labels."""
+def get_course_model_options(app: Flask) -> list[dict[str, object]]:
+    """Return numbered course choices with labels, availability, and credit rates."""
     from flaskr.api.llm.model_selection import (
         get_configured_model_slots,
         resolve_model_slot,
@@ -2204,7 +2204,7 @@ def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
             model = resolve_model_slot(slot["index"])
         except AppError as exc:
             if exc.code not in {
-                ERROR_CODE["server.llm.modelTierUnavailable"],
+                ERROR_CODE["server.llm.modelUnavailable"],
                 ERROR_CODE["server.llm.modelSelectionNotConfigured"],
             }:
                 raise
@@ -2219,8 +2219,8 @@ def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
     return options
 
 
-def get_course_models(app: Flask) -> list[dict[str, object]]:
-    """Keep older teacher-facing catalog fields while returning numbered values."""
+def get_legacy_course_model_options(app: Flask) -> list[dict[str, object]]:
+    """Adapt course options to catalogs that expect an index in the model field."""
     return [
-        {**option, "model": option["index"]} for option in get_model_tier_options(app)
+        {**option, "model": option["index"]} for option in get_course_model_options(app)
     ]

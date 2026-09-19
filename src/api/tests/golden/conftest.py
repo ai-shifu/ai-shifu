@@ -141,7 +141,8 @@ def golden_llm(monkeypatch: object) -> None:
     # The seeded default selection represents a course after the Fast cleanup.
     # Provider routing is covered separately; golden tests keep output deterministic.
     monkeypatch.setattr(
-        "flaskr.api.llm.model_selection.resolve_model_slot", lambda _tier: "gpt-test"
+        "flaskr.api.llm.model_selection.resolve_model_slot",
+        lambda _selection: "gpt-test",
     )
     targets = {
         "flaskr.api.llm": (

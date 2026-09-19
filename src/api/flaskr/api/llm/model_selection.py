@@ -104,16 +104,16 @@ def resolve_model_slot(index: object) -> str:
         or is_live_follow_up_model(model)
         or (capabilities and "generateContent" not in capabilities)
     ):
-        raise_error("server.llm.modelTierUnavailable")
+        raise_error("server.llm.modelUnavailable")
     try:
         params, _, _ = get_litellm_params_and_model(model)
     except AppError as exc:
         if exc.code != ERROR_CODE["server.llm.specifiedLlmNotConfigured"]:
             raise
         # Provider diagnostics can contain physical identities; keep them internal.
-        raise_error("server.llm.modelTierUnavailable")
+        raise_error("server.llm.modelUnavailable")
     if not params:
-        raise_error("server.llm.modelTierUnavailable")
+        raise_error("server.llm.modelUnavailable")
     return model
 
 

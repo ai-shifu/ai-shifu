@@ -5,6 +5,6 @@
     "requestFailed": "เรียกใช้โมเดล {model} ไม่สำเร็จ: {message}",
     "specifiedLlmNotConfigured": "ยังไม่ได้ตั้งค่าโมเดล {model} โปรดตรวจสอบตัวแปร {config_var} ใน .env"
   },
-  "modelSelectionNotConfigured": "ยังไม่ได้ตั้งค่าโมเดล โปรดติดต่อผู้ดูแลหลักสูตร",
-  "modelTierUnavailable": "ระดับนี้ไม่พร้อมใช้งานในขณะนี้ โปรดลองอีกครั้งภายหลัง"
+  "modelSelectionNotConfigured": "ยังไม่ได้ตั้งค่าโมเดล โปรดติดต่อผู้ดูแลระบบ",
+  "modelUnavailable": "โมเดลนี้ไม่พร้อมใช้งานในขณะนี้ โปรดติดต่อผู้ดูแลระบบ"
 }

@@ -12,6 +12,10 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 
 ## Progress
 
+- [x] 2026-09-19 UTC: Align course model option functions, HTTP endpoint, frontend
+  selector, error keys, tests and documentation with numbered selections; direct
+  unavailable or missing-model messages to the administrator in every locale.
+
 - [x] 2026-09-19 UTC: Rename the selection module to model_selection.py and its
   slot resolver to resolve_model_slot; update imports and test patches together.
 - [x] 2026-09-19 UTC: Confirmed the numbered configuration and runtime fallback
@@ -75,7 +79,12 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 
 ## Decision Log
 
-- 2026-09-19: Supersede fixed Fast/Balanced/Ultimate tiers and all cleanup plans.
+- 2026-09-19: Name the canonical catalog get_course_model_options and the
+  old-field adapter get_legacy_course_model_options. Serve the selector at
+  /api/llm/course-model-options and use CourseModelSelect in the web client.
+  Deploy the API and web together for this endpoint rename.
+
+- 2026-09-19: Supersede fixed Fast/Balanced/Ultimate choices and all cleanup plans.
   Only LLM_MODEL_1_ID is required and has no default. Nonblank IDs enable optional
   numbers 2-9. Names for all numbers are optional; absent or blank names display
   the configured model ID. Names without IDs do not enable options. Numeric
@@ -88,7 +97,7 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 - 2026-09-19: Configured provider failures are errors, not fallback triggers.
   Live voice and direct physical-model calls retain their separate contracts.
 - 2026-09-19: Remove both LLM_ALLOWED variables, their legacy database readers,
-  and the three LLM_TIER variables. Never enumerate all discovered models as a
+  and the three fixed-level model variables. Never enumerate all discovered models as a
   fallback catalog. The external gateway retains its default-alias and admission
   semantics, and billing continues to use physical model identities.
 - 2026-09-19: The user confirmed the cleanup-audit table was never created.
@@ -116,6 +125,11 @@ during validation. Both submission paths now cancel when the context changes,
 and native submissions are blocked while replacement details load. All 81
 settings tests and TypeScript checks pass, including same-course edits during
 validation and absence of save callbacks or analytics for canceled submissions.
+
+The course-model naming follow-up passes 672 backend tests (four skipped) and
+96 frontend tests. The new endpoint is exercised with sparse numbered options
+and an omitted display name. Frontend type checking, lint, and translation-key
+parity pass; error numbers and model-selection behavior are unchanged.
 
 ## Context and Orientation
 
@@ -161,7 +175,7 @@ Settings-save analytics remain best-effort and fire once after an editable save
 succeeds. Record effective indexes and fallback booleans only; omit text-model
 selection for Live. Never send raw IDs, configured names or provider data,
 including model IDs displayed as fallback labels. Update producers, consumers
-and compatibility documentation together; historical tier
+and compatibility documentation together; historical fixed-level
 payloads retain their original meaning.
 
 ## Idempotence and Recovery
@@ -173,7 +187,7 @@ Do not roll back to code that interprets saved numeric choices as physical IDs.
 
 ## Interfaces and Dependencies
 
-Keep GET /api/llm/model-tier-list as the course option endpoint; options contain
+Use GET /api/llm/course-model-options as the course option endpoint; options contain
 index, display_name, available, is_default and credit_multiplier. Older teacher
 text catalogs return numeric values in their existing model field. Course detail
 returns effective model/ask_model and model_fallback/ask_model_fallback booleans.
@@ -192,7 +206,7 @@ does not select another physical model.
 
 1. Set a provider credential plus LLM_MODEL_1_ID; configure optional IDs through
    9. Names are optional for all numbers; missing or blank names display the
-   configured model IDs. Remove obsolete tier/allowed variables.
+   configured model IDs. Remove obsolete fixed-level and allowed-model variables.
 2. No database migration or course-data cleanup is needed for this change.
 3. Deploy matching API/workers and web. Verify a legacy course falls back to 1,
    sparse configured choices work, and unrelated saves preserve old selections.

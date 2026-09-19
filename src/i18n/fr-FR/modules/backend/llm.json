@@ -5,6 +5,6 @@
     "requestFailed": "L’appel au modèle {model} a échoué : {message}",
     "specifiedLlmNotConfigured": "Le modèle {model} n’est pas configuré. Vérifiez la variable du fichier .env : {config_var}"
   },
-  "modelSelectionNotConfigured": "Le modèle n’est pas configuré. Contactez le responsable du cours.",
-  "modelTierUnavailable": "Ce niveau est actuellement indisponible. Réessayez plus tard."
+  "modelSelectionNotConfigured": "Le modèle n’est pas configuré. Veuillez contacter votre administrateur.",
+  "modelUnavailable": "Ce modèle est temporairement indisponible. Veuillez contacter votre administrateur."
 }

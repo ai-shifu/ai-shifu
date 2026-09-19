@@ -182,7 +182,7 @@ def test_numbered_catalog_preserves_gateway_default_alias(
         }
     assert [
         model["index"]
-        for model in llm.get_model_tier_options(app)
+        for model in llm.get_course_model_options(app)
         if model["is_default"]
     ] == ["1"]
 

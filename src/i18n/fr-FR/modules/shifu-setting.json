@@ -200,7 +200,7 @@
   "minimaxVoiceGroupBuiltIn": "Voix intégrées",
   "minimaxVoiceGroupCloned": "Mes voix clonées",
   "minimaxVoiceGroupManual": "ID de voix manuel",
-  "modelTiers": {
+  "modelOptions": {
     "fallback": "La configuration enregistrée est indisponible. Le modèle par défaut est utilisé. Sélectionnez un modèle et enregistrez pour modifier ce réglage.",
     "hint": "Choisissez un modèle configuré par votre administrateur.",
     "liveVoice": "Conversation vocale",

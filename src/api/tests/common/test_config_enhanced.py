@@ -135,7 +135,11 @@ class TestEnhancedConfigValidation:
         )
         assert "LLM_ALLOWED_MODELS" not in ENV_VARS
         assert "LLM_ALLOWED_MODEL_DISPLAY_NAMES" not in ENV_VARS
-        assert not any(name.startswith("LLM_TIER_") for name in ENV_VARS)
+        assert {name for name in ENV_VARS if name.startswith("LLM_")} == {
+            *names,
+            "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS",
+            "LLM_MODEL_MAX_OUTPUT_TOKENS",
+        }
 
     def test_validate_missing_required(self, monkeypatch: object) -> None:
         """Test validation fails when required variables are missing."""

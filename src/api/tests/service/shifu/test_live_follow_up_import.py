@@ -237,7 +237,7 @@ def test_import_export_preserves_old_selections(
     monkeypatch.setattr(
         module, "check_text_with_risk_control", lambda *_args, **_kwargs: None
     )
-    shifu_bid = f"tier-import-{uuid.uuid4().hex[:12]}"
+    shifu_bid = f"selection-import-{uuid.uuid4().hex[:12]}"
     module.import_shifu(
         app,
         shifu_bid,
@@ -246,7 +246,7 @@ def test_import_export_preserves_old_selections(
             include_structure=True,
             outlines=[
                 {
-                    "outline_item_bid": "tier-child",
+                    "outline_item_bid": "selection-child",
                     "title": "Child",
                     "llm": "balanced",
                 },
@@ -265,7 +265,7 @@ def test_import_export_preserves_old_selections(
         assert course.ask_llm == " \t"
         outlines = DraftOutlineItem.query.filter_by(shifu_bid=shifu_bid).all()
         assert all(not hasattr(item, "llm") for item in outlines)
-    path = tmp_path / "tiers.json"
+    path = tmp_path / "selections.json"
     module.export_shifu(app, shifu_bid, str(path))
     exported = json.loads(path.read_text())
     assert exported["shifu"]["llm"] == "ultimate"

@@ -200,7 +200,7 @@
   "minimaxVoiceGroupBuiltIn": "เสียงในตัว",
   "minimaxVoiceGroupCloned": "เสียงที่ฉันโคลน",
   "minimaxVoiceGroupManual": "ID เสียงที่กรอกเอง",
-  "modelTiers": {
+  "modelOptions": {
     "fallback": "การตั้งค่าโมเดลที่บันทึกไว้ไม่พร้อมใช้งาน ขณะนี้ใช้โมเดลเริ่มต้น เลือกโมเดลและบันทึกเพื่ออัปเดตการตั้งค่านี้",
     "hint": "เลือกโมเดลที่ผู้ดูแลระบบกำหนดไว้",
     "liveVoice": "สนทนาด้วยเสียงสด",

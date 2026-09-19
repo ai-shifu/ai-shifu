@@ -309,20 +309,20 @@ This applies to latest-image, pinned-release, development Compose and manual ins
 1. Configure provider credentials plus `LLM_MODEL_1_ID`. Add optional model IDs
    for numbers 2-9 as needed. Set optional names to customize labels; omitted or
    blank names display their configured model IDs. Remove the obsolete `LLM_ALLOWED_MODELS`,
-   `LLM_ALLOWED_MODEL_DISPLAY_NAMES` and `LLM_TIER_*_MODEL` variables; they are no longer read.
+   `LLM_ALLOWED_MODEL_DISPLAY_NAMES` and the old fixed-level model variables; they are no longer read.
 2. This change requires no database migration, course-data cleanup or cleanup report.
 3. Deploy matching API/workers and web. Verify a legacy course uses model 1 and
    that changing unrelated course settings preserves its saved model value.
 4. Check invocation records for the original selection, effective number,
    physical model and fallback reason. Billing uses the actual invoked model.
 
-Blank selections, old model IDs, old tier aliases and unconfigured numbers use
+Blank selections, old model IDs, old fixed-level aliases and unconfigured numbers use
 model 1 without modifying course rows. If a removed number is configured again,
 courses still referencing it automatically resume using it. Do not reuse numbers
 without considering those references. Existing physical-model callers and Live
 voice follow-up retain their separate contracts.
 
-See the [numbered-model deployment runbook](docs/exec-plans/active/model-tiers.md#deployment-runbook).
+See the [numbered-model deployment runbook](docs/exec-plans/active/numbered-course-models.md#deployment-runbook).
 Do not roll back to a build that treats newly saved numeric choices as physical IDs.
 
 ## Troubleshooting

@@ -869,7 +869,7 @@ def test_numbered_save_uses_original_fields_and_supports_live_roundtrip(
         "get_config",
         lambda key, default=None: mapping.get(key, default),
     )
-    _seed_shifu(app, "tier-save-course", "tier-owner", Decimal(1))
+    _seed_shifu(app, "selection-save-course", "selection-owner", Decimal(1))
     _mock_shifu_permissions(monkeypatch)
     with app.app_context():
 
@@ -887,8 +887,8 @@ def test_numbered_save_uses_original_fields_and_supports_live_roundtrip(
             defaults.update(kwargs)
             return module.save_shifu_draft_info(
                 app=app,
-                user_id="tier-owner",
-                shifu_id="tier-save-course",
+                user_id="selection-owner",
+                shifu_id="selection-save-course",
                 base_url="http://localhost",
                 **defaults,
             )
@@ -897,7 +897,7 @@ def test_numbered_save_uses_original_fields_and_supports_live_roundtrip(
         assert result.model == "3"
         assert result.ask_model == "1"
         row = (
-            DraftShifu.query.filter_by(shifu_bid="tier-save-course", deleted=0)
+            DraftShifu.query.filter_by(shifu_bid="selection-save-course", deleted=0)
             .order_by(DraftShifu.id.desc())
             .first()
         )
@@ -913,7 +913,7 @@ def test_numbered_save_uses_original_fields_and_supports_live_roundtrip(
         assert result.follow_up_mode == "text"
         assert result.ask_model == "1"
         assert result.model == "1"
-        assert db_latest_id("tier-save-course") > first_id
+        assert db_latest_id("selection-save-course") > first_id
         # An explicit default selection stores model 1 in the existing fields.
         result = save(shifu_model="", ask_model="")
         assert result.model == "1"

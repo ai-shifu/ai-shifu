@@ -101,15 +101,18 @@ def test_preview_falls_back_without_modifying_original_values(
         assert row not in db.session.dirty
 
 
-@pytest.mark.parametrize(("main_tier", "expected"), [(None, "1"), ("3", "3")])
+@pytest.mark.parametrize(("main_selection", "expected"), [(None, "1"), ("3", "3")])
 def test_new_course_persists_independent_numbered_defaults(
-    app: object, monkeypatch: pytest.MonkeyPatch, main_tier: str | None, expected: str
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    main_selection: str | None,
+    expected: str,
 ) -> None:
     from flaskr.service.shifu import shifu_draft_funcs as module
 
     monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
     result = module.create_shifu_draft(
-        app, "tier-new-owner", "New course", "", "", shifu_model=main_tier
+        app, "selection-new-owner", "New course", "", "", shifu_model=main_selection
     )
     with app.app_context():
         row = DraftShifu.query.filter_by(shifu_bid=result.bid).one()
@@ -117,7 +120,7 @@ def test_new_course_persists_independent_numbered_defaults(
         assert row.ask_llm == "1"
 
 
-def test_course_tiers_drive_preview_learning_and_follow_up(
+def test_course_selections_drive_preview_learning_and_follow_up(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr.service.learn import context_v2, utils_v2
@@ -125,7 +128,9 @@ def test_course_tiers_drive_preview_learning_and_follow_up(
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
     monkeypatch.setattr(
-        model_selection, "resolve_model_slot", lambda tier: f"configured-{tier}"
+        model_selection,
+        "resolve_model_slot",
+        lambda selection: f"configured-{selection}",
     )
     with app.app_context():
         bid = uuid4().hex
@@ -223,15 +228,40 @@ def test_course_tiers_drive_preview_learning_and_follow_up(
         )
 
 
-def test_options_endpoint_keeps_missing_mapping_unavailable(
+def test_options_endpoint_returns_configured_numbered_choices(
+    app: object, monkeypatch: pytest.MonkeyPatch, numbered_slots: dict
+) -> None:
+    numbered_slots.pop("LLM_MODEL_3_NAME")
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda *_args: SimpleNamespace(language="en-US", user_id="selection-teacher"),
+    )
+    monkeypatch.setattr(
+        "flaskr.api.llm._attach_credit_multipliers", lambda _app, models: models
+    )
+    response = app.test_client().get("/api/llm/course-model-options")
+    assert response.status_code == 200
+    options = response.get_json(force=True)["data"]
+    assert [option["index"] for option in options] == ["1", "3", "7"]
+    assert [option["display_name"] for option in options] == [
+        "Option 1",
+        "configured-3",
+        "Option 7",
+    ]
+    assert all(option["available"] for option in options)
+    assert [option["is_default"] for option in options] == [True, False, False]
+    assert all("model" not in option for option in options)
+
+
+def test_options_endpoint_returns_no_choices_without_configuration(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
     monkeypatch.setattr(
         "flaskr.route.user.validate_user",
-        lambda *_args: SimpleNamespace(language="en-US", user_id="tier-teacher"),
+        lambda *_args: SimpleNamespace(language="en-US", user_id="selection-teacher"),
     )
-    response = app.test_client().get("/api/llm/model-tier-list")
+    response = app.test_client().get("/api/llm/course-model-options")
     assert response.status_code == 200
     result = response.get_json(force=True)["data"]
     assert result == []
@@ -248,5 +278,15 @@ def test_new_course_rows_default_both_existing_fields_to_one(
         db.session.flush()
         assert row.llm == "1"
         assert row.ask_llm == "1"
-        assert "llm_tier" not in model_type.__table__.columns
-        assert "ask_llm_tier" not in model_type.__table__.columns
+        assert {
+            column.name
+            for column in model_type.__table__.columns
+            if column.name.startswith(("llm", "ask_llm"))
+        } == {
+            "llm",
+            "llm_temperature",
+            "llm_system_prompt",
+            "ask_llm",
+            "ask_llm_temperature",
+            "ask_llm_system_prompt",
+        }

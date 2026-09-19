@@ -26,7 +26,7 @@ export type ModelIndexOption = {
   credit_multiplier_label?: string | null;
 };
 
-type ModelTierListProps = Omit<
+type CourseModelSelectProps = Omit<
   ComponentPropsWithoutRef<typeof SelectTrigger>,
   'value' | 'onChange'
 > & {
@@ -36,8 +36,8 @@ type ModelTierListProps = Omit<
   fallback?: boolean;
 };
 
-const ModelTierList = forwardRef<HTMLButtonElement, ModelTierListProps>(
-  function ModelTierList(
+const CourseModelSelect = forwardRef<HTMLButtonElement, CourseModelSelectProps>(
+  function CourseModelSelect(
     { value, onChange, displayName, fallback, disabled, ...triggerProps },
     ref,
   ) {
@@ -49,7 +49,7 @@ const ModelTierList = forwardRef<HTMLButtonElement, ModelTierListProps>(
     const loadOptions = useCallback(async () => {
       const version = ++requestVersion.current;
       try {
-        const result = await api.getModelTierList({});
+        const result = await api.getCourseModelOptions({});
         if (version === requestVersion.current)
           setOptions(
             Array.isArray(result)
@@ -110,7 +110,7 @@ const ModelTierList = forwardRef<HTMLButtonElement, ModelTierListProps>(
                 {selected
                   ? optionLabel(selected)
                   : displayName ||
-                    t('module.shifuSetting.modelTiers.unavailable')}
+                    t('module.shifuSetting.modelOptions.unavailable')}
               </span>
             </SelectValue>
           </SelectTrigger>
@@ -159,7 +159,7 @@ const ModelTierList = forwardRef<HTMLButtonElement, ModelTierListProps>(
                 {optionLabel(option)}
                 {!option.available ? (
                   <span className='ml-2 text-xs text-muted-foreground'>
-                    {t('module.shifuSetting.modelTiers.unavailable')}
+                    {t('module.shifuSetting.modelOptions.unavailable')}
                   </span>
                 ) : null}
               </SelectItem>
@@ -171,7 +171,7 @@ const ModelTierList = forwardRef<HTMLButtonElement, ModelTierListProps>(
             className='text-xs text-muted-foreground'
             role='status'
           >
-            {t('module.shifuSetting.modelTiers.fallback')}
+            {t('module.shifuSetting.modelOptions.fallback')}
           </p>
         ) : null}
       </div>
@@ -179,4 +179,4 @@ const ModelTierList = forwardRef<HTMLButtonElement, ModelTierListProps>(
   },
 );
 
-export default ModelTierList;
+export default CourseModelSelect;

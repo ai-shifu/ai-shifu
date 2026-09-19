@@ -85,7 +85,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 
 import ModelList from '@/components/model-list';
-import ModelTierList from '@/components/model-list/ModelTierList';
+import CourseModelSelect from '@/components/model-list/CourseModelSelect';
 import type { ModelIndex } from '@/types/shifu';
 import { useEnvStore } from '@/store';
 import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
@@ -254,7 +254,7 @@ export default function ShifuSettingDialog({
     isCourseOwner === true &&
     billingEnabled &&
     billingOverview?.debug_allowed === false;
-  const selectModelHint = t('module.shifuSetting.modelTiers.hint');
+  const selectModelHint = t('module.shifuSetting.modelOptions.hint');
   const [keywords, setKeywords] = useState(['AIGC']);
   const [shifuImage, setShifuImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState('');
@@ -971,18 +971,19 @@ export default function ShifuSettingDialog({
         return;
       }
       const model = legacyTextModelRef.current;
-      let tier = textModelIndexDraftRef.current || '1';
-      if (tier) {
+      let modelIndex = textModelIndexDraftRef.current || '1';
+      if (modelIndex) {
         setCheckingTextMode(true);
         let available = false;
         try {
-          const options = await api.getModelTierList({});
+          const options = await api.getCourseModelOptions({});
           if (Array.isArray(options)) {
-            const option = options.find(option => option.index === tier);
+            const option = options.find(option => option.index === modelIndex);
             // A removed slot follows the same fallback as saved course values.
-            if (!option) tier = '1';
+            if (!option) modelIndex = '1';
             available = options.some(
-              option => option.index === tier && option.available === true,
+              option =>
+                option.index === modelIndex && option.available === true,
             );
           }
         } catch {
@@ -992,15 +993,15 @@ export default function ShifuSettingDialog({
         setCheckingTextMode(false);
         if (!available) {
           toast({
-            title: t('module.shifuSetting.modelTiers.unavailable'),
+            title: t('module.shifuSetting.modelOptions.unavailable'),
             variant: 'destructive',
           });
           return;
         }
       }
       setAskModel(model);
-      setAskModelIndex(tier);
-      markModelEdited('followUp', tier);
+      setAskModelIndex(modelIndex);
+      markModelEdited('followUp', modelIndex);
       setAskPreviewResult('');
       setAskPreviewMeta(null);
     },
@@ -2362,7 +2363,7 @@ export default function ShifuSettingDialog({
                         {selectModelHint}
                       </p>
                       <FormControl>
-                        <ModelTierList
+                        <CourseModelSelect
                           disabled={currentShifu?.readonly}
                           value={asModelIndex(field.value)}
                           displayName={mainModelDisplayName}
@@ -2499,12 +2500,12 @@ export default function ShifuSettingDialog({
                       'text'
                     }
                     checkingTextMode={checkingTextMode}
-                    onAskModelIndexChange={tier => {
+                    onAskModelIndexChange={modelIndex => {
                       followUpModeRequestRef.current++;
                       setCheckingTextMode(false);
-                      setAskModelIndex(tier);
-                      markModelEdited('followUp', tier);
-                      textModelIndexDraftRef.current = tier;
+                      setAskModelIndex(modelIndex);
+                      markModelEdited('followUp', modelIndex);
+                      textModelIndexDraftRef.current = modelIndex;
                       setAskPreviewResult('');
                       setAskPreviewMeta(null);
                     }}

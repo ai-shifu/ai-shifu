@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Loader2, Minus, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import ModelTierList from '@/components/model-list/ModelTierList';
+import CourseModelSelect from '@/components/model-list/CourseModelSelect';
 import type { ModelIndex } from '@/types/shifu';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -46,7 +46,7 @@ type AskSettingsSectionProps = {
   modelDisplayName?: string;
   canRestoreText?: boolean;
   checkingTextMode?: boolean;
-  onAskModelIndexChange?: (tier: ModelIndex) => void;
+  onAskModelIndexChange?: (modelIndex: ModelIndex) => void;
   liveAvailable?: boolean;
   onFollowUpModeChange?: (mode: 'text' | 'live_voice') => void;
   askModel: string;
@@ -173,22 +173,22 @@ export default function AskSettingsSection({
                       isLiveVoiceFollowUp)
                   }
                 >
-                  {t('module.shifuSetting.modelTiers.text')}
+                  {t('module.shifuSetting.modelOptions.text')}
                 </SelectItem>
                 <SelectItem
                   value='live_voice'
                   disabled={!liveAvailable && !isLiveVoiceFollowUp}
                 >
-                  {t('module.shifuSetting.modelTiers.liveVoice')}
+                  {t('module.shifuSetting.modelOptions.liveVoice')}
                 </SelectItem>
               </SelectContent>
             </Select>
             {!isLiveVoiceFollowUp && (
-              <ModelTierList
+              <CourseModelSelect
                 value={askModelIndex ?? null}
                 fallback={modelFallback}
                 displayName={modelDisplayName}
-                onChange={tier => onAskModelIndexChange?.(tier)}
+                onChange={modelIndex => onAskModelIndexChange?.(modelIndex)}
                 disabled={textConfigurationReadonly}
               />
             )}

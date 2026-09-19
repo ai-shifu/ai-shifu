@@ -125,7 +125,7 @@
   "server.llm.noDefaultLlm": 8001,
   "server.llm.specifiedLlmNotConfigured": 8002,
   "server.llm.modelNotSupported": 8003,
-  "server.llm.modelTierUnavailable": 8004,
+  "server.llm.modelUnavailable": 8004,
   "server.llm.modelSelectionNotConfigured": 8005,
 
   "server.api.alibabaCloudNotConfigured": 9001,
