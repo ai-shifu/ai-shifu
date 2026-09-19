@@ -216,10 +216,13 @@ def check_generated_knowledge_docs(errors: list[str]) -> None:
 
 
 def check_instruction_content(path: Path, errors: list[str]) -> str | None:
-    """Reject empty instructions, retired ownership markers, and broken local links."""
+    """Validate repository-owned instructions and return their readable text."""
     try:
+        if not path.resolve(strict=True).is_relative_to(ROOT.resolve()):
+            errors.append(f"Instruction file leaves the repository: {path}")
+            return None
         text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as error:
+    except (OSError, UnicodeError, RuntimeError) as error:
         errors.append(f"Unable to read instruction file {path}: {error}")
         return None
     if not text.strip():
@@ -235,7 +238,12 @@ def check_instruction_content(path: Path, errors: list[str]) -> str | None:
             ROOT / decoded_path.lstrip("/")
             if decoded_path.startswith("/")
             else path.parent / decoded_path
-        ).resolve()
+        )
+        try:
+            destination = destination.resolve()
+        except (OSError, RuntimeError) as error:
+            errors.append(f"Broken instruction link '{target}' in {path}: {error}")
+            continue
         if not destination.is_relative_to(ROOT.resolve()):
             errors.append(
                 f"Instruction link leaves the repository '{target}' in {path}"
@@ -265,7 +273,13 @@ def check_compatibility_entry_points(errors: list[str]) -> None:
         if text is not None and "AGENTS.md" not in text:
             errors.append(f"Copilot instructions must point to AGENTS.md: {path}")
     gemini = ROOT / "GEMINI.md"
-    if not gemini.is_symlink() or gemini.resolve() != (ROOT / "AGENTS.md").resolve():
+    try:
+        valid_gemini = gemini.is_symlink() and gemini.resolve(strict=True) == (
+            ROOT / "AGENTS.md"
+        ).resolve(strict=True)
+    except (OSError, RuntimeError):
+        valid_gemini = False
+    if not valid_gemini:
         errors.append(f"GEMINI.md must link to the root AGENTS.md: {gemini}")
 
 
@@ -302,7 +316,9 @@ def check_manual_agents(errors: list[str]) -> None:
         if not path.exists():
             errors.append(f"Missing manual AGENTS file: {path}")
             continue
-        text = path.read_text(encoding="utf-8")
+        text = check_instruction_content(path, errors)
+        if text is None:
+            continue
         check_ordered_headings(path, text, errors)
         errors.extend(
             f"Missing marker '{marker}' in {path}"

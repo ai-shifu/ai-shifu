@@ -176,6 +176,60 @@ class RepoInstructionsTest(unittest.TestCase):
         assert any("required guardrail" in error for error in errors)
         assert any("Missing manual AGENTS" in error for error in errors)
 
+    def test_rejects_external_instruction_symlinks_at_every_entry_point(self) -> None:
+        self.write("AGENTS.md", "# Root\n")
+        agent = self.write("module/AGENTS.md", "")
+        self.write(".github/copilot-instructions.md", "")
+        (self.root / "GEMINI.md").symlink_to("AGENTS.md")
+        with tempfile.TemporaryDirectory() as outside:
+            external = Path(outside) / "rules.md"
+            external.write_text("# Host rules\n", encoding="utf-8")
+            for path in (agent, self.copilot):
+                path.unlink()
+                path.symlink_to(external)
+            errors: list[str] = []
+            harness.check_instruction_files(errors)
+            harness.check_compatibility_entry_points(errors)
+            with patch.object(harness, "MANUAL_AGENTS", {agent: ()}):
+                harness.check_manual_agents(errors)
+        assert len(errors) == 3
+        assert all(
+            "Instruction file leaves the repository" in error for error in errors
+        )
+
+    def test_accepts_internal_instruction_symlinks(self) -> None:
+        self.write("docs/module.md", "# Module rules\n")
+        (self.root / "AGENTS.md").symlink_to("docs/module.md")
+        errors: list[str] = []
+        harness.check_instruction_files(errors)
+        assert errors == []
+
+    def test_primary_checks_collect_invalid_instruction_errors(self) -> None:
+        agent = self.write("AGENTS.md", "")
+        agent.write_bytes(b"\xff")
+        errors: list[str] = []
+        harness.check_instruction_files(errors)
+        with patch.object(harness, "MANUAL_AGENTS", {agent: ()}):
+            harness.check_manual_agents(errors)
+        assert len(errors) == 2
+        assert all("Unable to read instruction file" in error for error in errors)
+
+    def test_reports_symlink_loops_without_tracebacks(self) -> None:
+        self.write("AGENTS.md", "# Root\n[Loop](docs/loop.md)\n")
+        self.write(".github/copilot-instructions.md", "Read ../AGENTS.md\n")
+        (self.root / "docs").mkdir()
+        (self.root / "docs/loop.md").symlink_to("loop.md")
+        (self.root / "module").mkdir()
+        (self.root / "module/AGENTS.md").symlink_to("AGENTS.md")
+        (self.root / "GEMINI.md").symlink_to("GEMINI.md")
+        errors: list[str] = []
+        harness.check_instruction_files(errors)
+        harness.check_compatibility_entry_points(errors)
+        assert len(errors) == 3
+        assert any("Broken instruction link" in error for error in errors)
+        assert any("Unable to read instruction file" in error for error in errors)
+        assert any("GEMINI.md must link" in error for error in errors)
+
     def test_accepts_minimal_copilot_pointer_and_gemini_symlink(self) -> None:
         self.write("AGENTS.md", "# Root\n")
         self.write(
