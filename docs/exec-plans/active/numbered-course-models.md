@@ -19,6 +19,9 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 - [x] 2026-09-19 UTC: Give the default Arena example its own five numbered
   bindings inside each worker, so it does not depend on deployment course slots;
   retain optional exact provider-route overrides.
+- [x] 2026-09-19 UTC: Enrich all available course model options in one rate
+  lookup, preserving sparse slots, repeated bindings, unavailable choices, and
+  the numbered default marker.
 - [x] 2026-09-19 UTC: Align course model option functions, HTTP endpoint, frontend
   selector, error keys, tests and documentation with numbered selections; direct
   unavailable or missing-model messages to the administrator in every locale.

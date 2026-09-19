@@ -1,10 +1,13 @@
 """Verify numbered model identity, compatibility fallback, and routing boundaries."""
 
+from datetime import datetime
+from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from flaskr.api import llm
-from flaskr.api.llm import model_selection
+from flaskr.api.llm import _attach_credit_multipliers, model_selection
 from flaskr.service.common.models import AppError
 
 pytestmark = pytest.mark.no_mock_llm
@@ -256,6 +259,91 @@ def test_course_and_physical_catalogs_share_slots_without_leaking_ids() -> None:
     assert llm.get_current_models(object()) == [
         {"model": "test/default", "display_name": "Daily", "credit_multiplier": 2},
         {"model": "test/advanced", "display_name": "Detailed", "credit_multiplier": 2},
+    ]
+
+
+@pytest.mark.parametrize("all_unavailable", [False, True])
+def test_course_catalog_loads_rates_once_for_available_slots(
+    monkeypatch: pytest.MonkeyPatch,
+    model_config: dict[str, str],
+    all_unavailable: bool,
+) -> None:
+    """One rate snapshot serves sparse duplicate slots without changing their shape."""
+    model_config.update(
+        LLM_MODEL_2_NAME="Offline",
+        LLM_MODEL_2_ID="test/offline",
+        DEFAULT_LLM_MODEL="test/advanced",
+    )
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda model: (
+            None if all_unavailable or model == "test/offline" else {"api_key": "test"},
+            model,
+            "test",
+        ),
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_ALIAS_MAP",
+        {model: ("test", model) for model in ("test/default", "test/advanced")},
+    )
+    rates = [
+        SimpleNamespace(
+            id=index,
+            provider="test",
+            model=model,
+            unit_size=1,
+            credits_per_unit=Decimal(cost),
+            effective_from=datetime(2026, 1, 1),
+            effective_to=None,
+        )
+        for index, (model, cost) in enumerate(
+            [("test/default", "1.25"), ("test/advanced", "2.7")], start=1
+        )
+    ]
+    load_rates = Mock(return_value=rates)
+    attach_rates = Mock(wraps=_attach_credit_multipliers)
+    monkeypatch.setattr(llm, "_load_llm_output_rate_rows", load_rates)
+    monkeypatch.setattr(llm, "_attach_credit_multipliers", attach_rates)
+    monkeypatch.setattr(llm, "load_llm_credit_1x_unit_cost", lambda: Decimal(1))
+    monkeypatch.setattr(llm, "now_utc", lambda: datetime(2026, 9, 19))
+    app = object()
+
+    options = llm.get_course_model_options(app)
+
+    if all_unavailable:
+        load_rates.assert_not_called()
+        attach_rates.assert_not_called()
+    else:
+        load_rates.assert_called_once_with(app)
+        attach_rates.assert_called_once_with(
+            app, [{"model": "test/default"}, {"model": "test/advanced"}]
+        )
+    expected_rates = (
+        [(None, None)] * 4
+        if all_unavailable
+        else [
+            (2, "1.25x"),
+            (None, None),
+            (3, "2.7x"),
+            (3, "2.7x"),
+        ]
+    )
+    assert options == [
+        {
+            "index": index,
+            "display_name": label,
+            "available": not all_unavailable and index != "2",
+            "is_default": index == "1",
+            "credit_multiplier": multiplier,
+            "credit_multiplier_label": multiplier_label,
+        }
+        for (index, label), (multiplier, multiplier_label) in zip(
+            [("1", "Daily"), ("2", "Offline"), ("3", "Detailed"), ("7", "Same route")],
+            expected_rates,
+            strict=True,
+        )
     ]
 
 

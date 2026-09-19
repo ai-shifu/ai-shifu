@@ -2191,6 +2191,7 @@ def get_course_model_options(app: Flask) -> list[dict[str, object]]:
     )
 
     options = []
+    available_options = []
     for slot in get_configured_model_slots():
         option = {
             "index": slot["index"],
@@ -2209,13 +2210,23 @@ def get_course_model_options(app: Flask) -> list[dict[str, object]]:
             }:
                 raise
         else:
-            rates = _attach_credit_multipliers(app, [{"model": model}])[0]
+            option["available"] = True
+            available_options.append((option, model))
+        options.append(option)
+    if available_options:
+        models = dict.fromkeys(model for _, model in available_options)
+        rates_by_model = {
+            rates["model"]: rates
+            for rates in _attach_credit_multipliers(
+                app, [{"model": model} for model in models]
+            )
+        }
+        for option, model in available_options:
+            rates = rates_by_model[model]
             option.update(
-                available=True,
                 credit_multiplier=rates.get("credit_multiplier"),
                 credit_multiplier_label=rates.get("credit_multiplier_label"),
             )
-        options.append(option)
     return options
 
 
