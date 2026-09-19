@@ -1,4 +1,4 @@
-"""Audited, repeatable cleanup of historical course default selections."""
+"""Reported, repeatable cleanup of historical course default selections."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.shifu.models import (
     DraftShifu,
-    ModelTierMigrationAudit,
     PublishedShifu,
 )
 from flaskr.util.datetime import now_utc, to_utc_iso
@@ -54,6 +53,9 @@ def migrate_default_model_tiers(app: object, *, apply: bool = False) -> dict:
                                 "table": model_type.__tablename__,
                                 "row_id": record.id,
                                 "field": field,
+                                "previous_model": previous_model,
+                                "new_model": "fast",
+                                "previous_updated_at": to_utc_iso(record.updated_at),
                             }
                         )
                         if apply:
@@ -69,20 +71,6 @@ def migrate_default_model_tiers(app: object, *, apply: bool = False) -> dict:
                                     }
                                 )
                             )
-                            db.session.add(
-                                ModelTierMigrationAudit(
-                                    batch_bid=batch_bid,
-                                    table_name=model_type.__tablename__,
-                                    row_id=record.id,
-                                    field_name=field,
-                                    previous_model=previous_model,
-                                    new_model="fast",
-                                    created_at=created_at,
-                                )
-                            )
-                # Flush pending audits before fetching the next bounded page.
-                if apply:
-                    db.session.flush()
     return {
         "batch_bid": batch_bid,
         "created_at": to_utc_iso(created_at),

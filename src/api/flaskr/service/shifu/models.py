@@ -911,20 +911,3 @@ class LogPublishedStruct(db.Model):
         default="",
         comment="Last updater user business identifier",
     )
-
-
-class ModelTierMigrationAudit(db.Model):
-    """Persist the exact rows changed by the default-to-fast cleanup."""
-
-    __tablename__ = "shifu_model_tier_migration_audit"
-    __table_args__ = (
-        db.Index("ix_model_tier_audit_selection", "table_name", "row_id", "field_name"),
-    )
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
-    batch_bid = Column(String(32), nullable=False, index=True)
-    table_name = Column(String(64), nullable=False)
-    row_id = Column(BIGINT, nullable=False)
-    field_name = Column(String(32), nullable=False)
-    previous_model = Column(String(100), nullable=True)
-    new_model = Column(String(100), nullable=False)
-    created_at = Column(DateTime, nullable=False, default=now_utc)

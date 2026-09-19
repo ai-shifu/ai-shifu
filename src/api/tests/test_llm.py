@@ -3318,14 +3318,13 @@ def test_tier_call_uses_one_model_for_provider_usage_and_trace(
 def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     monkeypatch: pytest.MonkeyPatch, app: object, preview: bool, selection: str
 ) -> None:
-    """The 2.0 entry point carries revision and cleanup identity into actual usage."""
+    """The 2.0 entry point carries revision, tier and resolved model into usage."""
     from uuid import uuid4
 
     from flaskr.api.llm import tiers
     from flaskr.dao import db
     from flaskr.service.learn.agent import lesson_entry
     from flaskr.service.shifu.model_tier_migration import migrate_default_model_tiers
-    from flaskr.service.shifu.models import ModelTierMigrationAudit
     from pydantic_ai.models import ModelRequestParameters
 
     _use_fake_provider(monkeypatch)
@@ -3366,15 +3365,9 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
         )
         db.session.add_all([course, outline])
         db.session.flush()
-        ModelTierMigrationAudit.query.filter_by(
-            table_name=course_type.__tablename__, row_id=course.id
-        ).delete(synchronize_session=False)
         db.session.commit()
-        batch = (
-            migrate_default_model_tiers(app, apply=True)["batch_bid"]
-            if not selection
-            else None
-        )
+        if not selection:
+            migrate_default_model_tiers(app, apply=True)
         list(
             lesson_entry.agent_lesson_events(
                 app,
@@ -3394,9 +3387,10 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
         assert metadata["model_selection_table"] == course_type.__tablename__
         assert metadata["model_selection_record_id"] == course.id
         assert metadata["model_selection_field"] == "llm"
-        if batch:
-            assert metadata["model_selection_origin"] == "migrated_default"
-            assert metadata["model_migration_batch"] == batch
+        assert metadata["model_selection_origin"] == (
+            "legacy_model" if selection == "gpt-test" else "tier"
+        )
+        assert "model_migration_batch" not in metadata
         for key in metadata:
             if key.startswith("model_") or key == "resolved_model":
                 assert span.end_args["metadata"][key] == metadata[key]

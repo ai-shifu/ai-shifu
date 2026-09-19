@@ -6,7 +6,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.shifu import model_tier_migration as migration
-from flaskr.service.shifu.models import DraftShifu, ModelTierMigrationAudit
+from flaskr.service.shifu.models import DraftShifu
 from sqlalchemy import event
 
 
@@ -15,38 +15,23 @@ def test_cleanup_pages_without_skipping_rows_or_partial_commits(
     app: object, monkeypatch: pytest.MonkeyPatch, fail_last_page: bool
 ) -> None:
     monkeypatch.setattr(migration, "_MIGRATION_PAGE_SIZE", 2)
-    audit_batch = uuid4().hex
-    monkeypatch.setattr(migration, "generate_id", lambda _app: audit_batch)
     with app.app_context():
         with unit_of_work():
             rows = [
                 DraftShifu(shifu_bid=uuid4().hex, llm="", ask_llm="") for _ in range(5)
             ]
             db.session.add_all(rows)
-            db.session.flush()
-            # The shared SQLite suite can reuse course IDs after other tests
-            # delete courses without deleting their historical audit ledger.
-            db.session.add_all(
-                [
-                    ModelTierMigrationAudit(
-                        batch_bid=uuid4().hex,
-                        table_name=DraftShifu.__tablename__,
-                        row_id=row.id,
-                        field_name="llm",
-                        new_model="fast",
-                    )
-                    for row in rows[:3]
-                ]
-            )
         row_ids = [row.id for row in rows]
+        original_updated = [row.updated_at for row in rows]
         queries = []
+        updates = []
 
         def capture(
             _conn: object,
             _cursor: object,
             statement: str,
             _params: object,
-            _context: object,
+            context: object,
             _many: object,
         ) -> None:
             if (
@@ -54,21 +39,16 @@ def test_cleanup_pages_without_skipping_rows_or_partial_commits(
                 and "ORDER BY shifu_draft_shifus.id" in statement
             ):
                 queries.append(statement)
+            if statement.lstrip().upper().startswith("UPDATE SHIFU_DRAFT_SHIFUS "):
+                for parameters in context.compiled_parameters:
+                    row_id = parameters.get("id_1")
+                    if row_id not in row_ids:
+                        continue
+                    if fail_last_page and row_id == row_ids[-1]:
+                        message = "last page update failure"
+                        raise RuntimeError(message)
+                    updates.append(row_id)
 
-        original_add = db.session.add
-
-        def add(value: object) -> None:
-            if (
-                fail_last_page
-                and isinstance(value, ModelTierMigrationAudit)
-                and value.row_id == row_ids[-1]
-                and value.table_name == DraftShifu.__tablename__
-            ):
-                message = "last page audit failure"
-                raise RuntimeError(message)
-            original_add(value)
-
-        monkeypatch.setattr(db.session, "add", add)
         event.listen(db.engine, "before_cursor_execute", capture)
         try:
             preview = migration.migrate_default_model_tiers(app)
@@ -78,11 +58,17 @@ def test_cleanup_pages_without_skipping_rows_or_partial_commits(
                 if c["table"] == DraftShifu.__tablename__ and c["row_id"] in row_ids
             ]
             assert len(selected) == 10
+            assert updates == []
             if fail_last_page:
-                with pytest.raises(RuntimeError, match="last page audit failure"):
+                with pytest.raises(RuntimeError, match="last page update failure"):
                     migration.migrate_default_model_tiers(app, apply=True)
             else:
-                migration.migrate_default_model_tiers(app, apply=True)
+                result = migration.migrate_default_model_tiers(app, apply=True)
+                assert [
+                    c
+                    for c in result["changes"]
+                    if c["table"] == DraftShifu.__tablename__ and c["row_id"] in row_ids
+                ] == selected
                 assert (
                     migration.migrate_default_model_tiers(app, apply=True)["count"] == 0
                 )
@@ -90,12 +76,13 @@ def test_cleanup_pages_without_skipping_rows_or_partial_commits(
             event.remove(db.engine, "before_cursor_execute", capture)
         assert len(queries) >= 6
         assert all("LIMIT" in query for query in queries)
+        assert updates == [
+            row_id
+            for row_id in (row_ids[:-1] if fail_last_page else row_ids)
+            for _ in range(2)
+        ]
         db.session.expire_all()
-        for row in rows:
+        for row, updated_at in zip(rows, original_updated, strict=True):
             assert row.llm == ("" if fail_last_page else "fast")
             assert row.ask_llm == ("" if fail_last_page else "fast")
-        assert ModelTierMigrationAudit.query.filter(
-            ModelTierMigrationAudit.batch_bid == audit_batch,
-            ModelTierMigrationAudit.table_name == DraftShifu.__tablename__,
-            ModelTierMigrationAudit.row_id.in_(row_ids),
-        ).count() == (0 if fail_last_page else 10)
+            assert row.updated_at == updated_at

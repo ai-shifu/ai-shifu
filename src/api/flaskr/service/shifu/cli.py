@@ -56,7 +56,7 @@ def register_shifu_commands(console: object, app: object) -> None:
         "--apply",
         "apply_changes",
         is_flag=True,
-        help="Persist the audited cleanup; omit to preview.",
+        help="Persist the cleanup and print its report; omit to preview.",
     )
     def migrate_default_model_tiers_command(apply_changes: bool) -> None:
         """Move historical course defaults to the Fast tier (never outlines)."""

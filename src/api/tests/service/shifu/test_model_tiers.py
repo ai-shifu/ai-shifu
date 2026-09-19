@@ -12,9 +12,10 @@ from flaskr.service.shifu.model_tier_migration import migrate_default_model_tier
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
-    ModelTierMigrationAudit,
     PublishedShifu,
 )
+from flaskr.util.datetime import to_utc_iso
+from sqlalchemy import event
 
 
 def test_cleanup_persists_defaults_only_and_is_repeatable(app: object) -> None:
@@ -43,47 +44,57 @@ def test_cleanup_persists_defaults_only_and_is_repeatable(app: object) -> None:
         assert chosen.llm == "ultimate"
         assert not hasattr(outline, "llm")
         assert not hasattr(outline, "ask_llm")
-        audit = ModelTierMigrationAudit.query.filter_by(
-            batch_bid=result["batch_bid"],
-            table_name=DraftShifu.__tablename__,
-            row_id=draft.id,
-        ).one()
-        assert audit.previous_model == " \t\n"
-        assert audit.new_model == "fast"
-        assert audit.created_at is not None
+        change = next(
+            change
+            for change in result["changes"]
+            if change["table"] == DraftShifu.__tablename__
+            and change["row_id"] == draft.id
+            and change["field"] == "llm"
+        )
+        assert change["previous_model"] == " \t\n"
+        assert change["new_model"] == "fast"
+        assert change["previous_updated_at"] == to_utc_iso(original_updated)
+        assert result["created_at"].endswith("Z")
+        assert result["batch_bid"]
+        assert result["applied"] is True
+        assert before["applied"] is False
+        assert before["changes"] == result["changes"]
         assert migrate_default_model_tiers(app, apply=True)["count"] == 0
 
 
-def test_cleanup_failure_rolls_back_rows_and_audit(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cleanup_failure_rolls_back_course_updates(app: object) -> None:
     with app.app_context():
         with unit_of_work():
             row = DraftShifu(shifu_bid=uuid4().hex, llm="", ask_llm="explicit")
             db.session.add(row)
         row_id = row.id
-        audit_count_before = ModelTierMigrationAudit.query.filter_by(
-            table_name=DraftShifu.__tablename__, row_id=row_id
-        ).count()
-        original_add = db.session.add
+        original_updated = row.updated_at
 
-        def fail_on_audit(value: object) -> None:
-            if isinstance(value, ModelTierMigrationAudit):
-                message = "audit failure"
-                raise RuntimeError(message)  # noqa: TRY004 - simulate a storage failure, not invalid input.
-            return original_add(value)
+        def fail_after_update(
+            _conn: object,
+            _cursor: object,
+            statement: str,
+            parameters: object,
+            _context: object,
+            _many: object,
+        ) -> None:
+            if (
+                statement.startswith("UPDATE shifu_draft_shifus ")
+                and parameters[-1] == row_id
+            ):
+                message = "cleanup update failure"
+                raise RuntimeError(message)
 
-        monkeypatch.setattr(db.session, "add", fail_on_audit)
-        with pytest.raises(RuntimeError, match="audit failure"):
-            migrate_default_model_tiers(app, apply=True)
+        event.listen(db.engine, "after_cursor_execute", fail_after_update)
+        try:
+            with pytest.raises(RuntimeError, match="cleanup update failure"):
+                migrate_default_model_tiers(app, apply=True)
+        finally:
+            event.remove(db.engine, "after_cursor_execute", fail_after_update)
         db.session.expire_all()
-        assert db.session.get(DraftShifu, row_id).llm == ""
-        assert (
-            ModelTierMigrationAudit.query.filter_by(
-                table_name=DraftShifu.__tablename__, row_id=row_id
-            ).count()
-            == audit_count_before
-        )
+        assert row.llm == ""
+        assert row.ask_llm == "explicit"
+        assert row.updated_at == original_updated
 
 
 def test_tier_only_changes_survive_clone_and_equality(app: object) -> None:
@@ -169,7 +180,7 @@ def test_tier_options_expose_no_physical_model(
     assert all("model" not in item for item in result)
 
 
-def test_cleaned_defaults_resolve_to_fast_and_keep_audit_provenance(
+def test_cleaned_defaults_resolve_to_fast_and_keep_course_identity(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
@@ -188,13 +199,13 @@ def test_cleaned_defaults_resolve_to_fast_and_keep_audit_provenance(
         assert model == "configured-fast"
         assert (
             context._preview_model_selection_metadata["model_selection_origin"]
-            == "migrated_default"
+            == "tier"
         )
         assert (
             context._preview_model_selection_metadata["model_selection_record_id"]
             == row.id
         )
-        assert context._preview_model_selection_metadata["model_migration_batch"]
+        assert "model_migration_batch" not in context._preview_model_selection_metadata
         assert (
             tiers.resolve_selection(
                 tiers.selection_model(row, follow_up=True),
@@ -220,7 +231,7 @@ def test_preview_rejects_uncleaned_course_and_honors_explicit_tier(
         assert model == "configured-ultimate"
 
 
-def test_schema_migration_keeps_legacy_rows_and_supports_downgrade() -> None:
+def test_audit_removal_migration_keeps_courses_and_supports_downgrade() -> None:
     import importlib.util
     from pathlib import Path
 
@@ -235,6 +246,13 @@ def test_schema_migration_keeps_legacy_rows_and_supports_downgrade() -> None:
     spec = importlib.util.spec_from_file_location("tier_revision", path)
     revision = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(revision)
+    removal_path = path.with_name("abbe9d73bdb1_remove_course_model_cleanup_audit.py")
+    removal_spec = importlib.util.spec_from_file_location(
+        "removal_revision", removal_path
+    )
+    removal = importlib.util.module_from_spec(removal_spec)
+    removal_spec.loader.exec_module(removal)
+    assert removal.down_revision == revision.revision
     engine = sa.create_engine("sqlite://")
     tables = [
         "shifu_draft_shifus",
@@ -255,6 +273,30 @@ def test_schema_migration_keeps_legacy_rows_and_supports_downgrade() -> None:
             connection.execute(table.insert().values(id=1, llm="legacy", ask_llm=""))
         with Operations.context(MigrationContext.configure(connection)):
             revision.upgrade()
+            audit = sa.Table(
+                "shifu_model_tier_migration_audit",
+                sa.MetaData(),
+                autoload_with=connection,
+            )
+            from datetime import datetime
+
+            connection.execute(
+                audit.insert().values(
+                    id=1,
+                    batch_bid="old-cleanup",
+                    table_name=tables[0],
+                    row_id=1,
+                    field_name="ask_llm",
+                    previous_model="",
+                    new_model="fast",
+                    created_at=datetime(2026, 9, 17),
+                )
+            )
+            removal.upgrade()
+            assert (
+                "shifu_model_tier_migration_audit"
+                not in sa.inspect(connection).get_table_names()
+            )
             for table in tables:
                 migrated = sa.table(
                     table,
@@ -266,11 +308,23 @@ def test_schema_migration_keeps_legacy_rows_and_supports_downgrade() -> None:
                 assert {
                     c["name"] for c in sa.inspect(connection).get_columns(table)
                 } == {"id", "llm", "ask_llm"}
+            removal.downgrade()
             assert (
                 "shifu_model_tier_migration_audit"
                 in sa.inspect(connection).get_table_names()
             )
-            revision.downgrade()
+            assert (
+                connection.execute(
+                    sa.select(sa.func.count()).select_from(audit)
+                ).scalar()
+                == 0
+            )
+            # Fresh installs pass through the old revision and end without a ledger.
+            removal.upgrade()
+            assert (
+                "shifu_model_tier_migration_audit"
+                not in sa.inspect(connection).get_table_names()
+            )
         for table in tables:
             assert {
                 column["name"] for column in sa.inspect(connection).get_columns(table)
