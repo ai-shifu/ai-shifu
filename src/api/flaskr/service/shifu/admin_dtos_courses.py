@@ -21,7 +21,9 @@ class AdminOperationCourseSummaryDTO(BaseModel):
     course_name: str = Field(..., description="Course name", required=False)
     course_status: str = Field(..., description="Course status", required=False)
     price: str = Field(..., description="Course price", required=False)
-    llm_model: str = Field(..., description="Course LLM model", required=False)
+    llm_model: str = Field(
+        ..., description="Effective configured course model index", required=False
+    )
     tts_model: str = Field(..., description="Course TTS model", required=False)
     has_course_prompt: bool = Field(
         ...,

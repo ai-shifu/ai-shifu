@@ -24,6 +24,8 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   during validation and replacement-detail loading; verify 81 settings tests.
 - [x] 2026-09-19 UTC: Remove both unapplied cleanup-audit migrations after the
   user confirmed the table-creation migration had never run.
+- [x] 2026-09-19 UTC: Align operator course model keys with the numbered label
+  catalog; verify 33 backend course-list tests and 22 operator-page tests.
 
 ## Surprises & Discoveries
 
@@ -43,6 +45,9 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 - A latest-callback ref can switch course identity during asynchronous form
   validation. Cancel the old submission before reading the next course's callback,
   for both close-to-save and native form submission.
+- Operator course summaries must expose the same effective numeric key as the
+  course model catalog so configured display names resolve correctly. Physical
+  identities remain specific to usage, pricing and model invocation.
 
 ## Decision Log
 
