@@ -84,10 +84,10 @@ broken links, retired generated markers, and compatibility entry points.
 No instruction generator or redundant router remains. Module files retain their
 local constraints without generated markers. Required root and subtree guidance,
 Copilot navigation, and the Gemini link validate independently of templates.
-Broken local instruction links and reintroduced `CLAUDE.md` files are rejected;
-short valid manual instructions are accepted. Knowledge regeneration is
-deterministic, focused tests and repository gates pass, and the PR points at
-the verified commit.
+Broken local instruction links and tracked `CLAUDE.md` files are rejected;
+short valid manual instructions and personal ignored Claude files are accepted.
+Knowledge regeneration is deterministic, focused tests and repository gates
+pass, and the PR points at the verified commit.
 
 ## Idempotence and Recovery
 

@@ -250,9 +250,7 @@ def check_instruction_files(errors: list[str]) -> None:
         subdirs[:] = sorted(name for name in subdirs if name not in SKIP_TREE_PARTS)
         for name in sorted(filenames):
             path = Path(directory) / name
-            if name == "CLAUDE.md":
-                errors.append(f"Unexpected CLAUDE.md file: {path}")
-            elif name == "AGENTS.md":
+            if name == "AGENTS.md":
                 check_instruction_content(path, errors)
 
 
@@ -270,20 +268,28 @@ def check_compatibility_entry_points(errors: list[str]) -> None:
         errors.append(f"GEMINI.md must link to the root AGENTS.md: {gemini}")
 
 
-def check_tracked_claude_overrides(errors: list[str]) -> None:
-    """Reject shared local overrides while leaving personal files alone."""
+def check_tracked_claude_instructions(errors: list[str]) -> None:
+    """Reject shared Claude instructions while leaving personal files alone."""
     try:
         result = subprocess.run(
-            ["git", "ls-files", "--cached", "-z", "--", ":(glob)**/CLAUDE.local.md"],
+            [
+                "git",
+                "ls-files",
+                "--cached",
+                "-z",
+                "--",
+                ":(glob)**/CLAUDE.md",
+                ":(glob)**/CLAUDE.local.md",
+            ],
             cwd=ROOT,
             check=True,
             capture_output=True,
         )
     except (OSError, subprocess.CalledProcessError) as error:
-        errors.append(f"Unable to enumerate tracked Claude overrides: {error}")
+        errors.append(f"Unable to enumerate tracked Claude instructions: {error}")
         return
     errors.extend(
-        f"Unexpected tracked CLAUDE.local.md file: {os.fsdecode(path)}"
+        f"Unexpected tracked Claude instruction file: {os.fsdecode(path)}"
         for path in result.stdout.split(b"\0")
         if path
     )
@@ -727,7 +733,7 @@ def main() -> int:
     errors: list[str] = []
     check_generated_knowledge_docs(errors)
     check_instruction_files(errors)
-    check_tracked_claude_overrides(errors)
+    check_tracked_claude_instructions(errors)
     check_manual_agents(errors)
     check_compatibility_entry_points(errors)
     check_root_docs(errors)

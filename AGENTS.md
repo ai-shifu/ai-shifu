@@ -15,8 +15,9 @@ to.
   to understand repository-wide quality gaps and harness constraints.
 - Maintain `AGENTS.md` files directly; keep each subtree focused on its local
   constraints and inherit shared rules from its parents.
-- Do not add a `CLAUDE.md` file or duplicate instruction routers. Use native
-  `AGENTS.md` loading as described in `docs/design-docs/ai-tool-compat.md`.
+- Do not add a `CLAUDE.md` file to version control or duplicate instruction
+  routers. Use native `AGENTS.md` loading as described in
+  `docs/design-docs/ai-tool-compat.md`.
   Keep the Copilot navigation file and the `GEMINI.md` link as minimal
   compatibility entry points.
 

@@ -42,7 +42,7 @@ workflow are retired.
   default context filename. It contains no separate rules. See
   [Gemini context files](https://geminicli.com/docs/cli/gemini-md/).
 - Claude Code uses native `AGENTS.md` under the conditions below. No
-  `CLAUDE.md` files or shared-rule copies under `.claude/rules/` are kept.
+  `CLAUDE.md` files or shared-rule copies under `.claude/rules/` are tracked.
 - `.cursor/environment.json`, Cursor run scripts, and `.codex/environments`
   are runtime configuration and remain independent of this cleanup.
 
@@ -74,9 +74,9 @@ import necessarily loads rules twice.
 
 `scripts/check_repo_harness.py` validates instruction structure, required
 shared constraints, references, and repository knowledge metadata without
-rendering instruction bodies. It rejects restored `CLAUDE.md` files, tracked
-`CLAUDE.local.md` files, and stale generated-instruction markers. Untracked or
-ignored personal `CLAUDE.local.md` files remain allowed under the user-level
+rendering instruction bodies. It rejects tracked `CLAUDE.md` and
+`CLAUDE.local.md` files and stale generated-instruction markers. Untracked or
+ignored personal files with either name remain allowed under the user-level
 configuration described above. Instruction edits do not require changing
 Python metadata or regenerating mirrors.
 

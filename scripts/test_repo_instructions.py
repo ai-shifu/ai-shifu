@@ -50,14 +50,14 @@ class RepoInstructionsTest(unittest.TestCase):
         self.write("personal/CLAUDE.local.md", "# Ignored override\n")
         self.run_git("add", "CLAUDE.local.md", "module with space/CLAUDE.local.md")
         errors: list[str] = []
-        harness.check_tracked_claude_overrides(errors)
+        harness.check_tracked_claude_instructions(errors)
         assert len(errors) == 2
         assert any(error.endswith(": CLAUDE.local.md") for error in errors)
         assert any("module with space/CLAUDE.local.md" in error for error in errors)
 
         self.run_git("add", "--force", "personal/CLAUDE.local.md")
         errors = []
-        harness.check_tracked_claude_overrides(errors)
+        harness.check_tracked_claude_instructions(errors)
         assert len(errors) == 3
         assert any("personal/CLAUDE.local.md" in error for error in errors)
 
@@ -67,17 +67,35 @@ class RepoInstructionsTest(unittest.TestCase):
         self.write("CLAUDE.local.md", "# Untracked personal override\n")
         self.write("personal/CLAUDE.local.md", "# Ignored personal override\n")
         errors: list[str] = []
-        harness.check_tracked_claude_overrides(errors)
+        harness.check_instruction_files(errors)
+        harness.check_tracked_claude_instructions(errors)
         assert errors == []
+
+    def test_claude_files_are_rejected_only_when_tracked(self) -> None:
+        self.run_git("init", "--quiet")
+        self.write(".gitignore", ".claude/\n")
+        self.write("CLAUDE.md", "# Untracked personal instructions\n")
+        self.write(".claude/CLAUDE.md", "# Ignored personal instructions\n")
+        errors: list[str] = []
+        harness.check_instruction_files(errors)
+        harness.check_tracked_claude_instructions(errors)
+        assert errors == []
+
+        self.run_git("add", "CLAUDE.md")
+        self.run_git("add", "--force", ".claude/CLAUDE.md")
+        harness.check_tracked_claude_instructions(errors)
+        assert len(errors) == 2
+        assert any(error.endswith(": CLAUDE.md") for error in errors)
+        assert any(error.endswith(": .claude/CLAUDE.md") for error in errors)
 
     def test_reports_failure_to_enumerate_tracked_overrides(self) -> None:
         with patch.object(
             harness.subprocess, "run", side_effect=OSError("git missing")
         ):
             errors: list[str] = []
-            harness.check_tracked_claude_overrides(errors)
+            harness.check_tracked_claude_instructions(errors)
         assert len(errors) == 1
-        assert "Unable to enumerate tracked Claude overrides" in errors[0]
+        assert "Unable to enumerate tracked Claude instructions" in errors[0]
 
     def test_accepts_concise_manual_module_with_local_headings(self) -> None:
         self.write("AGENTS.md", "# Shared rules\n\nKeep secrets out of source.\n")
@@ -98,14 +116,12 @@ class RepoInstructionsTest(unittest.TestCase):
         assert any("hand-maintained" in error for error in errors)
         assert any("Empty instruction" in error for error in errors)
 
-    def test_rejects_nested_claude_files_but_skips_dependency_trees(self) -> None:
-        self.write("module/.claude/CLAUDE.md", "# Retired wrapper\n")
-        self.write("node_modules/package/CLAUDE.md", "# Vendor instructions\n")
+    def test_skips_dependency_instruction_trees(self) -> None:
+        self.write("node_modules/package/AGENTS.md", harness.RETIRED_GENERATED_MARKER)
         self.write(".venv/package/AGENTS.md", harness.RETIRED_GENERATED_MARKER)
         errors: list[str] = []
         harness.check_instruction_files(errors)
-        assert len(errors) == 1
-        assert "module/.claude/CLAUDE.md" in errors[0]
+        assert errors == []
 
     def test_validates_relative_and_rooted_links_without_fetching_urls(self) -> None:
         self.write("docs/reference.md", "# Reference\n")
