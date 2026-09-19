@@ -19,6 +19,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import BillingOrder
+from flaskr.service.order import funs as order_funs
 from flaskr.service.order.admin import _load_payment_detail
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.funs import (
@@ -449,16 +450,31 @@ def test_common_native_sync_calls_provider_outside_transaction_then_locks_finali
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lock_held = False
+    finalize_events: list[str] = []
+    real_unit_of_work = order_funs.unit_of_work
 
     @contextmanager
     def _recording_lock(order_bid: str) -> Iterator[None]:
         nonlocal lock_held
         assert order_bid == "order-common-native-lock"
         lock_held = True
+        finalize_events.append("lock-enter")
         try:
             yield
         finally:
+            finalize_events.append("lock-exit")
             lock_held = False
+
+    @contextmanager
+    def _recording_uow(*, discard: bool = False) -> Iterator[None]:
+        if discard:
+            with real_unit_of_work(discard=True):
+                yield
+            return
+        finalize_events.append("uow-enter")
+        with real_unit_of_work():
+            yield
+        finalize_events.append("uow-exit")
 
     class _AlipayProvider:
         def sync_reference(self, **_kwargs: object) -> PaymentNotificationResult:
@@ -478,6 +494,10 @@ def test_common_native_sync_calls_provider_outside_transaction_then_locks_finali
     monkeypatch.setattr(
         "flaskr.service.order.funs.payment_lifecycle_lock",
         _recording_lock,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.unit_of_work",
+        _recording_uow,
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
@@ -518,6 +538,7 @@ def test_common_native_sync_calls_provider_outside_transaction_then_locks_finali
     )
 
     assert lock_held is False
+    assert finalize_events == ["lock-enter", "uow-enter", "uow-exit", "lock-exit"]
 
 
 def test_native_webhook_uses_the_order_payment_lifecycle_lock(
@@ -589,6 +610,8 @@ def test_native_sync_rolls_back_when_payment_lock_is_lost_before_commit(
     @contextmanager
     def _lost_lock(_order_bid: str) -> Iterator[None]:
         yield
+
+    def _reject_lost_lock() -> None:
         message = "payment lock lease lost"
         raise RuntimeError(message)
 
@@ -611,6 +634,10 @@ def test_native_sync_rolls_back_when_payment_lock_is_lost_before_commit(
     monkeypatch.setattr(
         "flaskr.service.order.funs.payment_lifecycle_lock",
         _lost_lock,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs._assert_payment_lifecycle_lock_owned",
+        _reject_lost_lock,
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",

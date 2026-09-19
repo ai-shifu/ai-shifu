@@ -1870,8 +1870,12 @@ def sync_native_payment_order(
             app=app,
         )
 
-    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_id):
-        order = _load_payment_sync_order(order_id, expected_user=expected_user)
+    with _app_context_scope(app), payment_lifecycle_lock(order_id), unit_of_work():
+        order = _load_payment_sync_order(
+            order_id,
+            expected_user=expected_user,
+            for_update=True,
+        )
         current_provider = str(payment_channel or order.payment_channel or "").lower()
         if current_provider != provider_name:
             raise_error("server.pay.payChannelNotSupport")
@@ -1927,16 +1931,16 @@ def _load_payment_sync_order(
     order_id: str,
     *,
     expected_user: str | None,
+    for_update: bool = False,
 ) -> Order:
     """Load one learner-owned order for provider synchronization."""
-    order = (
-        Order.query.filter(
-            Order.order_bid == order_id,
-            Order.deleted == 0,
-        )
-        .order_by(Order.id.desc())
-        .first()
-    )
+    query = Order.query.filter(
+        Order.order_bid == order_id,
+        Order.deleted == 0,
+    ).order_by(Order.id.desc())
+    if for_update:
+        query = query.with_for_update()
+    order = query.first()
     if not order:
         raise_error("server.order.orderNotFound")
     if expected_user and order.user_bid != expected_user:
@@ -2603,9 +2607,20 @@ def success_buy_record_from_native(
 
     with (
         _app_context_scope(app),
-        unit_of_work(),
         payment_lifecycle_lock(order_bid),
+        unit_of_work(),
     ):
+        buy_record: Order = (
+            Order.query.filter(
+                Order.order_bid == order_bid,
+                Order.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+        )
+        if not buy_record:
+            return False
+
         native_order = native_model.query.filter(
             native_model.id == native_order_id,
             native_model.deleted == 0,
@@ -2620,13 +2635,6 @@ def success_buy_record_from_native(
         if actual_amount is not None and int(native_order.amount or 0) != actual_amount:
             message = "Native payment amount mismatch"
             raise RuntimeError(message)
-
-        buy_record: Order = Order.query.filter(
-            Order.order_bid == native_order.order_bid,
-            Order.deleted == 0,
-        ).first()
-        if not buy_record:
-            return False
 
         was_pending_attempt = native_order.status == 0
         _apply_native_snapshot_update(
