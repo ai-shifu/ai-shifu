@@ -177,6 +177,12 @@ const ChapterSettingsDialog = ({
           return;
         }
 
+        const promptChange =
+          initialValuesRef.current.systemPrompt === systemPrompt
+            ? 'unchanged'
+            : systemPrompt.trim()
+              ? 'updated'
+              : 'cleared';
         const payload: Record<string, unknown> = {
           outline_bid: outlineBid,
           shifu_bid: currentShifu?.bid,
@@ -219,27 +225,28 @@ const ChapterSettingsDialog = ({
           variant,
         });
 
-        if (isLesson) {
-          trackEvent(
-            eventName,
-            buildLessonSettingSaveAnalytics({
+        const analytics = isLesson
+          ? buildLessonSettingSaveAnalytics({
               outlineBid,
               shifuBid: currentShifu?.bid,
               saveType,
+              promptChange,
               variant,
               learningPermission,
               hideChapter,
-            }),
-          );
-        } else {
-          trackEvent(
-            eventName,
-            buildOutlinePromptSaveAnalytics({
+            })
+          : buildOutlinePromptSaveAnalytics({
               outlineBid,
               shifuBid: currentShifu?.bid,
               saveType,
-            }),
+              promptChange,
+            });
+        try {
+          void Promise.resolve(trackEvent(eventName, analytics)).catch(
+            () => {},
           );
+        } catch {
+          // Analytics is best-effort and must never affect a successful save.
         }
         setIsDirty(false);
         if (needClose) {
