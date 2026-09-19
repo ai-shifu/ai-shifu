@@ -141,6 +141,39 @@ class RepoInstructionsTest(unittest.TestCase):
         assert len(errors) == 1
         assert "Broken instruction link '../docs/deleted.md'" in errors[0]
 
+    def test_rejects_host_specific_and_unsupported_link_schemes(self) -> None:
+        for target in (
+            "file:///etc/passwd",
+            "file://server/share/rules.md",
+            "//server/share/rules.md",
+            "%2F%2Fserver/share/rules.md",
+            "%5C%5Cserver%5Cshare%5Crules.md",
+            "C:/rules.md",
+            "custom:rules.md",
+            "javascript:alert(1)",
+        ):
+            for markdown in (
+                f"[rules]({target})",
+                f"[rules][ref]\n\n[ref]: {target}",
+            ):
+                with self.subTest(markdown=markdown):
+                    self.write("AGENTS.md", markdown)
+                    errors: list[str] = []
+                    harness.check_instruction_files(errors)
+                    assert len(errors) == 1
+                    assert "Unsupported instruction link" in errors[0]
+
+    def test_accepts_allowlisted_remote_link_schemes(self) -> None:
+        self.write(
+            "AGENTS.md",
+            "[Web](https://example.com/rules)\n"
+            "[HTTP](http://example.com/rules)\n"
+            "[Mail](mailto:maintainer@example.com)\n",
+        )
+        errors: list[str] = []
+        harness.check_instruction_files(errors)
+        assert errors == []
+
     def test_rejects_links_that_escape_through_parents_or_symlinks(self) -> None:
         with tempfile.TemporaryDirectory() as outside:
             external = Path(outside) / "rules.md"

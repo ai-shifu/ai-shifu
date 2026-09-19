@@ -80,6 +80,10 @@ ignored personal files with either name remain allowed under the user-level
 configuration described above. Instruction edits do not require changing
 Python metadata or regenerating mirrors.
 
+Instruction links use repository-local paths or explicit `http`, `https`, or
+`mailto` URLs. Host-specific file URLs, UNC paths, and other schemes are rejected;
+remote URLs are not fetched during validation.
+
 `scripts/build_repo_knowledge_index.py` remains responsible for the generated
 knowledge indexes, document inventory, and harness reports. CI regenerates
 those outputs and checks for drift; this generation describes repository
