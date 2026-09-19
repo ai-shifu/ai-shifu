@@ -1504,7 +1504,7 @@ export default function ShifuSettingDialog({
       }
       if (
         !shifuId ||
-        currentShifu?.readonly ||
+        (currentShifu?.readonly && !demoAudioUrl) ||
         creditInsufficientAudience === null
       ) {
         return;
@@ -2585,7 +2585,8 @@ export default function ShifuSettingDialog({
                                   const ready = voice.status === 'ready';
                                   const canPreview =
                                     ready &&
-                                    (debugAllowed ||
+                                    ((!currentShifu?.readonly &&
+                                      debugAllowed) ||
                                       Boolean(
                                         (
                                           voice.minimax_demo_audio_url || ''

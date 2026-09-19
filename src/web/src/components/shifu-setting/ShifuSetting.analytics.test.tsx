@@ -10,6 +10,8 @@ import ShifuSettingDialog from './ShifuSetting';
 import { SSE } from 'sse.js';
 
 const mockTtsConfig = jest.fn();
+const mockListMinimaxTtsVoices = jest.fn();
+const mockGetMinimaxTtsCloneCost = jest.fn();
 const mockAskConfig = jest.fn();
 const mockAskPreview = jest.fn();
 const mockCreditToast = jest.fn();
@@ -21,6 +23,11 @@ const mockToast = jest.fn();
 const mockGetFollowUpModelCatalog = jest.fn();
 const mockAskSettingsSection = jest.fn();
 const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
+const mockCurrentShifu = {
+  bid: 'course-1',
+  readonly: false,
+  created_user_bid: 'owner-1',
+};
 
 const mockEnvState = {
   defaultLlmModel: '',
@@ -49,6 +56,10 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     ttsConfig: (...args: unknown[]) => mockTtsConfig(...args),
+    listMinimaxTtsVoices: (...args: unknown[]) =>
+      mockListMinimaxTtsVoices(...args),
+    getMinimaxTtsCloneCost: (...args: unknown[]) =>
+      mockGetMinimaxTtsCloneCost(...args),
     askConfig: (...args: unknown[]) => mockAskConfig(...args),
     askPreview: (...args: unknown[]) => mockAskPreview(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
@@ -58,11 +69,7 @@ jest.mock('@/api', () => ({
 
 jest.mock('@/store', () => ({
   useShifu: () => ({
-    currentShifu: {
-      bid: 'course-1',
-      readonly: false,
-      created_user_bid: 'owner-1',
-    },
+    currentShifu: mockCurrentShifu,
     models: [],
   }),
   useUserStore: Object.assign(
@@ -192,6 +199,9 @@ describe('ShifuSettingDialog analytics producer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
+    mockListMinimaxTtsVoices.mockResolvedValue({ voices: [] });
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({});
+    mockCurrentShifu.readonly = false;
     mockAskConfig.mockResolvedValue({ providers: [] });
     mockSaveShifuDetail.mockResolvedValue(undefined);
     mockTrackEvent.mockImplementation(() => undefined);
@@ -402,6 +412,91 @@ describe('ShifuSettingDialog analytics producer', () => {
       expect.objectContaining({ shifu_bid: 'course-1' }),
     );
   });
+
+  it.each([
+    {
+      userId: 'collaborator-1',
+      readonly: true,
+      demoUrl: 'https://example.com/demo.mp3',
+    },
+    {
+      userId: 'owner-1',
+      readonly: false,
+      demoUrl: 'https://example.com/demo.mp3',
+    },
+    { userId: 'collaborator-1', readonly: true, demoUrl: '   ' },
+  ])(
+    'handles cached voice demos for $userId (readonly=$readonly, demo=$demoUrl)',
+    async ({ userId, readonly, demoUrl }) => {
+      mockUserState.userInfo.user_id = userId;
+      mockCurrentShifu.readonly = readonly;
+      mockEnvState.billingEnabled = 'true';
+      mockBillingOverview.debug_allowed = false;
+      mockTtsConfig.mockResolvedValue({
+        providers: [
+          {
+            name: 'minimax',
+            label: 'MiniMax',
+            supports_voice_cloning: true,
+            speed: { min: 0.5, max: 2, step: 0.1, default: 1 },
+            voices: [{ value: 'voice-1', label: 'Voice' }],
+            models: [{ value: 'tts-model', label: 'TTS' }],
+          },
+        ],
+        model_options: [],
+      });
+      mockListMinimaxTtsVoices.mockResolvedValue({
+        voices: [
+          {
+            voice_bid: 'clone-1',
+            voice_id: 'cloned-voice',
+            display_name: 'Saved voice',
+            status: 'ready',
+            minimax_demo_audio_url: demoUrl,
+          },
+        ],
+      });
+      const detail = await mockGetShifuDetail();
+      mockGetShifuDetail.mockResolvedValue({
+        ...detail,
+        tts_enabled: true,
+        tts_provider: 'minimax',
+        tts_model: 'tts-model',
+        tts_voice_id: 'voice-1',
+        tts_speed: 1,
+      });
+      const audio = document.createElement('audio');
+      const play = jest.spyOn(audio, 'play').mockResolvedValue();
+      const pause = jest.spyOn(audio, 'pause').mockImplementation(() => {});
+      jest.spyOn(audio, 'load').mockImplementation(() => {});
+      const createAudio = jest.spyOn(window, 'Audio').mockReturnValue(audio);
+
+      try {
+        renderOpenSettings();
+        const button = await screen.findByTitle(
+          demoUrl.trim()
+            ? 'module.shifuSetting.minimaxClonePreview'
+            : 'module.shifuSetting.minimaxClonePreviewUnavailable',
+        );
+        if (demoUrl.trim()) {
+          expect(button).toBeEnabled();
+          fireEvent.click(button);
+          await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+          expect(createAudio).toHaveBeenCalledWith(demoUrl);
+          fireEvent.click(button);
+          expect(pause).toHaveBeenCalledTimes(1);
+        } else {
+          expect(button).toBeDisabled();
+          fireEvent.click(button);
+          expect(createAudio).not.toHaveBeenCalled();
+        }
+        expect(SSE).not.toHaveBeenCalled();
+        expect(mockCreditToast).not.toHaveBeenCalled();
+      } finally {
+        createAudio.mockRestore();
+      }
+    },
+  );
 
   it('keeps text debug gated while exposing Live and the saved default model', async () => {
     mockEnvState.billingEnabled = 'true';
