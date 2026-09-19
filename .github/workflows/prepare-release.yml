@@ -1032,13 +1032,13 @@ jobs:
             git checkout ${{ steps.version.outputs.tag }}
             cd docker
             cp .env.example.full .env
-            # Configure a provider API key in .env and set LLM_TIER_FAST_MODEL
-            # to a text model served by that provider. Fast has no default.
+            # Configure a provider API key in .env and set LLM_MODEL_1_ID
+            # to a text model served by that provider. Set LLM_MODEL_1_NAME as well; neither value has a default.
             docker compose up
             ```
 
-            Existing installations must configure the required Fast mapping and complete
-            [Upgrading to model tiers](${{ github.event.repository.html_url }}/blob/${{ steps.version.outputs.tag }}/INSTALL_MANUAL.md#upgrading-to-model-tiers)
+            Existing installations must configure model 1 and follow
+            [Upgrading to numbered models](${{ github.event.repository.html_url }}/blob/${{ steps.version.outputs.tag }}/INSTALL_MANUAL.md#upgrading-to-numbered-models)
             before starting the new API or workers.
 
             ## 📖 Documentation

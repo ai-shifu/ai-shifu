@@ -2,7 +2,7 @@
 
 from flask import Flask
 
-from flaskr.api.llm import get_current_models
+from flaskr.api.llm import get_course_models
 from flaskr.service.common.dicts import get_all_dicts
 
 from .common import bypass_token_validation, make_common_response
@@ -31,6 +31,6 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
           - dict
         """
-        return make_common_response(get_current_models(app))
+        return make_common_response(get_course_models(app))
 
     return app

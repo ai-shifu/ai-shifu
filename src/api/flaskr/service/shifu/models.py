@@ -186,7 +186,7 @@ class DraftShifu(db.Model):
         default="",
         comment="Avatar resource business identifier",
     )
-    llm = Column(String(100), nullable=False, default="fast", comment="LLM model name")
+    llm = Column(String(100), nullable=False, default="1", comment="LLM model name")
     llm_temperature = Column(
         DECIMAL(10, 2),
         nullable=False,
@@ -215,7 +215,7 @@ class DraftShifu(db.Model):
     ask_llm = Column(
         String(100),
         nullable=False,
-        default="fast",
+        default="1",
         comment="Ask agent LLM model",
     )
     ask_llm_temperature = Column(
@@ -638,7 +638,7 @@ class PublishedShifu(db.Model):
         default="",
         comment="Avatar resource business identifier",
     )
-    llm = Column(String(100), nullable=False, default="fast", comment="LLM model name")
+    llm = Column(String(100), nullable=False, default="1", comment="LLM model name")
     llm_temperature = Column(
         DECIMAL(10, 2), nullable=False, default=0, comment="LLM temperature parameter"
     )
@@ -659,7 +659,7 @@ class PublishedShifu(db.Model):
         comment="MarkdownFlow runtime that teaches this shifu: 1=1.0, 2=2.0",
     )
     ask_llm = Column(
-        String(100), nullable=False, default="fast", comment="Ask agent LLM model"
+        String(100), nullable=False, default="1", comment="Ask agent LLM model"
     )
     ask_llm_temperature = Column(
         DECIMAL(10, 2), nullable=False, default=0.0, comment="Ask agent LLM temperature"

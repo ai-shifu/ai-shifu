@@ -28,7 +28,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Learner listen playback stability](./active/learner-listen-playback-stability.md)
 - [Lobster Course Entry Analytics](./active/lobster-course-entry-analytics.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./active/markdownflow-model-arena.md)
-- [Course model tiers](./active/model-tiers.md)
+- [Numbered course models](./active/model-tiers.md)
 - [Notification Channel Foundation](./active/notification-channel-foundation.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
 - [Official Client Model Gateway](./active/official-client-model-gateway.md)

@@ -37,7 +37,6 @@ from flaskr.api.langfuse import (
 )
 from flaskr.api.llm.tiers import resolve_selection
 from flaskr.common.config import (
-    get_explicit_env_override,
     parse_llm_model_max_output_tokens,
 )
 from flaskr.service.billing.consts import (
@@ -263,59 +262,6 @@ def _build_langfuse_llm_output(
         "content": response_text,
         "reasoning_content": reasoning_text,
     }
-
-
-def _normalize_model_config(value: object) -> list[str]:
-    if not value:
-        return []
-    if isinstance(value, str):
-        return [item.strip() for item in value.split(",") if item.strip()]
-    if isinstance(value, (list, tuple, set)):
-        normalized = []
-        for item in value:
-            text = str(item).strip()
-            if text:
-                normalized.append(text)
-        return normalized
-    return []
-
-
-def _env_has_value(key: str) -> bool:
-    value = get_explicit_env_override(key)
-    if value is None:
-        return False
-    return bool(value.strip())
-
-
-def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
-    allowed_source = "default"
-    if _env_has_value("LLM_ALLOWED_MODELS"):
-        allowed = _normalize_model_config(
-            get_explicit_env_override("LLM_ALLOWED_MODELS") or ""
-        )
-        allowed_source = "env"
-    else:
-        legacy_allowed = _normalize_model_config(get_config("llm-allowed-models", None))
-        if legacy_allowed:
-            allowed = legacy_allowed
-            allowed_source = "legacy"
-        else:
-            allowed = _normalize_model_config(get_config("LLM_ALLOWED_MODELS", None))
-
-    if _env_has_value("LLM_ALLOWED_MODEL_DISPLAY_NAMES"):
-        display_names = _normalize_model_config(
-            get_explicit_env_override("LLM_ALLOWED_MODEL_DISPLAY_NAMES") or ""
-        )
-    elif allowed_source == "legacy":
-        display_names = _normalize_model_config(
-            get_config("llm-allowed-model-display-names", None)
-        )
-    else:
-        display_names = _normalize_model_config(
-            get_config("LLM_ALLOWED_MODEL_DISPLAY_NAMES", None)
-        )
-
-    return allowed, display_names
 
 
 def _load_and_register_model_max_output_tokens() -> dict[str, int]:
@@ -2008,43 +1954,18 @@ def stream_openai_chat_completion(
 def _build_model_options(
     app: Flask, available_models: list[str]
 ) -> list[dict[str, object]]:
-    allowed, display_names = _resolve_allowed_model_config()
-
-    if not allowed:
-        return _attach_credit_multipliers(
-            app,
-            [{"model": model, "display_name": model} for model in available_models],
-        )
+    """Build a physical catalog from configured slots, never provider discovery alone."""
+    from flaskr.api.llm.tiers import get_configured_model_slots
 
     available_set = set(available_models)
-    filtered_models: list[str] = []
-    for model in allowed:
-        if model in available_set and model not in filtered_models:
-            filtered_models.append(model)
-
-    if not filtered_models:
-        _log_warning(
-            "LLM_RECOMMENDED_MODELS configured but no matching models are available"
-        )
-        return []
-
-    display_names_enabled = allowed and len(display_names) == len(allowed)
-    if display_names and not display_names_enabled:
-        _log_warning(
-            "LLM_ALLOWED_MODEL_DISPLAY_NAMES ignored: length must match "
-            "LLM_ALLOWED_MODELS"
-        )
-    display_map: dict[str, str] = (
-        dict(zip(allowed, display_names, strict=False)) if display_names_enabled else {}
-    )
-
-    options = [
-        {
-            "model": model,
-            "display_name": display_map.get(model, model),
-        }
-        for model in filtered_models
-    ]
+    seen = set()
+    options = []
+    for slot in get_configured_model_slots():
+        model = slot["model"]
+        if model not in available_set or model in seen:
+            continue
+        seen.add(model)
+        options.append({"model": model, "display_name": slot["display_name"]})
     return _attach_credit_multipliers(app, options)
 
 
@@ -2174,10 +2095,19 @@ def _attach_credit_multipliers(
 
 
 def get_current_models(app: Flask) -> list[dict[str, object]]:
-    """Return text-generation models available to the primary model picker."""
+    """Return configured physical text models for internal and gateway consumers."""
+    from flaskr.api.llm.tiers import get_configured_model_slots, resolve_tier_model
+
     litellm_models: list[str] = []
-    for state in PROVIDER_STATES.values():
-        litellm_models.extend(state.models)
+    for slot in get_configured_model_slots():
+        try:
+            litellm_models.append(resolve_tier_model(slot["index"]))
+        except AppError as exc:
+            if exc.code not in {
+                ERROR_CODE["server.llm.modelTierUnavailable"],
+                ERROR_CODE["server.llm.modelSelectionNotConfigured"],
+            }:
+                raise
     available_models = [
         model
         for model in dict.fromkeys(litellm_models)
@@ -2218,7 +2148,7 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
             "billing_mode": "billable",
             "voices": [],
         }
-        for option in get_current_models(app)
+        for option in get_course_models(app)
     ]
     for model in GEMINI_LIVE_MODEL_ALLOWLIST:
         if not is_live_follow_up_model_available(model):
@@ -2239,37 +2169,41 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
     return options
 
 
-def get_allowed_models() -> list[str]:
-    """Return allowed models."""
-    allowed, _ = _resolve_allowed_model_config()
-    return allowed
-
-
 def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
-    """Expose fixed product tiers without exposing their configured models."""
-    from flaskr.api.llm.tiers import MODEL_TIERS, resolve_tier_model
+    """Expose stable numbered choices without their configured physical IDs."""
+    from flaskr.api.llm.tiers import get_configured_model_slots, resolve_tier_model
 
     options = []
-    for tier in MODEL_TIERS:
+    for slot in get_configured_model_slots():
         option = {
-            "tier": tier,
+            "index": slot["index"],
+            "display_name": slot["display_name"],
             "available": False,
-            "is_default": tier == "fast",
+            "is_default": slot["index"] == "1",
             "credit_multiplier": None,
             "credit_multiplier_label": None,
         }
         try:
-            model = resolve_tier_model(tier)
+            model = resolve_tier_model(slot["index"])
         except AppError as exc:
-            if exc.code != ERROR_CODE["server.llm.modelTierUnavailable"]:
+            if exc.code not in {
+                ERROR_CODE["server.llm.modelTierUnavailable"],
+                ERROR_CODE["server.llm.modelSelectionNotConfigured"],
+            }:
                 raise
-            options.append(option)
-            continue
-        rates = _attach_credit_multipliers(app, [{"model": model}])[0]
-        option.update(
-            available=True,
-            credit_multiplier=rates.get("credit_multiplier"),
-            credit_multiplier_label=rates.get("credit_multiplier_label"),
-        )
+        else:
+            rates = _attach_credit_multipliers(app, [{"model": model}])[0]
+            option.update(
+                available=True,
+                credit_multiplier=rates.get("credit_multiplier"),
+                credit_multiplier_label=rates.get("credit_multiplier_label"),
+            )
         options.append(option)
     return options
+
+
+def get_course_models(app: Flask) -> list[dict[str, object]]:
+    """Keep older teacher-facing catalog fields while returning numbered values."""
+    return [
+        {**option, "model": option["index"]} for option in get_model_tier_options(app)
+    ]

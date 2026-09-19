@@ -201,13 +201,10 @@
   "minimaxVoiceGroupCloned": "我的克隆音色",
   "minimaxVoiceGroupManual": "手动音色 ID",
   "modelTiers": {
-    "balanced": "均衡",
-    "fast": "快速",
-    "hint": "按响应速度、效果和积分消耗选择档位。",
-    "legacy": "历史配置",
+    "fallback": "原模型配置已不可用，当前使用默认模型。重新选择模型后保存，可更新此设置。",
+    "hint": "选择系统管理员配置的模型。",
     "liveVoice": "实时语音",
     "text": "文字追问",
-    "ultimate": "极致",
     "unavailable": "暂不可用"
   },
   "number": "输入数字",

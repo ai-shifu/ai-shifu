@@ -164,6 +164,18 @@ class ShifuDetailDto(BaseModel):
         description="Ask mode status: 5101=default, 5102=disabled, 5103=enabled",
         required=False,
     )
+    model_display_name: str = Field("", description="Configured main model label")
+    ask_model_display_name: str = Field(
+        "", description="Configured text follow-up model label"
+    )
+    model_fallback: bool = Field(
+        default=False,
+        description="Whether the main selection currently falls back to model 1",
+    )
+    ask_model_fallback: bool = Field(
+        default=False,
+        description="Whether the text follow-up selection falls back to model 1",
+    )
     ask_model: str = Field(
         "",
         description="Ask model (maps to ask_llm)",
@@ -223,6 +235,10 @@ class ShifuDetailDto(BaseModel):
         ask_system_prompt: str = "",
         ask_provider_config: dict[str, object] | None = None,
         follow_up_mode: Literal["text", "live_voice"] = "text",
+        model_display_name: str = "",
+        ask_model_display_name: str = "",
+        model_fallback: bool = False,
+        ask_model_fallback: bool = False,
     ) -> None:
         """Build the shifu detail payload."""
         super().__init__(
@@ -257,6 +273,10 @@ class ShifuDetailDto(BaseModel):
             ask_system_prompt=ask_system_prompt,
             ask_provider_config=ask_provider_config or {},
             follow_up_mode=follow_up_mode,
+            model_display_name=model_display_name,
+            ask_model_display_name=ask_model_display_name,
+            model_fallback=model_fallback,
+            ask_model_fallback=ask_model_fallback,
         )
 
     def __json__(self) -> dict:
@@ -293,6 +313,10 @@ class ShifuDetailDto(BaseModel):
             "ask_system_prompt": self.ask_system_prompt,
             "ask_provider_config": self.ask_provider_config,
             "follow_up_mode": self.follow_up_mode,
+            "model_display_name": self.model_display_name,
+            "ask_model_display_name": self.ask_model_display_name,
+            "model_fallback": self.model_fallback,
+            "ask_model_fallback": self.ask_model_fallback,
         }
 
 

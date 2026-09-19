@@ -23,6 +23,7 @@ const mockToast = jest.fn();
 const mockGetFollowUpModelCatalog = jest.fn();
 const mockGetModelTierList = jest.fn();
 const mockAskSettingsSection = jest.fn();
+const mockMainModelSelector = jest.fn();
 const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 const mockCurrentShifu = {
   bid: 'course-1',
@@ -129,7 +130,13 @@ jest.mock('next/link', () => ({
 }));
 
 jest.mock('@/components/model-list', () => () => null);
-jest.mock('@/components/model-list/ModelTierList', () => () => null);
+jest.mock('@/components/model-list/ModelTierList', () => ({
+  __esModule: true,
+  default: (props: Record<string, unknown>) => {
+    mockMainModelSelector(props);
+    return null;
+  },
+}));
 jest.mock('@/components/shifu-setting/AskSettingsSection', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
@@ -269,8 +276,10 @@ describe('ShifuSettingDialog analytics producer', () => {
             use_learner_language: true,
             follow_up_mode: 'text',
             price_tier: 'standard_paid',
-            main_model_tier: 'legacy',
-            follow_up_model_tier: 'legacy',
+            main_model_index: '1',
+            main_model_fallback: false,
+            follow_up_model_fallback: false,
+            follow_up_model_index: '1',
           },
         );
       });
@@ -507,7 +516,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     mockEnvState.billingEnabled = 'true';
     mockGetFollowUpModelCatalog.mockResolvedValue([
       {
-        model: 'text-model',
+        model: '1',
         display_name: 'Text model',
         interaction_mode: 'text',
         allowed_roles: ['main', 'follow_up'],
@@ -539,7 +548,7 @@ describe('ShifuSettingDialog analytics producer', () => {
         }),
       );
       expect(latestProps.askModelOptions).toEqual([
-        expect.objectContaining({ value: 'text-model', disabled: false }),
+        expect.objectContaining({ value: '1', disabled: false }),
         expect.objectContaining({
           value: 'gemini-3.8-live',
           disabled: false,
@@ -550,7 +559,7 @@ describe('ShifuSettingDialog analytics producer', () => {
 
   it.each(
     [false, undefined].flatMap(debugAllowed => [
-      { debugAllowed, savedModel: 'saved-text', markedDefault: false },
+      { debugAllowed, savedModel: '1', markedDefault: false },
       { debugAllowed, savedModel: '', markedDefault: true },
       { debugAllowed, savedModel: '', markedDefault: false },
     ]),
@@ -561,14 +570,14 @@ describe('ShifuSettingDialog analytics producer', () => {
       mockBillingOverview.debug_allowed = debugAllowed;
       const textModels = [
         {
-          model: 'saved-text',
+          model: '1',
           display_name: 'Saved',
           interaction_mode: 'text',
           voices: [],
           is_default: markedDefault,
         },
         {
-          model: 'other-text',
+          model: '3',
           display_name: 'Other',
           interaction_mode: 'text',
           voices: [],
@@ -623,7 +632,7 @@ describe('ShifuSettingDialog analytics producer', () => {
         ...textModels.map(item =>
           expect.objectContaining({
             value: item.model,
-            disabled: item.model !== 'saved-text',
+            disabled: item.model !== '1',
           }),
         ),
         expect.objectContaining({ value: 'live-model', disabled: false }),
@@ -639,7 +648,7 @@ describe('ShifuSettingDialog analytics producer', () => {
       await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
       expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
         expect.objectContaining({
-          ask_model: savedModel,
+          ask_model: '1',
           ask_provider_config: {
             provider: 'llm',
             mode: 'provider_only',
@@ -657,8 +666,10 @@ describe('ShifuSettingDialog analytics producer', () => {
           use_learner_language: false,
           follow_up_mode: 'text',
           price_tier: 'standard_paid',
-          main_model_tier: 'legacy',
-          follow_up_model_tier: 'legacy',
+          main_model_index: '1',
+          main_model_fallback: false,
+          follow_up_model_fallback: false,
+          follow_up_model_index: '1',
         },
       );
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
@@ -684,7 +695,6 @@ describe('ShifuSettingDialog analytics producer', () => {
       expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
         expect.objectContaining({
           name: edited ? 'Updated course name' : 'Private course name',
-          ask_model: '',
           ask_provider_config: {
             provider: 'llm',
             mode: 'provider_only',
@@ -702,8 +712,10 @@ describe('ShifuSettingDialog analytics producer', () => {
           use_learner_language: true,
           follow_up_mode: 'text',
           price_tier: 'standard_paid',
-          main_model_tier: 'legacy',
-          follow_up_model_tier: 'legacy',
+          main_model_index: '1',
+          main_model_fallback: false,
+          follow_up_model_fallback: false,
+          follow_up_model_index: '1',
         },
       );
 
@@ -768,7 +780,6 @@ describe('ShifuSettingDialog analytics producer', () => {
       await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
       expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
         expect.objectContaining({
-          ask_model: 'opaque-existing-model-id',
           ask_provider_config: {
             provider: 'llm',
             mode: 'provider_only',
@@ -831,7 +842,7 @@ describe('ShifuSettingDialog analytics producer', () => {
   it('forces Live to built-in provider-only configuration with the default voice', async () => {
     mockGetFollowUpModelCatalog.mockResolvedValue([
       {
-        model: 'text-model',
+        model: '1',
         display_name: 'Text model',
         interaction_mode: 'text',
         allowed_roles: ['main', 'follow_up'],
@@ -858,7 +869,7 @@ describe('ShifuSettingDialog analytics producer', () => {
       avatar: '',
       temperature: 0,
       system_prompt: '',
-      ask_model: 'text-model',
+      ask_model: '1',
       ask_temperature: 0,
       ask_provider_config: {
         provider: 'dify',
@@ -913,7 +924,7 @@ describe('ShifuSettingDialog analytics producer', () => {
 
   const configureTierProvider = (tier: string, provider: string) => {
     mockGetFollowUpModelCatalog.mockResolvedValue([
-      { model: 'physical-text', interaction_mode: 'text', voices: [] },
+      { model: tier, interaction_mode: 'text', voices: [] },
     ]);
     mockAskConfig.mockResolvedValue({
       providers: [
@@ -966,7 +977,7 @@ describe('ShifuSettingDialog analytics producer', () => {
   };
 
   it.each(
-    ['fast', 'balanced', 'ultimate'].flatMap(tier =>
+    ['1', '3', '7'].flatMap(tier =>
       ['dify', 'coze'].flatMap(provider =>
         ['provider', 'scalar', 'object'].map(edit => ({
           tier,
@@ -1000,7 +1011,6 @@ describe('ShifuSettingDialog analytics producer', () => {
       await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
       expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
         expect.objectContaining({
-          ask_model: tier,
           ask_provider_config: {
             provider,
             mode: 'provider_only',
@@ -1030,8 +1040,10 @@ describe('ShifuSettingDialog analytics producer', () => {
           use_learner_language: false,
           follow_up_mode: 'text',
           price_tier: 'standard_paid',
-          main_model_tier: tier,
-          follow_up_model_tier: tier,
+          main_model_index: tier,
+          main_model_fallback: false,
+          follow_up_model_fallback: false,
+          follow_up_model_index: tier,
         },
       );
       expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
@@ -1040,7 +1052,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     },
   );
 
-  it.each(['fast', 'balanced', 'ultimate'])(
+  it.each(['1', '3', '7'])(
     'preserves untouched %s provider settings when its provider metadata is missing',
     async tier => {
       const latestProps = configureTierProvider(tier, 'dify');
@@ -1056,7 +1068,6 @@ describe('ShifuSettingDialog analytics producer', () => {
       await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
       expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
         expect.objectContaining({
-          ask_model: tier,
           ask_provider_config: {
             provider: 'dify',
             mode: 'provider_only',
@@ -1070,7 +1081,7 @@ describe('ShifuSettingDialog analytics producer', () => {
   it.each(['required', 'invalid_json'])(
     'validates %s errors in edited tier provider settings before saving',
     async error => {
-      const latestProps = configureTierProvider('fast', 'dify');
+      const latestProps = configureTierProvider('1', 'dify');
       renderOpenSettings();
       await screen.findByDisplayValue('Private tier course');
       await waitFor(() =>
@@ -1092,7 +1103,7 @@ describe('ShifuSettingDialog analytics producer', () => {
   it('preserves external provider and unsaved fields across a Live round trip', async () => {
     mockGetFollowUpModelCatalog.mockResolvedValue([
       {
-        model: 'text-model',
+        model: '1',
         display_name: 'Text',
         interaction_mode: 'text',
         voices: [],
@@ -1132,7 +1143,7 @@ describe('ShifuSettingDialog analytics producer', () => {
       avatar: '',
       temperature: 0,
       system_prompt: '',
-      ask_model: 'text-model',
+      ask_model: '1',
       ask_temperature: 0,
       ask_provider_config: {
         provider: 'dify',
@@ -1161,16 +1172,16 @@ describe('ShifuSettingDialog analytics producer', () => {
     act(() => latestProps().onAskModelChange('live-model'));
     expect(latestProps().resolvedAskProvider).toBe('llm');
     act(() => latestProps().onLiveVoiceChange('Puck'));
-    act(() => latestProps().onAskModelChange('text-model'));
+    act(() => latestProps().onAskModelChange('1'));
     expect(latestProps().resolvedAskProvider).toBe('dify');
     act(() => latestProps().onAskModelChange('live-model'));
     expect(latestProps().liveVoice).toBe('Puck');
-    act(() => latestProps().onAskModelChange('text-model'));
+    act(() => latestProps().onAskModelChange('1'));
     fireEvent.click(screen.getByLabelText('close-settings'));
     await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
     expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        ask_model: 'text-model',
+        ask_model: '1',
         ask_provider_config: {
           provider: 'dify',
           mode: 'provider_only',
@@ -1190,7 +1201,7 @@ describe('ShifuSettingDialog analytics producer', () => {
   it('preserves the selected Live voice across a temporary text-model switch', async () => {
     mockGetFollowUpModelCatalog.mockResolvedValue([
       {
-        model: 'text-model',
+        model: '1',
         display_name: 'Text model',
         interaction_mode: 'text',
         allowed_roles: ['main', 'follow_up'],
@@ -1244,7 +1255,7 @@ describe('ShifuSettingDialog analytics producer', () => {
 
     const selectText = mockAskSettingsSection.mock.calls.at(-1)?.[0]
       .onAskModelChange as (model: string) => void;
-    act(() => selectText('text-model'));
+    act(() => selectText('1'));
     await waitFor(() => {
       expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
         expect.objectContaining({ isLiveVoiceFollowUp: false }),
@@ -1265,7 +1276,7 @@ describe('ShifuSettingDialog analytics producer', () => {
 
     const selectTextAgain = mockAskSettingsSection.mock.calls.at(-1)?.[0]
       .onAskModelChange as (model: string) => void;
-    act(() => selectTextAgain('text-model'));
+    act(() => selectTextAgain('1'));
     await waitFor(() => {
       expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
         expect.objectContaining({ isLiveVoiceFollowUp: false }),
@@ -1277,7 +1288,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
     expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        ask_model: 'text-model',
+        ask_model: '1',
         ask_provider_config: {
           provider: 'llm',
           mode: 'provider_only',
@@ -1288,7 +1299,7 @@ describe('ShifuSettingDialog analytics producer', () => {
   });
 });
 
-describe('ShifuSetting tier persistence', () => {
+describe('ShifuSetting numbered model persistence', () => {
   it('saves a text tier over a retained Live model without exposing or overwriting it', async () => {
     jest.clearAllMocks();
     mockEnvState.billingEnabled = 'false';
@@ -1303,8 +1314,8 @@ describe('ShifuSetting tier persistence', () => {
       bid: 'course-1',
       name: 'Tier course',
       description: '',
-      model: 'ultimate',
-      ask_model: 'fast',
+      model: '7',
+      ask_model: '1',
       follow_up_mode: 'text',
       price: 1,
       ask_provider_config: {
@@ -1319,19 +1330,18 @@ describe('ShifuSetting tier persistence', () => {
       expect(mockAskSettingsSection.mock.calls.at(-1)?.[0]).toEqual(
         expect.objectContaining({
           isLiveVoiceFollowUp: false,
-          askTier: 'fast',
+          askModelIndex: '1',
         }),
       ),
     );
     act(() =>
-      mockAskSettingsSection.mock.calls.at(-1)?.[0].onAskTierChange('balanced'),
+      mockAskSettingsSection.mock.calls.at(-1)?.[0].onAskModelIndexChange('3'),
     );
     fireEvent.click(screen.getByLabelText('close-settings'));
     await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
     expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        model: 'ultimate',
-        ask_model: 'balanced',
+        ask_model: '3',
       }),
     );
     expect(mockSaveShifuDetail.mock.calls[0][0].ask_llm_tier).toBeUndefined();
@@ -1339,8 +1349,10 @@ describe('ShifuSetting tier persistence', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_shifu_setting_save',
       expect.objectContaining({
-        main_model_tier: 'ultimate',
-        follow_up_model_tier: 'balanced',
+        main_model_index: '7',
+        main_model_fallback: false,
+        follow_up_model_fallback: false,
+        follow_up_model_index: '3',
         follow_up_mode: 'text',
       }),
     );
@@ -1352,7 +1364,7 @@ describe('ShifuSetting Live-to-text availability', () => {
     bid: 'course-1',
     name: 'Private Live course',
     description: '',
-    model: 'fast',
+    model: '1',
     ask_model: 'gemini-3.8-live',
     follow_up_mode: 'live_voice',
     price: 1,
@@ -1390,14 +1402,14 @@ describe('ShifuSetting Live-to-text availability', () => {
         );
       else
         mockGetModelTierList.mockResolvedValue(
-          status === 'missing' ? [] : [{ tier: 'fast', available: false }],
+          status === 'missing' ? [] : [{ index: '1', available: false }],
         );
       await openLive();
       await act(async () => latest().onFollowUpModeChange('text'));
       expect(latest()).toEqual(
         expect.objectContaining({
           isLiveVoiceFollowUp: true,
-          askTier: null,
+          askModelIndex: null,
           checkingTextMode: false,
         }),
       );
@@ -1409,14 +1421,14 @@ describe('ShifuSetting Live-to-text availability', () => {
       expect(mockTrackEvent).not.toHaveBeenCalled();
       fireEvent.click(screen.getByLabelText('close-settings'));
       await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
-      expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBe(
-        'gemini-3.8-live',
+      expect(mockSaveShifuDetail.mock.calls[0][0]).not.toHaveProperty(
+        'ask_model',
       );
       expect(mockTrackEvent).toHaveBeenCalledWith(
         'creator_shifu_setting_save',
         expect.objectContaining({
           follow_up_mode: 'live_voice',
-          follow_up_model_tier: 'not_applicable',
+          follow_up_model_index: 'not_applicable',
         }),
       );
       expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
@@ -1427,9 +1439,7 @@ describe('ShifuSetting Live-to-text availability', () => {
   it.each([false, true])(
     'saves available Fast even if tracking fails=%s',
     async trackingFails => {
-      mockGetModelTierList.mockResolvedValue([
-        { tier: 'fast', available: true },
-      ]);
+      mockGetModelTierList.mockResolvedValue([{ index: '1', available: true }]);
       if (trackingFails)
         mockTrackEvent.mockImplementation(() => {
           throw new Error('analytics unavailable');
@@ -1439,19 +1449,19 @@ describe('ShifuSetting Live-to-text availability', () => {
       expect(latest()).toEqual(
         expect.objectContaining({
           isLiveVoiceFollowUp: false,
-          askTier: 'fast',
+          askModelIndex: '1',
         }),
       );
       expect(mockTrackEvent).not.toHaveBeenCalled();
       fireEvent.click(screen.getByLabelText('close-settings'));
       await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
-      expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBe('fast');
+      expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBe('1');
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledWith(
         'creator_shifu_setting_save',
         expect.objectContaining({
           follow_up_mode: 'text',
-          follow_up_model_tier: 'fast',
+          follow_up_model_index: '1',
         }),
       );
       expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
@@ -1476,11 +1486,11 @@ describe('ShifuSetting Live-to-text availability', () => {
     fireEvent.click(screen.getByLabelText('close-settings'));
     await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
     await act(async () => {
-      resolveOptions([{ tier: 'fast', available: true }]);
+      resolveOptions([{ index: '1', available: true }]);
       await switching;
     });
-    expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBe(
-      'gemini-3.8-live',
+    expect(mockSaveShifuDetail.mock.calls[0][0]).not.toHaveProperty(
+      'ask_model',
     );
     expect(latest().isLiveVoiceFollowUp).toBe(true);
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
@@ -1488,12 +1498,12 @@ describe('ShifuSetting Live-to-text availability', () => {
   it('rechecks the remembered tier instead of silently replacing it with Fast', async () => {
     mockGetShifuDetail.mockResolvedValue({
       ...liveCourse,
-      ask_model: 'balanced',
+      ask_model: '3',
       follow_up_mode: 'text',
     });
     mockGetModelTierList.mockResolvedValue([
-      { tier: 'fast', available: true },
-      { tier: 'balanced', available: false },
+      { index: '1', available: true },
+      { index: '3', available: false },
     ]);
     renderOpenSettings();
     await screen.findByDisplayValue('Private Live course');
@@ -1504,4 +1514,360 @@ describe('ShifuSetting Live-to-text availability', () => {
     expect(mockToast).toHaveBeenCalledTimes(1);
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
+});
+
+describe('ShifuSetting compatibility fallback and explicit selection', () => {
+  const main = () => mockMainModelSelector.mock.calls.at(-1)?.[0];
+  const followUp = () => mockAskSettingsSection.mock.calls.at(-1)?.[0];
+  const detail = {
+    bid: 'course-1',
+    name: 'Compatibility course',
+    description: '',
+    keywords: [],
+    model: '1',
+    model_fallback: true,
+    model_display_name: 'Default label',
+    ask_model: '1',
+    ask_model_fallback: true,
+    ask_model_display_name: 'Default label',
+    follow_up_mode: 'text',
+    price: 0,
+    temperature: 0,
+    ask_provider_config: { provider: 'llm', mode: 'provider_only', config: {} },
+  };
+  const open = async () => {
+    const result = renderOpenSettings();
+    await screen.findByDisplayValue('Compatibility course');
+    await waitFor(() => expect(main().value).toBe('1'));
+    return result;
+  };
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCurrentShifu.readonly = false;
+    mockEnvState.billingEnabled = 'false';
+    mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
+    mockAskConfig.mockResolvedValue({ providers: [] });
+    mockTrackEvent.mockImplementation(() => undefined);
+    mockGetShifuDetail.mockResolvedValue(detail);
+    mockSaveShifuDetail.mockResolvedValue(detail);
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      {
+        model: '1',
+        interaction_mode: 'text',
+        display_name: 'Default label',
+        voices: [],
+      },
+    ]);
+  });
+  it('shows effective fallback selections and omits untouched model fields on unrelated saves', async () => {
+    await open();
+    expect(main()).toEqual(
+      expect.objectContaining({
+        value: '1',
+        fallback: true,
+        displayName: 'Default label',
+      }),
+    );
+    expect(followUp()).toEqual(
+      expect.objectContaining({ askModelIndex: '1', modelFallback: true }),
+    );
+    expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByDisplayValue('Compatibility course'), {
+      target: { value: 'Renamed course' },
+    });
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    expect(mockSaveShifuDetail.mock.calls[0][0]).not.toHaveProperty('model');
+    expect(mockSaveShifuDetail.mock.calls[0][0]).not.toHaveProperty(
+      'ask_model',
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_shifu_setting_save',
+      expect.objectContaining({
+        main_model_index: '1',
+        follow_up_model_index: '1',
+        main_model_fallback: true,
+        follow_up_model_fallback: true,
+      }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+      /Default label|Renamed course|Compatibility course/,
+    );
+  });
+  it.each(['main', 'followUp'])(
+    'writes only the explicitly re-selected default for %s',
+    async field => {
+      mockSaveShifuDetail.mockResolvedValue({
+        ...detail,
+        ...(field === 'main'
+          ? { model_fallback: false }
+          : { ask_model_fallback: false }),
+      });
+      await open();
+      act(() =>
+        field === 'main'
+          ? main().onChange('1')
+          : followUp().onAskModelIndexChange('1'),
+      );
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      const payload = mockSaveShifuDetail.mock.calls[0][0];
+      expect(payload[field === 'main' ? 'model' : 'ask_model']).toBe('1');
+      expect(payload).not.toHaveProperty(
+        field === 'main' ? 'ask_model' : 'model',
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        expect.objectContaining({
+          main_model_fallback: field !== 'main',
+          follow_up_model_fallback: field !== 'followUp',
+        }),
+      );
+    },
+  );
+  it.each(['main', 'followUp'])(
+    'preserves a newer %s selection while an earlier save completes',
+    async field => {
+      const saving = createDeferred<typeof detail>();
+      mockSaveShifuDetail.mockReturnValueOnce(saving.promise);
+      await open();
+      const choose = (index: string) =>
+        field === 'main'
+          ? main().onChange(index)
+          : followUp().onAskModelIndexChange(index);
+      act(() => choose('3'));
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      act(() => choose('7'));
+      await act(async () => {
+        saving.resolve({
+          ...detail,
+          ...(field === 'main'
+            ? { model: '3', model_fallback: false }
+            : { ask_model: '3', ask_model_fallback: false }),
+        });
+        await saving.promise;
+      });
+      expect(field === 'main' ? main().value : followUp().askModelIndex).toBe(
+        '7',
+      );
+      expect(screen.getByLabelText('close-settings')).toBeInTheDocument();
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        expect.objectContaining({
+          [field === 'main' ? 'main_model_index' : 'follow_up_model_index']:
+            '3',
+        }),
+      );
+      mockSaveShifuDetail.mockResolvedValue({
+        ...detail,
+        ...(field === 'main'
+          ? { model: '7', model_fallback: false }
+          : { ask_model: '7', ask_model_fallback: false }),
+      });
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(2));
+      expect(
+        mockSaveShifuDetail.mock.calls[1][0][
+          field === 'main' ? 'model' : 'ask_model'
+        ],
+      ).toBe('7');
+    },
+  );
+  it('retains an explicit model selection after a rejected save for retry', async () => {
+    mockSaveShifuDetail.mockRejectedValueOnce(new Error('save rejected'));
+    await open();
+    act(() => main().onChange('3'));
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockToast).toHaveBeenCalled());
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(2));
+    expect(mockSaveShifuDetail.mock.calls[1][0].model).toBe('3');
+  });
+  it('reports the effective server result if a numbered configuration disappeared before saving', async () => {
+    await open();
+    act(() => main().onChange('3'));
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockTrackEvent).toHaveBeenCalledTimes(1));
+    expect(mockSaveShifuDetail.mock.calls[0][0].model).toBe('3');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_shifu_setting_save',
+      expect.objectContaining({
+        main_model_index: '1',
+        main_model_fallback: true,
+      }),
+    );
+  });
+  it('uses model 1 when a remembered text number was removed before switching from Live', async () => {
+    mockGetShifuDetail.mockResolvedValue({
+      ...detail,
+      ask_model: '3',
+      ask_model_fallback: false,
+    });
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      { model: 'gemini-3.8-live', interaction_mode: 'live_voice', voices: [] },
+    ]);
+    mockGetModelTierList.mockResolvedValue([
+      { index: '1', display_name: 'Default label', available: true },
+    ]);
+    await open();
+    await act(async () => followUp().onFollowUpModeChange('live_voice'));
+    expect(followUp().isLiveVoiceFollowUp).toBe(true);
+    await act(async () => followUp().onFollowUpModeChange('text'));
+    expect(followUp().askModelIndex).toBe('1');
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    expect(mockSaveShifuDetail.mock.calls[0][0].ask_model).toBe('1');
+  });
+  it('omits unchanged choices on autosave without changing the fallback flags', async () => {
+    await open();
+    jest.useFakeTimers();
+    try {
+      fireEvent.change(screen.getByDisplayValue('Compatibility course'), {
+        target: { value: 'Autosaved course' },
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1);
+      expect(mockSaveShifuDetail.mock.calls[0][0]).not.toHaveProperty('model');
+      expect(mockSaveShifuDetail.mock.calls[0][0]).not.toHaveProperty(
+        'ask_model',
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        expect.objectContaining({
+          save_type: 'auto',
+          main_model_fallback: true,
+          follow_up_model_fallback: true,
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+  it.each([false, true])(
+    'previews the saved raw selection unless the follow-up selection was edited=%s',
+    async edited => {
+      mockAskPreview.mockResolvedValue({
+        answer: 'Private answer',
+        provider: 'llm',
+      });
+      await open();
+      act(() => {
+        followUp().setAskPreviewQuery('Private question');
+        if (edited) followUp().onAskModelIndexChange('3');
+      });
+      await act(async () => followUp().handleAskPreview());
+      expect(mockAskPreview).toHaveBeenCalledTimes(1);
+      if (edited) expect(mockAskPreview.mock.calls[0][0].ask_model).toBe('3');
+      else
+        expect(mockAskPreview.mock.calls[0][0]).not.toHaveProperty('ask_model');
+      expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['main', 'followUp'])(
+    'serializes overlapping %s saves so older writes cannot win',
+    async field => {
+      const firstSave = createDeferred<typeof detail>();
+      const secondSave = createDeferred<typeof detail>();
+      mockSaveShifuDetail
+        .mockReturnValueOnce(firstSave.promise)
+        .mockReturnValueOnce(secondSave.promise);
+      await open();
+      const choose = (index: string) =>
+        field === 'main'
+          ? main().onChange(index)
+          : followUp().onAskModelIndexChange(index);
+      act(() => choose('3'));
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      act(() => choose('7'));
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await act(async () => {});
+      // Request B waits even if its response could otherwise finish first.
+      expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        firstSave.resolve({
+          ...detail,
+          ...(field === 'main'
+            ? { model: '3', model_fallback: false }
+            : { ask_model: '3', ask_model_fallback: false }),
+        });
+        await firstSave.promise;
+      });
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(2));
+      expect(
+        mockSaveShifuDetail.mock.calls[1][0][
+          field === 'main' ? 'model' : 'ask_model'
+        ],
+      ).toBe('7');
+      expect(field === 'main' ? main().value : followUp().askModelIndex).toBe(
+        '7',
+      );
+      await act(async () => {
+        secondSave.resolve({
+          ...detail,
+          ...(field === 'main'
+            ? { model: '7', model_fallback: false }
+            : { ask_model: '7', ask_model_fallback: false }),
+        });
+        await secondSave.promise;
+      });
+      expect(
+        mockTrackEvent.mock.calls.map(
+          call =>
+            call[1][
+              field === 'main' ? 'main_model_index' : 'follow_up_model_index'
+            ],
+        ),
+      ).toEqual(['3', '7']);
+    },
+  );
+  it('does not resend an acknowledged model choice from a queued unrelated save', async () => {
+    const firstSave = createDeferred<typeof detail>();
+    mockSaveShifuDetail.mockReturnValueOnce(firstSave.promise);
+    await open();
+    act(() => main().onChange('3'));
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByDisplayValue('Compatibility course'), {
+      target: { value: 'Queued title' },
+    });
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await act(async () => {});
+    expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      firstSave.resolve({ ...detail, model: '3', model_fallback: false });
+      await firstSave.promise;
+    });
+    await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(2));
+    expect(mockSaveShifuDetail.mock.calls[1][0]).not.toHaveProperty('model');
+    expect(mockSaveShifuDetail.mock.calls[1][0]).not.toHaveProperty(
+      'ask_model',
+    );
+    expect(mockSaveShifuDetail.mock.calls[1][0].name).toBe('Queued title');
+  });
+  it.each(['main', 'followUp'])(
+    'captures the latest %s choice when it changes during async form validation',
+    async field => {
+      await open();
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      // submitForm is awaiting its first form.trigger at this point.
+      expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+      act(() =>
+        field === 'main'
+          ? main().onChange('3')
+          : followUp().onAskModelIndexChange('3'),
+      );
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(
+        mockSaveShifuDetail.mock.calls[0][0][
+          field === 'main' ? 'model' : 'ask_model'
+        ],
+      ).toBe('3');
+    },
+  );
 });

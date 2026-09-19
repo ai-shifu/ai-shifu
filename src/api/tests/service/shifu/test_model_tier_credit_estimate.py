@@ -13,6 +13,7 @@ from flaskr.service.shifu.admin_operations import courses_credit_estimate as est
 def test_estimate_rejects_missing_course_selection_before_pricing(
     app: object, monkeypatch: pytest.MonkeyPatch, model: str | None
 ) -> None:
+    monkeypatch.setattr(tiers, "get_config", lambda *_args: "")
     pricing = Mock()
     monkeypatch.setattr(estimates, "_sum_llm_cost", pricing)
     with app.app_context(), pytest.raises(AppError) as captured:
@@ -31,8 +32,8 @@ def test_estimate_prices_legacy_or_resolved_tier_model(
     app: object, monkeypatch: pytest.MonkeyPatch, tier: str | None
 ) -> None:
     """Capture the pricing boundary without mocking selection resolution itself."""
-    monkeypatch.setattr(tiers, "resolve_tier_model", lambda _tier: "mapped-fast")
-    expected = "mapped-fast" if tier else "legacy-model"
+    monkeypatch.setattr(tiers, "resolve_tier_model", lambda _tier: "mapped-1")
+    expected = "mapped-1"
     pricing = Mock(side_effect=RuntimeError("pricing reached"))
     monkeypatch.setattr(estimates, "_sum_llm_cost", pricing)
     with app.app_context(), pytest.raises(RuntimeError, match="pricing reached"):

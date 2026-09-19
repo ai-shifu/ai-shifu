@@ -34,7 +34,11 @@ def test_tier_options_propagate_unexpected_failures(
 def test_tier_options_hide_expected_provider_configuration_errors(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(tiers, "get_config", lambda *_args: "private-model")
+    monkeypatch.setattr(
+        tiers,
+        "get_config",
+        lambda key, *_args: "Label" if key.endswith("_NAME") else "private-model",
+    )
 
     def missing_provider(*_args: object) -> None:
         message = "private-model provider not configured"
@@ -46,17 +50,17 @@ def test_tier_options_hide_expected_provider_configuration_errors(
     monkeypatch.setattr(llm, "get_litellm_params_and_model", missing_provider)
     with app.app_context():
         options = llm.get_model_tier_options(app)
-    assert len(options) == 3
+    assert len(options) == 9
     assert all(item["available"] is False for item in options)
     assert "private-model" not in str(options)
 
 
-@pytest.mark.parametrize("alias", ["fast", "balanced", "ultimate"])
+@pytest.mark.parametrize("alias", ["1", "3", "9"])
 def test_tier_mapping_cannot_point_to_another_reserved_alias(
     app: object, monkeypatch: pytest.MonkeyPatch, alias: str
 ) -> None:
     """A mapping must end at a concrete model instead of creating an alias loop."""
     monkeypatch.setattr(tiers, "get_config", lambda *_args: alias)
     with app.app_context(), pytest.raises(AppError) as captured:
-        tiers.resolve_tier_model("fast")
+        tiers.resolve_tier_model("1")
     assert captured.value.code == ERROR_CODE["server.llm.modelTierUnavailable"]

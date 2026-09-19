@@ -3,7 +3,7 @@ import { Loader2, Minus, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import ModelTierList from '@/components/model-list/ModelTierList';
-import type { ModelTier } from '@/types/shifu';
+import type { ModelIndex } from '@/types/shifu';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -41,10 +41,12 @@ type AskSettingsSectionProps = {
   askProviderOptions: AskProviderOption[];
   resolvedAskProvider: string;
   askProviderLlmValue: string;
-  askTier?: ModelTier | null;
+  askModelIndex?: ModelIndex | null;
+  modelFallback?: boolean;
+  modelDisplayName?: string;
   canRestoreText?: boolean;
   checkingTextMode?: boolean;
-  onAskTierChange?: (tier: ModelTier) => void;
+  onAskModelIndexChange?: (tier: ModelIndex) => void;
   liveAvailable?: boolean;
   onFollowUpModeChange?: (mode: 'text' | 'live_voice') => void;
   askModel: string;
@@ -81,10 +83,12 @@ export default function AskSettingsSection({
   askProviderOptions,
   resolvedAskProvider,
   askProviderLlmValue,
-  askTier,
+  askModelIndex,
+  modelFallback,
+  modelDisplayName,
   canRestoreText = false,
   checkingTextMode = false,
-  onAskTierChange,
+  onAskModelIndexChange,
   liveAvailable,
   onFollowUpModeChange,
   isLiveVoiceFollowUp,
@@ -181,8 +185,10 @@ export default function AskSettingsSection({
             </Select>
             {!isLiveVoiceFollowUp && (
               <ModelTierList
-                value={askTier ?? null}
-                onChange={tier => onAskTierChange?.(tier)}
+                value={askModelIndex ?? null}
+                fallback={modelFallback}
+                displayName={modelDisplayName}
+                onChange={tier => onAskModelIndexChange?.(tier)}
                 disabled={textConfigurationReadonly}
               />
             )}

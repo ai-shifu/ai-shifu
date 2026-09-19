@@ -20,8 +20,10 @@ describe('buildShifuSettingSaveAnalytics', () => {
       use_learner_language: false,
       follow_up_mode: 'live_voice',
       price_tier: 'free',
-      main_model_tier: 'legacy',
-      follow_up_model_tier: 'not_applicable',
+      main_model_index: '1',
+      main_model_fallback: false,
+      follow_up_model_fallback: false,
+      follow_up_model_index: 'not_applicable',
     });
     expect(payload).not.toHaveProperty('name');
     expect(payload).not.toHaveProperty('description');
@@ -37,8 +39,10 @@ describe('buildShifuSettingSaveAnalytics', () => {
       [
         'default_listen_mode_enabled',
         'follow_up_mode',
-        'main_model_tier',
-        'follow_up_model_tier',
+        'main_model_index',
+        'main_model_fallback',
+        'follow_up_model_fallback',
+        'follow_up_model_index',
         'price_tier',
         'save_type',
         'shifu_bid',
@@ -67,8 +71,10 @@ describe('buildShifuSettingSaveAnalytics', () => {
       use_learner_language: true,
       follow_up_mode: 'text',
       price_tier: 'micro_paid',
-      main_model_tier: 'legacy',
-      follow_up_model_tier: 'legacy',
+      main_model_index: '1',
+      main_model_fallback: false,
+      follow_up_model_fallback: false,
+      follow_up_model_index: '1',
     });
   });
 

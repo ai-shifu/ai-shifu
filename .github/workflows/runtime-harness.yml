@@ -90,7 +90,8 @@ jobs:
           SQLALCHEMY_DATABASE_URI=mysql://root:${mysql_password}@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
           SECRET_KEY=${secret_key}
           OPENAI_API_KEY=ci-runtime-harness-placeholder
-          LLM_TIER_FAST_MODEL=gpt-test
+          LLM_MODEL_1_NAME=Test model
+          LLM_MODEL_1_ID=gpt-test
           UNIVERSAL_VERIFICATION_CODE=1024
           ENV=development
           FLASK_APP=app.py

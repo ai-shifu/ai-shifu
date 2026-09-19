@@ -16,15 +16,28 @@ jest.mock('@/api', () => ({
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key.split('.').at(-1) }),
 }));
+const options = [
+  {
+    index: '7',
+    display_name: 'Research',
+    available: false,
+    credit_multiplier_label: '3x',
+  },
+  {
+    index: '1',
+    display_name: 'Everyday',
+    available: true,
+    credit_multiplier_label: '1x',
+  },
+  {
+    index: '3',
+    display_name: 'Deep thinking',
+    available: true,
+    credit_multiplier_label: '2x',
+  },
+].map(option => ({ ...option, model: 'hidden-physical-model' }));
 
-const options = ['fast', 'balanced', 'ultimate'].map((tier, index) => ({
-  tier,
-  available: index !== 2,
-  credit_multiplier_label: `${index + 1}x`,
-  model: 'hidden-physical-model',
-}));
-
-describe('ModelTierList', () => {
+describe('ModelTierList numbered choices', () => {
   beforeAll(() => {
     Element.prototype.scrollIntoView = jest.fn();
   });
@@ -32,42 +45,71 @@ describe('ModelTierList', () => {
     mockOptions.mockReset();
     mockOptions.mockResolvedValue(options);
   });
-
-  it('shows exactly three tiers with rates and unavailable state, hiding model names', async () => {
+  it('sorts sparse configured indexes, uses configured names and hides physical IDs', async () => {
     const onChange = jest.fn();
     render(
       <ModelTierList
-        value={null}
+        value='1'
         onChange={onChange}
       />,
     );
-    expect(screen.getByRole('combobox')).toHaveTextContent('legacy');
-    await act(async () => {});
+    await waitFor(() =>
+      expect(screen.getByRole('combobox')).toHaveTextContent('Everyday'),
+    );
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
     await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(3));
-    expect(screen.getByRole('option', { name: /ultimate/ })).toHaveAttribute(
+    expect(
+      screen
+        .getAllByRole('option')
+        .map(option => option.getAttribute('data-value') || option.textContent),
+    ).toEqual(['Everyday1x', 'Deep thinking2x', 'Research3xunavailable']);
+    expect(screen.getByRole('option', { name: /Research/ })).toHaveAttribute(
       'data-disabled',
     );
-    expect(screen.getByRole('option', { name: /balanced/ })).toHaveTextContent(
-      '2x',
-    );
     expect(screen.queryByText(/hidden-physical-model/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('option', { name: /balanced/ }));
-    expect(onChange).toHaveBeenCalledWith('balanced');
+    fireEvent.click(screen.getByRole('option', { name: /Deep thinking/ }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('3');
     expect(mockOptions).toHaveBeenCalledTimes(2);
   });
-
-  it('keeps a saved tier visible when the catalog fails and respects read-only', async () => {
+  it.each(['click', 'keyboard'])(
+    'reports explicit %s selection of the effective default once',
+    async method => {
+      const onChange = jest.fn();
+      render(
+        <ModelTierList
+          value='1'
+          onChange={onChange}
+          fallback
+        />,
+      );
+      await waitFor(() =>
+        expect(screen.getByRole('combobox')).toHaveTextContent('Everyday'),
+      );
+      expect(screen.getByRole('status')).toHaveTextContent('fallback');
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+      const option = await screen.findByRole('option', { name: /Everyday/ });
+      if (method === 'keyboard') fireEvent.keyDown(option, { key: 'Enter' });
+      else {
+        fireEvent.pointerUp(option);
+        fireEvent.click(option);
+      }
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith('1');
+    },
+  );
+  it('keeps the saved display label when the catalog fails and respects read-only', async () => {
     mockOptions.mockRejectedValue(new Error('offline'));
     render(
       <ModelTierList
-        value='fast'
+        value='1'
+        displayName='Everyday'
         onChange={jest.fn()}
         disabled
       />,
     );
     await act(async () => {});
-    expect(screen.getByRole('combobox')).toHaveTextContent('fast');
+    expect(screen.getByRole('combobox')).toHaveTextContent('Everyday');
     expect(screen.getByRole('combobox')).toBeDisabled();
   });
 });

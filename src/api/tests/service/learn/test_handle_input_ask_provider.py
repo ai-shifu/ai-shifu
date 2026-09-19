@@ -1051,7 +1051,10 @@ def _run_tiered_ask(app: object, module: object) -> list:
 def _use_follow_up_tier(monkeypatch: object, module: object, config: dict) -> None:
     info = _DummyFollowUpInfo(config)
     info.ask_model = "fast"
-    info.usage_metadata = {"model_tier": "fast", "model_selection_record_id": 42}
+    info.usage_metadata = {
+        "model_selection_scope": "course",
+        "model_selection_record_id": 42,
+    }
     monkeypatch.setattr(module, "get_follow_up_info_v2", lambda *_args: info)
 
 
@@ -1094,7 +1097,10 @@ def test_external_answers_only_require_a_tier_for_actual_fallback(
         if provider_fails and mode == "provider_then_llm":
             with pytest.raises(AppError) as captured:
                 _run_tiered_ask(app, module)
-            assert captured.value.code == ERROR_CODE["server.llm.modelTierUnavailable"]
+            assert (
+                captured.value.code
+                == ERROR_CODE["server.llm.modelSelectionNotConfigured"]
+            )
             assert provider_calls == [provider, "llm"]
         else:
             events = _run_tiered_ask(app, module)
@@ -1153,13 +1159,16 @@ def test_actual_llm_routes_snapshot_tier_model_and_metadata(
     monkeypatch.setattr(module, "stream_ask_provider_response", stream)
     with app.app_context():
         assert _collect_content_chunks(_run_tiered_ask(app, module)) == ["tier-answer"]
-    resolve.assert_called_once_with("fast")
+    resolve.assert_called_once_with("1")
     assert llm_calls[0]["model"] == "mapped-fast"
     assert llm_calls[0]["usage_metadata"] == {
-        "model_tier": "fast",
+        "model_selection_scope": "course",
+        "model_selection_original": "fast",
         "model_selection_record_id": 42,
+        "model_index": "1",
+        "model_selection_fallback": True,
+        "model_selection_fallback_reason": "invalid_selection",
         "resolved_model": "mapped-fast",
-        "model_selection_origin": "tier",
     }
 
 
@@ -1207,7 +1216,10 @@ def test_guardrail_only_resolves_a_tier_when_it_needs_an_llm_response(
         if reject:
             with pytest.raises(AppError) as captured:
                 _run_tiered_ask(app, module)
-            assert captured.value.code == ERROR_CODE["server.llm.modelTierUnavailable"]
+            assert (
+                captured.value.code
+                == ERROR_CODE["server.llm.modelSelectionNotConfigured"]
+            )
             provider.assert_not_called()
         else:
             assert _collect_content_chunks(_run_tiered_ask(app, module)) == [

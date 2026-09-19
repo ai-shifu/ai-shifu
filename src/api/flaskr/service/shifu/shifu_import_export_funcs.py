@@ -5,7 +5,6 @@ from decimal import Decimal
 from pathlib import Path
 
 from flask import Flask
-from flaskr.api.llm.tiers import normalize_course_model
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -31,6 +30,16 @@ from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc, to_utc_iso
 from markdown_flow import MarkdownFlow
 from werkzeug.datastructures import FileStorage
+
+
+def _import_model_selection(shifu_data: dict, field: str) -> str:
+    """Preserve imported strings while defaulting absent or null choices."""
+    value = shifu_data.get(field)
+    if value is None:
+        return "1"
+    if not isinstance(value, str):
+        raise_error("server.shifu.importFileInvalid")
+    return value
 
 
 def _extract_import_ask_provider_config(
@@ -201,6 +210,8 @@ def import_shifu(
         if any(not isinstance(item, dict) for item in outline_items_data):
             raise_error("server.shifu.importFileInvalid")
         structure_data = import_data.get("structure")
+        _import_model_selection(shifu_data, "llm")
+        _import_model_selection(shifu_data, "ask_llm")
         ask_provider_config = _extract_import_ask_provider_config(shifu_data)
 
         now_time = now_utc()
@@ -217,7 +228,7 @@ def import_shifu(
                 new_shifu.keywords = shifu_data.get("keywords", "")
                 new_shifu.description = shifu_data.get("description", "")
                 new_shifu.avatar_res_bid = shifu_data.get("avatar_res_bid", "")
-                new_shifu.llm = normalize_course_model(shifu_data.get("llm"))
+                new_shifu.llm = _import_model_selection(shifu_data, "llm")
                 new_shifu.llm_temperature = Decimal(
                     str(shifu_data.get("llm_temperature", 0))
                 )
@@ -230,9 +241,7 @@ def import_shifu(
                 new_shifu.flow_engine = shifu_data.get(
                     "flow_engine", FLOW_ENGINE_DEFAULT
                 )
-                new_shifu.ask_llm = normalize_course_model(
-                    shifu_data.get("ask_llm"), "ask_llm"
-                )
+                new_shifu.ask_llm = _import_model_selection(shifu_data, "ask_llm")
                 new_shifu.ask_llm_temperature = Decimal(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
                 )
@@ -267,14 +276,12 @@ def import_shifu(
                     keywords=shifu_data.get("keywords", ""),
                     description=shifu_data.get("description", ""),
                     avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
-                    llm=normalize_course_model(shifu_data.get("llm")),
+                    llm=_import_model_selection(shifu_data, "llm"),
                     llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                     llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
                     ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
                     flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
-                    ask_llm=normalize_course_model(
-                        shifu_data.get("ask_llm"), "ask_llm"
-                    ),
+                    ask_llm=_import_model_selection(shifu_data, "ask_llm"),
                     ask_llm_temperature=Decimal(
                         str(shifu_data.get("ask_llm_temperature", 0.0))
                     ),
@@ -306,12 +313,12 @@ def import_shifu(
                 keywords=shifu_data.get("keywords", ""),
                 description=shifu_data.get("description", ""),
                 avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
-                llm=normalize_course_model(shifu_data.get("llm")),
+                llm=_import_model_selection(shifu_data, "llm"),
                 llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                 llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
                 ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
                 flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
-                ask_llm=normalize_course_model(shifu_data.get("ask_llm"), "ask_llm"),
+                ask_llm=_import_model_selection(shifu_data, "ask_llm"),
                 ask_llm_temperature=Decimal(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
                 ),

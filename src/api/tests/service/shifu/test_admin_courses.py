@@ -73,8 +73,17 @@ class DummyCourse:
         self.updated_at = updated_at
 
 
-def test_list_operator_courses_prefers_latest_draft_and_formats_contacts() -> None:
+def test_list_operator_courses_prefers_latest_draft_and_formats_contacts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.api.llm import tiers
+
+    config = {"LLM_MODEL_1_NAME": "Default", "LLM_MODEL_1_ID": "default-model"}
+    monkeypatch.setattr(
+        tiers, "get_config", lambda key, default=None: config.get(key, default)
+    )
     app = Flask(__name__)
+    app.config.update(LLM_MODEL_1_NAME="Default", LLM_MODEL_1_ID="default-model")
     updated_start_time = datetime(2025, 4, 2, 0, 0, 0)
     updated_end_time = datetime(2025, 4, 3, 23, 59, 59)
     draft_course = DummyCourse(
@@ -145,7 +154,7 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts() -> No
     assert item.course_name == "Draft Course"
     assert item.course_status == "published"
     assert item.price == "199"
-    assert item.llm_model == "gpt-4.1-mini"
+    assert item.llm_model == "default-model"
     assert item.tts_model == ""
     assert item.has_course_prompt is True
     assert item.creator_mobile == "15811112222"
@@ -1273,9 +1282,9 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(
     historical_fallback = by_bid[published_history_fallback_bid]
 
     assert published_with_blank_draft.course_name == "Draft Overrides Title"
-    assert published_with_blank_draft.llm_model == "gpt-4.1"
+    assert published_with_blank_draft.llm_model == "gpt-test"
     assert published_with_blank_draft.tts_model == "speech-01-turbo"
-    assert historical_fallback.llm_model == "gpt-4.1-mini"
+    assert historical_fallback.llm_model == "gpt-test"
     assert historical_fallback.tts_model == "speech-01"
 
 
@@ -1829,21 +1838,19 @@ def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(
 
 @pytest.mark.parametrize("source", ["draft", "published", "draft_over_published"])
 @pytest.mark.parametrize("configured_model", ["mapped-fast-model", ""])
-def test_operator_course_lists_display_current_tier_mapping(
+def test_operator_course_lists_display_current_number_mapping(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     source: str,
     configured_model: str,
 ) -> None:
     """SQL and lightweight projections must preserve the selected revision's tier."""
+    from flaskr.api.llm import tiers
     from flaskr.service.shifu import admin_course_summaries, admin_course_summary_mapper
 
+    mapping = {"LLM_MODEL_1_NAME": "Default", "LLM_MODEL_1_ID": configured_model}
     monkeypatch.setattr(
-        admin_course_summary_mapper,
-        "get_config",
-        lambda key, default="": (
-            configured_model if key == "LLM_TIER_FAST_MODEL" else default
-        ),
+        tiers, "get_config", lambda key, default="": mapping.get(key, default)
     )
     bid = uuid.uuid4().hex
     with app.app_context():
@@ -1875,3 +1882,33 @@ def test_operator_course_lists_display_current_tier_mapping(
             rows[0], user_map={}, course_status="published"
         )
         assert summary.llm_model == configured_model
+
+
+def test_operator_listing_does_not_inherit_or_write_historical_number(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.api.llm import tiers
+
+    config = {
+        "LLM_MODEL_1_NAME": "Default",
+        "LLM_MODEL_1_ID": "default-model",
+        "LLM_MODEL_3_NAME": "Third",
+        "LLM_MODEL_3_ID": "third-model",
+    }
+    monkeypatch.setattr(
+        tiers, "get_config", lambda key, default=None: config.get(key, default)
+    )
+    bid = uuid.uuid4().hex
+    with app.app_context():
+        db.session.add(DraftShifu(shifu_bid=bid, title="Old", llm="3"))
+        db.session.flush()
+        current = DraftShifu(shifu_bid=bid, title="Current", llm="", tts_model="voice")
+        db.session.add(current)
+        db.session.commit()
+        original_updated = current.updated_at
+        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+            result = list_operator_courses(app, 1, 20, {"shifu_bid": bid})
+        assert result.items[0].llm_model == "default-model"
+        assert current.llm == ""
+        assert current.updated_at == original_updated
+        assert current not in db.session.dirty

@@ -9,6 +9,7 @@ import base64
 import gzip
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -23,6 +24,36 @@ if str(SCRIPTS) not in sys.path:
 
 from markdownflow_arena_lib import engine, pipeline, source, worker  # noqa: E402
 from markdownflow_arena_lib.state import REQUESTED_MODELS, ArenaError  # noqa: E402
+
+
+def test_worker_model_overrides_replace_inherited_numbered_slots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A comparison exposes only its own physical routes and display names."""
+    for index in range(1, 10):
+        monkeypatch.setenv(f"LLM_MODEL_{index}_NAME", "Inherited")
+        monkeypatch.setenv(f"LLM_MODEL_{index}_ID", "inherited-model")
+    worker._configure_model_slots(["route-a", "route-b"], ["Model A", "Model B"])
+    assert os.environ["LLM_MODEL_1_NAME"] == "Model A"
+    assert os.environ["LLM_MODEL_1_ID"] == "route-a"
+    assert os.environ["LLM_MODEL_2_NAME"] == "Model B"
+    assert os.environ["LLM_MODEL_2_ID"] == "route-b"
+    for index in range(3, 10):
+        assert f"LLM_MODEL_{index}_NAME" not in os.environ
+        assert f"LLM_MODEL_{index}_ID" not in os.environ
+
+
+@pytest.mark.parametrize(
+    ("routes", "names"), [([], []), (["a"], []), (["a"] * 10, ["A"] * 10)]
+)
+def test_worker_rejects_invalid_slot_overrides_before_mutating_environment(
+    routes: list[str], names: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bad comparison configuration must not partially clear inherited routes."""
+    monkeypatch.setenv("LLM_MODEL_1_ID", "original")
+    with pytest.raises(ArenaError, match="one to nine"):
+        worker._configure_model_slots(routes, names)
+    assert os.environ["LLM_MODEL_1_ID"] == "original"
 
 
 @pytest.mark.parametrize("operation", ["generate", "revalidate"])

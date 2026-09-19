@@ -86,7 +86,7 @@ import { useToast } from '@/hooks/useToast';
 
 import ModelList from '@/components/model-list';
 import ModelTierList from '@/components/model-list/ModelTierList';
-import type { ModelTier } from '@/types/shifu';
+import type { ModelIndex } from '@/types/shifu';
 import { useEnvStore } from '@/store';
 import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
@@ -136,16 +136,18 @@ import {
   type FollowUpModelCatalogItem,
 } from '@/lib/liveVoiceFollowUp';
 
-const asModelTier = (model: string | null | undefined): ModelTier | null =>
-  model === 'fast' || model === 'balanced' || model === 'ultimate'
-    ? model
-    : null;
+const asModelIndex = (model: string | null | undefined): ModelIndex | null =>
+  model && /^[1-9]$/.test(model) ? (model as ModelIndex) : null;
 
 interface Shifu {
   description: string;
   bid: string;
   keywords: string[];
   model: string;
+  model_fallback?: boolean;
+  model_display_name?: string;
+  ask_model_fallback?: boolean;
+  ask_model_display_name?: string;
   name: string;
   preview_url: string;
   price: number;
@@ -263,11 +265,30 @@ export default function ShifuSettingDialog({
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   // Ask configuration state
   const [askModel, setAskModel] = useState('');
-  const [askTier, setAskTier] = useState<ModelTier | null>(null);
-  const textTierDraftRef = useRef<ModelTier | null>('fast');
+  const [askModelIndex, setAskModelIndex] = useState<ModelIndex | null>(null);
+  const textModelIndexDraftRef = useRef<ModelIndex | null>('1');
   const followUpModeRequestRef = useRef(0);
   const [checkingTextMode, setCheckingTextMode] = useState(false);
   const legacyTextModelRef = useRef('');
+  const modelEditVersionRef = useRef({ main: 0, followUp: 0 });
+  const modelSelectionRef = useRef({ main: '1', followUp: '1' });
+  const savedModelEditVersionRef = useRef({ main: 0, followUp: 0 });
+  const settingsSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const [modelSelectionRevision, setModelSelectionRevision] = useState(0);
+  const [mainModelFallback, setMainModelFallback] = useState(false);
+  const [followUpModelFallback, setFollowUpModelFallback] = useState(false);
+  const [mainModelDisplayName, setMainModelDisplayName] = useState('');
+  const [followUpModelDisplayName, setFollowUpModelDisplayName] = useState('');
+  const markModelEdited = useCallback(
+    (field: 'main' | 'followUp', value: string) => {
+      modelSelectionRef.current[field] = value;
+      modelEditVersionRef.current[field]++;
+      setModelSelectionRevision(previous => previous + 1);
+      if (field === 'main') setMainModelFallback(false);
+      else setFollowUpModelFallback(false);
+    },
+    [],
+  );
   const [followUpModels, setFollowUpModels] = useState<
     FollowUpModelCatalogItem[]
   >([]);
@@ -851,7 +872,7 @@ export default function ShifuSettingDialog({
     !selectedFollowUpModel,
   );
   const isLiveVoiceFollowUp =
-    !askTier &&
+    !askModelIndex &&
     (selectedFollowUpModel?.interaction_mode === 'live_voice' ||
       (isUncataloguedExistingAskModel &&
         preservedAskConfiguration?.interactionMode === 'live_voice'));
@@ -920,19 +941,22 @@ export default function ShifuSettingDialog({
       setAskModel(value);
       const selectedModel = followUpModels.find(item => item.model === value);
       const isLive = selectedModel?.interaction_mode === 'live_voice';
+      markModelEdited('followUp', isLive ? value : asModelIndex(value) || '1');
       if (isLive) {
-        setAskTier(null);
+        setAskModelIndex(null);
         const allowedVoiceIds = new Set(
           (selectedModel?.voices || []).map(voice => voice.voice_id),
         );
         setLiveVoiceDraft(previous =>
           allowedVoiceIds.has(previous) ? previous : DEFAULT_LIVE_VOICE,
         );
+      } else {
+        setAskModelIndex(asModelIndex(value) || '1');
       }
       setAskPreviewResult('');
       setAskPreviewMeta(null);
     },
-    [followUpModels],
+    [followUpModels, markModelEdited],
   );
 
   const handleFollowUpModeChange = useCallback(
@@ -947,17 +971,20 @@ export default function ShifuSettingDialog({
         return;
       }
       const model = legacyTextModelRef.current;
-      const tier = textTierDraftRef.current || (model ? null : 'fast');
+      let tier = textModelIndexDraftRef.current || '1';
       if (tier) {
         setCheckingTextMode(true);
         let available = false;
         try {
           const options = await api.getModelTierList({});
-          available =
-            Array.isArray(options) &&
-            options.some(
-              option => option.tier === tier && option.available === true,
+          if (Array.isArray(options)) {
+            const option = options.find(option => option.index === tier);
+            // A removed slot follows the same fallback as saved course values.
+            if (!option) tier = '1';
+            available = options.some(
+              option => option.index === tier && option.available === true,
             );
+          }
         } catch {
           // Keep the saved mode when availability cannot be confirmed.
         }
@@ -972,11 +999,19 @@ export default function ShifuSettingDialog({
         }
       }
       setAskModel(model);
-      setAskTier(tier);
+      setAskModelIndex(tier);
+      markModelEdited('followUp', tier);
       setAskPreviewResult('');
       setAskPreviewMeta(null);
     },
-    [currentShifu?.readonly, followUpModels, handleAskModelChange, t, toast],
+    [
+      currentShifu?.readonly,
+      followUpModels,
+      handleAskModelChange,
+      markModelEdited,
+      t,
+      toast,
+    ],
   );
 
   const applyMinimaxManualVoiceId = useCallback(() => {
@@ -1286,7 +1321,19 @@ export default function ShifuSettingDialog({
       needClose = true,
       saveType: 'auto' | 'manual' = 'manual',
     ) => {
+      const modelEditSnapshot = { ...modelEditVersionRef.current };
+      const modelSelectionSnapshot = { ...modelSelectionRef.current };
+      const settingsRequestSnapshot = settingsRequestSeqRef.current;
+      const previousSave = settingsSaveQueueRef.current;
+      let releaseSave!: () => void;
+      settingsSaveQueueRef.current = new Promise<void>(resolve => {
+        releaseSave = resolve;
+      });
       try {
+        // Preserve invocation order at the server as well as in local state.
+        // A slower earlier save must never overwrite a newer selection.
+        await previousSave;
+        if (settingsRequestSeqRef.current !== settingsRequestSnapshot) return;
         const providerForSubmit =
           resolvedProvider ||
           getDefaultTtsModelOption(ttsConfig?.model_options || [])?.provider ||
@@ -1301,11 +1348,17 @@ export default function ShifuSettingDialog({
           Number(askTemperatureInput || askTemperature || 0),
         );
         const shouldPreserveExistingAskConfiguration = Boolean(
-          isUncataloguedExistingAskModel &&
           preservedAskConfiguration &&
-          // Tier aliases are absent from the physical model catalog, but
-          // explicit provider edits must still be validated and saved.
-          !(askTier && askProviderEditedRef.current),
+          !askProviderEditedRef.current &&
+          // Missing model/provider metadata must not discard a saved provider
+          // configuration when the teacher only changes unrelated settings.
+          (isUncataloguedExistingAskModel ||
+            (!isLiveVoiceFollowUp &&
+              !askConfigMeta?.providers?.some(
+                provider =>
+                  provider.provider ===
+                  preservedAskConfiguration.providerConfig.provider,
+              ))),
         );
         const askConfigForSubmit = shouldPreserveExistingAskConfiguration
           ? preservedAskConfiguration!.providerConfig.config
@@ -1323,18 +1376,27 @@ export default function ShifuSettingDialog({
           return;
         }
 
+        const includeMainModel =
+          modelEditSnapshot.main > savedModelEditVersionRef.current.main;
+        const includeFollowUpModel =
+          modelEditSnapshot.followUp >
+          savedModelEditVersionRef.current.followUp;
         const payload = {
           description: data.description,
           shifu_bid: shifuId,
           keywords: keywords,
-          model: data.model,
+          ...(includeMainModel
+            ? { model: asModelIndex(modelSelectionSnapshot.main) || '1' }
+            : {}),
           name: data.name,
           price: Number(data.price),
           avatar: uploadedImageUrl,
           temperature: Number(data.temperature),
           system_prompt: data.systemPrompt,
           ask_enabled_status: ASK_MODE_ENABLE,
-          ask_model: askTier || askModel,
+          ...(includeFollowUpModel
+            ? { ask_model: modelSelectionSnapshot.followUp }
+            : {}),
           ask_temperature: askTemperatureForSubmit,
           ask_system_prompt: '',
           ask_provider_config: {
@@ -1360,9 +1422,51 @@ export default function ShifuSettingDialog({
           // Language Output Configuration
           use_learner_language: useLearnerLanguage,
         };
-        await api.saveShifuDetail({
-          ...payload,
-        });
+        const savedDetail = await api.saveShifuDetail({ ...payload });
+        const effectiveMainIndex =
+          asModelIndex(savedDetail?.model) || asModelIndex(data.model) || '1';
+        const effectiveFollowUpIndex =
+          asModelIndex(savedDetail?.ask_model) ||
+          asModelIndex(modelSelectionSnapshot.followUp);
+        const effectiveMainFallback =
+          savedDetail?.model_fallback ??
+          (includeMainModel ? false : mainModelFallback);
+        const effectiveFollowUpFallback =
+          savedDetail?.ask_model_fallback ??
+          (includeFollowUpModel ? false : followUpModelFallback);
+        if (settingsRequestSeqRef.current === settingsRequestSnapshot) {
+          if (includeMainModel)
+            savedModelEditVersionRef.current.main = Math.max(
+              savedModelEditVersionRef.current.main,
+              modelEditSnapshot.main,
+            );
+          if (includeFollowUpModel)
+            savedModelEditVersionRef.current.followUp = Math.max(
+              savedModelEditVersionRef.current.followUp,
+              modelEditSnapshot.followUp,
+            );
+          // Do not overwrite selections made while this save was in flight.
+          if (modelEditVersionRef.current.main === modelEditSnapshot.main) {
+            modelSelectionRef.current.main = effectiveMainIndex;
+            form.setValue('model', effectiveMainIndex);
+            setMainModelFallback(effectiveMainFallback);
+            if (savedDetail?.model_display_name)
+              setMainModelDisplayName(savedDetail.model_display_name);
+          }
+          if (
+            modelEditVersionRef.current.followUp === modelEditSnapshot.followUp
+          ) {
+            if (!isLiveVoiceFollowUp) {
+              modelSelectionRef.current.followUp =
+                effectiveFollowUpIndex || '1';
+              textModelIndexDraftRef.current = effectiveFollowUpIndex || '1';
+              setAskModelIndex(effectiveFollowUpIndex || '1');
+            }
+            setFollowUpModelFallback(effectiveFollowUpFallback);
+            if (savedDetail?.ask_model_display_name)
+              setFollowUpModelDisplayName(savedDetail.ask_model_display_name);
+          }
+        }
         try {
           void Promise.resolve(
             trackEvent(
@@ -1375,8 +1479,10 @@ export default function ShifuSettingDialog({
                 useLearnerLanguage,
                 followUpMode: isLiveVoiceFollowUp ? 'live_voice' : 'text',
                 price: Number(data.price),
-                mainModelTier: asModelTier(data.model),
-                followUpModelTier: askTier,
+                mainModelIndex: effectiveMainIndex,
+                followUpModelIndex: effectiveFollowUpIndex,
+                mainModelFallback: effectiveMainFallback,
+                followUpModelFallback: effectiveFollowUpFallback,
               }),
             ),
           ).catch(() => {});
@@ -1386,7 +1492,12 @@ export default function ShifuSettingDialog({
         if (onSave) {
           onSave();
         }
-        if (needClose) {
+        if (
+          needClose &&
+          settingsRequestSeqRef.current === settingsRequestSnapshot &&
+          modelEditVersionRef.current.main === modelEditSnapshot.main &&
+          modelEditVersionRef.current.followUp === modelEditSnapshot.followUp
+        ) {
           updateOpen(false);
         }
       } catch (error) {
@@ -1399,6 +1510,8 @@ export default function ShifuSettingDialog({
         if (currentShifu?.readonly) {
           updateOpen(false);
         }
+      } finally {
+        releaseSave();
       }
     },
     [
@@ -1420,8 +1533,9 @@ export default function ShifuSettingDialog({
       isUncataloguedExistingAskModel,
       preservedAskConfiguration,
       askConfigMeta,
-      askModel,
-      askTier,
+      mainModelFallback,
+      followUpModelFallback,
+      form,
       askTemperature,
       askTemperatureInput,
       buildAskProviderConfigForSubmit,
@@ -1433,6 +1547,9 @@ export default function ShifuSettingDialog({
     ],
   );
 
+  const latestOnSubmitRef = useRef(onSubmit);
+  latestOnSubmitRef.current = onSubmit;
+
   const init = async () => {
     const requestSeq = settingsRequestSeqRef.current + 1;
     settingsRequestSeqRef.current = requestSeq;
@@ -1441,6 +1558,8 @@ export default function ShifuSettingDialog({
     ttsProviderToastShownRef.current = false;
     initialAskConfigurationRef.current = null;
     askProviderEditedRef.current = false;
+    modelEditVersionRef.current = { main: 0, followUp: 0 };
+    savedModelEditVersionRef.current = { main: 0, followUp: 0 };
     setSettingsLoading(true);
     try {
       const result = normalizeShifuDetail(
@@ -1458,7 +1577,7 @@ export default function ShifuSettingDialog({
           name: result.name,
           description: result.description,
           price: (result.price ?? 0).toFixed(2),
-          model: result.model || '',
+          model: asModelIndex(result.model) || '1',
           temperature: result.temperature + '',
           systemPrompt: result.system_prompt || '',
         });
@@ -1501,12 +1620,27 @@ export default function ShifuSettingDialog({
             config: { ...rawAskProviderInnerConfig },
           },
         };
+        setMainModelFallback(result.model_fallback === true);
+        setFollowUpModelFallback(result.ask_model_fallback === true);
+        setMainModelDisplayName(result.model_display_name || '');
+        setFollowUpModelDisplayName(result.ask_model_display_name || '');
+        modelSelectionRef.current = {
+          main: asModelIndex(result.model) || '1',
+          followUp:
+            initialAskConfigurationRef.current.interactionMode === 'live_voice'
+              ? result.ask_model || ''
+              : asModelIndex(result.ask_model) || '1',
+        };
         setAskModel(result.ask_model || '');
-        setAskTier(asModelTier(result.ask_model));
-        textTierDraftRef.current =
+        setAskModelIndex(
           initialAskConfigurationRef.current.interactionMode === 'live_voice'
-            ? 'fast'
-            : asModelTier(result.ask_model);
+            ? null
+            : asModelIndex(result.ask_model) || '1',
+        );
+        textModelIndexDraftRef.current =
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
+            ? '1'
+            : asModelIndex(result.ask_model) || '1';
         legacyTextModelRef.current =
           initialAskConfigurationRef.current.interactionMode === 'live_voice'
             ? ''
@@ -1836,14 +1970,13 @@ export default function ShifuSettingDialog({
         }
         return false;
       }
-      await onSubmit(form.getValues(), needClose, saveType);
+      await latestOnSubmitRef.current(form.getValues(), needClose, saveType);
       return true;
     },
     [
       currentShifu?.readonly,
       form,
       minimumPaidCoursePrice,
-      onSubmit,
       settingsLoading,
       t,
       updateOpen,
@@ -1854,14 +1987,20 @@ export default function ShifuSettingDialog({
     if (!open) {
       return;
     }
-    if (!isDirty) {
+    if (
+      !isDirty &&
+      modelEditVersionRef.current.main ===
+        savedModelEditVersionRef.current.main &&
+      modelEditVersionRef.current.followUp ===
+        savedModelEditVersionRef.current.followUp
+    ) {
       return;
     }
     const timer = setTimeout(() => {
       submitForm(false, 'auto');
     }, 3000);
     return () => clearTimeout(timer);
-  }, [open, submitForm, isDirty]);
+  }, [open, submitForm, isDirty, modelSelectionRevision, onSubmit]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -1959,7 +2098,10 @@ export default function ShifuSettingDialog({
         {
           shifu_bid: shifuId,
           query,
-          ask_model: askTier || askModel,
+          ...(modelEditVersionRef.current.followUp !==
+          savedModelEditVersionRef.current.followUp
+            ? { ask_model: askModelIndex || askModel }
+            : {}),
           ask_temperature: askTemperatureForSubmit,
           ask_system_prompt: '',
           ask_provider_config: {
@@ -2006,7 +2148,7 @@ export default function ShifuSettingDialog({
   }, [
     askConfigMeta?.default?.provider,
     askModel,
-    askTier,
+    askModelIndex,
     askPreviewLoading,
     askPreviewQuery,
     askTemperature,
@@ -2059,7 +2201,7 @@ export default function ShifuSettingDialog({
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(data =>
-                onSubmit(data, true, 'manual'),
+                latestOnSubmitRef.current(data, true, 'manual'),
               )}
               className='flex-1 flex flex-col overflow-hidden'
             >
@@ -2206,8 +2348,13 @@ export default function ShifuSettingDialog({
                       <FormControl>
                         <ModelTierList
                           disabled={currentShifu?.readonly}
-                          value={asModelTier(field.value)}
-                          onChange={field.onChange}
+                          value={asModelIndex(field.value)}
+                          displayName={mainModelDisplayName}
+                          fallback={mainModelFallback}
+                          onChange={index => {
+                            markModelEdited('main', index);
+                            field.onChange(index);
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2328,17 +2475,20 @@ export default function ShifuSettingDialog({
                     askModel={askModel}
                     onAskModelChange={handleAskModelChange}
                     askModelOptions={followUpModelOptions}
-                    askTier={askTier}
+                    askModelIndex={askModelIndex}
+                    modelFallback={followUpModelFallback}
+                    modelDisplayName={followUpModelDisplayName}
                     canRestoreText={
                       initialAskConfigurationRef.current?.interactionMode ===
                       'text'
                     }
                     checkingTextMode={checkingTextMode}
-                    onAskTierChange={tier => {
+                    onAskModelIndexChange={tier => {
                       followUpModeRequestRef.current++;
                       setCheckingTextMode(false);
-                      setAskTier(tier);
-                      textTierDraftRef.current = tier;
+                      setAskModelIndex(tier);
+                      markModelEdited('followUp', tier);
+                      textModelIndexDraftRef.current = tier;
                       setAskPreviewResult('');
                       setAskPreviewMeta(null);
                     }}

@@ -735,21 +735,111 @@ DeepSeek: deepseek-chat
 Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
     ),
-    "LLM_TIER_FAST_MODEL": EnvVar(
-        name="LLM_TIER_FAST_MODEL",
-        description="Routed text model for the fast course tier. Required at startup; no default.",
+    "LLM_MODEL_1_NAME": EnvVar(
+        name="LLM_MODEL_1_NAME",
+        description="Display name for course model 1. Required at startup; no default.",
         group="llm",
         required=True,
     ),
-    "LLM_TIER_BALANCED_MODEL": EnvVar(
-        name="LLM_TIER_BALANCED_MODEL",
-        description="Routed text model for the balanced course tier. Optional; configure before using this tier. No default.",
+    "LLM_MODEL_1_ID": EnvVar(
+        name="LLM_MODEL_1_ID",
+        description="Routed text model ID for course model 1. Required at startup; no default.",
+        group="llm",
+        required=True,
+    ),
+    "LLM_MODEL_2_NAME": EnvVar(
+        name="LLM_MODEL_2_NAME",
+        description="Display name for course model 2. Optional; used only when both NAME and ID are set; no default.",
         group="llm",
         required=False,
     ),
-    "LLM_TIER_ULTIMATE_MODEL": EnvVar(
-        name="LLM_TIER_ULTIMATE_MODEL",
-        description="Routed text model for the ultimate course tier. Optional; configure before using this tier. No default.",
+    "LLM_MODEL_2_ID": EnvVar(
+        name="LLM_MODEL_2_ID",
+        description="Routed text model ID for course model 2. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_3_NAME": EnvVar(
+        name="LLM_MODEL_3_NAME",
+        description="Display name for course model 3. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_3_ID": EnvVar(
+        name="LLM_MODEL_3_ID",
+        description="Routed text model ID for course model 3. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_4_NAME": EnvVar(
+        name="LLM_MODEL_4_NAME",
+        description="Display name for course model 4. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_4_ID": EnvVar(
+        name="LLM_MODEL_4_ID",
+        description="Routed text model ID for course model 4. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_5_NAME": EnvVar(
+        name="LLM_MODEL_5_NAME",
+        description="Display name for course model 5. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_5_ID": EnvVar(
+        name="LLM_MODEL_5_ID",
+        description="Routed text model ID for course model 5. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_6_NAME": EnvVar(
+        name="LLM_MODEL_6_NAME",
+        description="Display name for course model 6. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_6_ID": EnvVar(
+        name="LLM_MODEL_6_ID",
+        description="Routed text model ID for course model 6. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_7_NAME": EnvVar(
+        name="LLM_MODEL_7_NAME",
+        description="Display name for course model 7. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_7_ID": EnvVar(
+        name="LLM_MODEL_7_ID",
+        description="Routed text model ID for course model 7. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_8_NAME": EnvVar(
+        name="LLM_MODEL_8_NAME",
+        description="Display name for course model 8. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_8_ID": EnvVar(
+        name="LLM_MODEL_8_ID",
+        description="Routed text model ID for course model 8. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_9_NAME": EnvVar(
+        name="LLM_MODEL_9_NAME",
+        description="Display name for course model 9. Optional; used only when both NAME and ID are set; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_9_ID": EnvVar(
+        name="LLM_MODEL_9_ID",
+        description="Routed text model ID for course model 9. Optional; used only when both NAME and ID are set; no default.",
         group="llm",
         required=False,
     ),
@@ -762,28 +852,6 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
             "credits consumed per 1000 output tokens. This value is used for "
             "operator rate multiplier display, save conversion, and model-picker "
             "multiplier labels. It must not be derived from DEFAULT_LLM_MODEL."
-        ),
-        group="llm",
-        required=False,
-    ),
-    "LLM_ALLOWED_MODELS": EnvVar(
-        name="LLM_ALLOWED_MODELS",
-        default=[],
-        type=list,
-        description=(
-            "Comma separated list of allowed LLM models to expose in UI. "
-            "When empty, all detected models are shown."
-        ),
-        group="llm",
-        required=False,
-    ),
-    "LLM_ALLOWED_MODEL_DISPLAY_NAMES": EnvVar(
-        name="LLM_ALLOWED_MODEL_DISPLAY_NAMES",
-        default=[],
-        type=list,
-        description=(
-            "Optional display names for allowed LLM models. Must match the "
-            "length and order of LLM_ALLOWED_MODELS. Ignored otherwise."
         ),
         group="llm",
         required=False,
@@ -2247,15 +2315,15 @@ class EnhancedConfig:
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
                 "# These are the bare minimum values that must be set.",
                 "# Start from docker/.env.example.full and configure a provider API key.",
-                "# Set LLM_TIER_FAST_MODEL to a configured text model before startup; no default.",
-                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-model-tiers.\n",
+                "# Set LLM_MODEL_1_NAME and LLM_MODEL_1_ID before startup; no defaults.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
                 "# Copy this file to docker/.env (or .env) and configure a provider API key.",
-                "# Set LLM_TIER_FAST_MODEL to a configured text model before startup; no default.",
-                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-model-tiers.\n",
+                "# Set LLM_MODEL_1_NAME and LLM_MODEL_1_ID before startup; no defaults.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
 
         lines = header_lines
@@ -2271,11 +2339,11 @@ class EnhancedConfig:
                 groups[env_var.group] = []
             groups[env_var.group].append(env_var)
 
-        # Keep course tiers in their user-facing order within the LLM group.
-        tier_order = {
-            "LLM_TIER_FAST_MODEL": "LLM_TIER_1",
-            "LLM_TIER_BALANCED_MODEL": "LLM_TIER_2",
-            "LLM_TIER_ULTIMATE_MODEL": "LLM_TIER_3",
+        # Keep each numbered model's name and binding together in numeric order.
+        model_order = {
+            f"LLM_MODEL_{index}_{suffix}": f"LLM_MODEL_{index}_{position}"
+            for index in range(1, 10)
+            for position, suffix in enumerate(("NAME", "ID"))
         }
 
         # Generate output for each group
@@ -2289,7 +2357,7 @@ class EnhancedConfig:
             lines.append(f"#{'=' * 60}\n")
 
             for env_var in sorted(
-                group_vars, key=lambda x: tier_order.get(x.name, x.name)
+                group_vars, key=lambda x: model_order.get(x.name, x.name)
             ):
                 example_value = (
                     env_var.example if env_var.example is not None else env_var.default
@@ -2304,7 +2372,7 @@ class EnhancedConfig:
                 metadata = []
                 if env_var.required:
                     metadata.append("REQUIRED - must be set")
-                elif env_var.name in tier_order and env_var.default is None:
+                elif env_var.name in model_order and env_var.default is None:
                     metadata.append("Optional - no default")
                 elif env_var.default is None:
                     metadata.append("Optional - handled by libraries")

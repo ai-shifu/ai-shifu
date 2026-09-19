@@ -201,13 +201,10 @@
   "minimaxVoiceGroupCloned": "My cloned voices",
   "minimaxVoiceGroupManual": "Manual voice ID",
   "modelTiers": {
-    "balanced": "Balanced",
-    "fast": "Fast",
-    "hint": "Choose a tier based on speed, quality and credit consumption.",
-    "legacy": "Legacy configuration",
+    "fallback": "The saved model configuration is unavailable. The default model is being used. Select a model and save to update this setting.",
+    "hint": "Choose a model configured by your administrator.",
     "liveVoice": "Live voice",
     "text": "Text follow-up",
-    "ultimate": "Ultimate",
     "unavailable": "Unavailable"
   },
   "number": "Enter a number",

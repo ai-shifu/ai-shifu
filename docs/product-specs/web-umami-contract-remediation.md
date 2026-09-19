@@ -84,7 +84,8 @@ are not backfilled under another name.
 - Metric definition: raw successful saves/creates and accepted actions per day,
   grouped only by the documented enums or stable business IDs. The follow-up
   adoption view groups successful `creator_shifu_setting_save` rows by
-  `follow_up_mode`, `price_tier`, `main_model_tier` and `follow_up_model_tier`. These are usage counts, not exact user
+  `follow_up_mode`, `price_tier`, `main_model_index`, `follow_up_model_index`,
+  `main_model_fallback` and `follow_up_model_fallback`. These are usage counts, not exact user
   funnels.
 - Actor and surface: authenticated teachers in Cook Web authoring surfaces.
 - Population: normal and read-only-aware producer eligibility as implemented by
@@ -98,31 +99,41 @@ are not backfilled under another name.
   2026-09-02 contract revision adds `follow_up_mode` to
   `creator_shifu_setting_save`; historical rows are not backfilled and a
   missing value must be treated as `legacy_unknown`, never inferred as `text`.
-- The 2026-09-17 revision adds `main_model_tier` and `follow_up_model_tier`
-  to the same successful-save event. Both use `fast|balanced|ultimate|legacy`;
-  Live follow-up uses `not_applicable`. Historical missing fields mean unknown,
-  not Fast. Adoption queries must group these stable enums without inferring
-  providers or physical models. Failed saves, validation failures and read-only
-  courses remain excluded; one successful save emits once. Tracking failure
-  never changes the result of saving. Live-to-text availability checks do not
-  emit this event. Rejected or cancelled switches preserve the saved mode; only
-  a subsequent successful settings save reports the accepted mode/tier. Existing
-  consumers and historical interpretation remain unchanged.
-- Tier-backed courses can save explicit follow-up provider and configuration
-  edits. These remain part of the same successful settings-save event with the
-  selected text tier; provider identities, credentials and configuration values
-  remain excluded. Invalid provider fields and failed saves emit no event.
-  Missing provider metadata alone preserves the saved configuration and is not
-  treated as a teacher edit. Event names, deduplication and consumers are unchanged.
+- The numbered-model revision replaces `main_model_tier` and
+  `follow_up_model_tier` with `main_model_index` and `follow_up_model_index`.
+  Indexes are canonical strings `1` through `9`; Live follow-up uses
+  `not_applicable`. Add `main_model_fallback` and `follow_up_model_fallback`
+  booleans (the latter is false for Live). These fields describe the effective
+  selections confirmed by the successful save, including unchanged legacy
+  values resolved to model 1. No raw saved selection, configured display name,
+  physical model ID, provider identity or configuration is collected.
+- The decision supported is whether teachers adopt configured model choices and
+  how often saved course settings still depend on compatibility fallback. The
+  daily consumer groups successful saves by effective index and fallback flag;
+  it must keep historical `fast|balanced|ultimate|legacy` tier rows separate,
+  never reinterpret them as numbered choices or backfill missing flags as false.
+  No checked-in dashboard or query consumes the replaced tier fields.
+- Eligible population is authenticated teachers editing writable courses,
+  including drafts; learners, guest learners and learner preview are excluded.
+  Failed validation, rejected API calls and read-only courses emit nothing.
+  Each successful API save emits once with its submission snapshot; renders,
+  option loading and Live-to-text availability checks emit nothing. There is
+  no persisted deduplication. Tracking failures never change save behavior.
+- The complete delivered application payload is the table below; transport adds
+  no implicit business fields. Field types are string for course ID (stable,
+  pseudonymous, high cardinality), enums for save/mode/price/index (bounded,
+  non-personal), and booleans for toggles/fallbacks. Fallback booleans support
+  adoption analysis only, never billing or audit decisions. Regression coverage
+  verifies timing, privacy, exclusions, failure isolation and edits during saves.
 
-| Event                          | Exact trigger                                                                | Complete payload                                                                                                               |
-| ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language`, `follow_up_mode`, `price_tier`, `main_model_tier`, `follow_up_model_tier` |
-| `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`, `prompt_change`                     |
-| `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`, `prompt_change`                                                                       |
-| `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                                                       |
-| `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                                                    |
-| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                                                     |
+| Event                          | Exact trigger                                                                | Complete payload                                                                                                                                                                                                               |
+| ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language`, `follow_up_mode`, `price_tier`, `main_model_index`, `follow_up_model_index`, `main_model_fallback`, `follow_up_model_fallback` |
+| `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`, `prompt_change`                                                                                                                     |
+| `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`, `prompt_change`                                                                                                                                                                       |
+| `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                                                                                                                                                       |
+| `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                                                                                                                                                    |
+| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                                                                                                                                                     |
 
 Allowed enums are `save_type=auto|manual`, `follow_up_mode=text|live_voice`,
 `price_tier=free|micro_paid|standard_paid`,

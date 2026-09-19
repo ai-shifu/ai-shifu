@@ -50,17 +50,3 @@ def register_shifu_commands(console: object, app: object) -> None:
             dry_run=dry_run,
         ).to_payload()
         click.echo(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
-
-    @shifu_group.command(name="migrate-default-model-tiers")
-    @click.option(
-        "--apply",
-        "apply_changes",
-        is_flag=True,
-        help="Persist the cleanup and print its report; omit to preview.",
-    )
-    def migrate_default_model_tiers_command(apply_changes: bool) -> None:
-        """Move historical course defaults to the Fast tier (never outlines)."""
-        from .model_tier_migration import migrate_default_model_tiers
-
-        payload = migrate_default_model_tiers(app, apply=apply_changes)
-        click.echo(json.dumps(payload, indent=2, sort_keys=True))

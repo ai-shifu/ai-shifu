@@ -227,12 +227,12 @@ jobs:
             echo '' >> $GITHUB_STEP_SUMMARY
             echo '# Start with Docker Compose (production-ready)' >> $GITHUB_STEP_SUMMARY
             echo 'cd docker' >> $GITHUB_STEP_SUMMARY
-            echo '# Configure a provider API key in .env and map LLM_TIER_FAST_MODEL' >> $GITHUB_STEP_SUMMARY
-            echo '# to its configured text model before startup; Fast has no default.' >> $GITHUB_STEP_SUMMARY
+            echo '# Configure a provider API key in .env and map LLM_MODEL_1_ID' >> $GITHUB_STEP_SUMMARY
+            echo '# to its configured text model before startup; Set LLM_MODEL_1_NAME as well; neither value has a default.' >> $GITHUB_STEP_SUMMARY
             echo 'docker compose -f docker-compose.yml up -d' >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo 'Existing installations: complete [Upgrading to model tiers](${{ github.server_url }}/${{ github.repository }}/blob/${{ needs.validate-release.outputs.tag }}/INSTALL_MANUAL.md#upgrading-to-model-tiers) before starting the new API or workers.' >> $GITHUB_STEP_SUMMARY
+            echo 'Existing installations: complete [Upgrading to numbered models](${{ github.server_url }}/${{ github.repository }}/blob/${{ needs.validate-release.outputs.tag }}/INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new API or workers.' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 📦 Image Details" >> $GITHUB_STEP_SUMMARY
             echo "- **API Server**: Contains the Flask backend with all business logic" >> $GITHUB_STEP_SUMMARY

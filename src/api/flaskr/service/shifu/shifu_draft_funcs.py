@@ -14,7 +14,11 @@ from time import perf_counter
 from typing import Any
 
 from flask import Flask
-from flaskr.api.llm.tiers import normalize_course_model
+from flaskr.api.llm.tiers import (
+    course_model_selection,
+    get_configured_model_slots,
+    normalize_course_model,
+)
 from flaskr.common.config import parse_nonnegative_cent_amount
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -211,6 +215,14 @@ def return_shifu_draft_dto(
     if live_config_error is None:
         ask_provider_config = resolved_ask_provider_config
 
+    display_names = {
+        slot["index"]: slot["display_name"] for slot in get_configured_model_slots()
+    }
+    main_selection = course_model_selection(shifu_draft.llm)
+    raw_ask_model = getattr(shifu_draft, "ask_llm", "") or ""
+    live_follow_up = is_live_follow_up_model(raw_ask_model)
+    ask_selection = course_model_selection(raw_ask_model)
+
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
         shifu_name=shifu_draft.title,
@@ -219,7 +231,9 @@ def return_shifu_draft_dto(
         shifu_keywords=(
             shifu_draft.keywords.split(",") if shifu_draft.keywords else []
         ),
-        shifu_model=shifu_draft.llm,
+        shifu_model=main_selection["index"],
+        model_fallback=main_selection["fallback"],
+        model_display_name=display_names.get(main_selection["index"], ""),
         shifu_temperature=shifu_draft.llm_temperature,
         shifu_price=shifu_draft.price,
         shifu_url=shifu_url,
@@ -246,7 +260,11 @@ def return_shifu_draft_dto(
         ask_enabled_status=int(
             getattr(shifu_draft, "ask_enabled_status", ASK_MODE_DEFAULT)
         ),
-        ask_model=getattr(shifu_draft, "ask_llm", "") or "",
+        ask_model=raw_ask_model if live_follow_up else ask_selection["index"],
+        ask_model_fallback=False if live_follow_up else ask_selection["fallback"],
+        ask_model_display_name=""
+        if live_follow_up
+        else display_names.get(ask_selection["index"], ""),
         ask_temperature=float(getattr(shifu_draft, "ask_llm_temperature", 0.0) or 0.0),
         ask_system_prompt=getattr(shifu_draft, "ask_llm_system_prompt", "") or "",
         ask_provider_config=ask_provider_config,
@@ -325,7 +343,7 @@ def create_shifu_draft(
             avatar_res_bid=shifu_image,
             keywords=",".join(shifu_keywords) if shifu_keywords else "",
             llm=normalize_course_model(shifu_model),
-            ask_llm="fast",
+            ask_llm="1",
             llm_temperature=shifu_temperature or 0.3,
             price=_resolve_shifu_price(shifu_price),
             deleted=0,  # not deleted
@@ -508,13 +526,7 @@ def save_shifu_draft_info(
         # so we merge the incoming (non-None) values with the existing draft
         # before validation, rather than validating partial data.
         shifu_draft = get_latest_shifu_draft(shifu_id)
-        effective_shifu_model = (
-            shifu_model
-            if shifu_model is not None
-            else (getattr(shifu_draft, "llm", "") if shifu_draft else "")
-        )
-        effective_shifu_model = normalize_course_model(effective_shifu_model)
-        if is_live_follow_up_model(effective_shifu_model):
+        if shifu_model is not None and is_live_follow_up_model(shifu_model):
             raise_param_error("model")
 
         # Resolve the effective TTS enabled flag: caller-provided value wins,
@@ -599,9 +611,11 @@ def save_shifu_draft_info(
         if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
             ask_enabled_status = ASK_MODE_DEFAULT
 
-        if ask_model is None:
-            ask_model = shifu_draft.ask_llm if shifu_draft else ""
-        ask_model = ask_model or ""
+        ask_model_provided = ask_model is not None
+        if not ask_model_provided:
+            ask_model = shifu_draft.ask_llm if shifu_draft else "1"
+        elif not is_live_follow_up_model(ask_model):
+            ask_model = normalize_course_model(ask_model, "ask_model")
 
         if ask_temperature is None:
             ask_temperature = (
@@ -612,7 +626,6 @@ def save_shifu_draft_info(
 
         if ask_system_prompt is None:
             ask_system_prompt = shifu_draft.ask_llm_system_prompt if shifu_draft else ""
-        ask_model = normalize_course_model(ask_model, "ask_model")
         ask_system_prompt = ask_system_prompt or ""
 
         if ask_provider_config is None and not is_live_follow_up_model(ask_model):
@@ -709,7 +722,8 @@ def save_shifu_draft_info(
                 new_shifu_draft.llm_temperature = shifu_temperature
             new_shifu_draft.price = shifu_price
             new_shifu_draft.ask_enabled_status = ask_enabled_status
-            new_shifu_draft.ask_llm = ask_model
+            if ask_model_provided:
+                new_shifu_draft.ask_llm = ask_model
             new_shifu_draft.ask_llm_temperature = ask_temperature
             new_shifu_draft.ask_llm_system_prompt = ask_system_prompt
             new_shifu_draft.ask_provider_config = serialized_ask_provider_config

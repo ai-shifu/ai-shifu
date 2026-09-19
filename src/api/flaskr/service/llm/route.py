@@ -2,7 +2,7 @@
 
 from flask import Flask
 from flaskr.api.llm import (
-    get_current_models,
+    get_course_models,
     get_follow_up_models,
     get_model_tier_options,
 )
@@ -35,12 +35,12 @@ def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
                                 properties:
                                     model:
                                         type: string
-                                        description: actual model identifier
+                                        description: configured course model index
                                     display_name:
                                         type: string
                                         description: display label for UI
         """
-        return make_common_response(get_current_models(app))
+        return make_common_response(get_course_models(app))
 
     @app.route(path_prefix + "/follow-up-model-list", methods=["GET"])
     def follow_up_model_list_api() -> str:
@@ -66,7 +66,7 @@ def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
 
     @app.route(path_prefix + "/model-tier-list", methods=["GET"])
     def model_tier_list_api() -> str:
-        """Return course tiers with current availability and credit multipliers."""
+        """Return configured course model choices with current availability and credit multipliers."""
         return make_common_response(get_model_tier_options(app))
 
     return app

@@ -201,13 +201,10 @@
   "minimaxVoiceGroupCloned": "Mes voix clonées",
   "minimaxVoiceGroupManual": "ID de voix manuel",
   "modelTiers": {
-    "balanced": "Équilibré",
-    "fast": "Rapide",
-    "hint": "Choisissez selon la rapidité, la qualité et la consommation de crédits.",
-    "legacy": "Configuration antérieure",
+    "fallback": "La configuration enregistrée est indisponible. Le modèle par défaut est utilisé. Sélectionnez un modèle et enregistrez pour modifier ce réglage.",
+    "hint": "Choisissez un modèle configuré par votre administrateur.",
     "liveVoice": "Conversation vocale",
     "text": "Questions écrites",
-    "ultimate": "Optimal",
     "unavailable": "Indisponible"
   },
   "number": "Saisir un nombre",

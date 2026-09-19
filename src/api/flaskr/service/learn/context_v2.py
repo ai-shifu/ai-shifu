@@ -3594,14 +3594,11 @@ class RunScriptContextV2:
             self._shifu_model.id.in_(shifu_ids),
             self._shifu_model.deleted == 0,
         ).first()
-        course_model = str(getattr(shifu_info_db, "llm", "") or "").strip()
-        if course_model:
-            return LLMSettings(
-                model=course_model,
-                temperature=shifu_info_db.llm_temperature,
-                usage_metadata=selection_metadata(shifu_info_db),
-            )
-        return raise_error("server.llm.modelSelectionNotConfigured")
+        return LLMSettings(
+            model=selection_model(shifu_info_db),
+            temperature=shifu_info_db.llm_temperature,
+            usage_metadata=selection_metadata(shifu_info_db),
+        )
 
     def reload(
         self,

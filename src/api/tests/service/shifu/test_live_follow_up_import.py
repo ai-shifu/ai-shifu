@@ -221,7 +221,7 @@ def test_legacy_outline_models_are_ignored_and_not_exported(
     assert outline_json["content"] == "Keep the lesson content"
 
 
-def test_import_export_retains_tiers_and_normalizes_old_defaults(
+def test_import_export_preserves_old_selections(
     app: object, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from flaskr.service.shifu import shifu_import_export_funcs as module
@@ -255,14 +255,14 @@ def test_import_export_retains_tiers_and_normalizes_old_defaults(
             .first()
         )
         assert course.llm == "ultimate"
-        assert course.ask_llm == "fast"
+        assert course.ask_llm == " \t"
         outlines = DraftOutlineItem.query.filter_by(shifu_bid=shifu_bid).all()
         assert all(not hasattr(item, "llm") for item in outlines)
     path = tmp_path / "tiers.json"
     module.export_shifu(app, shifu_bid, str(path))
     exported = json.loads(path.read_text())
     assert exported["shifu"]["llm"] == "ultimate"
-    assert exported["shifu"]["ask_llm"] == "fast"
+    assert exported["shifu"]["ask_llm"] == " \t"
     assert all("llm" not in item for item in exported["outline_items"])
 
 
@@ -274,7 +274,7 @@ def test_import_uses_existing_model_fields_for_every_destination(
     destination: str,
     selection: str,
 ) -> None:
-    """Normalize course defaults without altering aliases or explicit models."""
+    """Preserve imported values without rewriting old course selections."""
     from flaskr.service.shifu import shifu_import_export_funcs as module
 
     monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
@@ -295,5 +295,69 @@ def test_import_uses_existing_model_fields_for_every_destination(
             .order_by(DraftShifu.id.desc())
             .first()
         )
-        assert course.llm == (selection or "fast")
-        assert course.ask_llm == (selection or "fast")
+        assert course.llm == selection
+        assert course.ask_llm == selection
+
+
+@pytest.mark.parametrize("original", ["", " \t", "legacy/model", "fast", "3", "9"])
+@pytest.mark.parametrize("existing", [False, True])
+def test_import_and_export_preserve_text_selection_values(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    original: str,
+    existing: bool,
+) -> None:
+    from flaskr.service.shifu import shifu_import_export_funcs as module
+
+    monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
+    bid = uuid.uuid4().hex
+    if existing:
+        with app.app_context():
+            db.session.add(DraftShifu(shifu_bid=bid, llm="7", ask_llm="7"))
+            db.session.commit()
+    module.import_shifu(
+        app,
+        bid,
+        _import_file(shifu={"llm": original, "ask_llm": original}),
+        "teacher-1",
+    )
+    with app.app_context():
+        row = (
+            DraftShifu.query.filter_by(shifu_bid=bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert row.llm == row.ask_llm == original
+    path = tmp_path / "preserved.json"
+    module.export_shifu(app, bid, str(path))
+    exported = json.loads(path.read_text())["shifu"]
+    assert exported["llm"] == exported["ask_llm"] == original
+
+
+def test_import_missing_model_fields_defaults_to_number_one(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.shifu import shifu_import_export_funcs as module
+
+    monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
+    payload = {"version": "1.0", "shifu": {"title": "Defaults"}, "outline_items": []}
+    source = FileStorage(
+        stream=io.BytesIO(json.dumps(payload).encode()), filename="defaults.json"
+    )
+    bid = module.import_shifu(app, None, source, "teacher-1")
+    with app.app_context():
+        row = DraftShifu.query.filter_by(shifu_bid=bid, deleted=0).one()
+        assert row.llm == row.ask_llm == "1"
+
+
+@pytest.mark.parametrize("value", [False, 3, [], {}])
+@pytest.mark.parametrize("field", ["llm", "ask_llm"])
+def test_import_rejects_nonstring_model_fields(
+    app: object, field: str, value: object
+) -> None:
+    from flaskr.service.shifu import shifu_import_export_funcs as module
+
+    with pytest.raises(AppError):
+        module.import_shifu(app, None, _import_file(shifu={field: value}), "teacher-1")

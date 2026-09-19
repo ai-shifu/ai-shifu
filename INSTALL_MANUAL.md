@@ -25,7 +25,7 @@ src/
 
 ### Required LLM Configuration
 
-Configure at least one LLM provider and map `LLM_TIER_FAST_MODEL` to a text model served by that provider. Fast has no default model; an empty mapping prevents API startup. Supported providers include:
+Configure at least one LLM provider and map `LLM_MODEL_1_ID` to a text model served by that provider. Also set `LLM_MODEL_1_NAME` to its teacher-facing display name. Both are required and have no defaults. Supported providers include:
 
 - **OpenAI** API Key
 - **Baidu ERNIE** API credentials
@@ -59,7 +59,7 @@ Copy the full environment template (already aligned with the Docker defaults):
 cp docker/.env.example.full docker/.env
 ```
 
-For Docker-based workflows, configure at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY` or `GLM_API_KEY`) and set `LLM_TIER_FAST_MODEL` to a text model ID available through that provider. The template intentionally leaves the mapping empty. Database defaults match the bundled services; review security settings before production use.
+For Docker-based workflows, configure at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY` or `GLM_API_KEY`) and set `LLM_MODEL_1_ID` to a text model ID available through that provider. Also set `LLM_MODEL_1_NAME` to its display name. The template intentionally leaves both values empty. Database defaults match the bundled services; review security settings before production use.
 
 ### Step 3: Configure Environment Variables
 
@@ -82,15 +82,17 @@ These variables are essential for the application to run:
    - Choose from: OpenAI, ERNIE, ARK, SiliconFlow, GLM, DeepSeek, Qwen
    - See `.env.example.full` for specific provider configurations
 
-4. **Fast Model Mapping**
-   - `LLM_TIER_FAST_MODEL`: exact configured text model ID for the Fast tier; required at API startup, with no default.
-   - Use a physical text model ID supported by the configured provider, not `fast`, `balanced`, `ultimate` or a Live voice model. A provider API key alone is insufficient.
-   - `LLM_TIER_BALANCED_MODEL` and `LLM_TIER_ULTIMATE_MODEL` are optional and also have no defaults. Leave them empty to keep those choices unavailable.
+4. **Numbered Course Models**
+   - `LLM_MODEL_1_NAME`: teacher-facing display name, shared across interface languages.
+   - `LLM_MODEL_1_ID`: physical text model ID served by the configured provider.
+   - Both are required at startup and have no defaults. Model 1 is always the course default.
+   - Configure optional `LLM_MODEL_2_NAME` / `LLM_MODEL_2_ID` pairs through number 9. A pair is selectable only when both values are nonempty. Gaps are allowed; identifiers never shift when another pair is removed.
+   - A configured provider failure is an error, not a reason to silently switch models. Live voice remains separate.
 
 #### Configuration Reference
 
 - `docker/.env.example.full`: canonical template that lists every environment variable with defaults, descriptions, and grouping (Database, Redis, Auth, LLM, etc.). Copy it to `.env` and edit in place.
-- **Docker reminder**: configure both a provider API key and `LLM_TIER_FAST_MODEL` for latest-image, pinned-release and local-development Compose modes. Update database/Redis URLs if you are not using the bundled services.
+- **Docker reminder**: configure a provider API key, `LLM_MODEL_1_NAME` and `LLM_MODEL_1_ID` for latest-image, pinned-release and local-development Compose modes. Update database/Redis URLs if you are not using the bundled services.
 
 #### Important Notes
 
@@ -196,7 +198,7 @@ follow-up models.
 
 ### Step 4: Build Latest Docker Images & Start the Stack
 
-1. Ensure `docker/.env` contains a provider API key and `LLM_TIER_FAST_MODEL` mapped to a configured text model. For an existing database, complete [Upgrading to model tiers](#upgrading-to-model-tiers) before enabling traffic.
+1. Ensure `docker/.env` contains a provider API key, `LLM_MODEL_1_NAME` and `LLM_MODEL_1_ID` mapped to a configured text model. For an existing database, complete [Upgrading to numbered models](#upgrading-to-numbered-models) before enabling traffic.
 2. Build the backend and frontend images tagged as `:latest` from the repo root:
 
 ```bash
@@ -229,7 +231,7 @@ docker run -d --name redis -p 6379:6379 redis:latest
 
 #### Step 5.2: Configure Environment for Local Development
 
-Keep the provider key and required `LLM_TIER_FAST_MODEL` mapping from Step 3, and update your `.env` file for local development:
+Keep the provider key and required `LLM_MODEL_1_ID` mapping from Step 3, and update your `.env` file for local development:
 
 ```bash
 # Update database URLs for local services
@@ -301,27 +303,29 @@ lefthook install
 python scripts/check_dev_tools.py
 ```
 
-## Upgrading to model tiers
+## Upgrading to numbered models
 
-This applies to existing latest-image, pinned-release, development Compose and
-manual installations when moving to a build that includes model tiers. Before
-starting the new API or workers:
+This applies to latest-image, pinned-release, development Compose and manual installations.
 
-1. Set `LLM_TIER_FAST_MODEL` to a configured text model and supply its provider
-   credentials. There is no automatic mapping from `DEFAULT_LLM_MODEL`; Balanced
-   and Ultimate mappings remain optional.
-2. Stop traffic, background workers and old writers, then back up the database.
-   Export an earlier cleanup ledger if its history is needed before its removal.
-3. Use the new build in maintenance mode to upgrade the schema and
-   preview/apply/verify `flask console shifu migrate-default-model-tiers`.
-   Archive the JSON reports; confirm the final verification count is zero.
-4. Start the new API/workers and web, confirm configured tiers are available,
-   and check both a cleaned Fast course and an explicit legacy course before
-   reopening traffic.
+1. Configure provider credentials plus `LLM_MODEL_1_NAME` and `LLM_MODEL_1_ID`.
+   Add optional complete pairs 2-9 as needed. Remove the obsolete `LLM_ALLOWED_MODELS`,
+   `LLM_ALLOWED_MODEL_DISPLAY_NAMES` and `LLM_TIER_*_MODEL` variables; they are no longer read.
+2. Apply normal schema upgrades. Previously published audit-table revisions remain
+   in the migration chain and end by removing that table. No course-data cleanup
+   or cleanup report is required.
+3. Deploy matching API/workers and web. Verify a legacy course uses model 1 and
+   that changing unrelated course settings preserves its saved model value.
+4. Check invocation records for the original selection, effective number,
+   physical model and fallback reason. Billing uses the actual invoked model.
 
-Use the full [model-tier deployment runbook](docs/exec-plans/active/model-tiers.md#deployment-runbook)
-for commands and recovery. Schema upgrade alone does not clean existing blank
-course selections; do not perform a rolling switch with uncleaned rows.
+Blank selections, old model IDs, old tier aliases and unconfigured numbers use
+model 1 without modifying course rows. If a removed number is configured again,
+courses still referencing it automatically resume using it. Do not reuse numbers
+without considering those references. Existing physical-model callers and Live
+voice follow-up retain their separate contracts.
+
+See the [numbered-model deployment runbook](docs/exec-plans/active/model-tiers.md#deployment-runbook).
+Do not roll back to a build that treats newly saved numeric choices as physical IDs.
 
 ## Troubleshooting
 
@@ -340,7 +344,7 @@ course selections; do not perform a rolling switch with uncleaned rows.
    - Verify API keys are correct
    - Check API base URLs
    - Ensure the model name matches your provider
-   - If startup reports missing `LLM_TIER_FAST_MODEL`, set it to a configured text model ID; an API key alone does not satisfy this required mapping
+   - If startup reports missing `LLM_MODEL_1_NAME` or `LLM_MODEL_1_ID`, configure both values; provider credentials alone are insufficient
 
 4. **Frontend Build Failures**
    - Ensure Node.js version is 22.16.0

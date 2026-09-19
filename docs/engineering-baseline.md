@@ -27,9 +27,9 @@ details behind those rules.
 ### Essential Environment Variables
 
 Before starting the backend or running Flask migration commands, configure a
-provider API key and set `LLM_TIER_FAST_MODEL` to a text model served by that
-provider. Fast has no default; Balanced and Ultimate mappings are optional.
-For an existing database, follow [Upgrading to model tiers](../INSTALL_MANUAL.md#upgrading-to-model-tiers).
+provider API key plus `LLM_MODEL_1_NAME` and `LLM_MODEL_1_ID`. Model 1 has no
+default name or physical model; complete pairs 2-9 are optional.
+For an existing database, follow [Upgrading to numbered models](../INSTALL_MANUAL.md#upgrading-to-numbered-models).
 
 ```bash
 # Backend (src/api/.env)
@@ -668,15 +668,14 @@ does not replace test coverage. Before committing, also run
 - Docker: `docker/.env`
 - Local development: component-level `.env` files
 - Example Docker file: `docker/.env.example.full`
-- Important groups: LLM API keys and tier mappings, database, Redis, auth, storage, app config
+- Important groups: LLM API keys and numbered model configurations, database, Redis, auth, storage, app config
 
-Every backend environment requires a provider key and a nonempty
-`LLM_TIER_FAST_MODEL` mapping to its configured text model. `DEFAULT_LLM_MODEL`
-does not replace this mapping. Keep the generated template value empty and
-configure the route for each environment; Balanced and Ultimate remain optional.
-Existing installations must update their retained `.env` and complete
-[Upgrading to model tiers](../INSTALL_MANUAL.md#upgrading-to-model-tiers) before
-starting the new API or workers.
+Every backend environment requires a provider key, `LLM_MODEL_1_NAME` and
+`LLM_MODEL_1_ID`. Neither slot-1 value has a default; `DEFAULT_LLM_MODEL` does not
+replace them. Optional complete pairs 2-9 use stable identifiers and may have gaps.
+Invalid historical course selections fall back to 1 without rewriting course
+rows. Existing installations need the new environment configuration, not data
+cleanup; see [Upgrading to numbered models](../INSTALL_MANUAL.md#upgrading-to-numbered-models).
 
 ### Managing Environment Variables
 

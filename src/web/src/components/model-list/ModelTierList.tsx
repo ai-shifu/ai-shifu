@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import type { ModelTier } from '@/types/shifu';
+import type { ModelIndex } from '@/types/shifu';
 import {
   Select,
   SelectContent,
@@ -17,36 +17,49 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 
-export type ModelTierOption = {
-  tier: ModelTier;
+export type ModelIndexOption = {
+  index: ModelIndex;
+  display_name: string;
   available: boolean;
+  is_default?: boolean;
   credit_multiplier?: number | null;
   credit_multiplier_label?: string | null;
 };
-
-const TIERS: ModelTier[] = ['fast', 'balanced', 'ultimate'];
 
 type ModelTierListProps = Omit<
   ComponentPropsWithoutRef<typeof SelectTrigger>,
   'value' | 'onChange'
 > & {
-  value: ModelTier | null;
-  onChange: (tier: ModelTier) => void;
+  value: ModelIndex | null;
+  onChange: (index: ModelIndex) => void;
+  displayName?: string;
+  fallback?: boolean;
 };
 
 const ModelTierList = forwardRef<HTMLButtonElement, ModelTierListProps>(
-  function ModelTierList({ value, onChange, disabled, ...triggerProps }, ref) {
+  function ModelTierList(
+    { value, onChange, displayName, fallback, disabled, ...triggerProps },
+    ref,
+  ) {
     const { t } = useTranslation();
-    const [options, setOptions] = useState<ModelTierOption[]>([]);
+    const [options, setOptions] = useState<ModelIndexOption[]>([]);
     const requestVersion = useRef(0);
+    const selectedThisOpen = useRef(false);
+    const pointerType = useRef('touch');
     const loadOptions = useCallback(async () => {
       const version = ++requestVersion.current;
       try {
         const result = await api.getModelTierList({});
         if (version === requestVersion.current)
-          setOptions(Array.isArray(result) ? result : []);
+          setOptions(
+            Array.isArray(result)
+              ? result
+                  .filter(item => /^[1-9]$/.test(item.index))
+                  .sort((a, b) => Number(a.index) - Number(b.index))
+              : [],
+          );
       } catch {
-        if (version === requestVersion.current) setOptions([]);
+        // Retain the last known labels when a catalog refresh fails.
       }
     }, []);
     useEffect(() => {
@@ -55,65 +68,113 @@ const ModelTierList = forwardRef<HTMLButtonElement, ModelTierListProps>(
         requestVersion.current++;
       };
     }, [loadOptions]);
-    const label = (tier: ModelTier) =>
-      t(`module.shifuSetting.modelTiers.${tier}`);
-    const optionLabel = (tier: ModelTier) => {
-      const option = options.find(item => item.tier === tier);
+    const select = (index: ModelIndex) => {
+      if (disabled || selectedThisOpen.current) return;
+      selectedThisOpen.current = true;
+      onChange(index);
+    };
+    const optionLabel = (option: ModelIndexOption) => {
       const multiplier =
-        option?.credit_multiplier_label ||
-        (option?.credit_multiplier ? `${option.credit_multiplier}x` : '');
+        option.credit_multiplier_label ||
+        (option.credit_multiplier ? `${option.credit_multiplier}x` : '');
       return (
         <span className='flex w-full items-center gap-2'>
-          <span>{label(tier)}</span>
+          <span>{option.display_name}</span>
           {multiplier ? (
             <span className='text-xs text-muted-foreground'>{multiplier}</span>
           ) : null}
         </span>
       );
     };
+    const selected = options.find(item => item.index === value);
     return (
-      <Select
-        value={value || ''}
-        onValueChange={tier => onChange(tier as ModelTier)}
-        onOpenChange={open => {
-          if (open) void loadOptions();
-        }}
-        disabled={disabled}
-      >
-        <SelectTrigger
-          className='h-9'
-          {...triggerProps}
-          ref={ref}
+      <div className='space-y-2'>
+        <Select
+          value={value || ''}
+          onValueChange={index => select(index as ModelIndex)}
+          onOpenChange={open => {
+            if (open) {
+              selectedThisOpen.current = false;
+              void loadOptions();
+            }
+          }}
+          disabled={disabled}
         >
-          <SelectValue
-            asChild
-            placeholder={t('module.shifuSetting.modelTiers.legacy')}
+          <SelectTrigger
+            className='h-9'
+            {...triggerProps}
+            ref={ref}
           >
-            <span>
-              {value
-                ? optionLabel(value)
-                : t('module.shifuSetting.modelTiers.legacy')}
-            </span>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {TIERS.map(tier => (
-            <SelectItem
-              key={tier}
-              value={tier}
-              textValue={label(tier)}
-              disabled={!options.find(item => item.tier === tier)?.available}
-            >
-              {optionLabel(tier)}
-              {!options.find(item => item.tier === tier)?.available ? (
-                <span className='ml-2 text-xs text-muted-foreground'>
-                  {t('module.shifuSetting.modelTiers.unavailable')}
-                </span>
-              ) : null}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+            <SelectValue asChild>
+              <span>
+                {selected
+                  ? optionLabel(selected)
+                  : displayName ||
+                    t('module.shifuSetting.modelTiers.unavailable')}
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {options.map(option => (
+              <SelectItem
+                key={option.index}
+                value={option.index}
+                textValue={option.display_name}
+                disabled={!option.available}
+                // Radix does not emit onValueChange for the selected item.
+                // An explicit re-selection must still persist a fallback to 1.
+                onPointerDown={event => {
+                  pointerType.current = event.pointerType;
+                }}
+                onPointerMove={event => {
+                  pointerType.current = event.pointerType;
+                }}
+                onPointerUp={event => {
+                  if (
+                    !event.defaultPrevented &&
+                    pointerType.current === 'mouse' &&
+                    option.available &&
+                    option.index === value
+                  )
+                    select(option.index);
+                }}
+                onClick={event => {
+                  if (
+                    !event.defaultPrevented &&
+                    pointerType.current !== 'mouse' &&
+                    option.available &&
+                    option.index === value
+                  )
+                    select(option.index);
+                }}
+                onKeyDown={event => {
+                  if (
+                    option.available &&
+                    option.index === value &&
+                    (event.key === 'Enter' || event.key === ' ')
+                  )
+                    select(option.index);
+                }}
+              >
+                {optionLabel(option)}
+                {!option.available ? (
+                  <span className='ml-2 text-xs text-muted-foreground'>
+                    {t('module.shifuSetting.modelTiers.unavailable')}
+                  </span>
+                ) : null}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {fallback ? (
+          <p
+            className='text-xs text-muted-foreground'
+            role='status'
+          >
+            {t('module.shifuSetting.modelTiers.fallback')}
+          </p>
+        ) : null}
+      </div>
     );
   },
 );

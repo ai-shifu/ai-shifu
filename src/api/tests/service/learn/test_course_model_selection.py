@@ -10,12 +10,10 @@ from typing import TYPE_CHECKING
 import pytest
 from flaskr.api.llm import tiers
 from flaskr.dao import db
-from flaskr.service.common.models import AppError
 from flaskr.service.learn import context_v2
 from flaskr.service.learn.agent import lesson_entry
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
-from flaskr.service.shifu.model_tier_migration import migrate_default_model_tiers
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
@@ -110,20 +108,7 @@ def test_course_settings_drive_both_engines_and_follow_up(
         ctx._shifu_model = shifu_type
         ctx._outline_model = outline_type
         ctx._preview_mode = preview
-        if not course_model.strip():
-            with pytest.raises(AppError):
-                ctx.get_llm_settings(lesson_bid)
-            with pytest.raises(AppError):
-                lesson_entry._resolve(
-                    app,
-                    user_bid="teacher-1",
-                    shifu_bid=shifu_bid,
-                    outline_bid=lesson_bid,
-                    preview_mode=preview,
-                )
-        migrate_default_model_tiers(app, apply=True)
-        db.session.expire_all()
-        expected_model = course_model.strip() or "fast"
+        expected_model = course_model
         expected_temperature = float(course.llm_temperature)
         assert ctx.get_system_prompt(lesson_bid) == "Chapter teaching prompt"
         settings = ctx.get_llm_settings(lesson_bid)
@@ -140,7 +125,7 @@ def test_course_settings_drive_both_engines_and_follow_up(
         assert agent_settings == settings
 
         info = get_follow_up_info_v2(app, shifu_bid, lesson_bid, "", is_preview=preview)
-        assert info.ask_model == (ask_model or "fast")
+        assert info.ask_model == ask_model
         assert info.ask_prompt == (
             "Chapter follow-up prompt"
             if outline_ask_mode == 5101
@@ -156,7 +141,7 @@ def test_course_settings_drive_both_engines_and_follow_up(
             app, shifu_bid, lesson_bid, "", is_preview=preview
         )
         assert disabled.ask_mode == 5102
-        assert disabled.ask_model == (ask_model or "fast")
+        assert disabled.ask_model == ask_model
         db.session.rollback()
 
 
@@ -179,12 +164,8 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     course = SimpleNamespace(llm=course_model, llm_temperature=course_temperature)
     ctx = context_v2.RunScriptPreviewContextV2(app)
     with app.app_context():
-        if not course_model.strip():
-            with pytest.raises(AppError):
-                ctx._resolve_llm_settings(course)
-            course.llm = "fast"
         model, temperature = ctx._resolve_llm_settings(course)
-    assert model == (course_model.strip() or "configured-fast")
+    assert model == "configured-1"
     assert temperature == (
         course_temperature if course_temperature is not None else 0.3
     )

@@ -19,7 +19,6 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm.tiers import selection_metadata, selection_model
-from flaskr.service.common.models import raise_error
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.run_agent import run_agent_lesson
@@ -73,7 +72,7 @@ def _resolve(
 ) -> tuple[str, LLMSettings]:
     """Read the script and the model settings for this lesson.
 
-    Model resolution follows 1.0: use the course selection after default cleanup.
+    Model resolution follows 1.0: use the course selection with runtime fallback.
     """
     outline_model, shifu_model = _models(preview_mode)
     # Bound to the course as well as the lesson: an allowlisted course paired with another
@@ -89,8 +88,6 @@ def _resolve(
     )
 
     course_model = selection_model(shifu)
-    if not course_model:
-        return raise_error("server.llm.modelSelectionNotConfigured")
     return outline.content, LLMSettings(
         model=course_model,
         temperature=shifu.llm_temperature,

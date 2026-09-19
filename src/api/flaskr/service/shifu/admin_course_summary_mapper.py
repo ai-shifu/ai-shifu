@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from flask import current_app
-from flaskr.service.config import get_config
+from flaskr.api.llm.tiers import course_model_selection, get_configured_model_slots
 from flaskr.service.shifu.admin_dtos_courses import AdminOperationCourseSummaryDTO
 from flaskr.service.shifu.admin_shared import _format_decimal
 
@@ -18,14 +17,16 @@ def build_admin_operation_course_summary(
     """Build admin operation course summary."""
     resolved_activity = activity or {}
     creator = user_map.get(course.created_user_bid or "", {})
-    llm_model = str(course.llm or "").strip()
-    tier = getattr(course, "llm", None)
-    if tier in ("fast", "balanced", "ultimate"):
-        # Operators need the configured identity even when its provider is offline.
-        # An unmapped alias must never fall back to the global default model.
-        llm_model = str(get_config(f"LLM_TIER_{tier.upper()}_MODEL", "") or "").strip()
-    elif not llm_model:
-        llm_model = str(current_app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
+    index = course_model_selection(course.llm)["index"]
+    # Operator reports show the binding even when its provider is offline.
+    llm_model = next(
+        (
+            slot["model"]
+            for slot in get_configured_model_slots()
+            if slot["index"] == index
+        ),
+        "",
+    )
     updater_user_bid = str(
         resolved_activity.get("updated_user_bid") or course.updated_user_bid or ""
     ).strip()
