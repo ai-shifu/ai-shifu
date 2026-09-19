@@ -2,12 +2,12 @@
 
 ## Layering Rules
 
-- Keep `SKILL.md` for long-lived cross-page or cross-module constraints and the skill index.
+- Keep `SKILL.md` for cross-page or cross-module workflow references and the skill index.
 - Keep `skills/xxx/SKILL.md` for scenario-specific triggers, execution steps, and acceptance checks.
 - `SKILL.md` must not carry long troubleshooting playbooks; workflow-heavy content belongs in focused skills.
-- Stable structural rules should go to the local `AGENTS.md` first. Only workflow-oriented guidance should live in a skill.
+- Keep durable project instructions in the nearest `AGENTS.md`. Treat the existing cross-page notes below as workflow reference material; the layered `AGENTS.md` files remain the only project-instruction body and take precedence.
 
-## Project-Wide Constraints
+## Workflow Reference Notes
 
 - Treat URL parameters as explicit overrides: use `lessonid` for lesson targeting, let `listen` query override learner mode when present, and fall back to course-level `tts_enabled` to decide whether listen mode is available while keeping `read` as the default. When no course-scoped `course_learning_mode:*` storage exists yet and there is no explicit URL override, persist the resolved default mode immediately so first-load behavior and local storage stay in sync.
 - 学习页如果要新增和初始化模式有关的埋点，优先在写回 `course_learning_mode:*` 之前先读取并上报原始 localStorage 值，避免“首进自动补写默认值”覆盖掉用户上一次真实固定的模式。
