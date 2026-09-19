@@ -78,6 +78,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Safe Frontend Dead Code Cleanup](./completed/safe-frontend-dead-code-cleanup.md)
+- [Safe Outbound URL Validation](./completed/safe-outbound-url-validation.md)
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
