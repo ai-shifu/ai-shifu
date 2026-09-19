@@ -310,9 +310,7 @@ This applies to latest-image, pinned-release, development Compose and manual ins
 1. Configure provider credentials plus `LLM_MODEL_1_NAME` and `LLM_MODEL_1_ID`.
    Add optional complete pairs 2-9 as needed. Remove the obsolete `LLM_ALLOWED_MODELS`,
    `LLM_ALLOWED_MODEL_DISPLAY_NAMES` and `LLM_TIER_*_MODEL` variables; they are no longer read.
-2. Apply normal schema upgrades. Previously published audit-table revisions remain
-   in the migration chain and end by removing that table. No course-data cleanup
-   or cleanup report is required.
+2. This change requires no database migration, course-data cleanup or cleanup report.
 3. Deploy matching API/workers and web. Verify a legacy course uses model 1 and
    that changing unrelated course settings preserves its saved model value.
 4. Check invocation records for the original selection, effective number,

@@ -22,6 +22,8 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   resolution and unchanged-selection coverage after the full backend CI run.
 - [x] 2026-09-19 UTC: Guard both settings submission paths against course changes
   during validation and replacement-detail loading; verify 81 settings tests.
+- [x] 2026-09-19 UTC: Remove both unapplied cleanup-audit migrations after the
+  user confirmed the table-creation migration had never run.
 
 ## Surprises & Discoveries
 
@@ -58,9 +60,9 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   and the three LLM_TIER variables. Never enumerate all discovered models as a
   fallback catalog. The external gateway retains its default-alias and admission
   semantics, and billing continues to use physical model identities.
-- 2026-09-19: Preserve already-published Alembic revisions 5ca8717e482f and
-  abbe9d73bdb1. The latter removes the earlier audit table; no new table or
-  model-selection field is introduced. Remove the business cleanup command.
+- 2026-09-19: The user confirmed the cleanup-audit table was never created.
+  Remove both unapplied audit revisions and their tests. This feature reuses
+  existing schema and requires no database migration or data-cleanup command.
 - 2026-09-19: Keep PR #2840 stacked on #2853. Preserve course-only model and
   temperature settings, chapter prompts and owner-billed settings previews.
 
@@ -150,8 +152,7 @@ allowlisting, provider wrappers and physical-rate accounting remain in place.
 
 1. Set a provider credential plus LLM_MODEL_1_NAME and LLM_MODEL_1_ID; configure
    optional complete pairs through 9. Remove obsolete tier/allowed variables.
-2. Apply the normal schema upgrades. The published audit-removal migration stays
-   in the chain; there is no course-data cleanup command to run.
+2. No database migration or course-data cleanup is needed for this change.
 3. Deploy matching API/workers and web. Verify a legacy course falls back to 1,
    sparse configured choices work, and unrelated saves preserve old selections.
 4. Inspect invocation metadata for selected/effective/physical identity and
