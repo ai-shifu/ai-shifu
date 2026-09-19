@@ -2048,7 +2048,18 @@ def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
 def _attach_credit_multipliers(
     app: Flask, options: list[dict[str, object]]
 ) -> list[dict[str, object]]:
+    from flaskr.api.llm.tiers import get_configured_model_slots
+
     default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
+    if not default_model:
+        default_model = next(
+            (
+                slot["model"]
+                for slot in get_configured_model_slots()
+                if slot["index"] == "1"
+            ),
+            "",
+        )
     if not options:
         return [{**option, "credit_multiplier": None} for option in options]
 

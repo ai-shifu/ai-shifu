@@ -32,6 +32,8 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 - [x] 2026-09-19 UTC: Validate effective primary selections during publication,
   copying and import/export so retained Live IDs follow the numbered fallback;
   preserve raw stored values and active Live follow-up validation.
+- [x] 2026-09-19 UTC: Use model 1 for the gateway default alias when the legacy
+  default setting is blank; preserve explicit overrides and rate eligibility.
 
 ## Surprises & Discoveries
 
@@ -58,6 +60,10 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   course fallback could take effect. Authoring transfers must validate the
   effective primary number while keeping the follow-up ID available for Live
   provider validation and copying both saved selections exactly.
+- The physical catalog formerly marked a default only through DEFAULT_LLM_MODEL.
+  Numbered-only deployments need the gateway alias to use model 1 when that
+  optional setting is blank, while preserving explicit gateway defaults and
+  the existing route and rate eligibility checks.
 
 ## Decision Log
 
@@ -170,6 +176,9 @@ to the configured model ID when the name is absent or blank.
 Internal physical catalogs deduplicate identical bindings by the lowest slot
 number, while course choices retain every slot. Existing gateway client
 allowlisting, provider wrappers and physical-rate accounting remain in place.
+The gateway default alias preserves an explicit DEFAULT_LLM_MODEL; when absent
+or blank, it uses model 1's physical binding. An unavailable or unrated default
+does not select another physical model.
 
 ## Deployment Runbook
 
