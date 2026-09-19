@@ -171,7 +171,11 @@ def test_dify_adapter_applies_deployment_trusted_origins(
 ) -> None:
     adapter = module.DifyAskProviderAdapter()
     captured = {}
-    app.config["DIFY_TRUSTED_ORIGINS"] = "http://dify.internal:5001"
+    monkeypatch.setitem(
+        app.config,
+        "DIFY_TRUSTED_ORIGINS",
+        "http://dify.internal:5001",
+    )
 
     def _fake_request(
         client: object,
@@ -207,9 +211,14 @@ def test_dify_adapter_applies_deployment_trusted_origins(
 
 def test_dify_adapter_rejects_invalid_deployment_trusted_origin(
     app: object,
+    monkeypatch: object,
 ) -> None:
     adapter = module.DifyAskProviderAdapter()
-    app.config["DIFY_TRUSTED_ORIGINS"] = "http://user:secret@dify.internal:5001"
+    monkeypatch.setitem(
+        app.config,
+        "DIFY_TRUSTED_ORIGINS",
+        "http://user:secret@dify.internal:5001",
+    )
 
     with pytest.raises(
         module.AskProviderConfigError,
