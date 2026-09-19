@@ -21,7 +21,7 @@ AI compatibility instruction files.
   Docker surfaces together.
 
 - `.github/copilot-instructions.md` is a short navigation entry point to
-  the hand-maintained `AGENTS.md` tree.
+  the `AGENTS.md` tree.
 
 ## Do
 

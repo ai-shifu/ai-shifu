@@ -11,12 +11,12 @@ canonical: true
 ## Instruction Ownership
 
 The root and nested `AGENTS.md` files are the only project-instruction body.
-Edit them directly. Each file adds constraints for its directory to the rules
+Each file adds constraints for its directory to the rules
 in its ancestors; keep module files focused on their own behavior, contracts,
 and verification. There is no instruction generator or minimum line count.
 
 Root, backend, frontend, GitHub automation, Docker, and repository scripts
-retain their own hand-maintained entry points. Mandatory constraints belong
+retain their own entry points. Mandatory constraints belong
 in these instructions, close to the work they govern. The
 [engineering baseline](../engineering-baseline.md) supplies expanded rationale,
 examples, and troubleshooting, including the CI/CD and release workflow.
@@ -33,7 +33,7 @@ workflow are retired.
 - Codex and Cursor use the layered `AGENTS.md` tree. Cursor supports nested
   instructions, so no `.mdc` pointers or `.cursorrules` are needed. See
   [Cursor rules](https://cursor.com/docs/rules#agentsmd).
-- `.github/copilot-instructions.md` is one short, manual navigation entry
+- `.github/copilot-instructions.md` is one short navigation entry
   pointing to the root and relevant nested `AGENTS.md` files. It covers
   Copilot surfaces whose native agent-instruction support differs; no
   parallel `.github/instructions/` tree is maintained. See the
@@ -74,8 +74,7 @@ import necessarily loads rules twice.
 
 `scripts/check_repo_harness.py` retains the required sections and shared
 constraints of the root, backend, and frontend entry points, along with
-repository knowledge metadata checks. Instruction files are maintained directly
-without regenerating mirrors.
+repository knowledge metadata checks.
 
 `scripts/build_repo_knowledge_index.py` remains responsible for the generated
 knowledge indexes, document inventory, and harness reports. CI regenerates

@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Make the layered `AGENTS.md` files directly editable sources of truth. Remove
+Keep the layered `AGENTS.md` files as the instruction sources of truth. Remove
 the Python instruction generator and redundant tool-specific routers while
 preserving module-specific constraints and the small Copilot and Gemini entry
 points needed for compatibility. Runtime application behavior is unchanged.
@@ -11,7 +11,7 @@ points needed for compatibility. Runtime application behavior is unchanged.
 
 - [x] 2026-09-19 06:12 UTC: Synced PR #2861 and inventoried instruction owners,
       generated files, compatibility entry points, and checker dependencies.
-- [x] 2026-09-19 06:21 UTC: Converted module instructions to concise manual docs
+- [x] 2026-09-19 06:21 UTC: Simplified module instructions
       and removed the generator, routers, and superseded designs.
 - [x] 2026-09-19 06:21 UTC: Removed obsolete generator checks and updated CI, hooks,
       shared instructions, canonical design, and generated knowledge indexes.
@@ -23,7 +23,7 @@ points needed for compatibility. Runtime application behavior is unchanged.
 ## Surprises & Discoveries
 
 - The generator rendered only the first three module invariants, even where
-  its metadata declared more. The manual conversion must preserve every
+  its metadata declared more. The simplified instructions must preserve every
   metadata invariant as well as all currently rendered local constraints.
 - Claude rule files have no path frontmatter and repeat shared instructions.
   Their explicit stop-on-missing-development-tools rule belongs in root guidance.
@@ -33,7 +33,7 @@ points needed for compatibility. Runtime application behavior is unchanged.
 ## Decision Log
 
 - 2026-09-19: Remove all 24 reviewed redundant files plus the instruction
-  generator. Keep `GEMINI.md` linked to root `AGENTS.md` and one manual Copilot
+  generator. Keep `GEMINI.md` linked to root `AGENTS.md` and one Copilot
   navigation file. The user authorized this scope after the redundancy review.
 - 2026-09-19: Keep local module rules, targeted commands, and skill references;
   remove repeated parent guidance and arbitrary minimum line counts. Check
@@ -68,7 +68,7 @@ The canonical replacement is `docs/design-docs/ai-tool-compat.md`.
 
 ## Plan of Work
 
-Convert the 25 module documents to manual ownership, retaining all local rules.
+Simplify the 25 module documents, retaining all local rules.
 Delete empty tool routing layers and consolidate the historical design decisions.
 Remove generator dependencies from validation and automation. Preserve the
 existing checks for shared rules and repository knowledge without introducing
@@ -100,8 +100,8 @@ is safe to rerun. Temporary verification environments are outside the repository
 
 ## Interfaces and Dependencies
 
-Instruction authors edit `AGENTS.md` directly. The existing harness remains a
-standard-library Python script and no longer imports the retired generator.
+The existing harness remains a standard-library Python script and no longer
+imports the retired generator.
 CI keeps knowledge-index generation and the existing architecture, translation,
 and runtime gates. Claude users need a version and session configuration that
 supports native `AGENTS.md`; the compatibility document describes those requirements.
