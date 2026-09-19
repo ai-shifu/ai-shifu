@@ -327,6 +327,7 @@ def check_tracked_claude_instructions(errors: list[str]) -> None:
                 "--",
                 ":(glob)**/CLAUDE.md",
                 ":(glob)**/CLAUDE.local.md",
+                ":(glob)**/.claude/rules/**/*.md",
             ],
             cwd=ROOT,
             check=True,

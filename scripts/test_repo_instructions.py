@@ -97,6 +97,34 @@ class RepoInstructionsTest(unittest.TestCase):
         assert len(errors) == 1
         assert "Unable to enumerate tracked Claude instructions" in errors[0]
 
+    def test_rejects_only_tracked_claude_rule_files(self) -> None:
+        self.run_git("init", "--quiet")
+        self.write(".gitignore", "personal/\n")
+        rule_paths = (
+            ".claude/rules/project.md",
+            ".claude/rules/backend/database.md",
+            "module with space/.claude/rules/frontend/ui.md",
+            "personal/.claude/rules/private.md",
+        )
+        for path in rule_paths:
+            self.write(path, "# Project instructions\n")
+        errors: list[str] = []
+        harness.check_tracked_claude_instructions(errors)
+        assert errors == []
+
+        self.write(".claude/settings.json", "{}\n")
+        self.write(".claude/README.md", "# Tool setup\n")
+        self.run_git("add", ".claude/settings.json", ".claude/README.md")
+        harness.check_tracked_claude_instructions(errors)
+        assert errors == []
+
+        self.run_git("add", *rule_paths[:-1])
+        self.run_git("add", "--force", rule_paths[-1])
+        harness.check_tracked_claude_instructions(errors)
+        assert len(errors) == len(rule_paths)
+        for path in rule_paths:
+            assert any(error.endswith(f": {path}") for error in errors)
+
     def test_accepts_concise_module_with_local_headings(self) -> None:
         self.write("AGENTS.md", "# Shared rules\n\nKeep secrets out of source.\n")
         self.write(
