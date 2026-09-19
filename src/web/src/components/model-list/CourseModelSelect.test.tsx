@@ -80,13 +80,12 @@ describe('CourseModelSelect numbered choices', () => {
         <CourseModelSelect
           value='1'
           onChange={onChange}
-          fallback
         />,
       );
       await waitFor(() =>
         expect(screen.getByRole('combobox')).toHaveTextContent('Everyday'),
       );
-      expect(screen.getByRole('status')).toHaveTextContent('fallback');
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
       fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
       const option = await screen.findByRole('option', { name: /Everyday/ });
       if (method === 'keyboard') fireEvent.keyDown(option, { key: 'Enter' });

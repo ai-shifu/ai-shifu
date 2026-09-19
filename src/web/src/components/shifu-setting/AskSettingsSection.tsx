@@ -42,7 +42,6 @@ type AskSettingsSectionProps = {
   resolvedAskProvider: string;
   askProviderLlmValue: string;
   askModelIndex?: ModelIndex | null;
-  modelFallback?: boolean;
   modelDisplayName?: string;
   canRestoreText?: boolean;
   checkingTextMode?: boolean;
@@ -84,7 +83,6 @@ export default function AskSettingsSection({
   resolvedAskProvider,
   askProviderLlmValue,
   askModelIndex,
-  modelFallback,
   modelDisplayName,
   canRestoreText = false,
   checkingTextMode = false,
@@ -186,7 +184,6 @@ export default function AskSettingsSection({
             {!isLiveVoiceFollowUp && (
               <CourseModelSelect
                 value={askModelIndex ?? null}
-                fallback={modelFallback}
                 displayName={modelDisplayName}
                 onChange={modelIndex => onAskModelIndexChange?.(modelIndex)}
                 disabled={textConfigurationReadonly}

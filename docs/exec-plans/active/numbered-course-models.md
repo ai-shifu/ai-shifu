@@ -12,6 +12,10 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 
 ## Progress
 
+- [x] 2026-09-19 UTC: Apply annotated course-setting copy: name the teaching
+  model, explain its effect on speed and quality, simplify the course-prompt
+  guidance, and remove the fallback notice while preserving selection and
+  analytics behavior.
 - [x] 2026-09-19 UTC: Align course model option functions, HTTP endpoint, frontend
   selector, error keys, tests and documentation with numbered selections; direct
   unavailable or missing-model messages to the administrator in every locale.
@@ -193,7 +197,9 @@ text catalogs return numeric values in their existing model field. Course detail
 returns effective model/ask_model and model_fallback/ask_model_fallback booleans.
 Raw saved values remain in persisted fields and export files. Teacher model
 controls use numeric option values and show the configured name, falling back
-to the configured model ID when the name is absent or blank.
+to the configured model ID when the name is absent or blank. Controls show the
+effective choice without an explanatory fallback notice; runtime metadata and
+settings-save analytics retain the fallback flags.
 
 Internal physical catalogs deduplicate identical bindings by the lowest slot
 number, while course choices retain every slot. Existing gateway client

@@ -201,8 +201,7 @@
   "minimaxVoiceGroupCloned": "Mes voix clonées",
   "minimaxVoiceGroupManual": "ID de voix manuel",
   "modelOptions": {
-    "fallback": "La configuration enregistrée est indisponible. Le modèle par défaut est utilisé. Sélectionnez un modèle et enregistrez pour modifier ce réglage.",
-    "hint": "Choisissez un modèle configuré par votre administrateur.",
+    "hint": "Le modèle détermine la vitesse et la qualité du contenu généré pour le cours",
     "liveVoice": "Conversation vocale",
     "text": "Questions écrites",
     "unavailable": "Indisponible"
@@ -256,6 +255,7 @@
   "shifuDescriptionEmpty": "La description du cours ne peut pas être vide",
   "shifuDescriptionMaxLength": "La description du cours ne peut pas dépasser 500 caractères",
   "shifuDescriptionPlaceholder": "Expliquez brièvement à qui s’adresse ce cours et ce que les apprenants obtiendront",
+  "shifuModel": "Modèle d’enseignement",
   "shifuName": "Nom du cours",
   "shifuNameEmpty": "Le nom du cours ne peut pas être vide",
   "shifuNameMaxLength": "Le nom du cours ne peut pas dépasser {maxLength} caractères",
@@ -263,7 +263,7 @@
   "shifuPriceEmpty": "Le prix ne peut pas être vide",
   "shifuPriceFormat": "Le prix doit être un nombre valide",
   "shifuPrompt": "Consignes d’enseignement IA",
-  "shifuPromptHint": "Indiquez à l’IA à qui s’adresse le cours, quel ton utiliser et quelles règles respecter",
+  "shifuPromptHint": "Exigences et contraintes pour l’enseignement par l’IA",
   "shifuPromptMaxLength": "Le prompt de cours ne peut pas dépasser 20 000 caractères",
   "shifuPromptPlaceholder": "Exemple : pour débutants, ton bienveillant, montrer un exemple avant chaque notion",
   "shifuTemperature": "Température de génération du contenu",

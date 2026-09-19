@@ -33,12 +33,11 @@ type CourseModelSelectProps = Omit<
   value: ModelIndex | null;
   onChange: (index: ModelIndex) => void;
   displayName?: string;
-  fallback?: boolean;
 };
 
 const CourseModelSelect = forwardRef<HTMLButtonElement, CourseModelSelectProps>(
   function CourseModelSelect(
-    { value, onChange, displayName, fallback, disabled, ...triggerProps },
+    { value, onChange, displayName, disabled, ...triggerProps },
     ref,
   ) {
     const { t } = useTranslation();
@@ -166,14 +165,6 @@ const CourseModelSelect = forwardRef<HTMLButtonElement, CourseModelSelectProps>(
             ))}
           </SelectContent>
         </Select>
-        {fallback ? (
-          <p
-            className='text-xs text-muted-foreground'
-            role='status'
-          >
-            {t('module.shifuSetting.modelOptions.fallback')}
-          </p>
-        ) : null}
       </div>
     );
   },

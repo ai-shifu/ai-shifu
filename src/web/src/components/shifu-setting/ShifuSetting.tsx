@@ -2357,7 +2357,7 @@ export default function ShifuSettingDialog({
                   render={({ field }) => (
                     <FormItem className='space-y-2 mb-4'>
                       <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('common.core.selectModel')}
+                        {t('module.shifuSetting.shifuModel')}
                       </FormLabel>
                       <p className='text-xs text-muted-foreground'>
                         {selectModelHint}
@@ -2367,7 +2367,6 @@ export default function ShifuSettingDialog({
                           disabled={currentShifu?.readonly}
                           value={asModelIndex(field.value)}
                           displayName={mainModelDisplayName}
-                          fallback={mainModelFallback}
                           onChange={index => {
                             markModelEdited('main', index);
                             field.onChange(index);
@@ -2493,7 +2492,6 @@ export default function ShifuSettingDialog({
                     onAskModelChange={handleAskModelChange}
                     askModelOptions={followUpModelOptions}
                     askModelIndex={askModelIndex}
-                    modelFallback={followUpModelFallback}
                     modelDisplayName={followUpModelDisplayName}
                     canRestoreText={
                       initialAskConfigurationRef.current?.interactionMode ===

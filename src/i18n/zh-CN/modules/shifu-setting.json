@@ -201,8 +201,7 @@
   "minimaxVoiceGroupCloned": "我的克隆音色",
   "minimaxVoiceGroupManual": "手动音色 ID",
   "modelOptions": {
-    "fallback": "原模型配置已不可用，当前使用默认模型。重新选择模型后保存，可更新此设置。",
-    "hint": "选择系统管理员配置的模型。",
+    "hint": "模型决定课程输出速度和质量",
     "liveVoice": "实时语音",
     "text": "文字追问",
     "unavailable": "暂不可用"
@@ -256,6 +255,7 @@
   "shifuDescriptionEmpty": "课程简介不能为空",
   "shifuDescriptionMaxLength": "课程简介不能超过 500 个字符",
   "shifuDescriptionPlaceholder": "简单说明这门课适合谁、能学到什么",
+  "shifuModel": "授课模型",
   "shifuName": "课程名称",
   "shifuNameEmpty": "课程名称不能为空",
   "shifuNameMaxLength": "课程名称不能超过 {maxLength} 个字符",
@@ -263,7 +263,7 @@
   "shifuPriceEmpty": "价格不能为空",
   "shifuPriceFormat": "价格必须为有效数字格式",
   "shifuPrompt": "课程提示词",
-  "shifuPromptHint": "对所有课节如何授课做全面的要求和约束",
+  "shifuPromptHint": "对 AI 授课的要求和约束",
   "shifuPromptMaxLength": "课程提示词不能超过 20000 个字符",
   "shifuPromptPlaceholder": "告诉 AI 你是谁，这门课面向谁，应该用什么语气、风格讲课，幻灯片要怎么画，哪些规矩必须遵守，哪些错误不要犯等等",
   "shifuTemperature": "授课温度",

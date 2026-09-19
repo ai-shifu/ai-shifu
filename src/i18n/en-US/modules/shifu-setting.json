@@ -201,8 +201,7 @@
   "minimaxVoiceGroupCloned": "My cloned voices",
   "minimaxVoiceGroupManual": "Manual voice ID",
   "modelOptions": {
-    "fallback": "The saved model configuration is unavailable. The default model is being used. Select a model and save to update this setting.",
-    "hint": "Choose a model configured by your administrator.",
+    "hint": "The model determines the speed and quality of course output",
     "liveVoice": "Live voice",
     "text": "Text follow-up",
     "unavailable": "Unavailable"
@@ -256,6 +255,7 @@
   "shifuDescriptionEmpty": "Course description cannot be empty",
   "shifuDescriptionMaxLength": "Course description cannot exceed 500 characters",
   "shifuDescriptionPlaceholder": "Briefly explain who this course is for and what learners will get",
+  "shifuModel": "Teaching model",
   "shifuName": "Course name",
   "shifuNameEmpty": "Course name cannot be empty",
   "shifuNameMaxLength": "Course name cannot exceed {maxLength} characters",
@@ -263,7 +263,7 @@
   "shifuPriceEmpty": "Price cannot be empty",
   "shifuPriceFormat": "Price must be a valid number",
   "shifuPrompt": "AI teaching instructions",
-  "shifuPromptHint": "Tell the AI who this course is for, what tone to use, and which rules it must follow",
+  "shifuPromptHint": "Requirements and constraints for AI teaching",
   "shifuPromptMaxLength": "Course prompt cannot exceed 20000 characters",
   "shifuPromptPlaceholder": "Example: For beginners, use a friendly tone, show an example before explaining each concept",
   "shifuTemperature": "Content generation temperature",

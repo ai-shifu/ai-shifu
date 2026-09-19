@@ -1600,13 +1600,10 @@ describe('ShifuSetting compatibility fallback and explicit selection', () => {
     expect(main()).toEqual(
       expect.objectContaining({
         value: '1',
-        fallback: true,
         displayName: 'Default label',
       }),
     );
-    expect(followUp()).toEqual(
-      expect.objectContaining({ askModelIndex: '1', modelFallback: true }),
-    );
+    expect(followUp()).toEqual(expect.objectContaining({ askModelIndex: '1' }));
     expect(mockSaveShifuDetail).not.toHaveBeenCalled();
     fireEvent.change(screen.getByDisplayValue('Compatibility course'), {
       target: { value: 'Renamed course' },
