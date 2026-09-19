@@ -21,6 +21,7 @@ from flaskr.common.safe_outbound import (
     ValidatedOutboundUrl,
     validate_outbound_url,
 )
+from urllib3.exceptions import NewConnectionError
 from urllib3.response import HTTPResponse
 
 if TYPE_CHECKING:
@@ -305,7 +306,7 @@ def test_client_tries_later_validated_address_after_connection_failure() -> None
         attempted.append(address)
         if len(attempted) == 1:
             message = "unreachable"
-            raise OSError(message)
+            raise NewConnectionError(None, message)
         return transport(method, target, address, **kwargs)
 
     client = SafeOutboundClient(
