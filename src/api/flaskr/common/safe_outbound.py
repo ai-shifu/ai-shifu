@@ -12,7 +12,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Protocol, Self
 from urllib.parse import SplitResult, urljoin, urlsplit, urlunsplit
 
-from urllib3.exceptions import HTTPError
+from urllib3.exceptions import ConnectTimeoutError, NewConnectionError
 from urllib3.util import Timeout
 
 if TYPE_CHECKING:
@@ -329,7 +329,7 @@ class SafeOutboundClient:
         body: bytes | None,
         deadline: float,
     ) -> HTTPResponse:
-        last_error: HTTPError | OSError | None = None
+        last_error: ConnectTimeoutError | NewConnectionError | None = None
         for address in target.addresses:
             remaining = _remaining_seconds(deadline)
             try:
@@ -345,7 +345,7 @@ class SafeOutboundClient:
                         read=min(self.policy.read_timeout_seconds, remaining),
                     ),
                 )
-            except (HTTPError, OSError) as exc:
+            except (ConnectTimeoutError, NewConnectionError) as exc:
                 last_error = exc
         if last_error is not None:
             raise last_error
