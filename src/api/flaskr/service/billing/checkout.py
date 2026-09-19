@@ -2857,9 +2857,13 @@ def _validate_stripe_checkout_evidence(
         None,
     )
     if metadata is None:
-        if _is_legacy_unbound_expired_stripe_checkout(session, intent):
+        # Stripe has attached nothing to match against. A payment-mode
+        # session has no PaymentIntent until the buyer starts paying, and
+        # sessions created before the provider began writing session metadata
+        # carry none at all.
+        if _is_unbound_unpaid_stripe_checkout(session, intent):
             app.logger.warning(
-                "Accepted metadata-free expired Stripe Checkout Session for legacy billing order: %s",
+                "Accepted metadata-free unpaid Stripe Checkout Session for billing order: %s",
                 order.bill_order_bid,
             )
             return
@@ -2876,15 +2880,24 @@ def _validate_stripe_checkout_evidence(
             raise_error("server.order.orderStatusError")
 
 
-def _is_legacy_unbound_expired_stripe_checkout(
+def _is_unbound_unpaid_stripe_checkout(
     session: dict[str, object],
     intent: dict[str, object] | None,
 ) -> bool:
-    """Accept only unpaid expired Sessions created before metadata was copied."""
-    return bool(
-        session.get("status") == "expired"
-        and not _is_stripe_checkout_paid(session, intent)
-    )
+    """Accept an unpaid Session that carries nothing to match the order against.
+
+    The session id has already been matched against the reference stored on
+    the order, and every identity key either payload does carry has already
+    been checked, so the only evidence still missing is proof of payment --
+    which an unpaid session cannot produce. Waiting for Stripe to expire the
+    session first would leave the order failing every scan for as long as
+    Stripe keeps the session open: 24 hours by default, against a local
+    deadline of 30 minutes.
+
+    Expiring the order is not final. A payment that lands afterwards still
+    moves it to paid through sync or webhook.
+    """
+    return not _is_stripe_checkout_paid(session, intent)
 
 
 def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:
