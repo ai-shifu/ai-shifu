@@ -8,6 +8,9 @@ canonical: true
 
 # Primary Surface Rules Completion
 
+Current instruction policy: `AGENTS.md` is the only project-instruction
+body. Do not generate `CLAUDE.md`. See `docs/design-docs/ai-tool-compat.md`.
+
 ## Summary
 
 Close the remaining governance gap in the layered AI-doc system by giving the

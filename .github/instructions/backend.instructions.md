@@ -6,28 +6,13 @@ applyTo: "src/api/**/*.py,src/api/**/*.md,src/i18n/**/*.json"
 
 # Copilot Instructions: Backend
 
-- Inspect existing services, repositories, DTOs, helpers, and tests before
-  changing backend behavior.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Use `docs/engineering-baseline.md` for backend-wide engineering conventions
-  such as model layout, response envelopes, migrations, configuration, and
-  i18n workflow.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Reuse the shared response envelope with `code`, `message`, and `data`,
-  provider wrappers, and configuration helpers before creating new
-  abstractions.
+- Keep this file limited to Copilot path routing via `applyTo`. Prefer native
+  `AGENTS.md` for Copilot coding agent.
 
-- Keep backend translations in shared JSON namespaces under `src/i18n/`, not
-  in ad-hoc Python translation modules.
-
-- Define schema changes in SQLAlchemy models, generate and review Alembic
-  revisions with `flask db migrate`, and do not use `create_all()` or custom
-  schema-introspection guards as a substitute for versioned migrations. Add a
-  narrowly scoped guard only for a documented non-transactional DDL recovery
-  requirement. Do not edit applied revisions, add hard business-key
-  foreign-key constraints, or bypass LiteLLM and shared provider helpers.
-
-- Own transactions with `with unit_of_work():` from `flaskr/dao/uow.py` and
-  reuse the caller's app context via `uow.app_context_scope(app)`; do not add
-  `db.session.commit()` outside `flaskr/dao/` (the commit-site ratchet
-  `scripts/check_uow_commit_sites.py` only shrinks).
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

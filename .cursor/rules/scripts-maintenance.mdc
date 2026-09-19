@@ -1,5 +1,5 @@
 ---
-description: Rules for repo maintenance, generation, and validation scripts
+description: Scripts pointer to native AGENTS.md
 globs:
   - scripts/**
 alwaysApply: false
@@ -9,14 +9,13 @@ alwaysApply: false
 
 # Cursor Rule: Scripts
 
-- Inspect the current script ownership, call sites, and sibling checker or
-  generator scripts before changing script behavior.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Keep script inputs, outputs, and file ownership explicit, repo-relative, and
-  predictable for both local runs and CI.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Prefer idempotent behavior for maintenance and generation scripts that may
-  be rerun by multiple contributors or jobs.
+- Keep this file limited to Cursor-private routing that `AGENTS.md` cannot
+  express: globs, `alwaysApply`, and the description.
 
-- Keep generator and checker pairs aligned when generated artifacts or
-  validation expectations move.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

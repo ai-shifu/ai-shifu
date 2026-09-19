@@ -27,9 +27,8 @@ from check_example_identifiers import find_violations as find_identifier_violati
 from generate_ai_collab_docs import (
     DOC_COMMENT,
     MAX_AGENT_LINES,
-    MAX_CLAUDE_LINES,
+    MAX_COMPAT_LINES,
     MIN_AGENT_LINES,
-    MIN_CLAUDE_LINES,
     REQUIRED_HEADINGS,
     build_documents,
 )
@@ -87,6 +86,8 @@ MANUAL_AGENTS = {
         "best-effort",
         "python scripts/check_repo_harness.py",
         "python scripts/check_architecture_boundaries.py",
+        "Do not add a `CLAUDE.md`",
+        ".claude/rules/",
     ),
     ROOT / "src" / "api" / "AGENTS.md": (
         "../../ARCHITECTURE.md",
@@ -105,10 +106,35 @@ MANUAL_AGENTS = {
         "src/lib/request.ts",
         "npm run test:e2e",
     ),
+    ROOT / "src" / "api" / "flaskr" / "service" / "billing" / "AGENTS.md": (
+        "billing_*",
+        "credit_*",
+        "order_orders",
+        "service/order/payment_providers",
+        "docs/billing-subscription-design.md",
+    ),
+    ROOT / "src" / "api" / "flaskr" / "service" / "referral" / "AGENTS.md": (
+        "referral_*",
+        "auth_hooks.py",
+        "referral_campaigns",
+        "src/api/flaskr/service/billing",
+    ),
 }
+THIN_COMPAT_MARKERS = (
+    "nearest `AGENTS.md`",
+    "Do not duplicate hard rules here",
+    "Do not add a `CLAUDE.md` file",
+)
 GENERATED_AI_DOC_MARKERS = {
-    CURSOR_REPOSITORY_AI_RULE: PR_REVIEW_SCOPE_MARKERS,
-    COPILOT_REPOSITORY_AI_INSTRUCTIONS: PR_REVIEW_SCOPE_MARKERS,
+    CURSOR_REPOSITORY_AI_RULE: THIN_COMPAT_MARKERS,
+    COPILOT_REPOSITORY_AI_INSTRUCTIONS: THIN_COMPAT_MARKERS,
+}
+SKIP_TREE_PARTS = {
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
 }
 REQUIRED_ROOT_DOCS = (
     ROOT / "ARCHITECTURE.md",
@@ -209,13 +235,16 @@ def check_generated_ai_docs(errors: list[str]) -> None:
                 f"{MIN_AGENT_LINES} and {MAX_AGENT_LINES}"
             )
         if path.name == "CLAUDE.md":
-            if not (MIN_CLAUDE_LINES <= line_count <= MAX_CLAUDE_LINES):
-                errors.append(
-                    f"{path} has {line_count} lines; expected between "
-                    f"{MIN_CLAUDE_LINES} and {MAX_CLAUDE_LINES}"
-                )
-            if "@AGENTS.md" not in actual:
-                errors.append(f"{path} must include '@AGENTS.md'")
+            errors.append(f"Generator must not emit CLAUDE.md: {path}")
+        elif (
+            path.suffix in {".mdc", ".md"}
+            and path.name != "AGENTS.md"
+            and line_count > MAX_COMPAT_LINES
+        ):
+            errors.append(
+                f"{path} has {line_count} lines; expected at most "
+                f"{MAX_COMPAT_LINES} for a thin compatibility pointer"
+            )
 
 
 def check_generated_knowledge_docs(errors: list[str]) -> None:
@@ -230,6 +259,42 @@ def check_generated_knowledge_docs(errors: list[str]) -> None:
             errors.append(f"Missing generated knowledge marker in {path}")
         if actual != expected:
             errors.append(f"Generated knowledge doc is stale: {path}")
+
+
+def _is_skipped_tree_path(path: Path) -> bool:
+    """Skip generated caches and vendor trees while scanning the repo."""
+    return any(part in SKIP_TREE_PARTS for part in path.parts)
+
+
+def check_no_claude_md(errors: list[str]) -> None:
+    """Fail if any CLAUDE.md file exists or the generator would recreate one."""
+    expected_docs = build_documents()
+    errors.extend(
+        f"Generator must not emit CLAUDE.md: {path}"
+        for path in expected_docs
+        if path.name == "CLAUDE.md"
+    )
+    for path in sorted(ROOT.rglob("CLAUDE.md")):
+        if _is_skipped_tree_path(path):
+            continue
+        errors.append(f"Unexpected CLAUDE.md file: {path}")
+
+
+def check_generated_agents_ownership(errors: list[str]) -> None:
+    """Fail if a generated-marker AGENTS.md is not owned by the generator."""
+    expected_docs = set(build_documents())
+    for path in sorted(ROOT.rglob("AGENTS.md")):
+        if _is_skipped_tree_path(path) or not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as error:
+            errors.append(f"Unable to read AGENTS.md ownership file {path}: {error}")
+            continue
+        if DOC_COMMENT in text and path not in expected_docs:
+            errors.append(
+                f"Generated-marker AGENTS.md is not owned by the generator: {path}"
+            )
 
 
 def check_manual_agents(errors: list[str]) -> None:
@@ -688,6 +753,8 @@ def main() -> int:
     errors: list[str] = []
     check_generated_ai_docs(errors)
     check_generated_knowledge_docs(errors)
+    check_no_claude_md(errors)
+    check_generated_agents_ownership(errors)
     check_manual_agents(errors)
     check_manual_rules(errors)
     check_root_docs(errors)

@@ -10,6 +10,8 @@ hard backend constraints close to `src/api/`.
 - Use `../../ARCHITECTURE.md` for the repository map and
   `../../docs/engineering-baseline.md` for the backend engineering handbook.
 - Service-specific rules still live in `src/api/flaskr/service/<module>/AGENTS.md`.
+  `creator_analytics` and `profile_research` do not have dedicated `AGENTS.md`
+  files yet; follow this backend file until they do.
 
 ## Do
 

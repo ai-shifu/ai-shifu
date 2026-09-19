@@ -5,7 +5,7 @@
 - Keep `SKILL.md` for long-lived cross-page or cross-module constraints and the skill index.
 - Keep `skills/xxx/SKILL.md` for scenario-specific triggers, execution steps, and acceptance checks.
 - `SKILL.md` must not carry long troubleshooting playbooks; workflow-heavy content belongs in focused skills.
-- Stable structural rules should go to the local `AGENTS.md / CLAUDE.md` first. Only workflow-oriented guidance should live in a skill.
+- Stable structural rules should go to the local `AGENTS.md` first. Only workflow-oriented guidance should live in a skill.
 
 ## Project-Wide Constraints
 

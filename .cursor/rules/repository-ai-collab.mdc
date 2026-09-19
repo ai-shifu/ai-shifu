@@ -1,5 +1,5 @@
 ---
-description: Repository-wide AI collaboration defaults shared across the codebase
+description: Repository-wide pointer to native AGENTS.md
 globs:
 alwaysApply: true
 ---
@@ -8,81 +8,11 @@ alwaysApply: true
 
 # Cursor Rule: Repository AI Collaboration
 
-- Read the nearest `AGENTS.md` and `CLAUDE.md` files first. Treat them as the
-  primary shared instruction source for this repository.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Keep the repository hard rules visible in those primary docs: English-only
-  code-facing text, no hardcoded user-facing strings or secrets, and
-  shared-contract doc updates in the same change.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- For terminology, use `老师` in Chinese and `teacher` / `enseignant` in
-  translations for the generic role; use `课程负责人` or `负责人` for a specific
-  course owner, which may still translate as `creator` / `créateur`; keep
-  technical `creator*` identifiers unchanged unless a contract migration
-  explicitly requires it.
-
-- Use `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md`
-  together: architecture map, ExecPlan spec, and stable engineering handbook.
-
-- Inspect the existing implementation, adjacent call sites, and the nearest
-  tests before making code changes.
-
-- Reuse existing abstractions wherever practical instead of building parallel
-  helpers, request paths, stores, or provider layers.
-
-- For complex design work, create an ExecPlan under `docs/exec-plans/active/`
-  and maintain it according to `PLANS.md`.
-
-- When creating a Git worktree, copy existing local `.env` files from the
-  source checkout into matching paths in the new worktree before starting
-  services. Preserve permissions, never commit the copies, and do not
-  overwrite worktree-specific environment files.
-
-- When a branch already has an open PR, keep the PR title and description in
-  sync with the latest code changes so they accurately describe the current
-  implementation and verification state.
-
-- Keep every pull request focused on one clearly defined problem. Include all
-  code, tests, docs, migrations, and compatibility work required to solve that
-  problem, but move unrelated fixes, cleanup, and follow-up work to separate
-  pull requests.
-
-- During code review, evaluate only whether the pull request solves its stated
-  problem correctly, safely, completely, and with adequate tests, including
-  regressions or contract effects introduced by the change.
-
-- Do not raise review findings about unrelated or pre-existing problems
-  outside the current pull request's responsibility boundary.
-
-- For git commit message title, body, and classification requirements, read
-  `AGENTS.md#git-commit-message-requirements`; keep agent-specific rule files
-  from duplicating the detailed commit-message policy.
-
-- Treat Ruff findings as code or contract signals: fix code with focused tests
-  first, use only narrow coded suppressions for intentional constructs, and
-  change global Ruff policy only in a dedicated rule PR tracked by the active
-  Ruff ExecPlan.
-
-- Treat product analytics as part of the definition of done for every new
-  user-facing Cook Web capability or interaction path. The same change must
-  add or extend a decision-relevant Umami event family and focused tests. Only
-  behavior-preserving visual, copy, performance, test, or refactoring work is
-  exempt; a new user-observable path introduced for accessibility still
-  requires analytics.
-
-- Treat every new or changed Cook Web Umami event as a versioned data contract
-  governed by `docs/references/frontend-product-analytics.md`. Changes to
-  event names, semantics, counted populations, deduplication, or payload
-  fields must update producers, consumers, documentation, and tests together.
-
-- Keep Cook Web Umami telemetry fail-open and non-authoritative: it must not
-  block product behavior or serve as the source of truth for billing,
-  permissions, or audit decisions. This rule does not define Langfuse or
-  backend observability contracts.
-
-- Keep generated knowledge artifacts in sync by running
-  `python scripts/build_repo_knowledge_index.py` after docs structure or
-  metadata changes.
-
-- Before committing, review the touched `AGENTS.md` and `CLAUDE.md` files and
-  update any stale guidance in the same change.
+- Keep this file limited to Cursor-private routing that `AGENTS.md` cannot
+  express: globs, `alwaysApply`, and the description.

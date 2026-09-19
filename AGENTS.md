@@ -7,11 +7,15 @@ to.
 ## Scope
 
 - Apply this file across the repository unless a deeper `AGENTS.md` narrows
-  the rules.
+  the rules. Coding agents start at the nearest `AGENTS.md`; that layered tree
+  is the only project-instruction body.
 - Treat `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md` as
   the main source documents behind this entry point.
 - Use `docs/QUALITY_SCORE.md`, `docs/RELIABILITY.md`, and `docs/SECURITY.md`
   to understand repository-wide quality gaps and harness constraints.
+- Do not add a `CLAUDE.md` file. Claude Code reads `AGENTS.md` natively.
+  Claude-only path rules belong in `.claude/rules/`. Keep generated Cursor
+  `.mdc` files as thin pointers, not a second rulebook.
 
 ## Do
 
@@ -51,8 +55,9 @@ to.
   problem correctly, safely, completely, and with adequate tests, including
   regressions or contract effects introduced by the change.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
-  touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
-  `.github` instructions in the same change.
+  touched `AGENTS.md` files first. Keep generated Cursor `.mdc` files and
+  Copilot instruction files as thin pointers to `AGENTS.md`, not restated
+  copies of these hard rules.
 - Treat product analytics as a completion requirement for every new user-facing
   Cook Web capability or interaction path. In the same change, define or extend
   a decision-relevant Umami event family, implement its producer, and add

@@ -20,8 +20,8 @@ AI compatibility instruction files.
   image build-and-publish automation that affects backend, frontend, and
   Docker surfaces together.
 
-- The instruction compatibility files under `.github/` are mirrors of the
-  primary manual docs and must stay aligned with them.
+- The instruction compatibility files under `.github/` are thin pointers to
+  native `AGENTS.md` and must stay aligned with them.
 
 ## Do
 
@@ -39,8 +39,8 @@ AI compatibility instruction files.
   used elsewhere in the repo.
 
 - When changing `.github/instructions/` or
-  `.github/copilot-instructions.md`, update the corresponding manual docs and
-  generated mirrors in the same change.
+  `.github/copilot-instructions.md`, keep them as thin pointers and update
+  the corresponding `AGENTS.md` files in the same change.
 
 ## Avoid
 
@@ -53,8 +53,7 @@ AI compatibility instruction files.
   without checking the related release and build workflows together.
 
 - Do not treat `.github/instructions/` or `copilot-instructions.md` as the
-  source of truth when the nearest manual `AGENTS.md` and `CLAUDE.md` say
-  otherwise.
+  source of truth when the nearest `AGENTS.md` says otherwise.
 
 ## Commands
 

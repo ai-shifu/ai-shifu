@@ -1,5 +1,5 @@
 ---
-description: Rules for Docker compose files, helper scripts, and env examples
+description: Docker pointer to native AGENTS.md
 globs:
   - docker/**
 alwaysApply: false
@@ -9,16 +9,13 @@ alwaysApply: false
 
 # Cursor Rule: Docker
 
-- Treat `docker-compose.dev.yml`, `docker-compose.latest.yml`, and
-  `docker-compose.yml` as distinct local-dev, freshest-published, and
-  pinned-release surfaces.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Keep secrets and environment-specific credentials out of compose files and
-  helper scripts.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Preserve image names, tags, env-file expectations, and boot order unless the
-  release or app configuration model also changes.
+- Keep this file limited to Cursor-private routing that `AGENTS.md` cannot
+  express: globs, `alwaysApply`, and the description.
 
-- Validate touched compose files with `docker compose ... config` and
-  cross-check release-facing image behavior against GitHub build and release
-  workflows.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

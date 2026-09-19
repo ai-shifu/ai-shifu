@@ -1,5 +1,5 @@
 ---
-description: Rules for GitHub Actions workflows and release automation
+description: GitHub Actions pointer to native AGENTS.md
 globs:
   - .github/workflows/**
 alwaysApply: false
@@ -9,15 +9,13 @@ alwaysApply: false
 
 # Cursor Rule: GitHub Workflows
 
-- Inspect the affected workflow triggers, path filters, and downstream jobs
-  before changing GitHub automation behavior.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Keep secrets, tokens, registry credentials, and toggles in GitHub Actions
-  secrets or vars instead of hardcoding them in workflow YAML.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Preserve release and image-tag semantics across `prepare-release.yml`,
-  `build-latest.yml`, and `build-on-release.yml` instead of changing one
-  workflow in isolation.
+- Keep this file limited to Cursor-private routing that `AGENTS.md` cannot
+  express: globs, `alwaysApply`, and the description.
 
-- Keep workflow trigger scope narrow and review backend, frontend, Docker, or
-  scripts path filters when automation ownership moves.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

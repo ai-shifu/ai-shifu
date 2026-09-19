@@ -21,5 +21,5 @@
 
 ## Migration Notes
 
-- Stable rules belong in layered `AGENTS.md / CLAUDE.md`.
+- Stable rules belong in layered `AGENTS.md`.
 - Troubleshooting knowledge that needs step-by-step execution or long-term reuse belongs in the relevant subproject `SKILL.md` system.

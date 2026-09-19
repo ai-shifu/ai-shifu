@@ -3,8 +3,8 @@
 This rule narrows Claude's attention to the backend subtree when the task is
 rooted in Flask services, migrations, or backend scripts.
 
-- Start with `src/api/CLAUDE.md`, then prefer the closest
-  `src/api/flaskr/service/<module>/CLAUDE.md` if a single service owns the
+- Start with `src/api/AGENTS.md`, then prefer the closest
+  `src/api/flaskr/service/<module>/AGENTS.md` if a single service owns the
   task.
 
 - Keep backend changes aligned with `src/api/AGENTS.md` and the backend

@@ -8,6 +8,11 @@ canonical: true
 
 # AI Doc Hard Rules Restoration
 
+Current instruction policy: `AGENTS.md` is the only project-instruction
+body. Do not generate `CLAUDE.md`. Cursor and Copilot files are thin
+pointers, not restated hard-rule dumps. See
+`docs/design-docs/ai-tool-compat.md`.
+
 ## Summary
 
 Restore the non-optional engineering guardrails that used to be visible in the

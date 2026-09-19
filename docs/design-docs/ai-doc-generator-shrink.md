@@ -8,6 +8,9 @@ canonical: true
 
 # AI Doc Generator Shrink And Baseline Restoration
 
+Current instruction policy: `AGENTS.md` is the only project-instruction
+body. Do not generate `CLAUDE.md`. See `docs/design-docs/ai-tool-compat.md`.
+
 ## Summary
 
 This change moves the repository from a fully generated AI-instruction layer

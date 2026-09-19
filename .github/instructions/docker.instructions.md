@@ -6,15 +6,13 @@ applyTo: "docker/**/*.yml,docker/**/*.yaml,docker/**/*.sh,docker/**/*.conf,docke
 
 # Copilot Instructions: Docker
 
-- Inspect the touched compose files, helper scripts, and release expectations
-  together before changing Docker behavior.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Keep `docker-compose.dev.yml`, `docker-compose.latest.yml`, and
-  `docker-compose.yml` semantically distinct.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Do not bake secrets or environment-specific credentials into compose files
-  or helper scripts.
+- Keep this file limited to Copilot path routing via `applyTo`. Prefer native
+  `AGENTS.md` for Copilot coding agent.
 
-- Validate touched compose files with `docker compose ... config` and
-  cross-check release-facing image references against GitHub build and release
-  workflows.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

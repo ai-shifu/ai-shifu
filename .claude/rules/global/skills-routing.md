@@ -3,6 +3,9 @@
 Use this Claude-only rule to decide when to follow a skill instead of
 inflating `AGENTS.md` with procedural troubleshooting steps.
 
+- Read the nearest `AGENTS.md` first. It is the only project-instruction
+  body. Do not add a `CLAUDE.md` wrapper.
+
 - Shared structural rules belong in `AGENTS.md`; repeatable multi-step
   workflows belong in `SKILL.md` files.
 

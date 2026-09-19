@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate repetitive AI collaboration docs and compatibility mirrors."""
+"""Generate module AGENTS.md files and thin Cursor/Copilot routing files."""
 
 from __future__ import annotations
 
@@ -12,8 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WIDTH = 78
 MIN_AGENT_LINES = 60
 MAX_AGENT_LINES = 140
-MIN_CLAUDE_LINES = 3
-MAX_CLAUDE_LINES = 15
+MAX_COMPAT_LINES = 40
 REQUIRED_HEADINGS = (
     "Scope",
     "Do",
@@ -69,300 +68,6 @@ class FrontendDomainMeta:
     avoid_points: tuple[str, ...]
     test_focus: str
     skill_refs: tuple[str, ...] = ()
-
-
-ROOT_SPEC = DocSpec(
-    title="AI Collaboration Rules",
-    intro=(
-        "This repository uses layered AI instructions. Start at the nearest "
-        "`AGENTS.md`, inherit parent guidance only when the local file does not "
-        "override it, and use `CLAUDE.md` as a thin Claude-specific wrapper."
-    ),
-    scope=(
-        "This root file owns repository-wide rules that apply across backend, "
-        "frontend, scripts, Docker, shared i18n assets, and future first-class "
-        "development surfaces.",
-        "Keep shared rules here only when both Codex and Claude should follow "
-        "them. Move subsystem details into `src/api/AGENTS.md`, "
-        "`src/web/AGENTS.md`, or deeper module files.",
-        "Any new directory that becomes a primary engineering surface must add "
-        "its own `AGENTS.md` and `CLAUDE.md` before the split is considered "
-        "complete for that area.",
-        "Use English for code, comments, commit subjects, and instruction files. "
-        "User-facing text still belongs in shared i18n JSON under `src/i18n/`.",
-        "In Chinese user-facing text and Chinese docs, do not use `创作者` as a "
-        "generic product term. Use `老师` for the general course-building or "
-        "teacher account role; use `课程负责人` or, inside an existing course "
-        "context, `负责人` when referring to a specific course owner.",
-        "Keep English and French translations aligned with that distinction: "
-        "use `teacher` / `enseignant` for the generic role, while a specific "
-        "course owner may still be translated as `creator` / `créateur`.",
-    ),
-    do=(
-        "Start every task by locating the nearest `AGENTS.md`, then inherit the "
-        "root rules only for topics not redefined in the local scope.",
-        "Before modifying code, inspect the current implementation, adjacent "
-        "call sites, and the nearest tests or docs so decisions are grounded in "
-        "the existing system instead of assumptions.",
-        "Maximize reuse of existing modules, utilities, stores, DTOs, provider "
-        "layers, and established patterns. Extend the current implementation "
-        "before creating a new abstraction.",
-        "Treat `AGENTS.md` and `CLAUDE.md` as the primary instruction source. "
-        "Before each commit, review the touched ones and keep generated Cursor "
-        "and Copilot compatibility files aligned when shared guidance changes "
-        "or becomes stale.",
-        "Before implementing a complex design or cross-module architecture "
-        "change, create an ExecPlan under `docs/exec-plans/active/` and keep "
-        "it aligned with `PLANS.md`.",
-        "When an ExecPlan exists, treat it as the visible source of truth for "
-        "the current complex topic and keep its progress and decisions current.",
-        "Move completed ExecPlans to `docs/exec-plans/completed/` only after "
-        "implementation and verification are complete.",
-        "Whenever creating a Git worktree for this repository, copy existing "
-        "local `.env` files from the source checkout into matching paths in the "
-        "new worktree before starting services, including the repository-root "
-        "`.env` and `src/web/.env` when present. Preserve permissions, "
-        "never commit the copies, and do not overwrite an environment file "
-        "already customized in the new worktree.",
-        "Run the smallest relevant verification first, then widen to shared "
-        "checks when a change crosses API boundaries, shared DTOs, i18n files, "
-        "or common frontend libraries.",
-        "Keep repository-wide guidance concise. If the rule only matters to one "
-        "subtree or one recurring workflow, move it to a deeper `AGENTS.md` or "
-        "into a `SKILL.md` workflow.",
-        "Record assumptions, skipped checks, and environment blockers in the task "
-        "summary whenever a full verification pass is not practical.",
-    ),
-    avoid=(
-        "Do not duplicate the same rule in multiple `AGENTS.md` files. Promote "
-        "shared rules upward and keep local files additive instead of repetitive.",
-        "Do not start modifying code based on guesswork when the local "
-        "implementation, references, or tests have not been inspected yet.",
-        "Do not build a new helper, abstraction, or code path when an existing "
-        "one can be reused or extended cleanly.",
-        "Do not change shared AI guidance without regenerating the derived "
-        "Cursor and Copilot compatibility files that mirror it.",
-        "Do not create a commit that changes implementation contracts while "
-        "leaving the affected `AGENTS.md` or `CLAUDE.md` guidance outdated.",
-        "Do not start a complex design implementation without an ExecPlan in "
-        "`docs/exec-plans/active/` that follows `PLANS.md`.",
-        "Do not leave complex progress or decision history only in chat; record "
-        "it in the active ExecPlan.",
-        "Do not keep repository-root `tasks.md` as a parallel planning system.",
-        "Do not hardcode user-facing strings, secrets, or environment-specific "
-        "URLs in code or docs. Route text through i18n and credentials through "
-        "the existing configuration layers.",
-        "Do not edit applied Alembic migrations, generated caches, or unrelated "
-        "dirty worktree files unless the task explicitly requires that scope.",
-        "Do not place long troubleshooting runbooks in `AGENTS.md`. Use "
-        "`SKILL.md` for repeatable workflows that need step-by-step guidance.",
-    ),
-    commands=(
-        "`lefthook run pre-commit --all-files` from the repository root is the "
-        "shared quality gate before any commit-sized change lands.",
-        "`cd src/api && pytest -q` is the broad backend verification baseline "
-        "when a change touches shared backend contracts or multiple services.",
-        "`cd src/web && npm run type-check && npm run lint` is the broad "
-        "frontend verification baseline for shared Cook Web changes.",
-        "`python scripts/check_repo_harness.py` validates the repository "
-        "harness layout and should stay green after instruction changes.",
-        "`python scripts/check_architecture_boundaries.py` validates the "
-        "committed frontend/backend boundary baseline and blocks new drift.",
-    ),
-    tests=(
-        "Run targeted backend pytest modules under `src/api/tests/` when a change "
-        "touches Flask services, models, DTOs, or migration-related code.",
-        "Run targeted Jest or React tests under `src/web/src/` when a "
-        "change touches frontend pages, stores, shared hooks, or request code.",
-        "Run translation validation scripts whenever shared i18n namespaces or "
-        "translation file inventories change.",
-        "When a task updates only docs or instruction files, at minimum run the "
-        "AI-doc validation script and note that no runtime code changed.",
-        "When a task changes shared dependency flow or boundary policy, run "
-        "`python scripts/check_architecture_boundaries.py` before closing it.",
-    ),
-    related_skills=(
-        "`SKILL.md` is the repository-level skill index and boundary map.",
-        "`src/api/SKILL.md` is the backend skill entry for Flask services and "
-        "backend-specific recurring workflows.",
-        "`src/web/SKILL.md` is the frontend skill entry for Cook Web and "
-        "its existing focused troubleshooting skills.",
-        "Claude-only path routing belongs under `/.claude/rules/`; shared rules "
-        "must stay in `AGENTS.md` so both tools read the same source.",
-    ),
-)
-
-API_SPEC = DocSpec(
-    title="Backend AI Collaboration Rules",
-    intro=(
-        "This file owns backend-wide rules for the Flask API, service modules, "
-        "Alembic migrations, backend configuration, and shared backend tests."
-    ),
-    scope=(
-        "Apply this file to `src/api/`, including `flaskr/`, `migrations/`, "
-        "`tests/`, backend scripts, and backend environment workflows.",
-        "Service-specific rules belong in `src/api/flaskr/service/<module>/"
-        "AGENTS.md`. Keep this file focused on backend patterns shared by "
-        "multiple services.",
-        "The backend exposes repository-owned HTTP APIs, background helpers, "
-        "LiteLLM-based provider routing, storage integration, and shared backend "
-        "localization flows.",
-        "Shared translation files live under `src/i18n/`, not under "
-        "`src/api/flaskr/i18n/`, and backend code should reference them by "
-        "namespace key.",
-    ),
-    do=(
-        "Inspect the owning service code, neighboring helpers, and matching "
-        "pytest coverage before changing backend behavior so you preserve the "
-        "actual current contract.",
-        "Reuse existing repositories, DTOs, response envelopes, provider "
-        "wrappers, and helper modules before introducing a new backend "
-        "abstraction.",
-        "Use `FLASK_APP=app.py` from `src/api/` for Flask commands, and update "
-        "module imports so new models or routes participate in the app factory "
-        "and migration discovery paths.",
-        "Define the intended schema in SQLAlchemy models first, then generate "
-        "schema revisions with `FLASK_APP=app.py flask db migrate -m "
-        '"message"` and review the candidate migration before accepting it.',
-        "Keep database models aligned with the project conventions: business keys "
-        "before foreign references, indexed `_bid` columns, soft-delete flags "
-        "when applicable, and timestamp fields with server defaults.",
-        "Register new or changed environment variables in "
-        "`src/api/flaskr/common/config.py`, then regenerate `docker/.env.example.full` "
-        "with `python scripts/generate_env_examples.py`.",
-        "Use shared response envelopes, error-code registration, and backend i18n "
-        "helpers instead of inventing per-service response or translation "
-        "patterns.",
-    ),
-    avoid=(
-        "Do not add parallel backend helper layers when shared repositories, "
-        "provider wrappers, or service utilities already cover the use case.",
-        "Do not edit applied migration files. Generate a new Alembic revision and "
-        "review it before committing any schema change.",
-        "Do not use SQLAlchemy or Flask-SQLAlchemy `create_all()` calls, or "
-        "custom schema-introspection guards, as a substitute for versioned "
-        "Alembic migrations. Add a narrowly scoped guard only when a documented "
-        "non-transactional DDL recovery requirement makes it necessary.",
-        "Do not add hard database foreign-key constraints for business-key "
-        "relationships unless the architecture decision changes explicitly.",
-        "Do not bypass the LiteLLM wrapper or shared backend helper layers when "
-        "integrating new OpenAI-compatible providers or external service calls.",
-        "Do not add primary backend translations in Python modules. Use shared "
-        "JSON namespaces under `src/i18n/` and keep locale inventories aligned.",
-    ),
-    commands=(
-        "`cd src/api && FLASK_APP=app.py flask run` starts the backend dev server.",
-        "`cd src/api && pytest -q` runs the backend test suite; narrow to "
-        "`tests/service/<module>/` for focused verification while iterating.",
-        '`cd src/api && FLASK_APP=app.py flask db migrate -m "message"` '
-        "creates a migration after model changes, and `flask db upgrade` applies it.",
-        "`cd src/api && python scripts/generate_env_examples.py` refreshes the "
-        "Docker environment example after configuration changes.",
-    ),
-    tests=(
-        "Extend service tests under `src/api/tests/service/` whenever behavior, "
-        "DTO shape, permission rules, or persistence logic changes.",
-        "Review generated migration files in `src/api/migrations/versions/` "
-        "manually before accepting schema changes.",
-        "Run `python scripts/check_translations.py` and "
-        "`python scripts/check_translation_usage.py --fail-on-unused` when shared "
-        "translation namespaces or backend usage change.",
-        "When a change touches provider calls, auth, or configuration, cover both "
-        "the success path and the highest-risk failure path in tests or mocks.",
-    ),
-    related_skills=(
-        "`src/api/SKILL.md` lists backend skills and the split between durable "
-        "rules and workflow-specific runbooks.",
-        "`src/api/skills/shifu-authoring-flow/SKILL.md` covers backend authoring, "
-        "history, and publish/import workflows.",
-        "`src/api/skills/user-auth-flows/SKILL.md` covers verification codes, "
-        "credential state, and auth-provider changes.",
-    ),
-)
-
-WEB_SPEC = DocSpec(
-    title="Cook Web AI Collaboration Rules",
-    intro=(
-        "This file owns frontend-wide rules for the Next.js Cook Web app, shared "
-        "request utilities, state containers, and shared learner and teacher "
-        "modules."
-    ),
-    scope=(
-        "Apply this file to `src/web/`, including app routes, components, "
-        "shared libraries, stores, tests, and the local frontend skill index.",
-        "More specific rules belong in `src/web/src/<domain>/AGENTS.md`. "
-        "Keep this file focused on patterns shared across multiple frontend "
-        "domains.",
-        "Cook Web serves both the learner-facing routes and the authoring/admin "
-        "experience, so shared request, auth, and i18n behavior must stay "
-        "consistent across route groups.",
-        "Organize source by responsibility under api, assets, components, "
-        "constants, hooks, lib, store, and types; learner and teacher routes "
-        "share these modules.",
-    ),
-    do=(
-        "Inspect the current route, component, hook, store, and shared-lib path "
-        "before changing frontend behavior so new code aligns with the existing "
-        "implementation.",
-        "Prefer extending the current request stack, shared utilities, stores, "
-        "hooks, and compatibility layers instead of creating a second way to do "
-        "the same thing.",
-        "Use the shared request stack in `src/web/src/lib/request.ts` and "
-        "`src/web/src/lib/api.ts` instead of adding ad-hoc `fetch` logic in "
-        "pages or components.",
-        "Keep App Router files aligned with Next.js conventions: `page.tsx`, "
-        "`layout.tsx`, and `route.ts` own route entry behavior while shared UI "
-        "logic stays under components, hooks, stores, or `lib/`.",
-        "Route all user-facing text through shared i18n JSON namespaces under "
-        "`src/i18n/`, and keep frontend user-facing locales aligned with "
-        "`src/i18n/locales.json`.",
-        "Prefer shared utilities when logic appears in two or more places. Move "
-        "stable parsing, routing, and serialization code into `lib/` or `hooks/` "
-        "instead of duplicating it in pages.",
-    ),
-    avoid=(
-        "Do not create duplicate frontend helpers, request wrappers, stores, or "
-        "route parsers when an existing implementation can be reused cleanly.",
-        "Do not hardcode user-facing strings, route-parameter parsing, or auth "
-        "header construction inside UI components.",
-        "Do not bypass the unified business-code handling path or create a second "
-        "request abstraction that diverges from `lib/request.ts`.",
-        "Do not reintroduce parallel source directories for learner and teacher "
-        "implementations; preserve compatibility in shared modules.",
-        "Do not add frontend-only translations under `public/locales` when the "
-        "shared JSON source under `src/i18n/` should own the text.",
-    ),
-    commands=(
-        "`cd src/web && npm run dev` starts the local frontend dev server.",
-        "`cd src/web && npm run type-check` is the baseline static check for "
-        "shared TypeScript changes.",
-        "`cd src/web && npm run lint` catches lint regressions across modern "
-        "and legacy frontend code.",
-        "`cd src/web && npm run test` runs the Jest suite; narrow by file or "
-        "pattern while iterating on a single domain.",
-    ),
-    tests=(
-        "Run focused Jest tests for the touched domain first, then expand to "
-        "`npm run type-check` and `npm run lint` before closing the task.",
-        "When request or route behavior changes, cover both the happy path and "
-        "the business-code or auth-error path.",
-        "When shared types or hook contracts change, update all consumers in the "
-        "same task and rerun targeted tests for the affected areas.",
-        "When only docs or AI instructions change, at minimum run "
-        "`python scripts/check_repo_harness.py` and note that runtime code was "
-        "not exercised.",
-    ),
-    related_skills=(
-        "`src/web/SKILL.md` is the frontend skill index and boundary map.",
-        "Use the existing focused skills under `src/web/skills/` for chat, "
-        "routing, streaming, hook-contract, and audio-specific workflows.",
-        "Keep durable structural rules in `AGENTS.md`; keep multi-step debugging "
-        "workflows in `SKILL.md` so they stay discoverable without bloating "
-        "directory-level docs.",
-        "Create a new focused skill when the same frontend troubleshooting flow "
-        "is repeated across multiple tasks or regressions.",
-    ),
-)
 
 
 BACKEND_META = {
@@ -1078,6 +783,24 @@ FRONTEND_META = {
 }
 
 
+AGENTS_ONLY_POINTER = (
+    "Read the nearest `AGENTS.md` first. It is the only project-instruction "
+    "body. Do not duplicate hard rules here.",
+    "Do not add a `CLAUDE.md` file. Claude-only path rules belong in `.claude/rules/`.",
+)
+CURSOR_PRIVATE_POINTER = (
+    "Keep this file limited to Cursor-private routing that `AGENTS.md` cannot "
+    "express: globs, `alwaysApply`, and the description.",
+)
+COPILOT_PRIVATE_POINTER = (
+    "Keep this file limited to Copilot path routing via `applyTo`. Prefer "
+    "native `AGENTS.md` for Copilot coding agent.",
+)
+PATH_AGENTS_POINTER = (
+    "Follow the nearest subtree `AGENTS.md` for path-specific rules.",
+)
+
+
 def wrap_bullet(text: str) -> list[str]:
     """Wrap one markdown bullet item."""
     return wrap_markdown(text, initial_indent="- ", subsequent_indent="  ")
@@ -1146,22 +869,6 @@ def render_agents(spec: DocSpec) -> str:
     lines.extend(render_section("Commands", spec.commands))
     lines.extend(render_section("Tests", spec.tests))
     lines.extend(render_section("Related Skills", spec.related_skills))
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def render_claude(entry_name: str) -> str:
-    """Render a thin CLAUDE.md wrapper."""
-    lines = [
-        DOC_COMMENT,
-        "",
-        f"# {entry_name}",
-        "",
-        "@AGENTS.md",
-        "",
-        "Use the nearest `AGENTS.md` as the shared source of truth.",
-        "Keep Claude-only routing in `/.claude/rules/` or add it here only when",
-        "the rule cannot live in a shared `AGENTS.md` file.",
-    ]
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -1410,163 +1117,42 @@ def render_copilot_path_instructions(
 
 
 def build_documents() -> dict[Path, str]:
-    """Build every generated AI collaboration document."""
+    """Build generated module AGENTS.md files and thin tool-private routers."""
+    cursor_repo = AGENTS_ONLY_POINTER + CURSOR_PRIVATE_POINTER
+    cursor_path = AGENTS_ONLY_POINTER + CURSOR_PRIVATE_POINTER + PATH_AGENTS_POINTER
+    copilot_repo = AGENTS_ONLY_POINTER + COPILOT_PRIVATE_POINTER
+    copilot_path = AGENTS_ONLY_POINTER + COPILOT_PRIVATE_POINTER + PATH_AGENTS_POINTER
     docs: dict[Path, str] = {
-        ROOT / "CLAUDE.md": render_claude("Claude Entry"),
-        ROOT / "src" / "api" / "CLAUDE.md": render_claude("Backend Claude Entry"),
-        ROOT / "src" / "web" / "CLAUDE.md": render_claude("Cook Web Claude Entry"),
-        ROOT / ".github" / "CLAUDE.md": render_claude("GitHub Claude Entry"),
-        ROOT / "docker" / "CLAUDE.md": render_claude("Docker Claude Entry"),
-        ROOT / "scripts" / "CLAUDE.md": render_claude("Scripts Claude Entry"),
         ROOT / ".cursor" / "rules" / "repository-ai-collab.mdc": render_cursor_rule(
             "Cursor Rule: Repository AI Collaboration",
-            "Repository-wide AI collaboration defaults shared across the codebase",
-            (
-                "Read the nearest `AGENTS.md` and `CLAUDE.md` files first. Treat "
-                "them as the primary shared instruction source for this repository.",
-                "Keep the repository hard rules visible in those primary docs: "
-                "English-only code-facing text, no hardcoded user-facing strings "
-                "or secrets, and shared-contract doc updates in the same change.",
-                "For terminology, use `老师` in Chinese and `teacher` / "
-                "`enseignant` in translations for the generic role; use "
-                "`课程负责人` or `负责人` for a specific course owner, which "
-                "may still translate as `creator` / `créateur`; keep technical "
-                "`creator*` identifiers unchanged unless a contract migration "
-                "explicitly requires it.",
-                "Use `ARCHITECTURE.md`, `PLANS.md`, and "
-                "`docs/engineering-baseline.md` together: architecture map, "
-                "ExecPlan spec, and stable engineering handbook.",
-                "Inspect the existing implementation, adjacent call sites, and the "
-                "nearest tests before making code changes.",
-                "Reuse existing abstractions wherever practical instead of building "
-                "parallel helpers, request paths, stores, or provider layers.",
-                "For complex design work, create an ExecPlan under "
-                "`docs/exec-plans/active/` and maintain it according to "
-                "`PLANS.md`.",
-                "When creating a Git worktree, copy existing local `.env` files "
-                "from the source checkout into matching paths in the new "
-                "worktree before starting services. Preserve permissions, never "
-                "commit the copies, and do not overwrite worktree-specific "
-                "environment files.",
-                "When a branch already has an open PR, keep the PR title and "
-                "description in sync with the latest code changes so they "
-                "accurately describe the current implementation and "
-                "verification state.",
-                "Keep every pull request focused on one clearly defined problem. "
-                "Include all code, tests, docs, migrations, and compatibility "
-                "work required to solve that problem, but move unrelated fixes, "
-                "cleanup, and follow-up work to separate pull requests.",
-                "During code review, evaluate only whether the pull request "
-                "solves its stated problem correctly, safely, completely, and "
-                "with adequate tests, including regressions or contract effects "
-                "introduced by the change.",
-                "Do not raise review findings about unrelated or pre-existing "
-                "problems outside the current pull request's responsibility "
-                "boundary.",
-                "For git commit message title, body, and classification "
-                "requirements, read "
-                "`AGENTS.md#git-commit-message-requirements`; keep "
-                "agent-specific rule files from duplicating the detailed "
-                "commit-message policy.",
-                "Treat Ruff findings as code or contract signals: fix code with "
-                "focused tests first, use only narrow coded suppressions for "
-                "intentional constructs, and change global Ruff policy only in "
-                "a dedicated rule PR tracked by the active Ruff ExecPlan.",
-                "Treat product analytics as part of the definition of done for "
-                "every new user-facing Cook Web capability or interaction path. "
-                "The same change must add or extend a decision-relevant Umami "
-                "event family and focused tests. Only behavior-preserving visual, "
-                "copy, performance, test, or refactoring work is exempt; a new "
-                "user-observable path introduced for accessibility still "
-                "requires analytics.",
-                "Treat every new or changed Cook Web Umami event as a versioned "
-                "data contract governed by "
-                "`docs/references/frontend-product-analytics.md`. Changes to event "
-                "names, semantics, counted populations, deduplication, or payload "
-                "fields must update producers, consumers, documentation, and "
-                "tests together.",
-                "Keep Cook Web Umami telemetry fail-open and non-authoritative: "
-                "it must not block product behavior or serve as the source of "
-                "truth for billing, permissions, or audit decisions. This rule "
-                "does not define Langfuse or backend observability contracts.",
-                "Keep generated knowledge artifacts in sync by running "
-                "`python scripts/build_repo_knowledge_index.py` after docs "
-                "structure or metadata changes.",
-                "Before committing, review the touched `AGENTS.md` and `CLAUDE.md` "
-                "files and update any stale guidance in the same change.",
-            ),
+            "Repository-wide pointer to native AGENTS.md",
+            cursor_repo,
             always_apply=True,
         ),
         ROOT / "docs" / ".cursor" / "rules" / "design-workflow.mdc": render_cursor_rule(
             "Cursor Rule: Docs Knowledge Workflow",
-            "Documentation workflow for the repository knowledge store and ExecPlans",
-            (
-                "Keep design decisions in `docs/design-docs/`, product behavior "
-                "specs in `docs/product-specs/`, and evergreen references in "
-                "`docs/references/`.",
-                "Use `PLANS.md` plus `docs/exec-plans/active/` for complex work "
-                "instead of repository-root `tasks.md`.",
-                "Regenerate indexes and the document inventory with "
-                "`python scripts/build_repo_knowledge_index.py` after changing "
-                "knowledge-structure docs or metadata.",
-                "Run `python scripts/check_architecture_boundaries.py` after "
-                "changing the boundary rules reference or committed baseline.",
-                "If a design changes implementation expectations, update the "
-                "nearest `AGENTS.md`, `CLAUDE.md`, and compatibility instruction "
-                "files when they become stale.",
-            ),
+            "Documentation workflow pointer to native AGENTS.md",
+            cursor_path,
             always_apply=False,
         ),
         ROOT / ".cursor" / "rules" / "github-workflows.mdc": render_cursor_rule(
             "Cursor Rule: GitHub Workflows",
-            "Rules for GitHub Actions workflows and release automation",
-            (
-                "Inspect the affected workflow triggers, path filters, and "
-                "downstream jobs before changing GitHub automation behavior.",
-                "Keep secrets, tokens, registry credentials, and toggles in "
-                "GitHub Actions secrets or vars instead of hardcoding them in "
-                "workflow YAML.",
-                "Preserve release and image-tag semantics across "
-                "`prepare-release.yml`, `build-latest.yml`, and "
-                "`build-on-release.yml` instead of changing one workflow in "
-                "isolation.",
-                "Keep workflow trigger scope narrow and review backend, frontend, "
-                "Docker, or scripts path filters when automation ownership moves.",
-            ),
+            "GitHub Actions pointer to native AGENTS.md",
+            cursor_path,
             always_apply=False,
             globs=(".github/workflows/**",),
         ),
         ROOT / ".cursor" / "rules" / "docker-ops.mdc": render_cursor_rule(
             "Cursor Rule: Docker",
-            "Rules for Docker compose files, helper scripts, and env examples",
-            (
-                "Treat `docker-compose.dev.yml`, `docker-compose.latest.yml`, and "
-                "`docker-compose.yml` as distinct local-dev, freshest-published, "
-                "and pinned-release surfaces.",
-                "Keep secrets and environment-specific credentials out of compose "
-                "files and helper scripts.",
-                "Preserve image names, tags, env-file expectations, and boot order "
-                "unless the release or app configuration model also changes.",
-                "Validate touched compose files with `docker compose ... config` "
-                "and cross-check release-facing image behavior against GitHub "
-                "build and release workflows.",
-            ),
+            "Docker pointer to native AGENTS.md",
+            cursor_path,
             always_apply=False,
             globs=("docker/**",),
         ),
         ROOT / ".cursor" / "rules" / "scripts-maintenance.mdc": render_cursor_rule(
             "Cursor Rule: Scripts",
-            "Rules for repo maintenance, generation, and validation scripts",
-            (
-                "Inspect the current script ownership, call sites, and sibling "
-                "checker or generator scripts before changing script behavior.",
-                "Keep script inputs, outputs, and file ownership explicit, "
-                "repo-relative, and predictable for both local runs and CI.",
-                "Prefer idempotent behavior for maintenance and generation "
-                "scripts that may be rerun by multiple contributors or jobs.",
-                "Keep generator and checker pairs aligned when generated artifacts "
-                "or validation expectations move.",
-            ),
+            "Scripts pointer to native AGENTS.md",
+            cursor_path,
             always_apply=False,
             globs=("scripts/**",),
         ),
@@ -1577,163 +1163,19 @@ def build_documents() -> dict[Path, str]:
         / "rules"
         / "backend-api.mdc": render_cursor_rule(
             "Cursor Rule: Backend API",
-            "Backend-specific rules for Flask services, migrations, and tests",
-            (
-                "Inspect existing service helpers, repositories, DTOs, and pytest "
-                "coverage before changing backend behavior.",
-                "Use `docs/engineering-baseline.md` for backend-wide engineering "
-                "conventions such as model layout, response envelopes, migrations, "
-                "configuration, and i18n workflow.",
-                "Reuse the shared API response envelope with `code`, `message`, "
-                "and `data`, provider wrappers, configuration "
-                "helpers, and existing backend service modules before adding new "
-                "abstractions.",
-                "Keep shared translations in `src/i18n/` and use backend helpers "
-                "instead of inventing per-service translation or error patterns.",
-                "Define schema changes in SQLAlchemy models, generate and review "
-                "Alembic revisions with `flask db migrate`, and do not use "
-                "`create_all()` or custom schema-introspection guards as a "
-                "substitute for versioned migrations. Add a narrowly scoped "
-                "guard only for a documented non-transactional DDL recovery "
-                "requirement. Do not edit applied revisions, add hard "
-                "business-key foreign-key constraints, or bypass the LiteLLM "
-                "and shared provider layers.",
-            ),
+            "Backend pointer to native AGENTS.md",
+            cursor_path,
             always_apply=False,
         ),
         ROOT / "src" / "web" / ".cursor" / "rules" / "web.mdc": render_cursor_rule(
             "Cursor Rule: Cook Web",
-            "Frontend-specific rules for Next.js and shared learner and teacher modules",
-            (
-                "Inspect the existing route, component, hook, store, and shared "
-                "lib path before changing frontend behavior.",
-                "Use `docs/engineering-baseline.md` for frontend-wide engineering "
-                "conventions such as request flow, naming, i18n, and testing.",
-                "Extend `src/web/src/lib/request.ts`, "
-                "`src/web/src/lib/api.ts`, current stores, hooks, and "
-                "compatibility layers instead of creating a second implementation "
-                "path or ad-hoc component fetch logic.",
-                "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
-                "and preserve the unified request/business-code handling flow.",
-                "Every new user-facing Cook Web capability or interaction path "
-                "must add or extend its Umami contract, producer, and focused "
-                "tests in the same change. Capture a meaningful feature "
-                "exposure, accepted use, or a meaningful outcome, and add "
-                "exposure when the metric "
-                "needs an eligible-view denominator. A generic SPA pageview is "
-                "insufficient unless route entry is the documented adoption "
-                "signal. Exempt only behavior-preserving work; new accessibility "
-                "invocation paths still require analytics.",
-                "For Umami product analytics, read "
-                "`docs/references/frontend-product-analytics.md`, send business "
-                "events through `useTracking` or the shared tracking helper, and "
-                "leave SPA pageviews to `UmamiLoader`; do not call "
-                "`window.umami`, identify users, or emit events during render from "
-                "business components.",
-                "Treat every new or changed Umami event name and metric semantic "
-                "as a stable contract. Use static `snake_case` names, put dynamic "
-                "IDs in payload fields, and define the real trigger, counted "
-                "population, deduplication, and terminal outcome before "
-                "implementation.",
-                "Use deny-by-default payloads for every new or changed Umami "
-                "event or identity change, with explicitly listed flat scalar "
-                "fields. Do not send personal or free-form content, credentials, "
-                "raw errors, or complete URLs, queries, or referrers; changed "
-                "pageview handling must strip queries and sensitive URL data, "
-                "and truncation or hashing does not replace privacy review.",
-                "For clickable UI, prefer semantic elements (`button`, `a`, "
-                "`summary`) or shared Radix/shadcn primitives. If a "
-                "non-semantic element must handle clicks, mark the actual "
-                'clickable target with `data-clickable="true"` and preserve '
-                'disabled states with `disabled`, `aria-disabled="true"`, or '
-                "`data-disabled`. Do not rely on page-local cursor styles or "
-                "broad `* { cursor: pointer; }` rules. Full-screen "
-                "onboarding/backdrop advance surfaces are the exception: keep "
-                "their large background or card hit areas on the default "
-                "cursor so the whole page does not read as a button.",
-                "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
-                "`route.ts`, and organize shared learner and teacher code by "
-                "responsibility under api, components, hooks, lib, store, and types.",
-            ),
+            "Frontend pointer to native AGENTS.md",
+            cursor_path,
             always_apply=False,
         ),
         ROOT / ".github" / "copilot-instructions.md": render_copilot_repo_instructions(
             "Copilot Repository Instructions",
-            (
-                "Read the nearest `AGENTS.md` and `CLAUDE.md` files before making "
-                "changes; they are the primary repository instructions.",
-                "Keep the repository hard rules visible in those primary docs: "
-                "English-only code-facing text, no hardcoded user-facing strings "
-                "or secrets, and shared-contract doc updates in the same change.",
-                "For terminology, use `老师` in Chinese and `teacher` / "
-                "`enseignant` in translations for the generic role; use "
-                "`课程负责人` or `负责人` for a specific course owner, which "
-                "may still translate as `creator` / `créateur`; keep technical "
-                "`creator*` identifiers unchanged unless a contract migration "
-                "explicitly requires it.",
-                "Use `ARCHITECTURE.md`, `PLANS.md`, and "
-                "`docs/engineering-baseline.md` as the primary repository "
-                "knowledge entry points instead of duplicating them everywhere.",
-                "Inspect the existing implementation, call sites, and tests before "
-                "modifying code.",
-                "Maximize reuse of existing abstractions and avoid creating a "
-                "second helper, request path, or state model when the current one "
-                "can be extended cleanly.",
-                "For complex design work, create an ExecPlan in "
-                "`docs/exec-plans/active/` and maintain it according to "
-                "`PLANS.md`.",
-                "When creating a Git worktree, copy existing local `.env` files "
-                "from the source checkout into matching paths in the new "
-                "worktree before starting services. Preserve permissions, never "
-                "commit the copies, and do not overwrite worktree-specific "
-                "environment files.",
-                "When a branch already has an open PR, keep the PR title and "
-                "description in sync with the latest code changes so they "
-                "accurately describe the current implementation and "
-                "verification state.",
-                "Keep every pull request focused on one clearly defined problem. "
-                "Include all code, tests, docs, migrations, and compatibility "
-                "work required to solve that problem, but move unrelated fixes, "
-                "cleanup, and follow-up work to separate pull requests.",
-                "During code review, evaluate only whether the pull request "
-                "solves its stated problem correctly, safely, completely, and "
-                "with adequate tests, including regressions or contract effects "
-                "introduced by the change.",
-                "Do not raise review findings about unrelated or pre-existing "
-                "problems outside the current pull request's responsibility "
-                "boundary.",
-                "For git commit message title, body, and classification "
-                "requirements, read "
-                "`AGENTS.md#git-commit-message-requirements`; keep "
-                "agent-specific rule files from duplicating the detailed "
-                "commit-message policy.",
-                "Treat Ruff findings as code or contract signals: fix code with "
-                "focused tests first, use only narrow coded suppressions for "
-                "intentional constructs, and change global Ruff policy only in "
-                "a dedicated rule PR tracked by the active Ruff ExecPlan.",
-                "Treat product analytics as part of the definition of done for "
-                "every new user-facing Cook Web capability or interaction path. "
-                "The same change must add or extend a decision-relevant Umami "
-                "event family and focused tests. Only behavior-preserving visual, "
-                "copy, performance, test, or refactoring work is exempt; a new "
-                "user-observable path introduced for accessibility still "
-                "requires analytics.",
-                "Treat every new or changed Cook Web Umami event as a versioned "
-                "data contract governed by "
-                "`docs/references/frontend-product-analytics.md`. Changes to event "
-                "names, semantics, counted populations, deduplication, or payload "
-                "fields must update producers, consumers, documentation, and "
-                "tests together.",
-                "Keep Cook Web Umami telemetry fail-open and non-authoritative: "
-                "it must not block product behavior or serve as the source of "
-                "truth for billing, permissions, or audit decisions. This rule "
-                "does not define Langfuse or backend observability contracts.",
-                "Regenerate repository knowledge indexes with "
-                "`python scripts/build_repo_knowledge_index.py` after moving docs "
-                "or changing required metadata.",
-                "Before each commit, review the affected `AGENTS.md` and "
-                "`CLAUDE.md` files and update stale docs in the same change.",
-            ),
+            copilot_repo,
         ),
         ROOT
         / ".github"
@@ -1741,28 +1183,13 @@ def build_documents() -> dict[Path, str]:
         / "ai-instructions.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: AI Collaboration Files",
             (
-                "AGENTS.md,CLAUDE.md,SKILL.md,.claude/**/*.md,.cursor/rules/**/*.mdc,"
-                ".github/AGENTS.md,.github/CLAUDE.md,.github/copilot-instructions.md,"
+                "AGENTS.md,SKILL.md,.claude/**/*.md,.cursor/rules/**/*.mdc,"
+                ".github/AGENTS.md,.github/copilot-instructions.md,"
                 ".github/instructions/**/*.instructions.md,docker/AGENTS.md,"
-                "docker/CLAUDE.md,scripts/AGENTS.md,scripts/CLAUDE.md,"
-                "src/api/**/AGENTS.md,src/api/**/CLAUDE.md,src/api/SKILL.md,"
-                "src/api/skills/**/*.md,src/web/**/AGENTS.md,"
-                "src/web/**/CLAUDE.md,src/web/SKILL.md"
+                "scripts/AGENTS.md,src/api/**/AGENTS.md,src/api/SKILL.md,"
+                "src/api/skills/**/*.md,src/web/**/AGENTS.md,src/web/SKILL.md"
             ),
-            (
-                "Treat `AGENTS.md` and `CLAUDE.md` as the source of truth; keep "
-                "derived Cursor and Copilot instruction files aligned with them.",
-                "When shared hard rules move, update the entry-point docs and the "
-                "generated mirrors in the same change.",
-                "If one instruction surface changes behavior or expectations, "
-                "update the parallel instruction files in the same change.",
-                "Run `python scripts/generate_ai_collab_docs.py` and "
-                "`python scripts/check_repo_harness.py` after modifying shared "
-                "AI collaboration guidance, regenerate knowledge indexes when "
-                "the docs structure moves, and run "
-                "`python scripts/check_architecture_boundaries.py` when shared "
-                "source ownership boundaries change.",
-            ),
+            copilot_path,
         ),
         ROOT
         / ".github"
@@ -1770,31 +1197,7 @@ def build_documents() -> dict[Path, str]:
         / "backend.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: Backend",
             "src/api/**/*.py,src/api/**/*.md,src/i18n/**/*.json",
-            (
-                "Inspect existing services, repositories, DTOs, helpers, and tests "
-                "before changing backend behavior.",
-                "Use `docs/engineering-baseline.md` for backend-wide engineering "
-                "conventions such as model layout, response envelopes, migrations, "
-                "configuration, and i18n workflow.",
-                "Reuse the shared response envelope with `code`, `message`, and "
-                "`data`, provider wrappers, and "
-                "configuration helpers before creating new abstractions.",
-                "Keep backend translations in shared JSON namespaces under "
-                "`src/i18n/`, not in ad-hoc Python translation modules.",
-                "Define schema changes in SQLAlchemy models, generate and review "
-                "Alembic revisions with `flask db migrate`, and do not use "
-                "`create_all()` or custom schema-introspection guards as a "
-                "substitute for versioned migrations. Add a narrowly scoped "
-                "guard only for a documented non-transactional DDL recovery "
-                "requirement. Do not edit applied revisions, add hard "
-                "business-key foreign-key constraints, or bypass LiteLLM and "
-                "shared provider helpers.",
-                "Own transactions with `with unit_of_work():` from "
-                "`flaskr/dao/uow.py` and reuse the caller's app context via "
-                "`uow.app_context_scope(app)`; do not add `db.session.commit()` "
-                "outside `flaskr/dao/` (the commit-site ratchet "
-                "`scripts/check_uow_commit_sites.py` only shrinks).",
-            ),
+            copilot_path,
         ),
         ROOT
         / ".github"
@@ -1806,57 +1209,7 @@ def build_documents() -> dict[Path, str]:
                 "src/web/**/*.jsx,src/web/**/*.css,src/web/**/*.scss,"
                 "src/web/**/*.md,src/web/**/*.mdx"
             ),
-            (
-                "Inspect the current route, component, hook, store, and shared-lib "
-                "path before changing frontend behavior.",
-                "Use `docs/engineering-baseline.md` for frontend-wide engineering "
-                "conventions such as request flow, naming, i18n, and testing.",
-                "Extend `src/web/src/lib/request.ts`, "
-                "`src/web/src/lib/api.ts`, existing stores, hooks, and shared "
-                "modules instead of creating parallel "
-                "implementations or ad-hoc component fetch logic.",
-                "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
-                "and preserve the unified business-code handling path.",
-                "Every new user-facing Cook Web capability or interaction path "
-                "must add or extend its Umami contract, producer, and focused "
-                "tests in the same change. Capture a meaningful feature "
-                "exposure, accepted use, or a meaningful outcome, and add "
-                "exposure when the metric "
-                "needs an eligible-view denominator. A generic SPA pageview is "
-                "insufficient unless route entry is the documented adoption "
-                "signal. Exempt only behavior-preserving work; new accessibility "
-                "invocation paths still require analytics.",
-                "For Umami product analytics, read "
-                "`docs/references/frontend-product-analytics.md`, send business "
-                "events through `useTracking` or the shared tracking helper, and "
-                "leave SPA pageviews to `UmamiLoader`; do not call "
-                "`window.umami`, identify users, or emit events during render from "
-                "business components.",
-                "Treat every new or changed Umami event name and metric semantic "
-                "as a stable contract. Use static `snake_case` names, put dynamic "
-                "IDs in payload fields, and define the real trigger, counted "
-                "population, deduplication, and terminal outcome before "
-                "implementation.",
-                "Use deny-by-default payloads for every new or changed Umami "
-                "event or identity change, with explicitly listed flat scalar "
-                "fields. Do not send personal or free-form content, credentials, "
-                "raw errors, or complete URLs, queries, or referrers; changed "
-                "pageview handling must strip queries and sensitive URL data, "
-                "and truncation or hashing does not replace privacy review.",
-                "For clickable UI, prefer semantic elements (`button`, `a`, "
-                "`summary`) or shared Radix/shadcn primitives. If a "
-                "non-semantic element must handle clicks, mark the actual "
-                'clickable target with `data-clickable="true"` and preserve '
-                'disabled states with `disabled`, `aria-disabled="true"`, or '
-                "`data-disabled`. Do not rely on page-local cursor styles or "
-                "broad `* { cursor: pointer; }` rules. Full-screen "
-                "onboarding/backdrop advance surfaces are the exception: keep "
-                "their large background or card hit areas on the default "
-                "cursor so the whole page does not read as a button.",
-                "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
-                "`route.ts`, and organize shared learner and teacher code by "
-                "responsibility under api, components, hooks, lib, store, and types.",
-            ),
+            copilot_path,
         ),
         ROOT
         / ".github"
@@ -1864,19 +1217,7 @@ def build_documents() -> dict[Path, str]:
         / "docs.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: Docs Workflow",
             "docs/**/*.md,PLANS.md,ARCHITECTURE.md",
-            (
-                "Use `docs/design-docs/`, `docs/product-specs/`, and "
-                "`docs/references/` according to document purpose, and use "
-                "`docs/exec-plans/active/` for complex execution context.",
-                "Treat `PLANS.md` as the only ExecPlan specification and "
-                "`docs/engineering-baseline.md` as the evergreen engineering "
-                "handbook.",
-                "Regenerate generated indexes and inventories with "
-                "`python scripts/build_repo_knowledge_index.py` after changing "
-                "knowledge docs or metadata.",
-                "If docs change implementation expectations, update the nearest "
-                "AI instruction files when they become stale.",
-            ),
+            copilot_path,
         ),
         ROOT
         / ".github"
@@ -1884,17 +1225,7 @@ def build_documents() -> dict[Path, str]:
         / "docker.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: Docker",
             "docker/**/*.yml,docker/**/*.yaml,docker/**/*.sh,docker/**/*.conf,docker/.env.example.full",
-            (
-                "Inspect the touched compose files, helper scripts, and release "
-                "expectations together before changing Docker behavior.",
-                "Keep `docker-compose.dev.yml`, `docker-compose.latest.yml`, and "
-                "`docker-compose.yml` semantically distinct.",
-                "Do not bake secrets or environment-specific credentials into "
-                "compose files or helper scripts.",
-                "Validate touched compose files with `docker compose ... config` "
-                "and cross-check release-facing image references against GitHub "
-                "build and release workflows.",
-            ),
+            copilot_path,
         ),
         ROOT
         / ".github"
@@ -1902,16 +1233,7 @@ def build_documents() -> dict[Path, str]:
         / "scripts.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: Scripts",
             "scripts/**/*.py,scripts/**/*.js,scripts/**/*.md",
-            (
-                "Inspect the script ownership, call sites, and sibling generators "
-                "or checkers before changing script behavior.",
-                "Keep script inputs, outputs, and file ownership explicit and "
-                "repo-relative for both local runs and CI.",
-                "Prefer idempotent behavior for maintenance and generation "
-                "scripts that may be rerun repeatedly.",
-                "Keep generator and checker pairs aligned when generated "
-                "artifacts or validation expectations change.",
-            ),
+            copilot_path,
         ),
         ROOT
         / ".github"
@@ -1919,30 +1241,17 @@ def build_documents() -> dict[Path, str]:
         / "workflows.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: GitHub Workflows",
             ".github/workflows/**/*.yml,.github/workflows/**/*.yaml",
-            (
-                "Inspect workflow triggers, path filters, and downstream jobs "
-                "before changing automation behavior.",
-                "Keep secrets, tokens, registry credentials, and toggles in "
-                "GitHub Actions settings instead of inline in YAML.",
-                "Preserve release and image-tag semantics across "
-                "`prepare-release.yml`, `build-latest.yml`, and "
-                "`build-on-release.yml`.",
-                "Do not widen workflow trigger scope casually; review backend, "
-                "frontend, Docker, and scripts path ownership together when "
-                "automation boundaries move.",
-            ),
+            copilot_path,
         ),
     }
 
     for name, meta in BACKEND_META.items():
         service_dir = ROOT / "src" / "api" / "flaskr" / "service" / name
         docs[service_dir / "AGENTS.md"] = render_agents(build_backend_spec(name, meta))
-        docs[service_dir / "CLAUDE.md"] = render_claude(f"Service Claude Entry: {name}")
 
     for name, meta in FRONTEND_META.items():
         domain_dir = ROOT / "src" / "web" / "src" / name
         docs[domain_dir / "AGENTS.md"] = render_agents(build_frontend_spec(name, meta))
-        docs[domain_dir / "CLAUDE.md"] = render_claude(f"Domain Claude Entry: {name}")
 
     return docs
 
@@ -1960,7 +1269,7 @@ def write_documents() -> int:
 
 
 def main() -> int:
-    """Regenerate AI collaboration instruction mirrors."""
+    """Regenerate module AGENTS.md files and thin tool-private routers."""
     return write_documents()
 
 

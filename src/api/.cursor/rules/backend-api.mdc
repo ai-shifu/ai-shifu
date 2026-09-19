@@ -1,5 +1,5 @@
 ---
-description: Backend-specific rules for Flask services, migrations, and tests
+description: Backend pointer to native AGENTS.md
 globs:
 alwaysApply: false
 ---
@@ -8,23 +8,13 @@ alwaysApply: false
 
 # Cursor Rule: Backend API
 
-- Inspect existing service helpers, repositories, DTOs, and pytest coverage
-  before changing backend behavior.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Use `docs/engineering-baseline.md` for backend-wide engineering conventions
-  such as model layout, response envelopes, migrations, configuration, and
-  i18n workflow.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Reuse the shared API response envelope with `code`, `message`, and `data`,
-  provider wrappers, configuration helpers, and existing backend service
-  modules before adding new abstractions.
+- Keep this file limited to Cursor-private routing that `AGENTS.md` cannot
+  express: globs, `alwaysApply`, and the description.
 
-- Keep shared translations in `src/i18n/` and use backend helpers instead of
-  inventing per-service translation or error patterns.
-
-- Define schema changes in SQLAlchemy models, generate and review Alembic
-  revisions with `flask db migrate`, and do not use `create_all()` or custom
-  schema-introspection guards as a substitute for versioned migrations. Add a
-  narrowly scoped guard only for a documented non-transactional DDL recovery
-  requirement. Do not edit applied revisions, add hard business-key
-  foreign-key constraints, or bypass the LiteLLM and shared provider layers.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

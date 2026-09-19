@@ -1,5 +1,5 @@
 ---
-description: Documentation workflow for the repository knowledge store and ExecPlans
+description: Documentation workflow pointer to native AGENTS.md
 globs:
 alwaysApply: false
 ---
@@ -8,19 +8,13 @@ alwaysApply: false
 
 # Cursor Rule: Docs Knowledge Workflow
 
-- Keep design decisions in `docs/design-docs/`, product behavior specs in
-  `docs/product-specs/`, and evergreen references in `docs/references/`.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Use `PLANS.md` plus `docs/exec-plans/active/` for complex work instead of
-  repository-root `tasks.md`.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Regenerate indexes and the document inventory with
-  `python scripts/build_repo_knowledge_index.py` after changing
-  knowledge-structure docs or metadata.
+- Keep this file limited to Cursor-private routing that `AGENTS.md` cannot
+  express: globs, `alwaysApply`, and the description.
 
-- Run `python scripts/check_architecture_boundaries.py` after changing the
-  boundary rules reference or committed baseline.
-
-- If a design changes implementation expectations, update the nearest
-  `AGENTS.md`, `CLAUDE.md`, and compatibility instruction files when they
-  become stale.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

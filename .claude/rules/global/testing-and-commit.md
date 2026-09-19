@@ -3,8 +3,8 @@
 Use this Claude-only rule to route testing and commit hygiene without
 duplicating the shared repository guidance already stored in `AGENTS.md`.
 
-- Prefer the nearest `CLAUDE.md` and `AGENTS.md` pair before reading any
-  deeper path-specific rule in this folder.
+- Prefer the nearest `AGENTS.md` before reading any deeper path-specific
+  rule in this folder. Do not add a `CLAUDE.md` file.
 
 - Before changing code, inspect the current implementation and reuse existing
   abstractions where possible instead of building a parallel solution from
@@ -17,9 +17,9 @@ duplicating the shared repository guidance already stored in `AGENTS.md`.
 - Use `docs/engineering-baseline.md` for the stable engineering handbook, and
   use the layered `AGENTS.md` files for AI execution rules.
 
-- Before each commit, review the nearest `AGENTS.md` and `CLAUDE.md` files for
-  the touched areas; if the implementation change makes them inaccurate,
-  update those docs in the same commit.
+- Before each commit, review the nearest `AGENTS.md` files for the touched
+  areas; if the implementation change makes them inaccurate, update those
+  docs in the same commit.
 
 - For complex design work, create an ExecPlan under
   `docs/exec-plans/active/` and maintain it according to `PLANS.md`.

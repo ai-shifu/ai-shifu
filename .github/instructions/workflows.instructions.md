@@ -6,14 +6,13 @@ applyTo: ".github/workflows/**/*.yml,.github/workflows/**/*.yaml"
 
 # Copilot Instructions: GitHub Workflows
 
-- Inspect workflow triggers, path filters, and downstream jobs before changing
-  automation behavior.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Keep secrets, tokens, registry credentials, and toggles in GitHub Actions
-  settings instead of inline in YAML.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Preserve release and image-tag semantics across `prepare-release.yml`,
-  `build-latest.yml`, and `build-on-release.yml`.
+- Keep this file limited to Copilot path routing via `applyTo`. Prefer native
+  `AGENTS.md` for Copilot coding agent.
 
-- Do not widen workflow trigger scope casually; review backend, frontend,
-  Docker, and scripts path ownership together when automation boundaries move.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

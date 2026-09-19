@@ -29,7 +29,19 @@ invite relations, reward audit rows, and referral-specific operator read models.
 - Do not store raw IP addresses or raw user agent values in referral event rows.
 - Do not let anonymous invite APIs reveal inviter account details.
 
+## Commands
+
+- `cd src/api && pytest tests/service/referral/ -q` for the focused referral
+  regression pass.
+- `cd src/api && pytest tests/service/user tests/service/billing tests/service/referral -q`
+  when auth binding or billing rewards also change.
+
 ## Tests
 
 - Add focused tests under `src/api/tests/service/referral/`.
 - Run referral tests plus touched user/billing tests before shipping changes.
+
+## Related Skills
+
+- `src/api/SKILL.md`
+- `SKILL.md`

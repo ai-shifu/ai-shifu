@@ -6,16 +6,13 @@ applyTo: "docs/**/*.md,PLANS.md,ARCHITECTURE.md"
 
 # Copilot Instructions: Docs Workflow
 
-- Use `docs/design-docs/`, `docs/product-specs/`, and `docs/references/`
-  according to document purpose, and use `docs/exec-plans/active/` for complex
-  execution context.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Treat `PLANS.md` as the only ExecPlan specification and
-  `docs/engineering-baseline.md` as the evergreen engineering handbook.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Regenerate generated indexes and inventories with
-  `python scripts/build_repo_knowledge_index.py` after changing knowledge docs
-  or metadata.
+- Keep this file limited to Copilot path routing via `applyTo`. Prefer native
+  `AGENTS.md` for Copilot coding agent.
 
-- If docs change implementation expectations, update the nearest AI
-  instruction files when they become stale.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

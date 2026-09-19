@@ -6,14 +6,13 @@ applyTo: "scripts/**/*.py,scripts/**/*.js,scripts/**/*.md"
 
 # Copilot Instructions: Scripts
 
-- Inspect the script ownership, call sites, and sibling generators or checkers
-  before changing script behavior.
+- Read the nearest `AGENTS.md` first. It is the only project-instruction body.
+  Do not duplicate hard rules here.
 
-- Keep script inputs, outputs, and file ownership explicit and repo-relative
-  for both local runs and CI.
+- Do not add a `CLAUDE.md` file. Claude-only path rules belong in
+  `.claude/rules/`.
 
-- Prefer idempotent behavior for maintenance and generation scripts that may
-  be rerun repeatedly.
+- Keep this file limited to Copilot path routing via `applyTo`. Prefer native
+  `AGENTS.md` for Copilot coding agent.
 
-- Keep generator and checker pairs aligned when generated artifacts or
-  validation expectations change.
+- Follow the nearest subtree `AGENTS.md` for path-specific rules.

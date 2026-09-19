@@ -3,8 +3,8 @@
 This rule narrows Claude's attention to the Cook Web subtree when the task is
 rooted in Next.js routes, stores, shared libs, or `c-*` code.
 
-- Start with `src/web/CLAUDE.md`, then prefer the closest
-  `src/web/src/<domain>/CLAUDE.md` for domain-specific work.
+- Start with `src/web/AGENTS.md`, then prefer the closest
+  `src/web/src/<domain>/AGENTS.md` for domain-specific work.
 
 - Keep frontend changes aligned with `src/web/AGENTS.md` and the
   frontend sections of `docs/engineering-baseline.md`.
