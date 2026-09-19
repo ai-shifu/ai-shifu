@@ -911,6 +911,184 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
+  const configureTierProvider = (tier: string, provider: string) => {
+    mockGetFollowUpModelCatalog.mockResolvedValue([
+      { model: 'physical-text', interaction_mode: 'text', voices: [] },
+    ]);
+    mockAskConfig.mockResolvedValue({
+      providers: [
+        { provider: 'llm', json_schema: { properties: {} } },
+        ...['dify', 'coze'].map(name => ({
+          provider: name,
+          default_config: { api_key: 'default-secret', inputs: {} },
+          json_schema: {
+            properties: {
+              api_key: { type: 'string' },
+              inputs: { type: 'object' },
+            },
+            required: ['api_key'],
+          },
+        })),
+      ],
+    });
+    mockGetShifuDetail.mockResolvedValue({
+      bid: 'course-1',
+      name: 'Private tier course',
+      description: '',
+      keywords: [],
+      model: tier,
+      price: 1,
+      avatar: '',
+      temperature: 0,
+      ask_model: tier,
+      ask_temperature: 0,
+      follow_up_mode: 'text',
+      ask_provider_config: {
+        provider,
+        mode: 'provider_only',
+        config: { api_key: 'saved-secret', inputs: { lesson: 1 } },
+      },
+      tts_enabled: false,
+      default_listen_mode_enabled: false,
+      use_learner_language: false,
+    });
+    return () =>
+      mockAskSettingsSection.mock.calls.at(-1)?.[0] as {
+        resolvedAskProvider: string;
+        onAskProviderChange: (provider: string) => void;
+        setAskProviderConfig: React.Dispatch<
+          React.SetStateAction<Record<string, unknown>>
+        >;
+        setAskProviderObjectInputs: React.Dispatch<
+          React.SetStateAction<Record<string, string>>
+        >;
+      };
+  };
+
+  it.each(
+    ['fast', 'balanced', 'ultimate'].flatMap(tier =>
+      ['dify', 'coze'].flatMap(provider =>
+        ['provider', 'scalar', 'object'].map(edit => ({
+          tier,
+          provider,
+          edit,
+        })),
+      ),
+    ),
+  )(
+    'saves $edit edits for $provider with the $tier tier',
+    async ({ tier, provider, edit }) => {
+      const initialProvider = edit === 'provider' ? 'llm' : provider;
+      const latestProps = configureTierProvider(tier, initialProvider);
+      renderOpenSettings();
+      await screen.findByDisplayValue('Private tier course');
+      await waitFor(() =>
+        expect(latestProps().resolvedAskProvider).toBe(initialProvider),
+      );
+      act(() => {
+        if (edit === 'provider') latestProps().onAskProviderChange(provider);
+        if (edit === 'scalar')
+          latestProps().setAskProviderConfig(previous => ({
+            ...previous,
+            api_key: 'edited-secret',
+          }));
+        if (edit === 'object')
+          latestProps().setAskProviderObjectInputs({ inputs: '{"lesson":2}' });
+      });
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          ask_model: tier,
+          ask_provider_config: {
+            provider,
+            mode: 'provider_only',
+            config: {
+              api_key:
+                edit === 'provider'
+                  ? 'default-secret'
+                  : edit === 'scalar'
+                    ? 'edited-secret'
+                    : 'saved-secret',
+              inputs:
+                edit === 'provider'
+                  ? {}
+                  : { lesson: edit === 'object' ? 2 : 1 },
+            },
+          },
+        }),
+      );
+      await waitFor(() => expect(mockTrackEvent).toHaveBeenCalledTimes(1));
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        {
+          shifu_bid: 'course-1',
+          save_type: 'manual',
+          tts_enabled: false,
+          default_listen_mode_enabled: false,
+          use_learner_language: false,
+          follow_up_mode: 'text',
+          price_tier: 'standard_paid',
+          main_model_tier: tier,
+          follow_up_model_tier: tier,
+        },
+      );
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+        /secret|api_key|inputs|dify|coze/,
+      );
+    },
+  );
+
+  it.each(['fast', 'balanced', 'ultimate'])(
+    'preserves untouched %s provider settings when its provider metadata is missing',
+    async tier => {
+      const latestProps = configureTierProvider(tier, 'dify');
+      mockAskConfig.mockResolvedValue({
+        providers: [{ provider: 'llm', json_schema: { properties: {} } }],
+      });
+      renderOpenSettings();
+      await screen.findByDisplayValue('Private tier course');
+      await waitFor(() =>
+        expect(latestProps().resolvedAskProvider).toBe('llm'),
+      );
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockSaveShifuDetail.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          ask_model: tier,
+          ask_provider_config: {
+            provider: 'dify',
+            mode: 'provider_only',
+            config: { api_key: 'saved-secret', inputs: { lesson: 1 } },
+          },
+        }),
+      );
+    },
+  );
+
+  it.each(['required', 'invalid_json'])(
+    'validates %s errors in edited tier provider settings before saving',
+    async error => {
+      const latestProps = configureTierProvider('fast', 'dify');
+      renderOpenSettings();
+      await screen.findByDisplayValue('Private tier course');
+      await waitFor(() =>
+        expect(latestProps().resolvedAskProvider).toBe('dify'),
+      );
+      act(() => {
+        if (error === 'required')
+          latestProps().setAskProviderConfig({ api_key: '' });
+        else latestProps().setAskProviderObjectInputs({ inputs: '{' });
+      });
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      await waitFor(() => expect(mockToast).toHaveBeenCalled());
+      expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('close-settings')).toBeInTheDocument();
+    },
+  );
+
   it('preserves external provider and unsaved fields across a Live round trip', async () => {
     mockGetFollowUpModelCatalog.mockResolvedValue([
       {

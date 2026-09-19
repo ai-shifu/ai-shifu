@@ -10,6 +10,14 @@ can replace models without editing courses. Preserve explicit legacy model names
 
 ## Progress
 
+- [x] 2026-09-19: Integrate #2853's preview-temperature coverage while retaining
+  strict alias resolution and audited blank-to-Fast cleanup. The 164 relevant
+  preview/course/prompt tests passed (4 skipped).
+- [x] 2026-09-19: Validate explicit provider edits for tier-backed courses and
+  preserve untouched configurations when provider metadata is unavailable. All
+  131 settings/model-selector tests and TypeScript passed; the added regression
+  cases reproduced 20 failures before the fix.
+
 - [x] 2026-09-19: Preserve course revision and cleanup provenance through the
   2.0 gateway; 440 gateway/agent/course-selection regression cases passed.
 - [x] 2026-09-19: Recheck tier availability before Live-to-text transitions and
@@ -47,6 +55,14 @@ can replace models without editing courses. Preserve explicit legacy model names
   simultaneously. Switching modes replaces the selected value.
 
 ## Decision Log
+
+- 2026-09-19: Physical model catalog misses do not freeze a selected tier's
+  provider settings after a teacher edits them. Validate and save explicit
+  provider, scalar and object edits; metadata-driven fallback is not an edit.
+  Preserve untouched configurations during metadata outages. Preview always
+  resolves the selected course model and uses its temperature, including zero;
+  a missing temperature uses the configured default. Blank model rows still
+  require cleanup to Fast instead of falling back to a deployment model.
 
 - 2026-09-19: Stack this PR on #2853 (`sunner/course-only-llm-settings`). Do not
   restore removed outline or block-preview model overrides. Both learning

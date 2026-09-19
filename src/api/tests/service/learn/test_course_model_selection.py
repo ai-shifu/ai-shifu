@@ -185,6 +185,8 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
             course.llm = "fast"
         model, temperature = ctx._resolve_llm_settings(course)
     assert model == (course_model.strip() or "configured-fast")
-    assert temperature == (course_temperature if course_temperature is not None else 0.3)
+    assert temperature == (
+        course_temperature if course_temperature is not None else 0.3
+    )
     assert {"model", "temperature"}.isdisjoint(request.model_dump())
     assert request.document_prompt == "Legacy request prompt"

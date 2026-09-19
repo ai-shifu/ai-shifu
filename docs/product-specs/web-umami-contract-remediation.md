@@ -108,6 +108,12 @@ are not backfilled under another name.
   emit this event. Rejected or cancelled switches preserve the saved mode; only
   a subsequent successful settings save reports the accepted mode/tier. Existing
   consumers and historical interpretation remain unchanged.
+- Tier-backed courses can save explicit follow-up provider and configuration
+  edits. These remain part of the same successful settings-save event with the
+  selected text tier; provider identities, credentials and configuration values
+  remain excluded. Invalid provider fields and failed saves emit no event.
+  Missing provider metadata alone preserves the saved configuration and is not
+  treated as a teacher edit. Event names, deduplication and consumers are unchanged.
 
 | Event                          | Exact trigger                                                                | Complete payload                                                                                                               |
 | ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |

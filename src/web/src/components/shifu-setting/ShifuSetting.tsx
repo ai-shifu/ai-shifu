@@ -274,6 +274,7 @@ export default function ShifuSettingDialog({
   const initialAskConfigurationRef = useRef<InitialAskConfiguration | null>(
     null,
   );
+  const askProviderEditedRef = useRef(false);
   const [askTemperature, setAskTemperature] =
     useState<number>(ASK_TEMPERATURE_MIN);
   const [askTemperatureInput, setAskTemperatureInput] = useState<string>(
@@ -904,6 +905,7 @@ export default function ShifuSettingDialog({
   );
   const handleAskProviderChange = useCallback(
     (value: string) => {
+      askProviderEditedRef.current = true;
       setAskProvider(value);
       setAskProviderConfig(getAskProviderDefaultConfig(value));
       setAskProviderObjectInputs({});
@@ -1299,7 +1301,11 @@ export default function ShifuSettingDialog({
           Number(askTemperatureInput || askTemperature || 0),
         );
         const shouldPreserveExistingAskConfiguration = Boolean(
-          isUncataloguedExistingAskModel && preservedAskConfiguration,
+          isUncataloguedExistingAskModel &&
+          preservedAskConfiguration &&
+          // Tier aliases are absent from the physical model catalog, but
+          // explicit provider edits must still be validated and saved.
+          !(askTier && askProviderEditedRef.current),
         );
         const askConfigForSubmit = shouldPreserveExistingAskConfiguration
           ? preservedAskConfiguration!.providerConfig.config
@@ -1434,6 +1440,7 @@ export default function ShifuSettingDialog({
 
     ttsProviderToastShownRef.current = false;
     initialAskConfigurationRef.current = null;
+    askProviderEditedRef.current = false;
     setSettingsLoading(true);
     try {
       const result = normalizeShifuDetail(
@@ -2353,9 +2360,15 @@ export default function ShifuSettingDialog({
                     askProviderFieldEntries={askProviderFieldEntries}
                     askProviderRequiredFields={askProviderRequiredFields}
                     askProviderConfig={askProviderConfig}
-                    setAskProviderConfig={setAskProviderConfig}
+                    setAskProviderConfig={value => {
+                      askProviderEditedRef.current = true;
+                      setAskProviderConfig(value);
+                    }}
                     askProviderObjectInputs={askProviderObjectInputs}
-                    setAskProviderObjectInputs={setAskProviderObjectInputs}
+                    setAskProviderObjectInputs={value => {
+                      askProviderEditedRef.current = true;
+                      setAskProviderObjectInputs(value);
+                    }}
                     askPreviewLoading={askPreviewLoading}
                     askPreviewQuery={askPreviewQuery}
                     setAskPreviewQuery={setAskPreviewQuery}
