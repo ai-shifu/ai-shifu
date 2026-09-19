@@ -30,6 +30,7 @@ import {
 import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
 import {
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+  resolveCourseCreditInsufficientAudience,
   isCreditInsufficientBusinessCode,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
@@ -216,6 +217,18 @@ export default function ShifuSettingDialog({
   const { t, i18n } = useTranslation();
   const currentLanguage = i18n.resolvedLanguage || i18n.language;
   const { currentShifu, models } = useShifu();
+  const currentUser = useUserStore(state => state.userInfo);
+  const currentUserId = currentUser?.user_bid || currentUser?.user_id || '';
+  const isCourseOwner = currentUser
+    ? Boolean(
+        currentShifu?.created_user_bid &&
+        currentShifu.created_user_bid === currentUserId,
+      )
+    : null;
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: true,
+    isCurrentUserCourseOwner: isCourseOwner,
+  });
   const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
@@ -225,9 +238,14 @@ export default function ShifuSettingDialog({
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
   const debugAllowed =
-    !billingEnabled || billingOverview?.debug_allowed === true;
+    isCourseOwner !== null &&
+    (!isCourseOwner ||
+      !billingEnabled ||
+      billingOverview?.debug_allowed === true);
   const debugBlockedByCredits =
-    billingEnabled && billingOverview?.debug_allowed === false;
+    isCourseOwner === true &&
+    billingEnabled &&
+    billingOverview?.debug_allowed === false;
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
   const resolvedDefaultModel =
     models.find(option => option.value === defaultLlmModel)?.label ||
@@ -1484,13 +1502,20 @@ export default function ShifuSettingDialog({
         stopTtsPreview();
         return;
       }
+      if (
+        !shifuId ||
+        currentShifu?.readonly ||
+        creditInsufficientAudience === null
+      ) {
+        return;
+      }
       if (ttsPreviewPlaying || ttsPreviewLoading) {
         stopTtsPreview();
       }
 
       if (debugBlockedByCredits && !demoAudioUrl) {
         showCreditInsufficientToast({
-          audience: 'teacher',
+          audience: creditInsufficientAudience,
           code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
         });
         return;
@@ -1571,6 +1596,7 @@ export default function ShifuSettingDialog({
       const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
         headers: traceHeaders.headers,
         payload: JSON.stringify({
+          shifu_bid: shifuId,
           provider: resolvedProvider,
           model: ttsModel || '',
           voice_id: previewVoiceId,
@@ -1589,7 +1615,7 @@ export default function ShifuSettingDialog({
           requestToken: token,
           requestId: traceHeaders.requestId,
           harnessRunId: traceHeaders.harnessRunId,
-          creditInsufficientAudience: 'teacher',
+          creditInsufficientAudience,
         },
         onHandled: () => {
           if (ttsPreviewSessionRef.current === sessionId) {
@@ -1659,6 +1685,9 @@ export default function ShifuSettingDialog({
     },
     [
       resolvedProvider,
+      shifuId,
+      currentShifu?.readonly,
+      creditInsufficientAudience,
       ttsModel,
       ttsVoiceId,
       speedValue,
@@ -1796,12 +1825,17 @@ export default function ShifuSettingDialog({
   };
 
   const handleAskPreview = useCallback(async () => {
-    if (currentShifu?.readonly || askPreviewLoading) {
+    if (
+      !shifuId ||
+      creditInsufficientAudience === null ||
+      currentShifu?.readonly ||
+      askPreviewLoading
+    ) {
       return;
     }
     if (debugBlockedByCredits) {
       showCreditInsufficientToast({
-        audience: 'teacher',
+        audience: creditInsufficientAudience,
         code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
       });
       return;
@@ -1845,6 +1879,7 @@ export default function ShifuSettingDialog({
     try {
       const response = (await api.askPreview(
         {
+          shifu_bid: shifuId,
           query,
           ask_model: askModel,
           ask_temperature: askTemperatureForSubmit,
@@ -1855,7 +1890,7 @@ export default function ShifuSettingDialog({
             config: askConfigForSubmit,
           },
         },
-        { skipErrorToast: true },
+        { skipErrorToast: true, creditInsufficientAudience },
       )) as {
         answer?: string;
         provider?: string;
@@ -1874,7 +1909,7 @@ export default function ShifuSettingDialog({
       const businessCode = (error as ErrorWithCode | undefined)?.code;
       if (isCreditInsufficientBusinessCode(businessCode)) {
         showCreditInsufficientToast({
-          audience: 'teacher',
+          audience: creditInsufficientAudience,
           code: businessCode,
         });
       } else {
@@ -1899,6 +1934,8 @@ export default function ShifuSettingDialog({
     askTemperatureInput,
     buildAskProviderConfigForSubmit,
     currentShifu?.readonly,
+    shifuId,
+    creditInsufficientAudience,
     debugAllowed,
     debugBlockedByCredits,
     normalizeAskTemperature,

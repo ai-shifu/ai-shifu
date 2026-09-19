@@ -874,10 +874,11 @@ v1 需要新增的改造点：
   - creator 订阅状态
 - admission 拒绝后，不进入新的 billable LLM/TTS 调用
 - 当前实现已落到 `src/api/flaskr/service/billing/admission.py`，并接入 `src/api/flaskr/service/learn/routes.py` 与 `src/api/flaskr/service/shifu/route.py` 的 billable 入口
-- `POST /api/shifu/ask/preview` 和 `POST /api/shifu/tts/preview` 是需要登录的设置调试入口，使用 `debug(1201)` 场景。它们没有课程归属，准入与结算的付款主体均为服务端认证的当前用户（`user_bid`）；是否有老师身份不影响计费。先检查该用户的调试限额，再按既有 subscription / credits 规则准入，拒绝时不调用外部知识服务、LLM 或 TTS，也不开始 SSE。
-- 设置调试产生的 LLM/TTS usage 固定传入 `billable=1`；追问的直接 LLM、知识合成和失败后 LLM 回退共用这个契约。仅调用用户配置的外部知识服务时仍须准入，但不会凭空产生平台 LLM usage。
-- 设置调试不接受客户端指定付款人、课程归属、`billable` 或内部调用身份；请求体和请求头都不能选择免计费。显式 `billable=0` 只保留给服务端代码直接调用底层 LLM / metering 的内部操作，设置调试路由不提供此例外。内置演示课程仍走独立的课程身份判定；客户端向设置调试请求添加 `shifu_bid` 不能取得该豁免。
-- 课程预览 `POST /api/shifu/shifus/<shifu_bid>/preview` 保留课程查看权限校验，并按课程负责人准入及结算；有权限的协作者不会因此改为该课程的付款人。
+- `POST /api/shifu/ask/preview` 和 `POST /api/shifu/tts/preview` 是需要登录的课程设置调试入口，使用 `debug(1201)` 场景。请求体必须包含 `shifu_bid`，后端以同一个规范化后的课程 ID 校验当前用户的编辑权限、解析课程负责人并写入用量记录。缺失课程 ID、无编辑权限或找不到负责人时拒绝请求，不回退到调用者账户。
+- 设置调试的付款主体是课程负责人，是否由负责人本人调用、调用者是否有老师身份都不改变付款主体。先检查负责人的调试限额，再按其既有 subscription / credits 规则准入；拒绝时不调用外部知识服务、LLM 或 TTS，也不开始 SSE。前端只对课程负责人应用本人的账户预检查，协作者由后端检查课程负责人账户；错误提示使用协作者文案。
+- 设置调试产生的 LLM/TTS usage 固定传入 `billable=1`，`user_bid` 保留真实操作者，`shifu_bid` 指向已校验的课程，结算使用既有课程负责人归属规则。追问的直接 LLM、知识合成和失败后 LLM 回退共用此契约；仅调用外部知识服务不会凭空产生平台 LLM usage。TTS 私有克隆音色仍校验调用者的音色访问权限，付款主体变更不会授予他人私有音色权限。
+- 客户端不能通过 `creator_bid`、`user_bid`、`billable`、内部调用标记或查询参数覆盖请求体课程的准入与计费归属。显式 `billable=0` 只保留给服务端代码直接调用底层 LLM / metering 的内部操作；设置调试不会因选择内置演示课程而免费。
+- 课程预览 `POST /api/shifu/shifus/<shifu_bid>/preview` 保留课程查看权限、课程负责人计费及既有内置演示课程例外。设置调试客户端与 API 应协调发布；旧客户端缺少 `shifu_bid` 时会返回参数错误，不允许通过兼容回退恢复个人扣费或免费调用。
 - usage 落库成功后，统一投递 Celery settlement task，再由 task 消费 `bill_usage` 并写入 `credit_ledger_entries`
 - 不允许在 learn / preview / debug 的请求线程内直接扣减积分、更新 `credit_wallet_buckets` 或刷新 `credit_wallets`
 - 当前 `src/api/flaskr/service/metering/recorder.py` 仍只负责 `bill_usage` 持久化，不触碰 `credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`

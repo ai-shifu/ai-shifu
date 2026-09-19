@@ -53,6 +53,7 @@ def _build_tts_preview_usage_metadata(
 def build_tts_preview_response(
     json_data: dict | None,
     *,
+    shifu_bid: str,
     request_user_id: str = "",
 ) -> Response:
     """Build billable TTS preview response after the caller passes admission."""
@@ -113,7 +114,7 @@ def build_tts_preview_response(
     cleaned_text = preprocess_for_tts(text or "")
     usage_context = UsageContext(
         user_bid=str(request_user_id or "").strip(),
-        shifu_bid="",
+        shifu_bid=shifu_bid,
         audio_bid=audio_bid,
         usage_scene=BILL_USAGE_SCENE_DEBUG,
         billable=1,

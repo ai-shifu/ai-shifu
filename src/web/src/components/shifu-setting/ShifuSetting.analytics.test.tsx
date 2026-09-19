@@ -7,9 +7,13 @@ import {
   waitFor,
 } from '@testing-library/react';
 import ShifuSettingDialog from './ShifuSetting';
+import { SSE } from 'sse.js';
 
 const mockTtsConfig = jest.fn();
 const mockAskConfig = jest.fn();
+const mockAskPreview = jest.fn();
+const mockCreditToast = jest.fn();
+const mockUserState = { userInfo: { user_id: 'owner-1' } };
 const mockGetShifuDetail = jest.fn();
 const mockSaveShifuDetail = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -25,13 +29,28 @@ const mockEnvState = {
   billingEnabled: 'false',
 };
 
-jest.mock('sse.js', () => ({ SSE: jest.fn() }));
+jest.mock('sse.js', () => ({
+  SSE: jest.fn(() => ({
+    addEventListener: jest.fn(),
+    stream: jest.fn(),
+    close: jest.fn(),
+  })),
+}));
+jest.mock('@/lib/request', () => ({
+  ...jest.requireActual('@/lib/request'),
+  attachSseBusinessResponseFallback: jest.fn(),
+}));
+jest.mock('@/lib/creditInsufficientToast', () => ({
+  ...jest.requireActual('@/lib/creditInsufficientToast'),
+  showCreditInsufficientToast: (...args: unknown[]) => mockCreditToast(...args),
+}));
 
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     ttsConfig: (...args: unknown[]) => mockTtsConfig(...args),
     askConfig: (...args: unknown[]) => mockAskConfig(...args),
+    askPreview: (...args: unknown[]) => mockAskPreview(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
     saveShifuDetail: (...args: unknown[]) => mockSaveShifuDetail(...args),
   },
@@ -39,12 +58,20 @@ jest.mock('@/api', () => ({
 
 jest.mock('@/store', () => ({
   useShifu: () => ({
-    currentShifu: { bid: 'course-1', readonly: false },
+    currentShifu: {
+      bid: 'course-1',
+      readonly: false,
+      created_user_bid: 'owner-1',
+    },
     models: [],
   }),
-  useUserStore: Object.assign(jest.fn(), {
-    getState: () => ({ getToken: () => '' }),
-  }),
+  useUserStore: Object.assign(
+    (selector: (state: typeof mockUserState) => unknown) =>
+      selector(mockUserState),
+    {
+      getState: () => ({ getToken: () => '' }),
+    },
+  ),
   useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
     selector(mockEnvState),
 }));
@@ -170,6 +197,8 @@ describe('ShifuSettingDialog analytics producer', () => {
     mockTrackEvent.mockImplementation(() => undefined);
     mockGetFollowUpModelCatalog.mockResolvedValue([]);
     mockEnvState.billingEnabled = 'false';
+    mockUserState.userInfo.user_id = 'owner-1';
+    mockAskPreview.mockResolvedValue({ answer: 'Preview answer' });
     mockBillingOverview.debug_allowed = undefined;
     mockGetShifuDetail.mockResolvedValue({
       bid: 'course-1',
@@ -285,6 +314,94 @@ describe('ShifuSettingDialog analytics producer', () => {
       expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument();
     },
   );
+
+  it.each(['owner-1', 'collaborator-1'])(
+    'sends course ownership context for ask previews by %s',
+    async userId => {
+      mockUserState.userInfo.user_id = userId;
+      mockEnvState.billingEnabled = 'true';
+      mockBillingOverview.debug_allowed = userId === 'owner-1';
+      renderOpenSettings();
+      await screen.findByDisplayValue('Private course name');
+      const latestProps = () =>
+        mockAskSettingsSection.mock.calls.at(-1)?.[0] as {
+          textDebugAllowed: boolean;
+          setAskPreviewQuery: (query: string) => void;
+          handleAskPreview: () => Promise<void>;
+        };
+      expect(latestProps().textDebugAllowed).toBe(true);
+      act(() => latestProps().setAskPreviewQuery('Preview question'));
+      await act(async () => latestProps().handleAskPreview());
+      expect(mockAskPreview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          shifu_bid: 'course-1',
+          query: 'Preview question',
+        }),
+        {
+          skipErrorToast: true,
+          creditInsufficientAudience:
+            userId === 'owner-1' ? 'teacher' : 'teacher-collaborator',
+        },
+      );
+      expect(mockAskPreview.mock.calls[0][0]).not.toHaveProperty('creator_bid');
+    },
+  );
+
+  it('directs collaborators to the owner when preview credits are unavailable', async () => {
+    mockUserState.userInfo.user_id = 'collaborator-1';
+    mockEnvState.billingEnabled = 'true';
+    mockBillingOverview.debug_allowed = false;
+    mockAskPreview.mockRejectedValue(
+      Object.assign(new Error('owner credits unavailable'), { code: 7101 }),
+    );
+    renderOpenSettings();
+    await screen.findByDisplayValue('Private course name');
+    const latestProps = () => mockAskSettingsSection.mock.calls.at(-1)?.[0];
+    act(() => latestProps().setAskPreviewQuery('Preview question'));
+    await act(async () => latestProps().handleAskPreview());
+    expect(mockCreditToast).toHaveBeenCalledWith({
+      audience: 'teacher-collaborator',
+      code: 7101,
+    });
+  });
+
+  it('sends course ownership context for TTS even when the collaborator has no debug credits', async () => {
+    mockUserState.userInfo.user_id = 'collaborator-1';
+    mockEnvState.billingEnabled = 'true';
+    mockBillingOverview.debug_allowed = false;
+    mockTtsConfig.mockResolvedValue({
+      providers: [
+        {
+          name: 'fake',
+          label: 'Fake',
+          speed: { min: 0.5, max: 2, step: 0.1, default: 1 },
+          voices: [{ value: 'voice-1', label: 'Voice' }],
+          models: [{ value: 'tts-model', label: 'TTS' }],
+        },
+      ],
+      model_options: [],
+    });
+    const detail = await mockGetShifuDetail();
+    mockGetShifuDetail.mockResolvedValue({
+      ...detail,
+      tts_enabled: true,
+      tts_provider: 'fake',
+      tts_model: 'tts-model',
+      tts_voice_id: 'voice-1',
+      tts_speed: 1,
+    });
+    renderOpenSettings();
+    await screen.findByDisplayValue('Private course name');
+    const button = await screen.findByRole('button', {
+      name: 'module.shifuSetting.ttsPreview',
+    });
+    expect(button).not.toBeDisabled();
+    fireEvent.click(button);
+    await waitFor(() => expect(SSE).toHaveBeenCalledTimes(1));
+    expect(JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload)).toEqual(
+      expect.objectContaining({ shifu_bid: 'course-1' }),
+    );
+  });
 
   it('keeps text debug gated while exposing Live and the saved default model', async () => {
     mockEnvState.billingEnabled = 'true';
