@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from flask import Flask
+from flaskr.api.llm.tiers import course_model_selection
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -50,7 +51,7 @@ def _extract_import_ask_provider_config(
     Keep legacy imports compatible by defaulting to "{}" when missing.
     """
     normalized, error_field = normalize_live_follow_up_course_config(
-        course_model=shifu_data.get("llm", ""),
+        course_model=course_model_selection(shifu_data.get("llm", ""))["index"],
         course_follow_up_model=shifu_data.get("ask_llm", ""),
         provider_config=shifu_data.get("ask_provider_config", {}),
     )
@@ -102,7 +103,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
             ).all()
         normalized_provider_config, live_contract_error = (
             normalize_live_follow_up_course_config(
-                course_model=shifu_draft.llm,
+                course_model=course_model_selection(shifu_draft.llm)["index"],
                 course_follow_up_model=shifu_draft.ask_llm,
                 provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
             )

@@ -29,6 +29,9 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   catalog; verify 33 backend course-list tests and 22 operator-page tests.
 - [x] 2026-09-19 UTC: Document optional names for every model number; only the
   model 1 ID is required, and unnamed options display their configured IDs.
+- [x] 2026-09-19 UTC: Validate effective primary selections during publication,
+  copying and import/export so retained Live IDs follow the numbered fallback;
+  preserve raw stored values and active Live follow-up validation.
 
 ## Surprises & Discoveries
 
@@ -51,6 +54,10 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 - Operator course summaries must expose the same effective numeric key as the
   course model catalog so display labels resolve correctly. Selection keys stay
   numeric even when a configured model ID serves as the fallback display label.
+- Live validation previously rejected a retained Live-only primary ID before
+  course fallback could take effect. Authoring transfers must validate the
+  effective primary number while keeping the follow-up ID available for Live
+  provider validation and copying both saved selections exactly.
 
 ## Decision Log
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flask import Flask, current_app
-from flaskr.api.llm.tiers import selection_model
+from flaskr.api.llm.tiers import course_model_selection, selection_model
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.i18n_utils import get_markdownflow_output_language
@@ -652,7 +652,9 @@ def copy_operator_course(
         source_outlines = _load_latest_active_draft_outlines(normalized_shifu_bid)
         normalized_provider_config, live_contract_error = (
             normalize_live_follow_up_course_config(
-                course_model=selection_model(source_draft),
+                course_model=course_model_selection(selection_model(source_draft))[
+                    "index"
+                ],
                 course_follow_up_model=selection_model(source_draft, follow_up=True),
                 provider_config=getattr(source_draft, "ask_provider_config", "{}"),
             )

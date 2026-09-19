@@ -54,9 +54,9 @@ def _import_file(
 @pytest.mark.parametrize(
     ("shifu", "outlines"),
     [
-        ({"llm": GEMINI_LIVE_MODEL_ID}, []),
         (
             {
+                "llm": GEMINI_LIVE_MODEL_ID,
                 "ask_llm": GEMINI_LIVE_MODEL_ID,
                 "ask_provider_config": {
                     "provider": "dify",
@@ -68,7 +68,7 @@ def _import_file(
         ),
     ],
 )
-def test_import_rejects_live_primary_or_invalid_provider_contract(
+def test_import_rejects_invalid_live_follow_up_provider_contract(
     app: object,
     shifu: dict[str, object],
     outlines: list[dict[str, object]],
@@ -120,9 +120,14 @@ def test_import_live_follow_up_defaults_and_persists_official_voice(
     }
 
 
+@pytest.mark.parametrize(
+    "primary_model",
+    ["gpt-main", GEMINI_LIVE_MODEL_ID, f" \t{GEMINI_LIVE_MODEL_ID} "],
+)
 def test_export_resolves_default_voice_for_legacy_live_draft(
     app: object,
     tmp_path: Path,
+    primary_model: str,
 ) -> None:
     from flaskr.service.shifu import shifu_import_export_funcs as module
 
@@ -131,7 +136,7 @@ def test_export_resolves_default_voice_for_legacy_live_draft(
         draft = DraftShifu(
             shifu_bid=shifu_bid,
             title="Legacy Live export",
-            llm="gpt-main",
+            llm=primary_model,
             ask_llm=GEMINI_LIVE_MODEL_ID,
             ask_provider_config="{}",
             created_user_bid="teacher-1",
@@ -157,6 +162,8 @@ def test_export_resolves_default_voice_for_legacy_live_draft(
     assert module.export_shifu(app, shifu_bid, str(export_path)) == "success"
 
     exported = json.loads(export_path.read_text())
+    assert exported["shifu"]["llm"] == primary_model
+    assert exported["shifu"]["ask_llm"] == GEMINI_LIVE_MODEL_ID
     assert exported["shifu"]["ask_provider_config"] == {
         "provider": "llm",
         "mode": "provider_only",
@@ -299,9 +306,21 @@ def test_import_uses_existing_model_fields_for_every_destination(
         assert course.ask_llm == selection
 
 
-@pytest.mark.parametrize("original", ["", " \t", "legacy/model", "fast", "3", "9"])
+@pytest.mark.parametrize(
+    "original",
+    [
+        "",
+        " \t",
+        "legacy/model",
+        "fast",
+        "3",
+        "9",
+        GEMINI_LIVE_MODEL_ID,
+        f" \t{GEMINI_LIVE_MODEL_ID} ",
+    ],
+)
 @pytest.mark.parametrize("existing", [False, True])
-def test_import_and_export_preserve_text_selection_values(
+def test_import_and_export_preserve_selection_values(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

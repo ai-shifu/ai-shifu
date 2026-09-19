@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from flaskr.common import config as config_module
@@ -809,8 +810,35 @@ def test_copy_course_rejects_invalid_live_provider_contract(
         assert DraftShifu.query.count() == draft_count_before
 
 
-def test_copy_course_preserves_text_aliases(app: object) -> None:
-    """Course aliases survive copying without restoring outline overrides."""
+@pytest.mark.parametrize(
+    "primary_model",
+    ["ultimate", "3", GEMINI_LIVE_MODEL_ID, "gemini-3.1-flash-live-preview"],
+)
+@pytest.mark.parametrize("follow_up_model", ["fast", GEMINI_LIVE_MODEL_ID])
+def test_copy_course_preserves_original_model_selections(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    primary_model: str,
+    follow_up_model: str,
+) -> None:
+    """Validate effective teaching selections while copying the original values."""
+    from flaskr.api.llm import tiers
+    from flaskr.service.shifu.admin_operations import courses_transfer_copy as module
+
+    config = {
+        "LLM_MODEL_1_ID": "configured/default-model",
+        "LLM_MODEL_3_ID": "configured/advanced-model",
+    }
+    monkeypatch.setattr(
+        tiers, "get_config", lambda key, default=None: config.get(key, default)
+    )
+    resolve_model = Mock(side_effect=AssertionError("Copy must not route models"))
+    monkeypatch.setattr(tiers, "resolve_tier_model", resolve_model)
+    normalize_config = Mock(wraps=module.normalize_live_follow_up_course_config)
+    monkeypatch.setattr(
+        module, "normalize_live_follow_up_course_config", normalize_config
+    )
+    provider = "llm" if follow_up_model == GEMINI_LIVE_MODEL_ID else "dify"
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     owner_email = _unique_email("tier-copy-owner")
@@ -821,12 +849,13 @@ def test_copy_course_preserves_text_aliases(app: object) -> None:
             app, shifu_bid=shifu_bid, creator_user_bid=creator_bid
         )
         source = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
-        source.llm = "ultimate"
-        source.ask_llm = "fast"
+        source.llm = primary_model
+        source.ask_llm = follow_up_model
         source.ask_provider_config = json.dumps(
-            {"provider": "dify", "mode": "provider_only", "config": {}}
+            {"provider": provider, "mode": "provider_only", "config": {}}
         )
         db.session.commit()
+        source_updated_at = source.updated_at
 
         result = copy_operator_course(
             app,
@@ -839,8 +868,20 @@ def test_copy_course_preserves_text_aliases(app: object) -> None:
         copied_outlines = DraftOutlineItem.query.filter_by(
             shifu_bid=result["new_shifu_bid"]
         ).all()
-        assert json.loads(copied.ask_provider_config)["provider"] == "dify"
-        assert copied.llm == "ultimate"
-        assert copied.ask_llm == "fast"
+        copied_config = json.loads(copied.ask_provider_config)
+        assert copied_config["provider"] == provider
+        assert copied_config["config"] == (
+            {"live_voice": "Kore"} if follow_up_model == GEMINI_LIVE_MODEL_ID else {}
+        )
+        assert copied.llm == source.llm == primary_model
+        assert copied.ask_llm == source.ask_llm == follow_up_model
+        assert source.updated_at == source_updated_at
         assert all(not hasattr(row, "llm") for row in copied_outlines)
         assert all(not hasattr(row, "ask_llm") for row in copied_outlines)
+    assert normalize_config.call_args.kwargs["course_model"] == (
+        "3" if primary_model == "3" else "1"
+    )
+    assert normalize_config.call_args.kwargs["course_follow_up_model"] == (
+        follow_up_model
+    )
+    resolve_model.assert_not_called()

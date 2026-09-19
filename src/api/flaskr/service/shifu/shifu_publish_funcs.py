@@ -16,7 +16,11 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm import invoke_llm
-from flaskr.api.llm.tiers import selection_metadata, selection_model
+from flaskr.api.llm.tiers import (
+    course_model_selection,
+    selection_metadata,
+    selection_model,
+)
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
@@ -125,7 +129,9 @@ def publish_shifu_draft(
         outline_items = load_existing_outline_items(shifu_id, include_content=True)
         normalized_provider_config, live_contract_error = (
             normalize_live_follow_up_course_config(
-                course_model=selection_model(shifu_draft),
+                course_model=course_model_selection(selection_model(shifu_draft))[
+                    "index"
+                ],
                 course_follow_up_model=selection_model(shifu_draft, follow_up=True),
                 provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
             )
