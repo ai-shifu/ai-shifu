@@ -467,38 +467,40 @@ const ChapterSettingsDialog = ({
                 </div>
               )}
 
-              <div className='space-y-2'>
-                <div className='text-sm font-medium text-foreground'>
-                  {isChapter
-                    ? t('module.chapterSetting.chapterPrompt')
-                    : t('module.chapterSetting.lessonPrompt')}
+              {systemPrompt.trim().length > 0 && (
+                <div className='space-y-2'>
+                  <div className='text-sm font-medium text-foreground'>
+                    {isChapter
+                      ? t('module.chapterSetting.chapterPrompt')
+                      : t('module.chapterSetting.lessonPrompt')}
+                  </div>
+                  <div className='text-xs text-muted-foreground'>
+                    {isChapter
+                      ? t('module.chapterSetting.chapterPromptHint')
+                      : t('module.chapterSetting.lessonPromptHint')}
+                  </div>
+                  <Textarea
+                    value={systemPrompt}
+                    onChange={event => {
+                      setSystemPrompt(event.target.value);
+                      setIsDirty(true);
+                    }}
+                    disabled={currentShifu?.readonly}
+                    maxLength={20000}
+                    minRows={3}
+                    maxRows={30}
+                    placeholder={
+                      isChapter
+                        ? t('module.chapterSetting.promptPlaceholder')
+                        : t('module.chapterSetting.lessonPromptPlaceholder')
+                    }
+                    className='min-h-[220px]'
+                  />
+                  {/* <div className='text-xs text-muted-foreground text-right'>
+                    {systemPrompt.length}/10000
+                  </div> */}
                 </div>
-                <div className='text-xs text-muted-foreground'>
-                  {isChapter
-                    ? t('module.chapterSetting.chapterPromptHint')
-                    : t('module.chapterSetting.lessonPromptHint')}
-                </div>
-                <Textarea
-                  value={systemPrompt}
-                  onChange={event => {
-                    setSystemPrompt(event.target.value);
-                    setIsDirty(true);
-                  }}
-                  disabled={currentShifu?.readonly}
-                  maxLength={20000}
-                  minRows={3}
-                  maxRows={30}
-                  placeholder={
-                    isChapter
-                      ? t('module.chapterSetting.promptPlaceholder')
-                      : t('module.chapterSetting.lessonPromptPlaceholder')
-                  }
-                  className='min-h-[220px]'
-                />
-                {/* <div className='text-xs text-muted-foreground text-right'>
-                  {systemPrompt.length}/10000
-                </div> */}
-              </div>
+              )}
             </div>
           </div>
         )}

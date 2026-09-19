@@ -116,6 +116,15 @@ Course/chapter/lesson names, descriptions, system prompts, model names, voice
 IDs, provider configuration, URLs, and route text are excluded from these
 contracts.
 
+Chapter and lesson prompt editors are shown only while their current prompt
+contains non-whitespace content. Empty, missing, and whitespace-only prompts
+hide the label, hint, and editor. Clearing an existing prompt hides its editor
+but preserves the pending empty value for the existing automatic or manual
+save. These saves remain covered by `creator_outline_prompt_save` for chapters
+and `creator_outline_setting_save` for lessons, only after the API succeeds.
+Visibility changes emit no event. Names, payloads, count units, and downstream
+authoring adoption queries are unchanged; no migration or backfill is needed.
+
 ## Learner navigation and shared interactions
 
 - Business question: which live learner navigation/reset controls are used, and

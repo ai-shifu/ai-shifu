@@ -115,7 +115,7 @@ const variants = [
   },
 ];
 
-describe('ChapterSettingsDialog analytics producer', () => {
+describe('ChapterSettingsDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetOutlineInfo.mockResolvedValue({
@@ -125,6 +125,76 @@ describe('ChapterSettingsDialog analytics producer', () => {
       name: 'Private outline title',
     });
   });
+
+  describe.each(variants)('$variant prompt visibility', ({ variant }) => {
+    it.each(['', '   ', '\n\t', null, undefined])(
+      'hides the prompt section for an empty value (%p)',
+      async systemPrompt => {
+        mockGetOutlineInfo.mockResolvedValue({
+          name: 'Private outline title',
+          system_prompt: systemPrompt,
+        });
+
+        const { container } = render(
+          <ChapterSettingsDialog
+            outlineBid='outline-1'
+            open
+            variant={variant}
+          />,
+        );
+
+        await screen.findByDisplayValue('Private outline title');
+        expect(container.querySelector('textarea')).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(`module.chapterSetting.${variant}Prompt`),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(`module.chapterSetting.${variant}PromptHint`),
+        ).not.toBeInTheDocument();
+        expect(mockModifyOutline).not.toHaveBeenCalled();
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  it.each(variants)(
+    'saves a cleared $variant prompt after hiding its editor',
+    async ({ variant, eventName, payload }) => {
+      const save = createDeferred<void>();
+      mockModifyOutline.mockReturnValue(save.promise);
+
+      const { container } = render(
+        <ChapterSettingsDialog
+          outlineBid='outline-1'
+          open
+          variant={variant}
+        />,
+      );
+
+      const prompt = await screen.findByDisplayValue('Private system prompt');
+      expect(prompt).toBeEnabled();
+      fireEvent.change(prompt, { target: { value: '' } });
+      expect(container.querySelector('textarea')).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByLabelText('close-settings'));
+      expect(mockModifyOutline).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outline_bid: 'outline-1',
+          system_prompt: '',
+        }),
+      );
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      await act(async () => {
+        save.resolve();
+        await save.promise;
+      });
+
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith(eventName, payload);
+    },
+  );
 
   it.each(variants)(
     'emits the exact $variant allowlist only after the save succeeds',
