@@ -97,8 +97,10 @@ is safe to rerun. Temporary verification environments are outside the repository
 
 ## Interfaces and Dependencies
 
-Instruction authors edit `AGENTS.md` directly. The harness uses standard-library
-Python and no longer imports the retired generator. CI keeps knowledge-index
-generation and all existing architecture, translation, and runtime gates. Claude
-users need a version and session configuration that supports native `AGENTS.md`;
+Instruction authors edit `AGENTS.md` directly. The Python harness uses
+markdown-it-py 4.0.0 to parse Markdown links and no longer imports the retired
+generator. Local tooling and CI install the pinned parser. CI keeps
+knowledge-index generation and all existing architecture, translation, and
+runtime gates. Claude users need a version and session configuration that
+supports native `AGENTS.md`;
 the canonical compatibility document describes those requirements.

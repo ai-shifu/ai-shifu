@@ -161,6 +161,60 @@ class RepoInstructionsTest(unittest.TestCase):
         assert len(errors) == 3
         assert all("leaves the repository" in error for error in errors)
 
+    def test_validates_titled_and_reference_markdown_links(self) -> None:
+        templates = (
+            '[rules]({target} "details")',
+            "[rules]({target} 'details')",
+            "[rules]({target} (details))",
+            '[rules](<{target}> "details")',
+            '[rules][ref]\n\n[ref]: {target} "details"',
+            "[rules][]\n\n[rules]: {target}",
+            "[Rules]\n\n[rules]: {target}",
+            '![diagram]({target} "details")',
+            '![diagram][ref]\n\n[ref]: {target} "details"',
+        )
+        self.write("docs/reference.md", "# Reference\n")
+        for template in templates:
+            for target, expected_errors in (
+                ("../docs/reference.md", 0),
+                ("../docs/missing.md", 1),
+            ):
+                with self.subTest(template=template, target=target):
+                    self.write("module/AGENTS.md", template.format(target=target))
+                    errors: list[str] = []
+                    harness.check_instruction_files(errors)
+                    assert len(errors) == expected_errors
+                    assert all("Broken instruction link" in error for error in errors)
+
+    def test_rejects_titled_and_reference_links_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as outside:
+            external = Path(outside) / "rules.md"
+            external.write_text("# External rules\n", encoding="utf-8")
+            target = f"../../{Path(outside).name}/rules.md"
+            for markdown in (
+                f'[rules]({target} "details")',
+                f'[rules][ref]\n\n[ref]: <{target}> "details"',
+                f"[rules][]\n\n[rules]: {target}",
+                f"[rules]\n\n[rules]: {target}",
+            ):
+                with self.subTest(markdown=markdown):
+                    self.write("module/AGENTS.md", markdown)
+                    errors: list[str] = []
+                    harness.check_instruction_files(errors)
+                    assert len(errors) == 1
+                    assert "leaves the repository" in errors[0]
+
+    def test_ignores_link_examples_in_markdown_code(self) -> None:
+        self.write(
+            "AGENTS.md",
+            "# Examples\n\n`[inline](missing.md)`\n\n"
+            '```markdown\n[fenced](missing.md "title")\n```\n\n'
+            "    [indented](missing.md)\n",
+        )
+        errors: list[str] = []
+        harness.check_instruction_files(errors)
+        assert errors == []
+
     def test_requires_shared_guardrails_and_primary_entry_points(self) -> None:
         agent = self.write(
             "AGENTS.md",
