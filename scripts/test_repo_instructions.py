@@ -196,6 +196,29 @@ class RepoInstructionsTest(unittest.TestCase):
         assert any("Missing Copilot" in error for error in errors)
         assert any("GEMINI.md must link" in error for error in errors)
 
+    def test_reports_invalid_utf8_copilot_without_rereading(self) -> None:
+        self.write("AGENTS.md", "# Root\n")
+        self.write(".github/copilot-instructions.md", "")
+        self.copilot.write_bytes(b"\xff")
+        (self.root / "GEMINI.md").symlink_to("AGENTS.md")
+        errors: list[str] = []
+        harness.check_compatibility_entry_points(errors)
+        assert len(errors) == 1
+        assert "Unable to read instruction file" in errors[0]
+
+    def test_reports_unreadable_copilot_without_rereading(self) -> None:
+        self.write("AGENTS.md", "# Root\n")
+        self.write(".github/copilot-instructions.md", "Read ../AGENTS.md\n")
+        (self.root / "GEMINI.md").symlink_to("AGENTS.md")
+        with patch.object(
+            Path, "read_text", side_effect=PermissionError("denied")
+        ) as read:
+            errors: list[str] = []
+            harness.check_compatibility_entry_points(errors)
+        assert read.call_count == 1
+        assert len(errors) == 1
+        assert "Unable to read instruction file" in errors[0]
+
 
 if __name__ == "__main__":
     unittest.main()

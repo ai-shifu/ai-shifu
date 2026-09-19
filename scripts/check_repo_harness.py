@@ -215,13 +215,13 @@ def check_generated_knowledge_docs(errors: list[str]) -> None:
             errors.append(f"Generated knowledge doc is stale: {path}")
 
 
-def check_instruction_content(path: Path, errors: list[str]) -> None:
+def check_instruction_content(path: Path, errors: list[str]) -> str | None:
     """Reject empty instructions, retired ownership markers, and broken local links."""
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as error:
         errors.append(f"Unable to read instruction file {path}: {error}")
-        return
+        return None
     if not text.strip():
         errors.append(f"Empty instruction file: {path}")
     if RETIRED_GENERATED_MARKER in text:
@@ -242,6 +242,7 @@ def check_instruction_content(path: Path, errors: list[str]) -> None:
             )
         elif not destination.exists():
             errors.append(f"Broken instruction link '{target}' in {path}")
+    return text
 
 
 def check_instruction_files(errors: list[str]) -> None:
@@ -260,8 +261,8 @@ def check_compatibility_entry_points(errors: list[str]) -> None:
     if not path.is_file():
         errors.append(f"Missing Copilot instruction entry point: {path}")
     else:
-        check_instruction_content(path, errors)
-        if "AGENTS.md" not in path.read_text(encoding="utf-8"):
+        text = check_instruction_content(path, errors)
+        if text is not None and "AGENTS.md" not in text:
             errors.append(f"Copilot instructions must point to AGENTS.md: {path}")
     gemini = ROOT / "GEMINI.md"
     if not gemini.is_symlink() or gemini.resolve() != (ROOT / "AGENTS.md").resolve():
