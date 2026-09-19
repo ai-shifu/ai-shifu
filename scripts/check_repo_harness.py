@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -190,6 +191,28 @@ REQUIRED_WORKFLOWS = (
 )
 
 
+class InstructionHTMLParser(HTMLParser):
+    """Identify HTML navigation attributes that bypass Markdown link tokens."""
+
+    has_links = False
+
+    def handle_starttag(self, _tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Flag navigation and resource attributes without fetching their values."""
+        link_attributes = {
+            "action",
+            "data",
+            "formaction",
+            "href",
+            "poster",
+            "src",
+            "srcdoc",
+            "srcset",
+            "xlink:href",
+        }
+        if any(name in link_attributes for name, _value in attrs):
+            self.has_links = True
+
+
 def check_ordered_headings(path: Path, text: str, errors: list[str]) -> None:
     """Check ordered headings."""
     positions: list[int] = []
@@ -244,6 +267,14 @@ def check_instruction_content(
         # Image children form alt text, not navigable Markdown links.
         if token.type != "image":
             tokens.extend(token.children or [])
+        if token.type in {"html_inline", "html_block"}:
+            html = InstructionHTMLParser()
+            html.feed(token.content)
+            if html.has_links:
+                errors.append(
+                    f"Use Markdown links or images instead of raw HTML links in {path}"
+                )
+            continue
         if token.type not in {"link_open", "image"}:
             continue
         target = token.attrGet("href" if token.type == "link_open" else "src")

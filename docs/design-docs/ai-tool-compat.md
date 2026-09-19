@@ -82,6 +82,8 @@ remain allowed under the user-level configuration described above.
 Instruction links use repository-local paths or explicit `http`, `https`, or
 `mailto` URLs. Host-specific file URLs, UNC paths, and other schemes are rejected;
 remote URLs are not fetched during validation.
+Use Markdown syntax for links and images; raw HTML navigation or resource
+attributes are rejected. HTML formatting and comments remain allowed.
 The Copilot entry point must contain a Markdown link resolving to the local
 root `AGENTS.md`; a plain mention or external link does not establish that route.
 

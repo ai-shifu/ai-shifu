@@ -276,6 +276,39 @@ class RepoInstructionsTest(unittest.TestCase):
         harness.check_instruction_files(errors)
         assert errors == []
 
+    def test_rejects_raw_html_link_attributes(self) -> None:
+        for markdown in (
+            'Read <a href="file:///etc/passwd">rules</a>.',
+            '<div>\n<a href="../missing.md">rules</a>\n</div>',
+            '<A HREF="https://example.com/rules">rules</A>',
+            '<img src="file:///etc/passwd" />',
+            '<img srcset="//server/share/image.png 2x">',
+            '<form action="file:///etc/passwd"></form>',
+            '<button formaction="file:///etc/passwd">Read</button>',
+            '<video poster="file:///etc/passwd"></video>',
+            '<object data="file:///etc/passwd"></object>',
+            '<svg><use xlink:href="file:///etc/passwd" /></svg>',
+            "<iframe srcdoc=\"&lt;a href='file:///etc/passwd'&gt;rules&lt;/a&gt;\"></iframe>",
+        ):
+            with self.subTest(markdown=markdown):
+                self.write("AGENTS.md", markdown)
+                errors: list[str] = []
+                harness.check_instruction_files(errors)
+                assert len(errors) == 1
+                assert "instead of raw HTML links" in errors[0]
+
+    def test_allows_html_formatting_comments_and_code_examples(self) -> None:
+        self.write(
+            "AGENTS.md",
+            "<details><summary>More</summary>Rules</details>\n\n"
+            '<!-- <a href="missing.md">example</a> -->\n\n'
+            '`<a href="missing.md">inline example</a>`\n\n'
+            '```html\n<a href="missing.md">fenced example</a>\n```\n',
+        )
+        errors: list[str] = []
+        harness.check_instruction_files(errors)
+        assert errors == []
+
     def test_requires_shared_guardrails_and_primary_entry_points(self) -> None:
         agent = self.write(
             "AGENTS.md",
