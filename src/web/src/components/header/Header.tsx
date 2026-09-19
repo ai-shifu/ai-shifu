@@ -17,7 +17,6 @@ import {
   Copy,
   Headphones,
   History,
-  Link2,
   Presentation,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -563,7 +562,7 @@ const Header = ({
                         void copyLearningModeUrl(mode);
                       }}
                     >
-                      <Link2 className='h-3.5 w-3.5' />
+                      <Copy className='h-3.5 w-3.5' />
                     </button>
                   );
                   const rowContent = (
