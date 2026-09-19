@@ -2,87 +2,85 @@
 title: AI Tool Compatibility Layer Design
 status: implemented
 owner_surface: repo
-last_reviewed: 2026-04-17
+last_reviewed: 2026-09-19
 canonical: true
 ---
 
 # AI Tool Compatibility Layer Design
 
-## Summary
+## Instruction Ownership
 
-Add a compatibility layer so the repository instruction system works not only
-for Codex and Claude, but also for Cursor and GitHub Copilot.
+The root and nested `AGENTS.md` files are the only project-instruction body.
+Each file adds constraints for its directory to the rules
+in its ancestors; keep module files focused on their own behavior, contracts,
+and verification. There is no instruction generator or minimum line count.
 
-The existing `AGENTS.md` and `CLAUDE.md` structure remains the primary source
-of truth. Cursor and Copilot files become generated compatibility surfaces that
-mirror the shared guidance instead of introducing a second independent rule
-system.
+Root, backend, frontend, GitHub automation, Docker, and repository scripts
+retain their own entry points. Mandatory constraints belong
+in these instructions, close to the work they govern. The
+[engineering baseline](../engineering-baseline.md) supplies expanded rationale,
+examples, and troubleshooting, including the CI/CD and release workflow.
+Reusable procedures belong in `SKILL.md` files. Complex work uses ExecPlans
+under `docs/exec-plans/` according to [PLANS.md](../../PLANS.md).
 
-## Goals
+This document replaces the earlier generator-shrink, hard-rules-restoration,
+and primary-surface-rules designs. Their useful ownership and handbook
+boundaries remain; their generated instruction mirrors and root `tasks.md`
+workflow are retired.
 
-- Keep `AGENTS.md` and `CLAUDE.md` as the canonical shared instruction source.
-- Add Cursor project rules in `.cursor/rules` and nested `.cursor/rules`
-  directories for the main repository, backend, frontend, and docs workflow.
-- Add GitHub Copilot repository and path-specific instructions in `.github/`.
-- Generate the compatibility files from the same Python script that already
-  generates layered `AGENTS.md` and `CLAUDE.md`.
-- Validate the generated compatibility files so future changes do not leave
-  Cursor or Copilot stale.
+## Compatibility Entry Points
 
-## Non-Goals
+- Codex and Cursor use the layered `AGENTS.md` tree. Cursor supports nested
+  instructions, so no `.mdc` pointers or `.cursorrules` are needed. See
+  [Cursor rules](https://cursor.com/docs/rules#agentsmd).
+- `.github/copilot-instructions.md` is one short navigation entry
+  pointing to the root and relevant nested `AGENTS.md` files. It covers
+  Copilot surfaces whose native agent-instruction support differs; no
+  parallel `.github/instructions/` tree is maintained. See the
+  [Copilot support matrix](https://docs.github.com/en/copilot/reference/custom-instructions-support).
+- `GEMINI.md` remains a symlink to the root `AGENTS.md` for Gemini CLI's
+  default context filename. It contains no separate rules. See
+  [Gemini context files](https://geminicli.com/docs/cli/gemini-md/).
+- Claude Code uses native `AGENTS.md` under the conditions below. No
+  `CLAUDE.md` files or shared-rule copies under `.claude/rules/` are tracked.
+- `.cursor/environment.json`, Cursor run scripts, and `.codex/environments`
+  are runtime configuration and remain independent of this cleanup.
 
-- Full one-to-one parity for every backend service and every frontend domain in
-  Cursor-specific files during this step.
-- Replacing the existing `AGENTS.md` hierarchy with Cursor or Copilot-native
-  files.
-- Creating a persistent backlog in root `tasks.md`.
+## Claude Code Requirements
 
-## Design Decisions
+Use Claude Code 2.1.277 or later, with native `AGENTS.md` support active.
+Confirm the startup `AGENTS.md loaded` message under the default Project
+instructions setting. Nested files load when Claude reads files in those
+directories. See the official
+[AGENTS.md documentation](https://code.claude.com/docs/en/memory#agentsmd).
 
-### Source of truth
+Native loading is unavailable in the first session after installing or
+upgrading to a supporting version; start another session. It is also
+unavailable when the session cannot fetch Anthropic feature flags (including
+third-party provider or telemetry-disabled sessions), when `disableAllHooks`
+or `allowManagedHooksOnly` is set, or when the built-in `agents-md` plugin is
+disabled. These sessions are outside this repository's automatic-loading
+support; use a supported session before relying on project instructions.
 
-- `AGENTS.md` and `CLAUDE.md` stay primary.
-- `.claude/rules`, `.cursor/rules`, `.github/copilot-instructions.md`, and
-  `.github/instructions/*.instructions.md` are derived compatibility layers.
+With the default setting, an ancestor or local `CLAUDE.md`,
+`.claude/CLAUDE.md`, or `CLAUDE.local.md` takes precedence. If an existing
+personal file must remain, select `claude-md-and-agents-md` in user-level
+Project instructions and verify the loaded rules. Repository-local settings
+cannot configure that choice. Existing explicit imports are deduplicated by
+Claude; their removal here is a maintenance decision, not a claim that an
+import necessarily loads rules twice.
 
-### Cursor structure
+## Validation
 
-- Add one repository-wide always-apply rule in `.cursor/rules/`.
-- Add nested rules in `docs/.cursor/rules/`, `src/api/.cursor/rules/`, and
-  `src/web/.cursor/rules/`.
-- Keep the Cursor rules short and aligned with the existing repository
-  behavior: inspect first, reuse first, docs/tasks workflow, and backend or
-  frontend subsystem guidance.
+`scripts/check_repo_harness.py` retains the required sections and shared
+constraints of the root, backend, and frontend entry points, along with
+repository knowledge metadata checks.
 
-### Copilot structure
+`scripts/build_repo_knowledge_index.py` remains responsible for the generated
+knowledge indexes, document inventory, and harness reports. CI regenerates
+those outputs and checks for drift; this generation describes repository
+facts rather than maintaining a second copy of the instructions.
 
-- Add `.github/copilot-instructions.md` for repository-wide defaults.
-- Add `.github/instructions/ai-instructions.instructions.md` for AI
-  collaboration files.
-- Add `.github/instructions/backend.instructions.md`,
-  `.github/instructions/frontend.instructions.md`, and
-  `.github/instructions/docs.instructions.md` for path-specific behavior.
-
-### Validation
-
-- Extend `scripts/check_ai_collab_docs.py` so it validates the generated Cursor
-  and Copilot file presence plus basic frontmatter shape.
-- Keep the validation lightweight: existence, generated marker, and required
-  metadata fields.
-
-## Implementation Plan
-
-1. Extend the generator to emit Cursor and Copilot compatibility files.
-2. Extend the validator to check the new generated file types.
-3. Add this design doc and, while implementation is active, use root
-   `tasks.md`.
-4. Generate files, run validation, and run focused `pre-commit`.
-
-## Acceptance Criteria
-
-- Cursor compatibility files exist and are generated from the shared Python
-  script.
-- Copilot compatibility files exist in `.github/`.
-- Validation covers the new generated files.
-- The repository-level rules still pass line-count and section-order checks.
-- Focused `pre-commit` passes for the changed files.
+Run `python scripts/check_repo_harness.py` after instruction edits. When
+documents or inventory inputs change, regenerate the knowledge outputs and
+run the harness again. The repository-wide pre-commit gate remains required.

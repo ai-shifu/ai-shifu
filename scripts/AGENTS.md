@@ -16,7 +16,7 @@ under `scripts/`, including translation utilities and AI-doc tooling.
   and [Internationalization Rules](../docs/engineering-baseline.md#internationalization-rules).
 
 - This directory owns repeatable repo maintenance, translation validation, and
-  AI-doc generation or validation logic used by both local development and CI.
+  knowledge-index generation and instruction validation used locally and in CI.
 
 - Script changes can rewrite tracked files or change automation behavior, so
   keep ownership and side effects explicit.
@@ -59,9 +59,6 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 - `python scripts/check_architecture_boundaries.py` validates the committed
   frontend/backend boundary baseline and fixture coverage.
 
-- `python scripts/generate_ai_collab_docs.py` regenerates the derived AI-doc
-  mirrors after AI instruction or generator changes.
-
 - `python scripts/build_repo_knowledge_index.py` regenerates the knowledge
   indexes and generated document inventory.
 
@@ -83,9 +80,9 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 - When translation scripts change, rerun translation parity, translation usage,
   and locale-metadata checks in the same task.
 
-- When AI-doc generation or validation scripts change, regenerate docs, rerun
-  `python scripts/check_repo_harness.py`, and run focused lefthook checks on the
-  touched files.
+- After instruction edits, run `python scripts/check_repo_harness.py`.
+  Regenerate knowledge indexes only
+  when their source documents or metadata change, then run lefthook checks.
 
 ## Related Skills
 
