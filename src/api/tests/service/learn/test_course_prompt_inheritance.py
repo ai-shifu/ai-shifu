@@ -22,6 +22,8 @@ from flaskr.service.learn import follow_up_context
         ("  LESSON RULE\n", "CHAPTER RULE", "COURSE RULE", "  LESSON RULE\n"),
         ("LESSON RULE", "\n", "COURSE RULE", "LESSON RULE"),
         ("\n", " ", "", None),
+        ("\n", " ", " \t\r\n\u3000\u00a0", None),
+        ("", "", "  COURSE RULE\n", "  COURSE RULE\n"),
     ],
 )
 def test_blank_outline_prompts_inherit_nearest_substantive_prompt(

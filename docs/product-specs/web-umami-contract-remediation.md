@@ -122,7 +122,8 @@ hide the label, hint, and editor. Clearing an existing prompt hides its editor
 but preserves the pending empty value for the existing automatic or manual
 save. At runtime, empty and whitespace-only chapter and lesson prompts do not
 override inherited instructions: resolution continues to the nearest ancestor
-with content, then the course prompt. Substantive prompts retain their original
+with content, then the course prompt. A blank course fallback resolves to no
+prompt. Substantive prompts retain their original
 text and precedence, and stored values do not require a migration.
 These saves remain covered by `creator_outline_prompt_save` for chapters
 and `creator_outline_setting_save` for lessons, only after the API succeeds.

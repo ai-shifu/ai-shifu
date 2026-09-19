@@ -100,7 +100,7 @@ def resolve_course_system_prompt(
         .first()
     )
     prompt = str(getattr(shifu_row, "llm_system_prompt", "") or "")
-    return prompt or None
+    return prompt if prompt.strip() else None
 
 
 def is_complete_follow_up_asks(asks: object) -> bool:
