@@ -1730,13 +1730,14 @@ def sync_stripe_checkout_session(
     expected_user: str | None = None,
 ) -> dict[str, Any]:
     """Synchronize stripe checkout session."""
-    with payment_lifecycle_lock(order_id), _app_context_scope(app), unit_of_work():
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_id):
         order = (
             Order.query.filter(
                 Order.order_bid == order_id,
                 Order.deleted == 0,
             )
             .order_by(Order.id.desc())
+            .with_for_update()
             .first()
         )
         if not order:
@@ -1753,6 +1754,7 @@ def sync_stripe_checkout_session(
                 StripeOrder.order_bid == order.order_bid,
             )
             .order_by(StripeOrder.id.desc())
+            .with_for_update()
             .first()
         )
         if not stripe_order:
@@ -1806,6 +1808,7 @@ def sync_stripe_checkout_session(
         if paid and order.status != ORDER_STATUS_SUCCESS:
             success_buy_record(app, order.order_bid)
 
+        _assert_payment_lifecycle_lock_owned()
         return get_payment_details(app, order.order_bid)
 
 
@@ -2222,7 +2225,15 @@ def handle_stripe_webhook(
             "event_type": event_type,
         }, 202
 
-    with payment_lifecycle_lock(order_bid), _app_context_scope(app), unit_of_work():
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_bid):
+        order = (
+            Order.query.filter(
+                Order.order_bid == order_bid,
+                Order.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+        )
         stripe_attempt_bid = str(metadata.get("stripe_order_bid") or "")
         stripe_query = legacy_stripe_snapshot_query().filter(
             StripeOrder.order_bid == order_bid
@@ -2231,9 +2242,9 @@ def handle_stripe_webhook(
             stripe_query = stripe_query.filter(
                 StripeOrder.stripe_order_bid == stripe_attempt_bid
             )
-        stripe_order: StripeOrder | None = stripe_query.order_by(
-            StripeOrder.id.desc()
-        ).first()
+        stripe_order: StripeOrder | None = (
+            stripe_query.order_by(StripeOrder.id.desc()).with_for_update().first()
+        )
         if not stripe_order:
             app.logger.warning("Stripe order not found for order_bid=%s", order_bid)
             return {
@@ -2258,11 +2269,6 @@ def handle_stripe_webhook(
         cancel_events = {
             "payment_intent.canceled",
         }
-        order = Order.query.filter(
-            Order.order_bid == order_bid,
-            Order.deleted == 0,
-        ).first()
-
         if event_type in success_events:
             session = (
                 data_object if event_type.startswith("checkout.session.") else None
@@ -2351,7 +2357,11 @@ def handle_stripe_webhook(
                 stripe_order.status = 4
                 response_status = "failed"
                 http_status = 200
-        elif event_type in refund_events:
+        elif (
+            event_type in refund_events
+            and order
+            and _stripe_attempt_matches_order(order, stripe_order)
+        ):
             stripe_order.status = 2
             response_status = "refunded"
             http_status = 200
@@ -2367,6 +2377,7 @@ def handle_stripe_webhook(
             stripe_order.status = 3
             response_status = "cancelled"
             http_status = 200
+        _assert_payment_lifecycle_lock_owned()
 
     return {
         "status": response_status,
@@ -2382,8 +2393,10 @@ def refund_order_payment(
     reason: str | None = None,
 ) -> dict[str, object]:
     """Refund order payment."""
-    with _app_context_scope(app), unit_of_work():
-        order = Order.query.filter(Order.order_bid == order_bid).first()
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_bid):
+        order = (
+            Order.query.filter(Order.order_bid == order_bid).with_for_update().first()
+        )
         if not order:
             raise_error("server.order.orderNotFound")
 
@@ -2398,6 +2411,7 @@ def refund_order_payment(
             legacy_stripe_snapshot_query()
             .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
+            .with_for_update()
             .first()
         )
         if not stripe_order:
@@ -2439,6 +2453,7 @@ def refund_order_payment(
         else:
             stripe_order.status = 4
             stripe_order.failure_code = refund_status or stripe_order.failure_code
+        _assert_payment_lifecycle_lock_owned()
 
     return {
         "status": result.status,

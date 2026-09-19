@@ -1,6 +1,7 @@
 """Verify stripe refund behavior."""
 
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 import pytest
 from flask import Flask
@@ -139,6 +140,60 @@ def test_refund_order_payment_updates_status(app: object, monkeypatch: object) -
         assert refreshed_stripe_order.status == 2
         assert "last_refund_id" in refreshed_stripe_order.metadata_json
         assert billing_snapshot.status == 0
+
+
+def test_refund_rolls_back_when_lifecycle_lock_is_lost_before_commit(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @contextmanager
+    def _lost_lock(_order_bid: str) -> Iterator[None]:
+        yield
+        message = "payment lock lease lost"
+        raise RuntimeError(message)
+
+    order_bid = "order-refund-lost-lock"
+    with app.app_context():
+        order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
+        db.session.add(
+            StripeOrder(
+                order_bid=order.order_bid,
+                stripe_order_bid="stripe-order-lost-lock",
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                payment_intent_id="pi_lost_lock",
+                latest_charge_id="ch_lost_lock",
+                amount=100,
+                currency="usd",
+                status=1,
+                metadata_json="{}",
+            )
+        )
+        db.session.commit()
+
+    result = PaymentRefundResult(
+        provider_reference="re_lost_lock",
+        raw_response={"id": "re_lost_lock", "status": "succeeded"},
+        status="succeeded",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _channel: DummyStripeRefundProvider(result),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.payment_lifecycle_lock",
+        _lost_lock,
+    )
+
+    with pytest.raises(RuntimeError, match="payment lock lease lost"):
+        refund_order_payment(app, order_bid)
+
+    with app.app_context():
+        order = Order.query.filter_by(order_bid=order_bid).one()
+        stripe_order = StripeOrder.query.filter_by(order_bid=order_bid).one()
+        assert order.status == ORDER_STATUS_SUCCESS
+        assert stripe_order.status == 1
+        assert "last_refund_id" not in stripe_order.metadata_json
 
 
 def test_get_payment_details_returns_minimal_stripe_payload(app: object) -> None:
