@@ -10,6 +10,11 @@ can replace models without editing courses. Preserve explicit legacy model names
 
 ## Progress
 
+- [x] 2026-09-19: Integrate #2853's refreshed base with #2860 owner-billed
+  settings previews. All tiers retain permission checks, actor identity and
+  owner settlement through direct LLM, provider fallback and knowledge synthesis.
+  The 151 backend integration tests, 138 frontend tests and TypeScript passed.
+
 - [x] 2026-09-19: Integrate #2853's preview-temperature coverage while retaining
   strict alias resolution and audited blank-to-Fast cleanup. The 164 relevant
   preview/course/prompt tests passed (4 skipped).
@@ -107,8 +112,10 @@ boundaries and the unit-of-work ratchet passed. Production configuration and
 cleanup execution remain a deployment operation; no production rows were changed.
 
 Review follow-up preserves the approved Fast cleanup contract. The pre-existing
-non-teacher preview admission behavior is outside this tier change and remains
-open in PR #2840. The golden SSE seed now models the post-cleanup Fast follow-up
+preview admission issue was fixed independently in #2860 and is now integrated
+through #2853's refreshed base. Settings previews require course edit permission
+and charge the course owner while recording the requesting actor, including
+tier-based invocations. The golden SSE seed models the post-cleanup Fast follow-up
 selection; recorded JSON/SSE fixtures remain unchanged.
 
 ## Context and Orientation
