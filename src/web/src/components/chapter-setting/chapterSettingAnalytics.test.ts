@@ -9,6 +9,7 @@ describe('chapter setting analytics', () => {
       outlineBid: 'lesson-1',
       shifuBid: 'course-1',
       saveType: 'manual',
+      promptChange: 'updated',
       variant: 'lesson',
       learningPermission: 'trial',
       hideChapter: false,
@@ -18,6 +19,7 @@ describe('chapter setting analytics', () => {
       outline_bid: 'lesson-1',
       shifu_bid: 'course-1',
       save_type: 'manual',
+      prompt_change: 'updated',
       variant: 'lesson',
       learning_permission: 'trial',
       hide_chapter: false,
@@ -33,11 +35,13 @@ describe('chapter setting analytics', () => {
         outlineBid: 'chapter-1',
         shifuBid: 'course-1',
         saveType: 'auto',
+        promptChange: 'cleared',
       }),
     ).toEqual({
       outline_bid: 'chapter-1',
       shifu_bid: 'course-1',
       save_type: 'auto',
+      prompt_change: 'cleared',
     });
   });
 });

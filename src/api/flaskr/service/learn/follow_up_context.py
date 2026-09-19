@@ -61,7 +61,7 @@ def resolve_course_system_prompt(
     outline_model: object | None = None,
     shifu_model: object | None = None,
 ) -> str | None:
-    """Return the nearest inherited Course Prompt for one lesson."""
+    """Return the nearest inherited Course Prompt, skipping blank outline overrides."""
     path = outline_path
     if path is None:
         struct = get_shifu_struct(app, shifu_bid, preview_mode)
@@ -88,7 +88,7 @@ def resolve_course_system_prompt(
         prompt = str(
             getattr(outline_by_id.get(outline_id), "llm_system_prompt", "") or ""
         )
-        if prompt:
+        if prompt.strip():
             return prompt
 
     shifu_row = (
@@ -100,7 +100,7 @@ def resolve_course_system_prompt(
         .first()
     )
     prompt = str(getattr(shifu_row, "llm_system_prompt", "") or "")
-    return prompt or None
+    return prompt if prompt.strip() else None
 
 
 def is_complete_follow_up_asks(asks: object) -> bool:

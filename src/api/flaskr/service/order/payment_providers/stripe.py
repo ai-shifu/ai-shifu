@@ -101,7 +101,6 @@ class StripeProvider(PaymentProvider):
                 params["customer_email"] = customer_email
 
             if params.get("mode") == "subscription":
-                params["metadata"] = metadata
                 subscription_data = dict(params.get("subscription_data") or {})
                 subscription_metadata = subscription_data.get("metadata") or {}
                 if hasattr(subscription_metadata, "to_dict"):
@@ -117,16 +116,19 @@ class StripeProvider(PaymentProvider):
                 if existing_metadata:
                     if hasattr(existing_metadata, "to_dict"):
                         existing_metadata = existing_metadata.to_dict()
-                    metadata.update(existing_metadata)
+                    # Caller keys are kept, but the order evidence wins: it is
+                    # what a later sync matches the order against.
+                    metadata = {**dict(existing_metadata), **metadata}
                 payment_intent_data["metadata"] = metadata
                 params["payment_intent_data"] = payment_intent_data
-                session_metadata = params.get("metadata") or {}
-                if hasattr(session_metadata, "to_dict"):
-                    session_metadata = session_metadata.to_dict()
-                params["metadata"] = {
-                    **dict(session_metadata),
-                    **metadata,
-                }
+            # The session itself has to carry the evidence as well. A
+            # payment-mode session has no PaymentIntent until the buyer starts
+            # paying, so a sync that runs before that can only read metadata
+            # from the session.
+            session_metadata = params.get("metadata")
+            if hasattr(session_metadata, "to_dict"):
+                session_metadata = session_metadata.to_dict()
+            params["metadata"] = {**dict(session_metadata or {}), **metadata}
             is_subscription_mode = params.get("mode") == "subscription"
             params["payment_method_types"] = ["card"]
             if not is_subscription_mode and get_config("STRIPE_ALIPAY_ENABLED"):
@@ -459,9 +461,10 @@ class StripeProvider(PaymentProvider):
         if request.reason:
             params["reason"] = request.reason
 
-        metadata = request.metadata or {}
+        metadata = dict(request.metadata or {})
         if hasattr(metadata, "to_dict"):
             metadata = metadata.to_dict()
+        idempotency_key = str(metadata.pop("idempotency_key", "") or "")
         metadata.setdefault("order_bid", request.order_bid)
         params["metadata"] = metadata
 
@@ -475,6 +478,11 @@ class StripeProvider(PaymentProvider):
             message = "Stripe refund requires payment_intent_id or charge_id metadata"
             raise RuntimeError(message)
 
+        if idempotency_key:
+            request_options = {
+                **request_options,
+                "idempotency_key": idempotency_key,
+            }
         refund = stripe.Refund.create(**params, **request_options)
         refund_dict = refund.to_dict()
 

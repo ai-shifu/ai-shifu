@@ -3,13 +3,13 @@
 # Replaces pre-commit / pre-commit.ci. Lefthook is a single Go binary that
 # calls the tools already installed on your machine (ruff, the pre-commit-hooks
 # console scripts, prettier/eslint from src/web, commitizen, and the
-# repo's stdlib python check scripts) directly -- no isolated environments and
+# repo's Python check scripts) directly -- no isolated environments and
 # no per-run package downloads.
 #
 # One-time setup (see AGENTS.md / docs/engineering-baseline.md):
 #   macOS: brew install lefthook
 #   Linux/Windows: npm install -g @evilmartians/lefthook
-#   pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0
+#   python -m pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0 markdown-it-py==4.0.0
 #   (cd src/web && npm ci)   # provides prettier + eslint
 #   lefthook install
 #
@@ -77,9 +77,9 @@ pre-commit:
       run: bash -c 'cd src/web && args=(); for f in "$@"; do args+=("${f#src/web/}"); done; npm run lint-file -- "${args[@]}"' -- {staged_files}
       stage_fixed: true
 
-    # --- Repo guardrails (stdlib python, run once; glob only gates whether) ---
+    # --- Repo guardrails (Python, run once; glob only gates whether) ----------
     check-repo-harness:
-      glob: "{.gitignore,.codex/**,AGENTS.md,CLAUDE.md,ARCHITECTURE.md,INSTALL_MANUAL.md,PLANS.md,README.md,docs/**,.claude/**,.cursor/**,.github/**,lefthook.yml,src/web/Dockerfile,src/web/README.md,src/web/package.json,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/check_ai_collab_docs.py,scripts/generate_ai_collab_docs.py}"
+      glob: "{.gitignore,.codex/**,AGENTS.md,**/AGENTS.md,CLAUDE.md,**/CLAUDE.md,CLAUDE.local.md,**/CLAUDE.local.md,**/.claude/rules/**/*.md,ARCHITECTURE.md,INSTALL_MANUAL.md,PLANS.md,README.md,docs/**,.claude/**,.cursor/**,.github/**,lefthook.yml,src/web/Dockerfile,src/web/README.md,src/web/package.json,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/test_repo_instructions.py}"
       run: python3 scripts/check_repo_harness.py
     check-example-identifiers:
       run: python3 scripts/check_example_identifiers.py --staged

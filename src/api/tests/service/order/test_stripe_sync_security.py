@@ -1,5 +1,7 @@
 """Security regressions for learner-triggered Stripe synchronization."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -320,6 +322,68 @@ def test_stripe_sync_completes_the_current_matching_attempt(
         assert Order.query.filter_by(order_bid="sync-valid").one().status == (
             ORDER_STATUS_SUCCESS
         )
+
+
+def test_stripe_sync_rolls_back_when_lifecycle_lock_is_lost_before_commit(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @contextmanager
+    def _lost_lock(_order_bid: str) -> Iterator[None]:
+        yield
+        message = "payment lock lease lost"
+        raise RuntimeError(message)
+
+    result = _paid_sync_result(
+        order_bid="sync-lost-lock",
+        session_id="cs_lost-lock",
+        payment_intent_id="pi_attempt-lost-lock",
+    )
+    provider = SimpleNamespace(sync_reference=lambda **_kwargs: result)
+    notifications: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.payment_lifecycle_lock",
+        _lost_lock,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: provider
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_shifu_creator_bid",
+        lambda *_args: "teacher-sync",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.set_shifu_context",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr("flaskr.service.order.funs.set_user_state", lambda *_args: None)
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu",
+        lambda _app, order_bid: notifications.append(order_bid),
+    )
+    with app.app_context():
+        _seed_stripe_order(
+            order_bid="sync-lost-lock",
+            session_id="cs_lost-lock",
+            attempt_bid="attempt-lost-lock",
+        )
+
+    with pytest.raises(RuntimeError, match="payment lock lease lost"):
+        sync_stripe_checkout_session(
+            app,
+            "sync-lost-lock",
+            session_id="cs_lost-lock",
+            expected_user="owner-user",
+        )
+
+    assert notifications == []
+    with app.app_context():
+        order = Order.query.filter_by(order_bid="sync-lost-lock").one()
+        attempt = StripeOrder.query.filter_by(
+            stripe_order_bid="attempt-lost-lock"
+        ).one()
+        assert order.status == ORDER_STATUS_TO_BE_PAID
+        assert attempt.status == 0
 
 
 def test_stripe_sync_accepts_legacy_session_metadata_from_the_payment_intent(
@@ -725,6 +789,64 @@ def test_stripe_webhook_ignores_negative_events_for_an_older_attempt(
         assert old_attempt.status == 0
         assert old_attempt.failure_code in {None, ""}
         assert latest_attempt.status == 0
+
+
+def test_stripe_webhook_ignores_a_refund_for_an_older_attempt(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order_bid = "webhook-old-refund"
+    notification = PaymentNotificationResult(
+        order_bid=order_bid,
+        status="refund.created",
+        provider_payload={
+            "type": "refund.created",
+            "data": {
+                "object": {
+                    "id": "re_old",
+                    "payment_intent": "pi_attempt-old-refund",
+                    "charge": "ch_old-refund",
+                    "metadata": {"order_bid": order_bid},
+                }
+            },
+        },
+    )
+    provider = SimpleNamespace(verify_webhook=lambda **_kwargs: notification)
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider", lambda _name: provider
+    )
+    with app.app_context():
+        _seed_stripe_order(
+            order_bid=order_bid,
+            session_id="cs_old-refund",
+            attempt_bid="attempt-old-refund",
+        )
+        dao.db.session.add(
+            StripeOrder(
+                stripe_order_bid="attempt-current-refund",
+                biz_domain="order",
+                order_bid=order_bid,
+                user_bid="owner-user",
+                shifu_bid=f"course-{order_bid}",
+                checkout_session_id="cs_current-refund",
+                payment_intent_id="pi_attempt-current-refund",
+                latest_charge_id="ch_current-refund",
+                amount=20000,
+                currency="cny",
+                status=0,
+            )
+        )
+        dao.db.session.commit()
+
+    payload, status_code = handle_stripe_webhook(app, b"{}", "signature")
+
+    assert status_code == 202
+    assert payload["status"] == "acknowledged"
+    with app.app_context():
+        current = StripeOrder.query.filter_by(
+            stripe_order_bid="attempt-current-refund"
+        ).one()
+        assert current.status == 0
 
 
 @pytest.mark.parametrize(

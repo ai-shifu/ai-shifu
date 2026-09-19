@@ -1,12 +1,56 @@
 """Verify ask preview HTTP route behavior."""
 
+from datetime import timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_SOURCE_TYPE_MANUAL,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
+)
+from flaskr.service.billing.models import (
+    CreditLedgerEntry,
+    CreditUsageRate,
+    CreditWallet,
+    CreditWalletBucket,
+)
+from flaskr.service.billing.ownership import resolve_usage_creator_bid
+from flaskr.service.billing.settlement import settle_bill_usage
 from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.learn.ask_provider_adapters import AskProviderError
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
+from flaskr.service.metering import record_llm_usage
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG, BILL_USAGE_TYPE_LLM
+from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.models import DraftShifu
+from flaskr.util.datetime import now_utc
+
+_PREVIEW_SHIFU = "preview-course"
+_PREVIEW_OWNER = "preview-owner"
 
 _PREVIEW_TOKEN = "preview-token"  # stub session token, `validate_user` is mocked
+
+
+@pytest.fixture(autouse=True)
+def preview_course(monkeypatch: object, app: object) -> None:
+    with app.app_context(), unit_of_work():
+        DraftShifu.query.filter_by(shifu_bid=_PREVIEW_SHIFU).delete()
+        db.session.add(
+            DraftShifu(shifu_bid=_PREVIEW_SHIFU, created_user_bid=_PREVIEW_OWNER)
+        )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.route.shifu_permission_verification",
+        lambda _app, _user, course, permission: (
+            course == _PREVIEW_SHIFU and permission == "edit"
+        ),
+    )
 
 
 class _FakeObservation:
@@ -117,6 +161,7 @@ def test_ask_preview_route_success_with_provider(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_model": "gpt-test",
             "ask_provider_config": {
@@ -176,6 +221,7 @@ def test_ask_preview_route_fallbacks_to_llm(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_model": "gpt-test",
             "ask_provider_config": {
@@ -212,6 +258,7 @@ def test_ask_preview_route_rejects_empty_query(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "",
             "ask_model": "gpt-test",
             "ask_provider_config": {
@@ -248,6 +295,7 @@ def test_ask_preview_route_provider_only_does_not_require_ask_model(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_provider_config": {
                 "provider": "coze",
@@ -291,6 +339,7 @@ def test_ask_preview_route_provider_only_accepts_coze_workflow(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_provider_config": {
                 "provider": "coze_workflow",
@@ -336,6 +385,7 @@ def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_model": "gpt-test",
             "ask_provider_config": {
@@ -391,6 +441,7 @@ def test_ask_preview_route_surfaces_friendly_provider_error(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_model": "gpt-test",
             "ask_provider_config": {
@@ -433,6 +484,7 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_model": "gpt-test",
             "ask_provider_config": {
@@ -453,23 +505,69 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
     assert "request failed" not in payload["message"]
 
 
-def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
-    monkeypatch: object, test_client: object
+@pytest.mark.parametrize("is_creator", [True, False])
+@pytest.mark.parametrize("provider", ["llm", "dify", "get_biji_knowledge"])
+def test_ask_preview_route_bills_course_owner(
+    monkeypatch: object, test_client: object, is_creator: bool, provider: str
 ) -> None:
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}
 
-    _mock_authenticated_user(monkeypatch, "creator-token-1", is_creator=True)
+    user_bid = f"preview-{provider}-{is_creator}"
+    _mock_authenticated_user(monkeypatch, user_bid, is_creator=is_creator)
     monkeypatch.setattr(
-        "flaskr.service.shifu.route.admit_creator_usage",
-        lambda _app, creator_bid, usage_scene: captured.setdefault(
-            "admission",
-            {
-                "creator_bid": creator_bid,
-                "usage_scene": usage_scene,
-            },
-        ),
-        raising=False,
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, *, usage_bid: captured.setdefault("enqueued", usage_bid),
+    )
+    with test_client.application.app_context(), unit_of_work():
+        CreditWalletBucket.query.filter_by(creator_bid=_PREVIEW_OWNER).delete()
+        CreditWallet.query.filter_by(creator_bid=_PREVIEW_OWNER).delete()
+        db.session.add(
+            CreditWallet(
+                wallet_bid="preview-owner-wallet",
+                creator_bid=_PREVIEW_OWNER,
+                available_credits=Decimal(10),
+            )
+        )
+        db.session.add(
+            CreditWalletBucket(
+                wallet_bucket_bid="preview-owner-bucket",
+                wallet_bid="preview-owner-wallet",
+                creator_bid=_PREVIEW_OWNER,
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                priority=20,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                available_credits=Decimal(10),
+                original_credits=Decimal(10),
+                effective_from=now_utc() - timedelta(days=1),
+            )
+        )
+        db.session.add(
+            CreditUsageRate(
+                rate_bid=user_bid,
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model=user_bid,
+                usage_scene=BILL_USAGE_SCENE_DEBUG,
+                billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                unit_size=1,
+                credits_per_unit=Decimal(1),
+                rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+                effective_from=now_utc() - timedelta(days=1),
+                status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            )
+        )
+    monkeypatch.setattr(
+        "flaskr.service.billing.admission.is_billing_enabled", lambda: True
+    )
+
+    def capture_admission(app: object, **kwargs: object) -> object:
+        captured["admission"] = kwargs
+        return admit_creator_usage(app, **kwargs)
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.route.admit_creator_usage", capture_admission
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.route.get_langfuse_client",
@@ -478,15 +576,31 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
     )
 
     def fake_chat_llm(*args: object, **kwargs: object) -> object:
-        _ = args
+        assert args[1] == user_bid
         captured["chat_llm"] = kwargs
+        captured["usage_bid"] = record_llm_usage(
+            args[0],
+            kwargs["usage_context"],
+            provider="openai",
+            model=user_bid,
+            is_stream=True,
+            input=5,
+            output=7,
+            total=12,
+        )
         yield SimpleNamespace(content="debug answer")
 
     def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
+        if kwargs["provider"] == "dify":
+            message = "provider unavailable"
+            raise AskProviderError(message)
         runtime = kwargs.get("runtime")
         assert runtime is not None
-        yield from runtime.llm_stream_factory()
+        if kwargs["provider"] == "get_biji_knowledge":
+            yield from runtime.llm_context_stream_factory("preview knowledge")
+        else:
+            yield from runtime.llm_stream_factory()
 
     monkeypatch.setattr(
         "flaskr.api.llm.chat_llm",
@@ -503,12 +617,24 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
         "/api/shifu/ask/preview",
         headers={"Token": "creator-token"},
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_model": "gpt-test",
+            "billable": 0,
+            "internal": True,
+            "is_creator": False,
+            "user_bid": "unrelated-user",
+            "creator_bid": "unrelated-owner",
+            "usage_context": {"billable": 0, "user_bid": "unrelated-user"},
             "ask_provider_config": {
-                "provider": "llm",
-                "mode": "provider_only",
-                "config": {},
+                "provider": provider,
+                "mode": "provider_then_llm",
+                "config": {
+                    "base_url": "https://api.example.com/v1",
+                    "api_key": "test-api-key",
+                    "topic_id": "topic-1",
+                    "client_id": "client-1",
+                },
             },
         },
     )
@@ -517,15 +643,40 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
     assert resp.status_code == 200
     assert payload["code"] == 0
     assert captured["admission"] == {
-        "creator_bid": "creator-token-1",
+        "creator_bid": _PREVIEW_OWNER,
+        "shifu_bid": _PREVIEW_SHIFU,
         "usage_scene": BILL_USAGE_SCENE_DEBUG,
     }
     chat_llm_kwargs = captured["chat_llm"]
     assert chat_llm_kwargs["billable"] == 1
     usage_context = chat_llm_kwargs["usage_context"]
-    assert usage_context.user_bid == "creator-token-1"
+    assert usage_context.user_bid == user_bid
+    assert usage_context.shifu_bid == _PREVIEW_SHIFU
     assert usage_context.usage_scene == BILL_USAGE_SCENE_DEBUG
     assert usage_context.billable == 1
+    with test_client.application.app_context():
+        record = BillUsageRecord.query.filter_by(usage_bid=captured["usage_bid"]).one()
+        assert record.billable == 1
+        assert record.usage_scene == BILL_USAGE_SCENE_DEBUG
+        assert record.user_bid == user_bid
+        assert record.shifu_bid == _PREVIEW_SHIFU
+        assert (
+            resolve_usage_creator_bid(test_client.application, record) == _PREVIEW_OWNER
+        )
+        assert captured["enqueued"] == record.usage_bid
+
+        settlement = settle_bill_usage(
+            test_client.application, usage_bid=record.usage_bid
+        )
+        assert settlement["status"] == "settled"
+        assert settlement["creator_bid"] == _PREVIEW_OWNER
+        assert CreditWallet.query.filter_by(
+            creator_bid=_PREVIEW_OWNER
+        ).one().available_credits == Decimal(3)
+        entries = CreditLedgerEntry.query.filter_by(source_bid=record.usage_bid).all()
+        assert entries
+        assert all(entry.creator_bid == _PREVIEW_OWNER for entry in entries)
+        assert CreditWallet.query.filter_by(creator_bid=user_bid).count() == 0
 
 
 def test_ask_preview_route_passes_debug_usage_context_for_creator(
@@ -553,8 +704,9 @@ def test_ask_preview_route_passes_debug_usage_context_for_creator(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.route.admit_creator_usage",
-        lambda _app, creator_bid, usage_scene: {
+        lambda _app, creator_bid, shifu_bid, usage_scene: {
             "creator_bid": creator_bid,
+            "shifu_bid": shifu_bid,
             "usage_scene": usage_scene,
         },
         raising=False,
@@ -574,6 +726,7 @@ def test_ask_preview_route_passes_debug_usage_context_for_creator(
         "/api/shifu/ask/preview",
         headers=_auth_headers(),
         json={
+            "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
             "ask_model": "gpt-test",
             "ask_provider_config": {

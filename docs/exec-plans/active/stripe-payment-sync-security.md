@@ -26,6 +26,12 @@ must use the same completion rules so one path cannot bypass the other.
 - [x] 2026-09-18 20:42 CST: Made confirmed-success Stripe snapshots
   monotonic so delayed failure or cancellation events cannot break idempotent
   return-page synchronization.
+- [x] 2026-09-19 00:12 CST: Added authoritative order and attempt row locks
+  across Stripe sync, webhook, and refund mutations, and made lifecycle-lock
+  loss roll back before commit; 41 focused and 183 order tests pass.
+- [x] 2026-09-19 10:25 CST: Bound refund webhooks to their stored provider
+  references and split active refunds into a durable idempotent claim,
+  provider call, and reconciliation; 49 focused and 189 order tests pass.
 
 ## Surprises & Discoveries
 
@@ -58,6 +64,16 @@ must use the same completion rules so one path cannot bypass the other.
   current attempt, while rejecting successful provider data for terminal or
   superseded orders.
   Rationale: browser retries must be safe without reopening fulfillment.
+- Decision: pair the renewable Redis lifecycle lock with database row locks on
+  the business order and current Stripe attempt, and exit the Redis lock before
+  committing the unit of work.
+  Rationale: a lost Redis lease cannot let a replacement worker overtake an
+  in-flight payment transaction, and ownership loss must roll back rather than
+  commit stale payment state.
+- Decision: persist a stable refund operation in the Stripe snapshot before
+  contacting Stripe and use the same key as Stripe's idempotency key.
+  Rationale: an accepted remote refund remains safely recoverable when local
+  reconciliation rolls back or the lifecycle lease is lost.
 
 ## Context and Orientation
 
@@ -81,6 +97,8 @@ sync and before fulfillment in webhook handling.
   agree with the stored attempt and order.
 - Manual sync and webhook accept and reject the same local lifecycle states.
 - Rejected synchronization does not mutate the order or Stripe snapshot.
+- Stripe success, failure, cancellation, and refund mutations serialize on the
+  authoritative order and attempt rows even if the Redis lease is lost.
 - Existing successful and idempotent Stripe flows continue to pass.
 
 ## Idempotence and Recovery

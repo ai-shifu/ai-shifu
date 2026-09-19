@@ -52,6 +52,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
+- [Charge settings previews to the course owner](./completed/course-owner-preview-billing.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Frontend Unused Function Cleanup Stack](./completed/frontend-unused-function-stack.md)
 - [Global Billing Pricing Page](./completed/global-billing-pricing-page.md)
@@ -78,6 +79,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)
+- [Retire the AI Instruction Generator](./completed/retire-ai-instruction-generator.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Safe Frontend Dead Code Cleanup](./completed/safe-frontend-dead-code-cleanup.md)
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)
@@ -86,6 +88,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 - [Unify Frontend Source Directories](./completed/unify-frontend-directories.md)
 - [Unit-of-Work Commit-Site Migration](./completed/uow-commit-site-migration.md)
+- [Validate Agent Instructions](./completed/validate-manual-agent-instructions.md)
 - [Reuse Email and SMS Verification Login](./completed/verification-code-login-reuse.md)
 
 ## Supporting Tracker
