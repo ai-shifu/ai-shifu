@@ -190,8 +190,9 @@ def test_remote_image_import_revalidates_private_redirect_before_storage(
         headers: Mapping[str, str],
         body: bytes | None,
         timeout: Timeout,
+        deadline: float,
     ) -> HTTPResponse:
-        del headers, body, timeout
+        del headers, body, deadline, timeout
         return HTTPResponse(
             body=BytesIO(),
             status=302,
