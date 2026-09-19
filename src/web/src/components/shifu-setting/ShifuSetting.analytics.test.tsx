@@ -1357,8 +1357,12 @@ describe('ShifuSetting numbered model persistence', () => {
         ask_model: '3',
       }),
     );
-    expect(mockSaveShifuDetail.mock.calls[0][0].ask_llm_tier).toBeUndefined();
-    expect(mockSaveShifuDetail.mock.calls[0][0].llm_tier).toBeUndefined();
+    const modelFields = Object.keys(
+      mockSaveShifuDetail.mock.calls[0][0],
+    ).filter(
+      key => key === 'model' || key === 'ask_model' || key.includes('llm'),
+    );
+    expect(modelFields).toEqual(['ask_model']);
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_shifu_setting_save',
       expect.objectContaining({
