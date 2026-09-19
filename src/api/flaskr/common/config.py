@@ -723,6 +723,19 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
+    "DIFY_TRUSTED_ORIGINS": EnvVar(
+        name="DIFY_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Dify origins allowed to resolve to private "
+            "addresses. Leave empty unless this deployment intentionally uses "
+            "a self-hosted Dify service, for example "
+            "http://host.docker.internal:5001."
+        ),
+        group="llm",
+        required=False,
+    ),
     "DEFAULT_LLM_MODEL": EnvVar(
         name="DEFAULT_LLM_MODEL",
         default="",

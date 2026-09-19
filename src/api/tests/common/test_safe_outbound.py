@@ -162,6 +162,22 @@ def test_client_pins_transport_to_validated_address() -> None:
     assert transport.calls[0][1].hostname == "example.com"
 
 
+def test_response_iter_lines_decodes_utf8_and_normalizes_crlf() -> None:
+    transport = _FakeTransport(
+        [_Reply(200, {}, "data: 你好\r\ndata: world\n".encode())]
+    )
+    client = SafeOutboundClient(
+        resolver=_resolver("93.184.216.34"),
+        transport=transport,
+    )
+    response = client.request("GET", "https://example.com/events")
+
+    assert list(response.iter_lines(decode_unicode=True)) == [
+        "data: 你好",
+        "data: world",
+    ]
+
+
 def test_default_https_transport_uses_pinned_ip_with_original_tls_host(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
