@@ -203,7 +203,7 @@
   "modelOptions": {
     "hint": "模型决定课程输出速度和质量",
     "liveVoice": "实时语音",
-    "text": "文字追问",
+    "text": "文字问答",
     "unavailable": "暂不可用"
   },
   "number": "输入数字",

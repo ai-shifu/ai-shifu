@@ -203,7 +203,7 @@
   "modelOptions": {
     "hint": "The model determines the speed and quality of course output",
     "liveVoice": "Live voice",
-    "text": "Text follow-up",
+    "text": "Text Q&A",
     "unavailable": "Unavailable"
   },
   "number": "Enter a number",
