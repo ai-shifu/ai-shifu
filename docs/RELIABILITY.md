@@ -8,7 +8,8 @@
 
 ## Current Reliability Loop
 
-- Generated instruction and knowledge indexes must be deterministic.
+- Instruction files are hand-maintained; generated knowledge indexes must be
+  deterministic.
 - `python scripts/check_repo_harness.py` validates documentation ownership,
   generated artifacts, and metadata completeness.
 - `python scripts/check_architecture_boundaries.py` freezes current boundary

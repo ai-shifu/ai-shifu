@@ -13,9 +13,12 @@ to.
   the main source documents behind this entry point.
 - Use `docs/QUALITY_SCORE.md`, `docs/RELIABILITY.md`, and `docs/SECURITY.md`
   to understand repository-wide quality gaps and harness constraints.
-- Do not add a `CLAUDE.md` file. Claude Code reads `AGENTS.md` natively.
-  Claude-only path rules belong in `.claude/rules/`. Keep generated Cursor
-  `.mdc` files as thin pointers, not a second rulebook.
+- Maintain `AGENTS.md` files directly; keep each subtree focused on its local
+  constraints and inherit shared rules from its parents.
+- Do not add a `CLAUDE.md` file or duplicate instruction routers. Use native
+  `AGENTS.md` loading as described in `docs/design-docs/ai-tool-compat.md`.
+  Keep the Copilot navigation file and the `GEMINI.md` link as minimal
+  compatibility entry points.
 
 ## Do
 
@@ -35,7 +38,9 @@ to.
   in the new worktree.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
   lefthook and its underlying tools are installed; the local checks are
-  silently skipped if lefthook was never installed.
+  silently skipped if lefthook was never installed. If required tools are
+  missing, show their install commands and pause the commit until the tools
+  are installed or the user explicitly authorizes proceeding.
 - Treat a Ruff finding as a code or contract signal. Prefer an established
   project pattern plus focused regression coverage; if the flagged construct
   is intentional, use the narrowest coded suppression with a plain-English
@@ -55,9 +60,7 @@ to.
   problem correctly, safely, completely, and with adequate tests, including
   regressions or contract effects introduced by the change.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
-  touched `AGENTS.md` files first. Keep generated Cursor `.mdc` files and
-  Copilot instruction files as thin pointers to `AGENTS.md`, not restated
-  copies of these hard rules.
+  owning `AGENTS.md` files and any affected navigation links in the same change.
 - Treat product analytics as a completion requirement for every new user-facing
   Cook Web capability or interaction path. In the same change, define or extend
   a decision-relevant Umami event family, implement its producer, and add
@@ -124,7 +127,7 @@ to.
   and do not block or alter a user action when analytics is unavailable.
 - Do not create new root `tasks.md` checklists. Complex execution now belongs
   in ExecPlans under `docs/exec-plans/`.
-- Do not let shared guidance drift from generated mirrors or from the current
+- Do not let shared guidance or its navigation links drift from the current
   repository structure.
 - Do not introduce mixed-timezone timestamps: avoid `func.now()` /
   `CURRENT_TIMESTAMP` defaults and naked `datetime.now()` / `datetime.utcnow()`
@@ -182,8 +185,6 @@ Contributors have one place to check the required commit title and body format.
 
 ## Commands
 
-- `python scripts/generate_ai_collab_docs.py` regenerates compatibility
-  instruction surfaces.
 - `python scripts/build_repo_knowledge_index.py` regenerates repository
   knowledge indexes and the doc inventory.
 - `python scripts/check_repo_harness.py` validates AI-doc ownership, knowledge

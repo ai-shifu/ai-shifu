@@ -176,7 +176,6 @@ default Docker dev stack.
 
 ## Validation and Acceptance
 
-- `python scripts/generate_ai_collab_docs.py`
 - `python scripts/build_repo_knowledge_index.py`
 - `python scripts/check_repo_harness.py`
 - `python scripts/check_architecture_boundaries.py --run-fixture-tests`

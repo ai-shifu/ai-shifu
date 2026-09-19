@@ -8,84 +8,81 @@ canonical: true
 
 # AI Tool Compatibility Layer Design
 
-## Summary
+## Instruction Ownership
 
-`AGENTS.md` (root plus nested package and module files) is the only
-project-instruction body for coding agents. Claude Code, Cursor, Codex,
-Copilot coding agent, and Windsurf read `AGENTS.md` natively.
+The root and nested `AGENTS.md` files are the only project-instruction body.
+Edit them directly. Each file adds constraints for its directory to the rules
+in its ancestors; keep module files focused on their own behavior, contracts,
+and verification. There is no instruction generator or minimum line count.
 
-Tool-private files exist only for capabilities `AGENTS.md` cannot express:
-Cursor globs / `alwaysApply` / descriptions, Claude path rules under
-`.claude/rules/`, and optional zero-cost symlinks. They are thin pointers,
-not a second rulebook.
+Root, backend, frontend, GitHub automation, Docker, and repository scripts
+retain their own hand-maintained entry points. Mandatory constraints belong
+in these instructions, close to the work they govern. The
+[engineering baseline](../engineering-baseline.md) supplies expanded rationale,
+examples, and troubleshooting, including the CI/CD and release workflow.
+Reusable procedures belong in `SKILL.md` files. Complex work uses ExecPlans
+under `docs/exec-plans/` according to [PLANS.md](../../PLANS.md).
 
-This repository does not use Amazon Bedrock, Vertex, or Foundry for Claude
-Code, so there is no Bedrock exception and no `CLAUDE.md` tree.
+This document replaces the earlier generator-shrink, hard-rules-restoration,
+and primary-surface-rules designs. Their useful ownership and handbook
+boundaries remain; their generated instruction mirrors and root `tasks.md`
+workflow are retired.
 
-## Goals
+## Compatibility Entry Points
 
-- Keep layered `AGENTS.md` as the sole instruction body.
-- Keep Cursor `.mdc` files and Copilot `applyTo` files as short pointers.
-- Keep Claude-only path routing in `.claude/rules/` and skill playbooks in
-  `SKILL.md`.
-- Validate that `CLAUDE.md` never reappears and that generated mirrors stay
-  thin.
+- Codex and Cursor use the layered `AGENTS.md` tree. Cursor supports nested
+  instructions, so no `.mdc` pointers or `.cursorrules` are needed. See
+  [Cursor rules](https://cursor.com/docs/rules#agentsmd).
+- `.github/copilot-instructions.md` is one short, manual navigation entry
+  pointing to the root and relevant nested `AGENTS.md` files. It covers
+  Copilot surfaces whose native agent-instruction support differs; no
+  parallel `.github/instructions/` tree is maintained. See the
+  [Copilot support matrix](https://docs.github.com/en/copilot/reference/custom-instructions-support).
+- `GEMINI.md` remains a symlink to the root `AGENTS.md` for Gemini CLI's
+  default context filename. It contains no separate rules. See
+  [Gemini context files](https://geminicli.com/docs/cli/gemini-md/).
+- Claude Code uses native `AGENTS.md` under the conditions below. No
+  `CLAUDE.md` files or shared-rule copies under `.claude/rules/` are kept.
+- `.cursor/environment.json`, Cursor run scripts, and `.codex/environments`
+  are runtime configuration and remain independent of this cleanup.
 
-## Non-Goals
+## Claude Code Requirements
 
-- Parallel Windsurf, Cline, or Aider rule trees.
-- Restating Umami, PR, or terminology rules in Cursor or Copilot files.
-- Inventing dedicated `AGENTS.md` files for every backend service in this
-  change. `creator_analytics` and `profile_research` remain a follow-up.
+Use Claude Code 2.1.277 or later, with native `AGENTS.md` support active.
+Confirm the startup `AGENTS.md loaded` message under the default Project
+instructions setting. Nested files load when Claude reads files in those
+directories. See the official
+[AGENTS.md documentation](https://code.claude.com/docs/en/memory#agentsmd).
 
-## Design Decisions
+Native loading is unavailable in the first session after installing or
+upgrading to a supporting version; start another session. It is also
+unavailable when the session cannot fetch Anthropic feature flags (including
+third-party provider or telemetry-disabled sessions), when `disableAllHooks`
+or `allowManagedHooksOnly` is set, or when the built-in `agents-md` plugin is
+disabled. These sessions are outside this repository's automatic-loading
+support; use a supported session before relying on project instructions.
 
-### Source of truth
+With the default setting, an ancestor or local `CLAUDE.md`,
+`.claude/CLAUDE.md`, or `CLAUDE.local.md` takes precedence. If an existing
+personal file must remain, select `claude-md-and-agents-md` in user-level
+Project instructions and verify the loaded rules. Repository-local settings
+cannot configure that choice. Existing explicit imports are deduplicated by
+Claude; their removal here is a maintenance decision, not a claim that an
+import necessarily loads rules twice.
 
-- Nearest `AGENTS.md` is the only project-instruction body.
-- Do not add `CLAUDE.md`. Nested `@AGENTS.md` wrappers block Claude Code
-  native `AGENTS.md` loading on Claude Code 2.1.277 and later.
-- `.claude/rules/` holds Claude-only path routing.
-- `.cursor/rules/*.mdc` and nested `src/api/.cursor`, `src/web/.cursor`,
-  and `docs/.cursor` rules keep Cursor-private frontmatter and point to
-  `AGENTS.md`.
-- `.github/copilot-instructions.md` and
-  `.github/instructions/*.instructions.md` keep `applyTo` routing and point
-  to `AGENTS.md`. Copilot coding agent should rely on native `AGENTS.md`.
+## Validation
 
-### Intentional special cases
+`scripts/check_repo_harness.py` validates instruction structure, required
+shared constraints, references, and repository knowledge metadata without
+rendering instruction bodies. It rejects restored `CLAUDE.md` files and
+stale generated-instruction markers. Instruction edits do not require
+changing Python metadata or regenerating mirrors.
 
-- `.cursorrules` is a legacy zero-cost symlink to `AGENTS.md`. Harmless;
-  do not expand it into a second copy.
-- `GEMINI.md` is a zero-cost symlink to `AGENTS.md`.
-- `.github/instructions/agents.instructions.md` is a zero-cost symlink to
-  `../../AGENTS.md`.
-- `.cursor/environment.json`, run scripts, and `.codex/environments` are
-  runtime configuration, not instruction surfaces.
+`scripts/build_repo_knowledge_index.py` remains responsible for the generated
+knowledge indexes, document inventory, and harness reports. CI regenerates
+those outputs and checks for drift; this generation describes repository
+facts rather than maintaining a second copy of the instructions.
 
-### Generator and harness
-
-- `scripts/generate_ai_collab_docs.py` emits module-level `AGENTS.md` from
-  backend and frontend metadata, plus thin Cursor and Copilot pointers.
-- The generator must not emit any `CLAUDE.md` file.
-- Unused `ROOT_SPEC` / `API_SPEC` / `WEB_SPEC` templates are removed so they
-  cannot look like sources of truth for hand-maintained `AGENTS.md`.
-- `scripts/check_repo_harness.py` fails if a `CLAUDE.md` file exists, if the
-  generator would recreate one, or if a generated-marker `AGENTS.md` is not
-  owned by the generator.
-- Hand-maintained module files such as `billing/AGENTS.md` and
-  `referral/AGENTS.md` are registered in `MANUAL_AGENTS`.
-
-### Validation
-
-- Existence and generated-marker checks still apply to Cursor and Copilot
-  files.
-- Compatibility files must stay thin pointers and must not restate the
-  root `AGENTS.md` hard-rule dump.
-
-## Acceptance Criteria
-
-- Zero `CLAUDE.md` files in the repository.
-- Regenerating AI-collab docs does not recreate `CLAUDE.md`.
-- Cursor and Copilot generated files are short pointers.
-- `python scripts/check_repo_harness.py` is green.
+Run `python scripts/check_repo_harness.py` after instruction edits. When
+documents or inventory inputs change, regenerate the knowledge outputs and
+run the harness again. The repository-wide pre-commit gate remains required.

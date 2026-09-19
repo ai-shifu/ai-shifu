@@ -66,7 +66,7 @@ module-specific ownership and risk points.
 - `cd src/api && pytest -q` when a change here also touches shared auth,
   provider adapters, database models, or other backend services.
 
-- `python scripts/check_ai_collab_docs.py` when adding or changing local
+- `python scripts/check_repo_harness.py` when adding or changing local
   backend AI instruction files.
 
 ## Tests

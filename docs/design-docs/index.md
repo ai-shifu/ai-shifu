@@ -8,10 +8,6 @@ Implementation and architecture decisions that shape repository behavior live he
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Agent-First Harness Migration](../design-docs/agent-first-harness.md)
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
-- [AI Doc Generator Shrink And Baseline Restoration](../design-docs/ai-doc-generator-shrink.md)
-  - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
-- [AI Doc Hard Rules Restoration](../design-docs/ai-doc-hard-rules-restoration.md)
-  - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [AI Tool Compatibility Layer Design](../design-docs/ai-tool-compat.md)
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-09-19` | Canonical: `true`
 - [Billing Credit Domain Terminology](../design-docs/billing-credit-domain-terminology.md)
@@ -28,7 +24,5 @@ Implementation and architecture decisions that shape repository behavior live he
   - Status: `proposed` | Owner: `shared` | Last reviewed: `2026-06-18` | Canonical: `true`
 - [Official Client Model Gateway](../design-docs/official-client-model-gateway.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-09-05` | Canonical: `true`
-- [Primary Surface Rules Completion](../design-docs/primary-surface-rules.md)
-  - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [老带新邀请奖励](../design-docs/referral-invitation-rewards.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-06-11` | Canonical: `true`
