@@ -76,11 +76,13 @@ class DummyCourse:
 def test_list_operator_courses_prefers_latest_draft_and_formats_contacts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
 
     config = {"LLM_MODEL_1_NAME": "Default", "LLM_MODEL_1_ID": "default-model"}
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     app = Flask(__name__)
     app.config.update(LLM_MODEL_1_NAME="Default", LLM_MODEL_1_ID="default-model")
@@ -1845,7 +1847,7 @@ def test_operator_course_lists_display_current_number_mapping(
     configured_model: str,
 ) -> None:
     """SQL and lightweight projections expose the effective course model index."""
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.service.shifu import admin_course_summaries, admin_course_summary_mapper
 
     mapping = {
@@ -1856,7 +1858,7 @@ def test_operator_course_lists_display_current_number_mapping(
     }
     expected_index = "3" if configured_model else "1"
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default="": mapping.get(key, default)
+        model_selection, "get_config", lambda key, default="": mapping.get(key, default)
     )
     bid = uuid.uuid4().hex
     with app.app_context():
@@ -1906,7 +1908,7 @@ def test_operator_summary_matches_numbered_catalog_when_provider_is_unavailable(
     expected_label: str,
 ) -> None:
     """Operator labels join the same numbered catalog used by the course UI."""
-    from flaskr.api.llm import get_course_models, tiers
+    from flaskr.api.llm import get_course_models, model_selection
     from flaskr.service.common.models import ERROR_CODE
     from flaskr.service.shifu.admin_course_summary_mapper import (
         build_admin_operation_course_summary,
@@ -1919,7 +1921,9 @@ def test_operator_summary_matches_numbered_catalog_when_provider_is_unavailable(
         "LLM_MODEL_3_ID": "physical-deep-model",
     }
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     course = DummyCourse(
         shifu_bid="course-1",
@@ -1932,8 +1936,8 @@ def test_operator_summary_matches_numbered_catalog_when_provider_is_unavailable(
         llm=selection,
     )
     with patch.object(
-        tiers,
-        "resolve_tier_model",
+        model_selection,
+        "resolve_model_slot",
         side_effect=AppError(
             "Provider unavailable", ERROR_CODE["server.llm.modelTierUnavailable"]
         ),
@@ -1955,7 +1959,7 @@ def test_operator_summary_matches_numbered_catalog_when_provider_is_unavailable(
 def test_operator_listing_does_not_inherit_or_write_historical_number(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
 
     config = {
         "LLM_MODEL_1_NAME": "Default",
@@ -1964,7 +1968,9 @@ def test_operator_listing_does_not_inherit_or_write_historical_number(
         "LLM_MODEL_3_ID": "third-model",
     }
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     bid = uuid.uuid4().hex
     with app.app_context():

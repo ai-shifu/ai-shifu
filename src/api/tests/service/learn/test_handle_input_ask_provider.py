@@ -1068,14 +1068,14 @@ def test_external_answers_only_require_a_tier_for_actual_fallback(
     mode: str,
     provider_fails: bool,
 ) -> None:
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.service.common.models import ERROR_CODE, AppError
     from flaskr.service.learn import handle_input_ask as module
 
     config = {"provider": provider, "mode": mode, "config": {}}
     _setup_handle_input_ask_patches(monkeypatch, module, config)
     _use_follow_up_tier(monkeypatch, module, config)
-    monkeypatch.setattr(tiers, "get_config", lambda *_args: "")
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
     provider_calls = []
 
     def stream(**kwargs: object) -> object:
@@ -1121,7 +1121,7 @@ def test_actual_llm_routes_snapshot_tier_model_and_metadata(
 ) -> None:
     from unittest.mock import Mock
 
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.service.learn import handle_input_ask as module
 
     config = {
@@ -1136,7 +1136,7 @@ def test_actual_llm_routes_snapshot_tier_model_and_metadata(
     _setup_handle_input_ask_patches(monkeypatch, module, config)
     _use_follow_up_tier(monkeypatch, module, config)
     resolve = Mock(return_value="mapped-fast")
-    monkeypatch.setattr(tiers, "resolve_tier_model", resolve)
+    monkeypatch.setattr(model_selection, "resolve_model_slot", resolve)
     llm_calls = []
 
     def chat(*_args: object, **kwargs: object) -> object:
@@ -1182,7 +1182,7 @@ def test_guardrail_only_resolves_a_tier_when_it_needs_an_llm_response(
     from unittest.mock import Mock
 
     from flaskr.api import llm
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.service.common.models import ERROR_CODE, AppError
     from flaskr.service.learn import check_text
     from flaskr.service.learn import handle_input_ask as module
@@ -1190,7 +1190,7 @@ def test_guardrail_only_resolves_a_tier_when_it_needs_an_llm_response(
     config = {"provider": "dify", "mode": "provider_only", "config": {}}
     _setup_handle_input_ask_patches(monkeypatch, module, config)
     _use_follow_up_tier(monkeypatch, module, config)
-    monkeypatch.setattr(tiers, "get_config", lambda *_args: "")
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
     monkeypatch.setattr(
         module, "check_text_with_llm_response", check_text.check_text_with_llm_response
     )

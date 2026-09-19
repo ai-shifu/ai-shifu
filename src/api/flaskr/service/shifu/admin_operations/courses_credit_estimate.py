@@ -560,7 +560,7 @@ def build_operator_course_estimated_credit_cost(
             )
         )
 
-    from flaskr.api.llm.tiers import (
+    from flaskr.api.llm.model_selection import (
         resolve_selection,
         selection_metadata,
         selection_model,

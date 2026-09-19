@@ -52,7 +52,7 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
-from flaskr.api.llm.tiers import (
+from flaskr.api.llm.model_selection import (
     resolve_course_selection,
     selection_metadata,
     selection_model,

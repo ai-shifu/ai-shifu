@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flask import Flask, current_app
-from flaskr.api.llm.tiers import course_model_selection, selection_model
+from flaskr.api.llm.model_selection import course_model_selection, selection_model
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.i18n_utils import get_markdownflow_output_language

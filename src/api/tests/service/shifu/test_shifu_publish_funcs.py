@@ -419,15 +419,17 @@ def test_publish_preserves_legacy_live_primary_using_effective_text_validation(
     follow_up_model: str,
 ) -> None:
     """Legacy primary IDs fall back for validation without rewriting either field."""
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     config = {"LLM_MODEL_1_ID": "configured/text-model"}
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     resolve_model = Mock(side_effect=AssertionError("Publish must not route models"))
-    monkeypatch.setattr(tiers, "resolve_tier_model", resolve_model)
+    monkeypatch.setattr(model_selection, "resolve_model_slot", resolve_model)
     normalize_config = Mock(wraps=module.normalize_live_follow_up_course_config)
     monkeypatch.setattr(
         module, "normalize_live_follow_up_course_config", normalize_config

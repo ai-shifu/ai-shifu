@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.api.llm import tiers
+from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.service.learn import context_v2
 from flaskr.service.learn.agent import lesson_entry
@@ -153,7 +153,9 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     course_model: str,
     course_temperature: float | None,
 ) -> None:
-    monkeypatch.setattr(tiers, "resolve_tier_model", lambda tier: f"configured-{tier}")
+    monkeypatch.setattr(
+        model_selection, "resolve_model_slot", lambda tier: f"configured-{tier}"
+    )
     monkeypatch.setitem(app.config, "DEFAULT_LLM_TEMPERATURE", 0.3)
     request = PlaygroundPreviewRequest(
         block_index=0,
@@ -167,7 +169,9 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
         model, temperature = ctx._resolve_llm_settings(course)
     assert model == course_model
     assert (
-        tiers.resolve_selection(model, ctx._preview_model_selection_metadata)[0]
+        model_selection.resolve_selection(model, ctx._preview_model_selection_metadata)[
+            0
+        ]
         == "configured-1"
     )
     assert temperature == (

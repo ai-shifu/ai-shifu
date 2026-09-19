@@ -853,7 +853,7 @@ def test_get_draft_meta_route_allows_view_only_permission(
 def test_numbered_save_uses_original_fields_and_supports_live_roundtrip(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
     from flaskr.service.shifu import shifu_draft_funcs as module
     from flaskr.service.shifu.models import DraftShifu
@@ -865,7 +865,9 @@ def test_numbered_save_uses_original_fields_and_supports_live_roundtrip(
         "LLM_MODEL_3_ID": "physical-3",
     }
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: mapping.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: mapping.get(key, default),
     )
     _seed_shifu(app, "tier-save-course", "tier-owner", Decimal(1))
     _mock_shifu_permissions(monkeypatch)
@@ -935,7 +937,7 @@ def test_detail_read_and_unrelated_save_preserve_original_model_values(
 ) -> None:
     from uuid import uuid4
 
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.service.shifu import shifu_draft_funcs as module
     from flaskr.service.shifu.models import DraftShifu
 
@@ -945,7 +947,9 @@ def test_detail_read_and_unrelated_save_preserve_original_model_values(
     monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
     config = {"LLM_MODEL_1_NAME": "Everyday", "LLM_MODEL_1_ID": "private/model"}
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     with app.app_context():
         row = DraftShifu.query.filter_by(shifu_bid=bid).one()

@@ -14,7 +14,7 @@ from time import perf_counter
 from typing import Any
 
 from flask import Flask
-from flaskr.api.llm.tiers import (
+from flaskr.api.llm.model_selection import (
     course_model_selection,
     get_configured_model_slots,
     normalize_course_model,

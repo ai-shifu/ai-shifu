@@ -2,7 +2,7 @@
 
 import pytest
 from flaskr.api import llm
-from flaskr.api.llm import tiers
+from flaskr.api.llm import model_selection
 from flaskr.service.common.models import ERROR_CODE, AppError
 
 
@@ -15,17 +15,19 @@ def test_tier_options_propagate_unexpected_failures(
     app: object, monkeypatch: pytest.MonkeyPatch, error: Exception, failure_site: str
 ) -> None:
     """Only missing tier/provider configuration becomes ordinary unavailability."""
-    monkeypatch.setattr(tiers, "get_config", lambda *_args: "configured-model")
+    monkeypatch.setattr(
+        model_selection, "get_config", lambda *_args: "configured-model"
+    )
 
     def fail(*_args: object) -> None:
         raise error
 
     if failure_site == "configuration":
-        monkeypatch.setattr(tiers, "get_config", fail)
+        monkeypatch.setattr(model_selection, "get_config", fail)
     elif failure_site == "provider":
         monkeypatch.setattr(llm, "get_litellm_params_and_model", fail)
     else:
-        monkeypatch.setattr(tiers, "resolve_tier_model", fail)
+        monkeypatch.setattr(model_selection, "resolve_model_slot", fail)
     with app.app_context(), pytest.raises(type(error)) as captured:
         llm.get_model_tier_options(app)
     assert captured.value is error
@@ -35,7 +37,7 @@ def test_tier_options_hide_expected_provider_configuration_errors(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        tiers,
+        model_selection,
         "get_config",
         lambda key, *_args: "Label" if key.endswith("_NAME") else "private-model",
     )
@@ -60,7 +62,7 @@ def test_tier_mapping_cannot_point_to_another_reserved_alias(
     app: object, monkeypatch: pytest.MonkeyPatch, alias: str
 ) -> None:
     """A mapping must end at a concrete model instead of creating an alias loop."""
-    monkeypatch.setattr(tiers, "get_config", lambda *_args: alias)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: alias)
     with app.app_context(), pytest.raises(AppError) as captured:
-        tiers.resolve_tier_model("1")
+        model_selection.resolve_model_slot("1")
     assert captured.value.code == ERROR_CODE["server.llm.modelTierUnavailable"]

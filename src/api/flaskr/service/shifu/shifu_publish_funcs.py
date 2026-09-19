@@ -16,7 +16,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm import invoke_llm
-from flaskr.api.llm.tiers import (
+from flaskr.api.llm.model_selection import (
     course_model_selection,
     selection_metadata,
     selection_model,

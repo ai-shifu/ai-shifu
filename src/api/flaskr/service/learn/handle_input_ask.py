@@ -350,7 +350,7 @@ def handle_input_ask(
 
     # Get model for follow-up Q&A
     follow_up_model = follow_up_info.ask_model
-    from flaskr.api.llm.tiers import resolve_selection
+    from flaskr.api.llm.model_selection import resolve_selection
 
     follow_up_usage_metadata = dict(getattr(follow_up_info, "usage_metadata", {}))
 

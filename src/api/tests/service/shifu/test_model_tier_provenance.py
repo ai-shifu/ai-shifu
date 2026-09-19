@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 
-from flaskr.api.llm.tiers import selection_metadata
+from flaskr.api.llm.model_selection import selection_metadata
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, PublishedShifu

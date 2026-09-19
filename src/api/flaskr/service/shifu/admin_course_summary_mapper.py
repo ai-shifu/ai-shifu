@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flaskr.api.llm.tiers import course_model_selection
+from flaskr.api.llm.model_selection import course_model_selection
 from flaskr.service.shifu.admin_dtos_courses import AdminOperationCourseSummaryDTO
 from flaskr.service.shifu.admin_shared import _format_decimal
 

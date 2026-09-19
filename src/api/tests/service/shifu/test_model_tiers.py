@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from flaskr.api.llm import tiers
+from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, PublishedShifu
@@ -18,7 +18,9 @@ def numbered_slots(monkeypatch: pytest.MonkeyPatch) -> dict:
         for field, value in (("NAME", f"Option {index}"), ("ID", f"configured-{index}"))
     }
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: mapping.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: mapping.get(key, default),
     )
     monkeypatch.setattr(
         "flaskr.api.llm.get_litellm_params_and_model",
@@ -47,12 +49,12 @@ def test_deleted_number_resumes_after_configuration_is_restored(
     numbered_slots: dict,
 ) -> None:
     record = SimpleNamespace(llm="3", id=42, __tablename__="shifu_draft_shifus")
-    source = tiers.selection_metadata(record)
-    first, snapshot = tiers.resolve_selection(record.llm, source)
+    source = model_selection.selection_metadata(record)
+    first, snapshot = model_selection.resolve_selection(record.llm, source)
     del numbered_slots["LLM_MODEL_3_ID"]
-    fallback, fallback_metadata = tiers.resolve_selection(record.llm, source)
+    fallback, fallback_metadata = model_selection.resolve_selection(record.llm, source)
     numbered_slots["LLM_MODEL_3_ID"] = "replacement-3"
-    restored, _ = tiers.resolve_selection(record.llm, source)
+    restored, _ = model_selection.resolve_selection(record.llm, source)
     assert (first, fallback, restored) == (
         "configured-3",
         "configured-1",
@@ -60,7 +62,7 @@ def test_deleted_number_resumes_after_configuration_is_restored(
     )
     assert fallback_metadata["model_selection_fallback"] is True
     assert snapshot["resolved_model"] == first
-    assert tiers.resolve_selection(first, snapshot)[0] == first
+    assert model_selection.resolve_selection(first, snapshot)[0] == first
     assert record.llm == "3"
 
 
@@ -82,14 +84,14 @@ def test_preview_falls_back_without_modifying_original_values(
         assert model == selection
         metadata = context._preview_model_selection_metadata
         assert "resolved_model" not in metadata
-        assert tiers.resolve_selection(model, metadata)[0] == "configured-1"
+        assert model_selection.resolve_selection(model, metadata)[0] == "configured-1"
         assert metadata["model_selection_original"] == selection
         assert metadata["model_selection_record_id"] == row.id
         assert metadata["model_index"] == "1"
         assert metadata["model_selection_fallback"] is True
         assert (
-            tiers.resolve_selection(
-                row.ask_llm, tiers.selection_metadata(row, follow_up=True)
+            model_selection.resolve_selection(
+                row.ask_llm, model_selection.selection_metadata(row, follow_up=True)
             )[0]
             == "configured-1"
         )
@@ -122,7 +124,9 @@ def test_course_tiers_drive_preview_learning_and_follow_up(
     from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_ENABLE
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
-    monkeypatch.setattr(tiers, "resolve_tier_model", lambda tier: f"configured-{tier}")
+    monkeypatch.setattr(
+        model_selection, "resolve_model_slot", lambda tier: f"configured-{tier}"
+    )
     with app.app_context():
         bid = uuid4().hex
         with unit_of_work():
@@ -175,13 +179,15 @@ def test_course_tiers_drive_preview_learning_and_follow_up(
         runtime._shifu_model = DraftShifu
         settings = runtime.get_llm_settings(leaf.outline_item_bid)
         assert (
-            tiers.resolve_selection(settings.model, settings.usage_metadata)[0]
+            model_selection.resolve_selection(settings.model, settings.usage_metadata)[
+                0
+            ]
             == "configured-1"
         )
         preview = context_v2.RunScriptPreviewContextV2(app)
         preview_model, _temperature = preview._resolve_llm_settings(course)
         assert (
-            tiers.resolve_selection(
+            model_selection.resolve_selection(
                 preview_model, preview._preview_model_selection_metadata
             )[0]
             == "configured-1"
@@ -191,7 +197,9 @@ def test_course_tiers_drive_preview_learning_and_follow_up(
         )
         assert follow_up.ask_mode == ASK_MODE_ENABLE
         assert (
-            tiers.resolve_selection(follow_up.ask_model, follow_up.usage_metadata)[0]
+            model_selection.resolve_selection(
+                follow_up.ask_model, follow_up.usage_metadata
+            )[0]
             == "configured-1"
         )
         with unit_of_work():
@@ -199,14 +207,18 @@ def test_course_tiers_drive_preview_learning_and_follow_up(
             course.ask_llm = "7"
         settings = runtime.get_llm_settings(leaf.outline_item_bid)
         assert (
-            tiers.resolve_selection(settings.model, settings.usage_metadata)[0]
+            model_selection.resolve_selection(settings.model, settings.usage_metadata)[
+                0
+            ]
             == "configured-3"
         )
         follow_up = utils_v2.get_follow_up_info_v2(
             app, bid, leaf.outline_item_bid, "", is_preview=True
         )
         assert (
-            tiers.resolve_selection(follow_up.ask_model, follow_up.usage_metadata)[0]
+            model_selection.resolve_selection(
+                follow_up.ask_model, follow_up.usage_metadata
+            )[0]
             == "configured-7"
         )
 
@@ -214,7 +226,7 @@ def test_course_tiers_drive_preview_learning_and_follow_up(
 def test_options_endpoint_keeps_missing_mapping_unavailable(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(tiers, "get_config", lambda *_args: "")
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
     monkeypatch.setattr(
         "flaskr.route.user.validate_user",
         lambda *_args: SimpleNamespace(language="en-US", user_id="tier-teacher"),

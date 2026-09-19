@@ -5,7 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from flask import Flask
-from flaskr.api.llm.tiers import course_model_selection
+from flaskr.api.llm.model_selection import course_model_selection
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work

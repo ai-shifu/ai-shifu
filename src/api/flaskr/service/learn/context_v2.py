@@ -25,7 +25,7 @@ from flaskr.api.langfuse import (
     update_langfuse_trace,
 )
 from flaskr.api.llm import chat_llm
-from flaskr.api.llm.tiers import selection_metadata, selection_model
+from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.common.i18n_utils import (
     get_markdownflow_output_language,

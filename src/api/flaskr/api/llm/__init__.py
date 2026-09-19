@@ -35,7 +35,7 @@ from flaskr.api.langfuse import (
     normalize_langfuse_output_value,
     resolve_langfuse_trace_id,
 )
-from flaskr.api.llm.tiers import resolve_selection
+from flaskr.api.llm.model_selection import resolve_selection
 from flaskr.common.config import (
     parse_llm_model_max_output_tokens,
 )
@@ -1955,7 +1955,7 @@ def _build_model_options(
     app: Flask, available_models: list[str]
 ) -> list[dict[str, object]]:
     """Build a physical catalog from configured slots, never provider discovery alone."""
-    from flaskr.api.llm.tiers import get_configured_model_slots
+    from flaskr.api.llm.model_selection import get_configured_model_slots
 
     available_set = set(available_models)
     seen = set()
@@ -2048,7 +2048,7 @@ def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
 def _attach_credit_multipliers(
     app: Flask, options: list[dict[str, object]]
 ) -> list[dict[str, object]]:
-    from flaskr.api.llm.tiers import get_configured_model_slots
+    from flaskr.api.llm.model_selection import get_configured_model_slots
 
     default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
     if not default_model:
@@ -2107,12 +2107,15 @@ def _attach_credit_multipliers(
 
 def get_current_models(app: Flask) -> list[dict[str, object]]:
     """Return configured physical text models for internal and gateway consumers."""
-    from flaskr.api.llm.tiers import get_configured_model_slots, resolve_tier_model
+    from flaskr.api.llm.model_selection import (
+        get_configured_model_slots,
+        resolve_model_slot,
+    )
 
     litellm_models: list[str] = []
     for slot in get_configured_model_slots():
         try:
-            litellm_models.append(resolve_tier_model(slot["index"]))
+            litellm_models.append(resolve_model_slot(slot["index"]))
         except AppError as exc:
             if exc.code not in {
                 ERROR_CODE["server.llm.modelTierUnavailable"],
@@ -2182,7 +2185,10 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
 
 def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
     """Expose stable numbered choices with configured or ID-based display labels."""
-    from flaskr.api.llm.tiers import get_configured_model_slots, resolve_tier_model
+    from flaskr.api.llm.model_selection import (
+        get_configured_model_slots,
+        resolve_model_slot,
+    )
 
     options = []
     for slot in get_configured_model_slots():
@@ -2195,7 +2201,7 @@ def get_model_tier_options(app: Flask) -> list[dict[str, object]]:
             "credit_multiplier_label": None,
         }
         try:
-            model = resolve_tier_model(slot["index"])
+            model = resolve_model_slot(slot["index"])
         except AppError as exc:
             if exc.code not in {
                 ERROR_CODE["server.llm.modelTierUnavailable"],

@@ -71,7 +71,7 @@ def _headers(**extra: str) -> dict[str, str]:
 @pytest.fixture
 def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, list]:
     from flaskr.api import llm
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.route import model_gateway as gateway
 
     config = {
@@ -84,7 +84,9 @@ def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, lis
         llm, "get_config", lambda key, default=None: config.get(key, default)
     )
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     monkeypatch.setattr(
         llm,

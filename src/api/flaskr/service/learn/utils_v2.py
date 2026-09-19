@@ -3,7 +3,7 @@
 import re
 
 from flask import Flask
-from flaskr.api.llm.tiers import selection_metadata, selection_model
+from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE

@@ -100,7 +100,7 @@ _install_litellm_stub()
 _install_openai_responses_stub()
 
 from flaskr.api import llm
-from flaskr.api.llm import tiers
+from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_CACHE_TOKENS,
@@ -270,7 +270,9 @@ def _configure_model_list(monkeypatch: object) -> None:
         "LLM_MODEL_3_NAME": "No Rate",
     }
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     monkeypatch.setattr(
         llm, "get_config", lambda key, default=None: config.get(key, default)
@@ -419,7 +421,7 @@ def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
         "LLM_MODEL_2_ID": "ark/doubao-seed-2-0-lite-260428",
     }
     monkeypatch.setattr(
-        tiers,
+        model_selection,
         "get_config",
         lambda key, default=None: missing_anchor_config.get(key, default),
     )
@@ -843,7 +845,9 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
         "LLM_MODEL_3_ID": "openai-compatible-without-capabilities",
     }
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     monkeypatch.setattr(
         llm,
@@ -901,7 +905,9 @@ def test_known_live_only_models_never_enter_text_catalogs(
         "MODEL_SUPPORTED_GENERATION_METHODS",
         {model: frozenset({"bidiGenerateContent"})} if capabilities_discovered else {},
     )
-    monkeypatch.setattr(tiers, "get_config", lambda _key, default=None: default)
+    monkeypatch.setattr(
+        model_selection, "get_config", lambda _key, default=None: default
+    )
 
     available = model == "gemini-3.8-live" and capabilities_discovered
     assert llm.get_current_models(object()) == []
@@ -3290,10 +3296,10 @@ def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
 def test_numbered_call_uses_one_model_for_provider_usage_and_trace(
     monkeypatch: pytest.MonkeyPatch, app: object, method: str
 ) -> None:
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
 
     _use_fake_provider(monkeypatch)
-    monkeypatch.setattr(tiers, "get_config", lambda *_args: "gpt-test")
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "gpt-test")
     captured = {}
     usage = {}
 
@@ -3341,13 +3347,13 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     """The 2.0 entry point carries revision, number and actual model into usage."""
     from uuid import uuid4
 
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.dao import db
     from flaskr.service.learn.agent import lesson_entry
     from pydantic_ai.models import ModelRequestParameters
 
     _use_fake_provider(monkeypatch)
-    monkeypatch.setattr(tiers, "get_config", lambda *_args: "gpt-test")
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "gpt-test")
     captured, usage = {}, {}
 
     def completion(**kwargs: object) -> object:

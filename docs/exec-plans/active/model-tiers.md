@@ -12,6 +12,8 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 
 ## Progress
 
+- [x] 2026-09-19 UTC: Rename the selection module to model_selection.py and its
+  slot resolver to resolve_model_slot; update imports and test patches together.
 - [x] 2026-09-19 UTC: Confirmed the numbered configuration and runtime fallback
   contract with the user; fetched the current PR branch before implementation.
 - [x] 2026-09-19 UTC: Implement registry, configuration, routing and catalogs.

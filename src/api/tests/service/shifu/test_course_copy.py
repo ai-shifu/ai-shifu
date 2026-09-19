@@ -822,7 +822,7 @@ def test_copy_course_preserves_original_model_selections(
     follow_up_model: str,
 ) -> None:
     """Validate effective teaching selections while copying the original values."""
-    from flaskr.api.llm import tiers
+    from flaskr.api.llm import model_selection
     from flaskr.service.shifu.admin_operations import courses_transfer_copy as module
 
     config = {
@@ -830,10 +830,12 @@ def test_copy_course_preserves_original_model_selections(
         "LLM_MODEL_3_ID": "configured/advanced-model",
     }
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     resolve_model = Mock(side_effect=AssertionError("Copy must not route models"))
-    monkeypatch.setattr(tiers, "resolve_tier_model", resolve_model)
+    monkeypatch.setattr(model_selection, "resolve_model_slot", resolve_model)
     normalize_config = Mock(wraps=module.normalize_live_follow_up_course_config)
     monkeypatch.setattr(
         module, "normalize_live_follow_up_course_config", normalize_config

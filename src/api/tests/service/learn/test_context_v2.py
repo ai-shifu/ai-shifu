@@ -1298,7 +1298,7 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
         ]
         with (
             patch(
-                "flaskr.api.llm.tiers.get_config",
+                "flaskr.api.llm.model_selection.get_config",
                 side_effect=lambda key, default=None: config.get(key, default),
             ),
             patch(
@@ -1387,7 +1387,7 @@ def test_preview_resolves_models_only_when_content_calls_llm(
         patch.object(llm, "_prepare_litellm_request_kwargs", return_value={}),
         patch.object(llm, "record_llm_usage") as usage,
         patch(
-            "flaskr.api.llm.tiers.get_config",
+            "flaskr.api.llm.model_selection.get_config",
             side_effect=lambda key, default=None: config.get(key, default),
         ),
         patch.object(

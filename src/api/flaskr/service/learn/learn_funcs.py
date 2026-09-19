@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
 from flaskr.api.llm import is_live_follow_up_model_available
-from flaskr.api.llm.tiers import selection_model
+from flaskr.api.llm.model_selection import selection_model
 from flaskr.api.tts import (
     AudioSettings,
     VoiceSettings,

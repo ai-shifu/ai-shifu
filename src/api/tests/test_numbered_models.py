@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from flaskr.api import llm
-from flaskr.api.llm import tiers
+from flaskr.api.llm import model_selection
 from flaskr.service.common.models import AppError
 
 pytestmark = pytest.mark.no_mock_llm
@@ -22,7 +22,9 @@ def model_config(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
         "LLM_MODEL_7_ID": "test/advanced",
     }
     monkeypatch.setattr(
-        tiers, "get_config", lambda key, default=None: config.get(key, default)
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
     monkeypatch.setattr(
         llm, "get_config", lambda key, default=None: config.get(key, default)
@@ -48,24 +50,24 @@ def test_slot_identity_survives_insert_delete_and_restore(
 ) -> None:
     """A missing slot falls back temporarily without mutating the original record."""
     record = SimpleNamespace(llm="3")
-    assert tiers.course_model_selection(record.llm) == {
+    assert model_selection.course_model_selection(record.llm) == {
         "index": "3",
         "fallback": False,
         "fallback_reason": None,
     }
     model_config["LLM_MODEL_2_NAME"] = "New"
     model_config["LLM_MODEL_2_ID"] = "test/new"
-    assert [slot["index"] for slot in tiers.get_configured_model_slots()] == [
+    assert [slot["index"] for slot in model_selection.get_configured_model_slots()] == [
         "1",
         "2",
         "3",
         "7",
     ]
     del model_config["LLM_MODEL_3_ID"]
-    assert tiers.resolve_course_selection(record.llm)[0] == "test/default"
+    assert model_selection.resolve_course_selection(record.llm)[0] == "test/default"
     assert record.llm == "3"
     model_config["LLM_MODEL_3_ID"] = "test/replacement"
-    assert tiers.resolve_course_selection(record.llm)[0] == "test/replacement"
+    assert model_selection.resolve_course_selection(record.llm)[0] == "test/replacement"
 
 
 @pytest.mark.parametrize(
@@ -89,12 +91,12 @@ def test_legacy_and_invalid_choices_use_default(
     saved: object,
 ) -> None:
     """Only canonical configured string indices are course selections."""
-    resolved, metadata = tiers.resolve_course_selection(saved)
+    resolved, metadata = model_selection.resolve_course_selection(saved)
     assert resolved == "test/default"
     assert metadata["model_index"] == "1"
     assert metadata["model_selection_original"] == saved
     assert metadata["model_selection_fallback"] is True
-    assert tiers.normalize_course_model(saved) == "1"
+    assert model_selection.normalize_course_model(saved) == "1"
 
 
 def test_slots_without_model_bindings_are_not_selectable(
@@ -107,13 +109,13 @@ def test_slots_without_model_bindings_are_not_selectable(
         LLM_MODEL_5_NAME="   ",
         LLM_MODEL_5_ID=" \t ",
     )
-    assert [slot["index"] for slot in tiers.get_configured_model_slots()] == [
+    assert [slot["index"] for slot in model_selection.get_configured_model_slots()] == [
         "1",
         "3",
         "7",
     ]
     for index in ("2", "4", "5", "9"):
-        assert tiers.course_model_selection(index) == {
+        assert model_selection.course_model_selection(index) == {
             "index": "1",
             "fallback": True,
             "fallback_reason": "unconfigured_index",
@@ -134,19 +136,19 @@ def test_unnamed_slots_use_model_ids_without_changing_selection(
     model = model_config[f"LLM_MODEL_{index}_ID"]
     model_config[f"LLM_MODEL_{index}_ID"] = f" \t{model}\n "
 
-    slots = tiers.get_configured_model_slots()
+    slots = model_selection.get_configured_model_slots()
     assert [slot["index"] for slot in slots] == ["1", "3", "7"]
     assert next(slot for slot in slots if slot["index"] == index) == {
         "index": index,
         "display_name": model,
         "model": model,
     }
-    assert tiers.course_model_selection(index) == {
+    assert model_selection.course_model_selection(index) == {
         "index": index,
         "fallback": False,
         "fallback_reason": None,
     }
-    resolved, metadata = tiers.resolve_course_selection(index)
+    resolved, metadata = model_selection.resolve_course_selection(index)
     assert resolved == model
     assert metadata["model_index"] == index
     assert metadata["model_selection_fallback"] is False
@@ -186,7 +188,7 @@ def test_missing_default_binding_errors(model_config: dict[str, str]) -> None:
     """Fallback cannot invent a physical model when slot one is unavailable."""
     del model_config["LLM_MODEL_1_ID"]
     with pytest.raises(AppError):
-        tiers.resolve_course_selection("legacy-model")
+        model_selection.resolve_course_selection("legacy-model")
 
 
 def test_provider_route_failure_does_not_fallback(
@@ -201,7 +203,7 @@ def test_provider_route_failure_does_not_fallback(
 
     monkeypatch.setattr(llm, "get_litellm_params_and_model", missing_route)
     with pytest.raises(AppError):
-        tiers.resolve_course_selection("3")
+        model_selection.resolve_course_selection("3")
     assert requested == ["test/advanced"]
 
 
@@ -210,11 +212,11 @@ def test_course_snapshot_is_idempotent_and_keeps_revision(
 ) -> None:
     """Configuration changes cannot alter the model of an already resolved call."""
     record = SimpleNamespace(llm="old/model", id=23, __tablename__="published_shifu")
-    model, metadata = tiers.resolve_course_selection(
-        record.llm, tiers.selection_metadata(record)
+    model, metadata = model_selection.resolve_course_selection(
+        record.llm, model_selection.selection_metadata(record)
     )
     model_config["LLM_MODEL_1_ID"] = "test/changed"
-    assert tiers.resolve_selection(model, metadata) == (model, metadata)
+    assert model_selection.resolve_selection(model, metadata) == (model, metadata)
     assert metadata["model_selection_record_id"] == 23
     assert metadata["model_selection_table"] == "published_shifu"
     assert metadata["model_selection_original"] == "old/model"
@@ -224,12 +226,15 @@ def test_course_snapshot_is_idempotent_and_keeps_revision(
 def test_generic_physical_models_and_live_are_not_course_normalized() -> None:
     """Course fallback cannot replace gateway, internal, or Live model identifiers."""
     assert (
-        tiers.resolve_selection("unconfigured/physical")[0] == "unconfigured/physical"
+        model_selection.resolve_selection("unconfigured/physical")[0]
+        == "unconfigured/physical"
     )
     record = SimpleNamespace(ask_llm="gemini-3.8-live")
-    metadata = tiers.selection_metadata(record, follow_up=True)
+    metadata = model_selection.selection_metadata(record, follow_up=True)
     assert metadata["model_selection_scope"] == "live"
-    assert tiers.resolve_selection(record.ask_llm, metadata)[0] == record.ask_llm
+    assert (
+        model_selection.resolve_selection(record.ask_llm, metadata)[0] == record.ask_llm
+    )
     assert "model_index" not in metadata
 
 
@@ -277,8 +282,8 @@ def test_old_allowlist_and_discovered_models_never_define_catalog(
 
 def test_reusing_metadata_with_a_new_selection_resolves_the_new_slot() -> None:
     """Only an unchanged physical snapshot can bypass selection resolution."""
-    _, previous = tiers.resolve_course_selection("old/model")
-    resolved, metadata = tiers.resolve_course_selection("3", previous)
+    _, previous = model_selection.resolve_course_selection("old/model")
+    resolved, metadata = model_selection.resolve_course_selection("3", previous)
     assert resolved == "test/advanced"
     assert metadata["model_selection_original"] == "3"
     assert metadata["model_index"] == "3"
@@ -298,7 +303,7 @@ def test_configured_nontext_bindings_fail_without_default_switch(
         {"test/bidi": frozenset({"bidiGenerateContent"})},
     )
     with pytest.raises(AppError):
-        tiers.resolve_course_selection("3")
+        model_selection.resolve_course_selection("3")
     option = next(
         item for item in llm.get_model_tier_options(object()) if item["index"] == "3"
     )
@@ -313,8 +318,8 @@ def test_numbered_environment_config_never_probes_persisted_overrides(
     def unexpected_lookup(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Persisted config must not be consulted for numbered slots")
 
-    monkeypatch.setattr(tiers, "get_override_config", unexpected_lookup)
-    assert [slot["index"] for slot in tiers.get_configured_model_slots()] == [
+    monkeypatch.setattr(model_selection, "get_override_config", unexpected_lookup)
+    assert [slot["index"] for slot in model_selection.get_configured_model_slots()] == [
         "1",
         "3",
         "7",
@@ -328,5 +333,5 @@ def test_process_local_slot_overrides_support_isolated_arena_runs() -> None:
     with config_overrides(
         {"LLM_MODEL_1_NAME": "Arena", "LLM_MODEL_1_ID": "test/arena"}
     ):
-        assert tiers.resolve_course_selection("legacy")[0] == "test/arena"
-    assert tiers.resolve_course_selection("legacy")[0] == "test/default"
+        assert model_selection.resolve_course_selection("legacy")[0] == "test/arena"
+    assert model_selection.resolve_course_selection("legacy")[0] == "test/default"

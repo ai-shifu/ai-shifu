@@ -527,7 +527,7 @@ def test_ask_preview_route_bills_course_owner(
     user_bid = f"preview-{provider[:4]}-{is_creator}-{selection}"
     original_selection = selection if selection is not None else " missing-model "
     monkeypatch.setattr(
-        "flaskr.api.llm.tiers.resolve_tier_model", lambda _tier: user_bid
+        "flaskr.api.llm.model_selection.resolve_model_slot", lambda _tier: user_bid
     )
     _mock_authenticated_user(monkeypatch, user_bid, is_creator=is_creator)
     monkeypatch.setattr(

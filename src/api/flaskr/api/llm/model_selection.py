@@ -83,7 +83,7 @@ def selection_metadata(record: object, *, follow_up: bool = False) -> dict:
     return values
 
 
-def resolve_tier_model(index: object) -> str:
+def resolve_model_slot(index: object) -> str:
     """Resolve one bound numbered slot, rejecting unusable text routes."""
     from flaskr.api.llm import (
         MODEL_SUPPORTED_GENERATION_METHODS,
@@ -137,7 +137,7 @@ def resolve_course_selection(
         model_selection_fallback=selection["fallback"],
         model_selection_fallback_reason=selection["fallback_reason"],
     )
-    resolved = resolve_tier_model(selection["index"])
+    resolved = resolve_model_slot(selection["index"])
     values["resolved_model"] = resolved
     return resolved, values
 

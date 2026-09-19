@@ -18,7 +18,7 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
-from flaskr.api.llm.tiers import selection_metadata, selection_model
+from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.run_agent import run_agent_lesson
