@@ -191,6 +191,17 @@ class RepoInstructionsTest(unittest.TestCase):
                     assert len(errors) == 1
                     assert "Unsupported instruction link" in errors[0]
 
+    def test_collects_encoded_nul_paths_with_other_broken_links(self) -> None:
+        self.write(
+            "AGENTS.md",
+            "[Invalid](a%00)\n[Missing](missing.md)\n",
+        )
+        errors: list[str] = []
+        harness.check_instruction_files(errors)
+        assert len(errors) == 2
+        assert any("Broken instruction link 'a%00'" in error for error in errors)
+        assert any("Broken instruction link 'missing.md'" in error for error in errors)
+
     def test_accepts_allowlisted_remote_link_schemes(self) -> None:
         self.write(
             "AGENTS.md",

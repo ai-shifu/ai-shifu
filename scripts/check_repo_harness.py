@@ -300,7 +300,7 @@ def check_instruction_content(
         )
         try:
             destination = destination.resolve()
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError, ValueError) as error:
             errors.append(f"Broken instruction link '{target}' in {path}: {error}")
             continue
         if not destination.is_relative_to(ROOT.resolve()):
