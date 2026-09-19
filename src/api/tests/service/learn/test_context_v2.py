@@ -1275,16 +1275,57 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     """Verify preview resolve LLM settings behavior."""
 
-    def test_preserves_explicit_legacy_model_outside_current_catalog(self) -> None:
+    def test_resolves_numbered_models_without_rewriting_saved_selections(self) -> None:
         app = Flask("preview-llm-settings")
         app.config.update(
             DEFAULT_LLM_MODEL="different-model", DEFAULT_LLM_TEMPERATURE=0.3
         )
+        config = {
+            "LLM_MODEL_1_NAME": "Daily",
+            "LLM_MODEL_1_ID": "test/default",
+            "LLM_MODEL_3_NAME": "Detailed",
+            "LLM_MODEL_3_ID": "test/advanced",
+            "LLM_MODEL_7_NAME": "Unconfigured",
+        }
         preview_ctx = RunScriptPreviewContextV2(app)
-        shifu = types.SimpleNamespace(llm="old-model", llm_temperature=None)
-        model, temperature = preview_ctx._resolve_llm_settings(shifu)
-        assert model == "old-model"
-        assert temperature == 0.3
+        cases = [
+            ("old-model", "1", "test/default", "invalid_selection", None),
+            ("", "1", "test/default", "missing_selection", None),
+            ("7", "1", "test/default", "unconfigured_index", None),
+            ("3", "3", "test/advanced", None, 0.8),
+        ]
+        with (
+            patch(
+                "flaskr.api.llm.tiers.get_config",
+                side_effect=lambda key, default=None: config.get(key, default),
+            ),
+            patch(
+                "flaskr.api.llm.get_litellm_params_and_model",
+                return_value=({"api_key": "test"}, "unused", "test"),
+            ),
+        ):
+            for saved, index, resolved, reason, saved_temperature in cases:
+                with self.subTest(saved=saved):
+                    shifu = types.SimpleNamespace(
+                        llm=saved,
+                        llm_temperature=saved_temperature,
+                        id=23,
+                        __tablename__="draft_shifu",
+                    )
+                    model, temperature = preview_ctx._resolve_llm_settings(shifu)
+                    assert model == resolved
+                    assert temperature == (
+                        0.3 if saved_temperature is None else saved_temperature
+                    )
+                    assert shifu.llm == saved
+                    metadata = preview_ctx._preview_model_selection_metadata
+                    assert metadata["model_selection_original"] == saved
+                    assert metadata["model_index"] == index
+                    assert metadata["resolved_model"] == resolved
+                    assert metadata["model_selection_fallback"] is (reason is not None)
+                    assert metadata["model_selection_fallback_reason"] == reason
+                    assert metadata["model_selection_record_id"] == 23
+                    assert metadata["model_selection_table"] == "draft_shifu"
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):
