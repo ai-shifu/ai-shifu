@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import threading
 from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -489,16 +490,35 @@ def test_response_can_be_consumed_as_bounded_stream() -> None:
 def test_response_stream_enforces_wall_clock_deadline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    clock = iter([0.0, 0.0, 0.0, 2.0])
-    monkeypatch.setattr(
-        "flaskr.common.safe_outbound.time.monotonic", lambda: next(clock)
-    )
+    clock = [0.0]
+    monkeypatch.setattr("flaskr.common.safe_outbound.time.monotonic", lambda: clock[0])
     client = SafeOutboundClient(
         policy=OutboundUrlPolicy(total_timeout_seconds=1),
         resolver=_resolver("93.184.216.34"),
         transport=_FakeTransport([_Reply(200, {}, b"abcdef")]),
     )
     response = client.request("GET", "https://example.com/stream")
+    clock[0] = 2.0
 
     with pytest.raises(OutboundDeadlineExceededError, match="total timeout"):
         list(response.iter_bytes(chunk_size=2))
+
+
+def test_client_enforces_deadline_during_dns_resolution() -> None:
+    release_resolver = threading.Event()
+
+    def stalled_resolver(_hostname: str, _port: int) -> tuple[str, ...]:
+        release_resolver.wait(timeout=1)
+        return ("93.184.216.34",)
+
+    client = SafeOutboundClient(
+        policy=OutboundUrlPolicy(total_timeout_seconds=0.01),
+        resolver=stalled_resolver,
+        transport=_FakeTransport([_Reply(200, {}, b"ok")]),
+    )
+
+    try:
+        with pytest.raises(OutboundDeadlineExceededError, match="DNS resolution"):
+            client.request("GET", "https://example.com/resource")
+    finally:
+        release_resolver.set()

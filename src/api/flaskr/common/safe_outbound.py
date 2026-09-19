@@ -5,6 +5,8 @@ from __future__ import annotations
 import ipaddress
 import socket
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Protocol, Self
@@ -27,6 +29,9 @@ DEFAULT_TOTAL_TIMEOUT_SECONDS = 30.0
 REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 SAFE_CROSS_ORIGIN_HEADERS = frozenset(
     {"accept", "accept-encoding", "accept-language", "user-agent"}
+)
+_DNS_EXECUTOR = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="safe-outbound-dns"
 )
 
 
@@ -237,7 +242,7 @@ class SafeOutboundClient:
             target = validate_outbound_url(
                 current_url,
                 policy=self.policy,
-                resolver=self._resolver,
+                resolver=self._deadline_resolver(deadline),
             )
             _check_deadline(deadline)
             response = self._open_validated_target(
@@ -273,7 +278,7 @@ class SafeOutboundClient:
                 next_target = validate_outbound_url(
                     next_url,
                     policy=self.policy,
-                    resolver=self._resolver,
+                    resolver=self._deadline_resolver(deadline),
                 )
                 next_method = current_method
                 next_body = current_body
@@ -302,6 +307,18 @@ class SafeOutboundClient:
 
         message = "redirect loop must return or raise"
         raise AssertionError(message)
+
+    def _deadline_resolver(self, deadline: float) -> Resolver:
+        def resolve(hostname: str, port: int) -> tuple[str, ...]:
+            future = _DNS_EXECUTOR.submit(lambda: tuple(self._resolver(hostname, port)))
+            try:
+                return future.result(timeout=_remaining_seconds(deadline))
+            except FutureTimeoutError as exc:
+                future.cancel()
+                message = "outbound DNS resolution exceeded the total timeout"
+                raise OutboundDeadlineExceededError(message) from exc
+
+        return resolve
 
     def _open_validated_target(
         self,
