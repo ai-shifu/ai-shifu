@@ -270,6 +270,25 @@ def check_compatibility_entry_points(errors: list[str]) -> None:
         errors.append(f"GEMINI.md must link to the root AGENTS.md: {gemini}")
 
 
+def check_tracked_claude_overrides(errors: list[str]) -> None:
+    """Reject shared local overrides while leaving personal files alone."""
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--cached", "-z", "--", ":(glob)**/CLAUDE.local.md"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        errors.append(f"Unable to enumerate tracked Claude overrides: {error}")
+        return
+    errors.extend(
+        f"Unexpected tracked CLAUDE.local.md file: {os.fsdecode(path)}"
+        for path in result.stdout.split(b"\0")
+        if path
+    )
+
+
 def check_manual_agents(errors: list[str]) -> None:
     """Check manual agents."""
     for path, markers in MANUAL_AGENTS.items():
@@ -708,6 +727,7 @@ def main() -> int:
     errors: list[str] = []
     check_generated_knowledge_docs(errors)
     check_instruction_files(errors)
+    check_tracked_claude_overrides(errors)
     check_manual_agents(errors)
     check_compatibility_entry_points(errors)
     check_root_docs(errors)

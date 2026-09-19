@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -29,6 +31,53 @@ class RepoInstructionsTest(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return path
+
+    def run_git(self, *args: str) -> None:
+        subprocess.run(
+            ["git", "-c", f"core.excludesFile={os.devnull}", *args],
+            cwd=self.root,
+            check=True,
+            capture_output=True,
+        )
+
+    def test_rejects_tracked_local_overrides_in_root_and_nested_directories(
+        self,
+    ) -> None:
+        self.run_git("init", "--quiet")
+        self.write(".gitignore", "personal/\n")
+        self.write("CLAUDE.local.md", "# Shared override\n")
+        self.write("module with space/CLAUDE.local.md", "# Nested override\n")
+        self.write("personal/CLAUDE.local.md", "# Ignored override\n")
+        self.run_git("add", "CLAUDE.local.md", "module with space/CLAUDE.local.md")
+        errors: list[str] = []
+        harness.check_tracked_claude_overrides(errors)
+        assert len(errors) == 2
+        assert any(error.endswith(": CLAUDE.local.md") for error in errors)
+        assert any("module with space/CLAUDE.local.md" in error for error in errors)
+
+        self.run_git("add", "--force", "personal/CLAUDE.local.md")
+        errors = []
+        harness.check_tracked_claude_overrides(errors)
+        assert len(errors) == 3
+        assert any("personal/CLAUDE.local.md" in error for error in errors)
+
+    def test_allows_untracked_and_ignored_personal_overrides(self) -> None:
+        self.run_git("init", "--quiet")
+        self.write(".gitignore", "personal/\n")
+        self.write("CLAUDE.local.md", "# Untracked personal override\n")
+        self.write("personal/CLAUDE.local.md", "# Ignored personal override\n")
+        errors: list[str] = []
+        harness.check_tracked_claude_overrides(errors)
+        assert errors == []
+
+    def test_reports_failure_to_enumerate_tracked_overrides(self) -> None:
+        with patch.object(
+            harness.subprocess, "run", side_effect=OSError("git missing")
+        ):
+            errors: list[str] = []
+            harness.check_tracked_claude_overrides(errors)
+        assert len(errors) == 1
+        assert "Unable to enumerate tracked Claude overrides" in errors[0]
 
     def test_accepts_concise_manual_module_with_local_headings(self) -> None:
         self.write("AGENTS.md", "# Shared rules\n\nKeep secrets out of source.\n")

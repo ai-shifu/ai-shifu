@@ -74,9 +74,11 @@ import necessarily loads rules twice.
 
 `scripts/check_repo_harness.py` validates instruction structure, required
 shared constraints, references, and repository knowledge metadata without
-rendering instruction bodies. It rejects restored `CLAUDE.md` files and
-stale generated-instruction markers. Instruction edits do not require
-changing Python metadata or regenerating mirrors.
+rendering instruction bodies. It rejects restored `CLAUDE.md` files, tracked
+`CLAUDE.local.md` files, and stale generated-instruction markers. Untracked or
+ignored personal `CLAUDE.local.md` files remain allowed under the user-level
+configuration described above. Instruction edits do not require changing
+Python metadata or regenerating mirrors.
 
 `scripts/build_repo_knowledge_index.py` remains responsible for the generated
 knowledge indexes, document inventory, and harness reports. CI regenerates
