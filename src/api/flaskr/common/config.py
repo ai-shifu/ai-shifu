@@ -2246,13 +2246,16 @@ class EnhancedConfig:
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
                 "# These are the bare minimum values that must be set.",
-                "# Start from docker/.env.example.full and configure at least one LLM API key.\n",
+                "# Start from docker/.env.example.full and configure a provider API key.",
+                "# Set LLM_TIER_FAST_MODEL to a configured text model before startup; no default.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-model-tiers.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
-                "# Copy this file to docker/.env (or .env) to boot the Docker stack with sane defaults",
-                "# Set at least one LLM API key (e.g., OPENAI_API_KEY) before using in production.\n",
+                "# Copy this file to docker/.env (or .env) and configure a provider API key.",
+                "# Set LLM_TIER_FAST_MODEL to a configured text model before startup; no default.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-model-tiers.\n",
             ]
 
         lines = header_lines

@@ -26,6 +26,11 @@ details behind those rules.
 
 ### Essential Environment Variables
 
+Before starting the backend or running Flask migration commands, configure a
+provider API key and set `LLM_TIER_FAST_MODEL` to a text model served by that
+provider. Fast has no default; Balanced and Ultimate mappings are optional.
+For an existing database, follow [Upgrading to model tiers](../INSTALL_MANUAL.md#upgrading-to-model-tiers).
+
 ```bash
 # Backend (src/api/.env)
 FLASK_APP=app.py
@@ -663,7 +668,15 @@ does not replace test coverage. Before committing, also run
 - Docker: `docker/.env`
 - Local development: component-level `.env` files
 - Example Docker file: `docker/.env.example.full`
-- Important groups: LLM API keys, database, Redis, auth, storage, app config
+- Important groups: LLM API keys and tier mappings, database, Redis, auth, storage, app config
+
+Every backend environment requires a provider key and a nonempty
+`LLM_TIER_FAST_MODEL` mapping to its configured text model. `DEFAULT_LLM_MODEL`
+does not replace this mapping. Keep the generated template value empty and
+configure the route for each environment; Balanced and Ultimate remain optional.
+Existing installations must update their retained `.env` and complete
+[Upgrading to model tiers](../INSTALL_MANUAL.md#upgrading-to-model-tiers) before
+starting the new API or workers.
 
 ### Managing Environment Variables
 

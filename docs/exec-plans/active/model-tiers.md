@@ -10,6 +10,10 @@ can replace models without editing courses. Preserve explicit legacy model names
 
 ## Progress
 
+- [x] 2026-09-19: Correct English/Chinese Docker quickstarts and the installation
+  manual to require both provider credentials and the Fast mapping. Document
+  upgrade maintenance and report-only cleanup for every installation mode.
+
 - [x] 2026-09-19: Remove the cleanup audit model and runtime ledger queries.
   Keep exact previous/new values and original UTC modification times in the
   archived cleanup report; invocation metadata retains tier, resolved model and

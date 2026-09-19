@@ -23,9 +23,9 @@ src/
 - **Redis** for caching and session management
 - **Docker & Docker Compose** (recommended for easy deployment)
 
-### Required API Keys
+### Required LLM Configuration
 
-At least one LLM provider must be configured:
+Configure at least one LLM provider and map `LLM_TIER_FAST_MODEL` to a text model served by that provider. Fast has no default model; an empty mapping prevents API startup. Supported providers include:
 
 - **OpenAI** API Key
 - **Baidu ERNIE** API credentials
@@ -59,7 +59,7 @@ Copy the full environment template (already aligned with the Docker defaults):
 cp docker/.env.example.full docker/.env
 ```
 
-For Docker-based workflows the only mandatory edit is to add at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY`, `GLM_API_KEY`, etc.). All other variables already have safe defaults that match the bundled MySQL/Redis services.
+For Docker-based workflows, configure at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY` or `GLM_API_KEY`) and set `LLM_TIER_FAST_MODEL` to a text model ID available through that provider. The template intentionally leaves the mapping empty. Database defaults match the bundled services; review security settings before production use.
 
 ### Step 3: Configure Environment Variables
 
@@ -82,10 +82,15 @@ These variables are essential for the application to run:
    - Choose from: OpenAI, ERNIE, ARK, SiliconFlow, GLM, DeepSeek, Qwen
    - See `.env.example.full` for specific provider configurations
 
+4. **Fast Model Mapping**
+   - `LLM_TIER_FAST_MODEL`: exact configured text model ID for the Fast tier; required at API startup, with no default.
+   - Use a physical text model ID supported by the configured provider, not `fast`, `balanced`, `ultimate` or a Live voice model. A provider API key alone is insufficient.
+   - `LLM_TIER_BALANCED_MODEL` and `LLM_TIER_ULTIMATE_MODEL` are optional and also have no defaults. Leave them empty to keep those choices unavailable.
+
 #### Configuration Reference
 
 - `docker/.env.example.full`: canonical template that lists every environment variable with defaults, descriptions, and grouping (Database, Redis, Auth, LLM, etc.). Copy it to `.env` and edit in place.
-- **Docker reminder**: the only required change for containerized installs is to set at least one LLM API key (e.g., OpenAI, ERNIE, GLM). Update database/Redis URLs only if you are not using the bundled services.
+- **Docker reminder**: configure both a provider API key and `LLM_TIER_FAST_MODEL` for latest-image, pinned-release and local-development Compose modes. Update database/Redis URLs if you are not using the bundled services.
 
 #### Important Notes
 
@@ -191,7 +196,7 @@ follow-up models.
 
 ### Step 4: Build Latest Docker Images & Start the Stack
 
-1. Ensure `docker/.env` contains at least one LLM API key.
+1. Ensure `docker/.env` contains a provider API key and `LLM_TIER_FAST_MODEL` mapped to a configured text model. For an existing database, complete [Upgrading to model tiers](#upgrading-to-model-tiers) before enabling traffic.
 2. Build the backend and frontend images tagged as `:latest` from the repo root:
 
 ```bash
@@ -224,7 +229,7 @@ docker run -d --name redis -p 6379:6379 redis:latest
 
 #### Step 5.2: Configure Environment for Local Development
 
-Update your `.env` file for local development:
+Keep the provider key and required `LLM_TIER_FAST_MODEL` mapping from Step 3, and update your `.env` file for local development:
 
 ```bash
 # Update database URLs for local services
@@ -296,6 +301,28 @@ lefthook install
 python scripts/check_dev_tools.py
 ```
 
+## Upgrading to model tiers
+
+This applies to existing latest-image, pinned-release, development Compose and
+manual installations when moving to a build that includes model tiers. Before
+starting the new API or workers:
+
+1. Set `LLM_TIER_FAST_MODEL` to a configured text model and supply its provider
+   credentials. There is no automatic mapping from `DEFAULT_LLM_MODEL`; Balanced
+   and Ultimate mappings remain optional.
+2. Stop traffic, background workers and old writers, then back up the database.
+   Export an earlier cleanup ledger if its history is needed before its removal.
+3. Use the new build in maintenance mode to upgrade the schema and
+   preview/apply/verify `flask console shifu migrate-default-model-tiers`.
+   Archive the JSON reports; confirm the final verification count is zero.
+4. Start the new API/workers and web, confirm configured tiers are available,
+   and check both a cleaned Fast course and an explicit legacy course before
+   reopening traffic.
+
+Use the full [model-tier deployment runbook](docs/exec-plans/active/model-tiers.md#deployment-runbook)
+for commands and recovery. Schema upgrade alone does not clean existing blank
+course selections; do not perform a rolling switch with uncleaned rows.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -313,6 +340,7 @@ python scripts/check_dev_tools.py
    - Verify API keys are correct
    - Check API base URLs
    - Ensure the model name matches your provider
+   - If startup reports missing `LLM_TIER_FAST_MODEL`, set it to a configured text model ID; an API key alone does not satisfy this required mapping
 
 4. **Frontend Build Failures**
    - Ensure Node.js version is 22.16.0

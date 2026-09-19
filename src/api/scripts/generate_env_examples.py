@@ -75,8 +75,11 @@ def generate_env_examples() -> None:
     print(
         "  1. Copy docker/.env.example.full to docker/.env (or the root .env you prefer)"
     )
-    print("  2. Configure at least one LLM API key and other required secrets")
-    print("  3. Keep .env files out of version control")
+    print(
+        "  2. Configure a provider API key and map LLM_TIER_FAST_MODEL to its text model"
+    )
+    print("  3. Existing installs: follow INSTALL_MANUAL.md#upgrading-to-model-tiers")
+    print("  4. Keep .env files out of version control")
 
     print("\n✨ Environment configuration files generated successfully!")
 
