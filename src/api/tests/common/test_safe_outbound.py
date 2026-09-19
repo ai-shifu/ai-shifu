@@ -18,6 +18,7 @@ from flaskr.common.safe_outbound import (
     OutboundUrlPolicy,
     Resolver,
     SafeOutboundClient,
+    SafeOutboundResponse,
     UnsafeOutboundUrlError,
     ValidatedOutboundUrl,
     validate_outbound_url,
@@ -199,6 +200,55 @@ def test_client_pins_transport_to_validated_address() -> None:
     assert response.content == b"image"
     assert transport.calls[0][2] == ipaddress.ip_address("93.184.216.34")
     assert transport.calls[0][1].hostname == "example.com"
+
+
+def test_response_iter_lines_decodes_utf8_and_normalizes_crlf() -> None:
+    transport = _FakeTransport(
+        [_Reply(200, {}, "data: 你好\r\ndata: world\n".encode())]
+    )
+    client = SafeOutboundClient(
+        resolver=_resolver("93.184.216.34"),
+        transport=transport,
+    )
+    response = client.request("GET", "https://example.com/events")
+
+    assert list(response.iter_lines(decode_unicode=True)) == [
+        "data: 你好",
+        "data: world",
+    ]
+
+
+def test_response_iter_lines_handles_bare_cr_and_split_crlf() -> None:
+    class ChunkedRawResponse:
+        def __init__(self) -> None:
+            self.chunks = [
+                b"data: one\rdata: two\r",
+                b"\ndata: three\r",
+            ]
+
+        def read1(self, _size: int) -> bytes:
+            return self.chunks.pop(0) if self.chunks else b""
+
+        def read(self, size: int) -> bytes:
+            return self.read1(size)
+
+        def close(self) -> None:
+            pass
+
+    response = SafeOutboundResponse(
+        status=200,
+        headers={},
+        url="https://example.com/events",
+        _raw=ChunkedRawResponse(),
+        _max_bytes=1024,
+        _deadline=float("inf"),
+    )
+
+    assert list(response.iter_lines(decode_unicode=True)) == [
+        "data: one",
+        "data: two",
+        "data: three",
+    ]
 
 
 def test_default_https_transport_uses_pinned_ip_with_original_tls_host(
