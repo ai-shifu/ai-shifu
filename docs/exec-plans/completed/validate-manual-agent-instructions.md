@@ -35,7 +35,9 @@ the documentation cleanup can be reviewed independently.
 
 ## Outcomes & Retrospective
 
-All validation files match the reviewed snapshot. The focused tests, tool
+The split preserved all validation files from the reviewed snapshot. Follow-up
+review fixes reject host-specific URI forms and require an actual local root
+link from the Copilot entry point. All 24 regression tests now pass. The focused tests, tool
 doctor, repository harness, and full pre-commit gate passed. Independent review
 confirmed the parent retains only documentation cleanup and required generator
 retirement wiring. No application runtime code changes were required.
@@ -65,7 +67,7 @@ setup and CI. Remove the obsolete checker alias and stale backend path filter.
 
 ## Validation and Acceptance
 
-All 21 focused tests must pass. Valid CommonMark links and internal symlinks
+All 24 focused tests must pass. Valid CommonMark links and internal symlinks
 must be accepted; missing targets, repository escapes, symlink loops, and
 tracked override files must fail with actionable errors. Ignored and untracked
 personal overrides must remain allowed. The tool doctor and all repository

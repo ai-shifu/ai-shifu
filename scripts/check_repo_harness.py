@@ -218,13 +218,18 @@ def check_generated_knowledge_docs(errors: list[str]) -> None:
             errors.append(f"Generated knowledge doc is stale: {path}")
 
 
-def check_instruction_content(path: Path, errors: list[str]) -> str | None:
+def check_instruction_content(
+    path: Path, errors: list[str], *, required_local_link: Path | None = None
+) -> str | None:
     """Validate repository-owned instructions and return their readable text."""
     try:
         if not path.resolve(strict=True).is_relative_to(ROOT.resolve()):
             errors.append(f"Instruction file leaves the repository: {path}")
             return None
         text = path.read_text(encoding="utf-8")
+        required_destination = (
+            required_local_link.resolve() if required_local_link is not None else None
+        )
     except (OSError, UnicodeError, RuntimeError) as error:
         errors.append(f"Unable to read instruction file {path}: {error}")
         return None
@@ -233,9 +238,12 @@ def check_instruction_content(path: Path, errors: list[str]) -> str | None:
     if RETIRED_GENERATED_MARKER in text:
         errors.append(f"Instruction file must be hand-maintained: {path}")
     tokens = INSTRUCTION_MARKDOWN.parse(text)
+    found_required_link = required_destination is None
     while tokens:
         token = tokens.pop()
-        tokens.extend(token.children or [])
+        # Image children form alt text, not navigable Markdown links.
+        if token.type != "image":
+            tokens.extend(token.children or [])
         if token.type not in {"link_open", "image"}:
             continue
         target = token.attrGet("href" if token.type == "link_open" else "src")
@@ -270,6 +278,12 @@ def check_instruction_content(path: Path, errors: list[str]) -> str | None:
             )
         elif not destination.exists():
             errors.append(f"Broken instruction link '{target}' in {path}")
+        elif token.type == "link_open" and destination == required_destination:
+            found_required_link = True
+    if not found_required_link:
+        errors.append(
+            f"Instruction entry point must link to {required_local_link}: {path}"
+        )
     return text
 
 
@@ -289,9 +303,7 @@ def check_compatibility_entry_points(errors: list[str]) -> None:
     if not path.is_file():
         errors.append(f"Missing Copilot instruction entry point: {path}")
     else:
-        text = check_instruction_content(path, errors)
-        if text is not None and "AGENTS.md" not in text:
-            errors.append(f"Copilot instructions must point to AGENTS.md: {path}")
+        check_instruction_content(path, errors, required_local_link=ROOT / "AGENTS.md")
     gemini = ROOT / "GEMINI.md"
     try:
         valid_gemini = gemini.is_symlink() and gemini.resolve(strict=True) == (

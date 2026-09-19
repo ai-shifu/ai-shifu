@@ -303,7 +303,7 @@ class RepoInstructionsTest(unittest.TestCase):
 
     def test_reports_symlink_loops_without_tracebacks(self) -> None:
         self.write("AGENTS.md", "# Root\n[Loop](docs/loop.md)\n")
-        self.write(".github/copilot-instructions.md", "Read ../AGENTS.md\n")
+        self.write(".github/copilot-instructions.md", "Read [root](../AGENTS.md)\n")
         (self.root / "docs").mkdir()
         (self.root / "docs/loop.md").symlink_to("loop.md")
         (self.root / "module").mkdir()
@@ -327,6 +327,36 @@ class RepoInstructionsTest(unittest.TestCase):
         errors: list[str] = []
         harness.check_compatibility_entry_points(errors)
         assert errors == []
+
+    def test_requires_copilot_local_root_link(self) -> None:
+        self.write("AGENTS.md", "# Root\n")
+        self.write("module/AGENTS.md", "# Module\n")
+        (self.root / "GEMINI.md").symlink_to("AGENTS.md")
+        (self.root / "root-link.md").symlink_to("AGENTS.md")
+        examples = (
+            ("Read AGENTS.md", False),
+            ("[AGENTS.md](https://example.com/AGENTS.md)", False),
+            ("[AGENTS.md](../module/AGENTS.md)", False),
+            ("![AGENTS.md](../AGENTS.md)", False),
+            ("![Read [root](../AGENTS.md)](https://example.com/image.png)", False),
+            (
+                "![Read [root][rules]](https://example.com/image.png)\n\n"
+                "[rules]: ../AGENTS.md",
+                False,
+            ),
+            ("`[root](../AGENTS.md)`", False),
+            ('[root](../AGENTS.md#scope "rules")', True),
+            ("[root][rules]\n\n[rules]: /AGENTS.md", True),
+            ("[root](../%41GENTS.md)", True),
+            ("[root](../root-link.md)", True),
+        )
+        for markdown, valid in examples:
+            with self.subTest(markdown=markdown):
+                self.write(".github/copilot-instructions.md", markdown)
+                errors: list[str] = []
+                harness.check_compatibility_entry_points(errors)
+                assert len(errors) == (0 if valid else 1)
+                assert all("must link to" in error for error in errors)
 
     def test_rejects_missing_pointer_and_gemini_copy(self) -> None:
         self.write("AGENTS.md", "# Root\n")

@@ -83,6 +83,8 @@ Python metadata or regenerating mirrors.
 Instruction links use repository-local paths or explicit `http`, `https`, or
 `mailto` URLs. Host-specific file URLs, UNC paths, and other schemes are rejected;
 remote URLs are not fetched during validation.
+The Copilot entry point must contain a Markdown link resolving to the local
+root `AGENTS.md`; a plain mention or external link does not establish that route.
 
 `scripts/build_repo_knowledge_index.py` remains responsible for the generated
 knowledge indexes, document inventory, and harness reports. CI regenerates
