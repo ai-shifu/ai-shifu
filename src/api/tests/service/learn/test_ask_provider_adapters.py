@@ -131,6 +131,71 @@ def test_dify_adapter_streams_success_content(app: object, monkeypatch: object) 
     )
 
 
+def test_dify_adapter_maps_request_deadline_to_provider_timeout(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+
+    def _raise_deadline(*_args: object, **_kwargs: object) -> object:
+        message = "outbound request exceeded its total timeout"
+        raise dify_adapter.OutboundDeadlineExceededError(message)
+
+    monkeypatch.setattr(dify_adapter.SafeOutboundClient, "request", _raise_deadline)
+
+    with pytest.raises(module.AskProviderTimeoutError, match="dify request timeout"):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "https://dify.example.com",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
+def test_dify_adapter_maps_stream_deadline_to_provider_timeout(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+
+    class _DeadlineResponse(_FakeResponse):
+        def iter_lines(self, decode_unicode: object = True) -> object:
+            _ = decode_unicode
+            message = "outbound request exceeded its total timeout"
+            raise dify_adapter.OutboundDeadlineExceededError(message)
+            yield
+
+    monkeypatch.setattr(
+        dify_adapter.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _DeadlineResponse(),
+    )
+
+    with pytest.raises(module.AskProviderTimeoutError, match="dify request timeout"):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "https://dify.example.com",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
 @pytest.mark.parametrize(
     "base_url",
     [

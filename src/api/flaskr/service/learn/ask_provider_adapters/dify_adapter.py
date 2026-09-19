@@ -6,6 +6,7 @@ from typing import Any
 
 from flask import Flask
 from flaskr.common.safe_outbound import (
+    OutboundDeadlineExceededError,
     OutboundRedirectError,
     OutboundResponseTooLargeError,
     OutboundUrlPolicy,
@@ -136,7 +137,7 @@ class DifyAskProviderAdapter:
                 headers=headers,
                 body=json.dumps(payload).encode("utf-8"),
             )
-        except UrllibTimeoutError as exc:
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             exception_message = "dify request timeout"
             raise AskProviderTimeoutError(exception_message) from exc
         except (
@@ -170,7 +171,7 @@ class DifyAskProviderAdapter:
                     text = extract_text(parsed)
                     if text:
                         yield AskProviderChunk(content=text)
-        except UrllibTimeoutError as exc:
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             exception_message = "dify request timeout"
             raise AskProviderTimeoutError(exception_message) from exc
         except (HTTPError, OutboundResponseTooLargeError) as exc:
