@@ -23,9 +23,9 @@ src/
 - **Redis** for caching and session management
 - **Docker & Docker Compose** (recommended for easy deployment)
 
-### Required API Keys
+### Required LLM Configuration
 
-At least one LLM provider must be configured:
+Configure at least one LLM provider and map `LLM_MODEL_1_ID` to a text model served by that provider. `LLM_MODEL_1_ID` is required and has no default. `LLM_MODEL_1_NAME` is optional; an omitted or blank name displays the configured model ID. Supported providers include:
 
 - **OpenAI** API Key
 - **Baidu ERNIE** API credentials
@@ -59,7 +59,7 @@ Copy the full environment template (already aligned with the Docker defaults):
 cp docker/.env.example.full docker/.env
 ```
 
-For Docker-based workflows the only mandatory edit is to add at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY`, `GLM_API_KEY`, etc.). All other variables already have safe defaults that match the bundled MySQL/Redis services.
+For Docker-based workflows, configure at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY` or `GLM_API_KEY`) and set `LLM_MODEL_1_ID` to a text model ID available through that provider. `LLM_MODEL_1_NAME` is optional; omit it or leave it blank to display the configured model ID. The template intentionally leaves both values empty, but only the ID is required. Database defaults match the bundled services; review security settings before production use.
 
 ### Step 3: Configure Environment Variables
 
@@ -82,10 +82,16 @@ These variables are essential for the application to run:
    - Choose from: OpenAI, ERNIE, ARK, SiliconFlow, GLM, DeepSeek, Qwen
    - See `.env.example.full` for specific provider configurations
 
+4. **Numbered Course Models**
+   - `LLM_MODEL_1_ID`: required physical text model ID served by the configured provider; no default. Model 1 is always the course default.
+   - `LLM_MODEL_<1..9>_NAME`: optional display name, shared across interface languages. Omitted, empty or whitespace-only names display the corresponding configured model ID.
+   - Configure optional `LLM_MODEL_2_ID` through `LLM_MODEL_9_ID` to add options. A nonblank ID enables a number even without a name; a name without an ID does not. Gaps are allowed; identifiers never shift when another number is removed.
+   - A configured provider failure is an error, not a reason to silently switch models. Live voice remains separate.
+
 #### Configuration Reference
 
 - `docker/.env.example.full`: canonical template that lists every environment variable with defaults, descriptions, and grouping (Database, Redis, Auth, LLM, etc.). Copy it to `.env` and edit in place.
-- **Docker reminder**: the only required change for containerized installs is to set at least one LLM API key (e.g., OpenAI, ERNIE, GLM). Update database/Redis URLs only if you are not using the bundled services.
+- **Docker reminder**: configure a provider API key and `LLM_MODEL_1_ID` for latest-image, pinned-release and local-development Compose modes. Update database/Redis URLs if you are not using the bundled services.
 
 #### Important Notes
 
@@ -191,7 +197,7 @@ follow-up models.
 
 ### Step 4: Build Latest Docker Images & Start the Stack
 
-1. Ensure `docker/.env` contains at least one LLM API key.
+1. Ensure `docker/.env` contains a provider API key and `LLM_MODEL_1_ID` mapped to a configured text model. `LLM_MODEL_1_NAME` is optional. For an existing database, complete [Upgrading to numbered models](#upgrading-to-numbered-models) before enabling traffic.
 2. Build the backend and frontend images tagged as `:latest` from the repo root:
 
 ```bash
@@ -224,7 +230,7 @@ docker run -d --name redis -p 6379:6379 redis:latest
 
 #### Step 5.2: Configure Environment for Local Development
 
-Update your `.env` file for local development:
+Keep the provider key and required `LLM_MODEL_1_ID` mapping from Step 3, and update your `.env` file for local development:
 
 ```bash
 # Update database URLs for local services
@@ -296,6 +302,29 @@ lefthook install
 python scripts/check_dev_tools.py
 ```
 
+## Upgrading to numbered models
+
+This applies to latest-image, pinned-release, development Compose and manual installations.
+
+1. Configure provider credentials plus `LLM_MODEL_1_ID`. Add optional model IDs
+   for numbers 2-9 as needed. Set optional names to customize labels; omitted or
+   blank names display their configured model IDs. Remove the obsolete `LLM_ALLOWED_MODELS`,
+   `LLM_ALLOWED_MODEL_DISPLAY_NAMES` and the old fixed-level model variables; they are no longer read.
+2. This change requires no database migration, course-data cleanup or cleanup report.
+3. Deploy matching API/workers and web. Verify a legacy course uses model 1 and
+   that changing unrelated course settings preserves its saved model value.
+4. Check invocation records for the original selection, effective number,
+   physical model and fallback reason. Billing uses the actual invoked model.
+
+Blank selections, old model IDs, old fixed-level aliases and unconfigured numbers use
+model 1 without modifying course rows. If a removed number is configured again,
+courses still referencing it automatically resume using it. Do not reuse numbers
+without considering those references. Existing physical-model callers and Live
+voice follow-up retain their separate contracts.
+
+See the [numbered-model deployment runbook](docs/exec-plans/active/numbered-course-models.md#deployment-runbook).
+Do not roll back to a build that treats newly saved numeric choices as physical IDs.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -313,6 +342,7 @@ python scripts/check_dev_tools.py
    - Verify API keys are correct
    - Check API base URLs
    - Ensure the model name matches your provider
+   - If startup reports missing `LLM_MODEL_1_ID`, configure that binding; provider credentials alone are insufficient. Missing `LLM_MODEL_1_NAME` does not block startup; it displays the configured model ID
 
 4. **Frontend Build Failures**
    - Ensure Node.js version is 22.16.0

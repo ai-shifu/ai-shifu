@@ -88,6 +88,8 @@ def _migration_subprocess_script() -> str:
         os.environ["SKIP_APP_AUTOCREATE"] = "1"
         os.environ["SECRET_KEY"] = "mysql-migration-smoke"
         os.environ["DEFAULT_LLM_MODEL"] = "gpt-test"
+        os.environ["LLM_MODEL_1_NAME"] = "Test model"
+        os.environ["LLM_MODEL_1_ID"] = "gpt-test"
         os.environ["OPENAI_API_KEY"] = "test-key"
         os.environ["SAAS_DB_URI"] = os.environ["SQLALCHEMY_DATABASE_URI"]
         os.environ["ADMIN_DB_URI"] = os.environ["SQLALCHEMY_DATABASE_URI"]

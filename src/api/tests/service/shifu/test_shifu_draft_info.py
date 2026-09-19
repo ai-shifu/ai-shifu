@@ -176,7 +176,7 @@ def test_save_shifu_draft_info_keeps_existing_price_when_input_is_none(
         shifu_description="desc",
         shifu_avatar="res",
         shifu_keywords=["test"],
-        shifu_model="gpt-test",
+        shifu_model=None,
         shifu_temperature=0.3,
         shifu_price=None,
         shifu_system_prompt=None,
@@ -237,7 +237,7 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(
     )
 
     assert result.ask_enabled_status == 5103
-    assert result.ask_model == "gpt-ask-next"
+    assert result.ask_model == "1"
     assert result.ask_temperature == pytest.approx(0.8)
     assert result.ask_system_prompt == "ask prompt"
     assert result.ask_provider_config == ask_provider_config
@@ -250,7 +250,7 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(
         )
         assert latest is not None
         assert latest.ask_enabled_status == 5103
-        assert latest.ask_llm == "gpt-ask-next"
+        assert latest.ask_llm == "1"
         assert float(latest.ask_llm_temperature) == pytest.approx(0.8)
         assert latest.ask_llm_system_prompt == "ask prompt"
         assert json.loads(latest.ask_provider_config) == ask_provider_config
@@ -263,7 +263,7 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(
     )
 
     assert detail.ask_enabled_status == 5103
-    assert detail.ask_model == "gpt-ask-next"
+    assert detail.ask_model == "1"
     assert detail.ask_temperature == pytest.approx(0.8)
     assert detail.ask_system_prompt == "ask prompt"
     assert detail.ask_provider_config == ask_provider_config
@@ -420,12 +420,11 @@ def test_create_rejects_live_model_as_primary_course_model(app: object) -> None:
         )
 
 
-def test_patch_rejects_omitted_legacy_live_primary_model(
+def test_patch_preserves_omitted_legacy_live_primary_model(
     app: object,
     monkeypatch: object,
 ) -> None:
     from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
-    from flaskr.service.common.models import AppError
     from flaskr.service.shifu import shifu_draft_funcs
     from flaskr.service.shifu.models import DraftShifu
 
@@ -438,21 +437,27 @@ def test_patch_rejects_omitted_legacy_live_primary_model(
         latest.llm = GEMINI_LIVE_MODEL_ID
         dao.db.session.commit()
 
-    with pytest.raises(AppError):
-        shifu_draft_funcs.save_shifu_draft_info(
-            app=app,
-            user_id=owner_bid,
-            shifu_id=shifu_bid,
-            shifu_name="Updated title",
-            shifu_description="desc",
-            shifu_avatar="res",
-            shifu_keywords=["test"],
-            shifu_model=None,
-            shifu_temperature=0.3,
-            shifu_price=1.23,
-            shifu_system_prompt="",
-            base_url="http://localhost:5000",
-        )
+    result = shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Updated title",
+        shifu_description="desc",
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model=None,
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+    )
+
+    assert result.model == "1"
+    assert result.model_fallback
+    with app.app_context():
+        latest = shifu_draft_funcs.get_latest_shifu_draft(shifu_bid)
+        assert latest.llm == GEMINI_LIVE_MODEL_ID
+        assert latest.title == "Updated title"
 
 
 def test_draft_read_resolves_default_voice_for_legacy_live_config(
@@ -843,3 +848,167 @@ def test_get_draft_meta_route_allows_view_only_permission(
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["updated_at"] == "2026-07-02T10:00:00Z"
+
+
+def test_numbered_save_uses_original_fields_and_supports_live_roundtrip(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.api.llm import model_selection
+    from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
+    from flaskr.service.shifu import shifu_draft_funcs as module
+    from flaskr.service.shifu.models import DraftShifu
+
+    mapping = {
+        "LLM_MODEL_1_NAME": "Default",
+        "LLM_MODEL_1_ID": "physical-1",
+        "LLM_MODEL_3_NAME": "Third",
+        "LLM_MODEL_3_ID": "physical-3",
+    }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: mapping.get(key, default),
+    )
+    _seed_shifu(app, "selection-save-course", "selection-owner", Decimal(1))
+    _mock_shifu_permissions(monkeypatch)
+    with app.app_context():
+
+        def save(**kwargs: object) -> object:
+            defaults = {
+                "shifu_name": None,
+                "shifu_description": None,
+                "shifu_avatar": None,
+                "shifu_keywords": None,
+                "shifu_model": None,
+                "shifu_temperature": None,
+                "shifu_price": None,
+                "shifu_system_prompt": None,
+            }
+            defaults.update(kwargs)
+            return module.save_shifu_draft_info(
+                app=app,
+                user_id="selection-owner",
+                shifu_id="selection-save-course",
+                base_url="http://localhost",
+                **defaults,
+            )
+
+        result = save(shifu_model="3", ask_model="1")
+        assert result.model == "3"
+        assert result.ask_model == "1"
+        row = (
+            DraftShifu.query.filter_by(shifu_bid="selection-save-course", deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert row.llm == "3"
+        assert row.ask_llm == "1"
+        first_id = row.id
+        assert save().model == "3"
+        assert save(shifu_model="other-legacy").model == "1"
+        result = save(ask_model=GEMINI_LIVE_MODEL_ID)
+        assert result.ask_model == GEMINI_LIVE_MODEL_ID
+        assert result.follow_up_mode == "live_voice"
+        result = save(ask_model="1")
+        assert result.follow_up_mode == "text"
+        assert result.ask_model == "1"
+        assert result.model == "1"
+        assert db_latest_id("selection-save-course") > first_id
+        # An explicit default selection stores model 1 in the existing fields.
+        result = save(shifu_model="", ask_model="")
+        assert result.model == "1"
+        assert result.ask_model == "1"
+
+
+def db_latest_id(bid: str) -> int:
+    from flaskr.service.shifu.models import DraftShifu
+
+    return (
+        DraftShifu.query.filter_by(shifu_bid=bid, deleted=0)
+        .order_by(DraftShifu.id.desc())
+        .first()
+        .id
+    )
+
+
+@pytest.mark.parametrize("original", ["", " \t", "legacy-id", "fast", "9"])
+def test_detail_read_and_unrelated_save_preserve_original_model_values(
+    app: object, monkeypatch: pytest.MonkeyPatch, original: str
+) -> None:
+    from uuid import uuid4
+
+    from flaskr.api.llm import model_selection
+    from flaskr.service.shifu import shifu_draft_funcs as module
+    from flaskr.service.shifu.models import DraftShifu
+
+    bid = uuid4().hex
+    _seed_shifu(app, bid, "preserve-owner", Decimal(1))
+    _mock_shifu_permissions(monkeypatch)
+    monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
+    config = {"LLM_MODEL_1_NAME": "Everyday", "LLM_MODEL_1_ID": "private/model"}
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    with app.app_context():
+        row = DraftShifu.query.filter_by(shifu_bid=bid).one()
+        row.llm = original
+        row.ask_llm = original
+        dao.db.session.commit()
+        row_id, updated_at = row.id, row.updated_at
+        detail = module.return_shifu_draft_dto(row, "", readonly=False)
+        assert detail.model == detail.ask_model == "1"
+        assert detail.model_fallback
+        assert detail.ask_model_fallback
+        assert detail.model_display_name == detail.ask_model_display_name == "Everyday"
+        assert "private/model" not in str(detail.__json__())
+        assert row.llm == row.ask_llm == original
+        assert row.updated_at == updated_at
+        assert row not in dao.db.session.dirty
+        saved = module.save_shifu_draft_info(
+            app,
+            "preserve-owner",
+            bid,
+            shifu_name="Renamed",
+            shifu_description=None,
+            shifu_avatar=None,
+            shifu_keywords=None,
+            shifu_model=None,
+            shifu_temperature=None,
+            shifu_price=None,
+            shifu_system_prompt=None,
+            base_url="",
+        )
+        assert saved.model_fallback
+        assert saved.ask_model_fallback
+        latest = module.get_latest_shifu_draft(bid)
+        assert latest.id != row_id
+        assert latest.llm == latest.ask_llm == original
+        assert dao.db.session.get(DraftShifu, row_id).updated_at == updated_at
+        assert latest.title == "Renamed"
+
+
+@pytest.mark.parametrize("selection", [None, "", "old-model", "9"])
+def test_explicit_invalid_api_selections_write_number_one(
+    app: object, test_client: object, monkeypatch: pytest.MonkeyPatch, selection: object
+) -> None:
+    from uuid import uuid4
+
+    from flaskr.service.shifu import shifu_draft_funcs as module
+
+    bid = uuid4().hex
+    _seed_shifu(app, bid, "explicit-owner", Decimal(1))
+    _mock_shifu_permissions(monkeypatch)
+    _mock_route_user(monkeypatch, "explicit-owner")
+    _mock_route_permission(monkeypatch, {"view": True, "edit": True})
+    monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_args: None)
+    response = test_client.post(
+        f"/api/shifu/shifus/{bid}/detail",
+        headers={"Token": "test-token"},
+        json={"model": selection, "ask_model": selection},
+    )
+    assert response.get_json(force=True)["code"] == 0
+    with app.app_context():
+        latest = module.get_latest_shifu_draft(bid)
+        assert latest.llm == latest.ask_llm == "1"

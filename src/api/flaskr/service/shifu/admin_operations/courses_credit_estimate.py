@@ -560,9 +560,14 @@ def build_operator_course_estimated_credit_cost(
             )
         )
 
-    llm_model = str(getattr(course, "llm", "") or "").strip()
-    if not llm_model:
-        llm_model = str(app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
+    from flaskr.api.llm.model_selection import (
+        resolve_selection,
+        selection_metadata,
+        selection_model,
+    )
+
+    llm_model = selection_model(course)
+    llm_model, _ = resolve_selection(llm_model, selection_metadata(course))
     llm = _sum_llm_cost(
         app=app,
         model=llm_model,

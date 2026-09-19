@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
+from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.service.learn import context_v2
 from flaskr.service.learn.agent import lesson_entry
@@ -101,33 +102,30 @@ def test_course_settings_drive_both_engines_and_follow_up(
             outline.llm_temperature = Decimal("1.8")
             outline.ask_llm_temperature = Decimal("1.9")
 
-        normalized_course_model = course_model.strip()
-        expected_model = normalized_course_model or app.config["DEFAULT_LLM_MODEL"]
-        expected_temperature = (
-            float(course.llm_temperature)
-            if normalized_course_model
-            else float(app.config["DEFAULT_LLM_TEMPERATURE"])
-        )
         ctx = context_v2.RunScriptContextV2.__new__(context_v2.RunScriptContextV2)
         ctx.app = app
         ctx._struct = tree
         ctx._shifu_model = shifu_type
         ctx._outline_model = outline_type
         ctx._preview_mode = preview
+        expected_model = course_model
+        expected_temperature = float(course.llm_temperature)
         assert ctx.get_system_prompt(lesson_bid) == "Chapter teaching prompt"
         settings = ctx.get_llm_settings(lesson_bid)
         assert settings.model == expected_model
         assert float(settings.temperature) == expected_temperature
-        assert lesson_entry._resolve(
+        script, agent_settings = lesson_entry._resolve(
             app,
             user_bid="teacher-1",
             shifu_bid=shifu_bid,
             outline_bid=lesson_bid,
             preview_mode=preview,
-        ) == (lesson.content, expected_model, expected_temperature)
+        )
+        assert script == lesson.content
+        assert agent_settings == settings
 
         info = get_follow_up_info_v2(app, shifu_bid, lesson_bid, "", is_preview=preview)
-        assert info.ask_model == (ask_model or normalized_course_model)
+        assert info.ask_model == ask_model
         assert info.ask_prompt == (
             "Chapter follow-up prompt"
             if outline_ask_mode == 5101
@@ -143,7 +141,7 @@ def test_course_settings_drive_both_engines_and_follow_up(
             app, shifu_bid, lesson_bid, "", is_preview=preview
         )
         assert disabled.ask_mode == 5102
-        assert disabled.ask_model == (ask_model or normalized_course_model)
+        assert disabled.ask_model == ask_model
         db.session.rollback()
 
 
@@ -155,7 +153,11 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     course_model: str,
     course_temperature: float | None,
 ) -> None:
-    monkeypatch.setattr(context_v2, "get_allowed_models", list)
+    monkeypatch.setattr(
+        model_selection,
+        "resolve_model_slot",
+        lambda selection: f"configured-{selection}",
+    )
     monkeypatch.setitem(app.config, "DEFAULT_LLM_TEMPERATURE", 0.3)
     request = PlaygroundPreviewRequest(
         block_index=0,
@@ -165,13 +167,17 @@ def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
     )
     course = SimpleNamespace(llm=course_model, llm_temperature=course_temperature)
     ctx = context_v2.RunScriptPreviewContextV2(app)
-    model, temperature = ctx._resolve_llm_settings(course)
-    assert model == (course_model.strip() or app.config["DEFAULT_LLM_MODEL"])
-    expected_temperature = (
-        course_temperature
-        if course_model.strip() and course_temperature is not None
-        else 0.3
+    with app.app_context():
+        model, temperature = ctx._resolve_llm_settings(course)
+    assert model == course_model
+    assert (
+        model_selection.resolve_selection(model, ctx._preview_model_selection_metadata)[
+            0
+        ]
+        == "configured-1"
     )
-    assert temperature == expected_temperature
+    assert temperature == (
+        course_temperature if course_temperature is not None else 0.3
+    )
     assert {"model", "temperature"}.isdisjoint(request.model_dump())
     assert request.document_prompt == "Legacy request prompt"

@@ -52,6 +52,11 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
+from flaskr.api.llm.model_selection import (
+    resolve_course_selection,
+    selection_metadata,
+    selection_model,
+)
 from flaskr.common.config import get_config
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
@@ -92,6 +97,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_PROVIDERS,
     archive_shifu,
     create_shifu_draft,
+    get_latest_shifu_draft,
     get_shifu_draft_info,
     get_shifu_draft_list,
     normalize_ask_provider_config,
@@ -664,7 +670,12 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         shifu_avatar = request.get_json().get("avatar", "")
         return make_common_response(
             create_shifu_draft(
-                app, user_id, shifu_name, shifu_description, shifu_avatar, []
+                app,
+                user_id,
+                shifu_name,
+                shifu_description,
+                shifu_avatar,
+                [],
             )
         )
 
@@ -812,7 +823,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         shifu_description = json_data.get("description")
         shifu_avatar = json_data.get("avatar")
         shifu_keywords = json_data.get("keywords")
-        shifu_model = json_data.get("model")
+        shifu_model = (json_data.get("model") or "") if "model" in json_data else None
         shifu_price = json_data.get("price")
         shifu_temperature = json_data.get("temperature")
         shifu_system_prompt = json_data.get("system_prompt", None)
@@ -825,9 +836,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 raise_param_error("ask_enabled_status")
             if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
                 raise_param_error("ask_enabled_status")
-        ask_model = json_data.get("ask_model")
-        if ask_model is not None:
-            ask_model = str(ask_model)
+        ask_model = (
+            (json_data.get("ask_model") or "") if "ask_model" in json_data else None
+        )
         ask_temperature = json_data.get("ask_temperature")
         if ask_temperature is not None:
             try:
@@ -2178,17 +2189,25 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             or requested_provider in ASK_PROVIDERS_WITH_LLM_SYNTHESIS
         )
 
-        ask_model = str(json_data.get("ask_model") or "").strip()
-        if not ask_model and require_llm_model:
-            ask_model = str(get_config("DEFAULT_LLM_MODEL") or "").strip()
-        if not ask_model and require_llm_model:
-            raise_param_error("ask_model")
+        preview_shifu_bid = _admit_creator_debug_usage(json_data.get("shifu_bid"))
+        preview_course = get_latest_shifu_draft(preview_shifu_bid)
+        if preview_course is None:
+            raise_error("server.shifu.shifuNotFound")
+        ask_model = (
+            json_data["ask_model"]
+            if "ask_model" in json_data
+            else selection_model(preview_course, follow_up=True)
+        )
         from flaskr.service.learn.api import is_live_follow_up_model
 
         if is_live_follow_up_model(ask_model):
-            # Live models are previewed through the voice session controller;
-            # this text-only endpoint must never become an implicit fallback.
+            # Live preview is handled by its separate voice session controller.
             raise_param_error("ask_model")
+        ask_usage_metadata = selection_metadata(preview_course, follow_up=True)
+        if require_llm_model:
+            ask_model, ask_usage_metadata = resolve_course_selection(
+                ask_model, ask_usage_metadata
+            )
 
         ask_temperature = json_data.get("ask_temperature", 0.3)
         try:
@@ -2199,7 +2218,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             raise_param_error("ask_temperature")
 
         ask_system_prompt = str(json_data.get("ask_system_prompt") or "").strip()
-        preview_shifu_bid = _admit_creator_debug_usage(json_data.get("shifu_bid"))
 
         messages: list[dict[str, str]] = []
         if ask_system_prompt:
@@ -2240,6 +2258,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                     preview_user_id,
                     preview_span,
                     model=ask_model,
+                    usage_metadata=ask_usage_metadata,
                     messages=stream_messages,
                     generation_name="ask_provider_preview",
                     temperature=ask_temperature,

@@ -73,8 +73,19 @@ class DummyCourse:
         self.updated_at = updated_at
 
 
-def test_list_operator_courses_prefers_latest_draft_and_formats_contacts() -> None:
+def test_list_operator_courses_prefers_latest_draft_and_formats_contacts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.api.llm import model_selection
+
+    config = {"LLM_MODEL_1_NAME": "Default", "LLM_MODEL_1_ID": "default-model"}
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
     app = Flask(__name__)
+    app.config.update(LLM_MODEL_1_NAME="Default", LLM_MODEL_1_ID="default-model")
     updated_start_time = datetime(2025, 4, 2, 0, 0, 0)
     updated_end_time = datetime(2025, 4, 3, 23, 59, 59)
     draft_course = DummyCourse(
@@ -145,7 +156,7 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts() -> No
     assert item.course_name == "Draft Course"
     assert item.course_status == "published"
     assert item.price == "199"
-    assert item.llm_model == "gpt-4.1-mini"
+    assert item.llm_model == "1"
     assert item.tts_model == ""
     assert item.has_course_prompt is True
     assert item.creator_mobile == "15811112222"
@@ -1273,9 +1284,9 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(
     historical_fallback = by_bid[published_history_fallback_bid]
 
     assert published_with_blank_draft.course_name == "Draft Overrides Title"
-    assert published_with_blank_draft.llm_model == "gpt-4.1"
+    assert published_with_blank_draft.llm_model == "1"
     assert published_with_blank_draft.tts_model == "speech-01-turbo"
-    assert historical_fallback.llm_model == "gpt-4.1-mini"
+    assert historical_fallback.llm_model == "1"
     assert historical_fallback.tts_model == "speech-01"
 
 
@@ -1316,7 +1327,7 @@ def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(
             result = list_operator_courses(app, 1, 20, {})
 
     assert result.items[0].shifu_bid == empty_model_bid
-    assert result.items[0].llm_model == "gpt-test"
+    assert result.items[0].llm_model == "1"
 
 
 def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(
@@ -1825,3 +1836,153 @@ def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(
     assert len(outer_query.options_calls) == 0
     assert len(outer_query.with_entities_calls) == 1
     assert result[0].shifu_bid == "course-1"
+
+
+@pytest.mark.parametrize("source", ["draft", "published", "draft_over_published"])
+@pytest.mark.parametrize("configured_model", ["mapped-model", ""])
+def test_operator_course_lists_display_current_number_mapping(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    configured_model: str,
+) -> None:
+    """SQL and lightweight projections expose the effective course model index."""
+    from flaskr.api.llm import model_selection
+    from flaskr.service.shifu import admin_course_summaries, admin_course_summary_mapper
+
+    mapping = {
+        "LLM_MODEL_1_NAME": "Default",
+        "LLM_MODEL_1_ID": "default-model",
+        "LLM_MODEL_3_NAME": "Deep thinking",
+        "LLM_MODEL_3_ID": configured_model,
+    }
+    expected_index = "3" if configured_model else "1"
+    monkeypatch.setattr(
+        model_selection, "get_config", lambda key, default="": mapping.get(key, default)
+    )
+    bid = uuid.uuid4().hex
+    with app.app_context():
+        model = PublishedShifu if source == "published" else DraftShifu
+        if source == "draft_over_published":
+            db.session.add(
+                PublishedShifu(
+                    shifu_bid=bid,
+                    title="Published",
+                    llm="ultimate",
+                )
+            )
+        db.session.add(model(shifu_bid=bid, title="Older", llm="balanced"))
+        db.session.flush()
+        db.session.add(model(shifu_bid=bid, title="Current", llm="3"))
+        db.session.commit()
+        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+            result = list_operator_courses(app, 1, 20, {"shifu_bid": bid})
+        assert len(result.items) == 1
+        assert result.items[0].course_name == "Current"
+        assert result.items[0].llm_model == expected_index
+
+        rows = admin_course_summaries._load_latest_courses_by_shifu_bids(
+            model, [bid], lightweight=True
+        )
+        assert len(rows) == 1
+        assert rows[0].llm == "3"
+        summary = admin_course_summary_mapper.build_admin_operation_course_summary(
+            rows[0], user_map={}, course_status="published"
+        )
+        assert summary.llm_model == expected_index
+
+
+@pytest.mark.parametrize(
+    ("selection", "expected_index", "expected_label"),
+    [
+        ("3", "3", "Deep thinking"),
+        ("9", "1", "Everyday"),
+        ("old-provider-model", "1", "Everyday"),
+        ("", "1", "Everyday"),
+    ],
+)
+def test_operator_summary_matches_numbered_catalog_when_provider_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    selection: str,
+    expected_index: str,
+    expected_label: str,
+) -> None:
+    """Operator labels join the same numbered catalog used by the course UI."""
+    from flaskr.api.llm import get_legacy_course_model_options, model_selection
+    from flaskr.service.common.models import ERROR_CODE
+    from flaskr.service.shifu.admin_course_summary_mapper import (
+        build_admin_operation_course_summary,
+    )
+
+    config = {
+        "LLM_MODEL_1_NAME": "Everyday",
+        "LLM_MODEL_1_ID": "physical-default-model",
+        "LLM_MODEL_3_NAME": "Deep thinking",
+        "LLM_MODEL_3_ID": "physical-deep-model",
+    }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    course = DummyCourse(
+        shifu_bid="course-1",
+        title="Course",
+        price="0",
+        created_user_bid="creator-1",
+        updated_user_bid="creator-1",
+        created_at=datetime(2025, 4, 1),
+        updated_at=datetime(2025, 4, 1),
+        llm=selection,
+    )
+    with patch.object(
+        model_selection,
+        "resolve_model_slot",
+        side_effect=AppError(
+            "Provider unavailable", ERROR_CODE["server.llm.modelUnavailable"]
+        ),
+    ) as resolve_model:
+        summary = build_admin_operation_course_summary(
+            course, user_map={}, course_status="published"
+        )
+        resolve_model.assert_not_called()
+        catalog = get_legacy_course_model_options(Flask(__name__))
+
+    assert summary.llm_model == expected_index
+    assert all(option["available"] is False for option in catalog)
+    labels = {option["model"]: option["display_name"] for option in catalog}
+    assert labels[summary.llm_model] == expected_label
+    assert course.llm == selection
+    assert "physical-" not in str(summary.__json__())
+
+
+def test_operator_listing_does_not_inherit_or_write_historical_number(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.api.llm import model_selection
+
+    config = {
+        "LLM_MODEL_1_NAME": "Default",
+        "LLM_MODEL_1_ID": "default-model",
+        "LLM_MODEL_3_NAME": "Third",
+        "LLM_MODEL_3_ID": "third-model",
+    }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    bid = uuid.uuid4().hex
+    with app.app_context():
+        db.session.add(DraftShifu(shifu_bid=bid, title="Old", llm="3"))
+        db.session.flush()
+        current = DraftShifu(shifu_bid=bid, title="Current", llm="", tts_model="voice")
+        db.session.add(current)
+        db.session.commit()
+        original_updated = current.updated_at
+        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+            result = list_operator_courses(app, 1, 20, {"shifu_bid": bid})
+        assert result.items[0].llm_model == "1"
+        assert current.llm == ""
+        assert current.updated_at == original_updated
+        assert current not in db.session.dirty

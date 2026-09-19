@@ -2,7 +2,7 @@
 title: Official Client Model Gateway
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-09-05
+last_reviewed: 2026-09-19
 canonical: true
 ---
 
@@ -80,7 +80,11 @@ request even when the maximum output allowance would cost more than that balance
 
 Models must be configured and have complete active input/cache/output rates,
 using the existing charge resolver. Only eligible models are advertised.
-`ai-shifu-default` resolves to the eligible configured default model.
+`ai-shifu-default` resolves to the eligible configured default model. An explicit
+`DEFAULT_LLM_MODEL` retains its existing meaning; when it is unset or blank, the
+alias uses the physical binding of numbered model 1. The default must still be
+in the configured catalog, routable and fully rated. An unavailable or unrated
+default does not make another model the default.
 
 Chat bodies are limited to 1 MiB, messages to 256, and tools to 128 before
 tokenization. `stream` must be a JSON boolean when supplied. `max_tokens`

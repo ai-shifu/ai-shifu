@@ -68,6 +68,125 @@ def _headers(**extra: str) -> dict[str, str]:
     }
 
 
+@pytest.fixture
+def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, list]:
+    from flaskr.api import llm
+    from flaskr.api.llm import model_selection
+    from flaskr.route import model_gateway as gateway
+
+    config = {
+        "LLM_MODEL_1_ID": "test/default",
+        "LLM_MODEL_3_ID": "test/advanced",
+        "LLM_MODEL_7_ID": "test/default",
+    }
+    models = ["test/default", "test/advanced"]
+    monkeypatch.setattr(
+        llm, "get_config", lambda key, default=None: config.get(key, default)
+    )
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "test": llm.ProviderState(
+                enabled=True, params={"api_key": "test"}, models=models
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm, "MODEL_ALIAS_MAP", {model: ("test", model) for model in models}
+    )
+    monkeypatch.setattr(llm, "MODEL_SUPPORTED_GENERATION_METHODS", {})
+    rows = [
+        SimpleNamespace(
+            id=index,
+            provider="test",
+            model=model,
+            unit_size=1,
+            credits_per_unit=Decimal(index),
+            effective_from=datetime(2026, 1, 1),
+            effective_to=None,
+        )
+        for index, model in enumerate(models, 1)
+    ]
+    monkeypatch.setattr(llm, "_load_llm_output_rate_rows", lambda _app: rows)
+    monkeypatch.setattr(llm, "load_llm_credit_1x_unit_cost", lambda: Decimal(1))
+    monkeypatch.setattr(gateway, "has_complete_llm_rates", lambda _model: True)
+    return config, rows
+
+
+@pytest.mark.no_mock_llm
+@pytest.mark.parametrize(
+    ("default_model", "ineligible_model", "reason", "expected"),
+    [
+        (None, None, None, "test/default"),
+        ("", None, None, "test/default"),
+        (" \t", None, None, "test/default"),
+        ("test/advanced", None, None, "test/advanced"),
+        ("test/missing", None, None, None),
+        ("test/advanced", "test/advanced", "unavailable", None),
+        ("test/advanced", "test/advanced", "unrated", None),
+        (None, "test/default", "unavailable", None),
+        (None, "test/default", "unrated", None),
+        (None, "test/default", "incomplete_rates", None),
+    ],
+)
+def test_numbered_catalog_preserves_gateway_default_alias(
+    monkeypatch: pytest.MonkeyPatch,
+    numbered_gateway_catalog: tuple[dict, list],
+    default_model: str | None,
+    ineligible_model: str | None,
+    reason: str | None,
+    expected: str | None,
+) -> None:
+    from flaskr.api import llm
+    from flaskr.route import model_gateway as gateway
+
+    config, rows = numbered_gateway_catalog
+    if default_model is not None:
+        config["DEFAULT_LLM_MODEL"] = default_model
+    if reason == "unavailable":
+        del llm.MODEL_ALIAS_MAP[ineligible_model]
+    elif reason == "unrated":
+        rows[:] = [row for row in rows if row.model != ineligible_model]
+    elif reason == "incomplete_rates":
+        monkeypatch.setattr(
+            gateway, "has_complete_llm_rates", lambda model: model != ineligible_model
+        )
+
+    app = Flask("numbered-gateway-catalog")
+    catalog = gateway._gateway_models(app)
+    model_ids = [model["id"] for model in catalog]
+    assert len(model_ids) == len(set(model_ids))
+    defaults = [model for model in catalog if model["id"] == "ai-shifu-default"]
+    request = {
+        "model": "ai-shifu-default",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    if expected is None:
+        assert defaults == []
+        with pytest.raises(gateway.GatewayRequestError) as error:
+            gateway._resolve_model_alias(app, request)
+        assert error.value.status_code == 400
+        assert error.value.code == "model_not_available"
+    else:
+        assert len(defaults) == 1
+        assert defaults[0]["resolved_model"] == expected
+        assert gateway._resolve_model_alias(app, request) == {
+            **request,
+            "model": expected,
+        }
+    assert [
+        model["index"]
+        for model in llm.get_course_model_options(app)
+        if model["is_default"]
+    ] == ["1"]
+
+
 @pytest.mark.parametrize("endpoint", ["models", "chat", "stream"])
 @pytest.mark.parametrize(
     ("client_id", "allowlist", "status", "code"),
