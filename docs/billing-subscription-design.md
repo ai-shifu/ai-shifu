@@ -874,6 +874,10 @@ v1 需要新增的改造点：
   - creator 订阅状态
 - admission 拒绝后，不进入新的 billable LLM/TTS 调用
 - 当前实现已落到 `src/api/flaskr/service/billing/admission.py`，并接入 `src/api/flaskr/service/learn/routes.py` 与 `src/api/flaskr/service/shifu/route.py` 的 billable 入口
+- `POST /api/shifu/ask/preview` 和 `POST /api/shifu/tts/preview` 是需要登录的设置调试入口，使用 `debug(1201)` 场景。它们没有课程归属，准入与结算的付款主体均为服务端认证的当前用户（`user_bid`）；是否有老师身份不影响计费。先检查该用户的调试限额，再按既有 subscription / credits 规则准入，拒绝时不调用外部知识服务、LLM 或 TTS，也不开始 SSE。
+- 设置调试产生的 LLM/TTS usage 固定传入 `billable=1`；追问的直接 LLM、知识合成和失败后 LLM 回退共用这个契约。仅调用用户配置的外部知识服务时仍须准入，但不会凭空产生平台 LLM usage。
+- 设置调试不接受客户端指定付款人、课程归属、`billable` 或内部调用身份；请求体和请求头都不能选择免计费。显式 `billable=0` 只保留给服务端代码直接调用底层 LLM / metering 的内部操作，设置调试路由不提供此例外。内置演示课程仍走独立的课程身份判定；客户端向设置调试请求添加 `shifu_bid` 不能取得该豁免。
+- 课程预览 `POST /api/shifu/shifus/<shifu_bid>/preview` 保留课程查看权限校验，并按课程负责人准入及结算；有权限的协作者不会因此改为该课程的付款人。
 - usage 落库成功后，统一投递 Celery settlement task，再由 task 消费 `bill_usage` 并写入 `credit_ledger_entries`
 - 不允许在 learn / preview / debug 的请求线程内直接扣减积分、更新 `credit_wallet_buckets` 或刷新 `credit_wallets`
 - 当前 `src/api/flaskr/service/metering/recorder.py` 仍只负责 `bill_usage` 持久化，不触碰 `credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`

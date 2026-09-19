@@ -2,9 +2,13 @@
 
 from types import SimpleNamespace
 
+import pytest
+from flaskr.service.billing.ownership import resolve_usage_creator_bid
 from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.learn.ask_provider_adapters import AskProviderError
+from flaskr.service.metering import record_llm_usage
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
+from flaskr.service.metering.models import BillUsageRecord
 
 _PREVIEW_TOKEN = "preview-token"  # stub session token, `validate_user` is mocked
 
@@ -453,13 +457,20 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
     assert "request failed" not in payload["message"]
 
 
-def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
-    monkeypatch: object, test_client: object
+@pytest.mark.parametrize("is_creator", [True, False])
+@pytest.mark.parametrize("provider", ["llm", "dify", "get_biji_knowledge"])
+def test_ask_preview_route_bills_authenticated_caller(
+    monkeypatch: object, test_client: object, is_creator: bool, provider: str
 ) -> None:
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}
 
-    _mock_authenticated_user(monkeypatch, "creator-token-1", is_creator=True)
+    user_bid = f"preview-{provider}-{is_creator}"
+    _mock_authenticated_user(monkeypatch, user_bid, is_creator=is_creator)
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, *, usage_bid: captured.setdefault("enqueued", usage_bid),
+    )
     monkeypatch.setattr(
         "flaskr.service.shifu.route.admit_creator_usage",
         lambda _app, creator_bid, usage_scene: captured.setdefault(
@@ -478,15 +489,31 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
     )
 
     def fake_chat_llm(*args: object, **kwargs: object) -> object:
-        _ = args
+        assert args[1] == user_bid
         captured["chat_llm"] = kwargs
+        captured["usage_bid"] = record_llm_usage(
+            args[0],
+            kwargs["usage_context"],
+            provider="openai",
+            model="gpt-test",
+            is_stream=True,
+            input=5,
+            output=7,
+            total=12,
+        )
         yield SimpleNamespace(content="debug answer")
 
     def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
+        if kwargs["provider"] == "dify":
+            message = "provider unavailable"
+            raise AskProviderError(message)
         runtime = kwargs.get("runtime")
         assert runtime is not None
-        yield from runtime.llm_stream_factory()
+        if kwargs["provider"] == "get_biji_knowledge":
+            yield from runtime.llm_context_stream_factory("preview knowledge")
+        else:
+            yield from runtime.llm_stream_factory()
 
     monkeypatch.setattr(
         "flaskr.api.llm.chat_llm",
@@ -505,10 +532,22 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
         json={
             "query": "hello",
             "ask_model": "gpt-test",
+            "billable": 0,
+            "internal": True,
+            "is_creator": False,
+            "user_bid": "unrelated-user",
+            "creator_bid": "unrelated-owner",
+            "shifu_bid": "unrelated-course",
+            "usage_context": {"billable": 0, "user_bid": "unrelated-user"},
             "ask_provider_config": {
-                "provider": "llm",
-                "mode": "provider_only",
-                "config": {},
+                "provider": provider,
+                "mode": "provider_then_llm",
+                "config": {
+                    "base_url": "https://api.example.com/v1",
+                    "api_key": "test-api-key",
+                    "topic_id": "topic-1",
+                    "client_id": "client-1",
+                },
             },
         },
     )
@@ -517,15 +556,24 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
     assert resp.status_code == 200
     assert payload["code"] == 0
     assert captured["admission"] == {
-        "creator_bid": "creator-token-1",
+        "creator_bid": user_bid,
         "usage_scene": BILL_USAGE_SCENE_DEBUG,
     }
     chat_llm_kwargs = captured["chat_llm"]
     assert chat_llm_kwargs["billable"] == 1
     usage_context = chat_llm_kwargs["usage_context"]
-    assert usage_context.user_bid == "creator-token-1"
+    assert usage_context.user_bid == user_bid
+    assert usage_context.shifu_bid == ""
     assert usage_context.usage_scene == BILL_USAGE_SCENE_DEBUG
     assert usage_context.billable == 1
+    with test_client.application.app_context():
+        record = BillUsageRecord.query.filter_by(usage_bid=captured["usage_bid"]).one()
+        assert record.billable == 1
+        assert record.usage_scene == BILL_USAGE_SCENE_DEBUG
+        assert record.user_bid == user_bid
+        assert record.shifu_bid == ""
+        assert resolve_usage_creator_bid(test_client.application, record) == user_bid
+        assert captured["enqueued"] == record.usage_bid
 
 
 def test_ask_preview_route_passes_debug_usage_context_for_creator(
