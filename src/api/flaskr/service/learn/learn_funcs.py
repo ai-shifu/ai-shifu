@@ -384,7 +384,6 @@ def get_outline_item_tree(
                     continue
                 if configured_item.ask_enabled_status != ASK_MODE_DEFAULT:
                     effective_ask_mode = configured_item.ask_enabled_status
-                    effective_model = configured_item.ask_llm or course_follow_up_model
                     break
             if effective_ask_mode == ASK_MODE_DISABLE:
                 return "disabled"

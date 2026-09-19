@@ -654,10 +654,6 @@ def copy_operator_course(
                 course_model=source_draft.llm,
                 course_follow_up_model=source_draft.ask_llm,
                 provider_config=getattr(source_draft, "ask_provider_config", "{}"),
-                outline_models=tuple(item.llm for item in source_outlines),
-                outline_follow_up_models=tuple(
-                    item.ask_llm for item in source_outlines
-                ),
             )
         )
         if live_contract_error is not None:

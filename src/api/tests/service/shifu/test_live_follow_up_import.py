@@ -33,6 +33,14 @@ def _import_file(
             **shifu,
         },
         "outline_items": outlines or [],
+        "structure": {
+            "bid": "old-course",
+            "type": "shifu",
+            "children": [
+                {"bid": item["outline_item_bid"], "type": "outline", "children": []}
+                for item in (outlines or [])
+            ],
+        },
     }
     return FileStorage(
         stream=io.BytesIO(json.dumps(payload).encode()),
@@ -46,15 +54,6 @@ def _import_file(
     [
         ({"llm": GEMINI_LIVE_MODEL_ID}, []),
         (
-            {},
-            [
-                {
-                    "outline_item_bid": "outline-primary-live",
-                    "llm": GEMINI_LIVE_MODEL_ID,
-                }
-            ],
-        ),
-        (
             {
                 "ask_llm": GEMINI_LIVE_MODEL_ID,
                 "ask_provider_config": {
@@ -64,21 +63,6 @@ def _import_file(
                 },
             },
             [],
-        ),
-        (
-            {
-                "ask_provider_config": {
-                    "provider": "llm",
-                    "mode": "provider_then_llm",
-                    "config": {"live_voice": "Kore"},
-                }
-            },
-            [
-                {
-                    "outline_item_bid": "outline-follow-up-live",
-                    "ask_llm": GEMINI_LIVE_MODEL_ID,
-                }
-            ],
         ),
     ],
 )
@@ -176,3 +160,59 @@ def test_export_resolves_default_voice_for_legacy_live_draft(
         "mode": "provider_only",
         "config": {"live_voice": "Kore"},
     }
+
+
+@pytest.mark.parametrize("legacy_model", ["old-text-model", GEMINI_LIVE_MODEL_ID])
+def test_legacy_outline_models_are_ignored_and_not_exported(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    legacy_model: str,
+) -> None:
+    from flaskr.service.shifu import shifu_import_export_funcs as module
+    from flaskr.service.shifu.models import DraftOutlineItem
+
+    monkeypatch.setattr(module, "check_text_with_risk_control", lambda *_a, **_k: None)
+    shifu_bid = uuid.uuid4().hex
+    imported_bid = module.import_shifu(
+        app,
+        shifu_bid,
+        _import_file(
+            shifu={},
+            outlines=[
+                {
+                    "outline_item_bid": "old-outline",
+                    "title": "Legacy lesson",
+                    "llm": legacy_model,
+                    "ask_llm": legacy_model,
+                    "llm_system_prompt": "Keep the teaching prompt",
+                    "ask_llm_system_prompt": "Keep the follow-up prompt",
+                    "ask_llm_temperature": 0.4,
+                    "ask_enabled_status": 5103,
+                    "content": "Keep the lesson content",
+                }
+            ],
+        ),
+        "teacher-1",
+    )
+    assert imported_bid == shifu_bid
+    with app.app_context():
+        outline = DraftOutlineItem.query.filter_by(shifu_bid=shifu_bid).one()
+        assert not hasattr(outline, "llm")
+        assert not hasattr(outline, "ask_llm")
+        assert outline.clone().eq(outline)
+        course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        assert course.ask_provider_config == "{}"
+    export_path = tmp_path / "course.json"
+    module.export_shifu(app, shifu_bid, str(export_path))
+    exported = json.loads(export_path.read_text())
+    assert exported["shifu"]["llm"] == "gpt-main"
+    assert exported["shifu"]["ask_llm"] == "gpt-follow-up"
+    outline_json = exported["outline_items"][0]
+    assert "llm" not in outline_json
+    assert "ask_llm" not in outline_json
+    assert outline_json["llm_system_prompt"] == "Keep the teaching prompt"
+    assert outline_json["ask_llm_system_prompt"] == "Keep the follow-up prompt"
+    assert "ask_llm_temperature" not in outline_json
+    assert outline_json["ask_enabled_status"] == 5103
+    assert outline_json["content"] == "Keep the lesson content"

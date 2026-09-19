@@ -473,13 +473,6 @@ class DraftOutlineItem(db.Model):
         default="",
         comment="Prerequisite outline item business identifiers",
     )
-    llm = Column(String(100), nullable=False, default="", comment="LLM model name")
-    llm_temperature = Column(
-        DECIMAL(10, 2),
-        nullable=False,
-        default=0,
-        comment="LLM temperature parameter",
-    )
     llm_system_prompt = Column(
         Text, nullable=False, default="", comment="LLM system prompt"
     )
@@ -488,15 +481,6 @@ class DraftOutlineItem(db.Model):
         nullable=False,
         default=ASK_MODE_DEFAULT,
         comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
-    )
-    ask_llm = Column(
-        String(100), nullable=False, default="", comment="Ask agent LLM model"
-    )
-    ask_llm_temperature = Column(
-        DECIMAL(10, 2),
-        nullable=False,
-        default=0.0,
-        comment="Ask mode LLM temperature",
     )
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask mode LLM system prompt"
@@ -540,12 +524,8 @@ class DraftOutlineItem(db.Model):
             parent_bid=self.parent_bid,
             position=self.position,
             prerequisite_item_bids=self.prerequisite_item_bids,
-            llm=self.llm,
-            llm_temperature=self.llm_temperature,
             llm_system_prompt=self.llm_system_prompt,
             ask_enabled_status=self.ask_enabled_status,
-            ask_llm=self.ask_llm,
-            ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
             content=self.content,
             type=self.type,
@@ -566,14 +546,10 @@ class DraftOutlineItem(db.Model):
             and self.parent_bid == other.parent_bid
             and self.position == other.position
             and self.prerequisite_item_bids == other.prerequisite_item_bids
-            and self.llm == other.llm
             and self.type == other.type
             and self.hidden == other.hidden
-            and compare_decimal(self.llm_temperature, other.llm_temperature)
             and self.llm_system_prompt == other.llm_system_prompt
             and self.ask_enabled_status == other.ask_enabled_status
-            and self.ask_llm == other.ask_llm
-            and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt
             and self.content == other.content
         )
@@ -837,13 +813,6 @@ class PublishedOutlineItem(db.Model):
         default="",
         comment="Prerequisite outline item business identifiers",
     )
-    llm = Column(String(100), nullable=False, default="", comment="LLM model name")
-    llm_temperature = Column(
-        DECIMAL(10, 2),
-        nullable=False,
-        default=0,
-        comment="LLM temperature parameter",
-    )
     llm_system_prompt = Column(
         Text, nullable=False, default="", comment="LLM system prompt"
     )
@@ -852,15 +821,6 @@ class PublishedOutlineItem(db.Model):
         nullable=False,
         default=ASK_MODE_DEFAULT,
         comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
-    )
-    ask_llm = Column(
-        String(100), nullable=False, default="", comment="Ask agent LLM model"
-    )
-    ask_llm_temperature = Column(
-        DECIMAL(10, 2),
-        nullable=False,
-        default=0.0,
-        comment="Ask agent LLM temperature",
     )
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
