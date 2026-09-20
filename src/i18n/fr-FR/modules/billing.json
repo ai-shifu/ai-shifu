@@ -833,8 +833,6 @@
     },
     "featuresLabel": "Avantages inclus",
     "footnote": {
-      "intro": "Référence : « Comprendre l’IA avec l’IA » (跟 AI 学 AI 通识). Le calcul suppose environ 2,5 heures par parcours complet et environ 25 crédits, observés sur un parcours entièrement tracé en mode lecture avec un modèle 1×. Les heures se cumulent : 10 apprenants étudiant 1 heure chacun représentent 10 heures.",
-      "listeningMode": "Le mode écoute ajoute des crédits vocaux à ceux du modèle : les mêmes crédits permettent donc de générer moins de contenu pédagogique. La consommation varie selon la voix et le débit.",
       "validity": "Validité des crédits : les crédits mensuels sont valables 30 jours à compter de leur attribution, jour inclus ; les crédits annuels sont valables 12 mois à compter de leur attribution. Les deux expirent à 23 h 59 le dernier jour."
     },
     "monthlyOnly": "Mensuel uniquement",
@@ -1055,10 +1053,7 @@
     },
     "featuresTitle": "Avantages inclus :",
     "footnote": {
-      "learnerEstimateIntro": "Référence : « Comprendre l’IA avec l’IA » (跟 AI 学 AI 通识). Le calcul suppose environ 2,5 heures par parcours complet et environ 25 crédits, observés sur un parcours entièrement tracé en mode lecture avec un modèle 1×. Les heures se cumulent : 10 apprenants étudiant 1 heure chacun représentent 10 heures.",
-      "learnerEstimateMode": "Le mode écoute consomme aussi des crédits vocaux : l’échantillon utilisant la voix par défaut représente environ 40 crédits par heure audio, hors modèle. Le coût varie selon la voix et le débit.",
-      "learnerEstimateModel": "Un multiplicateur de modèle plus élevé réduit le temps d’apprentissage disponible avec les mêmes crédits.",
-      "learnerEstimateScale": "Il s’agit d’un exemple fondé sur un seul cours, pas d’un temps de connexion mesuré ni d’une promesse universelle. La consommation varie selon le cours, le modèle et les interactions. La création, les aperçus et le débogage utilisent aussi des crédits.",
+      "learningTime": "Estimation fondée sur les données d’apprentissage passées (mode lecture, modèle 1×), à titre indicatif. La consommation réelle de crédits varie selon le contenu du cours, le modèle choisi et les interactions. Le mode écoute utilise des crédits vocaux supplémentaires.",
       "validity": "Validité des crédits : les forfaits mensuels sont valables 30 jours à compter du jour de réception inclus ; les forfaits annuels sont valables par année calendaire à compter du jour de réception. Les deux expirent à 23:59 le jour d’expiration."
     },
     "free": {
@@ -1075,11 +1070,11 @@
       "topup": "Packs de crédits",
       "yearly": "Forfaits annuels"
     },
-    "learningHours": {
+    "learningTime": {
       "label": "Temps d’apprentissage estimé",
-      "lessThanOne": "Moins de 1 heure",
+      "lessThanOne": "Moins de 1 minute",
       "unavailable": "—",
-      "value": "Environ {hours} heures"
+      "value": "Environ {minutes} minutes"
     },
     "preorder": {
       "pending": "Précommande en attente : {plan} prendra effet le {date}."

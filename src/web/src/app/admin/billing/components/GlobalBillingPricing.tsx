@@ -43,7 +43,7 @@ import {
   type CreatorBillingFailureCategory,
 } from '@/lib/billingAnalytics';
 import { rememberStripeBillingOrderForAnalytics } from '@/lib/stripe-storage';
-import { formatBillingLearningHours } from '@/lib/billingLearningHours';
+import { formatBillingLearningTime } from '@/lib/billingLearningTime';
 import { cn } from '@/lib/utils';
 import type {
   BillingCheckoutResult,
@@ -187,7 +187,7 @@ const CREDIT_PACK_CODES = [
 
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 const STRIPE_PAYMENT_PROVIDER = 'stripe' as const;
-const LEARNING_HOURS_ESTIMATE_MARKER = '①';
+const LEARNING_TIME_ESTIMATE_MARKER = '①';
 const CREDIT_VALIDITY_MARKER = '②';
 const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
   'canceled',
@@ -582,27 +582,10 @@ export function GlobalBillingPricing() {
               <ul className='space-y-3'>
                 <li className='flex gap-2'>
                   <span className='shrink-0 font-medium text-foreground'>
-                    {LEARNING_HOURS_ESTIMATE_MARKER}
+                    {LEARNING_TIME_ESTIMATE_MARKER}
                   </span>
                   <div className='flex-1'>
-                    {t('module.billing.globalPricing.footnote.intro')}
-                    <ul className='mt-1 list-disc space-y-1 pl-5'>
-                      <li>
-                        {t(
-                          'module.billing.package.footnote.learnerEstimateScale',
-                        )}
-                      </li>
-                      <li>
-                        {t(
-                          'module.billing.globalPricing.footnote.listeningMode',
-                        )}
-                      </li>
-                      <li>
-                        {t(
-                          'module.billing.package.footnote.learnerEstimateModel',
-                        )}
-                      </li>
-                    </ul>
+                    {t('module.billing.package.footnote.learningTime')}
                   </div>
                 </li>
                 <li className='flex gap-2'>
@@ -1153,11 +1136,11 @@ function PlanCard({
           data-testid={`global-plan-${tierSpec.tier}-estimate`}
         >
           <p className='text-xs font-medium text-muted-foreground'>
-            {t('module.billing.package.learningHours.label')}
-            <span className='ml-1'>{LEARNING_HOURS_ESTIMATE_MARKER}</span>
+            {t('module.billing.package.learningTime.label')}
+            <span className='ml-1'>{LEARNING_TIME_ESTIMATE_MARKER}</span>
           </p>
           <p className='mt-1 text-sm text-foreground'>
-            {formatBillingLearningHours(
+            {formatBillingLearningTime(
               t,
               Number(product.credit_amount),
               locale,

@@ -833,8 +833,6 @@
     },
     "featuresLabel": "Included benefits:",
     "footnote": {
-      "intro": "Reference: “Understanding AI with AI” (跟 AI 学 AI 通识). Assumes about 2.5 hours per completion and about 25 credits from one fully traced reading-mode completion using a 1× model. Hours add up across learners: 10 learners studying for 1 hour each represent 10 combined hours.",
-      "listeningMode": "Listening adds speech credits on top of model usage, so the same credits support less newly generated teaching content. Usage varies by voice and speaking speed.",
       "validity": "Credit validity: Monthly plan credits are valid for 30 days from the day they are granted (inclusive). Annual plan credits are valid for 12 months from the day they are granted. Both end at 23:59 on the expiry day."
     },
     "monthlyOnly": "Monthly only",
@@ -1055,10 +1053,7 @@
     },
     "featuresTitle": "Included benefits:",
     "footnote": {
-      "learnerEstimateIntro": "Reference: “Understanding AI with AI” (跟 AI 学 AI 通识). Assumes about 2.5 hours per completion and about 25 credits from one fully traced reading-mode completion using a 1× model. Hours add up across learners: 10 learners studying for 1 hour each represent 10 combined hours.",
-      "learnerEstimateMode": "Listening adds speech credits: the default voice sample used about 40 credits per audio hour, excluding model usage. Other voices and speaking speeds vary.",
-      "learnerEstimateModel": "Higher model multipliers reduce the learning time supported by the same credits.",
-      "learnerEstimateScale": "This is a single-course example, not measured time online or a universal promise. Usage varies by course, model and interaction. Course creation, previews and debugging also use credits.",
+      "learningTime": "Estimated from past learning data (reading mode, 1× model), for reference only. Actual credit usage varies by course content, model choice and interactions. Listening mode uses additional speech credits.",
       "validity": "Credit validity: Monthly plans are valid for 30 days from the day you receive them (inclusive); yearly plans are valid by calendar year from the day you receive them. Both end at 23:59 on the expiry day."
     },
     "free": {
@@ -1075,11 +1070,11 @@
       "topup": "Credit Packs",
       "yearly": "Yearly Plans"
     },
-    "learningHours": {
+    "learningTime": {
       "label": "Estimated learning time",
-      "lessThanOne": "Less than 1 hour",
+      "lessThanOne": "Less than 1 minute",
       "unavailable": "—",
-      "value": "About {hours} hours"
+      "value": "About {minutes} minutes"
     },
     "preorder": {
       "pending": "Pending preorder: {plan} will take effect at {date}."

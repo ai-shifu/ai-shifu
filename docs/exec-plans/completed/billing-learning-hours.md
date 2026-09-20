@@ -1,19 +1,20 @@
 ---
-title: Billing learning-hour estimates
+title: Billing learning-time estimates
 status: completed
 owner_surface: shared
 last_reviewed: 2026-09-20
 canonical: false
 ---
 
-# Billing learning-hour estimates
+# Billing learning-time estimates
 
 ## Purpose / Big Picture
 
 Help teachers compare credit plans by estimated cumulative learning time instead
 of fixed learner counts. Ground the example in current billing code, production
 usage and an explicitly named course. Keep the main comparison concise and place
-all assumptions and listening differences in its footnotes.
+the agreed concise assumptions and listening note in its footnote. Keep detailed
+calibration evidence in the product specification.
 
 ## Progress
 
@@ -35,10 +36,16 @@ all assumptions and listening differences in its footnotes.
 - [x] Rechecked the deployed old page and current catalog: 1,000 credits formerly
   meant 5–15 listening completions, or 12.5–37.5 learning hours. The new reading
   example is higher. Audited storage, settlement and display with no unit error.
-- [x] Final revision passed 118 focused tests, full type checking against the
+- [x] The hour-based revision passed 118 focused tests, full type checking against the
   declared UI package, and every repository pre-commit gate.
-- [x] Verified the final course-example revision at desktop and mobile widths,
+- [x] Verified the hour-based course-example revision at desktop and mobile widths,
   including the final plan after horizontal scrolling; prepared one focused PR.
+
+- [x] User finalized the title 预估支持学习时长, consistent minute units,
+  Chinese compact large numbers and one shared short footnote. Retained the
+  existing capacity coefficient and all detailed calibration evidence.
+- [x] Minute-display revision passed 122 focused tests, full type checking against
+  the declared UI dependency and every repository pre-commit gate.
 
 ## Surprises & Discoveries
 
@@ -65,8 +72,9 @@ all assumptions and listening differences in its footnotes.
   by 25.24 sample credits, approximately 100 hours per 1,000 credits. Do not
   present a single-course observation as a universal statistical range.
 - Keep the main content to an estimated-learning-time label and approximate
-  number. Put the course name, reading mode, 1× model, cumulative-time definition,
-  duration assumption, single-sample limitation and speech costs in footnotes.
+  minute value. Keep the shared footnote to historical data, reading mode, 1×
+  model, reference-only status, consumption variability and additional speech
+  credits. Keep course, sample and rate details in the product specification.
 - Keep purchase actions and existing analytics unchanged: this replaces
   explanatory values and copy without adding an interaction path.
 - Keep identities, raw content, credentials and detailed business traffic totals
@@ -79,18 +87,21 @@ Type checking used the declared `markdown-flow-ui@0.2.26` in an isolated tempora
 package because the shared local installation held 0.2.21. Desktop and mobile
 browser review verified the existing horizontal scroller.
 
-The final implementation uses the course-example coefficient chosen by the user;
+The implementation uses the course-example coefficient chosen by the user;
 purchase conversion impact remains unmeasured. The evidence and maintenance
 contract live in `docs/product-specs/billing-learning-hours-estimate.md`.
-Its final 118 focused tests, type check and all-file pre-commit gate passed.
-Final browser review confirmed concise main values, complete footnotes and no
+Its hour-based revision passed 118 focused tests, type checking and all-file
+pre-commit gates. Browser review of that revision confirmed concise main values, complete footnotes and no
 page overflow at 1440-pixel desktop and 390-pixel mobile widths.
+The later minute-display revision passed 122 focused tests, full type checking
+and all-file pre-commit gates. It preserves the existing table structure and
+replaces the longer footnotes with one shared paragraph.
 
 ## Context and Orientation
 
 Domestic plans are rendered by `BillingPlanComparisonTable.tsx`; global plans by
 `GlobalBillingPricing.tsx`. Both receive catalog `credit_amount`. The shared
-helper is `src/web/src/lib/billingLearningHours.ts`. Copy belongs in
+helper is `src/web/src/lib/billingLearningTime.ts`. Copy belongs in
 `src/i18n/*/modules/billing.json`. Charging logic is in
 `src/api/flaskr/service/billing/charges.py`.
 
@@ -109,12 +120,13 @@ pre-commit gate before committing.
 
 ## Validation and Acceptance
 
-- Live 50-credit plans show approximately 5 hours; 1,000 credits show 100 hours.
+- Live 50-credit plans show approximately 300 minutes; 1,000 credits show 6,000.
+  Chinese annual allocations show 30 万, 60 万 and 132 万 minutes.
   Catalog changes update estimates without SKU edits or annual multiplication.
 - Only the learning-time label and approximate value appear in the comparison.
-- Footnotes name the course, 2.5-hour assumption, reading mode, 1× model,
-  cumulative learner time and limited sample; listening is additional.
-- Invalid allocations do not promise hours; positive sub-hour values remain
+- One shared footnote states historical data, reading mode, 1× model, reference-only
+  status and variable credit consumption; listening adds speech credits.
+- Invalid allocations do not promise minutes; positive sub-minute values remain
   distinct from unavailable data. Locale formatting remains intact.
 - Existing checkout behavior stays covered by billing regression suites.
 

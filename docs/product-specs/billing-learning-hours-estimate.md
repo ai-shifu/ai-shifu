@@ -1,27 +1,38 @@
 ---
-title: Billing reading learning-hour estimates
+title: Billing learning-time estimates
 status: implemented
 owner_surface: shared
 last_reviewed: 2026-09-20
 canonical: true
 ---
 
-# Billing reading learning-hour estimates
+# Billing learning-time estimates
 
 ## Product contract
 
-Plan comparisons show **approximately 100 hours of cumulative learning per
-1,000 credits**, scaled from the catalog's `credit_amount`. This replaces fixed
-learner counts. The main comparison shows only the learning-time label and
-approximate hour value. The footnotes identify the **AI literacy course reference,
-reading mode and a 1× model**, the course name and all assumptions.
+Plan comparisons show **approximately 6,000 minutes of cumulative learning per
+1,000 credits**, scaled from the catalog's `credit_amount`. This is the previously
+calibrated 100-hour reference expressed in minutes, with no capacity increase.
+The main comparison shows only the label **预估支持学习时长** and an approximate
+minute value. Minutes remain the time unit for every plan; large Chinese numbers
+use compact magnitudes such as 万.
+
+Both pricing surfaces use this concise shared Chinese footnote, with aligned
+translations in all five locales:
+
+> 按过往学习数据估算（阅读模式、1× 模型），仅供参考。实际积分消耗随课程内容、模型选择及互动情况变化，听课模式另计语音积分。
+
+The historical usage and assumed completion duration behind that copy remain
+fully documented below. The short copy does not claim measured online time,
+a broad statistical average or a guaranteed service entitlement.
 
 The benchmark is the Chinese course **跟 AI 学 AI 通识** (Understanding AI with AI).
 Its course owner supplied a typical completion duration of **2.5 hours**. One
 fully traced reading-mode completion cost **25.24 credits** when repriced at
 current 1× rates. This gives 99.05 hours per 1,000 credits, rounded to approximately
-100 for the purchase comparison. The user explicitly selected this course-example
-basis on 2026-09-20 after reviewing the sample limitations.
+100 hours, or 6,000 minutes, for the purchase comparison. The user selected this
+course-example basis on 2026-09-20, then approved minute-based display and a concise
+footnote while retaining the calibration details in this specification.
 
 Hours add up across learners: ten learners studying for one hour represent ten
 cumulative hours. This is a single-course example, not measured online time,
@@ -30,7 +41,7 @@ models and interactions change consumption. Course creation, preview, debugging
 and other credit uses reduce the balance available for learner delivery.
 Promotional bonuses are not included in the recurring allocation estimate.
 
-The shared implementation is `src/web/src/lib/billingLearningHours.ts`, consumed
+The shared implementation is `src/web/src/lib/billingLearningTime.ts`, consumed
 by the domestic and global plan comparisons. Settlement, eligibility, purchase
 actions and checkout analytics remain unchanged. No new user interaction is
 introduced. An increase in purchase conversion has not yet been established.
@@ -67,8 +78,8 @@ credits = round_half_up(max(input - input_cache, 0) × rate, 2)
 sample_credits = sum(per_request_credits) = 25.24
 sample_hours = 2.5  # Course-owner assumption, not measured learner activity.
 hours_per_1000_credits = 1000 / 25.24 × 2.5 = 99.05
-published_reference = approximately 100 hours per 1,000 credits
-plan_hours = catalog_credit_amount / 1000 × published_reference
+published_reference = approximately 6000 minutes per 1,000 credits
+plan_minutes = catalog_credit_amount / 1000 × published_reference
 ```
 
 Do not add cached tokens on top of total input, round only after summing all
@@ -118,9 +129,10 @@ learning duration.
 
 For 2.5 hours, the earlier range implied 83.33–250 credits per completion. The
 fully traced example used 25.24, so that range did **not** fit the supplied course
-benchmark. The purchase page now uses the explicitly named example, not an
-unsupported universal range derived from one completion. The underlying sample
-size and assumed duration remain visible in the footnote in all five locales.
+benchmark. The coefficient uses the documented course example, not an unsupported
+universal range derived from one completion. The purchase footnote identifies
+historical usage, reading mode, the 1× model and consumption variability. The
+sample size and assumed duration remain in this methodology document.
 
 ## Comparison with the previous page
 
@@ -151,13 +163,13 @@ count consumption. In China, the sampled default voice is Tencent `large-model`,
 charged at **0.0021604975 credits per output character**.
 
 For the bounded September 1–20 sample, current-rate synthesis cost divided by
-generated audio duration was **40.35 credits/audio hour**. The domestic page
-rounds this to **about 40 additional credits per audio hour**, excluding model
-usage. Audio duration is not measured listening time, and different voices and
-speaking speeds can differ substantially. Do not multiply the course's 2.5-hour
+generated audio duration was **40.35 credits/audio hour**, excluding model usage.
+This is calibration evidence, not a fixed per-hour price promised in the UI.
+Audio duration is not measured listening time, and different voices and speaking
+speeds can differ substantially. Do not multiply the course's 2.5-hour
 learning duration by 40 as though every minute were synthesized speech.
 
-The global page uses a separate nonnumeric listening explanation. The US
+Both pages use the same concise, nonnumeric listening explanation. The US
 installation defaults to Volcengine Seed TTS 2.0 at 0.0101852361 credits/output
 character; the China default-voice example must not be presented as a global
 voice price. Its Qwen DeepSeek V4/V4.1 Flash routes were separately verified to
@@ -171,22 +183,28 @@ this does not mean audio is shared free across learners.
 
 ## Catalog examples and display
 
-| China product | Credits per allocation | Reference learning hours |
+| China product | Credits per allocation | Chinese reference display |
 | --- | ---: | ---: |
-| Trial | 1,000 | About 100 |
-| Monthly | 50 | About 5 |
-| Monthly Pro | 1,000 | About 100 |
-| Annual Lite | 50,000 | About 5,000 |
-| Annual | 100,000 | About 10,000 |
-| Annual Premium | 220,000 | About 22,000 |
+| Trial | 1,000 | 约 6,000 分钟 |
+| Monthly | 50 | 约 300 分钟 |
+| Monthly Pro | 1,000 | 约 6,000 分钟 |
+| Annual Lite | 50,000 | 约 30 万分钟 |
+| Annual | 100,000 | 约 60 万分钟 |
+| Annual Premium | 220,000 | 约 132 万分钟 |
+
+Below 10,000 minutes, use standard locale number grouping. At 10,000 or more,
+use locale compact number formatting with up to two decimal places. Chinese
+adds a space before the compact magnitude (for example, `30 万`); other locales
+use their customary forms, such as `300K` or `1.32M`. Only the number magnitude
+changes; the duration unit always remains minutes.
 
 The UI always calculates from the live catalog, including custom or edited
 allocations. It does not multiply annual grants by 12 again. Existing validity
-and grant schedules still apply. Positive estimates below one hour display
-“less than 1 hour”; zero or invalid allocations do not promise learning time.
+and grant schedules still apply. Positive estimates below one minute display
+“less than 1 minute”; zero or invalid allocations do not promise learning time.
 
 The domestic comparison retains at least 180 pixels per plan column inside its
-existing horizontal scroller, so the hour value and purchase controls
+existing horizontal scroller, so the minute value and purchase controls
 remain readable on a phone.
 
 ## Maintenance and verification
@@ -198,6 +216,6 @@ assumptions and this source document together. Never change billing rates to
 make the estimate match a marketing claim.
 
 Focused frontend regressions cover catalog changes, allocation scaling,
-sub-hour/invalid values, locale formatting, explanatory copy and unchanged
+sub-minute/invalid values, locale formatting, explanatory copy and unchanged
 checkout behavior. Generated i18n keys and repository knowledge indexes must
 remain current. Verify desktop and mobile rendering before publishing changes.

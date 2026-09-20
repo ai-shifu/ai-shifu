@@ -26,14 +26,14 @@ import type {
   BillingTrialOffer,
 } from '@/types/billing';
 import { cn } from '@/lib/utils';
-import { formatBillingLearningHours } from '@/lib/billingLearningHours';
+import { formatBillingLearningTime } from '@/lib/billingLearningTime';
 import { getFreeFeatureData, getPlanFeatureData } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
 
 // Language-neutral typographic enumerators that anchor each metric row label
 // to the matching footnote item. Not user-facing copy, so they stay out of
 // i18n.
-const ROW_ENUM_LEARNING_HOURS = '①';
+const ROW_ENUM_LEARNING_TIME = '①';
 const ROW_ENUM_VALIDITY = '②';
 const SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 const MIN_PLAN_COLUMN_WIDTH_PX = 180;
@@ -167,7 +167,7 @@ type ColumnDescriptor = {
   creditAmount: string;
   featured: boolean;
   validityShort: string;
-  learningHoursLabel: string;
+  learningTimeLabel: string;
   features: boolean[];
   action: ColumnAction;
 };
@@ -347,7 +347,7 @@ export function BillingPlanComparisonTable({
             days: trialOffer.valid_days,
           })
         : emptyValue,
-      learningHoursLabel: formatBillingLearningHours(
+      learningTimeLabel: formatBillingLearningTime(
         t,
         trialOffer?.credit_amount || 0,
         i18n.language,
@@ -513,7 +513,7 @@ export function BillingPlanComparisonTable({
       }),
       featured: isCurrentPlan,
       validityShort: resolvePlanValidityShort(t, plan),
-      learningHoursLabel: formatBillingLearningHours(
+      learningTimeLabel: formatBillingLearningTime(
         t,
         plan.credit_amount,
         i18n.language,
@@ -695,16 +695,16 @@ export function BillingPlanComparisonTable({
                 className={cn(col.featured && styles.featuredColumn)}
               >
                 <div className={styles.cellLabel}>
-                  {t('module.billing.package.learningHours.label')}
+                  {t('module.billing.package.learningTime.label')}
                   <span className='ml-1 font-medium'>
-                    {ROW_ENUM_LEARNING_HOURS}
+                    {ROW_ENUM_LEARNING_TIME}
                   </span>
                 </div>
                 <div
                   className={styles.cellValue}
                   data-testid={`${col.testId}-learning-hours`}
                 >
-                  {col.learningHoursLabel}
+                  {col.learningTimeLabel}
                 </div>
               </td>
             ))}

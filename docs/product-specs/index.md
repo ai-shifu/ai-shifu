@@ -4,7 +4,7 @@
 
 User-facing workflow and page behavior specifications live here.
 
-- [Billing reading learning-hour estimates](../product-specs/billing-learning-hours-estimate.md)
+- [Billing learning-time estimates](../product-specs/billing-learning-hours-estimate.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-20` | Canonical: `true`
 - [Dashboard Entry Page (v2) Technical Design](../product-specs/dashboard-entry-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`

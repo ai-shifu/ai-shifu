@@ -27,8 +27,8 @@ jest.mock('@/hooks/useTracking', () => ({
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {
-      if (key === 'module.billing.package.learningHours.value') {
-        return `About ${options?.hours} hours`;
+      if (key === 'module.billing.package.learningTime.value') {
+        return `About ${options?.minutes} minutes`;
       }
       if (options?.date) {
         return `${key}:${options.date}`;
@@ -475,12 +475,12 @@ describe('BillingOverviewTab', () => {
     jest.useRealTimers();
   });
 
-  test('updates learning hours when catalog credits change for the same plan', () => {
+  test('updates learning minutes when catalog credits change for the same plan', () => {
     const { rerender } = renderOverviewTab();
     const estimateTestId =
       'billing-plan-card-bill-product-plan-monthly-pro-learning-hours';
     expect(screen.getByTestId(estimateTestId)).toHaveTextContent(
-      'About 10 hours',
+      'About 600 minutes',
     );
 
     mockUseSWR.mockReturnValue({
@@ -498,11 +498,11 @@ describe('BillingOverviewTab', () => {
     rerender(<BillingOverviewTab />);
 
     expect(screen.getByTestId(estimateTestId)).toHaveTextContent(
-      'About 100 hours',
+      'About 6,000 minutes',
     );
     expect(
       within(screen.getByTestId('billing-overview-footnote')).getByText(
-        'module.billing.package.footnote.learnerEstimateIntro',
+        'module.billing.package.footnote.learningTime',
       ),
     ).toBeInTheDocument();
   });
