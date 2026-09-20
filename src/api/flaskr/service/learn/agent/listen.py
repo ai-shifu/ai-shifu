@@ -72,6 +72,12 @@ class LessonVoice:
             return
         try:
             yield from processor.process_chunk(text)
+            # Synthesis runs behind the text, so `process_chunk` can only emit what happens to be
+            # ready at the instant it is called. Segments that finish afterwards sit in the
+            # processor until something collects them, and a turn that only collected at the end
+            # would leave the learner silent through the whole lesson. This is the same pairing a
+            # 1.0 lesson uses after every chunk.
+            yield from self._drain(processor)
         except Exception as exc:
             self._give_up("speaking this lesson failed", exc)
 
@@ -88,6 +94,18 @@ class LessonVoice:
             yield from processor.finalize(commit=False)
         except Exception as exc:
             self._give_up("finishing the spoken lesson failed", exc)
+
+    @staticmethod
+    def _drain(processor: object) -> Iterator[RunMarkdownFlowDTO]:
+        """Collect audio that finished since the last chunk.
+
+        Guarded rather than called directly: not every processor the factory returns carries this,
+        and a lesson is spoken by whichever one the course's settings produce.
+        """
+        drain = getattr(processor, "drain_ready_segments", None)
+        if drain is None:
+            return
+        yield from drain()
 
     def _ensure_processor(self) -> object | None:
         if self._processor is None and not self._unavailable:

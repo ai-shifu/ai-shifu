@@ -217,8 +217,8 @@ src/app/admin/components/AdminFilter.tsx
 后台所有表格优先使用：
 
 ```text
-src/app/admin/components/AdminTableShell.tsx
-src/app/admin/components/adminTableStyles.ts
+src/components/admin/AdminTableShell.tsx
+src/components/admin/adminTableStyles.ts
 src/components/ui/Table.tsx
 ```
 
@@ -316,7 +316,7 @@ loading 态需要保持底部分页和说明时，传入 `showFooterWhenLoading`
 底层使用：
 
 ```text
-src/app/admin/components/AdminPagination.tsx
+src/components/admin/AdminPagination.tsx
 ```
 
 规则：
@@ -584,11 +584,11 @@ npm run i18n:keys
 ```text
 src/app/admin/components/AdminTitle.tsx
 src/app/admin/components/AdminFilter.tsx
-src/app/admin/components/AdminTableShell.tsx
+src/components/admin/AdminTableShell.tsx
 src/app/admin/components/AdminCountCard.tsx
-src/app/admin/components/AdminPagination.tsx
+src/components/admin/AdminPagination.tsx
 src/app/admin/components/AdminTooltipText.tsx
-src/app/admin/components/adminTableStyles.ts
+src/components/admin/adminTableStyles.ts
 ```
 
 除非有明确业务原因，不应在具体页面重新实现上述组件已覆盖的布局和视觉能力。

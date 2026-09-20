@@ -1143,7 +1143,7 @@ describe('learner payment modal analytics producers', () => {
     );
     await waitFor(() => {
       expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
-      expect(mockRefreshPayment).toHaveBeenCalled();
+      expect(mockRefreshPayment).toHaveBeenCalledTimes(1);
     });
 
     mockRefreshPayment.mockResolvedValueOnce(null);
@@ -1180,6 +1180,11 @@ describe('learner payment modal analytics producers', () => {
         paymentChannel: 'pingxx',
       });
     });
+    expect(mockRefreshPayment).toHaveBeenLastCalledWith({
+      channel: 'wx_pub_qr',
+      paymentChannel: 'pingxx',
+      snapshot: pendingOrder,
+    });
     expect(eventCalls('learner_coupon_apply')).toEqual([
       ['learner_coupon_apply', { shifu_bid: 'course-1', outcome: 'success' }],
     ]);
@@ -1189,6 +1194,55 @@ describe('learner payment modal analytics producers', () => {
     expect(JSON.stringify(eventCalls('learner_coupon_apply'))).not.toContain(
       'desktop-sensitive-coupon',
     );
+  });
+
+  it('requests the desktop QR as soon as the cashier opens', async () => {
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      orderId: '',
+      paymentInfo: {
+        channel: '',
+        qrUrl: '',
+        paymentPayload: {},
+      },
+    };
+
+    render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    await waitFor(() => expect(mockInitializeOrder).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalledTimes(1));
+    expect(mockRefreshPayment).toHaveBeenCalledWith({
+      channel: 'wx_pub_qr',
+      paymentChannel: 'pingxx',
+      snapshot: pendingOrder,
+    });
+    expect(screen.queryByText('module.pay.pay')).not.toBeInTheDocument();
+  });
+
+  it('never renders a placeholder QR when the provider URL is empty', () => {
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      paymentInfo: {
+        channel: 'wx_pub_qr',
+        qrUrl: '',
+        paymentPayload: {},
+      },
+    };
+
+    render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    expect(screen.queryByTestId('qr-code')).not.toBeInTheDocument();
+    expect(screen.queryByText('DEFAULT_QRCODE')).not.toBeInTheDocument();
   });
 
   it('keeps desktop modal dismissal nonterminal for an unfinished attempt', async () => {
@@ -1518,6 +1572,11 @@ describe('learner payment modal analytics producers', () => {
         channel: 'alipay_qr',
         paymentChannel: 'pingxx',
       });
+    });
+    expect(mockRefreshPayment).toHaveBeenLastCalledWith({
+      channel: 'alipay_qr',
+      paymentChannel: 'pingxx',
+      snapshot: pendingOrder,
     });
     expect(eventCalls('learner_coupon_apply')).toEqual([
       ['learner_coupon_apply', { shifu_bid: 'course-1', outcome: 'success' }],

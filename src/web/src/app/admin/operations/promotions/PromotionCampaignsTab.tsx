@@ -2,7 +2,7 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import type { AdminPromotionCampaignItem } from '@/app/admin/operations/operation-promotion-types';
 import ErrorDisplay from '@/components/ErrorDisplay';

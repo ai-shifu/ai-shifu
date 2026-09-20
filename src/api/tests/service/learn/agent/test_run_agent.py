@@ -829,3 +829,163 @@ def test_a_lesson_whose_course_has_no_tts_is_taught_in_silence(
     events = _run(engine, listen=True, app=_App())
 
     assert [e.type for e in events] == [GeneratedType.CONTENT, GeneratedType.BREAK]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_sentence_is_shown_before_it_is_spoken(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Text first, then its audio -- the order the 1.0 lesson sends them in.
+
+    The browser treats a passage marked speakable with no audio yet as buffering and waits rather
+    than moving on. An audio event that arrives before the text it belongs to has no element to
+    attach to, so it is dropped; the text then arrives marked speakable and its audio never comes,
+    and the learner watches a spinner for the rest of the lesson.
+    """
+
+    class _Processor:
+        def process_chunk(self, text: str) -> list[str]:
+            return [f"audio:{text}"]
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:
+            assert commit is False
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine([ContentDelta(text="Hello."), TurnDone(reason="end")])
+    events = _run(engine, listen=True, app=_App())
+
+    kinds = [
+        "audio" if isinstance(e, str) else e.type.value if e.type else "?"
+        for e in events
+    ]
+    assert kinds.index(GeneratedType.CONTENT.value) < kinds.index("audio"), kinds
+
+
+@pytest.mark.usefixtures("calls")
+def test_audio_finished_while_the_lesson_wrote_on_is_collected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Synthesis runs behind the text, so finished segments have to be picked up as it goes.
+
+    `process_chunk` can only emit what is ready at the instant it is called. Segments that finish
+    afterwards sit in the processor until something drains them, and a lesson that only drained at
+    the end would leave the learner silent through the whole turn.
+    """
+    drained: list[int] = []
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            drained.append(1)
+            return [f"audio:ready-{len(drained)}"]
+
+        def finalize(self, *, commit: bool) -> list[str]:
+            assert commit is False
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [ContentDelta(text="a"), ContentDelta(text="b"), TurnDone(reason="end")]
+    )
+    events = _run(engine, listen=True, app=_App())
+
+    assert drained, "audio that finished between chunks was never collected"
+    assert "audio:ready-1" in [e for e in events if isinstance(e, str)]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_listening_lesson_is_sent_as_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each page of a listening lesson is its own element, so its audio can be bound to it.
+
+    Audio binding keeps one page per element. A lesson sent as a single undivided element
+    therefore keeps only one page's audio and leaves every other page marked speakable with
+    nothing to play, which the browser waits on rather than skipping.
+    """
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:
+            assert commit is False
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [
+            ContentDelta(text="First page.\n\n"),
+            ContentDelta(text='<div class="card">shown</div>\n\n'),
+            ContentDelta(text="Second page."),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine, listen=True, app=_App())
+
+    pages = [
+        part[2]
+        for e in events
+        if not isinstance(e, str)
+        for part in (e.get_mdflow_stream_parts() or [])
+    ]
+    assert pages, "a listening lesson carried no page numbers at all"
+    assert len(set(pages)) > 1, f"the whole lesson landed on one page: {pages}"
+    assert pages == sorted(pages), f"pages went backwards: {pages}"
+
+    said = "".join(
+        str(e.content)
+        for e in events
+        if not isinstance(e, str) and e.type == GeneratedType.CONTENT
+    )
+    assert said == 'First page.\n\n<div class="card">shown</div>\n\nSecond page.'
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_reading_lesson_is_not_paged() -> None:
+    """Paging exists to bind audio. A lesson nobody is listening to keeps its current shape."""
+    engine = _Engine(
+        [ContentDelta(text="a\n\n<div>b</div>\n\nc"), TurnDone(reason="end")]
+    )
+    events = _run(engine, listen=False)
+
+    assert not [
+        part
+        for e in events
+        if not isinstance(e, str)
+        for part in (e.get_mdflow_stream_parts() or [])
+    ]
