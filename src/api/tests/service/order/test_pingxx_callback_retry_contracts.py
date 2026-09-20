@@ -22,12 +22,14 @@ __all__ = ["billing_callback_app"]
 
 
 @pytest.mark.parametrize("scoped", [False, True])
-@pytest.mark.parametrize("missing_lock", [False, True])
+@pytest.mark.parametrize(
+    "lock_failure", ["missing", "busy", "factory_exception", "acquire_exception"]
+)
 def test_unavailable_payment_lock_returns_retry_response_without_marking_paid(
     billing_callback_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
     scoped: bool,
-    missing_lock: bool,
+    lock_failure: str,
 ) -> None:
     app = billing_callback_app
     register_common_handler(app)
@@ -80,9 +82,12 @@ def test_unavailable_payment_lock_returns_retry_response_without_marking_paid(
     )
     monkeypatch.setattr(callback, "get_payment_provider", Mock(return_value=provider))
     lock = Mock(acquire=Mock(return_value=False))
-    monkeypatch.setattr(
-        funs.cache_provider, "lock", Mock(return_value=None if missing_lock else lock)
-    )
+    lock_factory = Mock(return_value=None if lock_failure == "missing" else lock)
+    if lock_failure == "factory_exception":
+        lock_factory.side_effect = ConnectionError("Redis unavailable")
+    elif lock_failure == "acquire_exception":
+        lock.acquire.side_effect = ConnectionError("Redis disconnected")
+    monkeypatch.setattr(funs.cache_provider, "lock", lock_factory)
     notify = Mock()
     monkeypatch.setattr(funs, "send_order_feishu", notify)
 
@@ -101,4 +106,13 @@ def test_unavailable_payment_lock_returns_retry_response_without_marking_paid(
     assert snapshot.charge_object == "{}"
     assert user.state == USER_STATE_REGISTERED
     notify.assert_not_called()
+    lock_factory.assert_called_once_with(
+        "success_buy_record_from_pingxx" + snapshot.charge_id,
+        timeout=10,
+        blocking_timeout=10,
+    )
+    if lock_failure in {"busy", "acquire_exception"}:
+        lock.acquire.assert_called_once_with(blocking=True)
+    else:
+        lock.acquire.assert_not_called()
     lock.release.assert_not_called()

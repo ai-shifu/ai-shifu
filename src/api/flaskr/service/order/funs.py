@@ -2816,16 +2816,18 @@ def success_buy_record_from_pingxx(
         )
         if not pingxx_order:
             return None
-        lock = cache_provider.lock(
-            "success_buy_record_from_pingxx" + charge_id,
-            timeout=10,
-            blocking_timeout=10,
-        )
-
-        if not lock:
-            app.logger.error('lock failed for charge:"%s"', charge_id)
+        try:
+            lock = cache_provider.lock(
+                "success_buy_record_from_pingxx" + charge_id,
+                timeout=10,
+                blocking_timeout=10,
+            )
+            acquired = bool(lock and lock.acquire(blocking=True))
+        except Exception:
+            app.logger.exception('lock acquisition failed for charge:"%s"', charge_id)
             raise_error("server.order.orderStatusError")
-        if lock.acquire(blocking=True):
+
+        if acquired:
             try:
                 app.logger.info('success buy record from pingxx charge:"%s"', charge_id)
                 with unit_of_work():
@@ -2886,6 +2888,7 @@ def success_buy_record_from_pingxx(
             finally:
                 lock.release()
         else:
+            app.logger.error('lock failed for charge:"%s"', charge_id)
             raise_error("server.order.orderStatusError")
     return None
 
