@@ -1,6 +1,7 @@
 export type LoginMethod = 'email' | 'google' | 'password' | 'sms';
 export type LoginFailureCategory =
   | 'credentials_rejected'
+  | 'rate_limited'
   | 'request_failed'
   | 'start_failed'
   | 'callback_invalid'

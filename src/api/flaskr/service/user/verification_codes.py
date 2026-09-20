@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import hmac
 import threading
 from typing import TYPE_CHECKING, Literal
 
@@ -72,8 +73,10 @@ def _verification_attempt_key(app: Flask, kind: CodeKind, identifier: str) -> st
         normalized_identifier = (identifier or "").strip().lower()
     else:
         normalized_identifier = normalize_phone_identifier(identifier)
-    identifier_digest = hashlib.sha256(
-        f"{kind}:{normalized_identifier}".encode()
+    identifier_digest = hmac.new(
+        str(app.config["SECRET_KEY"]).encode("utf-8"),
+        f"verification-code:{kind}:{normalized_identifier}".encode(),
+        hashlib.sha256,
     ).hexdigest()
     return (
         f"{get_redis_key_prefix(app)}verification_code_state:"

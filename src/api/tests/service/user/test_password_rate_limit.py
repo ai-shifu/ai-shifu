@@ -167,6 +167,67 @@ def test_redis_failure_does_not_skip_password_verification(
     assert _post_password(test_client, phone, password)["code"] == 0
 
 
+def test_waiting_for_account_guard_holds_no_database_transaction(
+    test_client: object, monkeypatch: object
+) -> None:
+    from flaskr.dao import db
+    from flaskr.service.user.auth.providers import password as password_provider
+
+    real_attempt = password_provider.PasswordLoginAttempt
+    transaction_states: list[bool] = []
+
+    class CheckedAttempt:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self._delegate = real_attempt(*args, **kwargs)
+
+        def __enter__(self) -> object:
+            transaction_states.append(db.session().in_transaction())
+            return self._delegate.__enter__()
+
+        def __exit__(self, *args: object) -> None:
+            self._delegate.__exit__(*args)
+
+    monkeypatch.setattr(password_provider, "PasswordLoginAttempt", CheckedAttempt)
+
+    assert (
+        _post_password(test_client, "missing@example.com", "Wrong123")["code"] == 1016
+    )
+    assert transaction_states == [False]
+
+
+def test_lost_account_guard_rejects_an_otherwise_valid_login(
+    app: Flask,
+    test_client: object,
+    monkeypatch: object,
+    mock_redis_client: object,
+) -> None:
+    from flaskr.service.user.auth.providers import password as password_provider
+
+    phone = "15500007106"
+    password = "Correct123"
+    _create_phone_password_account(app, test_client, phone=phone, password=password)
+    app.config["PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS"] = 1
+
+    original_verify = password_provider.verify_password
+
+    def slow_verify(plain_text: str, password_hash: str) -> bool:
+        time.sleep(1.1)
+        return original_verify(plain_text, password_hash)
+
+    monkeypatch.setattr(password_provider, "verify_password", slow_verify)
+
+    original_lock = mock_redis_client.lock
+
+    def losing_lock(*args: object, **kwargs: object) -> object:
+        acquired_lock = original_lock(*args, **kwargs)
+        acquired_lock.extend = lambda *_args, **_kwargs: False
+        return acquired_lock
+
+    monkeypatch.setattr(mock_redis_client, "lock", losing_lock)
+
+    assert _post_password(test_client, phone, password)["code"] == 1039
+
+
 def test_password_limit_keys_do_not_contain_plaintext_identifier(
     test_client: object, mock_redis_client: object, caplog: object
 ) -> None:

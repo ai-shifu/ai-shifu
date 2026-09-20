@@ -24,6 +24,8 @@ class _RedisLock(Protocol):
 
     def release(self) -> None: ...
 
+    def extend(self, additional_time: float, replace_ttl: bool = False) -> bool: ...
+
 
 class _RedisClient(Protocol):
     def delete(self, *keys: str) -> int: ...
@@ -90,6 +92,9 @@ class PasswordLoginAttempt:
         self._lock_key = f"{base_key}:lock"
         self._redis: _RedisClient | None = None
         self._lock: _RedisLock | None = None
+        self._renew_stop = threading.Event()
+        self._lock_lost = threading.Event()
+        self._renew_thread: threading.Thread | None = None
         self._enabled = False
         self.blocked = False
 
@@ -101,17 +106,18 @@ class PasswordLoginAttempt:
             return self
 
         self._redis = redis_client
-        lock_timeout = float(
-            self._app.config.get("PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS", 5)
+        lock_lease = float(
+            self._app.config.get("PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS", 30)
         )
+        lock_wait = float(self._app.config.get("PASSWORD_LOGIN_LOCK_WAIT_SECONDS", 5))
         try:
             self._lock = redis_client.lock(
                 self._lock_key,
-                timeout=lock_timeout,
-                blocking_timeout=lock_timeout,
+                timeout=lock_lease,
+                blocking_timeout=lock_wait,
                 thread_local=False,
             )
-            if not self._lock.acquire(blocking=True, blocking_timeout=lock_timeout):
+            if not self._lock.acquire(blocking=True, blocking_timeout=lock_wait):
                 self.blocked = True
                 self._app.logger.info(
                     "security_event=password_login_rate_limited account=%s reason=concurrent",
@@ -119,6 +125,7 @@ class PasswordLoginAttempt:
                 )
                 return self
             self._enabled = True
+            self._start_renewal(lock_lease)
             self.blocked = bool(redis_client.exists(self._cooldown_key))
             if self.blocked:
                 self._app.logger.info(
@@ -132,6 +139,37 @@ class PasswordLoginAttempt:
             _warn_unavailable(self._app, type(exc).__name__)
         return self
 
+    def _start_renewal(self, lock_lease: float) -> None:
+        interval = max(0.1, lock_lease / 3)
+        self._renew_thread = threading.Thread(
+            target=self._renew_lock,
+            args=(lock_lease, interval),
+            daemon=True,
+            name="password-login-lock-renewer",
+        )
+        self._renew_thread.start()
+
+    def _renew_lock(self, lock_lease: float, interval: float) -> None:
+        while not self._renew_stop.wait(interval):
+            lock = self._lock
+            if lock is None:
+                return
+            try:
+                if not lock.extend(lock_lease, replace_ttl=True):
+                    self._mark_lock_lost()
+                    return
+            except Exception:
+                self._mark_lock_lost()
+                return
+
+    def _mark_lock_lost(self) -> None:
+        self._lock_lost.set()
+        self.blocked = True
+        self._app.logger.warning(
+            "security_event=password_login_rate_limited account=%s reason=lock_lost",
+            self.digest,
+        )
+
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
@@ -143,6 +181,12 @@ class PasswordLoginAttempt:
         self._release()
 
     def _release(self) -> None:
+        self._renew_stop.set()
+        renew_thread, self._renew_thread = self._renew_thread, None
+        if renew_thread is not None:
+            renew_thread.join(timeout=1)
+            if renew_thread.is_alive():
+                self._mark_lock_lost()
         lock, self._lock = self._lock, None
         if lock is not None:
             with contextlib.suppress(Exception):
@@ -150,6 +194,9 @@ class PasswordLoginAttempt:
 
     def record_failure(self) -> int | None:
         """Atomically count a failure and begin cooldown at the threshold."""
+        if self._lock_lost.is_set():
+            self.blocked = True
+            return None
         if not self._enabled or self._redis is None:
             return None
         window_seconds = int(
@@ -182,12 +229,16 @@ class PasswordLoginAttempt:
             )
         return failures
 
-    def clear(self) -> None:
+    def clear(self) -> bool:
         """Clear only this account's password failure state after success."""
+        if self._lock_lost.is_set():
+            self.blocked = True
+            return False
         if not self._enabled or self._redis is None:
-            return
+            return True
         try:
             self._redis.delete(self._failure_key, self._cooldown_key)
         except Exception as exc:
             self._enabled = False
             _warn_unavailable(self._app, type(exc).__name__)
+        return True

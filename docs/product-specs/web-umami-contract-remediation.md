@@ -255,7 +255,7 @@ The only contact enum is `surface=admin|invite|other`.
 | Event                   | Fields and allowed values                                                                                                                                                                 |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `learner_login_attempt` | `login_method` is `email`, `password`, `sms`, or `google`                                                                                                                                 |
-| `learner_login_result`  | `login_method`; `outcome` is `success` or `failed`; failed only: `failure_category` is `credentials_rejected`, `request_failed`, `start_failed`, `callback_invalid`, or `callback_failed` |
+| `learner_login_result`  | `login_method`; `outcome` is `success` or `failed`; failed only: `failure_category` is `credentials_rejected`, `rate_limited`, `request_failed`, `start_failed`, `callback_invalid`, or `callback_failed` |
 
 Credentials, mobile/email identifiers, OAuth code/state, token, user ID, and raw
 backend messages are excluded.

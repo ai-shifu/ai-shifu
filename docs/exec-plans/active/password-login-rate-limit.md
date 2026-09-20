@@ -11,13 +11,15 @@ Password login currently allows unlimited guesses and returns early for unknown 
 - [x] 2026-09-20 19:55 CST: Implemented the account-scoped limiter and integrated it with password verification.
 - [x] 2026-09-20 20:00 CST: Added focused contract, timing-path, failure, privacy, alias, and recovery tests.
 - [x] 2026-09-20 20:08 CST: Verified 20 focused route tests, 93 configuration tests, translations, and a 20-request real Redis concurrency probe.
-- [ ] 2026-09-20 20:10 CST: Run final repository gates and obtain commit/push approval.
+- [x] 2026-09-20 21:35 CST: Passed final repository gates, committed, pushed, and opened #2897.
+- [x] 2026-09-20 22:05 CST: Addressed review findings for database connection retention, renewable lock ownership, cooldown analytics, and the CodeQL identifier-digest alert.
 
 ## Surprises & Discoveries
 
 - The shared cache provider silently falls back to process memory. Password protection must use the owned Redis client directly so a Redis outage is observable and is not misrepresented as a cross-process limit.
 - Phone and email identifiers already resolve through `load_user_aggregate_by_identifier`; an existing account can therefore use its stable `user_bid` as the shared limit identity.
 - The full user-service suite remains blocked by the known local `markdown_flow` version mismatch: 410 tests pass and 36 profile-onboarding tests fail because `USER_ANSWER_CONTEXT_KEY` is absent. The password-focused tests do not import that incompatible path.
+- The first review found that resolving the account inside the route-owned transaction retained a database connection while waiting for Redis. Account resolution now completes before waiting, and account state is re-read after lock acquisition.
 
 ## Decision Log
 
@@ -29,6 +31,8 @@ Password login currently allows unlimited guesses and returns early for unknown 
   Rationale: availability is preserved, but password verification and all other authentication errors remain authoritative.
 - Decision: perform a fixed dummy bcrypt verification for unknown and passwordless accounts.
   Rationale: removes the obvious fast path used for account discovery.
+- Decision: renew the account lock while password verification runs and reject the attempt if ownership is lost.
+  Rationale: bcrypt duration can vary under load, so a fixed lease alone cannot preserve serialization.
 
 ## Outcomes & Retrospective
 

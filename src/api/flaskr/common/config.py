@@ -1141,9 +1141,17 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS": EnvVar(
         name="PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS",
+        default=30,
+        type=int,
+        description="Renewable Redis lock lease for one account sign-in",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_LOCK_WAIT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_LOCK_WAIT_SECONDS",
         default=5,
         type=int,
-        description="Maximum Redis lock lease and wait for one account sign-in",
+        description="Maximum wait to serialize one account sign-in",
         group="auth",
         validator=lambda value: int(value) > 0,
     ),
