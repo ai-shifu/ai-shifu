@@ -19,7 +19,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import BillingOrder
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.order import funs as order_funs
 from flaskr.service.order.admin import _load_payment_detail
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
@@ -707,12 +707,13 @@ def test_native_sync_rolls_back_when_payment_lock_is_lost_before_commit(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppError, match=r"server\.order\.orderStatusError"):
+    with pytest.raises(AppError) as error_info:
         sync_native_payment_order(
             native_payment_split_app,
             "order-native-lost-lock",
             expected_user="user-sync-1",
         )
+    assert error_info.value.code == ERROR_CODE["server.order.orderStatusError"]
 
     assert notifications == []
     with native_payment_split_app.app_context():
