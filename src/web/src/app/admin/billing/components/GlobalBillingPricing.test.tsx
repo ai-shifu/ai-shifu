@@ -143,29 +143,14 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.creditPacks.instantAndPermanent':
           'Credits are added immediately and never expire.',
         'module.billing.globalPricing.footnote.intro':
-          'Estimates use the default model.',
-        'module.billing.globalPricing.learnerEstimateLabel':
-          'Estimated learner sessions',
+          'The 2.5-hour AI literacy course reference uses about 25 credits in reading mode with a 1× model; hours are summed across learners.',
+        'module.billing.package.learningHours.label': 'Estimated learning time',
         'module.billing.globalPricing.monthlyOnly': 'Monthly only',
         'module.billing.globalPricing.mostPopular': 'Most Popular',
         'module.billing.globalPricing.plans.business.name': 'Business',
-        'module.billing.globalPricing.plans.business.estimates.annual':
-          '500 - 1,500 learner sessions',
-        'module.billing.globalPricing.plans.business.estimates.monthly':
-          '40 - 120 learner sessions',
         'module.billing.globalPricing.plans.growth.name': 'Growth',
-        'module.billing.globalPricing.plans.growth.estimates.annual':
-          '250 - 750 learner sessions',
-        'module.billing.globalPricing.plans.growth.estimates.monthly':
-          '20 - 60 learner sessions',
         'module.billing.globalPricing.plans.scale.name': 'Scale',
-        'module.billing.globalPricing.plans.scale.estimates.annual':
-          '1,100 - 3,300 learner sessions',
-        'module.billing.globalPricing.plans.scale.estimates.monthly':
-          '90 - 270 learner sessions',
         'module.billing.globalPricing.plans.studio.name': 'Studio',
-        'module.billing.globalPricing.plans.studio.estimates.monthly':
-          '5 - 15 learner sessions',
         'module.billing.globalPricing.tabs.creditPacks': 'Credit Packs',
         'module.billing.globalPricing.tabs.plans': 'Plans',
         'module.billing.globalPricing.validity.annual':
@@ -174,8 +159,8 @@ jest.mock('react-i18next', () => ({
           'Valid for 30 days from the day credits are granted, inclusive. Ends at 23:59 on the expiry day.',
         'module.billing.globalPricing.footnote.validity':
           'Credit validity: annual credits are valid for 12 months from the day they are granted.',
-        'module.billing.package.footnote.learnerEstimateMode':
-          'Listen mode affects supported sessions.',
+        'module.billing.globalPricing.footnote.listeningMode':
+          'Listen mode adds audio credit consumption and supports fewer hours.',
         'module.billing.package.footnote.learnerEstimateModel':
           'Model choice affects credit consumption.',
         'module.billing.package.footnote.learnerEstimateScale':
@@ -213,8 +198,8 @@ jest.mock('react-i18next', () => ({
       if (key === 'module.billing.globalPricing.creditsPerYear') {
         return `${options?.credits} credits per 12-month billing period`;
       }
-      if (key === 'module.billing.globalPricing.learnerEstimateValue') {
-        return `${options?.minimum} - ${options?.maximum} learner sessions`;
+      if (key === 'module.billing.package.learningHours.value') {
+        return `About ${options?.hours} hours`;
       }
       return labels[key] || key;
     };
@@ -334,7 +319,7 @@ describe('GlobalBillingPricing', () => {
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
   });
 
-  test('renders the approved annual plans with domestic learner estimates', async () => {
+  test('renders annual plans with learning hours and shared explanatory notes', async () => {
     renderPricing();
 
     const studio = await screen.findByTestId('global-plan-studio');
@@ -380,16 +365,12 @@ describe('GlobalBillingPricing', () => {
 
     expect(within(studio).getByText('Monthly only')).toBeInTheDocument();
     expect(within(studio).getByText('$59')).toBeInTheDocument();
-    expect(
-      within(studio).getByText('5 - 15 learner sessions'),
-    ).toBeInTheDocument();
+    expect(within(studio).getByText('About 100 hours')).toBeInTheDocument();
     expect(within(growth).getByText('$183')).toBeInTheDocument();
     expect(
       within(growth).getByText('50,000 credits per 12-month billing period'),
     ).toBeInTheDocument();
-    expect(
-      within(growth).getByText('250 - 750 learner sessions'),
-    ).toBeInTheDocument();
+    expect(within(growth).getByText('About 5,000 hours')).toBeInTheDocument();
     expect(
       within(growth).getByText('Save $549 per year (20.0%)'),
     ).toBeInTheDocument();
@@ -399,7 +380,7 @@ describe('GlobalBillingPricing', () => {
       within(business).getByText('Save $1,029 per year (20.5%)'),
     ).toBeInTheDocument();
     expect(
-      within(business).getByText('500 - 1,500 learner sessions'),
+      within(business).getByText('About 10,000 hours'),
     ).toBeInTheDocument();
     expect(business).not.toHaveClass('border-primary');
     expect(business).not.toHaveClass('ring-1');
@@ -407,15 +388,15 @@ describe('GlobalBillingPricing', () => {
     expect(
       within(scale).getByText('220,000 credits per 12-month billing period'),
     ).toBeInTheDocument();
-    expect(
-      within(scale).getByText('1,100 - 3,300 learner sessions'),
-    ).toBeInTheDocument();
+    expect(within(scale).getByText('About 22,000 hours')).toBeInTheDocument();
     expect(
       within(scale).getByText('Save $2,069 per year (20.6%)'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/extra|bonus/i)).not.toBeInTheDocument();
     expect(
-      screen.getByText('Estimates use the default model.'),
+      screen.getByText(
+        'The 2.5-hour AI literacy course reference uses about 25 credits in reading mode with a 1× model; hours are summed across learners.',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -423,7 +404,9 @@ describe('GlobalBillingPricing', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Listen mode affects supported sessions.'),
+      screen.getByText(
+        'Listen mode adds audio credit consumption and supports fewer hours.',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Model choice affects credit consumption.'),
@@ -490,17 +473,17 @@ describe('GlobalBillingPricing', () => {
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-growth')).getByText(
-        '20 - 60 learner sessions',
+        'About 400 hours',
       ),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-business')).getByText(
-        '40 - 120 learner sessions',
+        'About 800 hours',
       ),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-scale')).getByText(
-        '90 - 270 learner sessions',
+        'About 1,800 hours',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/first month/i)).not.toBeInTheDocument();

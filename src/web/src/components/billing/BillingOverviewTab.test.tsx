@@ -27,6 +27,9 @@ jest.mock('@/hooks/useTracking', () => ({
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {
+      if (key === 'module.billing.package.learningHours.value') {
+        return `About ${options?.hours} hours`;
+      }
       if (options?.date) {
         return `${key}:${options.date}`;
       }
@@ -470,6 +473,38 @@ describe('BillingOverviewTab', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  test('updates learning hours when catalog credits change for the same plan', () => {
+    const { rerender } = renderOverviewTab();
+    const estimateTestId =
+      'billing-plan-card-bill-product-plan-monthly-pro-learning-hours';
+    expect(screen.getByTestId(estimateTestId)).toHaveTextContent(
+      'About 10 hours',
+    );
+
+    mockUseSWR.mockReturnValue({
+      data: {
+        ...CATALOG_RESPONSE,
+        plans: CATALOG_RESPONSE.plans.map(plan =>
+          plan.product_code === 'creator-plan-monthly-pro'
+            ? { ...plan, credit_amount: 1000 }
+            : plan,
+        ),
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    rerender(<BillingOverviewTab />);
+
+    expect(screen.getByTestId(estimateTestId)).toHaveTextContent(
+      'About 100 hours',
+    );
+    expect(
+      within(screen.getByTestId('billing-overview-footnote')).getByText(
+        'module.billing.package.footnote.learnerEstimateIntro',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('renders monthly and yearly plans together in a single combined tab', async () => {

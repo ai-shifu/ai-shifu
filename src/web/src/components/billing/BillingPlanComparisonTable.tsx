@@ -26,19 +26,17 @@ import type {
   BillingTrialOffer,
 } from '@/types/billing';
 import { cn } from '@/lib/utils';
-import {
-  getFreeFeatureData,
-  getPlanFeatureData,
-  getPlanScaleKeys,
-} from './BillingOverviewCards';
+import { formatBillingLearningHours } from '@/lib/billingLearningHours';
+import { getFreeFeatureData, getPlanFeatureData } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
 
 // Language-neutral typographic enumerators that anchor each metric row label
 // to the matching footnote item. Not user-facing copy, so they stay out of
 // i18n.
-const ROW_ENUM_LEARNER = '①';
+const ROW_ENUM_LEARNING_HOURS = '①';
 const ROW_ENUM_VALIDITY = '②';
 const SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS = 24 * 60 * 60 * 1000;
+const MIN_PLAN_COLUMN_WIDTH_PX = 180;
 
 type FeatureRow = {
   i18nKey: string;
@@ -169,7 +167,7 @@ type ColumnDescriptor = {
   creditAmount: string;
   featured: boolean;
   validityShort: string;
-  studentLabel?: string;
+  learningHoursLabel: string;
   features: boolean[];
   action: ColumnAction;
 };
@@ -318,9 +316,6 @@ export function BillingPlanComparisonTable({
 
   if (renderFreeColumn) {
     const trialFeatureSet = new Set(trialFeatureKeys);
-    const trialScale = getPlanScaleKeys(
-      trialOffer?.product_code || 'creator-plan-trial',
-    );
     columns.push({
       key: 'free',
       testId: 'billing-plan-card-free',
@@ -352,7 +347,11 @@ export function BillingPlanComparisonTable({
             days: trialOffer.valid_days,
           })
         : emptyValue,
-      studentLabel: trialScale ? t(trialScale.students) : undefined,
+      learningHoursLabel: formatBillingLearningHours(
+        t,
+        trialOffer?.credit_amount || 0,
+        i18n.language,
+      ),
       features: featureRows.map(
         row => row.unlockIndex === -1 || trialFeatureSet.has(row.i18nKey),
       ),
@@ -478,7 +477,6 @@ export function BillingPlanComparisonTable({
     const checkoutKey = actionProvider
       ? `plan:${actionProvider}:${plan.product_bid}:${action || 'subscription'}`
       : null;
-    const planScale = getPlanScaleKeys(plan.product_code);
     const badgeKey = plan.status_badge_key;
     const showCurrentSubscriptionState =
       hasActiveSubscription && !hasPendingPreorder && !action && isCurrentPlan;
@@ -515,7 +513,11 @@ export function BillingPlanComparisonTable({
       }),
       featured: isCurrentPlan,
       validityShort: resolvePlanValidityShort(t, plan),
-      studentLabel: planScale ? t(planScale.students) : undefined,
+      learningHoursLabel: formatBillingLearningHours(
+        t,
+        plan.credit_amount,
+        i18n.language,
+      ),
       features: featureRows.map(
         row => row.unlockIndex === -1 || idx >= row.unlockIndex,
       ),
@@ -584,7 +586,10 @@ export function BillingPlanComparisonTable({
       className={styles.tableWrapper}
       data-testid='billing-plan-comparison-table'
     >
-      <table className={styles.table}>
+      <table
+        className={styles.table}
+        style={{ minWidth: columns.length * MIN_PLAN_COLUMN_WIDTH_PX }}
+      >
         <colgroup>
           {columns.map(col => (
             <col
@@ -690,11 +695,16 @@ export function BillingPlanComparisonTable({
                 className={cn(col.featured && styles.featuredColumn)}
               >
                 <div className={styles.cellLabel}>
-                  {t('module.billing.package.table.studentsRowLabel')}
-                  <span className='ml-1 font-medium'>{ROW_ENUM_LEARNER}</span>
+                  {t('module.billing.package.learningHours.label')}
+                  <span className='ml-1 font-medium'>
+                    {ROW_ENUM_LEARNING_HOURS}
+                  </span>
                 </div>
-                <div className={styles.cellValue}>
-                  {col.studentLabel || emptyValue}
+                <div
+                  className={styles.cellValue}
+                  data-testid={`${col.testId}-learning-hours`}
+                >
+                  {col.learningHoursLabel}
                 </div>
               </td>
             ))}

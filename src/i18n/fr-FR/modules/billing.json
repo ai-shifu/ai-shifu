@@ -833,45 +833,28 @@
     },
     "featuresLabel": "Avantages inclus",
     "footnote": {
-      "intro": "Les sessions d’apprentissage estimées reposent sur l’expérience de la plateforme et utilisent la référence “un apprenant termine le cours une fois, avec un cours d’environ 10 sections, une moyenne d’environ 15 minutes d’étude régulière par section, en utilisant le modèle par défaut tout au long du cours et avec le mode écoute activé”. La facturation réelle est calculée à partir de la consommation du modèle pendant l’étude, la prévisualisation et le débogage ; le détail des crédits consommés fait foi. Facteurs influant sur la consommation de crédits :",
+      "intro": "Référence : « Comprendre l’IA avec l’IA » (跟 AI 学 AI 通识). Le calcul suppose environ 2,5 heures par parcours complet et environ 25 crédits, observés sur un parcours entièrement tracé en mode lecture avec un modèle 1×. Les heures se cumulent : 10 apprenants étudiant 1 heure chacun représentent 10 heures.",
+      "listeningMode": "Le mode écoute ajoute des crédits vocaux à ceux du modèle : les mêmes crédits permettent donc de générer moins de contenu pédagogique. La consommation varie selon la voix et le débit.",
       "validity": "Validité des crédits : les crédits mensuels sont valables 30 jours à compter de leur attribution, jour inclus ; les crédits annuels sont valables 12 mois à compter de leur attribution. Les deux expirent à 23 h 59 le dernier jour."
     },
-    "learnerEstimateLabel": "Sessions d’apprentissage estimées",
-    "learnerEstimateValue": "{minimum} à {maximum} sessions d’apprentissage",
     "monthlyOnly": "Mensuel uniquement",
     "mostPopular": "Le plus populaire",
     "perMonth": "/ mois",
     "plans": {
       "business": {
         "description": "Grandes organisations diffusant des apprentissages personnalisés à grande échelle.",
-        "estimates": {
-          "annual": "500–1 500 sessions d’apprentissage",
-          "monthly": "40–120 sessions d’apprentissage"
-        },
         "name": "Business"
       },
       "growth": {
         "description": "Petites et moyennes organisations d’enseignement.",
-        "estimates": {
-          "annual": "250–750 sessions d’apprentissage",
-          "monthly": "20–60 sessions d’apprentissage"
-        },
         "name": "Growth"
       },
       "scale": {
         "description": "Très grandes organisations gérant des programmes d’apprentissage à fort volume.",
-        "estimates": {
-          "annual": "1 100–3 300 sessions d’apprentissage",
-          "monthly": "90–270 sessions d’apprentissage"
-        },
         "name": "Scale"
       },
       "studio": {
         "description": "Tester un cours léger ou valider une première expérience d’apprentissage.",
-        "estimates": {
-          "annual": "Forfait mensuel uniquement",
-          "monthly": "5–15 sessions d’apprentissage"
-        },
         "name": "Studio"
       }
     },
@@ -1072,10 +1055,10 @@
     },
     "featuresTitle": "Avantages inclus :",
     "footnote": {
-      "learnerEstimateIntro": "Les sessions d’apprentissage estimées reposent sur l’expérience de la plateforme et utilisent la référence “un apprenant termine le cours une fois, avec un cours d’environ 10 sections, une moyenne d’environ 15 minutes d’étude régulière par section, en utilisant le modèle par défaut tout au long du cours et avec le mode écoute activé”. La facturation réelle est calculée à partir de la consommation du modèle pendant l’étude, la prévisualisation et le débogage ; le détail des crédits consommés fait foi. Facteurs influant sur la consommation de crédits :",
-      "learnerEstimateMode": "Lorsque le mode écoute est désactivé et que seules les interactions d’apprentissage en texte et image restent actives, le nombre de sessions prises en charge peut augmenter de 1 à 4 fois.",
-      "learnerEstimateModel": "Le choix d’un modèle plus ou moins coûteux influera sur la consommation de crédits.",
-      "learnerEstimateScale": "Les changements de nombre de sections, de longueur de chaque section, de volume d’interactions, de taux d’achèvement ou de nombre de questions de suivi des apprenants influent sur la consommation de crédits.",
+      "learnerEstimateIntro": "Référence : « Comprendre l’IA avec l’IA » (跟 AI 学 AI 通识). Le calcul suppose environ 2,5 heures par parcours complet et environ 25 crédits, observés sur un parcours entièrement tracé en mode lecture avec un modèle 1×. Les heures se cumulent : 10 apprenants étudiant 1 heure chacun représentent 10 heures.",
+      "learnerEstimateMode": "Le mode écoute consomme aussi des crédits vocaux : l’échantillon utilisant la voix par défaut représente environ 40 crédits par heure audio, hors modèle. Le coût varie selon la voix et le débit.",
+      "learnerEstimateModel": "Un multiplicateur de modèle plus élevé réduit le temps d’apprentissage disponible avec les mêmes crédits.",
+      "learnerEstimateScale": "Il s’agit d’un exemple fondé sur un seul cours, pas d’un temps de connexion mesuré ni d’une promesse universelle. La consommation varie selon le cours, le modèle et les interactions. La création, les aperçus et le débogage utilisent aussi des crédits.",
       "validity": "Validité des crédits : les forfaits mensuels sont valables 30 jours à compter du jour de réception inclus ; les forfaits annuels sont valables par année calendaire à compter du jour de réception. Les deux expirent à 23:59 le jour d’expiration."
     },
     "free": {
@@ -1092,36 +1075,20 @@
       "topup": "Packs de crédits",
       "yearly": "Forfaits annuels"
     },
+    "learningHours": {
+      "label": "Temps d’apprentissage estimé",
+      "lessThanOne": "Moins de 1 heure",
+      "unavailable": "—",
+      "value": "Environ {hours} heures"
+    },
     "preorder": {
       "pending": "Précommande en attente : {plan} prendra effet le {date}."
-    },
-    "scale": {
-      "advanced": {
-        "students": "250 à 750 sessions apprenant"
-      },
-      "basic": {
-        "students": "5 à 15 sessions apprenant"
-      },
-      "free": {
-        "students": "5 à 15 sessions apprenant"
-      },
-      "lite": {
-        "students": "Moins d’une session apprenant"
-      },
-      "premium": {
-        "students": "1 100 à 3 300 sessions apprenant"
-      },
-      "pro": {
-        "students": "500 à 1 500 sessions apprenant"
-      },
-      "sectionTitle": "Capacité apprenant estimée"
     },
     "subtitle": "Choisissez le forfait de crédits adapté.",
     "table": {
       "creditsRowLabel": "Crédits par cycle",
       "emptyValue": "—",
       "featuresRowLabel": "Droits",
-      "studentsRowLabel": "Sessions apprenant estimées",
       "validityRowLabel": "Validité des crédits"
     },
     "title": "Acheter des crédits",

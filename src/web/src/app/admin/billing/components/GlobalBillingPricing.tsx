@@ -43,6 +43,7 @@ import {
   type CreatorBillingFailureCategory,
 } from '@/lib/billingAnalytics';
 import { rememberStripeBillingOrderForAnalytics } from '@/lib/stripe-storage';
+import { formatBillingLearningHours } from '@/lib/billingLearningHours';
 import { cn } from '@/lib/utils';
 import type {
   BillingCheckoutResult,
@@ -186,25 +187,13 @@ const CREDIT_PACK_CODES = [
 
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 const STRIPE_PAYMENT_PROVIDER = 'stripe' as const;
-const LEARNER_ESTIMATE_MARKER = '①';
+const LEARNING_HOURS_ESTIMATE_MARKER = '①';
 const CREDIT_VALIDITY_MARKER = '②';
 const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
   'canceled',
   'expired',
   'draft',
 ]);
-const LEARNER_SESSIONS_PER_1000_CREDITS = {
-  minimum: 5,
-  maximum: 15,
-} as const;
-
-function getLearnerSessionEstimate(creditAmount: number) {
-  return {
-    minimum: (creditAmount * LEARNER_SESSIONS_PER_1000_CREDITS.minimum) / 1000,
-    maximum: (creditAmount * LEARNER_SESSIONS_PER_1000_CREDITS.maximum) / 1000,
-  };
-}
-
 function resolveGlobalCampaignLabel(
   product: GlobalBillingProduct,
   t: ReturnType<typeof useTranslation>['t'],
@@ -593,7 +582,7 @@ export function GlobalBillingPricing() {
               <ul className='space-y-3'>
                 <li className='flex gap-2'>
                   <span className='shrink-0 font-medium text-foreground'>
-                    {LEARNER_ESTIMATE_MARKER}
+                    {LEARNING_HOURS_ESTIMATE_MARKER}
                   </span>
                   <div className='flex-1'>
                     {t('module.billing.globalPricing.footnote.intro')}
@@ -605,7 +594,7 @@ export function GlobalBillingPricing() {
                       </li>
                       <li>
                         {t(
-                          'module.billing.package.footnote.learnerEstimateMode',
+                          'module.billing.globalPricing.footnote.listeningMode',
                         )}
                       </li>
                       <li>
@@ -871,9 +860,6 @@ function PlanCard({
     cycle === 'annual' && tierSpec.annualMonthlyEquivalent
       ? tierSpec.annualMonthlyEquivalent
       : product.price_amount;
-  const learnerSessionEstimate = getLearnerSessionEstimate(
-    Number(product.credit_amount),
-  );
   const annualSavings = annualProduct
     ? monthlyProduct.price_amount * 12 - annualProduct.price_amount
     : 0;
@@ -1167,20 +1153,15 @@ function PlanCard({
           data-testid={`global-plan-${tierSpec.tier}-estimate`}
         >
           <p className='text-xs font-medium text-muted-foreground'>
-            {t('module.billing.globalPricing.learnerEstimateLabel')}
-            <span className='ml-1'>{LEARNER_ESTIMATE_MARKER}</span>
+            {t('module.billing.package.learningHours.label')}
+            <span className='ml-1'>{LEARNING_HOURS_ESTIMATE_MARKER}</span>
           </p>
           <p className='mt-1 text-sm text-foreground'>
-            {t('module.billing.globalPricing.learnerEstimateValue', {
-              minimum: formatBillingCredits(
-                learnerSessionEstimate.minimum,
-                locale,
-              ),
-              maximum: formatBillingCredits(
-                learnerSessionEstimate.maximum,
-                locale,
-              ),
-            })}
+            {formatBillingLearningHours(
+              t,
+              Number(product.credit_amount),
+              locale,
+            )}
           </p>
         </div>
 

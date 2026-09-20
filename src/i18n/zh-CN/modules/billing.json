@@ -833,45 +833,28 @@
     },
     "featuresLabel": "包含权益",
     "footnote": {
-      "intro": "学习人次是基于平台经验的预估，按“一人完整学完一次课程，课程规模约 10 个小节，平均每小节正常学习约 15 分钟，全部使用默认模型，并开启听课模式”的口径估算。实际扣费会根据学习、预览、调试中产生的模型消耗结算，最终以积分明细为准。积分消耗影响因素：",
+      "intro": "以《跟 AI 学 AI 通识》为参考：按每次完整学习约 2.5 小时、一个全程阅读的 1× 模型完课样本约 25 积分折算。时长为所有学生累计，例如 10 人各学习 1 小时，合计为 10 小时。",
+      "listeningMode": "听课模式会在模型用量之外另扣语音积分，同等积分可支持的新生成教学内容会减少；具体消耗随音色和语速而变化。",
       "validity": "积分有效期：月付套餐积分自到账之日起 30 天内有效（含当日）；年付套餐积分自到账之日起 12 个月内有效。两类均以到期日 23:59 为截止。"
     },
-    "learnerEstimateLabel": "预计支持学习人次",
-    "learnerEstimateValue": "{minimum} - {maximum} 人次",
     "monthlyOnly": "仅支持月付",
     "mostPopular": "最受欢迎",
     "perMonth": "/ 月",
     "plans": {
       "business": {
         "description": "规模化交付个性化学习的大型机构。",
-        "estimates": {
-          "annual": "500 - 1,500 人次",
-          "monthly": "40 - 120 人次"
-        },
         "name": "Business"
       },
       "growth": {
         "description": "中小型教学机构。",
-        "estimates": {
-          "annual": "250 - 750 人次",
-          "monthly": "20 - 60 人次"
-        },
         "name": "Growth"
       },
       "scale": {
         "description": "开展大规模学习项目的超大型机构。",
-        "estimates": {
-          "annual": "1,100 - 3,300 人次",
-          "monthly": "90 - 270 人次"
-        },
         "name": "Scale"
       },
       "studio": {
         "description": "进行轻量级课程体验或验证首个学习项目。",
-        "estimates": {
-          "annual": "仅支持月付",
-          "monthly": "5 - 15 人次"
-        },
         "name": "Studio"
       }
     },
@@ -1072,10 +1055,10 @@
     },
     "featuresTitle": "享有权益：",
     "footnote": {
-      "learnerEstimateIntro": "学习人次是基于平台经验的预估，按“一人完整学完一次课程，课程规模约 10 个小节，平均每小节正常学习约 15 分钟，全部使用默认模型，并开启听课模式”的口径估算。实际扣费会根据学习、预览、调试中产生的模型消耗结算，最终以积分明细为准。积分消耗影响因素：",
-      "learnerEstimateMode": "关闭听课模式、仅保留图文学习互动时，支持人次可增加 1-4 倍。",
-      "learnerEstimateModel": "选择更贵或更便宜的模型，会影响积分消耗。",
-      "learnerEstimateScale": "课程节数、每节长度、互动数量、完课率和学生追问次数的变化，都会影响积分消耗。",
+      "learnerEstimateIntro": "以《跟 AI 学 AI 通识》为参考：按每次完整学习约 2.5 小时、一个全程阅读的 1× 模型完课样本约 25 积分折算。时长为所有学生累计，例如 10 人各学习 1 小时，合计为 10 小时。",
+      "learnerEstimateMode": "听课模式另计语音积分：默认音色样本约 40 积分/音频小时（不含模型消耗），其他音色和语速会有差异。",
+      "learnerEstimateModel": "模型倍率越高，同等积分可支持的学习时长越短。",
+      "learnerEstimateScale": "这是单门课程的实例估算，并非实测在线时长或通用承诺。实际消耗随课程、模型和互动而变化；课程制作、预览与调试也会使用积分。",
       "validity": "积分有效期：月度套餐自获取之日起 30 天内有效（含当日）；年度套餐自获取之日起按自然年有效。两类均以到期日 23:59 为截止。"
     },
     "free": {
@@ -1092,36 +1075,20 @@
       "topup": "积分包",
       "yearly": "年度套餐"
     },
+    "learningHours": {
+      "label": "预计学习时长",
+      "lessThanOne": "约不到 1 小时",
+      "unavailable": "—",
+      "value": "约 {hours} 小时"
+    },
     "preorder": {
       "pending": "待生效预购：{plan} 将于 {date} 生效。"
-    },
-    "scale": {
-      "advanced": {
-        "students": "250 - 750 人次"
-      },
-      "basic": {
-        "students": "5 - 15 人次"
-      },
-      "free": {
-        "students": "5 - 15 人次"
-      },
-      "lite": {
-        "students": "少于 1 人次"
-      },
-      "premium": {
-        "students": "1100 - 3300 人次"
-      },
-      "pro": {
-        "students": "500 - 1500 人次"
-      },
-      "sectionTitle": "学员支持规模（参考）"
     },
     "subtitle": "请选择合适的积分套餐",
     "table": {
       "creditsRowLabel": "周期积分",
       "emptyValue": "—",
       "featuresRowLabel": "权益",
-      "studentsRowLabel": "预估支持学习人次",
       "validityRowLabel": "积分有效期"
     },
     "title": "积分购买",

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 
 // Language-neutral typographic enumerators that anchor the footnote items to
 // the matching table rows. Not user-facing copy, so they stay out of i18n.
-const FOOTNOTE_ENUM_LEARNER = '①';
+const FOOTNOTE_ENUM_LEARNING_HOURS = '①';
 const FOOTNOTE_ENUM_VALIDITY = '②';
 
 export function BillingOverviewFootnote() {
@@ -15,7 +15,9 @@ export function BillingOverviewFootnote() {
     >
       <ul className='space-y-3'>
         <li className='flex gap-2'>
-          <span className='shrink-0 font-medium'>{FOOTNOTE_ENUM_LEARNER}</span>
+          <span className='shrink-0 font-medium'>
+            {FOOTNOTE_ENUM_LEARNING_HOURS}
+          </span>
           <div className='flex-1'>
             {t('module.billing.package.footnote.learnerEstimateIntro')}
             <ol className='mt-1 list-decimal space-y-1 pl-5'>
