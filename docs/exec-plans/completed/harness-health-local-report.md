@@ -16,12 +16,16 @@ counts. Keep the report available locally and in CI without committing it.
   real missing/stale-report checks, architecture checks and the UOW ratchet.
 - [x] 2026-09-20 UTC: Complete `lefthook run pre-commit --all-files` with
   all checks passing; archive this implementation plan.
+- [x] 2026-09-20 UTC: Align canonical design, tool-compatibility and quality
+  guidance with the ignored snapshot contract after PR review.
 
 ## Surprises & Discoveries
 
 Two branches can make the same count change and merge without a text conflict,
 yet leave an incorrect total. Merge strategies cannot calculate the report.
-The checker currently requires both report existence and exact generated text.
+The previous checker required both report existence and exact generated text.
+PR review found that canonical design and compatibility docs still described
+that retired requirement; update those sources alongside usage instructions.
 
 ## Decision Log
 
@@ -38,7 +42,9 @@ The report can be missing or stale without weakening source validation.
 `--health-only` updates the snapshot without rewriting or creating indexes;
 default generation still refreshes both. Local Git ignores the report while
 retaining both policy baselines. Workflow YAML validation passes and both CI
-workflows publish the report; remote workflow execution follows PR creation.
+workflows publish the report. Static Checks on the initial PR head passed and
+verified summary/artifact publication. Canonical documentation now matches the
+optional snapshot and committed-index validation contracts.
 
 ## Context and Orientation
 

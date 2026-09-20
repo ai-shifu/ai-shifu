@@ -9,9 +9,9 @@
 | `docs/QUALITY_SCORE.md` | Quality Score | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/RELIABILITY.md` | Reliability | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/SECURITY.md` | Security | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
-| `docs/design-docs/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
+| `docs/design-docs/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `design-doc` | `implemented` | `repo` | `2026-09-20` | `true` |
 | `docs/design-docs/agent-first-harness.md` | Agent-First Harness Migration | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
-| `docs/design-docs/ai-tool-compat.md` | AI Tool Compatibility Layer Design | `design-doc` | `implemented` | `repo` | `2026-09-19` | `true` |
+| `docs/design-docs/ai-tool-compat.md` | AI Tool Compatibility Layer Design | `design-doc` | `implemented` | `repo` | `2026-09-20` | `true` |
 | `docs/design-docs/billing-credit-domain-terminology.md` | Billing Credit Domain Terminology | `design-doc` | `accepted` | `backend` | `2026-07-29` | `true` |
 | `docs/design-docs/billing-subscription-preorder.md` | Billing Subscription Preorder | `design-doc` | `proposed` | `backend` | `2026-05-25` | `true` |
 | `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-07-12` | `true` |
