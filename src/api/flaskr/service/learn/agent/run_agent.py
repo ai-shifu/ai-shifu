@@ -372,6 +372,59 @@ def _paged(
     )
 
 
+def _question(
+    event: InteractionRequest,
+    *,
+    pager: LessonPager | None,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+    app: Flask,
+    user_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Deliver a question as a 1.0 lesson does: its prompt with the text, then its controls."""
+    try:
+        translated = translate(
+            event, outline_bid=outline_bid, generated_block_bid=generated_block_bid
+        )
+    except UnrepresentableInteractionError:
+        # The controls would ask something other than the model did, so they are not sent. The
+        # question still is, as text, so the learner has something to answer.
+        app.logger.warning(
+            "interaction cannot be rendered as MarkdownFlow: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+            exc_info=True,
+        )
+        prompt = (
+            event.spec.prompt if event.spec.prompt and event.spec.prompt.strip() else ""
+        )
+        translated = (
+            [
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                    type=GeneratedType.CONTENT,
+                    content=prompt,
+                )
+            ]
+            if prompt
+            else []
+        )
+    prompts = [d for d in translated if d.type == GeneratedType.CONTENT]
+    controls = [d for d in translated if d.type != GeneratedType.CONTENT]
+    yield from _on_this_page(prompts, pager=pager, voice=voice)
+    if voice is not None:
+        yield from voice.finish()
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        type=GeneratedType.BREAK,
+        content="",
+    )
+    yield from controls
+
+
 def _without_markers(
     events: Iterable[object], markers: PreserveMarkerFilter
 ) -> Generator[object, None, None]:
@@ -510,18 +563,21 @@ def _stream_turn(
                 )
         if isinstance(event, InteractionRequest):
             # The question comes after the lesson text as its own block, the way a 1.0 lesson
-            # delivers it: the text's audio is finished and its block finalised first, so every
-            # row of it is written before the question's. History is ordered by the moment of
-            # writing, and a history whose last row was not the question read to the browser as a
-            # lesson to continue -- which it did, with nothing, on every reload.
-            if voice is not None:
-                yield from voice.finish()
-            yield RunMarkdownFlowDTO(
+            # delivers it: the question's own prompt joins the text, then the text's audio is
+            # finished and its block finalised, so every row of it is written before the
+            # question's controls. History is ordered by the moment of writing, and a history
+            # whose last row was not the question read to the browser as a lesson to continue --
+            # which it did, with nothing, on every reload.
+            yield from _question(
+                event,
+                pager=pager,
+                voice=voice,
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
-                type=GeneratedType.BREAK,
-                content="",
+                app=app,
+                user_bid=user_bid,
             )
+            continue
 
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
         # question emits one and then re-asks the question and ends the turn properly, so treating
