@@ -1942,8 +1942,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     description: uploaded file url
         """
         user_id = request.user.user_id
-        url = request.get_json().get("url")
-        if not url:
+        payload = request.get_json(silent=True)
+        url = payload.get("url") if isinstance(payload, dict) else None
+        if not isinstance(url, str) or not url.strip():
             raise_param_error("url is required")
         return make_common_response(upload_url(app, user_id, url))
 
