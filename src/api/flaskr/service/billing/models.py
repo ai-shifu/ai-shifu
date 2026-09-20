@@ -930,6 +930,48 @@ class BillingOrder(BillingTableMixin, db.Model):
     )
 
 
+class BillingRefundOperation(BillingTableMixin, db.Model):
+    """Keep one durable refund request and its outcome per original order."""
+
+    __tablename__ = "bill_refund_operations"
+    __table_args__ = (
+        UniqueConstraint(
+            "refund_operation_bid", name="uq_bill_refund_operations_operation_bid"
+        ),
+        UniqueConstraint(
+            "bill_order_bid", name="uq_bill_refund_operations_bill_order_bid"
+        ),
+        UniqueConstraint(
+            "idempotency_key", name="uq_bill_refund_operations_idempotency_key"
+        ),
+        Index("ix_bill_refund_operations_creator_status", "creator_bid", "status"),
+        {"comment": "Durable billing refund requests and reconciliation outcomes"},
+    )
+
+    refund_operation_bid = Column(String(36), nullable=False)
+    bill_order_bid = Column(String(36), nullable=False)
+    creator_bid = Column(String(36), nullable=False)
+    payment_provider = Column(String(32), nullable=False)
+    amount = Column(BIGINT, nullable=False)
+    payment_amount = Column(BIGINT, nullable=False)
+    currency = Column(String(16), nullable=False)
+    reason = Column(Text, nullable=False, default="")
+    payment_intent_id = Column(String(255), nullable=False, default="")
+    charge_id = Column(String(255), nullable=False, default="")
+    idempotency_key = Column(String(128), nullable=False)
+    product_bid = Column(String(36), nullable=False, default="")
+    subscription_bid = Column(String(36), nullable=False, default="")
+    order_type = Column(SmallInteger, nullable=False)
+    credit_amount = Column(CREDIT_NUMERIC, nullable=False, default=0)
+    provider_refund_id = Column(String(255), nullable=False, default="")
+    provider_status = Column(String(32), nullable=False, default="")
+    provider_result_version = Column(Integer, nullable=False, default=0)
+    provider_payload = Column(JSON, nullable=True)
+    status = Column(String(32), nullable=False, default="prepared")
+    submitted_at = Column(DateTime, nullable=True)
+    finalized_at = Column(DateTime, nullable=True)
+
+
 class BillingCampaign(BillingTableMixin, db.Model):
     """Persist billing campaign records."""
 

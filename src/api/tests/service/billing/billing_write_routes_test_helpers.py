@@ -599,6 +599,9 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
                 extra={"cancel_at_period_end": False},
             )
 
+        def reconcile_refund(self, *, request: object, app: object) -> None:
+            _ = (request, app)
+
         def refund_payment(self, *, request: object, app: object) -> object:
             _ = app
             refund_requests.append(
@@ -611,7 +614,22 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
             )
             return PaymentRefundResult(
                 provider_reference="re_billing_test",
-                raw_response={"id": "re_billing_test", "status": "succeeded"},
+                raw_response={
+                    "object": "refund",
+                    "id": "re_billing_test",
+                    "status": "succeeded",
+                    "amount": request.amount,
+                    "currency": request.metadata["currency"],
+                    "payment_intent": request.metadata.get("payment_intent_id"),
+                    "charge": request.metadata.get("charge_id"),
+                    "metadata": {
+                        "bill_order_bid": request.order_bid,
+                        "creator_bid": request.metadata["creator_bid"],
+                        "refund_operation_bid": request.metadata[
+                            "refund_operation_bid"
+                        ],
+                    },
+                },
                 status="succeeded",
             )
 

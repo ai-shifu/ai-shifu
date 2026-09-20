@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from uuid import uuid4
 
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
@@ -46,6 +48,7 @@ from flaskr.service.order.raw_snapshots import (
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy.exc import IntegrityError
 
 from .campaign_provider_discounts import (
     load_current_stripe_campaign_provider_discount,
@@ -86,6 +89,7 @@ from .models import (
     BillingOrder,
     BillingProduct,
     BillingProductProviderPrice,
+    BillingRefundOperation,
     BillingSubscription,
 )
 from .paid_side_effects import (
@@ -179,6 +183,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from flask import Flask
+    from flaskr.service.order.payment_providers import PaymentRefundResult
 
 _SELF_MANAGED_PREORDER_PROVIDERS = {"pingxx", "alipay", "wechatpay"}
 
@@ -1334,142 +1339,430 @@ def _stored_stripe_checkout_urls_match_current_origin(
     return True
 
 
-def refund_billing_order(
-    app: Flask,
+@dataclass(slots=True, frozen=True)
+class RefundOperation:
+    """Carry the durable request outside the database transaction."""
+
+    refund_operation_bid: str
+    bill_order_bid: str
+    creator_bid: str
+    payment_provider: str
+    amount: int
+    payment_amount: int
+    currency: str
+    reason: str
+    payment_intent_id: str
+    charge_id: str
+    idempotency_key: str
+    provider_refund_id: str
+    provider_status: str
+    provider_result_version: int
+    status: str
+    submitted_at: datetime | None
+    finalized_at: datetime | None
+
+    @classmethod
+    def capture(cls, operation: BillingRefundOperation) -> RefundOperation:
+        """Read all ORM fields before the current unit of work commits."""
+        return cls(
+            refund_operation_bid=operation.refund_operation_bid,
+            bill_order_bid=operation.bill_order_bid,
+            creator_bid=operation.creator_bid,
+            payment_provider=operation.payment_provider,
+            amount=int(operation.amount),
+            payment_amount=int(operation.payment_amount),
+            currency=operation.currency,
+            reason=operation.reason,
+            payment_intent_id=operation.payment_intent_id,
+            charge_id=operation.charge_id,
+            idempotency_key=operation.idempotency_key,
+            provider_refund_id=operation.provider_refund_id or "",
+            provider_status=operation.provider_status or "",
+            provider_result_version=int(operation.provider_result_version),
+            status=operation.status,
+            submitted_at=operation.submitted_at,
+            finalized_at=operation.finalized_at,
+        )
+
+    def provider_request(self) -> PaymentRefundRequest:
+        """Reconstruct exactly the same request for every provider retry."""
+        metadata: dict[str, Any] = {
+            "bill_order_bid": self.bill_order_bid,
+            "creator_bid": self.creator_bid,
+            "currency": self.currency,
+            "payment_amount": self.payment_amount,
+            "refund_operation_bid": self.refund_operation_bid,
+            "idempotency_key": self.idempotency_key,
+        }
+        if self.payment_intent_id:
+            metadata["payment_intent_id"] = self.payment_intent_id
+        if self.charge_id:
+            metadata["charge_id"] = self.charge_id
+        if self.provider_refund_id:
+            metadata["refund_reference_id"] = self.provider_refund_id
+        return PaymentRefundRequest(
+            order_bid=self.bill_order_bid,
+            amount=self.amount,
+            reason=self.reason or None,
+            metadata=metadata,
+        )
+
+    def result(self, status: str) -> BillingRefundResultDTO:
+        """Return the existing billing response envelope."""
+        return BillingRefundResultDTO(
+            bill_order_bid=self.bill_order_bid,
+            provider=self.payment_provider,
+            status=status,
+            refund_reference_id=self.provider_refund_id or None,
+        )
+
+
+def _load_refund_state_for_update(
+    creator_bid: str,
+    bill_order_bid: str,
+) -> tuple[BillingOrder, BillingRefundOperation | None]:
+    # Every phase locks the original order before its operation. Refresh even
+    # when an identity-map object was loaded by the caller or an earlier phase.
+    order = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == creator_bid,
+            BillingOrder.bill_order_bid == bill_order_bid,
+        )
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+    if order is None:
+        raise_error("server.order.orderNotFound")
+    operation = (
+        BillingRefundOperation.query.filter(
+            BillingRefundOperation.bill_order_bid == bill_order_bid,
+        )
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+    return order, operation
+
+
+def _requested_refund_amount(payload: dict[str, object]) -> int | None:
+    value = payload.get("amount")
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise_param_error("amount must be a positive integer")
+    if isinstance(value, str) and not value.strip().isascii():
+        raise_param_error("amount must be a positive integer")
+    if isinstance(value, str) and not value.strip().isdecimal():
+        raise_param_error("amount must be a positive integer")
+    amount = int(value)
+    if amount <= 0:
+        raise_param_error("amount must be a positive integer")
+    return amount
+
+
+def _validate_refund_operation(
+    order: BillingOrder,
+    operation: BillingRefundOperation,
+    payload: dict[str, object],
+) -> None:
+    amount = _requested_refund_amount(payload)
+    if (
+        operation.deleted
+        or operation.creator_bid != order.creator_bid
+        or operation.payment_provider != order.payment_provider
+        or operation.payment_amount != int(order.paid_amount or 0)
+        or operation.currency != str(order.currency or "").strip().lower()
+        or (amount is not None and amount != operation.amount)
+        or (
+            "reason" in payload
+            and _normalize_bid(payload.get("reason")) != operation.reason
+        )
+    ):
+        raise_error("server.order.orderRefundError")
+    references = _build_refund_provider_metadata(order)
+    if (
+        references.payment_intent_id
+        and references.payment_intent_id != operation.payment_intent_id
+    ) or (references.charge_id and references.charge_id != operation.charge_id):
+        raise_error("server.order.orderRefundError")
+
+
+def _prepare_refund_operation(
     creator_bid: str,
     bill_order_bid: str,
     payload: dict[str, object],
-) -> BillingRefundResultDTO:
-    """Refund a paid billing order through the shared provider adapter."""
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_order_bid = _normalize_bid(bill_order_bid)
-    refund_reason = _normalize_bid(payload.get("reason"))
-    refund_amount_value = payload.get("amount")
-    refund_amount = None
-    if refund_amount_value not in (None, ""):
-        refund_amount = int(refund_amount_value)
-
-    with app_context_scope(app), unit_of_work():
-        order = (
-            BillingOrder.query.filter(
-                BillingOrder.deleted == 0,
-                BillingOrder.creator_bid == normalized_creator_bid,
-                BillingOrder.bill_order_bid == normalized_order_bid,
+) -> RefundOperation | BillingRefundResultDTO:
+    try:
+        with unit_of_work():
+            order, operation = _load_refund_state_for_update(
+                creator_bid, bill_order_bid
             )
-            .order_by(BillingOrder.id.desc())
-            .first()
-        )
-        if order is None:
-            raise_error("server.order.orderNotFound")
-
-        if order.payment_provider in {"pingxx", "alipay", "wechatpay"}:
-            return BillingRefundResultDTO(
-                bill_order_bid=order.bill_order_bid,
-                provider=order.payment_provider,
-                status="unsupported",
-            )
-
-        if order.status == BILLING_ORDER_STATUS_REFUNDED:
-            return BillingRefundResultDTO(
-                bill_order_bid=order.bill_order_bid,
-                provider=order.payment_provider,
-                status="refunded",
-            )
-
-        if order.status != BILLING_ORDER_STATUS_PAID:
-            raise_error("server.order.orderStatusError")
-
-        provider = get_payment_provider(order.payment_provider)
-        product = (
-            BillingProduct.query.filter(
+            if order.payment_provider in {"pingxx", "alipay", "wechatpay"}:
+                return BillingRefundResultDTO(
+                    bill_order_bid=order.bill_order_bid,
+                    provider=order.payment_provider,
+                    status="unsupported",
+                )
+            if operation is not None:
+                _validate_refund_operation(order, operation, payload)
+                return RefundOperation.capture(operation)
+            if order.status == BILLING_ORDER_STATUS_REFUNDED:
+                return BillingRefundResultDTO(
+                    bill_order_bid=order.bill_order_bid,
+                    provider=order.payment_provider,
+                    status="refunded",
+                )
+            if order.status != BILLING_ORDER_STATUS_PAID:
+                raise_error("server.order.orderStatusError")
+            amount = _requested_refund_amount(payload)
+            payment_amount = int(order.paid_amount or 0)
+            amount = payment_amount if amount is None else amount
+            if payment_amount <= 0 or amount > payment_amount:
+                raise_error("server.order.orderRefundError")
+            references = _build_refund_provider_metadata(order)
+            if not (references.payment_intent_id or references.charge_id):
+                raise_error("server.order.orderRefundError")
+            currency = str(order.currency or "").strip().lower()
+            if len(currency) != 3 or not currency.isascii() or not currency.isalpha():
+                raise_error("server.order.orderRefundError")
+            reason = _normalize_bid(payload.get("reason"))
+            if reason not in {"", "duplicate", "fraudulent", "requested_by_customer"}:
+                raise_param_error("reason is invalid")
+            product = BillingProduct.query.filter(
                 BillingProduct.deleted == 0,
                 BillingProduct.product_bid == order.product_bid,
+            ).first()
+            operation_bid = str(uuid4())
+            operation = BillingRefundOperation(
+                refund_operation_bid=operation_bid,
+                bill_order_bid=order.bill_order_bid,
+                creator_bid=order.creator_bid,
+                payment_provider=order.payment_provider,
+                amount=amount,
+                payment_amount=payment_amount,
+                currency=currency,
+                reason=reason,
+                payment_intent_id=references.payment_intent_id or "",
+                charge_id=references.charge_id or "",
+                idempotency_key=f"billing-refund:{operation_bid}",
+                product_bid=order.product_bid,
+                subscription_bid=order.subscription_bid or "",
+                order_type=order.order_type,
+                credit_amount=_to_decimal(product.credit_amount if product else 0),
+                provider_refund_id="",
+                provider_status="",
+                status="prepared",
             )
-            .order_by(BillingProduct.id.desc())
-            .first()
-        )
-        refund_result = provider.refund_payment(
-            request=PaymentRefundRequest(
-                order_bid=order.bill_order_bid,
-                amount=refund_amount,
-                reason=refund_reason or None,
-                metadata=_build_refund_provider_metadata(order).to_provider_payload(),
-            ),
-            app=app,
-        )
-        if str(refund_result.status or "").lower() in {"failed", "canceled"}:
-            raise_error("server.order.orderRefundError")
+            db.session.add(operation)
+            db.session.flush()
+            return RefundOperation.capture(operation)
+    except IntegrityError:
+        # The unique original-order key also protects engines without row locks.
+        # Only recover an actual competing operation; unrelated integrity errors
+        # must remain visible.
+        with unit_of_work():
+            order, operation = _load_refund_state_for_update(
+                creator_bid, bill_order_bid
+            )
+            if operation is None:
+                raise
+            _validate_refund_operation(order, operation, payload)
+            return RefundOperation.capture(operation)
 
+
+def _mark_refund_submitted(operation: RefundOperation) -> RefundOperation:
+    with unit_of_work():
+        order, row = _load_refund_state_for_update(
+            operation.creator_bid, operation.bill_order_bid
+        )
+        if row is None or row.refund_operation_bid != operation.refund_operation_bid:
+            raise_error("server.order.orderRefundError")
+        _validate_refund_operation(order, row, {})
+        if row.finalized_at is not None or row.provider_refund_id:
+            return RefundOperation.capture(row)
+        now = now_utc()
+        if row.submitted_at is not None and (
+            now < row.submitted_at or now - row.submitted_at >= timedelta(hours=23)
+        ):
+            row.status = "reconciliation_required"
+        else:
+            # MySQL DATETIME(0) rounds fractional seconds. Truncate the first
+            # persisted time so concurrent retries cannot see it in the future;
+            # starting the window earlier also never extends the retry limit.
+            row.submitted_at = row.submitted_at or now.replace(microsecond=0)
+            row.status = "submitted"
+        return RefundOperation.capture(row)
+
+
+def _store_refund_provider_result(
+    operation: RefundOperation,
+    result: PaymentRefundResult,
+) -> RefundOperation | None:
+    status = str(result.status or "").strip().lower()
+    reference = _normalize_bid(result.provider_reference)
+    with unit_of_work():
+        order, row = _load_refund_state_for_update(
+            operation.creator_bid, operation.bill_order_bid
+        )
+        if row is None or row.refund_operation_bid != operation.refund_operation_bid:
+            raise_error("server.order.orderRefundError")
+        _validate_refund_operation(order, row, {})
+        if row.finalized_at is not None:
+            return RefundOperation.capture(row)
+        if row.provider_result_version != operation.provider_result_version:
+            # The provider read happened before another caller saved a result.
+            # Reconcile again instead of letting its late response overwrite it.
+            return None
+        if (
+            status
+            not in {"succeeded", "pending", "requires_action", "failed", "canceled"}
+            or not reference
+        ):
+            raise_error("server.order.orderRefundError")
+        if row.provider_refund_id and row.provider_refund_id != reference:
+            raise_error("server.order.orderRefundError")
+        row.provider_refund_id = reference
+        row.provider_status = status
+        row.provider_result_version += 1
+        row.provider_payload = _normalize_json_object(
+            result.raw_response
+        ).to_metadata_json()
+        row.status = "failed" if status in {"failed", "canceled"} else "pending"
+        return RefundOperation.capture(row)
+
+
+def _finalize_refund_operation(
+    app: Flask, operation: RefundOperation
+) -> BillingRefundResultDTO:
+    with _credit_ledger_lock(app, operation.creator_bid), unit_of_work():
+        order, row = _load_refund_state_for_update(
+            operation.creator_bid, operation.bill_order_bid
+        )
+        if row is None or row.refund_operation_bid != operation.refund_operation_bid:
+            raise_error("server.order.orderRefundError")
+        _validate_refund_operation(order, row, {})
+        if row.finalized_at is not None:
+            return RefundOperation.capture(row).result("refunded")
+        if row.provider_status != "succeeded" or not row.provider_refund_id:
+            raise_error("server.order.orderRefundError")
+        if order.status not in {
+            BILLING_ORDER_STATUS_PAID,
+            BILLING_ORDER_STATUS_REFUNDED,
+        }:
+            raise_error("server.order.orderStatusError")
         now = now_utc()
         order.status = BILLING_ORDER_STATUS_REFUNDED
         order.refunded_at = order.refunded_at or now
         order.updated_at = now
         merged_order_metadata = _merge_provider_metadata(
             existing=order.metadata_json,
-            provider=order.payment_provider,
+            provider=row.payment_provider,
             source="api_refund",
             event_type="refund_payment",
-            payload=refund_result.raw_response,
+            payload=row.provider_payload or {},
             event_time=None,
         )
-        merged_order_metadata["refund_reference_id"] = refund_result.provider_reference
-        merged_order_metadata["refund_status"] = refund_result.status
+        merged_order_metadata["refund_reference_id"] = row.provider_refund_id
+        merged_order_metadata["refund_status"] = row.provider_status
         order.metadata_json = _normalize_json_object(
             merged_order_metadata
         ).to_metadata_json()
-        db.session.add(order)
         _persist_billing_stripe_raw_snapshot(
             order,
             create_if_missing=False,
             metadata={
-                "last_refund_id": refund_result.provider_reference,
-                "refund_status": refund_result.status,
+                "last_refund_id": row.provider_refund_id,
+                "refund_status": row.provider_status,
             },
-            payment_object=refund_result.raw_response,
+            payment_object=row.provider_payload or {},
         )
-
-        if order.subscription_bid:
-            subscription = _load_subscription_by_bid(order.subscription_bid)
+        if row.subscription_bid:
+            subscription = _load_subscription_by_bid(row.subscription_bid)
             if subscription is not None:
                 subscription.cancel_at_period_end = 1
                 subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
                 subscription.updated_at = now
                 merged_subscription_metadata = _merge_provider_metadata(
                     existing=subscription.metadata_json,
-                    provider=order.payment_provider,
+                    provider=row.payment_provider,
                     source="api_refund",
                     event_type="refund_payment",
-                    payload=refund_result.raw_response,
+                    payload=row.provider_payload or {},
                     event_time=None,
                 )
                 subscription.metadata_json = _normalize_json_object(
                     merged_subscription_metadata
                 ).to_metadata_json()
                 _sync_subscription_lifecycle_events(app, subscription)
-                db.session.add(subscription)
-
-        refund_credit_amount = _to_decimal(product.credit_amount if product else 0)
-        refund_reference_id = _normalize_bid(refund_result.provider_reference)
-        if refund_credit_amount > 0 and refund_reference_id:
+        if row.credit_amount > 0:
             grant_refund_return_credits(
                 app,
-                creator_bid=normalized_creator_bid,
-                amount=refund_credit_amount,
-                refund_bid=refund_reference_id,
+                creator_bid=row.creator_bid,
+                amount=row.credit_amount,
+                refund_bid=row.provider_refund_id,
                 metadata={
-                    "bill_order_bid": order.bill_order_bid,
-                    "product_bid": order.product_bid,
-                    "refund_reason": refund_reason,
+                    "bill_order_bid": row.bill_order_bid,
+                    "product_bid": row.product_bid,
+                    "refund_reason": row.reason,
                 },
                 effective_from=now,
             )
+        row.status = "finalized"
+        row.finalized_at = now
+        return RefundOperation.capture(row).result("refunded")
 
-        return BillingRefundResultDTO(
-            bill_order_bid=order.bill_order_bid,
-            provider=order.payment_provider,
-            status="refunded",
-            refund_reference_id=refund_result.provider_reference,
-        )
+
+def refund_billing_order(
+    app: Flask,
+    creator_bid: str,
+    bill_order_bid: str,
+    payload: dict[str, object],
+) -> BillingRefundResultDTO:
+    """Reconcile a durable refund request before creating or finalizing it."""
+    require_transaction_owner("billing refund", app)
+    with app_context_scope(app):
+        for _ in range(3):
+            operation = _prepare_refund_operation(
+                _normalize_bid(creator_bid), _normalize_bid(bill_order_bid), payload
+            )
+            if isinstance(operation, BillingRefundResultDTO):
+                return operation
+            if operation.finalized_at is not None:
+                return operation.result("refunded")
+            provider = get_payment_provider(operation.payment_provider)
+            result = provider.reconcile_refund(
+                request=operation.provider_request(), app=app
+            )
+            if result is None:
+                operation = _mark_refund_submitted(operation)
+                if operation.finalized_at is not None:
+                    return operation.result("refunded")
+                if operation.status == "reconciliation_required":
+                    return operation.result("reconciliation_required")
+                if operation.provider_refund_id:
+                    # Another caller saved the provider result after our first query.
+                    result = provider.reconcile_refund(
+                        request=operation.provider_request(), app=app
+                    )
+                    if result is None:
+                        raise_error("server.order.orderRefundError")
+                else:
+                    result = provider.refund_payment(
+                        request=operation.provider_request(), app=app
+                    )
+            operation = _store_refund_provider_result(operation, result)
+            if operation is None:
+                continue
+            if operation.finalized_at is not None:
+                return operation.result("refunded")
+            if operation.provider_status in {"failed", "canceled"}:
+                raise_error("server.order.orderRefundError")
+            if operation.provider_status != "succeeded":
+                return operation.result("pending")
+            return _finalize_refund_operation(app, operation)
+        return raise_error("server.order.orderRefundError")
 
 
 def sync_billing_order(

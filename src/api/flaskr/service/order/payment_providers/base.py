@@ -148,6 +148,17 @@ class PaymentProvider(ABC):
         message = f"{self.__class__.__name__} does not support refunds"
         raise NotImplementedError(message)
 
+    def reconcile_refund(
+        self, *, request: PaymentRefundRequest, app: object
+    ) -> PaymentRefundResult | None:
+        """Read an existing refund without creating a replacement.
+
+        None means a complete query found no refund history, not that replaying
+        an indeterminate or expired refund request is safe.
+        """
+        message = f"{self.__class__.__name__} does not support refund reconciliation"
+        raise NotImplementedError(message)
+
     def cancel_payment(
         self,
         *,

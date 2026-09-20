@@ -167,12 +167,30 @@ def test_subscription_refund_commits_order_subscription_and_return_credits_atomi
     late_failure: bool, app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     reference = f"re-{uuid4().hex}"
+    provider_payloads: list[dict[str, object]] = []
+
+    def refund_payment(*, request: object, app: object) -> PaymentRefundResult:
+        _ = app
+        response = {
+            "object": "refund",
+            "id": reference,
+            "status": "succeeded",
+            "amount": request.amount,
+            "currency": request.metadata["currency"],
+            "payment_intent": request.metadata["payment_intent_id"],
+            "charge": request.metadata["charge_id"],
+            "metadata": {
+                "bill_order_bid": request.order_bid,
+                "creator_bid": request.metadata["creator_bid"],
+                "refund_operation_bid": request.metadata["refund_operation_bid"],
+            },
+        }
+        provider_payloads.append(response)
+        return PaymentRefundResult(reference, response, "succeeded")
+
     provider = Mock(
-        refund_payment=Mock(
-            return_value=PaymentRefundResult(
-                reference, {"id": reference, "status": "succeeded"}, "succeeded"
-            )
-        )
+        refund_payment=Mock(side_effect=refund_payment),
+        reconcile_refund=Mock(return_value=None),
     )
     monkeypatch.setattr(checkout, "get_payment_provider", Mock(return_value=provider))
     with app.app_context():
@@ -219,20 +237,20 @@ def test_subscription_refund_commits_order_subscription_and_return_credits_atomi
                     app,
                     order.creator_bid,
                     order.bill_order_bid,
-                    {"amount": "1000", "reason": " requested "},
+                    {"amount": "1000", "reason": " requested_by_customer "},
                 )
         else:
             result = checkout.refund_billing_order(
                 app,
                 order.creator_bid,
                 order.bill_order_bid,
-                {"amount": "1000", "reason": " requested "},
+                {"amount": "1000", "reason": " requested_by_customer "},
             )
             assert result.refund_reference_id == reference
         assert observed == [order.bill_order_bid]
         request = provider.refund_payment.call_args.kwargs["request"]
         assert request.amount == 1000
-        assert request.reason == "requested"
+        assert request.reason == "requested_by_customer"
         assert request.metadata["payment_intent_id"] == "pi_refund"
         assert request.metadata["charge_id"] == "ch_refund"
         db.session.expire_all()
@@ -264,10 +282,7 @@ def test_subscription_refund_commits_order_subscription_and_return_credits_atomi
             assert order.refunded_at is not None
             assert order.metadata_json["refund_reference_id"] == reference
             assert plan.metadata_json["latest_source"] == "api_refund"
-            assert plan.metadata_json["latest_provider_payload"] == {
-                "id": reference,
-                "status": "succeeded",
-            }
+            assert plan.metadata_json["latest_provider_payload"] == provider_payloads[0]
             assert json.loads(snapshot.metadata_json)["last_refund_id"] == reference
             first_balance = wallets[0].available_credits
             checkout.refund_billing_order(

@@ -61,6 +61,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Arabic and Thai Product i18n](./completed/arabic-thai-i18n.md)
 - [Backend Test Coverage Above 95 Percent](./completed/backend-test-coverage-95.md)
 - [Billing learning-time estimates](./completed/billing-learning-hours.md)
+- [Billing refund retry and reconciliation](./completed/billing-refund-retry-reconciliation.md)
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Consolidate shared admin primitives](./completed/consolidate-admin-primitives.md)

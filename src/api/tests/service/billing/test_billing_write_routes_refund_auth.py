@@ -94,7 +94,7 @@ class TestBillingWriteRoutesRefundAuth:
                 app,
                 "creator-1",
                 bill_order_bid,
-                {"reason": "requested_by_creator"},
+                {"reason": "requested_by_customer"},
             )
 
         assert refund.status == "refunded"

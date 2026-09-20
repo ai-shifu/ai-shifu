@@ -345,7 +345,7 @@ v1 冻结 subscription lifecycle 规则：
 
 本表职责与边界：
 
-- 一次 checkout、一笔续费、一笔 topup、一笔退款，各自对应一条 `bill_orders`
+- 一次 checkout、一笔续费、一笔 topup，各自对应一条 `bill_orders`；当前内部退款 helper 更新原订单，执行记录由 `bill_refund_operations` 保存
 - v1 不引入 `payment_attempts` 子表；支付重试通过创建新的 `bill_orders` 完成
 - `bill_orders` 通过 `provider_reference_id`、当前状态和单向状态推进规则承担 webhook 幂等
 - 订单级 webhook 直接推进 `bill_orders` 状态，并覆盖写入最近一次 provider payload 到 `metadata`
@@ -398,6 +398,78 @@ v1 冻结 subscription lifecycle 规则：
 - 若先上线 30 分钟订单有效期 / pending 订单复用，本优化的复用条件必须
   同时比较商品价格、活动快照、`order_type`、checkout action、effective mode
   和 provider/channel，避免复用到旧的非活动订单或过期活动订单。
+
+#### 3.3.1 Durable refund operations
+
+The existing internal refund helper retains one terminal refund per original
+billing order, including when an explicit partial amount is requested. It does
+not create another `bill_orders` row or reopen the disabled teacher refund
+route. `bill_refund_operations` records execution and recovery for that helper;
+the original order remains the source of truth for the resulting payment state.
+
+| Field group | Stored contract |
+| --- | --- |
+| Identity | Unique `refund_operation_bid`, unique original `bill_order_bid`, unique `idempotency_key`, and `creator_bid` |
+| Immutable provider request | `payment_provider`, positive `amount` in minor units, original `payment_amount`, `currency`, `reason`, `payment_intent_id`, and `charge_id` |
+| Local finalization snapshot | Original `product_bid`, `subscription_bid`, `order_type`, and `credit_amount` |
+| Provider evidence | `provider_refund_id`, `provider_status`, JSON `provider_payload`, and monotonic `provider_result_version` |
+| Execution state | `status`, nullable UTC `submitted_at` and `finalized_at`, and the standard billing ID/deletion/UTC timestamp columns |
+
+The database enforces one operation per original order. Preparation and each
+later local persistence step use a short unit of work with a fixed original
+order then operation lock order. The provider calls happen after the relevant
+transaction commits. Database locks, the operation's finalization marker, and
+the existing credit-ledger uniqueness constraints guard local completion;
+Redis availability is not the correctness boundary.
+
+An omitted amount becomes the original paid amount when preparing the operation.
+Retries reuse the saved request. Explicit conflicting parameters are rejected;
+they do not allocate another operation or rotate its key. Every retry first
+performs read-only provider reconciliation. An explicit provider refund ID or
+matching operation metadata can identify a partial refund. Legacy refunds with
+neither identifier are automatically adopted only when complete provider
+history contains one attributable full refund with matching payment, owner,
+amount, and currency. Missing, ambiguous, or contradictory evidence fails
+closed and requires operator reconciliation.
+
+The first possible submission time is committed before provider creation. A
+request with no known provider result may reuse its key only within 23 hours
+of that time, below Stripe's minimum 24-hour key-retention window. An older
+uncertain request returns `reconciliation_required` without issuing another
+refund. A timeout never proves that Stripe did not receive the request.
+Floor the first submission timestamp to whole seconds before persistence so
+MySQL `DATETIME(0)` rounding cannot make an immediate retry appear to precede
+the request. A genuinely future submission timestamp also requires
+reconciliation rather than allowing another POST.
+
+Only a validated `succeeded` refund finalizes the original order, subscription,
+provider snapshot, credit return, and journal completion atomically. A
+`pending` or `requires_action` response retains the provider reference and
+returns `pending`; failed or canceled refunds do not grant credits or create
+a replacement operation. If a webhook already marks the original order
+refunded, an unfinished journal still drives recovery of its local effects.
+Each external observation carries the journal version captured before HTTP.
+Saving a result requires the same version under the row lock and increments
+it; a conflicting result triggers a fresh provider query with bounded retries.
+This prevents delayed responses from replacing newer evidence. Until local
+finalization, a new `requires_action` or `failed` observation must also replace
+an earlier `succeeded` status, because a bank can return refund funds later.
+
+Apply migration `444f5ed66d94` before deploying this helper. Keep internal refund
+invocations paused during a mixed-version rollout: old workers do not claim
+the journal or send its idempotency key. Resume internal operations after all
+workers run the new implementation. A rollback also requires pausing internal
+refund invocations; retain the operation journal and its evidence while any
+refund is unfinished. Historical ambiguous partial refunds need
+manual provider/local reconciliation; this change does not silently guess their
+identity or change the existing credit-return policy.
+
+The shared provider adapter adds
+`reconcile_refund(PaymentRefundRequest, app) -> PaymentRefundResult | None`.
+It retrieves a known refund or fully paginates the payment's refund history,
+validates identity and financial evidence, and never creates a refund. `None`
+means a complete valid query returned no refunds, not permission to bypass the
+operation journal or the retry window.
 
 ### 3.4 `credit_wallets`
 

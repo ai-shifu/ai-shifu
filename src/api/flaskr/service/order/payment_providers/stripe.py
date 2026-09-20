@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from flaskr.service.common.stripe_client import get_stripe_client_options
@@ -21,6 +22,137 @@ from .base import (
 
 if TYPE_CHECKING:
     from flask import Flask
+
+
+_REFUND_STATUSES = frozenset(
+    {"pending", "requires_action", "succeeded", "failed", "canceled"}
+)
+_ACTIVE_REFUND_STATUSES = frozenset({"pending", "requires_action", "succeeded"})
+
+
+def _refund_payload(value: object) -> dict[str, Any]:
+    """Read a complete SDK object without accepting malformed responses."""
+    if hasattr(value, "to_dict"):
+        value = value.to_dict()
+    if not isinstance(value, Mapping):
+        message = "Stripe refund response must be an object"
+        # Provider failures use RuntimeError at the payment adapter boundary.
+        raise RuntimeError(message)  # noqa: TRY004
+    return dict(value)
+
+
+def _refund_reference(value: object) -> str:
+    """Read a Stripe reference in either expanded or identifier form."""
+    if isinstance(value, Mapping):
+        value = value.get("id")
+    return value if isinstance(value, str) else ""
+
+
+def _validate_refund_request(request: PaymentRefundRequest) -> None:
+    """Require an exact financial target before querying or issuing a refund."""
+    metadata = request.metadata
+    currency = metadata.get("currency")
+    if (
+        not isinstance(request.amount, int)
+        or isinstance(request.amount, bool)
+        or request.amount <= 0
+        or not isinstance(currency, str)
+        or len(currency) != 3
+        or not currency.isascii()
+        or not currency.isalpha()
+        or not isinstance(request.order_bid, str)
+        or not request.order_bid.strip()
+    ):
+        message = "Stripe refund requires an exact amount, currency, and order"
+        raise RuntimeError(message)
+    if not any(metadata.get(key) for key in ("payment_intent_id", "charge_id")):
+        message = "Stripe refund requires a payment reference"
+        raise RuntimeError(message)
+    for key in (
+        "payment_intent_id",
+        "charge_id",
+        "bill_order_bid",
+        "creator_bid",
+        "refund_operation_bid",
+        "refund_reference_id",
+    ):
+        value = metadata.get(key)
+        if value is not None and (
+            not isinstance(value, str) or (value and not value.strip())
+        ):
+            message = f"Stripe refund has invalid {key} metadata"
+            raise RuntimeError(message)
+    if metadata.get("order_bid", request.order_bid) != request.order_bid:
+        message = "Stripe refund order metadata conflicts with its request"
+        raise RuntimeError(message)
+
+
+def _validated_refund_result(
+    value: object,
+    *,
+    request: PaymentRefundRequest,
+    match_amount: bool = True,
+    match_operation: bool = True,
+    reference_id: str = "",
+) -> PaymentRefundResult:
+    """Validate provider ownership and financial evidence before adoption."""
+    payload = _refund_payload(value)
+    refund_id = payload.get("id")
+    amount = payload.get("amount")
+    currency = payload.get("currency")
+    status = payload.get("status")
+    if (
+        payload.get("object") != "refund"
+        or not isinstance(refund_id, str)
+        or not refund_id.strip()
+        or (reference_id and refund_id != reference_id)
+        or not isinstance(amount, int)
+        or isinstance(amount, bool)
+        or amount <= 0
+        or (match_amount and amount != request.amount)
+        or not isinstance(currency, str)
+        or currency.lower() != request.metadata["currency"].lower()
+        or not isinstance(status, str)
+        or status not in _REFUND_STATUSES
+    ):
+        message = "Stripe refund has inconsistent financial evidence"
+        raise RuntimeError(message)
+    for expected_key, actual_key in (
+        ("payment_intent_id", "payment_intent"),
+        ("charge_id", "charge"),
+    ):
+        expected = request.metadata.get(expected_key)
+        if expected and _refund_reference(payload.get(actual_key)) != expected:
+            message = "Stripe refund belongs to a different payment"
+            raise RuntimeError(message)
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, Mapping):
+        message = "Stripe refund ownership metadata is missing"
+        # Malformed remote data is a provider failure, not a caller type error.
+        raise RuntimeError(message)  # noqa: TRY004
+    expected_owner = {"order_bid": request.order_bid}
+    for key in ("bill_order_bid", "creator_bid"):
+        if request.metadata.get(key):
+            expected_owner[key] = request.metadata[key]
+    if any(metadata.get(key) != expected for key, expected in expected_owner.items()):
+        message = "Stripe refund belongs to a different owner"
+        raise RuntimeError(message)
+    operation = request.metadata.get("refund_operation_bid")
+    remote_operation = metadata.get("refund_operation_bid")
+    if remote_operation is not None and not isinstance(remote_operation, str):
+        message = "Stripe refund operation metadata is malformed"
+        raise RuntimeError(message)
+    if (
+        match_operation
+        and operation
+        and remote_operation
+        and remote_operation != operation
+    ):
+        message = "Stripe refund belongs to a different operation"
+        raise RuntimeError(message)
+    return PaymentRefundResult(
+        provider_reference=refund_id, raw_response=payload, status=status
+    )
 
 
 class StripeProvider(PaymentProvider):
@@ -454,6 +586,12 @@ class StripeProvider(PaymentProvider):
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
         """Refund a payment through this provider."""
+        if request.metadata.get("refund_operation_bid"):
+            _validate_refund_request(request)
+            operation_key = request.metadata.get("idempotency_key")
+            if not isinstance(operation_key, str) or not operation_key.strip():
+                message = "Stripe refund operation requires a stable idempotency key"
+                raise RuntimeError(message)
         stripe, request_options = self._client_options(app)
         params: dict[str, Any] = {}
         if request.amount is not None:
@@ -484,6 +622,15 @@ class StripeProvider(PaymentProvider):
                 "idempotency_key": idempotency_key,
             }
         refund = stripe.Refund.create(**params, **request_options)
+        if request.metadata.get("refund_operation_bid"):
+            result = _validated_refund_result(refund, request=request)
+            if (
+                result.raw_response["metadata"].get("refund_operation_bid")
+                != request.metadata["refund_operation_bid"]
+            ):
+                message = "Stripe refund response is missing its operation identity"
+                raise RuntimeError(message)
+            return result
         refund_dict = refund.to_dict()
 
         return PaymentRefundResult(
@@ -491,6 +638,85 @@ class StripeProvider(PaymentProvider):
             raw_response=refund_dict,
             status=refund_dict.get("status", ""),
         )
+
+    def reconcile_refund(
+        self, *, request: PaymentRefundRequest, app: Flask
+    ) -> PaymentRefundResult | None:
+        """Recover a uniquely attributable refund using only provider reads."""
+        _validate_refund_request(request)
+        stripe, request_options = self._client_options(app)
+        refund_id = request.metadata.get("refund_reference_id")
+        if refund_id:
+            refund = stripe.Refund.retrieve(refund_id, **request_options)
+            return _validated_refund_result(
+                refund, request=request, reference_id=refund_id
+            )
+
+        payment_intent = request.metadata.get("payment_intent_id")
+        params = (
+            {"payment_intent": payment_intent}
+            if payment_intent
+            else {"charge": request.metadata["charge_id"]}
+        )
+        refunds: list[PaymentRefundResult] = []
+        seen_ids: set[str] = set()
+        while True:
+            page = _refund_payload(
+                stripe.Refund.list(**params, limit=100, **request_options)
+            )
+            data = page.get("data")
+            has_more = page.get("has_more")
+            if (
+                page.get("object") != "list"
+                or not isinstance(data, list)
+                or not isinstance(has_more, bool)
+                or (has_more and not data)
+            ):
+                message = "Stripe refund history is incomplete"
+                raise RuntimeError(message)
+            for value in data:
+                result = _validated_refund_result(
+                    value, request=request, match_amount=False, match_operation=False
+                )
+                if result.provider_reference in seen_ids:
+                    message = "Stripe refund history contains repeated identifiers"
+                    raise RuntimeError(message)
+                seen_ids.add(result.provider_reference)
+                refunds.append(result)
+            if not has_more:
+                break
+            params["starting_after"] = refunds[-1].provider_reference
+
+        if not refunds:
+            return None
+        operation = request.metadata.get("refund_operation_bid")
+        matches = [
+            refund
+            for refund in refunds
+            if operation
+            and refund.raw_response["metadata"].get("refund_operation_bid") == operation
+        ]
+        if len(matches) == 1:
+            candidate = matches[0]
+            if any(
+                refund is not candidate and refund.status in _ACTIVE_REFUND_STATUSES
+                for refund in refunds
+            ):
+                message = "Stripe refund history contains another active refund"
+                raise RuntimeError(message)
+            return _validated_refund_result(candidate.raw_response, request=request)
+        payment_amount = request.metadata.get("payment_amount")
+        if (
+            not matches
+            and len(refunds) == 1
+            and not refunds[0].raw_response["metadata"].get("refund_operation_bid")
+            and isinstance(payment_amount, int)
+            and not isinstance(payment_amount, bool)
+            and payment_amount == request.amount
+        ):
+            return _validated_refund_result(refunds[0].raw_response, request=request)
+        message = "Stripe refund history cannot identify this refund operation"
+        raise RuntimeError(message)
 
     def _build_notification_from_event(
         self, event: dict[str, Any]
