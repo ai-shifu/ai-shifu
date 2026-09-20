@@ -56,6 +56,19 @@ def test_a_pause_is_only_ever_the_script_s_own() -> None:
     assert "ONLY when the script itself asks for a pause" in tools
 
 
+def test_the_model_is_told_not_to_narrate_its_own_work() -> None:
+    """Everything the model writes is shown to the learner and read aloud to them.
+
+    Left to itself it opens with a line of English about what it is about to do -- "I'll start
+    with a warm welcome and the course cover" -- which was rendered, spoken and subtitled as the
+    first thing a learner saw, in a language the lesson was not in.
+    """
+    system = (_PROMPT.parent / "system.md").read_text()
+    assert "never announce what you are about to do" in system
+    assert "never describe your own progress through the script" in system
+    assert "Begin with the lesson's first words" in system
+
+
 def test_the_model_is_told_to_pass_a_question_through_unchanged() -> None:
     """A question in the script is the author's, and the script branches on its options.
 
