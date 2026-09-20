@@ -4,8 +4,15 @@ import json
 from collections.abc import Generator
 from typing import Any
 
-import requests
 from flask import Flask
+from flaskr.common.safe_outbound import (
+    OutboundDeadlineExceededError,
+    OutboundRedirectError,
+    OutboundResponseTooLargeError,
+    UnsafeOutboundUrlError,
+)
+from urllib3.exceptions import HTTPError
+from urllib3.exceptions import TimeoutError as UrllibTimeoutError
 
 from .base import (
     AskProviderChunk,
@@ -17,8 +24,7 @@ from .base import (
 from .common import (
     extract_text,
     iter_sse_payloads,
-    provider_timeout_seconds,
-    raise_for_provider_response,
+    safe_provider_client,
 )
 from .consts import ASK_PROVIDER_COZE
 
@@ -90,40 +96,62 @@ class CozeAskProviderAdapter:
         }
 
         try:
-            response = requests.post(
+            client = safe_provider_client(
+                app, trusted_origins_config="COZE_TRUSTED_ORIGINS"
+            )
+        except ValueError as exc:
+            message = "COZE_TRUSTED_ORIGINS contains an invalid origin"
+            raise AskProviderConfigError(message) from exc
+        try:
+            response = client.request(
+                "POST",
                 url,
                 headers=headers,
-                json=payload,
-                stream=True,
-                timeout=(5, provider_timeout_seconds()),
+                body=json.dumps(payload).encode("utf-8"),
             )
-        except requests.Timeout as exc:
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             exception_message = "coze request timeout"
             raise AskProviderTimeoutError(exception_message) from exc
-        except requests.RequestException as exc:
-            message = f"coze request failed: {exc}"
+        except (
+            HTTPError,
+            OutboundRedirectError,
+            OutboundResponseTooLargeError,
+            UnsafeOutboundUrlError,
+        ) as exc:
+            message = "coze request was rejected or failed"
             raise AskProviderError(message) from exc
 
-        response = raise_for_provider_response(response, self.provider)
+        try:
+            with response:
+                if not 200 <= response.status < 300:
+                    message = f"coze request failed with status {response.status}"
+                    raise AskProviderError(message)
+                for raw_payload in iter_sse_payloads(response):
+                    if not raw_payload or raw_payload.replace(" ", "") == "[DONE]":
+                        continue
 
-        for raw_payload in iter_sse_payloads(response):
-            if not raw_payload or raw_payload.replace(" ", "") == "[DONE]":
-                continue
+                    try:
+                        parsed = json.loads(raw_payload)
+                    except json.JSONDecodeError:
+                        app.logger.warning(
+                            "Skip malformed coze payload: %s", raw_payload
+                        )
+                        continue
 
-            try:
-                parsed = json.loads(raw_payload)
-            except json.JSONDecodeError:
-                app.logger.warning("Skip malformed coze payload: %s", raw_payload)
-                continue
+                    event = str(parsed.get("event") or parsed.get("type") or "").lower()
+                    if "error" in event:
+                        error_message = extract_text(parsed) or str(parsed)
+                        message = f"coze error: {error_message}"
+                        raise AskProviderError(message)
+                    if event in {"done", "message_end", "chat.completed"}:
+                        continue
 
-            event = str(parsed.get("event") or parsed.get("type") or "").lower()
-            if "error" in event:
-                error_message = extract_text(parsed) or str(parsed)
-                message = f"coze error: {error_message}"
-                raise AskProviderError(message)
-            if event in {"done", "message_end", "chat.completed"}:
-                continue
-
-            text = extract_text(parsed)
-            if text:
-                yield AskProviderChunk(content=text)
+                    text = extract_text(parsed)
+                    if text:
+                        yield AskProviderChunk(content=text)
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "coze request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except (HTTPError, OutboundResponseTooLargeError) as exc:
+            message = "coze response was rejected or failed"
+            raise AskProviderError(message) from exc

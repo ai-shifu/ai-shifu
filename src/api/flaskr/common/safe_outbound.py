@@ -261,6 +261,21 @@ class SafeOutboundClient:
         self._resolver = resolver or _resolve_addresses
         self._transport = transport
 
+    def new_deadline(self) -> float:
+        """Return the monotonic deadline for one complete outbound operation."""
+        return time.monotonic() + self.policy.total_timeout_seconds
+
+    def validate_url(
+        self, url: str, *, deadline: float | None = None
+    ) -> ValidatedOutboundUrl:
+        """Validate and normalize one URL within the client's total budget."""
+        effective_deadline = deadline if deadline is not None else self.new_deadline()
+        return validate_outbound_url(
+            url,
+            policy=self.policy,
+            resolver=self._deadline_resolver(effective_deadline),
+        )
+
     def request(
         self,
         method: str,
@@ -268,6 +283,7 @@ class SafeOutboundClient:
         *,
         headers: Mapping[str, str] | None = None,
         body: bytes | None = None,
+        deadline: float | None = None,
     ) -> SafeOutboundResponse:
         """Perform one bounded request, validating every redirect target."""
         normalized_method = str(method or "").strip().upper()
@@ -279,21 +295,21 @@ class SafeOutboundClient:
         current_method = normalized_method
         current_body = body
         request_headers = dict(headers or {})
-        deadline = time.monotonic() + self.policy.total_timeout_seconds
+        effective_deadline = deadline if deadline is not None else self.new_deadline()
 
         for redirect_count in range(self.policy.max_redirects + 1):
             target = validate_outbound_url(
                 current_url,
                 policy=self.policy,
-                resolver=self._deadline_resolver(deadline),
+                resolver=self._deadline_resolver(effective_deadline),
             )
-            _check_deadline(deadline)
+            _check_deadline(effective_deadline)
             response = self._open_validated_target(
                 current_method,
                 target,
                 headers=request_headers,
                 body=current_body,
-                deadline=deadline,
+                deadline=effective_deadline,
             )
             if response.status not in REDIRECT_STATUSES:
                 try:
@@ -303,7 +319,7 @@ class SafeOutboundClient:
                         url=target.url,
                         _raw=response,
                         _max_bytes=self.policy.max_response_bytes,
-                        _deadline=deadline,
+                        _deadline=effective_deadline,
                     )
                 except Exception:
                     response.close()
@@ -321,7 +337,7 @@ class SafeOutboundClient:
                 next_target = validate_outbound_url(
                     next_url,
                     policy=self.policy,
-                    resolver=self._deadline_resolver(deadline),
+                    resolver=self._deadline_resolver(effective_deadline),
                 )
                 next_method = current_method
                 next_body = current_body

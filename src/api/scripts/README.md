@@ -8,7 +8,7 @@ Generates the environment configuration example file from the application's conf
 
 ### Purpose
 
-This script automatically generates `.env.example.full`, which contains every environment variable with defaults and documentation. Copy it to `.env` and set at least one LLM API key before starting Docker.
+This script automatically generates `.env.example.full`, which contains every environment variable with defaults and documentation. Copy it to `.env`, configure a provider API key, and set `LLM_MODEL_1_ID` to a text model served by that provider before starting Docker. Only model 1's ID is required and has no default; IDs 2-9 are optional. Every model name is optional: omitted or blank names display the configured model ID. A name without an ID does not enable an option.
 
 ### Usage
 
@@ -44,30 +44,22 @@ Run this script when:
 
 ### Example Output
 
-The script provides helpful output:
+The script reports current variable counts and required settings. Its required-settings output includes:
 
 ```
-✅ Generated full configuration: .env.example.full
-
-📊 Summary:
-  - Total variables: 151
-  - Required variables: 2
-  - Optional variables: 149
-
 📌 Required variables that must be configured:
-  [AUTH]
-    - SECRET_KEY
-    - UNIVERSAL_VERIFICATION_CODE
-  [DATABASE]
-    - SQLALCHEMY_DATABASE_URI
+  [LLM]
+    - LLM_MODEL_1_ID
+      Routed text model for course model 1. Required; no default.
 ```
 
 ### Configuration Workflow
 
 1. Run the generation script.
 2. Copy `docker/.env.example.full` to `docker/.env`.
-3. Edit `.env` and configure at least one LLM API key plus any other secrets you need.
-4. Never commit `.env` to version control.
+3. Edit `.env` and configure a provider API key, required `LLM_MODEL_1_ID` and any other secrets you need. Names are optional; blank names display the configured IDs. The template intentionally leaves model mappings empty.
+4. For existing installations, complete [Upgrading to numbered models](../../../INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new API or workers.
+5. Never commit `.env` to version control.
 
 ## harness_diagnostics.py
 

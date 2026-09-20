@@ -1032,9 +1032,15 @@ jobs:
             git checkout ${{ steps.version.outputs.tag }}
             cd docker
             cp .env.example.full .env
-            # Fill in your LLM API key in the .env configuration file.
+            # Configure a provider API key in .env and set LLM_MODEL_1_ID
+            # to a text model served by that provider (required; no default).
+            # LLM_MODEL_1_NAME is optional; an empty name displays the configured model ID.
             docker compose up
             ```
+
+            Existing installations must configure model 1 and follow
+            [Upgrading to numbered models](${{ github.event.repository.html_url }}/blob/${{ steps.version.outputs.tag }}/INSTALL_MANUAL.md#upgrading-to-numbered-models)
+            before starting the new API or workers.
 
             ## 📖 Documentation
 

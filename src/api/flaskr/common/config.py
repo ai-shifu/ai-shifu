@@ -723,6 +723,30 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
+    "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": EnvVar(
+        name="ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS",
+        default=300,
+        type=int,
+        description=(
+            "Maximum wall-clock seconds for one external ask provider request or "
+            "stream. This must remain bounded even when response chunks continue "
+            "arriving."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "ASK_PROVIDER_ALLOW_INSECURE_HTTP": EnvVar(
+        name="ASK_PROVIDER_ALLOW_INSECURE_HTTP",
+        default=False,
+        type=bool,
+        description=(
+            "Allow credential-bearing Coze and Volcengine-compatible provider "
+            "requests over plain HTTP. Leave disabled unless a trusted private "
+            "deployment cannot provide HTTPS."
+        ),
+        group="llm",
+        required=False,
+    ),
     "DIFY_TRUSTED_ORIGINS": EnvVar(
         name="DIFY_TRUSTED_ORIGINS",
         default=[],
@@ -732,6 +756,42 @@ Default: "phone".""",
             "addresses. Leave empty unless this deployment intentionally uses "
             "a self-hosted Dify service, for example "
             "http://host.docker.internal:5001."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze chat origins allowed to resolve to private "
+            "addresses. Leave empty unless this deployment intentionally uses a "
+            "self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_WORKFLOW_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_WORKFLOW_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze workflow origins allowed to resolve to "
+            "private addresses. Leave empty unless this deployment intentionally "
+            "uses a self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "VOLC_KNOWLEDGE_TRUSTED_ORIGINS": EnvVar(
+        name="VOLC_KNOWLEDGE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Volcengine Knowledge origins allowed to resolve "
+            "to private addresses. Leave empty unless this deployment intentionally "
+            "uses a private compatible endpoint."
         ),
         group="llm",
         required=False,
@@ -748,6 +808,114 @@ DeepSeek: deepseek-chat
 Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
     ),
+    "LLM_MODEL_1_NAME": EnvVar(
+        name="LLM_MODEL_1_NAME",
+        description="Optional display name for course model 1. Uses LLM_MODEL_1_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_1_ID": EnvVar(
+        name="LLM_MODEL_1_ID",
+        description="Routed text model ID for course model 1. Required at startup; no default.",
+        group="llm",
+        required=True,
+    ),
+    "LLM_MODEL_2_NAME": EnvVar(
+        name="LLM_MODEL_2_NAME",
+        description="Optional display name for course model 2. Uses LLM_MODEL_2_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_2_ID": EnvVar(
+        name="LLM_MODEL_2_ID",
+        description="Routed text model ID for course model 2. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_3_NAME": EnvVar(
+        name="LLM_MODEL_3_NAME",
+        description="Optional display name for course model 3. Uses LLM_MODEL_3_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_3_ID": EnvVar(
+        name="LLM_MODEL_3_ID",
+        description="Routed text model ID for course model 3. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_4_NAME": EnvVar(
+        name="LLM_MODEL_4_NAME",
+        description="Optional display name for course model 4. Uses LLM_MODEL_4_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_4_ID": EnvVar(
+        name="LLM_MODEL_4_ID",
+        description="Routed text model ID for course model 4. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_5_NAME": EnvVar(
+        name="LLM_MODEL_5_NAME",
+        description="Optional display name for course model 5. Uses LLM_MODEL_5_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_5_ID": EnvVar(
+        name="LLM_MODEL_5_ID",
+        description="Routed text model ID for course model 5. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_6_NAME": EnvVar(
+        name="LLM_MODEL_6_NAME",
+        description="Optional display name for course model 6. Uses LLM_MODEL_6_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_6_ID": EnvVar(
+        name="LLM_MODEL_6_ID",
+        description="Routed text model ID for course model 6. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_7_NAME": EnvVar(
+        name="LLM_MODEL_7_NAME",
+        description="Optional display name for course model 7. Uses LLM_MODEL_7_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_7_ID": EnvVar(
+        name="LLM_MODEL_7_ID",
+        description="Routed text model ID for course model 7. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_8_NAME": EnvVar(
+        name="LLM_MODEL_8_NAME",
+        description="Optional display name for course model 8. Uses LLM_MODEL_8_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_8_ID": EnvVar(
+        name="LLM_MODEL_8_ID",
+        description="Routed text model ID for course model 8. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_9_NAME": EnvVar(
+        name="LLM_MODEL_9_NAME",
+        description="Optional display name for course model 9. Uses LLM_MODEL_9_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_9_ID": EnvVar(
+        name="LLM_MODEL_9_ID",
+        description="Routed text model ID for course model 9. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
     "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": EnvVar(
         name="LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS",
         default="",
@@ -757,28 +925,6 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
             "credits consumed per 1000 output tokens. This value is used for "
             "operator rate multiplier display, save conversion, and model-picker "
             "multiplier labels. It must not be derived from DEFAULT_LLM_MODEL."
-        ),
-        group="llm",
-        required=False,
-    ),
-    "LLM_ALLOWED_MODELS": EnvVar(
-        name="LLM_ALLOWED_MODELS",
-        default=[],
-        type=list,
-        description=(
-            "Comma separated list of allowed LLM models to expose in UI. "
-            "When empty, all detected models are shown."
-        ),
-        group="llm",
-        required=False,
-    ),
-    "LLM_ALLOWED_MODEL_DISPLAY_NAMES": EnvVar(
-        name="LLM_ALLOWED_MODEL_DISPLAY_NAMES",
-        default=[],
-        type=list,
-        description=(
-            "Optional display names for allowed LLM models. Must match the "
-            "length and order of LLM_ALLOWED_MODELS. Ignored otherwise."
         ),
         group="llm",
         required=False,
@@ -2241,13 +2387,16 @@ class EnhancedConfig:
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
                 "# These are the bare minimum values that must be set.",
-                "# Start from docker/.env.example.full and configure at least one LLM API key.\n",
+                "# Start from docker/.env.example.full and configure a provider API key.",
+                "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
-                "# Copy this file to docker/.env (or .env) to boot the Docker stack with sane defaults",
-                "# Set at least one LLM API key (e.g., OPENAI_API_KEY) before using in production.\n",
+                "# Copy this file to docker/.env (or .env) and configure a provider API key.",
+                "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
 
         lines = header_lines
@@ -2263,6 +2412,13 @@ class EnhancedConfig:
                 groups[env_var.group] = []
             groups[env_var.group].append(env_var)
 
+        # Keep each numbered model's name and binding together in numeric order.
+        model_order = {
+            f"LLM_MODEL_{index}_{suffix}": f"LLM_MODEL_{index}_{position}"
+            for index in range(1, 10)
+            for position, suffix in enumerate(("NAME", "ID"))
+        }
+
         # Generate output for each group
         for group, group_vars in sorted(groups.items()):
             # Skip empty groups
@@ -2273,7 +2429,9 @@ class EnhancedConfig:
             lines.append(f"# {group.replace('_', ' ').title()}")
             lines.append(f"#{'=' * 60}\n")
 
-            for env_var in sorted(group_vars, key=lambda x: x.name):
+            for env_var in sorted(
+                group_vars, key=lambda x: model_order.get(x.name, x.name)
+            ):
                 example_value = (
                     env_var.example if env_var.example is not None else env_var.default
                 )
@@ -2287,6 +2445,12 @@ class EnhancedConfig:
                 metadata = []
                 if env_var.required:
                     metadata.append("REQUIRED - must be set")
+                elif env_var.name in model_order and env_var.default is None:
+                    if env_var.name.endswith("_NAME"):
+                        model_id = env_var.name.removesuffix("_NAME") + "_ID"
+                        metadata.append(f"Optional - defaults to {model_id}")
+                    else:
+                        metadata.append("Optional - no default")
                 elif env_var.default is None:
                     metadata.append("Optional - handled by libraries")
                 else:

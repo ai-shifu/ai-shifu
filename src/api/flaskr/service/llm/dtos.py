@@ -43,6 +43,9 @@ class FollowUpModelOptionDTO(BaseModel):
         default=None, description="Formatted credit multiplier"
     )
     is_default: bool = Field(default=False, description="Default text model")
+    available: bool = Field(
+        default=True, description="Whether the configured model route is usable"
+    )
 
     def __json__(self) -> dict[str, object]:
         """Return this follow-up model option as a JSON-ready mapping."""

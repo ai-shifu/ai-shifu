@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from flask import Flask
+from flaskr.api.llm.model_selection import course_model_selection
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -32,28 +33,31 @@ from markdown_flow import MarkdownFlow
 from werkzeug.datastructures import FileStorage
 
 
+def _import_model_selection(shifu_data: dict, field: str) -> str:
+    """Preserve imported strings while defaulting absent or null choices."""
+    value = shifu_data.get(field)
+    if value is None:
+        return "1"
+    if not isinstance(value, str):
+        raise_error("server.shifu.importFileInvalid")
+    return value
+
+
 def _extract_import_ask_provider_config(
     shifu_data: dict,
-    outline_items_data: list[dict],
 ) -> str:
     """Extract and normalize ask_provider_config from import payload.
 
     Keep legacy imports compatible by defaulting to "{}" when missing.
     """
     normalized, error_field = normalize_live_follow_up_course_config(
-        course_model=shifu_data.get("llm", ""),
+        course_model=course_model_selection(shifu_data.get("llm", ""))["index"],
         course_follow_up_model=shifu_data.get("ask_llm", ""),
         provider_config=shifu_data.get("ask_provider_config", {}),
-        outline_models=tuple(item.get("llm", "") for item in outline_items_data),
-        outline_follow_up_models=tuple(
-            item.get("ask_llm", "") for item in outline_items_data
-        ),
     )
     if error_field is not None:
         raise_error("server.shifu.importFileInvalid")
-    has_live_follow_up = is_live_follow_up_model(shifu_data.get("ask_llm", "")) or any(
-        is_live_follow_up_model(item.get("ask_llm", "")) for item in outline_items_data
-    )
+    has_live_follow_up = is_live_follow_up_model(shifu_data.get("ask_llm", ""))
     if "ask_provider_config" not in shifu_data and not has_live_follow_up:
         return "{}"
     return serialize_ask_provider_config(normalized)
@@ -99,11 +103,9 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
             ).all()
         normalized_provider_config, live_contract_error = (
             normalize_live_follow_up_course_config(
-                course_model=shifu_draft.llm,
+                course_model=course_model_selection(shifu_draft.llm)["index"],
                 course_follow_up_model=shifu_draft.ask_llm,
                 provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
-                outline_models=tuple(item.llm for item in outline_items),
-                outline_follow_up_models=tuple(item.ask_llm for item in outline_items),
             )
         )
         if live_contract_error is not None:
@@ -150,17 +152,9 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                     "parent_bid": item.parent_bid,
                     "position": item.position,
                     "prerequisite_item_bids": item.prerequisite_item_bids,
-                    "llm": item.llm,
-                    "llm_temperature": float(item.llm_temperature)
-                    if item.llm_temperature
-                    else 0,
                     "llm_system_prompt": item.llm_system_prompt,
-                    "ask_enabled_status": item.ask_enabled_status,
-                    "ask_llm": item.ask_llm,
-                    "ask_llm_temperature": float(item.ask_llm_temperature)
-                    if item.ask_llm_temperature
-                    else 0.0,
                     "ask_llm_system_prompt": item.ask_llm_system_prompt,
+                    "ask_enabled_status": item.ask_enabled_status,
                     "content": item.content,
                 }
                 for item in outline_items
@@ -217,10 +211,9 @@ def import_shifu(
         if any(not isinstance(item, dict) for item in outline_items_data):
             raise_error("server.shifu.importFileInvalid")
         structure_data = import_data.get("structure")
-        ask_provider_config = _extract_import_ask_provider_config(
-            shifu_data,
-            outline_items_data,
-        )
+        _import_model_selection(shifu_data, "llm")
+        _import_model_selection(shifu_data, "ask_llm")
+        ask_provider_config = _extract_import_ask_provider_config(shifu_data)
 
         now_time = now_utc()
 
@@ -236,7 +229,7 @@ def import_shifu(
                 new_shifu.keywords = shifu_data.get("keywords", "")
                 new_shifu.description = shifu_data.get("description", "")
                 new_shifu.avatar_res_bid = shifu_data.get("avatar_res_bid", "")
-                new_shifu.llm = shifu_data.get("llm", "")
+                new_shifu.llm = _import_model_selection(shifu_data, "llm")
                 new_shifu.llm_temperature = Decimal(
                     str(shifu_data.get("llm_temperature", 0))
                 )
@@ -249,7 +242,7 @@ def import_shifu(
                 new_shifu.flow_engine = shifu_data.get(
                     "flow_engine", FLOW_ENGINE_DEFAULT
                 )
-                new_shifu.ask_llm = shifu_data.get("ask_llm", "")
+                new_shifu.ask_llm = _import_model_selection(shifu_data, "ask_llm")
                 new_shifu.ask_llm_temperature = Decimal(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
                 )
@@ -284,12 +277,12 @@ def import_shifu(
                     keywords=shifu_data.get("keywords", ""),
                     description=shifu_data.get("description", ""),
                     avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
-                    llm=shifu_data.get("llm", ""),
+                    llm=_import_model_selection(shifu_data, "llm"),
                     llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                     llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
                     ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
                     flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
-                    ask_llm=shifu_data.get("ask_llm", ""),
+                    ask_llm=_import_model_selection(shifu_data, "ask_llm"),
                     ask_llm_temperature=Decimal(
                         str(shifu_data.get("ask_llm_temperature", 0.0))
                     ),
@@ -321,12 +314,12 @@ def import_shifu(
                 keywords=shifu_data.get("keywords", ""),
                 description=shifu_data.get("description", ""),
                 avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
-                llm=shifu_data.get("llm", ""),
+                llm=_import_model_selection(shifu_data, "llm"),
                 llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                 llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
                 ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
                 flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
-                ask_llm=shifu_data.get("ask_llm", ""),
+                ask_llm=_import_model_selection(shifu_data, "ask_llm"),
                 ask_llm_temperature=Decimal(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
                 ),
@@ -375,15 +368,9 @@ def import_shifu(
                 parent_bid="",  # Will update after all items are created
                 position=item_data.get("position", ""),
                 prerequisite_item_bids="",  # Will update after all items are created
-                llm=item_data.get("llm", ""),
-                llm_temperature=Decimal(str(item_data.get("llm_temperature", 0))),
                 llm_system_prompt=item_data.get("llm_system_prompt", ""),
-                ask_enabled_status=item_data.get("ask_enabled_status", 5101),
-                ask_llm=item_data.get("ask_llm", ""),
-                ask_llm_temperature=Decimal(
-                    str(item_data.get("ask_llm_temperature", 0.0))
-                ),
                 ask_llm_system_prompt=item_data.get("ask_llm_system_prompt", ""),
+                ask_enabled_status=item_data.get("ask_enabled_status", 5101),
                 content=item_data.get("content", ""),
                 deleted=0,
                 created_at=now_time,

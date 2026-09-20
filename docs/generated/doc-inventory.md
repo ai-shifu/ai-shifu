@@ -18,7 +18,7 @@
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-08-17` | `true` |
 | `docs/design-docs/learner-follow-up-input-shortcuts.md` | Learner follow-up input shortcuts | `design-doc` | `implemented` | `learner-web` | `2026-09-04` | `true` |
 | `docs/design-docs/minimax-voice-cloning.md` | MiniMax Voice Cloning | `design-doc` | `proposed` | `shared` | `2026-06-18` | `true` |
-| `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-05` | `true` |
+| `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-19` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/exec-plans/active/account-session-analytics.md` | Account session analytics contract | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -45,6 +45,7 @@
 | `docs/exec-plans/active/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/numbered-course-models.md` | Numbered course models | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/observability-artifacts-consistency-frontend-trace.md` | Observability Artifacts, Consistency Probes, and Frontend Trace IDs | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/official-client-model-gateway.md` | Official Client Model Gateway | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/onboarding-existing-creator-rollout.md` | Existing Creator Onboarding Rollout | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -65,6 +66,7 @@
 | `docs/exec-plans/completed/canonical-background-onboarding-contract.md` | Canonical Background And Onboarding Contract | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/consolidate-admin-primitives.md` | Consolidate shared admin primitives | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/course-copy-operator.md` | Operator Course Copy | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/course-only-llm-settings.md` | Course-only models and temperatures | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/course-owner-preview-billing.md` | Charge settings previews to the course owner | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/elevenlabs-tts.md` | ElevenLabs TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/frontend-unused-function-stack.md` | Frontend Unused Function Cleanup Stack | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |

@@ -40,6 +40,10 @@ _PREVIEW_TOKEN = "preview-token"  # stub session token, `validate_user` is mocke
 
 @pytest.fixture(autouse=True)
 def preview_course(monkeypatch: object, app: object) -> None:
+    monkeypatch.setattr(
+        "flaskr.api.llm.get_litellm_params_and_model",
+        lambda model: ({"api_key": "test"}, model, "test"),
+    )
     with app.app_context(), unit_of_work():
         DraftShifu.query.filter_by(shifu_bid=_PREVIEW_SHIFU).delete()
         db.session.add(
@@ -507,19 +511,33 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
 
 @pytest.mark.parametrize("is_creator", [True, False])
 @pytest.mark.parametrize("provider", ["llm", "dify", "get_biji_knowledge"])
+@pytest.mark.parametrize(
+    "selection", ["gpt-test", "fast", "balanced", "ultimate", None]
+)
 def test_ask_preview_route_bills_course_owner(
-    monkeypatch: object, test_client: object, is_creator: bool, provider: str
+    monkeypatch: object,
+    test_client: object,
+    is_creator: bool,
+    provider: str,
+    selection: str | None,
 ) -> None:
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}
 
-    user_bid = f"preview-{provider}-{is_creator}"
+    user_bid = f"preview-{provider[:4]}-{is_creator}-{selection}"
+    original_selection = selection if selection is not None else " missing-model "
+    monkeypatch.setattr(
+        "flaskr.api.llm.model_selection.resolve_model_slot", lambda _selection: user_bid
+    )
     _mock_authenticated_user(monkeypatch, user_bid, is_creator=is_creator)
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
         lambda _app, *, usage_bid: captured.setdefault("enqueued", usage_bid),
     )
     with test_client.application.app_context(), unit_of_work():
+        DraftShifu.query.filter_by(
+            shifu_bid=_PREVIEW_SHIFU
+        ).one().ask_llm = original_selection
         CreditWalletBucket.query.filter_by(creator_bid=_PREVIEW_OWNER).delete()
         CreditWallet.query.filter_by(creator_bid=_PREVIEW_OWNER).delete()
         db.session.add(
@@ -619,7 +637,7 @@ def test_ask_preview_route_bills_course_owner(
         json={
             "shifu_bid": _PREVIEW_SHIFU,
             "query": "hello",
-            "ask_model": "gpt-test",
+            **({"ask_model": selection} if selection is not None else {}),
             "billable": 0,
             "internal": True,
             "is_creator": False,
@@ -648,6 +666,20 @@ def test_ask_preview_route_bills_course_owner(
         "usage_scene": BILL_USAGE_SCENE_DEBUG,
     }
     chat_llm_kwargs = captured["chat_llm"]
+    assert chat_llm_kwargs["model"] == user_bid
+    assert chat_llm_kwargs["usage_metadata"] == {
+        "model_selection_field": "ask_llm",
+        "model_selection_table": "shifu_draft_shifus",
+        "model_selection_record_id": chat_llm_kwargs["usage_metadata"][
+            "model_selection_record_id"
+        ],
+        "model_selection_scope": "course",
+        "model_selection_original": original_selection,
+        "model_index": "1",
+        "model_selection_fallback": True,
+        "model_selection_fallback_reason": "invalid_selection",
+        "resolved_model": user_bid,
+    }
     assert chat_llm_kwargs["billable"] == 1
     usage_context = chat_llm_kwargs["usage_context"]
     assert usage_context.user_bid == user_bid

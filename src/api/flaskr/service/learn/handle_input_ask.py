@@ -191,6 +191,7 @@ def _run_guardrail(
         block_position=last_position,
         llm_settings=llm_settings_cls(
             model=follow_up_model,
+            usage_metadata=getattr(follow_up_info, "usage_metadata", {}),
             temperature=follow_up_info.model_args["temperature"],
         ),
         attend_id=attend_id,
@@ -349,8 +350,9 @@ def handle_input_ask(
 
     # Get model for follow-up Q&A
     follow_up_model = follow_up_info.ask_model
-    if not follow_up_model:
-        follow_up_model = app.config.get("DEFAULT_LLM_MODEL", "")
+    from flaskr.api.llm.model_selection import resolve_selection
+
+    follow_up_usage_metadata = dict(getattr(follow_up_info, "usage_metadata", {}))
 
     # Create ask block
     ask_block = _create_ask_block(
@@ -496,11 +498,15 @@ def handle_input_ask(
     def _chat_llm_stream(
         stream_messages: list[dict[str, Any]],
     ) -> Generator[Any, None, None]:
+        # External provider-only answers do not depend on LLM configuration.
+        # Guardrail rejections resolve through invoke_llm in check_text instead.
+        model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
         return chat_llm_func(
             app,
             user_info.user_id,
             span,
-            model=follow_up_model,  # Use configured model
+            model=model,
+            usage_metadata=metadata,
             json=True,
             stream=True,  # Enable streaming output
             temperature=follow_up_info.model_args[
