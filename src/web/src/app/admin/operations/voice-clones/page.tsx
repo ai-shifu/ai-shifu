@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
@@ -14,11 +14,11 @@ import {
   formatAdminDateRangeStartUtc,
   formatAdminUtcDateTime,
 } from '@/app/admin/lib/dateTime';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import {
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Button } from '@/components/ui/Button';
 import Loading from '@/components/loading';

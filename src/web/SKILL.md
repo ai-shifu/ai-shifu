@@ -18,7 +18,7 @@
 - 积分套餐权益文案优先以 `BillingOverviewCards` 里的共享 feature key 列表作为单一来源；删除某项权益时，要同时清理 `billing.json`、预注册翻译使用代码、相关测试数据和 `i18n-keys.d.ts` 残留。
 - 账务/积分页面如果同一类时间展示同时出现在卡片、表格或 tooltip 中，优先抽到 `src/lib/billing.ts` 的共享格式化方法；涉及多语言文案时，同步更新所有支持的 locale、`i18n-keys.d.ts` 和对应组件测试，避免只改页面不改类型与回归用例。
 - 账务/积分相关用户可见文案必须遵守产品命名边界：不要使用“充值”或 top-up / recharge 语义；覆盖套餐和积分包两种补充积分路径的正文，使用“开通订阅或购买积分”，且订阅优先；明确只指 `topup` 商品、订单、账本来源或 checkout 时使用“积分包”；按钮和短 CTA 保持简洁，使用“购买积分”；用户可见文案使用“账户”而不是“钱包”。内部 `topup` / `wallet` 字段、路由、枚举和 i18n key 可保留技术命名，但不得直接作为展示文案。
-- 积分详情页的“积分消耗明细”表格优先复用 `src/app/admin/components/AdminTableShell.tsx` 和标准 `Table` 组件；分页走 `AdminTableShell.pagination`，不要在 billing 组件里另写卡片表格和独立分页外壳。
+- 积分详情页的“积分消耗明细”表格优先复用 `src/components/admin/AdminTableShell.tsx` 和标准 `Table` 组件；分页走 `AdminTableShell.pagination`，不要在 billing 组件里另写卡片表格和独立分页外壳。
 - 仅服务后台路由且依赖 `src/app/admin/components/*` 的 billing 组件，应放在 `src/app/admin/billing/components/` 这类同路由作用域下；`src/components/*` 里的共享组件不要直接 import `src/app/*` 的 route-internal 实现，避免触发架构边界校验。
 - `AdminTableShell` 内的表头默认保持左对齐；如果某些 body 单元格需要右对齐，只在 body 内容层处理，不要把表头也右对齐。自定义骨架屏行放进 `AdminTableShell` 时要禁用 hover 背景，避免加载翻页时出现整行灰色条。
 - 账户余额、可用积分、侧边会员卡余额这类“积分余额”展示统一只保留整数部分；套餐赠送额度、购买额度、消耗量等非余额数字继续使用通用积分格式化方法，避免把两类数字口径混用。
@@ -71,7 +71,7 @@
 - 后台管理页筛选区布局优先复用 `src/app/admin/components/AdminFilter.tsx`；筛选项 label 使用 `--base-foreground` 与 text-sm/medium token，需要纵向对齐时传入固定 label 宽度；查询和重置按钮左右内边距保持 `16px`，展开按钮使用 `--base-foreground` 并保持与查询按钮 `24px`、与 chevron `4px` 的间距；当筛选项数量不超过收起态展示数量时不要显示展开/收起按钮。
 - 后台管理页筛选项只有两种响应式形态：`xl` 及以上用固定三列横向展示，`xl` 以下直接切换为纵向一行一个筛选项，不要使用 `auto-fit` 或 `md:grid-cols-2` 造成两列加一列的中间态；输入控件最大宽度限制应跟随横向断点启用，共享筛选项容器需要 `min-w-0`，避免窄屏时控件被提前压缩。
 - 后台管理页独立筛选操作区如果暂未接入 `AdminFilter`，查询/重置按钮仍要和订单页保持一致：重置在前、查询在后，均使用 `Button size="sm"` 且左右内边距 `16px`，操作组靠右对齐。
-- 后台管理页表格视觉优先复用 `src/app/admin/components/AdminTableShell.tsx` 和 `src/app/admin/components/adminTableStyles.ts`；外框边框用 `--base-border`，表头背景用 `--base-muted`，表头文字用 `--base-foreground` 与 text-sm/medium/20px token，tbody 单元格保持原生 table-cell 布局并使用 `53px` 高度、`8px` padding 和 text-sm/normal/20px token，表格单元格默认不展示右侧 border 且内容左对齐，首列左侧优先用 `16px` padding，整行 hover 背景要覆盖 sticky 操作列，溢出文本优先复用 `AdminTooltipText` 查看完整内容，默认不添加示意用拖拽列或 checkbox 选择列。
+- 后台管理页表格视觉优先复用 `src/components/admin/AdminTableShell.tsx` 和 `src/components/admin/adminTableStyles.ts`；外框边框用 `--base-border`，表头背景用 `--base-muted`，表头文字用 `--base-foreground` 与 text-sm/medium/20px token，tbody 单元格保持原生 table-cell 布局并使用 `53px` 高度、`8px` padding 和 text-sm/normal/20px token，表格单元格默认不展示右侧 border 且内容左对齐，首列左侧优先用 `16px` padding，整行 hover 背景要覆盖 sticky 操作列，溢出文本优先复用 `AdminTooltipText` 查看完整内容，默认不添加示意用拖拽列或 checkbox 选择列。
 - 后台数据页的课程列表也应复用 `AdminTableShell`，标题区域用 `header` 配置，统计范围说明用 `footnote` 配置，分页用 `pagination` 配置；需要 loading 时仍展示分页和说明时传入 `showFooterWhenLoading`。
 - 后台数据页课程列表如果产品要求精简表格顶部区域，可以不传 `header`；课程总数和统计范围说明合并到同一条 `footnote` 中，优先使用“课程数：{count}（统计范围说明...）”这类单行文案。
 - admin 表格所有操作列都应和订单表格一致固定在右侧：表头使用 `getAdminStickyRightHeaderClass`，单元格使用 `getAdminStickyRightCellClass`，不要只把操作列放在最后但随横向滚动移出视口。

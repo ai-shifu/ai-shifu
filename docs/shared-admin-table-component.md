@@ -55,7 +55,7 @@ The current and target layering should remain:
 1. Base UI table primitives
    - `src/web/src/components/ui/Table.tsx`
 2. Independent admin utilities
-   - `src/web/src/app/admin/components/AdminPagination.tsx`
+   - `src/web/src/components/admin/AdminPagination.tsx`
    - `src/web/src/app/admin/components/AdminTooltipText.tsx`
 3. New admin table capability layer
    - `AdminTableShell`
@@ -74,7 +74,7 @@ The current and target layering should remain:
 
 Suggested path:
 
-- `src/web/src/app/admin/components/AdminTableShell.tsx`
+- `src/web/src/components/admin/AdminTableShell.tsx`
 
 Responsibilities:
 
@@ -143,7 +143,7 @@ Design requirements:
 
 Suggested path:
 
-- `src/web/src/app/admin/components/adminTableStyles.ts`
+- `src/web/src/components/admin/adminTableStyles.ts`
   or a similarly named local helper file
 
 Responsibilities:

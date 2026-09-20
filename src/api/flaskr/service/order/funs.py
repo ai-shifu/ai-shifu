@@ -1730,13 +1730,14 @@ def sync_stripe_checkout_session(
     expected_user: str | None = None,
 ) -> dict[str, Any]:
     """Synchronize stripe checkout session."""
-    with _app_context_scope(app), unit_of_work():
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_id):
         order = (
             Order.query.filter(
                 Order.order_bid == order_id,
                 Order.deleted == 0,
             )
             .order_by(Order.id.desc())
+            .with_for_update()
             .first()
         )
         if not order:
@@ -1753,6 +1754,7 @@ def sync_stripe_checkout_session(
                 StripeOrder.order_bid == order.order_bid,
             )
             .order_by(StripeOrder.id.desc())
+            .with_for_update()
             .first()
         )
         if not stripe_order:
@@ -1766,6 +1768,8 @@ def sync_stripe_checkout_session(
 
         if not resolved_session_id:
             raise_error("server.order.orderNotFound")
+        if resolved_session_id != stripe_order.checkout_session_id:
+            raise_error("server.order.orderNotFound")
 
         provider = get_payment_provider("stripe")
         with _order_credential_scope(app, order):
@@ -1776,15 +1780,35 @@ def sync_stripe_checkout_session(
             )
         session = sync_result.provider_payload.get("checkout_session", {}) or {}
         intent = sync_result.provider_payload.get("payment_intent") or None
+        if not _stripe_provider_objects_match_attempt(
+            order=order,
+            stripe_order=stripe_order,
+            notification_order_bid=sync_result.order_bid,
+            session=session,
+            intent=intent,
+        ):
+            raise_error("server.order.orderNotFound")
+
+        paid = _is_stripe_payment_successful(session=session, intent=intent)
+        if paid:
+            already_completed = (
+                order.status == ORDER_STATUS_SUCCESS
+                and stripe_order.status == 1
+                and _stripe_attempt_matches_order(order, stripe_order)
+            )
+            if not already_completed and not _stripe_attempt_can_complete(
+                order, stripe_order
+            ):
+                raise_error("server.order.orderStatusError")
 
         _update_stripe_order_snapshot(
             stripe_order=stripe_order, session=session, intent=intent
         )
-        paid = _is_stripe_payment_successful(session=session, intent=intent)
 
         if paid and order.status != ORDER_STATUS_SUCCESS:
             success_buy_record(app, order.order_bid)
 
+        _assert_payment_lifecycle_lock_owned()
         return get_payment_details(app, order.order_bid)
 
 
@@ -1885,7 +1909,7 @@ def _update_stripe_order_snapshot(
         stripe_order.checkout_session_object = _stringify_payload(session)
         payment_status = session.get("payment_status")
         status = session.get("status")
-        if payment_status == "paid" or status == "complete":
+        if payment_status == "paid":
             stripe_order.status = 1
         elif status == "expired":
             stripe_order.status = 3
@@ -1910,12 +1934,123 @@ def _update_stripe_order_snapshot(
 def _is_stripe_payment_successful(
     *, session: dict[str, object] | None, intent: dict[str, object] | None
 ) -> bool:
-    if session:
-        if session.get("payment_status") == "paid":
-            return True
-        if session.get("status") == "complete":
-            return True
+    if session and session.get("payment_status") == "paid":
+        return True
     return bool(intent and intent.get("status") == "succeeded")
+
+
+def _stripe_provider_objects_match_attempt(
+    *,
+    order: Order,
+    stripe_order: StripeOrder,
+    notification_order_bid: str,
+    session: dict[str, object] | None,
+    intent: dict[str, object] | None,
+) -> bool:
+    """Verify remote Stripe objects belong to the local payment attempt."""
+    session = session or {}
+    intent = intent or {}
+    session_metadata = session.get("metadata") or {}
+    intent_metadata = intent.get("metadata") or {}
+    if not isinstance(session_metadata, dict) or not isinstance(intent_metadata, dict):
+        return False
+    if notification_order_bid != order.order_bid:
+        return False
+    session_order_bid = session_metadata.get("order_bid")
+    if session and session_order_bid and session_order_bid != order.order_bid:
+        return False
+    if intent and intent_metadata.get("order_bid") != order.order_bid:
+        return False
+    if session and not session_order_bid and not intent:
+        return False
+
+    remote_session_id = str(session.get("id") or "")
+    if session and remote_session_id != str(stripe_order.checkout_session_id or ""):
+        return False
+    remote_intent_id = str(intent.get("id") or session.get("payment_intent") or "")
+    session_intent_id = str(session.get("payment_intent") or "")
+    if intent and session_intent_id and remote_intent_id != session_intent_id:
+        return False
+    local_intent_id = str(stripe_order.payment_intent_id or "")
+    if local_intent_id and remote_intent_id != local_intent_id:
+        return False
+
+    local_amount = int(stripe_order.amount or 0)
+    for payload, field in ((session, "amount_total"), (intent, "amount")):
+        if not payload or payload.get(field) in (None, ""):
+            continue
+        try:
+            if int(payload[field]) != local_amount:
+                return False
+        except (TypeError, ValueError):
+            return False
+    local_currency = str(stripe_order.currency or "").lower()
+    for payload in (session, intent):
+        remote_currency = str((payload or {}).get("currency") or "").lower()
+        if remote_currency and local_currency and remote_currency != local_currency:
+            return False
+    return True
+
+
+def _stripe_attempt_matches_order(order: Order, stripe_order: StripeOrder) -> bool:
+    """Check that an attempt is the current snapshot for the order amount."""
+    latest_attempt = (
+        legacy_stripe_snapshot_query()
+        .filter(StripeOrder.order_bid == order.order_bid)
+        .order_by(StripeOrder.id.desc())
+        .with_entities(StripeOrder.id)
+        .first()
+    )
+    latest_attempt_id = latest_attempt[0] if latest_attempt else None
+    amount_matches = decimal.Decimal(order.paid_price or 0) <= 0 or int(
+        stripe_order.amount or 0
+    ) == int(decimal.Decimal(order.paid_price) * 100)
+    return bool(stripe_order.id == latest_attempt_id and amount_matches)
+
+
+def _stripe_attempt_can_complete(order: Order, stripe_order: StripeOrder) -> bool:
+    """Apply the lifecycle gate shared by Stripe sync and webhooks."""
+    return bool(
+        stripe_order.status in {0, 4}
+        and _stripe_attempt_matches_order(order, stripe_order)
+        and order.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
+    )
+
+
+def _stripe_intent_event_matches_attempt(
+    stripe_order: StripeOrder,
+    data_object: dict[str, object],
+    metadata: dict[str, object],
+) -> bool:
+    """Reject delayed PaymentIntent events from another payment attempt."""
+    remote_intent_id = str(data_object.get("id") or "")
+    if not remote_intent_id.startswith("pi_"):
+        return False
+    local_intent_id = str(stripe_order.payment_intent_id or "")
+    if local_intent_id:
+        return remote_intent_id == local_intent_id
+    return str(metadata.get("stripe_order_bid") or "") == str(
+        stripe_order.stripe_order_bid or ""
+    )
+
+
+def _stripe_refund_event_matches_attempt(
+    stripe_order: StripeOrder,
+    data_object: dict[str, object],
+    event_type: str,
+) -> bool:
+    """Match refund evidence to the stored PaymentIntent or charge."""
+    payment_intent_id = str(data_object.get("payment_intent") or "")
+    charge_id = str(data_object.get("charge") or "")
+    if event_type == "charge.refunded":
+        charge_id = str(data_object.get("id") or charge_id)
+    return bool(
+        (
+            payment_intent_id
+            and payment_intent_id == str(stripe_order.payment_intent_id or "")
+        )
+        or (charge_id and charge_id == str(stripe_order.latest_charge_id or ""))
+    )
 
 
 def _apply_native_snapshot_update(
@@ -2109,7 +2244,15 @@ def handle_stripe_webhook(
             "event_type": event_type,
         }, 202
 
-    with _app_context_scope(app), unit_of_work():
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_bid):
+        order = (
+            Order.query.filter(
+                Order.order_bid == order_bid,
+                Order.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+        )
         stripe_attempt_bid = str(metadata.get("stripe_order_bid") or "")
         stripe_query = legacy_stripe_snapshot_query().filter(
             StripeOrder.order_bid == order_bid
@@ -2118,9 +2261,9 @@ def handle_stripe_webhook(
             stripe_query = stripe_query.filter(
                 StripeOrder.stripe_order_bid == stripe_attempt_bid
             )
-        stripe_order: StripeOrder | None = stripe_query.order_by(
-            StripeOrder.id.desc()
-        ).first()
+        stripe_order: StripeOrder | None = (
+            stripe_query.order_by(StripeOrder.id.desc()).with_for_update().first()
+        )
         if not stripe_order:
             app.logger.warning("Stripe order not found for order_bid=%s", order_bid)
             return {
@@ -2133,37 +2276,10 @@ def handle_stripe_webhook(
         response_status = "acknowledged"
         http_status = 202
 
-        if notification.charge_id:
-            stripe_order.latest_charge_id = notification.charge_id
-        payment_intent_id = data_object.get("payment_intent") or data_object.get("id")
-        if payment_intent_id and payment_intent_id.startswith("pi_"):
-            stripe_order.payment_intent_id = payment_intent_id
-        if metadata:
-            stripe_order.metadata_json = _stringify_payload(metadata)
-
-        if event_type == "checkout.session.completed":
-            stripe_order.checkout_session_id = data_object.get(
-                "id", stripe_order.checkout_session_id
-            )
-            stripe_order.checkout_session_object = _stringify_payload(data_object)
-
-        if event_type.startswith("payment_intent"):
-            stripe_order.payment_intent_object = _stringify_payload(data_object)
-            stripe_order.payment_method = data_object.get(
-                "payment_method", stripe_order.payment_method
-            )
-            charges = data_object.get("charges", {}).get("data", [])
-            if charges:
-                stripe_order.receipt_url = charges[0].get(
-                    "receipt_url", stripe_order.receipt_url
-                )
-
         success_events = {
             "payment_intent.succeeded",
             "checkout.session.completed",
-        }
-        fail_events = {
-            "payment_intent.payment_failed",
+            "checkout.session.async_payment_succeeded",
         }
         refund_events = {
             "charge.refunded",
@@ -2172,52 +2288,118 @@ def handle_stripe_webhook(
         cancel_events = {
             "payment_intent.canceled",
         }
-
         if event_type in success_events:
-            order = Order.query.filter(
-                Order.order_bid == order_bid,
-                Order.deleted == 0,
-            ).first()
-            latest_attempt_id = (
-                legacy_stripe_snapshot_query()
-                .filter(StripeOrder.order_bid == order_bid)
-                .order_by(StripeOrder.id.desc())
-                .with_entities(StripeOrder.id)
-                .first()
+            session = (
+                data_object if event_type.startswith("checkout.session.") else None
             )
-            latest_attempt_id = latest_attempt_id[0] if latest_attempt_id else None
+            intent = data_object if event_type == "payment_intent.succeeded" else None
             if (
                 order
-                and stripe_order.status in {0, 4}
-                and stripe_order.id == latest_attempt_id
-                and (
-                    decimal.Decimal(order.paid_price or 0) <= 0
-                    or int(stripe_order.amount or 0)
-                    == int(decimal.Decimal(order.paid_price) * 100)
+                and _stripe_provider_objects_match_attempt(
+                    order=order,
+                    stripe_order=stripe_order,
+                    notification_order_bid=str(order_bid),
+                    session=session,
+                    intent=intent,
                 )
-                and order.status in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}
+                and (
+                    event_type == "payment_intent.succeeded"
+                    or _is_stripe_payment_successful(session=session, intent=intent)
+                )
+                and _stripe_attempt_can_complete(order, stripe_order)
             ):
+                _assert_payment_lifecycle_lock_owned()
+                if notification.charge_id:
+                    stripe_order.latest_charge_id = notification.charge_id
+                if metadata:
+                    stripe_order.metadata_json = _stringify_payload(metadata)
+                if session:
+                    payment_intent_id = str(session.get("payment_intent") or "")
+                    if payment_intent_id:
+                        stripe_order.payment_intent_id = payment_intent_id
+                    stripe_order.checkout_session_object = _stringify_payload(session)
+                if intent:
+                    stripe_order.payment_intent_id = str(
+                        intent.get("id") or stripe_order.payment_intent_id or ""
+                    )
+                    stripe_order.payment_intent_object = _stringify_payload(intent)
+                    stripe_order.payment_method = intent.get(
+                        "payment_method", stripe_order.payment_method
+                    )
+                    charges = intent.get("charges", {}).get("data", [])
+                    if charges:
+                        stripe_order.receipt_url = charges[0].get(
+                            "receipt_url", stripe_order.receipt_url
+                        )
                 stripe_order.status = 1
                 success_buy_record(app, order_bid)
                 response_status = "paid"
                 http_status = 200
             else:
                 response_status = "ignored"
-        elif event_type in fail_events:
+        elif event_type == "payment_intent.payment_failed" and (
+            order
+            and _stripe_attempt_matches_order(order, stripe_order)
+            and _stripe_intent_event_matches_attempt(
+                stripe_order, data_object, metadata
+            )
+            and stripe_order.status != 1
+        ):
+            if notification.charge_id:
+                stripe_order.latest_charge_id = notification.charge_id
+            payment_intent_id = data_object.get("id")
+            if payment_intent_id and payment_intent_id.startswith("pi_"):
+                stripe_order.payment_intent_id = payment_intent_id
+            if metadata:
+                stripe_order.metadata_json = _stringify_payload(metadata)
+            stripe_order.payment_intent_object = _stringify_payload(data_object)
             stripe_order.status = 4
             error_info = data_object.get("last_payment_error", {}) or {}
             stripe_order.failure_code = error_info.get("code", "")
             stripe_order.failure_message = error_info.get("message", "")
             response_status = "failed"
             http_status = 200
-        elif event_type in refund_events:
+        elif event_type == "checkout.session.async_payment_failed":
+            if (
+                order
+                and stripe_order.status != 1
+                and _stripe_attempt_matches_order(order, stripe_order)
+                and _stripe_provider_objects_match_attempt(
+                    order=order,
+                    stripe_order=stripe_order,
+                    notification_order_bid=str(order_bid),
+                    session=data_object,
+                    intent=None,
+                )
+            ):
+                stripe_order.checkout_session_object = _stringify_payload(data_object)
+                stripe_order.status = 4
+                response_status = "failed"
+                http_status = 200
+        elif (
+            event_type in refund_events
+            and order
+            and _stripe_attempt_matches_order(order, stripe_order)
+            and _stripe_refund_event_matches_attempt(
+                stripe_order, data_object, event_type
+            )
+        ):
             stripe_order.status = 2
             response_status = "refunded"
             http_status = 200
-        elif event_type in cancel_events:
+        elif (
+            event_type in cancel_events
+            and order
+            and _stripe_attempt_matches_order(order, stripe_order)
+            and _stripe_intent_event_matches_attempt(
+                stripe_order, data_object, metadata
+            )
+            and stripe_order.status != 1
+        ):
             stripe_order.status = 3
             response_status = "cancelled"
             http_status = 200
+        _assert_payment_lifecycle_lock_owned()
 
     return {
         "status": response_status,
@@ -2233,8 +2415,11 @@ def refund_order_payment(
     reason: str | None = None,
 ) -> dict[str, object]:
     """Refund order payment."""
-    with _app_context_scope(app), unit_of_work():
-        order = Order.query.filter(Order.order_bid == order_bid).first()
+    uow.require_transaction_owner("Stripe refund", app)
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_bid):
+        order = (
+            Order.query.filter(Order.order_bid == order_bid).with_for_update().first()
+        )
         if not order:
             raise_error("server.order.orderNotFound")
 
@@ -2249,34 +2434,102 @@ def refund_order_payment(
             legacy_stripe_snapshot_query()
             .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
+            .with_for_update()
             .first()
         )
         if not stripe_order:
             raise_error("server.order.orderNotFound")
 
         refund_amount = amount if amount is not None else stripe_order.amount
-        metadata = {
-            "order_bid": order_bid,
-            "payment_intent_id": stripe_order.payment_intent_id,
-            "charge_id": stripe_order.latest_charge_id,
-        }
-
-        refund_request = PaymentRefundRequest(
-            order_bid=order_bid,
-            amount=refund_amount,
-            reason=reason,
-            metadata=metadata,
+        refund_key = (
+            f"order-refund:{order_bid}:{stripe_order.stripe_order_bid}:{refund_amount}"
         )
-
-        with _order_credential_scope(app, order):
-            result = provider.refund_payment(request=refund_request, app=app)
-
         metadata_dict = {}
         if stripe_order.metadata_json:
             try:
                 metadata_dict = json.loads(stripe_order.metadata_json)
             except json.JSONDecodeError:
                 metadata_dict = {}
+        existing_operation = metadata_dict.get("refund_operation") or {}
+        if (
+            existing_operation.get("idempotency_key") == refund_key
+            and existing_operation.get("status") == "succeeded"
+        ):
+            return {
+                "status": "succeeded",
+                "order_bid": order_bid,
+                "refund_id": existing_operation.get("provider_reference", ""),
+                "amount": refund_amount,
+            }
+        metadata_dict["refund_operation"] = {
+            "idempotency_key": refund_key,
+            "status": "pending",
+            "amount": refund_amount,
+        }
+        stripe_order.metadata_json = json.dumps(metadata_dict)
+        stripe_attempt_bid = str(stripe_order.stripe_order_bid or "")
+        request_metadata = {
+            "order_bid": order_bid,
+            "payment_intent_id": stripe_order.payment_intent_id,
+            "charge_id": stripe_order.latest_charge_id,
+            "idempotency_key": refund_key,
+        }
+        refund_request = PaymentRefundRequest(
+            order_bid=order_bid,
+            amount=refund_amount,
+            reason=reason,
+            metadata=request_metadata,
+        )
+        credential_context = None
+        integration_bid = str(order.payment_integration_bid or "")
+        if integration_bid:
+            credential_context = resolve_provider_credential_context(
+                app,
+                creator_bid=str(order.creator_bid or ""),
+                provider="stripe",
+                integration_bid=integration_bid,
+            )
+            if (
+                credential_context is None
+                or credential_context.integration_bid != integration_bid
+            ):
+                raise_error("server.pay.payChannelNotSupport")
+        _assert_payment_lifecycle_lock_owned()
+
+    credential_scope = (
+        config_overrides(build_provider_config_overrides(credential_context))
+        if credential_context is not None
+        else nullcontext()
+    )
+    with _app_context_scope(app), credential_scope:
+        result = provider.refund_payment(request=refund_request, app=app)
+
+    with _app_context_scope(app), unit_of_work(), payment_lifecycle_lock(order_bid):
+        order = (
+            Order.query.filter(Order.order_bid == order_bid).with_for_update().first()
+        )
+        stripe_order = (
+            legacy_stripe_snapshot_query()
+            .filter(
+                StripeOrder.order_bid == order_bid,
+                StripeOrder.stripe_order_bid == stripe_attempt_bid,
+            )
+            .with_for_update()
+            .first()
+        )
+        if not order or not stripe_order:
+            raise_error("server.order.orderNotFound")
+        metadata_dict = json.loads(stripe_order.metadata_json or "{}")
+        operation = metadata_dict.get("refund_operation") or {}
+        if operation.get("idempotency_key") != refund_key:
+            raise_error("server.order.orderStatusError")
+        operation.update(
+            {
+                "status": result.status,
+                "provider_reference": result.provider_reference,
+            }
+        )
+        metadata_dict["refund_operation"] = operation
         metadata_dict["last_refund_id"] = result.provider_reference
         stripe_order.metadata_json = json.dumps(metadata_dict)
         stripe_order.payment_intent_object = _stringify_payload(result.raw_response)
@@ -2290,6 +2543,7 @@ def refund_order_payment(
         else:
             stripe_order.status = 4
             stripe_order.failure_code = refund_status or stripe_order.failure_code
+        _assert_payment_lifecycle_lock_owned()
 
     return {
         "status": result.status,

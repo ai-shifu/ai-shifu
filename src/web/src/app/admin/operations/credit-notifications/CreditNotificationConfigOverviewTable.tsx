@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import {
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 import { cn } from '@/lib/utils';
 import {
   Table,
