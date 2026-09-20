@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from dataclasses import dataclass
@@ -271,6 +272,10 @@ def render_harness_health_report(
         "",
         "This generated report summarizes the repository harness control plane.",
         "",
+        "> Local snapshot of the working tree; it may be stale after edits or a branch switch.",
+        "> Refresh with `python scripts/build_repo_knowledge_index.py --health-only`.",
+        "> Asset status checks file existence, not test results or service health.",
+        "",
         "## Knowledge System",
         "",
         f"- Design docs: `{len(design_records)}`",
@@ -297,8 +302,23 @@ def render_harness_health_report(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def build_harness_health_report() -> str:
+    """Build an optional health snapshot directly from the current working tree."""
+    return render_harness_health_report(
+        design_records=build_frontmatter_records(
+            DOCS_ROOT / "design-docs", "design-doc"
+        ),
+        product_records=build_frontmatter_records(
+            DOCS_ROOT / "product-specs", "product-spec"
+        ),
+        reference_records=build_reference_records(),
+        active_plans=build_execplan_records("active", "active"),
+        completed_plans=build_execplan_records("completed", "completed"),
+    )
+
+
 def build_knowledge_docs() -> dict[Path, str]:
-    """Build generated repository knowledge documents as a path-to-Markdown-content mapping."""
+    """Build version-controlled knowledge documents as a path-to-content mapping."""
     design_records = build_frontmatter_records(DOCS_ROOT / "design-docs", "design-doc")
     product_records = build_frontmatter_records(
         DOCS_ROOT / "product-specs", "product-spec"
@@ -379,15 +399,6 @@ def build_knowledge_docs() -> dict[Path, str]:
                 canonical="true",
             ),
             DocRecord(
-                path=HARNESS_HEALTH_PATH,
-                title="Harness Health",
-                category="generated-doc",
-                status="reference",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-            DocRecord(
                 path=GARDENING_SUMMARY_PATH,
                 title="Harness Gardening Summary",
                 category="generated-doc",
@@ -422,19 +433,13 @@ def build_knowledge_docs() -> dict[Path, str]:
         DOCS_ROOT / "generated" / "doc-inventory.md": render_inventory(
             sorted(all_records, key=lambda record: rel_doc(record.path))
         ),
-        HARNESS_HEALTH_PATH: render_harness_health_report(
-            design_records=design_records,
-            product_records=product_records,
-            reference_records=reference_records,
-            active_plans=active_plans,
-            completed_plans=completed_plans,
-        ),
     }
 
 
-def write_documents() -> int:
-    """Write generated knowledge documents to their owned paths and return their count."""
-    docs = build_knowledge_docs()
+def write_documents(*, health_only: bool = False) -> int:
+    """Refresh the ignored health report and, by default, version-controlled indexes."""
+    docs = {} if health_only else build_knowledge_docs()
+    docs[HARNESS_HEALTH_PATH] = build_harness_health_report()
     for path, content in sorted(docs.items()):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
@@ -443,8 +448,15 @@ def write_documents() -> int:
 
 
 def main() -> int:
-    """Regenerate repository knowledge indexes and inventories."""
-    return write_documents()
+    """Regenerate knowledge documents or only the ignored local health report."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--health-only",
+        action="store_true",
+        help="Refresh only docs/generated/harness-health.md without changing tracked indexes.",
+    )
+    args = parser.parse_args()
+    return write_documents(health_only=args.health_only)
 
 
 if __name__ == "__main__":

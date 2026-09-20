@@ -60,7 +60,6 @@ STALE_FRONTEND_PATH_CONTEXT_ALLOWLIST = {
     ),
 }
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
-HARNESS_HEALTH = DOCS_ROOT / "generated" / "harness-health.md"
 PR_REVIEW_SCOPE_MARKERS = (
     "one clearly defined problem",
     "correctly, safely, completely, and with adequate tests",
@@ -157,7 +156,6 @@ REQUIRED_ROOT_DOCS = (
     DOCS_ROOT / "references" / "architecture-boundaries.md",
     DOCS_ROOT / "references" / "frontend-product-analytics.md",
     BOUNDARY_BASELINE,
-    HARNESS_HEALTH,
     GARDENING_SUMMARY_PATH,
 )
 REQUIRED_DOC_MARKERS = {
