@@ -10,13 +10,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 import { cn } from '@/lib/utils';
 import type { AdminOperationCourseDetailChapter } from '../operation-course-types';
 

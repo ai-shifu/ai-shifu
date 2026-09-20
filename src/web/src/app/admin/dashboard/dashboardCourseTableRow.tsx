@@ -4,7 +4,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import type { DashboardEntryCourseItem } from '@/types/dashboard';
 import { TableCell, TableRow } from '@/components/ui/Table';
-import { getAdminStickyRightCellClass } from '@/app/admin/components/adminTableStyles';
+import { getAdminStickyRightCellClass } from '@/components/admin/adminTableStyles';
 import { buildAdminDashboardCourseDetailUrl } from './admin-dashboard-routes';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 

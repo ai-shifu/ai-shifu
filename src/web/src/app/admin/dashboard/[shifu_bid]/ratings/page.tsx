@@ -8,8 +8,8 @@ import api from '@/api';
 import AdminFilter, {
   type AdminFilterItem,
 } from '@/app/admin/components/AdminFilter';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import { AdminPagination } from '@/components/admin/AdminPagination';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {

@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
@@ -23,7 +23,7 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import {
   formatAdminDateRangeEndUtc,

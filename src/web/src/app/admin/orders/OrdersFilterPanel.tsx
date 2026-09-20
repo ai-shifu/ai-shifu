@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import {
   createDateRangeFilterItem,
