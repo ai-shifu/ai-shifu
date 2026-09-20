@@ -235,10 +235,10 @@ class _ProfileResearchSession:
 
     @classmethod
     def from_cache_payload(cls, payload: Mapping[str, Any]) -> _ProfileResearchSession:
-        if int(payload.get("schema_version") or 0) != SESSION_SCHEMA_VERSION:
-            msg = "session schema mismatch"
-            raise ProfileResearchSessionNotFound(msg)
         try:
+            if int(payload.get("schema_version") or 0) != SESSION_SCHEMA_VERSION:
+                msg = "session schema mismatch"
+                raise ProfileResearchSessionNotFound(msg)
             raw_events = payload.get("last_events")
             if raw_events is None:
                 events: list[dict[str, Any]] = []
@@ -336,9 +336,9 @@ class _ProfileResearchSessionStore:
         if raw is None:
             msg = "session not found"
             raise ProfileResearchSessionNotFound(msg)
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8")
         try:
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
             payload = json.loads(str(raw))
         except (TypeError, ValueError) as exc:
             msg = "invalid session payload"
