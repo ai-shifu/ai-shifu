@@ -417,6 +417,8 @@ class StripeProvider(PaymentProvider):
                     if charges:
                         charge_id = str(charges[0].get("id") or "")
             metadata = session.get("metadata", {}) or {}
+            if not metadata.get("order_bid") and intent:
+                metadata = intent.get("metadata", {}) or {}
             return PaymentNotificationResult(
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
@@ -459,9 +461,10 @@ class StripeProvider(PaymentProvider):
         if request.reason:
             params["reason"] = request.reason
 
-        metadata = request.metadata or {}
+        metadata = dict(request.metadata or {})
         if hasattr(metadata, "to_dict"):
             metadata = metadata.to_dict()
+        idempotency_key = str(metadata.pop("idempotency_key", "") or "")
         metadata.setdefault("order_bid", request.order_bid)
         params["metadata"] = metadata
 
@@ -475,6 +478,11 @@ class StripeProvider(PaymentProvider):
             message = "Stripe refund requires payment_intent_id or charge_id metadata"
             raise RuntimeError(message)
 
+        if idempotency_key:
+            request_options = {
+                **request_options,
+                "idempotency_key": idempotency_key,
+            }
         refund = stripe.Refund.create(**params, **request_options)
         refund_dict = refund.to_dict()
 

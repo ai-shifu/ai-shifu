@@ -40,6 +40,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
+- [Secure learner Stripe payment synchronization](./active/stripe-payment-sync-security.md)
 
 ## Completed
 
