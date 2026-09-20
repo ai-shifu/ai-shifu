@@ -43,6 +43,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 - [Secure learner Stripe payment synchronization](./active/stripe-payment-sync-security.md)
+- [Trusted Client IP Resolution](./active/trusted-client-ip.md)
 
 ## Completed
 

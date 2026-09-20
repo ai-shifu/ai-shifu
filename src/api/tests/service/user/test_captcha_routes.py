@@ -229,6 +229,33 @@ def test_console_send_sms_code_does_not_require_captcha_ticket(
     assert body["data"]["expire_in"] > 0
 
 
+def test_console_sms_uses_resolved_client_ip(
+    test_client: object, app: object, monkeypatch: object
+) -> None:
+    from types import SimpleNamespace
+
+    import flaskr.route.user as user_route
+
+    captured: list[str] = []
+
+    class CapturingProvider:
+        def send_challenge(self, _app: object, challenge: object) -> object:
+            captured.append(challenge.metadata["ip"])
+            return SimpleNamespace(expire_in=300)
+
+    app.config["TRUSTED_PROXY_CIDRS"] = "127.0.0.1/32, 203.0.113.0/24"
+    monkeypatch.setattr(user_route, "get_provider", lambda _name: CapturingProvider())
+
+    response = test_client.post(
+        "/api/user/console_send_sms_code",
+        json={"mobile": "13800138012"},
+        headers={"X-Forwarded-For": "192.0.2.88, 198.51.100.20, 203.0.113.7"},
+    )
+
+    assert response.get_json(force=True)["code"] == 0
+    assert captured == ["198.51.100.20"]
+
+
 def test_console_send_sms_code_accepts_configured_universal_code_without_provider(
     test_client: object, app: object, monkeypatch: object
 ) -> None:

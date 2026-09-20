@@ -14,6 +14,7 @@ import pytz
 import requests
 from flask import Flask, Response, request
 
+from .client_ip import resolve_client_ip
 from .http import get_sensitive_body_limit
 from .observability import current_trace_ids
 from .request_context import thread_local
@@ -178,10 +179,7 @@ def init_log(app: Flask) -> Flask:
         thread_local.url = request.path
         thread_local.status_code = "-"
         thread_local.duration_ms = "-"
-        if "X-Forwarded-For" in request.headers:
-            user_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
-        else:
-            user_ip = request.remote_addr
+        user_ip = resolve_client_ip()
         request.client_ip = user_ip
         thread_local.client_ip = user_ip
         if get_sensitive_body_limit() is not None:

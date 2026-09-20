@@ -8,6 +8,7 @@ from typing import ParamSpec, TypeVar
 
 from flask import Flask, Response, current_app, make_response, request
 
+from flaskr.common.client_ip import resolve_client_ip
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao.uow import unit_of_work
@@ -227,16 +228,10 @@ def _resolve_runtime_language(user: object, payload: dict | None = None) -> str:
     )
 
 
-def _request_client_ip() -> str:
-    if "X-Forwarded-For" in request.headers:
-        return request.headers["X-Forwarded-For"].split(",")[0].strip()
-    return str(request.remote_addr or "").strip()
-
-
 def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     return extract_referral_post_auth_fields(
         payload,
-        client_ip=_request_client_ip(),
+        client_ip=resolve_client_ip(),
         user_agent=request.headers.get("User-Agent"),
     )
 
@@ -640,7 +635,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             ChallengeRequest(
                 identifier=mobile,
                 metadata={
-                    "ip": _request_client_ip(),
+                    "ip": resolve_client_ip(),
                     "captcha_ticket": captcha_ticket,
                     "require_captcha": True,
                 },
@@ -669,7 +664,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             ChallengeRequest(
                 identifier=mobile,
                 metadata={
-                    "ip": _request_client_ip(),
+                    "ip": resolve_client_ip(),
                     "require_captcha": False,
                 },
             ),
@@ -698,7 +693,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             ChallengeRequest(
                 identifier=email,
                 metadata={
-                    "ip": _request_client_ip(),
+                    "ip": resolve_client_ip(),
                     "language": language,
                 },
             ),
@@ -803,7 +798,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 device_name=payload.get("device_name"),
                 device_os=payload.get("device_os"),
                 client_version=payload.get("client_version"),
-                client_ip=_request_client_ip(),
+                client_ip=resolve_client_ip(),
             )
         )
 
@@ -838,7 +833,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             get_device_authorization(
                 app,
                 user_code=request.args.get("user_code"),
-                client_ip=_request_client_ip(),
+                client_ip=resolve_client_ip(),
             )
         )
 
@@ -858,7 +853,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 app,
                 user_code=payload.get("user_code"),
                 user_id=request.user.user_id,
-                client_ip=_request_client_ip(),
+                client_ip=resolve_client_ip(),
             )
         )
 
@@ -877,7 +872,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             deny_device_authorization(
                 app,
                 user_code=payload.get("user_code"),
-                client_ip=_request_client_ip(),
+                client_ip=resolve_client_ip(),
             )
         )
 
