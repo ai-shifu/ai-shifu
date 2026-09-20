@@ -528,3 +528,35 @@ def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -
                 ),
             )
         )
+
+
+def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
+    """The model writes "继续" as the prompt of a confirm; that is what the button should say.
+
+    Sent as content it trailed the lesson's last sentence, followed by a button reading "Continue"
+    in a language the lesson was not in.
+    """
+    translated = _translate(
+        InteractionRequest(
+            id="i1", spec=InteractionSpec(type="confirm", prompt="继续", options=[])
+        )
+    )
+    assert [e.type for e in translated] == [GeneratedType.INTERACTION]
+    assert translated[0].content == "?[继续//continue]"
+
+
+def test_a_long_confirm_prompt_stays_as_text() -> None:
+    """An instruction to the learner is content; the button keeps its default label."""
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="confirm", prompt="看完上面的图，想清楚了再点继续。", options=[]
+            ),
+        )
+    )
+    assert [e.type for e in translated] == [
+        GeneratedType.CONTENT,
+        GeneratedType.INTERACTION,
+    ]
+    assert translated[1].content == "?[Continue//continue]"

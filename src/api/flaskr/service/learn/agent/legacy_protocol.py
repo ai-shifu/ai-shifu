@@ -31,6 +31,7 @@ from flaskr.service.learn.agent.engine.events import (
     MemoryUpdated,
     TurnDone,
 )
+from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunMarkdownFlowDTO,
@@ -39,7 +40,6 @@ from flaskr.service.learn.learn_dtos import (
 
 if TYPE_CHECKING:
     from flaskr.service.learn.agent.engine.events import Event
-    from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
 
 # MarkdownFlow separates choices with a single bar, and multiple-choice ones with a double bar.
 _SINGLE_CHOICE_SEPARATOR = " | "
@@ -50,6 +50,8 @@ _FREE_TEXT_MARKER = "..."
 _DISPLAY_VALUE_SEPARATOR = "//"
 
 _MULTI_CHOICE_TYPES = frozenset({"multi", "multi_or_text"})
+# A confirm prompt up to this long is a button label ("继续"); longer, it is an instruction.
+_CONFIRM_LABEL_MAX_CHARS = 12
 _FREE_TEXT_TYPES = frozenset({"text", "single_or_text", "multi_or_text"})
 
 
@@ -173,10 +175,25 @@ def translate(
 
     if isinstance(event, InteractionRequest):
         events = []
+        spec = event.spec
         # Stripped only to decide whether there is a question at all: the text itself goes out as
         # the model wrote it, because the frontend renders it as Markdown and leading indentation
         # or a trailing hard break changes what the learner sees.
-        prompt = event.spec.prompt
+        prompt = spec.prompt
+        if (
+            spec.type == "confirm"
+            and 0 < len(prompt.strip()) <= _CONFIRM_LABEL_MAX_CHARS
+        ):
+            # A confirm's prompt is what the button should say -- the model writes "继续" there --
+            # not a line of lesson text. Sent as content it appeared after the lesson's last
+            # sentence, followed by a button reading "Continue" in whatever language the lesson
+            # was not in. A longer prompt is an instruction to the learner and stays as text.
+            spec = InteractionSpec(
+                type="confirm",
+                prompt="",
+                options=[Option(display=prompt.strip(), value="continue")],
+            )
+            prompt = ""
         if prompt.strip():
             events.append(
                 RunMarkdownFlowDTO(
@@ -191,7 +208,7 @@ def translate(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 type=GeneratedType.INTERACTION,
-                content=render_interaction(event.spec),
+                content=render_interaction(spec),
             )
         )
         return events
