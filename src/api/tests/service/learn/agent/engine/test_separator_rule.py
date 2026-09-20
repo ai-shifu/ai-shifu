@@ -24,8 +24,22 @@ def test_a_separator_is_a_section_boundary_and_never_a_pause() -> None:
     """
     rule = _separator_rule()
     assert "not a pause" in rule
-    assert "do not call `interact`" in rule
+    # Each prohibition is asserted on its own: dropping any one of them brings the buttons back,
+    # and a test that checked only the others would stay green.
+    assert "do not stop there" in rule
+    assert "do not call `interact` there" in rule
+    assert "do not ask the learner to continue" in rule
     assert "soft pause" not in rule
+
+
+def test_a_pause_the_script_asks_for_still_stops_the_turn() -> None:
+    """Only the model's own pauses are forbidden; the author's are the point.
+
+    A rule that let nothing but questions and the end stop a turn would contradict the system
+    prompt, which requires a `confirm` where the script says to wait for the learner.
+    """
+    rule = _separator_rule()
+    assert "a pause it explicitly asks for" in rule
 
 
 def test_a_pause_is_only_ever_the_script_s_own() -> None:
