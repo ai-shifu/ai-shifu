@@ -478,6 +478,54 @@ describe('GlobalBillingPricing', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('uses updated catalog credits for learning minutes and checkout', async () => {
+    const user = userEvent.setup();
+    const catalog = buildGlobalCatalog();
+    catalog.plans[1].credit_amount = 5000;
+    mockGetBillingCatalog.mockResolvedValue(catalog);
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'order-growth-updated-credits',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'pending',
+      redirect_url: 'https://checkout.stripe.test/updated-credits',
+    });
+
+    renderPricing();
+    await screen.findByTestId('global-plan-growth');
+    await act(async () => {
+      await user.click(screen.getByRole('tab', { name: 'Monthly' }));
+    });
+
+    const growth = screen.getByTestId('global-plan-growth');
+    expect(
+      within(growth).getByText('5,000 credits per month'),
+    ).toBeInTheDocument();
+    expect(within(growth).getByText('About 3 万 minutes')).toBeInTheDocument();
+    const checkoutButton = within(growth).getByRole('button', {
+      name: 'Choose plan',
+    });
+    expect(checkoutButton).toBeEnabled();
+    await act(async () => {
+      await user.click(checkoutButton);
+    });
+
+    expect(mockCheckoutSubscription).toHaveBeenCalledWith({
+      payment_provider: 'stripe',
+      product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.growthMonthly}`,
+    });
+    expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
+      'https://checkout.stripe.test/updated-credits',
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_attempt',
+      expect.objectContaining({
+        product_code: GLOBAL_BILLING_PRODUCT_CODES.growthMonthly,
+        credit_amount: 5000,
+      }),
+    );
+  });
+
   test('shows discount campaign prices on global plan cards', async () => {
     const catalog = buildGlobalCatalog();
     catalog.plans[0] = plan(
@@ -1162,6 +1210,23 @@ describe('GlobalBillingPricing', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Choose plan')).not.toBeInTheDocument();
   });
+
+  test.each([0, -1, NaN, Infinity])(
+    'fails closed when catalog credits are not a positive finite amount (%s)',
+    async creditAmount => {
+      const catalog = buildGlobalCatalog();
+      catalog.plans[1].credit_amount = creditAmount;
+      mockGetBillingCatalog.mockResolvedValue(catalog);
+
+      renderPricing();
+
+      expect(
+        await screen.findByTestId('global-billing-unavailable'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Choose plan')).not.toBeInTheDocument();
+      expect(mockCheckoutSubscription).not.toHaveBeenCalled();
+    },
+  );
 
   test('fails closed instead of crashing when a catalog currency is missing', async () => {
     const catalog = buildGlobalCatalog();

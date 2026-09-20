@@ -66,7 +66,6 @@ type PlanTier = 'studio' | 'growth' | 'business' | 'scale';
 type ExpectedProductSpec = {
   productType: 'plan' | 'topup';
   priceAmount: number;
-  creditAmount: number;
   billingInterval?: 'month' | 'year';
 };
 
@@ -87,53 +86,44 @@ const EXPECTED_GLOBAL_PRODUCTS: Record<string, ExpectedProductSpec> = {
     productType: 'plan',
     billingInterval: 'month',
     priceAmount: 5900,
-    creditAmount: 1000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.growthMonthly]: {
     productType: 'plan',
     billingInterval: 'month',
     priceAmount: 22900,
-    creditAmount: 4000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.growthAnnual]: {
     productType: 'plan',
     billingInterval: 'year',
     priceAmount: 219900,
-    creditAmount: 50000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.businessMonthly]: {
     productType: 'plan',
     billingInterval: 'month',
     priceAmount: 41900,
-    creditAmount: 8000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.businessAnnual]: {
     productType: 'plan',
     billingInterval: 'year',
     priceAmount: 399900,
-    creditAmount: 100000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.scaleMonthly]: {
     productType: 'plan',
     billingInterval: 'month',
     priceAmount: 83900,
-    creditAmount: 18000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.scaleAnnual]: {
     productType: 'plan',
     billingInterval: 'year',
     priceAmount: 799900,
-    creditAmount: 220000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.credits250]: {
     productType: 'topup',
     priceAmount: 2900,
-    creditAmount: 250,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.credits3000]: {
     productType: 'topup',
     priceAmount: 27900,
-    creditAmount: 3000,
   },
 };
 
@@ -272,7 +262,8 @@ function resolveGlobalProducts(
       product.product_type !== expected.productType ||
       normalizeCurrency(product.currency) !== 'USD' ||
       Number(product.price_amount) !== expected.priceAmount ||
-      Number(product.credit_amount) !== expected.creditAmount
+      !Number.isFinite(Number(product.credit_amount)) ||
+      Number(product.credit_amount) <= 0
     ) {
       return null;
     }

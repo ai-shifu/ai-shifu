@@ -47,6 +47,12 @@ by the domestic and global plan comparisons. Settlement, eligibility, purchase
 actions and checkout analytics remain unchanged. No new user interaction is
 introduced. An increase in purchase conversion has not yet been established.
 
+This replaces the existing capacity explanation, including the global page's
+previous catalog-derived learner estimate. It adds no action, control, route,
+workflow or state transition, so the presentation-only exception in
+`docs/references/frontend-product-analytics.md` applies. Existing checkout
+events are not an exposure denominator or proof of conversion improvement.
+
 ## Evidence and calculation
 
 - China production data cutoff: **2026-09-20 11:00:00 UTC**, end exclusive.
@@ -204,6 +210,8 @@ The UI always calculates from the live catalog, including custom or edited
 allocations. It does not multiply annual grants by 12 again. Existing validity
 and grant schedules still apply. Positive estimates below one minute display
 “less than 1 minute”; zero or invalid allocations do not promise learning time.
+The global catalog validator accepts changed positive, finite credit allocations
+while preserving its product identity, type, currency, price and interval checks.
 
 The domestic comparison retains at least 180 pixels per plan column inside its
 existing horizontal scroller, so the minute value and purchase controls

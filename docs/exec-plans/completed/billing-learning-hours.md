@@ -73,10 +73,15 @@ calibration evidence in the product specification.
   present a single-course observation as a universal statistical range.
 - Keep the main content to an estimated-learning-time label and approximate
   minute value. Keep the shared footnote to historical data, reading mode, 1×
-  model, reference-only status, consumption variability and additional speech
-  credits. Keep course, sample and rate details in the product specification.
+  model, reference-only status, consumption variability and higher credit usage
+  in listening mode. Keep course, sample and rate details in the product specification.
 - Keep purchase actions and existing analytics unchanged: this replaces
   explanatory values and copy without adding an interaction path.
+- Review confirmed that the existing capacity explanation is a presentation-only
+  change under the analytics contract, not a new capability requiring exposure
+  events. Existing checkout events do not prove conversion improvement.
+- Accept valid global catalog allocation edits instead of comparing credits
+  with fixed defaults. Keep the other purchase validation constraints intact.
 - Keep identities, raw content, credentials and detailed business traffic totals
   out of the public repository. Retain the full aggregate audit locally.
 
@@ -102,6 +107,11 @@ more credits without introducing a separate credit concept.
 That refinement passed the same 122 focused tests and full type checking.
 Readback of the local billing page confirmed the removed row, compact minute
 spacing and revised footnote; a desktop screenshot confirmed the table layout.
+Review follow-up removed the fixed global allocation check. The added regression
+changes Growth Monthly from 4,000 to 5,000 credits, verifies 30,000 learning
+minutes and the existing checkout path, and checks that the checkout event uses
+the updated allocation. Invalid allocations remain rejected. All 127 focused
+tests and full type checking passed after this fix.
 
 ## Context and Orientation
 
