@@ -192,6 +192,9 @@ src/api/logs/
 # Harness runtime artifacts
 artifacts/runs/
 
+# On-demand harness health snapshot
+/docs/generated/harness-health.md
+
 ###############################################################################
 # Never ignore these files (exceptions to above rules)
 ###############################################################################

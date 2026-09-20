@@ -13,7 +13,8 @@ governance work can be prioritized mechanically.
 - Gaps: the knowledge layout is versioned and indexed, but durable health still
   depends on scheduled gardening to keep `last_reviewed` data and retired-term
   cleanup current.
-- Next action: keep the generated inventory and harness health report green, and
+- Next action: keep generated-inventory and source-based harness checks passing,
+  refresh the optional health snapshot when inspecting repository status, and
   let the gardening workflow shrink stale references continuously.
 
 ### api
