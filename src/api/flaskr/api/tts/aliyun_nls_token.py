@@ -123,6 +123,8 @@ def _decode_cache_value(raw: object) -> AliyunNlsToken | None:
         data = json.loads(raw)
     except Exception:
         return None
+    if not isinstance(data, dict):
+        return None
     token = (data.get("token") or "").strip()
     expire_time = data.get("expire_time")
     try:
