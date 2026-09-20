@@ -24,7 +24,7 @@ and `**` for credit validity, with matching superscripts beside each note.
 Both pricing surfaces use this concise shared Chinese footnote, with aligned
 translations in all five locales:
 
-> 时长按历史数据估算，仅供参考。课程内容、所选模型和互动情况都会影响实际积分消耗，听课模式会消耗更多积分。
+> 时长按历史数据估算，仅供参考。课程内容、所选模型和互动情况都会影响实际积分消耗。如果启用语音合成，会消耗更多积分。
 
 Global pricing reuses the domestic labels, credit amounts, cumulative benefit
 wording, credit-pack notes and footnote component. Plan names and purchase
@@ -176,7 +176,7 @@ fully traced example used 25.24, so that range did **not** fit the supplied cour
 benchmark. The coefficient uses the documented course example, not an unsupported
 universal range derived from one completion. The purchase footnote describes
 estimates based on historical data for reference only, variable credit
-consumption and higher credit usage in listening mode. Reading mode, the 1×
+consumption and higher credit usage when speech synthesis is enabled. Reading mode, the 1×
 model, sample size and assumed duration remain in this methodology document.
 
 ## Comparison with the previous page

@@ -74,7 +74,7 @@ calibration evidence in the product specification.
 - Keep the main content to an estimated-learning-time label and approximate
   minute value. Keep the shared footnote to historical data, reference-only
   status, consumption variability and higher credit usage
-  in listening mode. Keep course, sample and rate details in the product specification.
+  when speech synthesis is enabled. Keep course, sample and rate details in the product specification.
 - Keep purchase actions and existing analytics unchanged: this replaces
   explanatory values and copy without adding an interaction path.
 - Review confirmed that the existing capacity explanation is a presentation-only

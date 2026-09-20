@@ -141,7 +141,7 @@ jest.mock('react-i18next', () => ({
         'module.billing.package.topup.noteInstant':
           'Credits take effect immediately after purchase and never expire.',
         'module.billing.package.footnote.learningTime':
-          'These estimates are based on historical data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.',
+          'These estimates are based on historical data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. If speech synthesis is enabled, more credits will be used.',
         'module.billing.package.learningTime.label': 'Estimated learning time',
         'module.billing.catalog.badges.recommended': 'Hot',
         'module.billing.globalPricing.plans.business.name': 'Business',
@@ -428,7 +428,7 @@ describe('GlobalBillingPricing', () => {
     }
     expect(
       screen.getByText(
-        'These estimates are based on historical data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.',
+        'These estimates are based on historical data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. If speech synthesis is enabled, more credits will be used.',
       ),
     ).toBeInTheDocument();
     expect(
