@@ -17,6 +17,8 @@ driven by :class:`flaskr.service.creator_analytics.whitelist.TableSpec` flags:
 4. ``AND status = 1`` when ``auto_filter_status_active`` is True — used by
    ``learn_generated_blocks`` to drop rerolled history (``status = 0``) from
    every result, so creator counts reflect the current learner experience.
+5. Course-learner scope for global user lookups — a matching user must have
+   active progress or a successful manual-import order in the requested course.
 
 The MySQL ``MAX_EXECUTION_TIME`` optimizer hint is injected only when the
 target dialect is MySQL — under SQLite (tests) the hint would not parse.
@@ -26,11 +28,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from flaskr.service.learn.models import LearnProgressRecord
+from flaskr.service.order.consts import (
+    LEARN_STATUS_RESET,
+    ORDER_STATUS_SUCCESS,
+)
+from flaskr.service.order.models import Order
 from sqlalchemy import (
     Column,
     and_,
     bindparam,
+    exists,
     func,
+    or_,
     select,
 )
 
@@ -68,8 +78,7 @@ def build_statement(
         # Shifu-scoped tables: the requested shifu_bid is enforced server-side
         # regardless of what the caller wrote in `where`. Tables without a
         # shifu_bid column (e.g. user_users) rely on funcs.run_dsl for the
-        # permission check plus DSL-level guards (mandatory where user_bid,
-        # capped limit, PII redaction).
+        # permission check plus their explicit row-scope policy below.
         where_clauses.append(
             table.c.shifu_bid == bindparam("__shifu_bid", value=dsl.shifu_bid)
         )
@@ -93,6 +102,8 @@ def build_statement(
         )
     if dsl.spec.auto_filter_status_active:
         where_clauses.append(table.c.status == 1)
+    if dsl.spec.course_learner_scoped:
+        where_clauses.append(_course_learner_scope(table, dsl.shifu_bid))
 
     for index, filt in enumerate(dsl.filters):
         where_clauses.append(_compile_filter(table.c[filt.field], filt, index))
@@ -117,6 +128,28 @@ def build_statement(
         )
 
     return stmt
+
+
+def _course_learner_scope(table: object, shifu_bid: str) -> ColumnElement[bool]:
+    """Restrict a user row to the dashboard's canonical course learner sources."""
+    progress = LearnProgressRecord.__table__
+    orders = Order.__table__
+    course_param = bindparam("__learner_shifu_bid", value=shifu_bid)
+    return or_(
+        exists().where(
+            progress.c.user_bid == table.c.user_bid,
+            progress.c.shifu_bid == course_param,
+            progress.c.deleted == 0,
+            progress.c.status != LEARN_STATUS_RESET,
+        ),
+        exists().where(
+            orders.c.user_bid == table.c.user_bid,
+            orders.c.shifu_bid == course_param,
+            orders.c.deleted == 0,
+            orders.c.payment_channel == "manual",
+            orders.c.status == ORDER_STATUS_SUCCESS,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

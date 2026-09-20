@@ -18,6 +18,7 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import (
@@ -184,6 +185,24 @@ def seed_progress(
     )
     db.session.commit()
     return record_bid
+
+
+def seed_manual_order(*, shifu_bid: str, user_bid: str) -> None:
+    now = now_utc()
+    db.session.add(
+        Order(
+            order_bid=f"order-{shifu_bid}-{user_bid}",
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            creator_bid="teacher-1",
+            payment_channel="manual",
+            status=ORDER_STATUS_SUCCESS,
+            deleted=0,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.session.commit()
 
 
 def seed_archive(

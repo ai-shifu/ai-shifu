@@ -24,6 +24,7 @@ from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.run_agent import run_agent_lesson
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
@@ -186,6 +187,9 @@ def agent_lesson_events(
             user_id=user_bid,
             span=span,
             usage_metadata=settings.usage_metadata,
+            # An author previewing is not a learner taking the course; counting their turns as
+            # production overstates what the course actually cost to teach.
+            **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
         ),
         # No memory store: the engine runs on the bridge's producer thread, which has no app
         # context. The host consumes its `MemoryUpdated` events and writes them instead.

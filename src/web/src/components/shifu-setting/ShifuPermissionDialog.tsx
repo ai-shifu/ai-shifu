@@ -7,7 +7,6 @@ import { useEnvStore } from '@/store';
 import { useUserStore } from '@/store';
 import { useToast } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { isValidEmail } from '@/lib/validators';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import {
@@ -39,6 +38,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 import { ScrollArea } from '@/components/ui/ScrollArea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Textarea } from '@/components/ui/Textarea';
+import {
+  formatPermissionContactSample,
+  MAX_SHARED_PERMISSION_COUNT,
+  validatePermissionContacts,
+} from './permission-contacts';
 
 type SharedPermission = {
   user_id: string;
@@ -57,20 +61,6 @@ type ShifuPermissionDialogProps = {
   onOpenChange: (open: boolean) => void;
   shifu: PermissionDialogShifu;
 };
-
-const MAX_SHARED_PERMISSION_COUNT = 10;
-const INVALID_CONTACT_SAMPLE_LIMIT = 5;
-const PERMISSION_PHONE_PATTERN = /^\d{11}$/;
-const PHONE_EXTRACT_PATTERN = /(?:^|\D)(\d{11})(?!\d)/g;
-const PHONE_TOKEN_PATTERN = /\d{11}/;
-const PHONE_TOKEN_SPLIT_PATTERN = /[\s,;\n\uFF0C\uFF1B]+/;
-const EMAIL_EXTRACT_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const EMAIL_CANDIDATE_PATTERN = /[^\s,\uFF0C;\uFF1B]+@[^\s,\uFF0C;\uFF1B]+/g;
-
-const unique = (items: string[]): string[] => Array.from(new Set(items));
-
-const normalizeEmailCandidate = (value: string): string =>
-  value.replace(/^[,\uFF0C;\uFF1B.\u3002]+|[,\uFF0C;\uFF1B.\u3002]+$/g, '');
 
 export default function ShifuPermissionDialog({
   open,
@@ -195,152 +185,58 @@ export default function ShifuPermissionDialog({
     [t],
   );
 
-  const parseContacts = React.useCallback(
-    (value: string) => {
-      if (!value.trim()) {
-        return { contacts: [], invalidContacts: [] };
-      }
-
-      if (contactType === 'phone') {
-        const matches = Array.from(value.matchAll(PHONE_EXTRACT_PATTERN)).map(
-          match => match[1],
-        );
-        const contacts = unique(matches).filter(phone =>
-          PERMISSION_PHONE_PATTERN.test(phone),
-        );
-        const tokens = value
-          .split(PHONE_TOKEN_SPLIT_PATTERN)
-          .filter(token => token.length > 0);
-        const invalidContacts = unique(
-          tokens
-            .filter(
-              token => /\d/.test(token) && !PHONE_TOKEN_PATTERN.test(token),
-            )
-            .map(token => token.replace(/\D/g, ''))
-            .filter(
-              candidate =>
-                candidate.length > 0 &&
-                !PERMISSION_PHONE_PATTERN.test(candidate),
-            ),
-        );
-        return { contacts, invalidContacts };
-      }
-
-      const emailMatches = Array.from(
-        value.matchAll(EMAIL_EXTRACT_PATTERN),
-      ).map(match => match[0].toLowerCase());
-      const contacts = unique(emailMatches);
-      const candidateMatches = Array.from(
-        value.matchAll(EMAIL_CANDIDATE_PATTERN),
-      ).map(match => normalizeEmailCandidate(match[0]).toLowerCase());
-      const invalidContacts = unique(candidateMatches).filter(
-        candidate => candidate && !isValidEmail(candidate),
-      );
-      return { contacts, invalidContacts };
-    },
-    [contactType],
-  );
-
   const handleGrantPermissions = React.useCallback(async () => {
     if (!shifu?.bid || !canManagePermissions) {
       return;
     }
-    const { contacts, invalidContacts } = parseContacts(permissionInput);
-    if (invalidContacts.length > 0) {
-      const sample = invalidContacts
-        .slice(0, INVALID_CONTACT_SAMPLE_LIMIT)
-        .join(', ');
-      const messageContacts =
-        invalidContacts.length > INVALID_CONTACT_SAMPLE_LIMIT
-          ? `${sample}...`
-          : sample;
-      setPermissionError(
-        contactType === 'email'
-          ? t('module.shifuSetting.permissionEmailInvalid', {
-              values: messageContacts,
-            })
-          : t('module.shifuSetting.permissionPhoneInvalid', {
-              values: messageContacts,
-            }),
-      );
-      return;
-    }
-    if (contacts.length === 0) {
-      setPermissionError(t('module.shifuSetting.permissionContactRequired'));
-      return;
-    }
-    const normalizedExisting = new Set(
-      permissionList.map(item =>
-        contactType === 'email'
-          ? (item.identifier || '').toLowerCase()
-          : item.identifier || '',
-      ),
-    );
-    const normalizedContacts = contacts.map(contact =>
-      contactType === 'email' ? contact.toLowerCase() : contact,
-    );
-    const ownerEmail =
-      typeof currentUser?.email === 'string'
-        ? currentUser.email.toLowerCase()
-        : '';
-    const ownerPhoneCandidate =
-      typeof currentUser?.phone === 'string'
-        ? currentUser.phone
-        : typeof currentUser?.mobile === 'string'
-          ? currentUser.mobile
-          : typeof currentUser?.user_mobile === 'string'
-            ? currentUser.user_mobile
-            : '';
-    const ownerPhone = ownerPhoneCandidate.replace(/\D/g, '');
-    const ownerContact = contactType === 'email' ? ownerEmail : ownerPhone;
-    if (ownerContact && normalizedContacts.includes(ownerContact)) {
-      setPermissionError(t('module.shifuSetting.permissionOwnerNotAllowed'));
-      return;
-    }
-    const existingContacts = contacts.filter((contact, index) =>
-      normalizedExisting.has(normalizedContacts[index]),
-    );
-    const newContacts = contacts.filter(
-      (_contact, index) => !normalizedExisting.has(normalizedContacts[index]),
-    );
-
-    if (existingContacts.length > 0) {
-      const sample = existingContacts
-        .slice(0, INVALID_CONTACT_SAMPLE_LIMIT)
-        .join(', ');
-      const messageContacts =
-        existingContacts.length > INVALID_CONTACT_SAMPLE_LIMIT
-          ? `${sample}...`
-          : sample;
-      setPermissionError(
-        t('module.shifuSetting.permissionDuplicate', {
-          values: messageContacts,
-        }),
-      );
-      return;
-    }
-
-    if (
-      permissionList.length + newContacts.length >
-      MAX_SHARED_PERMISSION_COUNT
-    ) {
-      setPermissionError(
-        t('module.shifuSetting.permissionLimit', {
-          count: MAX_SHARED_PERMISSION_COUNT,
-        }),
-      );
-      return;
+    const result = validatePermissionContacts({
+      value: permissionInput,
+      contactType,
+      existingPermissions: permissionList,
+      owner: currentUser,
+    });
+    switch (result.type) {
+      case 'invalid':
+        setPermissionError(
+          contactType === 'email'
+            ? t('module.shifuSetting.permissionEmailInvalid', {
+                values: formatPermissionContactSample(result.contacts),
+              })
+            : t('module.shifuSetting.permissionPhoneInvalid', {
+                values: formatPermissionContactSample(result.contacts),
+              }),
+        );
+        return;
+      case 'required':
+        setPermissionError(t('module.shifuSetting.permissionContactRequired'));
+        return;
+      case 'owner':
+        setPermissionError(t('module.shifuSetting.permissionOwnerNotAllowed'));
+        return;
+      case 'duplicate':
+        setPermissionError(
+          t('module.shifuSetting.permissionDuplicate', {
+            values: formatPermissionContactSample(result.contacts),
+          }),
+        );
+        return;
+      case 'limit':
+        setPermissionError(
+          t('module.shifuSetting.permissionLimit', {
+            count: MAX_SHARED_PERMISSION_COUNT,
+          }),
+        );
+        return;
     }
 
     setPermissionError('');
-    setPendingGrantContacts(newContacts);
+    setPendingGrantContacts(result.contacts);
     setPendingGrantPermission(permissionLevel);
     setGrantConfirmOpen(true);
   }, [
     canManagePermissions,
     contactType,
     currentUser,
-    parseContacts,
     permissionInput,
     permissionLevel,
     permissionList,
