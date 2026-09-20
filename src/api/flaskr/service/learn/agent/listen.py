@@ -57,6 +57,7 @@ class LessonVoice:
         progress_record_bid: str,
         user_bid: str,
         generated_block_bid: str,
+        usage_scene: int | None = None,
     ) -> None:
         """Bind what the processors will need, without creating any yet."""
         self._app = app
@@ -66,6 +67,9 @@ class LessonVoice:
         self._progress_record_bid = progress_record_bid
         self._user_bid = user_bid
         self._generated_block_bid = generated_block_bid
+        # What this lesson's audio is billed and reported as: an author previewing is not a
+        # learner taking the course, and counting it as one overstates production usage.
+        self._usage_scene = usage_scene
         self._processor: object | None = None
         self._key: tuple[str, int] | None = None
         self._next_position = 0
@@ -145,6 +149,7 @@ class LessonVoice:
             position=position,
             stream_element_number=key[1],
             stream_element_type="text",
+            usage_scene=self._usage_scene,
         )
         if self._processor is None:
             # No TTS configured for this course, or settings that do not validate. Said once, so

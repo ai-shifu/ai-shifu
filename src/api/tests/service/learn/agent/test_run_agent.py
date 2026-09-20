@@ -22,6 +22,7 @@ from flaskr.service.learn.agent.engine.events import (
 from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
 from flaskr.service.learn.agent.session_store import StoredSessionUnusable
 from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 
 USER = "user-bid"
 SHIFU = "shifu-bid"
@@ -1219,3 +1220,64 @@ def test_an_author_previewing_in_listening_mode_hears_the_lesson(
 
     assert spoken, "the preview was silent"
     assert asked["progress_record_bid"] == "preview-progress"
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize(
+    ("preview_mode", "expected"),
+    [
+        pytest.param(True, BILL_USAGE_SCENE_PREVIEW, id="preview"),
+        pytest.param(False, None, id="learner"),
+    ],
+)
+def test_a_preview_s_audio_is_not_billed_as_a_lesson_taken(
+    monkeypatch: pytest.MonkeyPatch, preview_mode: bool, expected: object
+) -> None:
+    """An author previewing is not a learner taking the course.
+
+    Counting their listening as production overstates what the course cost to teach, in the
+    billing record and in every report drawn from it.
+    """
+    asked: dict = {}
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    def _factory(_app: object, **kwargs: object) -> object:
+        asked.update(kwargs)
+        return _Processor()
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor", _factory
+    )
+    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-progress")
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: PROGRESS)
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine([ContentDelta(text="Teaching.\n"), TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            _App(),
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=preview_mode,
+            listen=True,
+            iter_turn=_drive,
+        )
+    )
+
+    assert asked["usage_scene"] == expected
