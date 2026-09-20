@@ -793,8 +793,13 @@ def test_safe_provider_client_requires_https_by_default(app: object) -> None:
     assert client.policy.allowed_schemes == frozenset({"https"})
 
 
-def test_safe_provider_client_allows_explicit_private_http_opt_in(app: object) -> None:
-    app.config["ASK_PROVIDER_ALLOW_INSECURE_HTTP"] = True
+def test_safe_provider_client_allows_explicit_private_http_opt_in(
+    app: object, monkeypatch: object
+) -> None:
+    allow_insecure_http = True
+    monkeypatch.setitem(
+        app.config, "ASK_PROVIDER_ALLOW_INSECURE_HTTP", allow_insecure_http
+    )
 
     client = common.safe_provider_client(
         app,
