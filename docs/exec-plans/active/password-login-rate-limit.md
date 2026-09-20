@@ -73,3 +73,6 @@ The change requires no database migration. Redis records expire automatically. A
 - Redis commands and locks supplied by the repository-owned redis-py client.
 - Existing bcrypt helpers and user aggregate repository.
 - Existing common API error envelope and backend i18n JSON files.
+- [x] 2026-09-20 22:45 CST: Closed follow-up review gaps: alias-safe public cooldown responses, failure-budget reset when cooldown starts, and CodeQL/test-fixture compatibility for keyed verification-state digests.
+- A shared account cooldown cannot be returned verbatim for every alias: doing so reveals that two identifiers resolve to the same account. A separate identifier-scoped response budget now controls only the public error while the account-scoped limiter remains authoritative.
+- The failure counter must be deleted atomically only when the request creates the cooldown; otherwise its older TTL can cause an immediate second cooldown after the first one expires.

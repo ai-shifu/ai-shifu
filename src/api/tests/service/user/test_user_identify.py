@@ -1,5 +1,6 @@
 """Verify user identify behavior."""
 
+import logging
 import threading
 import uuid
 
@@ -618,7 +619,9 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     )
 
     fake_app = SimpleNamespace(
+        logger=logging.getLogger("test.verification.challenge"),
         config={
+            "SECRET_KEY": "test-verification-attempt-key",
             "REDIS_KEY_PREFIX_IP_BAN": "test:ip-ban:",
             "REDIS_KEY_PREFIX_IP_LIMIT": "test:ip-limit:",
             "REDIS_KEY_PREFIX_PHONE_LIMIT": "test:phone-limit:",
@@ -636,7 +639,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
             "MAIL_CODE_EXPIRE_TIME": 300,
             "REDIS_HOST": "redis",
             "REDIS_PORT": 6379,
-        }
+        },
     )
     policy = getattr(user_utils, policy_name)
 
@@ -740,14 +743,16 @@ def test_prepare_verification_challenge_fails_when_attempt_reset_is_not_durable(
 
     identifier = "learner@example.com"
     fake_app = SimpleNamespace(
+        logger=logging.getLogger("test.verification.challenge"),
         config={
+            "SECRET_KEY": "test-verification-attempt-key",
             "REDIS_KEY_PREFIX_MAIL_LIMIT": "test:mail-limit:",
             "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail-code:",
             "MAIL_CODE_INTERVAL": 60,
             "MAIL_CODE_EXPIRE_TIME": 300,
             "REDIS_HOST": "redis",
             "REDIS_PORT": 6379,
-        }
+        },
     )
     attempt_key = verification_codes._verification_attempt_key(
         fake_app,

@@ -49,7 +49,10 @@ if failures == 1 then
     redis.call('EXPIRE', KEYS[1], ARGV[1])
 end
 if failures >= tonumber(ARGV[2]) then
-    redis.call('SET', KEYS[2], '1', 'EX', ARGV[3], 'NX')
+    local started = redis.call('SET', KEYS[2], '1', 'EX', ARGV[3], 'NX')
+    if started then
+        redis.call('DEL', KEYS[1])
+    end
 end
 return failures
 """
@@ -97,6 +100,7 @@ class PasswordLoginAttempt:
         self._renew_thread: threading.Thread | None = None
         self._enabled = False
         self.blocked = False
+        self.cooldown_active = False
 
     def __enter__(self) -> Self:
         """Acquire the account guard and load its cooldown state."""
@@ -126,7 +130,8 @@ class PasswordLoginAttempt:
                 return self
             self._enabled = True
             self._start_renewal(lock_lease)
-            self.blocked = bool(redis_client.exists(self._cooldown_key))
+            self.cooldown_active = bool(redis_client.exists(self._cooldown_key))
+            self.blocked = self.cooldown_active
             if self.blocked:
                 self._app.logger.info(
                     "security_event=password_login_rate_limited account=%s reason=cooldown",
@@ -223,6 +228,7 @@ class PasswordLoginAttempt:
             return None
         if failures >= max_failures:
             self.blocked = True
+            self.cooldown_active = True
             self._app.logger.info(
                 "security_event=password_login_cooldown_started account=%s",
                 self.digest,

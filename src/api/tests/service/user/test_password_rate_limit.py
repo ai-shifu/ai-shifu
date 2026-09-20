@@ -53,11 +53,13 @@ def test_tenth_failure_starts_cooldown_and_blocks_correct_password(
 
     assert _post_password(test_client, phone, "Wrong123")["code"] == 1039
     assert _post_password(test_client, phone, password)["code"] == 1039
+    assert not any(key.endswith(":failures") for key in mock_redis_client._store)
 
-    cooldown_key = next(
+    cooldown_keys = [
         key for key in mock_redis_client._store if key.endswith(":cooldown")
-    )
-    mock_redis_client._expires[cooldown_key] = time.time() - 1
+    ]
+    for cooldown_key in cooldown_keys:
+        mock_redis_client._expires[cooldown_key] = time.time() - 1
     assert _post_password(test_client, phone, password)["code"] == 0
 
 
@@ -103,8 +105,8 @@ def test_phone_and_email_aliases_share_one_failure_budget(
 
     assert _post_password(test_client, phone, "Wrong123")["code"] == 1016
     assert _post_password(test_client, email, "Wrong123")["code"] == 1016
-    assert _post_password(test_client, phone, "Wrong123")["code"] == 1039
-    assert _post_password(test_client, email, password)["code"] == 1039
+    assert _post_password(test_client, phone, "Wrong123")["code"] == 1016
+    assert _post_password(test_client, email, password)["code"] == 1016
 
 
 def test_unknown_and_passwordless_accounts_execute_dummy_bcrypt(
@@ -113,10 +115,10 @@ def test_unknown_and_passwordless_accounts_execute_dummy_bcrypt(
     from flaskr.service.user import phone_flow
     from flaskr.service.user.auth.providers import password as password_provider
 
-    passwordless_phone = "15500007104"
+    account_without_password_phone = "15500007104"
     with app.app_context():
         phone_flow.verify_phone_code(
-            app, user_id=None, phone=passwordless_phone, code="9999"
+            app, user_id=None, phone=account_without_password_phone, code="9999"
         )
 
     hashes: list[str] = []
@@ -128,7 +130,9 @@ def test_unknown_and_passwordless_accounts_execute_dummy_bcrypt(
     monkeypatch.setattr(password_provider, "verify_password", record_hash)
 
     unknown = _post_password(test_client, "missing@example.com", "Wrong123")
-    passwordless = _post_password(test_client, passwordless_phone, "Wrong123")
+    passwordless = _post_password(
+        test_client, account_without_password_phone, "Wrong123"
+    )
 
     assert unknown["code"] == passwordless["code"] == 1016
     assert hashes == [
@@ -192,7 +196,8 @@ def test_waiting_for_account_guard_holds_no_database_transaction(
     assert (
         _post_password(test_client, "missing@example.com", "Wrong123")["code"] == 1016
     )
-    assert transaction_states == [False]
+    assert transaction_states
+    assert all(state is False for state in transaction_states)
 
 
 def test_lost_account_guard_rejects_an_otherwise_valid_login(

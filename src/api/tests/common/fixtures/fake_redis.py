@@ -147,7 +147,9 @@ class FakeRedis:
         if failures == 1:
             self._expires[failure_key] = self._now() + window_seconds
         if failures >= max_failures:
-            self.set(cooldown_key, "1", ex=cooldown_seconds, nx=True)
+            started = self.set(cooldown_key, "1", ex=cooldown_seconds, nx=True)
+            if started:
+                self.delete(failure_key)
         return failures
 
     def ttl(self, key: str) -> int:

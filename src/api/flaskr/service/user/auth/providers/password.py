@@ -58,6 +58,7 @@ class PasswordAuthProvider(AuthProvider):
 
         if not identifier or not password:
             raise_error("server.user.invalidCredentials")
+        response_identity = f"response:{identifier}"
 
         # Resolve aliases in a completed transaction so requests waiting for the
         # Redis guard never retain a checked-out database connection.
@@ -70,7 +71,7 @@ class PasswordAuthProvider(AuthProvider):
         for resolution_attempt in range(2):
             with PasswordLoginAttempt(app, limit_identity) as attempt:
                 if attempt.blocked:
-                    raise_error("server.user.passwordLoginTooManyAttempts")
+                    self._raise_account_blocked(app, response_identity)
 
                 # Re-read after acquiring the guard so a newly linked alias cannot
                 # authenticate under a stale or different account lock.
@@ -105,13 +106,18 @@ class PasswordAuthProvider(AuthProvider):
                     password, password_hash or _DUMMY_PASSWORD_HASH
                 )
                 if aggregate is None or credential is None or not password_matches:
-                    attempt.record_failure()
-                    if attempt.blocked:
-                        raise_error("server.user.passwordLoginTooManyAttempts")
+                    with PasswordLoginAttempt(
+                        app, response_identity
+                    ) as response_attempt:
+                        response_attempt.record_failure()
+                        attempt.record_failure()
+                        if response_attempt.cooldown_active:
+                            raise_error("server.user.passwordLoginTooManyAttempts")
                     raise_error("server.user.invalidCredentials")
 
-                if not attempt.clear():
-                    raise_error("server.user.passwordLoginTooManyAttempts")
+                with PasswordLoginAttempt(app, response_identity) as response_attempt:
+                    if not response_attempt.clear() or not attempt.clear():
+                        raise_error("server.user.passwordLoginTooManyAttempts")
                 break
 
         # Session creation does not mutate the failure budget and should not hold
@@ -133,6 +139,14 @@ class PasswordAuthProvider(AuthProvider):
     def _limit_identity(identifier: str, aggregate: object | None) -> str:
         user_bid = getattr(aggregate, "user_bid", None)
         return f"user:{user_bid}" if user_bid else f"identifier:{identifier}"
+
+    @staticmethod
+    def _raise_account_blocked(app: Flask, response_identity: str) -> None:
+        """Reject a blocked account without disclosing alias relationships."""
+        with PasswordLoginAttempt(app, response_identity) as response_attempt:
+            if response_attempt.cooldown_active:
+                raise_error("server.user.passwordLoginTooManyAttempts")
+        raise_error("server.user.invalidCredentials")
 
 
 if not has_provider(PasswordAuthProvider.provider_name):
