@@ -118,6 +118,19 @@ def test_ipv6_addresses_are_normalized(app: Flask) -> None:
     )
 
 
+def test_ipv4_mapped_proxy_network_is_normalized(app: Flask) -> None:
+    assert (
+        _resolve(
+            app,
+            remote_addr="::ffff:10.20.0.5",
+            forwarded_for="198.51.100.20",
+            trusted=["::ffff:10.20.0.5/128"],
+        )
+        == "198.51.100.20"
+    )
+    assert validate_trusted_proxy_cidrs("::ffff:10.20.0.0/120")
+
+
 def test_trusted_proxy_configuration_validation() -> None:
     assert validate_trusted_proxy_cidrs("")
     assert validate_trusted_proxy_cidrs("10.0.0.5/32, 2001:db8::/48")

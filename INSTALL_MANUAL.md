@@ -103,12 +103,14 @@ These variables are essential for the application to run:
 #### Trusted reverse proxies and client IPs
 
 The backend ignores `X-Forwarded-For` unless the immediate connection comes
-from a network listed in `TRUSTED_PROXY_CIDRS`. This setting is empty by
-default because proxy addresses differ between deployments. List only the
-exact nginx and CDN egress CIDRs that can connect to the API, separated by
-commas. Prefer a single-host `/32` or `/128` entry for a colocated nginx when
-its address is stable; do not trust an entire Docker or private network merely
-for convenience.
+from a network listed in `TRUSTED_PROXY_CIDRS`. The backend default is empty
+because proxy addresses differ between deployments. The bundled Compose files
+instead place nginx on a dedicated network with a stable address and trust only
+that address. If `AI_SHIFU_NGINX_IP` or `AI_SHIFU_PROXY_SUBNET` is overridden,
+set both consistently and update `TRUSTED_PROXY_CIDRS` to the nginx address as
+a single-host `/32`. Custom deployments should list only exact nginx and CDN
+egress CIDRs, separated by commas; do not trust an entire Docker or private
+network merely for convenience.
 
 Nginx must continue appending its TCP peer with
 `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`. A CDN in front

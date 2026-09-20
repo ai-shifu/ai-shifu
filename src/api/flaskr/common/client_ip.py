@@ -30,7 +30,22 @@ def _config_items(value: object) -> tuple[str, ...]:
 
 @lru_cache(maxsize=64)
 def _parse_networks(items: tuple[str, ...]) -> tuple[IPNetwork, ...]:
-    return tuple(ipaddress.ip_network(item, strict=False) for item in items)
+    return tuple(_normalized_network(item) for item in items)
+
+
+def _normalized_network(value: str) -> IPNetwork:
+    """Parse a network and collapse IPv4-mapped IPv6 ranges to IPv4."""
+    network = ipaddress.ip_network(value, strict=False)
+    if (
+        isinstance(network, ipaddress.IPv6Network)
+        and network.prefixlen >= 96
+        and network.network_address.ipv4_mapped is not None
+    ):
+        return ipaddress.IPv4Network(
+            (network.network_address.ipv4_mapped, network.prefixlen - 96),
+            strict=False,
+        )
+    return network
 
 
 def validate_trusted_proxy_cidrs(value: object) -> bool:
