@@ -93,3 +93,29 @@ def test_a_fence_line_with_trailing_text_does_not_close_the_block() -> None:
     text = "```\n``` not a closer\na === b\n```\nafter ===x===\n"
     for seed in range(30):
         assert _through(text, seed) == text.replace("===x===", "x"), f"seed {seed}"
+
+
+def test_the_output_is_the_same_wherever_the_stream_is_cut() -> None:
+    """Every character boundary, not a sample of them: a cut inside a marker is the hard case."""
+    lesson = (
+        "Prose with ===kept=== inline.\n\n"
+        "!===\nverbatim block\n!===\n\n"
+        "```js\nif (a === b) {}\n```\n\nEnd.\n"
+    )
+
+    def filtered(cut: int) -> str:
+        marker_filter = PreserveMarkerFilter()
+        return (
+            marker_filter.feed(lesson[:cut])
+            + marker_filter.feed(lesson[cut:])
+            + marker_filter.flush()
+        )
+
+    whole = filtered(len(lesson))
+    for cut in range(len(lesson) + 1):
+        assert filtered(cut) == whole, f"cut at {cut} changed the output"
+    assert "kept" in whole
+    assert "verbatim block" in whole
+    # The operator inside the code fence survives; the markers around prose do not.
+    assert "a === b" in whole
+    assert "===kept===" not in whole
