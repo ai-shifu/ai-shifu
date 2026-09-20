@@ -72,6 +72,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
+- [Separate course permission contact validation](./completed/permission-contact-validation.md)
 - [Let learners answer onboarding questions with their AI](./completed/profile-onboarding-ai-import.md)
 - [Give operators and learners explicit control of AI-assisted onboarding](./completed/profile-onboarding-assistant-controls.md)
 - [Make AI-assisted onboarding visible before the first question](./completed/profile-onboarding-assistant-discoverability.md)
