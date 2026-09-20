@@ -238,7 +238,11 @@ export function BillingOverviewShowcase({
             wechatpayAvailable={wechatpayAvailable}
             onSelectPlanCheckout={onSelectPlanCheckout}
           />
-          <BillingOverviewFootnote />
+          <BillingOverviewFootnote
+            hasDiscountCampaign={paidPlans.some(
+              hasBillingProductDiscountCampaign,
+            )}
+          />
         </div>
       )}
     </>

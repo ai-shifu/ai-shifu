@@ -478,6 +478,44 @@ describe('BillingOverviewTab', () => {
     jest.useRealTimers();
   });
 
+  test('shows the one-payment discount note only for discounted plans', () => {
+    const { rerender } = renderOverviewTab();
+    const note = 'module.billing.package.campaign.paymentOnly';
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+
+    const setCampaign = (benefitType: 'discount' | 'bonus') => {
+      mockUseSWR.mockReturnValue({
+        data: {
+          ...CATALOG_RESPONSE,
+          plans: CATALOG_RESPONSE.plans.map((plan, index) =>
+            index === 0
+              ? {
+                  ...plan,
+                  campaign: {
+                    campaign_bid: 'campaign-plan',
+                    benefit_type: benefitType,
+                    campaign_price_amount: 900,
+                    discount_amount: 90,
+                    bonus_credit_amount: 2,
+                  },
+                }
+              : plan,
+          ),
+        },
+        error: undefined,
+        isLoading: false,
+      });
+      rerender(<BillingOverviewTab />);
+    };
+
+    setCampaign('discount');
+    expect(
+      within(screen.getByTestId('billing-overview-footnote')).getByText(note),
+    ).toBeInTheDocument();
+    setCampaign('bonus');
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+  });
+
   test('updates learning minutes when catalog credits change for the same plan', () => {
     const { rerender } = renderOverviewTab();
     const estimateTestId =

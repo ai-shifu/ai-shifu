@@ -791,52 +791,6 @@
       "cycleSwitchDisabled": "Billing cycle change unavailable",
       "viewMonthly": "View monthly plan"
     },
-    "annualSavings": "Save {amount} per year ({percent}%)",
-    "approximatePricePrefix": "Approx.",
-    "billedAnnually": "Billed {price} every 12 months.",
-    "campaignAnnualBilling": "First 12 months: {price}. Renews at {renewalPrice} every 12 months.",
-    "campaignMonthlyBilling": "First month only. Renews at {renewalPrice} per month.",
-    "cancelAnytime": "Billed monthly. Cancel anytime.",
-    "checkoutNotice": "Stripe checkout is available. You will be redirected to Stripe to complete payment.",
-    "comingSoon": {
-      "close": "Got it",
-      "description": "We're building the payment experience. Please check back soon.",
-      "inlineNotice": "Online checkout is still in development. Selecting a plan or credit pack will not start a charge.",
-      "title": "Payments are coming soon"
-    },
-    "creditPacks": {
-      "activeSubscriptionRequired": "An active subscription is required to use Credit Pack credits. If your subscription becomes inactive, unused credits remain in your account and become usable again when a plan is active.",
-      "instantAndPermanent": "Credits are added to your account immediately after purchase and never expire.",
-      "packName": "{credits} credits"
-    },
-    "creditsLabel": "Credits per cycle",
-    "creditsPerMonth": "{credits} credits per month",
-    "creditsPerYear": "{credits} credits per 12-month billing period",
-    "cycles": {
-      "annual": "Annual",
-      "monthly": "Monthly"
-    },
-    "features": {
-      "coreTeaching": "All course creation, teaching, and learner delivery features",
-      "customBranding": "Custom branding",
-      "customDomain": "Custom domain",
-      "dedicatedSupport": "Dedicated technical support",
-      "exclusiveTraining": "Exclusive course-building training",
-      "higherConcurrency": "More simultaneous course generation and learner activity",
-      "prioritySupport": "Priority technical support"
-    },
-    "featuresIncludes": {
-      "business": "Everything in Growth, plus:",
-      "growth": "Everything in Studio, plus:",
-      "scale": "Everything in Business, plus:"
-    },
-    "featuresLabel": "Included benefits:",
-    "footnote": {
-      "validity": "Credit validity: Monthly plan credits are valid for 30 days from the day they are granted (inclusive). Annual plan credits are valid for 12 months from the day they are granted. Both end at 23:59 on the expiry day."
-    },
-    "monthlyOnly": "Monthly only",
-    "mostPopular": "Most Popular",
-    "perMonth": "/ month",
     "plans": {
       "business": {
         "name": "Business"
@@ -850,22 +804,7 @@
       "studio": {
         "name": "Studio"
       }
-    },
-    "saveBadge": "Save ~20%",
-    "states": {
-      "loading": "Loading plans...",
-      "unavailableDescription": "Please check back soon or contact support if the issue continues.",
-      "unavailableTitle": "Plans are temporarily unavailable"
-    },
-    "tabs": {
-      "creditPacks": "Credit Packs",
-      "plans": "Plans"
-    },
-    "validity": {
-      "annual": "Valid for 12 months from the day credits are granted. Ends at 23:59 on the expiry day.",
-      "monthly": "Valid for 30 days from the day credits are granted, inclusive. Ends at 23:59 on the expiry day."
-    },
-    "validityLabel": "Credit validity"
+    }
   },
   "ledger": {
     "bucketDescription": "Review source buckets, remaining balances, and the order they will be consumed.",
@@ -973,7 +912,8 @@
     },
     "campaign": {
       "bonusBadge": "{credits} bonus credits",
-      "discountBadge": "Limited offer"
+      "discountBadge": "Limited offer",
+      "paymentOnly": "The discount applies to this payment only."
     },
     "creditPeriod": {
       "oneTime": "One-time"
@@ -1049,7 +989,7 @@
     "featuresTitle": "Included benefits:",
     "footnote": {
       "learningTime": "These estimates are based on historical data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.",
-      "validity": "Credit validity: Monthly plans are valid for 30 days from the day you receive them (inclusive); yearly plans are valid by calendar year from the day you receive them. Both end at 23:59 on the expiry day."
+      "validity": "Credit validity is as shown in your account."
     },
     "free": {
       "creditSummary": "{credits} bonus credits",
@@ -1086,7 +1026,7 @@
     "topup": {
       "creditLabel": "{credits} credits",
       "noteFrozen": "Credit pack credits can be used only when the account has an active credit plan.",
-      "noteInstant": "Credits take effect immediately after purchase."
+      "noteInstant": "Credits take effect immediately after purchase and never expire."
     },
     "topupComingSoon": "Coming soon",
     "validity": {

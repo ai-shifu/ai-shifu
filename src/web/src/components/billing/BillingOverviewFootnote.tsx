@@ -5,7 +5,11 @@ import { useTranslation } from 'react-i18next';
 const FOOTNOTE_ENUM_LEARNING_TIME = '①';
 const FOOTNOTE_ENUM_VALIDITY = '②';
 
-export function BillingOverviewFootnote() {
+export function BillingOverviewFootnote({
+  hasDiscountCampaign = false,
+}: {
+  hasDiscountCampaign?: boolean;
+}) {
   const { t } = useTranslation();
 
   return (
@@ -29,6 +33,11 @@ export function BillingOverviewFootnote() {
           </div>
         </li>
       </ul>
+      {hasDiscountCampaign ? (
+        <p className='mt-3'>
+          {t('module.billing.package.campaign.paymentOnly')}
+        </p>
+      ) : null}
     </div>
   );
 }

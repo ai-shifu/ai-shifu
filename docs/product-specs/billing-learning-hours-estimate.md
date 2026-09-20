@@ -23,6 +23,22 @@ translations in all five locales:
 
 > 时长按历史数据估算，仅供参考。课程内容、所选模型和互动情况都会影响实际积分消耗，听课模式会消耗更多积分。
 
+Global pricing reuses the domestic labels, credit amounts, cumulative benefit
+wording, credit-pack notes and footnote component. Only plan names and purchase
+button copy use Global-specific translations. Prices show the actual catalog
+amount for the displayed monthly or annual period; annual plans no longer show
+a monthly equivalent or savings copy. The existing Global benefit sets,
+including priority support, remain unchanged.
+
+Both validity notes read **积分有效期以账户显示为准。**, with aligned translations.
+This describes both the domestic self-managed period and Stripe's provider
+period without claiming that their expiry calculations are identical. Discounted
+plans show the original and payable period prices; a shared note below the plans
+states **优惠仅适用于本次支付。** only when a displayed plan has a campaign discount.
+Stripe Checkout continues to show recurring payment terms and uses a one-time
+campaign coupon. Ordinary annual pricing and bonus-credit campaigns do not
+trigger this discount note.
+
 The reading-mode, 1×-model assumptions remain in this specification rather than
 the public footnote. The historical usage and assumed completion duration behind that copy remain
 fully documented below. The short copy does not claim measured online time,
