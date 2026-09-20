@@ -807,7 +807,6 @@
         "name": "Studio"
       }
     },
-    "renewalNotice": "Renews automatically. Cancel renewal anytime.",
     "renewalPrice": "Then renews at {price} / {period}."
   },
   "ledger": {

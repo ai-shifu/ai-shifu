@@ -84,7 +84,7 @@ calibration evidence in the product specification.
   with fixed defaults. Keep the other purchase validation constraints intact.
 - Reuse domestic pricing copy in Global, except plan names and purchase button
   labels and information specific to its subscription products: annual savings,
-  monthly-only availability and renewal/cancellation terms. Show actual period
+  monthly-only availability and discounted renewal prices. Show actual period
   prices and cumulative existing benefits. Use the
   original detailed domestic validity note after the user corrected the earlier
   simplification. Omit the Global validity footnote and its marker, retaining
@@ -135,8 +135,12 @@ Review follow-up restores the catalog loading announcement through a shared
 localized status for both skeleton screens. Focused regressions verify that
 the announcement is present only while the catalog is pending.
 The final copy review restores Global-specific annual savings from regular
-catalog prices, Studio's monthly-only label, and concise renewal/cancellation
-information. Both surfaces use superscript asterisk footnote references.
+catalog prices, Studio's monthly-only label, and discounted renewal prices.
+The generic automatic-renewal/cancellation note was subsequently removed at the
+user's request. Both surfaces use superscript asterisk footnote references and
+share the domestic comparison typography, tabs, compact rows, campaign labels
+and plain footnotes. Global uses the same horizontal comparison layout on narrow
+screens while retaining its product-specific controls.
 
 ## Context and Orientation
 

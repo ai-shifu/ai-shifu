@@ -2,7 +2,7 @@
 title: Billing learning-time estimates
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-09-20
+last_reviewed: 2026-09-21
 canonical: true
 ---
 
@@ -47,11 +47,17 @@ payment provider's cycle;
 changing display copy does not change the billing rules. Discounted
 plans show the original and payable period prices; a shared note below the plans
 states **优惠仅适用于本次支付。** only when a displayed plan has a campaign discount.
-Global adds the concise note **自动续费，可随时取消续费。** below the comparison.
 Discounted Global cards also show the normal renewal price and billing period.
 Stripe Checkout continues to show recurring payment terms and uses a one-time
 campaign coupon. Ordinary annual pricing and bonus-credit campaigns do not
 trigger this discount note.
+
+Both comparisons reuse the domestic pricing styles: a single bordered comparison,
+centered plan names, prices, credit amounts and buttons, followed by compact
+learning-time, validity and benefit rows. Global retains its monthly/yearly
+selector and product-specific information. On narrow screens, both comparisons
+scroll horizontally with readable columns. Shared typography, tabs, campaign
+labels and plain footnotes keep the two surfaces visually aligned.
 
 The reading-mode, 1×-model assumptions remain in this specification rather than
 the public footnote. The historical usage and assumed completion duration behind that copy remain

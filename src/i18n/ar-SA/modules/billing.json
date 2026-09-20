@@ -807,7 +807,6 @@
         "name": "Studio"
       }
     },
-    "renewalNotice": "يتجدد الاشتراك تلقائيًا. يمكنك إلغاء التجديد في أي وقت.",
     "renewalPrice": "ثم يتجدد بسعر {price} / {period}."
   },
   "ledger": {

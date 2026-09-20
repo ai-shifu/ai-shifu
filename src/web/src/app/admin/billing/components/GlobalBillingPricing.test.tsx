@@ -126,8 +126,6 @@ jest.mock('react-i18next', () => ({
           'Billing cycle change unavailable',
         'module.billing.globalPricing.actions.viewMonthly': 'View monthly plan',
         'module.billing.globalPricing.monthlyOnly': 'Monthly only',
-        'module.billing.globalPricing.renewalNotice':
-          'Renews automatically. Cancel renewal anytime.',
         'module.billing.checkout.unsupported':
           'This payment method is not available right now.',
         'module.billing.checkout.redirect.creating': 'Creating your order...',
@@ -162,7 +160,6 @@ jest.mock('react-i18next', () => ({
         'module.billing.package.campaign.discountBadge': 'Discounted price',
         'module.billing.package.campaign.paymentOnly':
           'The offer applies only to this payment.',
-        'module.billing.package.table.creditsRowLabel': 'Credits per cycle',
         'module.billing.package.table.featuresRowLabel': 'Entitlements',
         'module.billing.package.table.validityRowLabel': 'Credit validity',
         'module.billing.catalog.labels.perMonth': 'monthly',
@@ -350,19 +347,6 @@ describe('GlobalBillingPricing', () => {
     const growth = screen.getByTestId('global-plan-growth');
     const business = screen.getByTestId('global-plan-business');
     const scale = screen.getByTestId('global-plan-scale');
-    const planGrid = screen.getByTestId('global-plan-grid');
-
-    expect(planGrid).toHaveClass(
-      'grid-cols-1',
-      'gap-4',
-      'sm:grid-cols-2',
-      'xl:grid-cols-4',
-      '2xl:gap-5',
-    );
-    for (const card of [studio, growth, business, scale]) {
-      expect(card).toHaveClass('min-w-0', 'flex-col');
-      expect(card).not.toHaveClass('sm:grid-rows-subgrid');
-    }
     for (const tier of ['studio', 'growth', 'business', 'scale']) {
       expect(
         screen.getByTestId(`global-plan-${tier}-title`),
@@ -406,16 +390,11 @@ describe('GlobalBillingPricing', () => {
     expect(
       within(business).getByText('About 60 万 minutes'),
     ).toBeInTheDocument();
-    expect(business).not.toHaveClass('border-primary');
-    expect(business).not.toHaveClass('ring-1');
     expect(within(scale).getByText('$7,999')).toBeInTheDocument();
     expect(
       within(scale).getByText(
         'Save $2,069 per year (20.6%) compared with monthly billing',
       ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Renews automatically. Cancel renewal anytime.'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Then renews at/)).not.toBeInTheDocument();
     expect(within(scale).getByText('220,000 credits')).toBeInTheDocument();
@@ -589,9 +568,9 @@ describe('GlobalBillingPricing', () => {
     const studioOriginalPriceSlot = within(studio).getByTestId(
       'global-plan-studio-original-price-slot',
     );
-    expect(within(studioOriginalPriceSlot).getByText('$59')).toHaveClass(
-      'line-through',
-    );
+    expect(
+      within(studioOriginalPriceSlot).getByText('$59'),
+    ).toBeInTheDocument();
     expect(within(studio).getByText('$49')).toBeInTheDocument();
     expect(within(studio).getByText('Discounted price')).toBeInTheDocument();
     expect(
@@ -626,7 +605,7 @@ describe('GlobalBillingPricing', () => {
       within(
         within(growth).getByTestId('global-plan-growth-original-price-slot'),
       ).getByText('$2,199'),
-    ).toHaveClass('line-through');
+    ).toBeInTheDocument();
     expect(within(growth).getByText('$1,999')).toBeInTheDocument();
     expect(within(growth).getByText('Discounted price')).toBeInTheDocument();
     expect(
@@ -799,14 +778,11 @@ describe('GlobalBillingPricing', () => {
 
     const smallPack = screen.getByTestId('global-credit-pack-250');
     const largePack = screen.getByTestId('global-credit-pack-3000');
-    expect(screen.getByTestId('global-credit-pack-grid')).toHaveStyle({
-      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-    });
     expect(within(smallPack).getByText('$29')).toBeInTheDocument();
     expect(within(largePack).getByText('$279')).toBeInTheDocument();
     expect(
       within(largePack).getByRole('button', { name: 'Buy credits' }),
-    ).toHaveClass('min-w-32');
+    ).toBeEnabled();
     expect(
       screen.getByText(
         'Credits take effect immediately after purchase and never expire.',

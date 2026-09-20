@@ -777,7 +777,6 @@ export type I18nKey =
   | 'module.billing.globalPricing.plans.growth.name'
   | 'module.billing.globalPricing.plans.scale.name'
   | 'module.billing.globalPricing.plans.studio.name'
-  | 'module.billing.globalPricing.renewalNotice'
   | 'module.billing.globalPricing.renewalPrice'
   | 'module.billing.ledger.bucketDescription'
   | 'module.billing.ledger.category.subscription'

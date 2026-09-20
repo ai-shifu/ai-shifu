@@ -807,7 +807,6 @@
         "name": "Studio"
       }
     },
-    "renewalNotice": "自动续费，可随时取消续费。",
     "renewalPrice": "之后按 {price} / {period} 续费。"
   },
   "ledger": {

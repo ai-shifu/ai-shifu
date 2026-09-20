@@ -807,7 +807,6 @@
         "name": "Studio"
       }
     },
-    "renewalNotice": "ต่ออายุอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ",
     "renewalPrice": "จากนั้นต่ออายุในราคา {price} / {period}"
   },
   "ledger": {
