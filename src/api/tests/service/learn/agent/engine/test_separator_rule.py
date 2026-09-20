@@ -54,3 +54,16 @@ def test_a_pause_is_only_ever_the_script_s_own() -> None:
     assert "Never pause on your own judgement" in system
     tools = (_PROMPT.parents[1] / "tools.py").read_text()
     assert "ONLY when the script itself asks for a pause" in tools
+
+
+def test_the_model_is_told_to_pass_a_question_through_unchanged() -> None:
+    """A question in the script is the author's, and the script branches on its options.
+
+    Left to itself the model rewrites them: a six-option multiple choice
+    (`找工作 || 提升竞争力 || ...`) came back as a single choice with one invented option and a
+    placeholder of the model's own.
+    """
+    syntax = _PROMPT.read_text()
+    assert "Pass its options to `interact` exactly as written" in syntax
+    assert "keep single choice single and multiple choice multiple" in syntax
+    assert "use the author's own `...prompt` as the placeholder" in syntax
