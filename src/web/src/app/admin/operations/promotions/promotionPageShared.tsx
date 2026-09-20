@@ -4,7 +4,7 @@ import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import type {
   AdminBillingCampaignDetail,

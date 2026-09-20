@@ -9,11 +9,11 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
+import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/components/admin/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import {
   formatAdminDateRangeEndUtc,

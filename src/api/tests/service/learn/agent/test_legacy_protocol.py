@@ -253,9 +253,18 @@ def test_a_turn_that_ran_out_of_content_leaves_the_lesson_resumable() -> None:
     assert translated.type == GeneratedType.BREAK
 
 
-def test_a_turn_waiting_on_the_learner_does_not_close_the_stream() -> None:
-    """The interaction event already told the frontend to wait; done would let it move on."""
-    assert _translate(TurnDone(reason="interaction")) == []
+def test_a_turn_waiting_on_the_learner_ends_its_block_without_closing_the_stream() -> (
+    None
+):
+    """A BREAK, never a DONE: the block is finalised, the stream stays open for the answer.
+
+    The browser never sees the BREAK -- the SSE framing suppresses it -- but the element adapter
+    writes every element the turn streamed on it. Left out, a turn that ended on a question was
+    never finalised: its cards were never written, and a reload played the narration over an
+    empty page.
+    """
+    (translated,) = _translate(TurnDone(reason="interaction"))
+    assert translated.type == GeneratedType.BREAK
 
 
 def test_a_failed_turn_never_reports_success() -> None:
@@ -519,3 +528,35 @@ def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -
                 ),
             )
         )
+
+
+def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
+    """The model writes "继续" as the prompt of a confirm; that is what the button should say.
+
+    Sent as content it trailed the lesson's last sentence, followed by a button reading "Continue"
+    in a language the lesson was not in.
+    """
+    translated = _translate(
+        InteractionRequest(
+            id="i1", spec=InteractionSpec(type="confirm", prompt="继续", options=[])
+        )
+    )
+    assert [e.type for e in translated] == [GeneratedType.INTERACTION]
+    assert translated[0].content == "?[继续//continue]"
+
+
+def test_a_long_confirm_prompt_stays_as_text() -> None:
+    """An instruction to the learner is content; the button keeps its default label."""
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="confirm", prompt="看完上面的图，想清楚了再点继续。", options=[]
+            ),
+        )
+    )
+    assert [e.type for e in translated] == [
+        GeneratedType.CONTENT,
+        GeneratedType.INTERACTION,
+    ]
+    assert translated[1].content == "?[Continue//continue]"

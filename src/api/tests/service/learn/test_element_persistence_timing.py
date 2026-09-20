@@ -72,3 +72,37 @@ def test_which_path_a_streaming_update_takes(
     )
 
     assert taken == [expected]
+
+
+@pytest.mark.parametrize(
+    ("persist_only_final", "expected"),
+    [
+        pytest.param(False, "_element_message", id="1.0-writes-every-audio-patch"),
+        pytest.param(True, "_stream_only_element_message", id="2.0-defers-audio-patch"),
+    ],
+)
+def test_which_path_an_audio_patch_takes(
+    monkeypatch: pytest.MonkeyPatch, persist_only_final: bool, expected: str
+) -> None:
+    """A segment of audio for an element still being written is not a row of its own.
+
+    The block's finalisation resolves every segment for the element and writes it once with all
+    of them, so a per-segment write is a full copy of the element's text that nothing reads back.
+    1.0 keeps writing them: a learner refreshing mid-stream reads the latest row.
+    """
+    adapter = _adapter(persist_only_final=persist_only_final)
+    taken: list[str] = []
+    for name in ("_element_message", "_stream_only_element_message"):
+        monkeypatch.setattr(
+            adapter,
+            name,
+            lambda _element, _name=name: taken.append(_name),
+            raising=True,
+        )
+    monkeypatch.setattr(
+        adapter, "_build_audio_patch_element", lambda *_a, **_k: object(), raising=False
+    )
+
+    adapter._build_audio_segment_patch_message("element-bid", audio_segments=[{}])
+
+    assert taken == [expected]
