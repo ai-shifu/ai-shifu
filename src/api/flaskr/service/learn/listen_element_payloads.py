@@ -46,6 +46,8 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
         payload_dict = json.loads(raw_payload)
     except Exception:
         return ElementPayloadDTO()
+    if not isinstance(payload_dict, dict):
+        return ElementPayloadDTO()
     audio_dict = payload_dict.get("audio")
     audio = None
     if isinstance(audio_dict, dict):
