@@ -30,7 +30,6 @@ from flaskr.service.billing.api import (
     resolve_payment_integration_for_new_order,
     resolve_provider_credential_context,
 )
-from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.native_payment_status import (
     extract_native_trade_payload,
@@ -94,6 +93,7 @@ from flaskr.service.promo.models import (
     CouponUsage as CouponUsageModel,
 )
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.user.consts import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (

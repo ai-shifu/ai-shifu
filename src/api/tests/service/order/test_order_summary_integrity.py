@@ -1,0 +1,143 @@
+"""Verify committed order summaries, notification evidence, and discount limits."""
+
+from collections.abc import Iterator
+from types import SimpleNamespace
+from unittest.mock import Mock
+from uuid import uuid4
+
+import pytest
+from flaskr.dao import db
+from flaskr.i18n import _
+from flaskr.service.order import funs
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.models import Order
+from flaskr.service.promo.consts import (
+    COUPON_TYPE_FIXED,
+)
+from flaskr.service.promo.models import (
+    Coupon,
+    CouponUsage,
+)
+from flaskr.service.user.consts import USER_STATE_PAID, USER_STATE_REGISTERED
+from flaskr.service.user.models import UserConversion, UserInfo
+
+
+@pytest.fixture
+def summary_scope(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[SimpleNamespace]:
+    with app.app_context():
+        order = Order(
+            order_bid=uuid4().hex,
+            user_bid=uuid4().hex,
+            shifu_bid=uuid4().hex,
+            status=ORDER_STATUS_SUCCESS,
+            payment_channel="stripe",
+            payable_price=100,
+            paid_price=75,
+        )
+        db.session.add(order)
+        db.session.flush()
+        notify = Mock()
+        monkeypatch.setattr(funs, "send_notify", notify)
+        monkeypatch.setattr(
+            funs, "get_shifu_info", Mock(return_value=SimpleNamespace(title="Course"))
+        )
+        yield SimpleNamespace(order=order, notify=notify)
+        db.session.rollback()
+        UserInfo.query.filter_by(user_bid=order.user_bid).delete()
+        Order.query.filter_by(order_bid=order.order_bid).delete()
+        db.session.commit()
+
+
+def test_payment_success_persists_canonical_user_state_and_repeated_processing_keeps_it(
+    app: object, summary_scope: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    order = summary_scope.order
+    order.status = ORDER_STATUS_TO_BE_PAID
+    user = UserInfo(user_bid=order.user_bid, state=USER_STATE_REGISTERED)
+    db.session.add(user)
+    db.session.commit()
+    monkeypatch.setattr(funs, "send_order_feishu", Mock())
+    monkeypatch.setattr(funs, "get_shifu_creator_bid", Mock(return_value=""))
+
+    assert funs.query_buy_record(app, order.order_bid).status == ORDER_STATUS_TO_BE_PAID
+    db.session.expire_all()
+    assert user.state == USER_STATE_REGISTERED
+
+    for _attempt in range(2):
+        result = funs.success_buy_record(app, order.order_bid)
+        db.session.expire_all()
+        assert result.status == ORDER_STATUS_SUCCESS
+        assert order.status == ORDER_STATUS_SUCCESS
+        assert user.state == USER_STATE_PAID
+
+
+@pytest.mark.parametrize("channel", ["stripe", "manual", "custom", ""])
+def test_notification_uses_real_order_coupon_and_conversion_evidence(
+    app: object,
+    summary_scope: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    channel: str,
+) -> None:
+    scope = summary_scope
+    scope.order.payment_channel = channel
+    coupon = Coupon(
+        coupon_bid=uuid4().hex,
+        name="Reward",
+        code="TEST",
+        value=25,
+        discount_type=COUPON_TYPE_FIXED,
+        filter="{}",
+    )
+    db.session.add(coupon)
+    db.session.add(
+        CouponUsage(coupon_bid=coupon.coupon_bid, order_bid=scope.order.order_bid)
+    )
+    db.session.add(UserInfo(user_bid=scope.order.user_bid, state=USER_STATE_PAID))
+    db.session.add(UserConversion(scope.order.user_bid, uuid4().hex, "newsletter", 1))
+    db.session.flush()
+    db.session.expire_all()
+    monkeypatch.setattr(
+        funs,
+        "load_user_aggregate",
+        Mock(return_value=SimpleNamespace(mobile="13000000000", name="Learner")),
+    )
+    expected_counts = [
+        UserInfo.query.filter(
+            UserInfo.deleted == 0, UserInfo.state == USER_STATE_PAID
+        ).count(),
+        UserInfo.query.filter(
+            UserInfo.deleted == 0, UserInfo.state >= USER_STATE_REGISTERED
+        ).count(),
+        UserInfo.query.filter(UserInfo.deleted == 0).count(),
+    ]
+
+    funs.send_order_feishu(app, scope.order.order_bid)
+
+    scope.notify.assert_called_once()
+    notified_app, title, messages = scope.notify.call_args.args
+    assert notified_app is app
+    assert title
+    assert any(message.endswith("newsletter") for message in messages)
+    assert any(message.endswith("TEST") for message in messages)
+    assert any(
+        "Reward (TEST)" in message and message.endswith("25.00") for message in messages
+    )
+    assert [message.rsplit("：", 1)[-1] for message in messages[-3:]] == [
+        str(value) for value in expected_counts
+    ]
+    if channel == "custom":
+        assert any(message.endswith("custom") for message in messages)
+    summary = funs.query_buy_record(app, scope.order.order_bid).__json__()
+    assert summary["price"] == "100"
+    assert summary["discount"] == "25"
+    assert summary["value_to_pay"] == "75"
+    assert summary["price_item"] == [
+        {
+            "name": _("server.order.payItemCoupon"),
+            "price_name": "Reward (TEST)",
+            "price": "25.00",
+            "is_discount": True,
+        }
+    ]
