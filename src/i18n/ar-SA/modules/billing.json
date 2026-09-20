@@ -791,6 +791,8 @@
       "cycleSwitchDisabled": "لا يدعم تبديل الدورة حاليًا",
       "viewMonthly": "عرض الباقات الشهرية"
     },
+    "annualSavings": "وفّر {amount} سنويًا ({percent}%) مقارنة بالدفع الشهري",
+    "monthlyOnly": "الدفع الشهري فقط",
     "plans": {
       "business": {
         "name": "Business"
@@ -804,7 +806,9 @@
       "studio": {
         "name": "Studio"
       }
-    }
+    },
+    "renewalNotice": "يتجدد الاشتراك تلقائيًا. يمكنك إلغاء التجديد في أي وقت.",
+    "renewalPrice": "ثم يتجدد بسعر {price} / {period}."
   },
   "ledger": {
     "bucketDescription": "اعرض دفعات مصدر الأرصدة ورصيدها الحالي وترتيب استخدامها عند الخصم الفعلي لاحقًا.",

@@ -125,6 +125,9 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.actions.cycleSwitchDisabled':
           'Billing cycle change unavailable',
         'module.billing.globalPricing.actions.viewMonthly': 'View monthly plan',
+        'module.billing.globalPricing.monthlyOnly': 'Monthly only',
+        'module.billing.globalPricing.renewalNotice':
+          'Renews automatically. Cancel renewal anytime.',
         'module.billing.checkout.unsupported':
           'This payment method is not available right now.',
         'module.billing.checkout.redirect.creating': 'Creating your order...',
@@ -177,6 +180,12 @@ jest.mock('react-i18next', () => ({
         'module.billing.package.features.premium.onboarding':
           'Exclusive course-building training session',
       };
+      if (key === 'module.billing.globalPricing.annualSavings') {
+        return `Save ${options?.amount} per year (${options?.percent}%) compared with monthly billing`;
+      }
+      if (key === 'module.billing.globalPricing.renewalPrice') {
+        return `Then renews at ${options?.price} / ${options?.period}.`;
+      }
       if (key === 'module.billing.package.validityShort.monthly') {
         return `${options?.count} month`;
       }
@@ -376,11 +385,23 @@ describe('GlobalBillingPricing', () => {
     }
 
     expect(within(studio).getByText('$59')).toBeInTheDocument();
+    expect(within(studio).getByText('Monthly only')).toBeInTheDocument();
+    expect(within(studio).queryByText(/Save /)).not.toBeInTheDocument();
     expect(within(studio).getByText('About 6,000 minutes')).toBeInTheDocument();
     expect(within(growth).getByText('$2,199')).toBeInTheDocument();
+    expect(
+      within(growth).getByText(
+        'Save $549 per year (20.0%) compared with monthly billing',
+      ),
+    ).toBeInTheDocument();
     expect(within(growth).getByText('50,000 credits')).toBeInTheDocument();
     expect(within(growth).getByText('About 30 万 minutes')).toBeInTheDocument();
     expect(within(business).getByText('$3,999')).toBeInTheDocument();
+    expect(
+      within(business).getByText(
+        'Save $1,029 per year (20.5%) compared with monthly billing',
+      ),
+    ).toBeInTheDocument();
     expect(within(business).getByText('Hot')).toBeInTheDocument();
     expect(
       within(business).getByText('About 60 万 minutes'),
@@ -388,6 +409,15 @@ describe('GlobalBillingPricing', () => {
     expect(business).not.toHaveClass('border-primary');
     expect(business).not.toHaveClass('ring-1');
     expect(within(scale).getByText('$7,999')).toBeInTheDocument();
+    expect(
+      within(scale).getByText(
+        'Save $2,069 per year (20.6%) compared with monthly billing',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Renews automatically. Cancel renewal anytime.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Then renews at/)).not.toBeInTheDocument();
     expect(within(scale).getByText('220,000 credits')).toBeInTheDocument();
     expect(within(scale).getByText('About 132 万 minutes')).toBeInTheDocument();
     expect(screen.queryByText(/extra|bonus/i)).not.toBeInTheDocument();
@@ -565,6 +595,9 @@ describe('GlobalBillingPricing', () => {
     expect(within(studio).getByText('$49')).toBeInTheDocument();
     expect(within(studio).getByText('Discounted price')).toBeInTheDocument();
     expect(
+      within(studio).getByText('Then renews at $59 / monthly.'),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText('The offer applies only to this payment.'),
     ).toBeInTheDocument();
     expect(
@@ -597,6 +630,14 @@ describe('GlobalBillingPricing', () => {
     expect(within(growth).getByText('$1,999')).toBeInTheDocument();
     expect(within(growth).getByText('Discounted price')).toBeInTheDocument();
     expect(
+      within(growth).getByText('Then renews at $2,199 / yearly.'),
+    ).toBeInTheDocument();
+    expect(
+      within(growth).getByText(
+        'Save $549 per year (20.0%) compared with monthly billing',
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText('The offer applies only to this payment.'),
     ).toBeInTheDocument();
     expect(within(growth).getByText('/ yearly')).toBeInTheDocument();
@@ -607,6 +648,8 @@ describe('GlobalBillingPricing', () => {
     expect(
       screen.queryByText('The offer applies only to this payment.'),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Save /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Then renews at/)).not.toBeInTheDocument();
   });
 
   test('shows bonus campaign labels on global plan cards', async () => {

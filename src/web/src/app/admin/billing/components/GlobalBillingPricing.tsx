@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   buildBillingSwrKey,
   formatBillingCredits,
+  formatBillingPercent,
   formatBillingPlanInterval,
   formatBillingPrice,
   getBillingProductCampaignBonusCredits,
@@ -564,6 +565,9 @@ export function GlobalBillingPricing() {
                   );
                 })}
               />
+              <p className='mt-3'>
+                {t('module.billing.globalPricing.renewalNotice')}
+              </p>
             </div>
           ) : null}
         </TabsContent>
@@ -799,6 +803,24 @@ function PlanCard({
     .replace(/^每\s*/, '')
     .replace(/^per\s*/i, '')
     .trim();
+  const monthlyCostPerYear =
+    (monthlyProduct.price_amount * 12) /
+    Math.max(monthlyProduct.billing_interval_count || 0, 1);
+  const annualSavings = annualProduct
+    ? monthlyCostPerYear -
+      annualProduct.price_amount /
+        Math.max(annualProduct.billing_interval_count || 0, 1)
+    : 0;
+  const annualSavingsLabel =
+    cycle === 'annual' && annualProduct && annualSavings > 0
+      ? t('module.billing.globalPricing.annualSavings', {
+          amount: formatBillingPrice(annualSavings, product.currency, locale),
+          percent: formatBillingPercent(
+            (annualSavings / monthlyCostPerYear) * 100,
+            locale,
+          ),
+        })
+      : null;
   const featureKeys = PLAN_TIERS.slice(0, targetTierRank + 1).flatMap(
     tier => PLAN_FEATURE_KEYS[tier.tier],
   );
@@ -817,7 +839,7 @@ function PlanCard({
     >
       <CardHeader className='space-y-4 p-5 pb-4 2xl:p-6 2xl:pb-4'>
         <div
-          className='flex min-h-8 items-center justify-between gap-2'
+          className='flex min-h-8 flex-wrap items-center gap-2'
           data-testid={`global-plan-${tierSpec.tier}-title`}
         >
           <div className='flex min-w-0 flex-nowrap items-center gap-2'>
@@ -836,6 +858,11 @@ function PlanCard({
               </Badge>
             ) : null}
           </div>
+          {monthlyOnly ? (
+            <Badge variant='secondary'>
+              {t('module.billing.globalPricing.monthlyOnly')}
+            </Badge>
+          ) : null}
         </div>
         {campaignLabel ? (
           <div className='pointer-events-none absolute -right-11 top-5 z-10 w-40 rotate-45 bg-red-600 py-1 text-center text-[11px] font-semibold text-white shadow-md 2xl:text-xs'>
@@ -843,7 +870,7 @@ function PlanCard({
           </div>
         ) : null}
         <div
-          className='min-h-[96px]'
+          className='min-h-[144px]'
           data-testid={`global-plan-${tierSpec.tier}-price`}
         >
           <div
@@ -868,6 +895,26 @@ function PlanCard({
               {`/ ${periodLabel}`}
             </span>
           </div>
+          {hasDiscountCampaign ? (
+            <p className='mt-2 text-xs leading-5 text-muted-foreground'>
+              {t('module.billing.globalPricing.renewalPrice', {
+                price: formatBillingPrice(
+                  product.price_amount,
+                  product.currency,
+                  locale,
+                ),
+                period: periodLabel,
+              })}
+            </p>
+          ) : null}
+          {annualSavingsLabel ? (
+            <p
+              className='mt-2 text-xs font-medium leading-5 text-red-700'
+              data-testid={`global-plan-${tierSpec.tier}-savings-slot`}
+            >
+              {annualSavingsLabel}
+            </p>
+          ) : null}
         </div>
 
         <div

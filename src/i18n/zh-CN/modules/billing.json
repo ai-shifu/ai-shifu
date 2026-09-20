@@ -791,6 +791,8 @@
       "cycleSwitchDisabled": "暂不支持切换周期",
       "viewMonthly": "查看月付套餐"
     },
+    "annualSavings": "较月付每年节省 {amount}（{percent}%）",
+    "monthlyOnly": "仅支持月付",
     "plans": {
       "business": {
         "name": "Business"
@@ -804,7 +806,9 @@
       "studio": {
         "name": "Studio"
       }
-    }
+    },
+    "renewalNotice": "自动续费，可随时取消续费。",
+    "renewalPrice": "之后按 {price} / {period} 续费。"
   },
   "ledger": {
     "bucketDescription": "查看积分来源积分桶、当前余额，以及后续实际扣减时会采用的顺序。",

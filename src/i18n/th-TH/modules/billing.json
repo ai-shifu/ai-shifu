@@ -791,6 +791,8 @@
       "cycleSwitchDisabled": "ยังไม่รองรับการเปลี่ยนรอบ",
       "viewMonthly": "ดูแพ็กเกจรายเดือน"
     },
+    "annualSavings": "ประหยัดต่อปี {amount} ({percent}%) เมื่อเทียบกับการชำระรายเดือน",
+    "monthlyOnly": "รองรับเฉพาะรายเดือน",
     "plans": {
       "business": {
         "name": "Business"
@@ -804,7 +806,9 @@
       "studio": {
         "name": "Studio"
       }
-    }
+    },
+    "renewalNotice": "ต่ออายุอัตโนมัติ ยกเลิกการต่ออายุได้ทุกเมื่อ",
+    "renewalPrice": "จากนั้นต่ออายุในราคา {price} / {period}"
   },
   "ledger": {
     "bucketDescription": "ดูชุดเครดิตตามแหล่งที่มา ยอดคงเหลือปัจจุบัน และลำดับที่จะใช้เมื่อตัดเครดิตจริงในภายหลัง",

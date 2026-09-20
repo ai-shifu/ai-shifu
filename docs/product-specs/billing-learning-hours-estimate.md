@@ -28,11 +28,16 @@ translations in all five locales:
 
 Global pricing reuses the domestic labels, credit amounts, cumulative benefit
 wording, credit-pack notes and footnote component. Plan names and purchase
-button copy remain Global-specific. Global omits the validity footnote and its
-marker while retaining the short validity value on each card. Prices show the actual catalog
-amount for the displayed monthly or annual period; annual plans no longer show
-a monthly equivalent or savings copy. The existing Global benefit sets,
-including priority support, remain unchanged.
+button copy remain Global-specific, as do the monthly-only plan label,
+annual savings and subscription renewal information. Global omits the validity
+footnote and its marker while retaining the short validity value on each card.
+Prices show the actual catalog
+amount for the displayed monthly or annual period; annual plans show the actual
+yearly charge alongside the annual saving compared with monthly billing.
+Savings use regular catalog prices, normalized by their interval counts, so a
+one-payment campaign discount is not presented as a recurring annual saving.
+Studio is marked as monthly-only in the annual comparison. The existing Global
+benefit sets, including priority support, remain unchanged.
 
 The domestic validity note retains its original detailed wording, with aligned
 translations: **积分有效期：月度套餐自获取之日起 30 天内有效（含当日）；年度套餐自获取之日起按自然年有效。两类均以到期日 23:59 为截止。**
@@ -42,6 +47,8 @@ payment provider's cycle;
 changing display copy does not change the billing rules. Discounted
 plans show the original and payable period prices; a shared note below the plans
 states **优惠仅适用于本次支付。** only when a displayed plan has a campaign discount.
+Global adds the concise note **自动续费，可随时取消续费。** below the comparison.
+Discounted Global cards also show the normal renewal price and billing period.
 Stripe Checkout continues to show recurring payment terms and uses a one-time
 campaign coupon. Ordinary annual pricing and bonus-credit campaigns do not
 trigger this discount note.

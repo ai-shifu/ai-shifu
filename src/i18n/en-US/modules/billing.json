@@ -791,6 +791,8 @@
       "cycleSwitchDisabled": "Billing cycle change unavailable",
       "viewMonthly": "View monthly plan"
     },
+    "annualSavings": "Save {amount} per year ({percent}%) compared with monthly billing",
+    "monthlyOnly": "Monthly only",
     "plans": {
       "business": {
         "name": "Business"
@@ -804,7 +806,9 @@
       "studio": {
         "name": "Studio"
       }
-    }
+    },
+    "renewalNotice": "Renews automatically. Cancel renewal anytime.",
+    "renewalPrice": "Then renews at {price} / {period}."
   },
   "ledger": {
     "bucketDescription": "Review source buckets, remaining balances, and the order they will be consumed.",

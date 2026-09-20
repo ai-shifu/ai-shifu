@@ -791,6 +791,8 @@
       "cycleSwitchDisabled": "Changement de période indisponible",
       "viewMonthly": "Voir le forfait mensuel"
     },
+    "annualSavings": "Économisez {amount} par an ({percent} %) par rapport à la facturation mensuelle",
+    "monthlyOnly": "Mensuel uniquement",
     "plans": {
       "business": {
         "name": "Business"
@@ -804,7 +806,9 @@
       "studio": {
         "name": "Studio"
       }
-    }
+    },
+    "renewalNotice": "Renouvellement automatique. Vous pouvez l’annuler à tout moment.",
+    "renewalPrice": "Puis renouvellement à {price} / {period}."
   },
   "ledger": {
     "bucketDescription": "Consulter les réserves de crédits, les soldes restants et l’ordre de consommation.",

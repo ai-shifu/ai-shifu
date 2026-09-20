@@ -83,12 +83,15 @@ calibration evidence in the product specification.
 - Accept valid global catalog allocation edits instead of comparing credits
   with fixed defaults. Keep the other purchase validation constraints intact.
 - Reuse domestic pricing copy in Global, except plan names and purchase button
-  labels. Show actual period prices and cumulative existing benefits. Use the
+  labels and information specific to its subscription products: annual savings,
+  monthly-only availability and renewal/cancellation terms. Show actual period
+  prices and cumulative existing benefits. Use the
   original detailed domestic validity note after the user corrected the earlier
   simplification. Omit the Global validity footnote and its marker, retaining
   the short per-card value. Actual expiry rules are unchanged. Keep one shared,
   conditional campaign note:
-  “优惠仅适用于本次支付。”; checkout retains the recurring billing terms.
+  “优惠仅适用于本次支付。”; discounted Global cards also show the normal renewal
+  price and period. Checkout retains the recurring billing terms.
 - Keep identities, raw content, credentials and detailed business traffic totals
   out of the public repository. Retain the full aggregate audit locally.
 
@@ -131,6 +134,9 @@ shared short validity note on the domestic page.
 Review follow-up restores the catalog loading announcement through a shared
 localized status for both skeleton screens. Focused regressions verify that
 the announcement is present only while the catalog is pending.
+The final copy review restores Global-specific annual savings from regular
+catalog prices, Studio's monthly-only label, and concise renewal/cancellation
+information. Both surfaces use superscript asterisk footnote references.
 
 ## Context and Orientation
 
