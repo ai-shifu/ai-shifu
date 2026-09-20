@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 import requests
+from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu import funcs
 
@@ -54,14 +55,23 @@ def test_video_lookup_preserves_actionable_provider_error_codes(
 
 
 @pytest.mark.parametrize(
-    "failure",
-    [requests.Timeout("timeout"), KeyError("data"), ValueError("invalid json")],
+    ("failure", "error_name", "expected_code"),
+    [
+        # Network/parse errors currently retain the manifest's generic code.
+        (requests.Timeout("timeout"), "server.file.videoNetworkError", 9999),
+        (KeyError("data"), "server.file.videoParseError", 9999),
+        (ValueError("invalid json"), "server.file.videoGetInfoError", 6008),
+    ],
 )
 def test_video_lookup_maps_network_parse_and_unexpected_failures_to_application_errors(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     failure: Exception,
+    error_name: str,
+    expected_code: int,
 ) -> None:
     monkeypatch.setattr(funcs.requests, "get", Mock(side_effect=failure))
-    with pytest.raises(AppError):
+    with pytest.raises(AppError) as error:
         funcs.get_video_info(app, "user", "https://www.bilibili.com/video/BV12345")
+    assert error.value.code == expected_code
+    assert error.value.message == _(error_name)
