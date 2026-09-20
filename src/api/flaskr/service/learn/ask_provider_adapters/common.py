@@ -6,6 +6,8 @@ from collections.abc import Iterable
 from functools import lru_cache
 
 import requests
+from flask import Flask
+from flaskr.common.safe_outbound import OutboundUrlPolicy, SafeOutboundClient
 from flaskr.service.config import get_config
 from flaskr.util.prompt_loader import load_prompt_template
 
@@ -125,6 +127,34 @@ def provider_timeout_seconds() -> int:
     except (TypeError, ValueError):
         value = 20
     return max(value, 1)
+
+
+def safe_provider_client(
+    app: Flask,
+    *,
+    trusted_origins_config: str,
+    max_response_bytes: int = 10 * 1024 * 1024,
+) -> SafeOutboundClient:
+    """Build the shared bounded client for a configurable ask provider."""
+    configured = app.config.get(trusted_origins_config, [])
+    if isinstance(configured, str):
+        values = configured.split(",")
+    elif isinstance(configured, (list, tuple, set, frozenset)):
+        values = configured
+    else:
+        values = []
+    trusted_origins = frozenset(
+        str(origin).strip() for origin in values if str(origin).strip()
+    )
+    return SafeOutboundClient(
+        policy=OutboundUrlPolicy(
+            trusted_origins=trusted_origins,
+            max_redirects=3,
+            max_response_bytes=max_response_bytes,
+            connect_timeout_seconds=5,
+            read_timeout_seconds=provider_timeout_seconds(),
+        )
+    )
 
 
 def iter_sse_payloads(response: requests.Response) -> Iterable[str]:

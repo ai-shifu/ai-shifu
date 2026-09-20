@@ -736,6 +736,42 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
+    "COZE_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze chat origins allowed to resolve to private "
+            "addresses. Leave empty unless this deployment intentionally uses a "
+            "self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_WORKFLOW_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_WORKFLOW_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze workflow origins allowed to resolve to "
+            "private addresses. Leave empty unless this deployment intentionally "
+            "uses a self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "VOLC_KNOWLEDGE_TRUSTED_ORIGINS": EnvVar(
+        name="VOLC_KNOWLEDGE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Volcengine Knowledge origins allowed to resolve "
+            "to private addresses. Leave empty unless this deployment intentionally "
+            "uses a private compatible endpoint."
+        ),
+        group="llm",
+        required=False,
+    ),
     "DEFAULT_LLM_MODEL": EnvVar(
         name="DEFAULT_LLM_MODEL",
         default="",

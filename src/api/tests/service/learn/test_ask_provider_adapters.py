@@ -10,10 +10,8 @@ from flaskr.service.learn import ask_provider_adapters as module
 from flaskr.service.learn.ask_provider_adapters import (
     common,
     coze_adapter,
-    coze_workflow_adapter,
     dify_adapter,
     get_biji_knowledge_adapter,
-    volc_knowledge_adapter,
 )
 
 
@@ -56,6 +54,10 @@ class _FakeResponse:
         if self._json_error is not None:
             raise self._json_error
         return self._json_data
+
+    @property
+    def content(self) -> bytes:
+        return json.dumps(self._json_data).encode("utf-8")
 
 
 @pytest.fixture
@@ -330,9 +332,9 @@ def test_coze_adapter_timeout_raises_timeout_error(
 
     def _raise_timeout(*_args: object, **_kwargs: object) -> None:
         message = "timeout"
-        raise requests.Timeout(message)
+        raise coze_adapter.OutboundDeadlineExceededError(message)
 
-    monkeypatch.setattr(coze_adapter.requests, "post", _raise_timeout)
+    monkeypatch.setattr(common.SafeOutboundClient, "request", _raise_timeout)
 
     with pytest.raises(module.AskProviderTimeoutError):
         list(
@@ -381,15 +383,10 @@ def test_coze_adapter_http_error_raises_provider_error(
         }.get,
     )
 
-    http_error = requests.HTTPError("boom")
     monkeypatch.setattr(
-        coze_adapter.requests,
-        "post",
-        lambda *_args, **_kwargs: _FakeResponse(
-            text="coze bad request",
-            status_code=400,
-            http_error=http_error,
-        ),
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(status_code=400),
     )
 
     with pytest.raises(module.AskProviderError, match="coze request failed"):
@@ -424,9 +421,12 @@ def test_coze_workflow_adapter_streams_success_content(
         }.get,
     )
 
-    def _fake_post(url: object, **kwargs: object) -> object:
+    def _fake_request(
+        _self: object, method: object, url: object, **kwargs: object
+    ) -> object:
+        request_state["method"] = method
         request_state["url"] = url
-        request_state["json"] = kwargs.get("json")
+        request_state["json"] = json.loads(kwargs.get("body", b"{}"))
         request_state["headers"] = kwargs.get("headers") or {}
         return _FakeResponse(
             json_data={
@@ -439,9 +439,9 @@ def test_coze_workflow_adapter_streams_success_content(
         )
 
     monkeypatch.setattr(
-        coze_workflow_adapter.requests,
-        "post",
-        _fake_post,
+        common.SafeOutboundClient,
+        "request",
+        _fake_request,
     )
 
     chunks = list(
@@ -490,8 +490,8 @@ def test_coze_workflow_adapter_nonzero_code_raises_provider_error(
     )
 
     monkeypatch.setattr(
-        coze_workflow_adapter.requests,
-        "post",
+        common.SafeOutboundClient,
+        "request",
         lambda *_args, **_kwargs: _FakeResponse(
             json_data={
                 "code": 5000,
@@ -584,9 +584,12 @@ def test_coze_adapter_uses_default_base_url_when_missing(
         }.get,
     )
 
-    def _fake_post(url: object, **kwargs: object) -> object:
+    def _fake_request(
+        _self: object, method: object, url: object, **kwargs: object
+    ) -> object:
+        request_state["method"] = method
         request_state["url"] = url
-        request_state["json"] = kwargs["json"]
+        request_state["json"] = json.loads(kwargs["body"])
         return _FakeResponse(
             lines=[
                 'data: {"event":"message","content":"ok"}',
@@ -594,7 +597,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(
             ]
         )
 
-    monkeypatch.setattr(coze_adapter.requests, "post", _fake_post)
+    monkeypatch.setattr(common.SafeOutboundClient, "request", _fake_request)
 
     chunks = list(
         adapter.stream_answer(
@@ -631,10 +634,12 @@ def test_volc_knowledge_adapter_streams_success_content(
 
     request_state = {}
 
-    def _fake_request(*_args: object, **kwargs: object) -> object:
-        request_state["method"] = kwargs.get("method")
+    def _fake_request(
+        _self: object, method: object, url: object, **kwargs: object
+    ) -> object:
+        request_state["method"] = method
         request_state["headers"] = kwargs.get("headers") or {}
-        request_state["url"] = kwargs.get("url")
+        request_state["url"] = url
         return _FakeResponse(
             json_data={
                 "code": 0,
@@ -648,7 +653,7 @@ def test_volc_knowledge_adapter_streams_success_content(
         )
 
     monkeypatch.setattr(
-        volc_knowledge_adapter.requests,
+        common.SafeOutboundClient,
         "request",
         _fake_request,
     )
@@ -694,6 +699,90 @@ def test_volc_knowledge_adapter_missing_config_raises_error(app: object) -> None
                     "config": {
                         "account_id": "acc-1",
                         "collection_name": "collection-1",
+                    }
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("adapter", "provider_config", "error_message"),
+    [
+        (
+            module.CozeAskProviderAdapter(),
+            {
+                "config": {
+                    "api_key": "coze-secret",
+                    "bot_id": "bot-1",
+                    "base_url": "http://127.0.0.1",
+                }
+            },
+            "coze request was rejected or failed",
+        ),
+        (
+            module.CozeWorkflowAskProviderAdapter(),
+            {
+                "config": {
+                    "api_key": "coze-secret",
+                    "workflow_id": "workflow-1",
+                    "base_url": "http://169.254.169.254",
+                }
+            },
+            "coze_workflow request was rejected or failed",
+        ),
+        (
+            module.VolcKnowledgeAskProviderAdapter(),
+            {
+                "config": {
+                    "account_id": "acc-1",
+                    "ak": "ak-1",
+                    "sk": "sk-1",
+                    "collection_name": "collection-1",
+                    "domain": "[::1]",
+                    "scheme": "http",
+                }
+            },
+            "volc_knowledge request was rejected or failed",
+        ),
+    ],
+)
+def test_configurable_ask_providers_reject_internal_destinations(
+    app: object,
+    adapter: object,
+    provider_config: dict[str, object],
+    error_message: str,
+) -> None:
+    with pytest.raises(module.AskProviderError, match=error_message):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config=provider_config,
+            )
+        )
+
+
+def test_coze_absolute_api_path_is_still_checked_by_safe_outbound(
+    app: object,
+) -> None:
+    adapter = module.CozeAskProviderAdapter()
+
+    with pytest.raises(
+        module.AskProviderError,
+        match="coze request was rejected or failed",
+    ):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "coze-secret",
+                        "api_path": "http://127.0.0.1/private",
                     }
                 },
             )
