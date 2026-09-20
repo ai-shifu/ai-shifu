@@ -105,6 +105,26 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _configure_default_model_route(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Credit estimates resolve legacy course choices through configured model one."""
+    _ = app  # Initialize provider configuration before installing the test route.
+    from flaskr.api import llm
+
+    monkeypatch.setitem(
+        llm.PROVIDER_STATES,
+        "openai",
+        llm.ProviderState(
+            enabled=True,
+            params={"api_key": "test-key"},
+            models=["gpt-test"],
+        ),
+    )
+    monkeypatch.setitem(llm.MODEL_ALIAS_MAP, "gpt-test", ("openai", "gpt-test"))
+
+
+@pytest.fixture(autouse=True)
 def _pin_app_timezone_to_utc(app: object) -> object:
     original_tz = app.config.get("TZ")
     app.config["TZ"] = "UTC"

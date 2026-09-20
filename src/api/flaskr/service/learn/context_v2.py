@@ -24,7 +24,8 @@ from flaskr.api.langfuse import (
     normalize_langfuse_output_value,
     update_langfuse_trace,
 )
-from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
+from flaskr.api.llm import chat_llm
+from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.common.i18n_utils import (
     get_markdownflow_output_language,
@@ -358,6 +359,7 @@ class RUNLLMProvider(LLMProvider):
             temperature=actual_temperature,
             usage_context=self.usage_context,
             usage_scene=self.usage_scene,
+            usage_metadata=self.llm_settings.usage_metadata,
         )
         # Collect all stream responses and concatenate the results
         content_parts = [response.result for response in res if response.result]
@@ -410,6 +412,7 @@ class RUNLLMProvider(LLMProvider):
             temperature=actual_temperature,
             usage_context=self.usage_context,
             usage_scene=self.usage_scene,
+            usage_metadata=self.llm_settings.usage_metadata,
         )
         self.app.logger.info("stream invoke_llm res: %s", res)
         first_result = False
@@ -919,7 +922,11 @@ class RunScriptPreviewContextV2:
         )
         provider = RUNLLMProvider(
             self.app,
-            LLMSettings(model=model, temperature=temperature),
+            LLMSettings(
+                model=model,
+                temperature=temperature,
+                usage_metadata=getattr(self, "_preview_model_selection_metadata", {}),
+            ),
             trace,
             root_span,
             trace_args,
@@ -1431,65 +1438,12 @@ class RunScriptPreviewContextV2:
         self,
         shifu: DraftShifu | PublishedShifu | None,
     ) -> tuple[str, float]:
-        """Resolve preview temperature from the selected model's settings source."""
-
-        def _normalize_model(value: object | None) -> str | None:
-            if value is None:
-                return None
-            text = str(value).strip()
-            return text or None
-
-        allowed_models = get_allowed_models()
-        allowlist_enabled = bool(allowed_models)
-        allowed_available_models: list[str] = []
-        if allowlist_enabled:
-            allowed_available_models = [
-                option.get("model", "")
-                for option in get_current_models(self.app)
-                if option.get("model")
-            ]
-
-        model_candidates: list[tuple[str, str | None]] = [
-            ("shifu", _normalize_model(getattr(shifu, "llm", None)) if shifu else None),
-            ("default", _normalize_model(self.app.config.get("DEFAULT_LLM_MODEL"))),
-        ]
-        model_source = "unset"
-        model = None
-        for source, candidate in model_candidates:
-            if not candidate:
-                continue
-            if allowlist_enabled and candidate not in allowed_models:
-                continue
-            model = candidate
-            model_source = source
-            break
-
-        if allowlist_enabled and not model:
-            if allowed_available_models:
-                model = allowed_available_models[0]
-                model_source = "allowlist"
-            else:
-                message = "No allowed LLM models are available"
-                raise ValueError(message)
-
-        temperature = (
-            self._decimal_to_float(getattr(shifu, "llm_temperature", None))
-            if model_source == "shifu"
-            else None
-        )
+        """Prepare preview settings without routing models for static content."""
+        model = selection_model(shifu)
+        self._preview_model_selection_metadata = selection_metadata(shifu)
+        temperature = self._decimal_to_float(getattr(shifu, "llm_temperature", None))
         if temperature is None:
             temperature = float(self.app.config.get("DEFAULT_LLM_TEMPERATURE"))
-
-        if not model:
-            message = "LLM model is not configured"
-            raise ValueError(message)
-
-        self.app.logger.info(
-            "preview resolved llm settings | model=%s | temperature=%s | source=%s",
-            model,
-            temperature,
-            model_source,
-        )
         return model, float(temperature)
 
     def _get_outline_record(
@@ -3638,12 +3592,11 @@ class RunScriptContextV2:
             self._shifu_model.id.in_(shifu_ids),
             self._shifu_model.deleted == 0,
         ).first()
-        course_model = str(getattr(shifu_info_db, "llm", "") or "").strip()
-        if course_model:
-            return LLMSettings(
-                model=course_model, temperature=shifu_info_db.llm_temperature
-            )
-        return self._get_default_llm_settings()
+        return LLMSettings(
+            model=selection_model(shifu_info_db),
+            temperature=shifu_info_db.llm_temperature,
+            usage_metadata=selection_metadata(shifu_info_db),
+        )
 
     def reload(
         self,

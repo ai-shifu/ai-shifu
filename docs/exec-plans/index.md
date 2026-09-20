@@ -30,6 +30,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Lobster Course Entry Analytics](./active/lobster-course-entry-analytics.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./active/markdownflow-model-arena.md)
 - [Notification Channel Foundation](./active/notification-channel-foundation.md)
+- [Numbered course models](./active/numbered-course-models.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
 - [Official Client Model Gateway](./active/official-client-model-gateway.md)
 - [Existing Creator Onboarding Rollout](./active/onboarding-existing-creator-rollout.md)

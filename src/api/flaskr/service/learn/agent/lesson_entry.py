@@ -18,10 +18,12 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
+from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.run_agent import run_agent_lesson
 from flaskr.service.learn.exceptions import PaidError
+from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
@@ -67,10 +69,10 @@ def _resolve(
     shifu_bid: str,
     outline_bid: str,
     preview_mode: bool,
-) -> tuple[str, str, float]:
+) -> tuple[str, LLMSettings]:
     """Read the script and the model settings for this lesson.
 
-    Model resolution follows the 1.0 order: the course's setting, then the deployment default.
+    Model resolution follows 1.0: use the course selection with runtime fallback.
     """
     outline_model, shifu_model = _models(preview_mode)
     # Bound to the course as well as the lesson: an allowlisted course paired with another
@@ -85,13 +87,11 @@ def _resolve(
         app, user_bid=user_bid, shifu=shifu, outline=outline, preview_mode=preview_mode
     )
 
-    course_model = str(getattr(shifu, "llm", "") or "").strip()
-    if course_model:
-        return outline.content, course_model, float(shifu.llm_temperature)
-    return (
-        outline.content,
-        app.config.get("DEFAULT_LLM_MODEL"),
-        float(app.config.get("DEFAULT_LLM_TEMPERATURE")),
+    course_model = selection_model(shifu)
+    return outline.content, LLMSettings(
+        model=course_model,
+        temperature=shifu.llm_temperature,
+        usage_metadata=selection_metadata(shifu),
     )
 
 
@@ -158,7 +158,7 @@ def agent_lesson_events(
     `listen` reaches the spoken track, not the engine: the engine's own listen mode stays off, and
     what it teaches is spoken by the pipeline that speaks a 1.0 lesson. See `agent/listen.py`.
     """
-    script, model_name, temperature = _resolve(
+    script, settings = _resolve(
         app,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
@@ -180,11 +180,17 @@ def agent_lesson_events(
         root_span_payload={"name": "agent_lesson_turn"},
     )
     engine = Engine(
-        GatewayModel(app, model_name, user_id=user_bid, span=span),
+        GatewayModel(
+            app,
+            settings.model,
+            user_id=user_bid,
+            span=span,
+            usage_metadata=settings.usage_metadata,
+        ),
         # No memory store: the engine runs on the bridge's producer thread, which has no app
         # context. The host consumes its `MemoryUpdated` events and writes them instead.
         memory_store=None,
-        model_settings={"temperature": temperature},
+        model_settings={"temperature": settings.temperature},
     )
     end_reason = "error"
     try:
