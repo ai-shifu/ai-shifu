@@ -554,6 +554,9 @@ export function GlobalBillingPricing() {
           {globalProducts ? (
             <div className='w-full rounded-xl border border-border bg-muted/40 px-6 py-5 text-sm leading-5 text-muted-foreground'>
               <BillingOverviewFootnote
+                validityNote={t(
+                  'module.billing.package.footnote.providerValidity',
+                )}
                 hasDiscountCampaign={PLAN_TIERS.some(tier => {
                   const code =
                     billingCycle === 'annual' && tier.annualCode

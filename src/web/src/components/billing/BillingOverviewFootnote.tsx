@@ -7,8 +7,10 @@ const FOOTNOTE_ENUM_VALIDITY = '②';
 
 export function BillingOverviewFootnote({
   hasDiscountCampaign = false,
+  validityNote,
 }: {
   hasDiscountCampaign?: boolean;
+  validityNote?: string;
 }) {
   const { t } = useTranslation();
 
@@ -29,7 +31,7 @@ export function BillingOverviewFootnote({
         <li className='flex gap-2'>
           <span className='shrink-0 font-medium'>{FOOTNOTE_ENUM_VALIDITY}</span>
           <div className='flex-1'>
-            {t('module.billing.package.footnote.validity')}
+            {validityNote ?? t('module.billing.package.footnote.validity')}
           </div>
         </li>
       </ul>

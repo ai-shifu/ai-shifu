@@ -898,6 +898,7 @@ export type I18nKey =
   | 'module.billing.package.features.yearly.pro.support'
   | 'module.billing.package.featuresTitle'
   | 'module.billing.package.footnote.learningTime'
+  | 'module.billing.package.footnote.providerValidity'
   | 'module.billing.package.footnote.validity'
   | 'module.billing.package.free.creditSummary'
   | 'module.billing.package.free.description'

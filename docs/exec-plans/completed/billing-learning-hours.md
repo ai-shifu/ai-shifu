@@ -84,8 +84,9 @@ calibration evidence in the product specification.
   with fixed defaults. Keep the other purchase validation constraints intact.
 - Reuse domestic pricing copy in Global, except plan names and purchase button
   labels. Show actual period prices and cumulative existing benefits. Use the
-  user-approved shared validity note “积分有效期以账户显示为准。” because domestic
-  and Stripe expiry rules differ. Keep one shared, conditional campaign note:
+  original detailed domestic validity note after the user corrected the earlier
+  simplification. Keep provider-managed validity copy separate because actual
+  credit-bucket expiry differs for Stripe. Keep one shared, conditional campaign note:
   “优惠仅适用于本次支付。”; checkout retains the recurring billing terms.
 - Keep identities, raw content, credentials and detailed business traffic totals
   out of the public repository. Retain the full aggregate audit locally.
