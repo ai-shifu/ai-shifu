@@ -210,10 +210,13 @@ def translate(
         ]
 
     if isinstance(event, TurnDone):
-        # A turn that stopped to ask something is not a boundary at all: the interaction event
-        # already told the frontend to wait.
-        if event.reason == "interaction":
-            return []
+        # Every turn ends in a boundary, a turn that stopped to ask something included. The
+        # browser never sees a BREAK -- the SSE framing suppresses it -- but the element adapter
+        # finalises the block on it: every element the turn streamed is written then, with its
+        # audio. Without it, a turn that ended on a question was never finalised, so its text
+        # survived only where an audio patch happened to write it, and its cards not at all --
+        # a learner reloading the lesson got the narration back over an empty page.
+        #
         # `end` means this turn ran out of content, not that the lesson is over -- the model often
         # never calls `finish`, and the host decides from the script whether anything remains. The
         # element adapter marks DONE terminal and the browser closes the stream on it, so only a

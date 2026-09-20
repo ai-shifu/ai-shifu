@@ -253,9 +253,18 @@ def test_a_turn_that_ran_out_of_content_leaves_the_lesson_resumable() -> None:
     assert translated.type == GeneratedType.BREAK
 
 
-def test_a_turn_waiting_on_the_learner_does_not_close_the_stream() -> None:
-    """The interaction event already told the frontend to wait; done would let it move on."""
-    assert _translate(TurnDone(reason="interaction")) == []
+def test_a_turn_waiting_on_the_learner_ends_its_block_without_closing_the_stream() -> (
+    None
+):
+    """A BREAK, never a DONE: the block is finalised, the stream stays open for the answer.
+
+    The browser never sees the BREAK -- the SSE framing suppresses it -- but the element adapter
+    writes every element the turn streamed on it. Left out, a turn that ended on a question was
+    never finalised: its cards were never written, and a reload played the narration over an
+    empty page.
+    """
+    (translated,) = _translate(TurnDone(reason="interaction"))
+    assert translated.type == GeneratedType.BREAK
 
 
 def test_a_failed_turn_never_reports_success() -> None:
