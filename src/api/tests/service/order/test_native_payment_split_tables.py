@@ -19,6 +19,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import BillingOrder
+from flaskr.service.common.models import AppError
 from flaskr.service.order import funs as order_funs
 from flaskr.service.order.admin import _load_payment_detail
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
@@ -454,13 +455,21 @@ def test_common_native_sync_calls_provider_outside_transaction_then_locks_finali
     real_unit_of_work = order_funs.unit_of_work
 
     @contextmanager
-    def _recording_lock(order_bid: str) -> Iterator[None]:
+    def _recording_lock(order_bid: str) -> Iterator[object]:
         nonlocal lock_held
         assert order_bid == "order-common-native-lock"
         lock_held = True
         finalize_events.append("lock-enter")
         try:
-            yield
+            yield type(
+                "RecordingLease",
+                (),
+                {
+                    "release_checked": lambda _self: finalize_events.append(
+                        "lease-release"
+                    )
+                },
+            )()
         finally:
             finalize_events.append("lock-exit")
             lock_held = False
@@ -538,7 +547,13 @@ def test_common_native_sync_calls_provider_outside_transaction_then_locks_finali
     )
 
     assert lock_held is False
-    assert finalize_events == ["lock-enter", "uow-enter", "uow-exit", "lock-exit"]
+    assert finalize_events == [
+        "lock-enter",
+        "uow-enter",
+        "lease-release",
+        "uow-exit",
+        "lock-exit",
+    ]
 
 
 def test_native_webhook_uses_the_order_payment_lifecycle_lock(
@@ -548,9 +563,13 @@ def test_native_webhook_uses_the_order_payment_lifecycle_lock(
     locked_order_bids: list[str] = []
 
     @contextmanager
-    def _recording_lock(order_bid: str) -> Iterator[None]:
+    def _recording_lock(order_bid: str) -> Iterator[object]:
         locked_order_bids.append(order_bid)
-        yield
+        yield type(
+            "RecordingLease",
+            (),
+            {"release_checked": lambda _self: None},
+        )()
 
     monkeypatch.setattr(
         "flaskr.service.order.funs.payment_lifecycle_lock",
@@ -607,13 +626,17 @@ def test_native_sync_rolls_back_when_payment_lock_is_lost_before_commit(
     native_payment_split_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    @contextmanager
-    def _lost_lock(_order_bid: str) -> Iterator[None]:
-        yield
+    class _LostOwnershipLock:
+        def acquire(self, *, blocking: bool) -> bool:
+            assert blocking is True
+            return True
 
-    def _reject_lost_lock() -> None:
-        message = "payment lock lease lost"
-        raise RuntimeError(message)
+        def extend(self, *_args: object, **_kwargs: object) -> bool:
+            return True
+
+        def release(self) -> None:
+            message = "payment lock lease lost"
+            raise RuntimeError(message)
 
     class _PaidAlipayProvider:
         def sync_reference(self, **_kwargs: object) -> PaymentNotificationResult:
@@ -632,12 +655,9 @@ def test_native_sync_rolls_back_when_payment_lock_is_lost_before_commit(
 
     notifications: list[str] = []
     monkeypatch.setattr(
-        "flaskr.service.order.funs.payment_lifecycle_lock",
-        _lost_lock,
-    )
-    monkeypatch.setattr(
-        "flaskr.service.order.funs._assert_payment_lifecycle_lock_owned",
-        _reject_lost_lock,
+        order_funs.cache_provider,
+        "lock",
+        lambda *_args, **_kwargs: _LostOwnershipLock(),
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
@@ -687,7 +707,7 @@ def test_native_sync_rolls_back_when_payment_lock_is_lost_before_commit(
         )
         dao.db.session.commit()
 
-    with pytest.raises(RuntimeError, match="payment lock lease lost"):
+    with pytest.raises(AppError, match=r"server\.order\.orderStatusError"):
         sync_native_payment_order(
             native_payment_split_app,
             "order-native-lost-lock",

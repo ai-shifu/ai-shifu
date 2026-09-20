@@ -9,7 +9,7 @@ import threading
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext, suppress
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pytz
@@ -601,8 +601,50 @@ def _assert_payment_lifecycle_lock_owned() -> None:
         raise_error("server.order.orderStatusError")
 
 
+class _RenewablePaymentLock(Protocol):
+    def extend(self, seconds: int, *, replace_ttl: bool) -> bool: ...
+
+    def release(self) -> None: ...
+
+
+class _PaymentLifecycleLease:
+    """Manage renewal and checked release for one payment lifecycle lock."""
+
+    def __init__(self, lock: _RenewablePaymentLock) -> None:
+        self._lock = lock
+        self._stop_renewal = threading.Event()
+        self.ownership_lost = threading.Event()
+        self._released = False
+        self._renewal = threading.Thread(target=self._renew_lease, daemon=True)
+        self._renewal.start()
+
+    def _renew_lease(self) -> None:
+        while not self._stop_renewal.wait(20):
+            try:
+                if not self._lock.extend(60, replace_ttl=True):
+                    self.ownership_lost.set()
+                    return
+            except Exception:
+                self.ownership_lost.set()
+                return
+
+    def release_checked(self) -> None:
+        """Release the lease and fail when Redis reports lost ownership."""
+        if self._released:
+            return
+        self._released = True
+        self._stop_renewal.set()
+        self._renewal.join(timeout=1)
+        try:
+            self._lock.release()
+        except Exception:
+            self.ownership_lost.set()
+        if self.ownership_lost.is_set():
+            raise_error("server.order.orderStatusError")
+
+
 @contextmanager
-def payment_lifecycle_lock(order_bid: str) -> Iterator[None]:
+def payment_lifecycle_lock(order_bid: str) -> Iterator[_PaymentLifecycleLease]:
     """Serialize external provider work that belongs to one business order."""
     lock = cache_provider.lock(
         f"order-payment-lifecycle:{order_bid}",
@@ -612,36 +654,15 @@ def payment_lifecycle_lock(order_bid: str) -> Iterator[None]:
     )
     if not lock.acquire(blocking=True):
         raise_error("server.order.orderStatusError")
-    stop_renewal = threading.Event()
-    ownership_lost = threading.Event()
+    lease = _PaymentLifecycleLease(lock)
     ownership_token = _payment_lock_ownership_events.set(
-        (*_payment_lock_ownership_events.get(), ownership_lost)
+        (*_payment_lock_ownership_events.get(), lease.ownership_lost)
     )
-
-    def renew_lease() -> None:
-        while not stop_renewal.wait(20):
-            try:
-                if not lock.extend(60, replace_ttl=True):
-                    ownership_lost.set()
-                    return
-            except Exception:
-                ownership_lost.set()
-                return
-
-    renewal = threading.Thread(target=renew_lease, daemon=True)
-    renewal.start()
     try:
-        yield
+        yield lease
     finally:
-        stop_renewal.set()
-        renewal.join(timeout=1)
         try:
-            lock.release()
-        except Exception:
-            ownership_lost.set()
-        try:
-            if ownership_lost.is_set():
-                raise_error("server.order.orderStatusError")
+            lease.release_checked()
         finally:
             _payment_lock_ownership_events.reset(ownership_token)
 
@@ -1873,7 +1894,11 @@ def sync_native_payment_order(
             app=app,
         )
 
-    with _app_context_scope(app), payment_lifecycle_lock(order_id), unit_of_work():
+    with (
+        _app_context_scope(app),
+        payment_lifecycle_lock(order_id) as lifecycle_lease,
+        unit_of_work(),
+    ):
         order = _load_payment_sync_order(
             order_id,
             expected_user=expected_user,
@@ -1927,6 +1952,7 @@ def sync_native_payment_order(
             success_buy_record(app, order.order_bid)
         db.session.add(snapshot)
         _assert_payment_lifecycle_lock_owned()
+        lifecycle_lease.release_checked()
         return get_payment_details(app, order.order_bid)
 
 
@@ -2712,7 +2738,7 @@ def success_buy_record_from_native(
 
     with (
         _app_context_scope(app),
-        payment_lifecycle_lock(order_bid),
+        payment_lifecycle_lock(order_bid) as lifecycle_lease,
         unit_of_work(),
     ):
         buy_record: Order = (
@@ -2774,6 +2800,7 @@ def success_buy_record_from_native(
         ):
             success_buy_record(app, buy_record.order_bid)
         _assert_payment_lifecycle_lock_owned()
+        lifecycle_lease.release_checked()
         return True
 
 
