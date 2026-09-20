@@ -17,11 +17,18 @@ from flaskr.service.billing import checkout, models
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCELED,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
+    BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -1120,3 +1127,326 @@ def test_provider_result_commit_failure_recovers_from_remote_operation_evidence(
     assert _refund(refund_app).status == "refunded"
     assert len(gateway.requests) == len(gateway.remote) == 1
     _assert_accounting(refund_app, finalized=True)
+
+
+def _seed_legacy_refunded_subscription(
+    app: Flask,
+    *,
+    completed: bool = False,
+    credit_amount: Decimal = Decimal(20),
+    refund_status: str = "succeeded",
+) -> None:
+    """Reproduce a webhook-only refund or a fully committed pre-journal refund."""
+    with app.app_context(), Session(db.engine) as session:
+        order = session.execute(select(BillingOrder)).scalar_one()
+        plan = session.execute(select(BillingSubscription)).scalar_one()
+        product = session.execute(
+            select(BillingProduct).filter_by(product_bid=plan.product_bid)
+        ).scalar_one()
+        product.credit_amount = credit_amount
+        order.product_bid = plan.product_bid
+        order.subscription_bid = plan.subscription_bid
+        order.order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_START
+        order.status = BILLING_ORDER_STATUS_REFUNDED
+        order.refunded_at = now_utc() - timedelta(days=2)
+        if completed:
+            order.metadata_json = {
+                **order.metadata_json,
+                "refund_reference_id": "re_historical",
+                "refund_status": refund_status,
+            }
+            plan.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+            plan.cancel_at_period_end = 1
+        session.add(
+            BillingRenewalEvent(
+                renewal_event_bid="renewal-before-legacy-refund",
+                subscription_bid=plan.subscription_bid,
+                creator_bid=CREATOR_BID,
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+                scheduled_at=plan.current_period_end_at,
+                status=BILLING_RENEWAL_EVENT_STATUS_CANCELED
+                if completed
+                else BILLING_RENEWAL_EVENT_STATUS_PENDING,
+                processed_at=order.refunded_at if completed else None,
+                payload_json={"period": "original"},
+            )
+        )
+        session.commit()
+    if completed and credit_amount > 0:
+        checkout.grant_refund_return_credits(
+            app,
+            creator_bid=CREATOR_BID,
+            amount=credit_amount,
+            refund_bid="re_historical",
+            metadata={
+                "bill_order_bid": ORDER_BID,
+                "product_bid": "bill-product-plan-monthly",
+            },
+        )
+
+
+def _legacy_refund_state(app: Flask) -> dict[str, object]:
+    """Read durable business state through a fresh session, excluding the journal."""
+    with app.app_context(), Session(db.engine) as session:
+        order = session.execute(select(BillingOrder)).scalar_one()
+        plan = session.execute(select(BillingSubscription)).scalar_one()
+        return {
+            "order_status": order.status,
+            "refunded_at": order.refunded_at,
+            "order_metadata": deepcopy(order.metadata_json),
+            "subscription": (
+                plan.status,
+                plan.cancel_at_period_end,
+                plan.current_period_start_at,
+                plan.current_period_end_at,
+                plan.updated_at,
+                deepcopy(plan.metadata_json),
+            ),
+            "events": [
+                (row.renewal_event_bid, row.status, row.processed_at, row.updated_at)
+                for row in session.scalars(
+                    select(BillingRenewalEvent).order_by(BillingRenewalEvent.id)
+                )
+            ],
+            "entries": [
+                (
+                    row.ledger_bid,
+                    row.source_bid,
+                    row.idempotency_key,
+                    row.amount,
+                    row.wallet_bucket_bid,
+                    row.balance_after,
+                )
+                for row in session.scalars(select(CreditLedgerEntry))
+            ],
+            "buckets": [
+                (
+                    row.wallet_bucket_bid,
+                    row.original_credits,
+                    row.available_credits,
+                    row.reserved_credits,
+                )
+                for row in session.scalars(select(CreditWalletBucket))
+            ],
+            "wallets": [
+                (row.wallet_bid, row.available_credits, row.reserved_credits)
+                for row in session.scalars(select(CreditWallet))
+            ],
+        }
+
+
+def _historical_refund() -> PaymentRefundResult:
+    return RefundGateway.result(
+        PaymentRefundRequest(
+            ORDER_BID,
+            amount=1000,
+            metadata={
+                "creator_bid": CREATOR_BID,
+                "currency": "usd",
+                "payment_intent_id": "pi_refund_recovery",
+                "charge_id": "ch_refund_recovery",
+            },
+        ),
+        "succeeded",
+    )
+
+
+def test_legacy_webhook_refunded_order_recovers_missing_subscription_effects(
+    refund_app: Flask, gateway: RefundGateway
+) -> None:
+    _seed_legacy_refunded_subscription(refund_app)
+    before = _legacy_refund_state(refund_app)
+    assert before["subscription"][0] == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert before["events"][0][1] == BILLING_RENEWAL_EVENT_STATUS_PENDING
+    assert before["entries"] == []
+    gateway.historical = _historical_refund()
+
+    result = _refund(refund_app)
+
+    assert result.status == "refunded"
+    assert result.refund_reference_id == "re_historical"
+    assert gateway.requests == []
+    assert len(gateway.lookups) == 1
+    after = _legacy_refund_state(refund_app)
+    assert after["order_status"] == BILLING_ORDER_STATUS_REFUNDED
+    assert after["refunded_at"] == before["refunded_at"]
+    assert after["subscription"][:2] == (BILLING_SUBSCRIPTION_STATUS_CANCELED, 1)
+    assert after["events"][0][1] == BILLING_RENEWAL_EVENT_STATUS_CANCELED
+    assert after["events"][0][2] is not None
+    assert len(after["entries"]) == len(after["buckets"]) == 1
+    assert after["entries"][0][1:4] == (
+        "re_historical",
+        "refund_return:re_historical",
+        Decimal(20),
+    )
+    assert after["entries"][0][4] == after["buckets"][0][0]
+    assert after["buckets"][0][1:3] == (Decimal(20), Decimal(20))
+    assert _operation(refund_app)["finalized_at"] is not None
+    assert _refund(refund_app).refund_reference_id == "re_historical"
+    assert _legacy_refund_state(refund_app) == after
+    assert len(gateway.lookups) == 1
+    assert gateway.requests == []
+
+
+def _reactivate_legacy_subscription(app: Flask) -> None:
+    with app.app_context(), Session(db.engine) as session:
+        plan = session.execute(select(BillingSubscription)).scalar_one()
+        plan.status = BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        plan.cancel_at_period_end = 0
+        plan.current_period_start_at = now_utc()
+        plan.current_period_end_at = now_utc() + timedelta(days=60)
+        plan.metadata_json = {"reactivated_after_refund": True}
+        session.add(
+            BillingRenewalEvent(
+                renewal_event_bid="renewal-after-reactivation",
+                subscription_bid=plan.subscription_bid,
+                creator_bid=CREATOR_BID,
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+                scheduled_at=plan.current_period_end_at,
+                status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+                payload_json={"period": "reactivated"},
+            )
+        )
+        session.commit()
+
+
+@pytest.mark.parametrize(
+    ("refund_status", "credit_amount"),
+    [
+        ("succeeded", Decimal(20)),
+        ("pending", Decimal(0)),
+        ("requires_action", Decimal(0)),
+    ],
+)
+def test_legacy_completed_marker_preserves_reactivated_subscription_without_http(
+    refund_status: str,
+    credit_amount: Decimal,
+    refund_app: Flask,
+    gateway: RefundGateway,
+) -> None:
+    _seed_legacy_refunded_subscription(
+        refund_app,
+        completed=True,
+        credit_amount=credit_amount,
+        refund_status=refund_status,
+    )
+    _reactivate_legacy_subscription(refund_app)
+    before = _legacy_refund_state(refund_app)
+    assert len(before["entries"]) == len(before["buckets"]) == int(credit_amount > 0)
+    assert before["subscription"][:2] == (BILLING_SUBSCRIPTION_STATUS_ACTIVE, 0)
+    assert before["events"][-1][1] == BILLING_RENEWAL_EVENT_STATUS_PENDING
+    # A later catalog edit must not reinterpret the old completed transaction.
+    with refund_app.app_context(), Session(db.engine) as session:
+        product = session.execute(
+            select(BillingProduct).filter_by(product_bid="bill-product-plan-monthly")
+        ).scalar_one()
+        product.credit_amount = Decimal(100)
+        session.commit()
+    gateway.lookup_error = RuntimeError("completed local refund needs no HTTP")
+
+    for _ in range(2):
+        result = _refund(refund_app)
+        assert result.status == "refunded"
+        assert result.refund_reference_id == "re_historical"
+        assert _legacy_refund_state(refund_app) == before
+        assert gateway.requests == gateway.lookups == []
+        with refund_app.app_context(), Session(db.engine) as session:
+            assert session.scalars(select(models.BillingRefundOperation)).all() == []
+
+
+def test_legacy_ledger_recovers_missing_marker_without_replaying_subscription_effects(
+    refund_app: Flask, gateway: RefundGateway
+) -> None:
+    _seed_legacy_refunded_subscription(refund_app, completed=True)
+    _reactivate_legacy_subscription(refund_app)
+    with refund_app.app_context(), Session(db.engine) as session:
+        order = session.execute(select(BillingOrder)).scalar_one()
+        metadata = dict(order.metadata_json)
+        del metadata["refund_reference_id"]
+        del metadata["refund_status"]
+        order.metadata_json = metadata
+        session.commit()
+    before = _legacy_refund_state(refund_app)
+    assert len(before["entries"]) == len(before["buckets"]) == 1
+    assert before["entries"][0][1:4] == (
+        "re_historical",
+        "refund_return:re_historical",
+        Decimal(20),
+    )
+    assert before["subscription"][:2] == (BILLING_SUBSCRIPTION_STATUS_ACTIVE, 0)
+    assert before["events"][-1][1] == BILLING_RENEWAL_EVENT_STATUS_PENDING
+    gateway.historical = _historical_refund()
+
+    result = _refund(refund_app)
+
+    assert result.status == "refunded"
+    assert result.refund_reference_id == "re_historical"
+    assert gateway.requests == []
+    assert len(gateway.lookups) == 1
+    assert _operation(refund_app)["finalized_at"] is not None
+    after = _legacy_refund_state(refund_app)
+    assert after == before
+    assert _refund(refund_app).refund_reference_id == "re_historical"
+    assert _legacy_refund_state(refund_app) == after
+    assert len(gateway.lookups) == 1
+    assert gateway.requests == []
+
+
+def test_legacy_refunded_order_without_remote_evidence_never_posts_another_refund(
+    refund_app: Flask, gateway: RefundGateway
+) -> None:
+    _seed_legacy_refunded_subscription(refund_app)
+    before = _legacy_refund_state(refund_app)
+
+    for _ in range(2):
+        result = _refund(refund_app)
+        assert result.status == "reconciliation_required"
+        assert gateway.requests == []
+        assert gateway.remote == {}
+        assert _legacy_refund_state(refund_app) == before
+        operation = _operation(refund_app)
+        assert operation["submitted_at"] is None
+        assert operation["finalized_at"] is None
+    assert len(gateway.lookups) == 2
+
+
+def test_legacy_refunded_order_with_ambiguous_history_never_changes_local_effects(
+    refund_app: Flask, gateway: RefundGateway
+) -> None:
+    _seed_legacy_refunded_subscription(refund_app)
+    before = _legacy_refund_state(refund_app)
+    gateway.lookup_error = RuntimeError("historical partial refund is ambiguous")
+
+    with pytest.raises(RuntimeError, match="historical partial refund is ambiguous"):
+        _refund(refund_app)
+
+    assert len(gateway.lookups) == 1
+    assert gateway.requests == []
+    assert gateway.remote == {}
+    assert _legacy_refund_state(refund_app) == before
+    assert _operation(refund_app)["finalized_at"] is None
+
+
+def test_webhook_refund_after_prepare_blocks_dispatch_with_empty_remote_history(
+    refund_app: Flask, gateway: RefundGateway
+) -> None:
+    def receive_webhook() -> None:
+        assert _operation(refund_app)["submitted_at"] is None
+        with refund_app.app_context(), Session(db.engine) as session:
+            order = session.execute(select(BillingOrder)).scalar_one()
+            order.status = BILLING_ORDER_STATUS_REFUNDED
+            order.refunded_at = now_utc()
+            session.commit()
+
+    gateway.after_lookup = receive_webhook
+    result = _refund(refund_app)
+
+    assert result.status == "reconciliation_required"
+    assert gateway.requests == []
+    assert gateway.remote == {}
+    state = _legacy_refund_state(refund_app)
+    assert state["order_status"] == BILLING_ORDER_STATUS_REFUNDED
+    assert state["entries"] == state["buckets"] == state["wallets"] == []
+    assert state["subscription"][0] == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert _operation(refund_app)["submitted_at"] is None
+    assert _operation(refund_app)["finalized_at"] is None

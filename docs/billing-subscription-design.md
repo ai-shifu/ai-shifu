@@ -446,8 +446,22 @@ Only a validated `succeeded` refund finalizes the original order, subscription,
 provider snapshot, credit return, and journal completion atomically. A
 `pending` or `requires_action` response retains the provider reference and
 returns `pending`; failed or canceled refunds do not grant credits or create
-a replacement operation. If a webhook already marks the original order
-refunded, an unfinished journal still drives recovery of its local effects.
+a replacement operation. A webhook-refunded order without a journal also
+requires reconciliation: create a recovery journal and complete the missing
+local effects only for an attributable successful refund. If history is empty,
+return `reconciliation_required`; a refunded order never authorizes another
+POST. This guard also covers a webhook arriving between preparation and dispatch.
+
+Preserve legacy local-completion evidence before replaying side effects. The
+old helper committed its top-level `refund_reference_id` and `refund_status`
+with the subscription, snapshot, and credit changes in one transaction; its
+`succeeded`, `pending`, and `requires_action` markers therefore retain the
+existing completed response. If that metadata was lost, a refund-return ledger
+matching the validated refund, teacher, and original order also proves local
+completion. In that case, only finalize the journal. Do not cancel a subscription
+again or infer historical completion from its current status or product credits:
+the subscription may have been reactivated and the product may have changed.
+
 Each external observation carries the journal version captured before HTTP.
 Saving a result requires the same version under the row lock and increments
 it; a conflicting result triggers a fresh provider query with bounded retries.

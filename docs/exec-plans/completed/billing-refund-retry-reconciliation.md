@@ -34,6 +34,11 @@ remain the finalization contract.
 - [x] 2026-09-21 05:55 CST: Final focused verification passed all 46 cases,
   including the MySQL precision regression and result-commit failure recovery.
   Both real-MySQL cases passed in three consecutive independent runs.
+- [x] 2026-09-21 06:51 CST: Addressed PR #2901's webhook-first legacy recovery
+  review with eight failure-first regressions. Refund-focused checks passed
+  52 focused cases; the final full backend run, including the two opt-in
+  MySQL cases, passed 5507 tests, 107 skips, and 50 subtests. All-files
+  lefthook and an independent review of the completion evidence also passed.
 
 ## Surprises & Discoveries
 
@@ -65,6 +70,10 @@ remain the finalization contract.
   timestamp is floored to whole seconds before persistence, conservatively
   shortening the retry window rather than widening it. The concurrent test
   fixes the clock at `.8` to reproduce this deterministically.
+- A legacy webhook can mark an order refunded before a recovery journal
+  exists. Order status alone proves neither local completion nor permission
+  for another provider submission. Conversely, replaying a completed legacy
+  refund can cancel a subscription that was subsequently reactivated.
 
 ## Decision Log
 
@@ -93,6 +102,11 @@ remain the finalization contract.
   captured version still matches; otherwise query again with the current
   version, with bounded retries. Before local finalization, a later valid
   provider status replaces an earlier success.
+- Reconcile webhook-refunded legacy orders that lack completion evidence, but
+  never POST a new refund for an already-refunded order. Preserve the old
+  transaction's complete marker for succeeded/pending/requires-action outcomes.
+  When that marker is missing, a matching refund-return ledger proves local
+  completion and permits only journal backfill, protecting later subscriptions.
 
 ## Outcomes & Retrospective
 

@@ -91,6 +91,7 @@ from .models import (
     BillingProductProviderPrice,
     BillingRefundOperation,
     BillingSubscription,
+    CreditLedgerEntry,
 )
 from .paid_side_effects import (
     BillingPaidOrderSideEffects,
@@ -1509,12 +1510,27 @@ def _prepare_refund_operation(
                 _validate_refund_operation(order, operation, payload)
                 return RefundOperation.capture(operation)
             if order.status == BILLING_ORDER_STATUS_REFUNDED:
-                return BillingRefundResultDTO(
-                    bill_order_bid=order.bill_order_bid,
-                    provider=order.payment_provider,
-                    status="refunded",
-                )
-            if order.status != BILLING_ORDER_STATUS_PAID:
+                metadata = _normalize_json_object(order.metadata_json)
+                refund_reference = _normalize_bid(metadata.get("refund_reference_id"))
+                refund_status = _normalize_bid(metadata.get("refund_status")).lower()
+                # The old refund transaction wrote this marker atomically with
+                # its local effects. Webhooks only changing the order status
+                # do not prove those effects committed.
+                if refund_reference and refund_status in {
+                    "succeeded",
+                    "pending",
+                    "requires_action",
+                }:
+                    return BillingRefundResultDTO(
+                        bill_order_bid=order.bill_order_bid,
+                        provider=order.payment_provider,
+                        status="refunded",
+                        refund_reference_id=refund_reference,
+                    )
+            if order.status not in {
+                BILLING_ORDER_STATUS_PAID,
+                BILLING_ORDER_STATUS_REFUNDED,
+            }:
                 raise_error("server.order.orderStatusError")
             amount = _requested_refund_amount(payload)
             payment_amount = int(order.paid_amount or 0)
@@ -1581,6 +1597,11 @@ def _mark_refund_submitted(operation: RefundOperation) -> RefundOperation:
             raise_error("server.order.orderRefundError")
         _validate_refund_operation(order, row, {})
         if row.finalized_at is not None or row.provider_refund_id:
+            return RefundOperation.capture(row)
+        if order.status == BILLING_ORDER_STATUS_REFUNDED:
+            # A webhook can precede local recovery or arrive after preparation.
+            # An empty provider lookup never authorizes a second refund here.
+            row.status = "reconciliation_required"
             return RefundOperation.capture(row)
         now = now_utc()
         if row.submitted_at is not None and (
@@ -1653,6 +1674,22 @@ def _finalize_refund_operation(
         }:
             raise_error("server.order.orderStatusError")
         now = now_utc()
+        legacy_entry = CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == row.creator_bid,
+            CreditLedgerEntry.idempotency_key
+            == f"refund_return:{row.provider_refund_id}",
+        ).first()
+        if (
+            legacy_entry is not None
+            and _normalize_json_object(legacy_entry.metadata_json).get("bill_order_bid")
+            == row.bill_order_bid
+        ):
+            # This ledger row committed with the old refund's local effects.
+            # Only backfill the journal: the subscription may have since renewed.
+            row.status = "finalized"
+            row.finalized_at = now
+            return RefundOperation.capture(row).result("refunded")
         order.status = BILLING_ORDER_STATUS_REFUNDED
         order.refunded_at = order.refunded_at or now
         order.updated_at = now
