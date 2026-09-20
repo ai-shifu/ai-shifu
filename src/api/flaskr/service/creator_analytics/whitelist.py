@@ -69,9 +69,9 @@ class TableSpec:
     aggregatable: Mapping[str, frozenset[str]]
     has_deleted: bool
     # True for shifu-scoped tables (sql_builder injects WHERE shifu_bid=:sb).
-    # False for global tables like user_users — permission is still enforced
-    # by funcs.run_dsl using get_user_shifu_permissions, but the SQL cannot
-    # filter by a column the table does not have.
+    # False for global tables like user_users. Permission is still enforced by
+    # funcs.run_dsl, and course_learner_scoped can add a relationship predicate
+    # when the table itself has no shifu_bid column.
     has_shifu_bid: bool = True
     # When non-None, sql_builder injects WHERE <col> = :__user_id (the caller).
     # Used for creator-owned metadata tables (shifu_published_shifus /
@@ -82,6 +82,9 @@ class TableSpec:
     # superseded history rows. Only enabled where status semantics are
     # "1 = current, 0 = history" (e.g. learn_generated_blocks).
     auto_filter_status_active: bool = False
+    # Restrict a global user table to learners associated with the requested
+    # course through active progress or a successful manual-import order.
+    course_learner_scoped: bool = False
 
 
 _DIMENSION_AGGS: frozenset[str] = frozenset({"count", "count_distinct"})
@@ -329,8 +332,8 @@ WHITELIST: Mapping[str, TableSpec] = {
     #     one anchor filter is present: user_bid (= or in) or
     #     user_identify (= only — no in/like/range to block enumeration)
     #   - groupable / aggregatable empty (no distribution probing)
-    #   - has_shifu_bid=False — table has no shifu_bid column; permission
-    #     is still gated by funcs.run_dsl via get_user_shifu_permissions
+    #   - has_shifu_bid=False — table has no shifu_bid column; permission is
+    #     gated by funcs.run_dsl and rows are course-learner scoped in SQL
     #   - per-query limit hard-capped to 50 (see dsl._USER_USERS_LIMIT_MAX)
     #   - nickname values pass through PII redaction in funcs
     #   - user_identify values pass through PII masking in funcs
@@ -346,6 +349,7 @@ WHITELIST: Mapping[str, TableSpec] = {
         aggregatable={},
         has_deleted=True,
         has_shifu_bid=False,
+        course_learner_scoped=True,
     ),
     # ------------------------------------------------------------------
     # Course metadata tables — answer "what is shifu_bid X currently

@@ -340,3 +340,22 @@ def test_non_meta_table_does_not_inject_created_user_bid() -> None:
         user_id="teacher-1",
     )
     assert "created_user_bid" not in sql
+
+
+def test_user_lookup_injects_course_learner_scope() -> None:
+    payload = {
+        "shifu_bid": "shifu-abc",
+        "table": "user_users",
+        "select": ["user_bid", "nickname"],
+        "where": [{"field": "user_bid", "op": "=", "value": "learner-1"}],
+        "limit": 1,
+    }
+
+    for compile_statement in (_compile_sqlite, _compile_mysql):
+        sql = compile_statement(payload, user_id="teacher-1")
+        assert "EXISTS" in sql
+        assert "learn_progress_records" in sql
+        assert "order_orders" in sql
+        assert "shifu_bid = 'shifu-abc'" in sql
+        assert "payment_channel = 'manual'" in sql
+        assert "status = 502" in sql
