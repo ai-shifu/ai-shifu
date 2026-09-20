@@ -793,7 +793,6 @@
     },
     "annualSavings": "Économisez {amount} par an ({percent} %)",
     "approximatePricePrefix": "Environ",
-    "audienceLabel": "Idéal pour",
     "billedAnnually": "Facturation de {price} tous les 12 mois.",
     "campaignAnnualBilling": "12 premiers mois : {price}. Renouvellement à {renewalPrice} tous les 12 mois.",
     "campaignMonthlyBilling": "Premier mois uniquement. Renouvellement à {renewalPrice} par mois.",
@@ -840,19 +839,15 @@
     "perMonth": "/ mois",
     "plans": {
       "business": {
-        "description": "Grandes organisations diffusant des apprentissages personnalisés à grande échelle.",
         "name": "Business"
       },
       "growth": {
-        "description": "Petites et moyennes organisations d’enseignement.",
         "name": "Growth"
       },
       "scale": {
-        "description": "Très grandes organisations gérant des programmes d’apprentissage à fort volume.",
         "name": "Scale"
       },
       "studio": {
-        "description": "Tester un cours léger ou valider une première expérience d’apprentissage.",
         "name": "Studio"
       }
     },

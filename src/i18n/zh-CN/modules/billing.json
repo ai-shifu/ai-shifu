@@ -793,7 +793,6 @@
     },
     "annualSavings": "每年节省 {amount}（{percent}%）",
     "approximatePricePrefix": "约",
-    "audienceLabel": "适用场景",
     "billedAnnually": "每 12 个月支付 {price}",
     "campaignAnnualBilling": "首 12 个月 {price}，之后每 12 个月按 {renewalPrice} 续费。",
     "campaignMonthlyBilling": "仅首月优惠，之后每月按 {renewalPrice} 续费。",
@@ -840,19 +839,15 @@
     "perMonth": "/ 月",
     "plans": {
       "business": {
-        "description": "规模化交付个性化学习的大型机构。",
         "name": "Business"
       },
       "growth": {
-        "description": "中小型教学机构。",
         "name": "Growth"
       },
       "scale": {
-        "description": "开展大规模学习项目的超大型机构。",
         "name": "Scale"
       },
       "studio": {
-        "description": "进行轻量级课程体验或验证首个学习项目。",
         "name": "Studio"
       }
     },

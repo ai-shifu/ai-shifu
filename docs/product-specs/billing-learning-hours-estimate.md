@@ -15,8 +15,8 @@ Plan comparisons show **approximately 6,000 minutes of cumulative learning per
 calibrated 100-hour reference expressed in minutes, with no capacity increase.
 The main comparison shows only the label **预估支持学习时长** and an approximate
 minute value. Minutes remain the time unit for every plan; large Chinese numbers
-use compact magnitudes such as 万. The domestic comparison omits the audience
-scenario row to keep the table concise.
+use compact magnitudes such as 万. Both pricing surfaces omit the audience
+scenario descriptions to keep the comparison concise.
 
 Both pricing surfaces use this concise shared Chinese footnote, with aligned
 translations in all five locales:

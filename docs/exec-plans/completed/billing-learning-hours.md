@@ -114,6 +114,9 @@ the updated allocation. Invalid allocations remain rejected. All 127 focused
 tests and full type checking passed after this fix.
 The user subsequently removed the reading-mode and 1×-model parenthetical from
 the public footnote; the calibration and internal evidence remain unchanged.
+The global cards also omit their audience-description section, matching the
+domestic comparison while preserving the learning estimate, benefits and
+purchase controls.
 
 ## Context and Orientation
 

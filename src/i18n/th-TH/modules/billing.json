@@ -793,7 +793,6 @@
     },
     "annualSavings": "ประหยัดต่อปี {amount} ({percent}%)",
     "approximatePricePrefix": "ประมาณ",
-    "audienceLabel": "เหมาะสำหรับ",
     "billedAnnually": "ชำระทุก 12 เดือน {price}",
     "campaignAnnualBilling": "12 เดือนแรก {price} ต่ออายุที่ {renewalPrice} ทุก 12 เดือน",
     "campaignMonthlyBilling": "เฉพาะเดือนแรก ต่ออายุที่ {renewalPrice} ต่อเดือน",
@@ -840,19 +839,15 @@
     "perMonth": "/ เดือน",
     "plans": {
       "business": {
-        "description": "องค์กรขนาดใหญ่ที่ส่งมอบการเรียนรู้เฉพาะบุคคลในวงกว้าง",
         "name": "Business"
       },
       "growth": {
-        "description": "สถาบันการเรียนรู้ขนาดเล็กและขนาดกลาง",
         "name": "Growth"
       },
       "scale": {
-        "description": "องค์กรขนาดใหญ่มากที่ดำเนินโครงการเรียนรู้ขนาดใหญ่",
         "name": "Scale"
       },
       "studio": {
-        "description": "ทดลองหลักสูตรขนาดเล็กหรือยืนยันโครงการเรียนรู้แรก",
         "name": "Studio"
       }
     },

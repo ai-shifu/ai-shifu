@@ -1109,20 +1109,6 @@ function PlanCard({
 
       <CardContent className='flex-1 divide-y divide-border border-t border-border px-0 pb-0'>
         <div
-          className='min-h-[116px] px-5 py-4 2xl:px-6'
-          data-testid={`global-plan-${tierSpec.tier}-audience`}
-        >
-          <p className='text-xs font-medium text-muted-foreground'>
-            {t('module.billing.globalPricing.audienceLabel')}
-          </p>
-          <p className='mt-1 text-sm leading-5 text-foreground'>
-            {t(
-              `module.billing.globalPricing.plans.${tierSpec.tier}.description`,
-            )}
-          </p>
-        </div>
-
-        <div
           className='min-h-[128px] px-5 py-4 2xl:px-6'
           data-testid={`global-plan-${tierSpec.tier}-estimate`}
         >

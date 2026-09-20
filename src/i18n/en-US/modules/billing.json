@@ -793,7 +793,6 @@
     },
     "annualSavings": "Save {amount} per year ({percent}%)",
     "approximatePricePrefix": "Approx.",
-    "audienceLabel": "Best suited for",
     "billedAnnually": "Billed {price} every 12 months.",
     "campaignAnnualBilling": "First 12 months: {price}. Renews at {renewalPrice} every 12 months.",
     "campaignMonthlyBilling": "First month only. Renews at {renewalPrice} per month.",
@@ -840,19 +839,15 @@
     "perMonth": "/ month",
     "plans": {
       "business": {
-        "description": "Large organizations delivering personalized learning at scale.",
         "name": "Business"
       },
       "growth": {
-        "description": "Small and medium teaching organizations.",
         "name": "Growth"
       },
       "scale": {
-        "description": "Extra-large organizations running high-volume learning programs.",
         "name": "Scale"
       },
       "studio": {
-        "description": "Trying a lightweight course or validating a first learning experience.",
         "name": "Studio"
       }
     },

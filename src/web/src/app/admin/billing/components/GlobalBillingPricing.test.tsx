@@ -350,9 +350,6 @@ describe('GlobalBillingPricing', () => {
         screen.getByTestId(`global-plan-${tier}-action`),
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId(`global-plan-${tier}-audience`),
-      ).toBeInTheDocument();
-      expect(
         screen.getByTestId(`global-plan-${tier}-estimate`),
       ).toBeInTheDocument();
       expect(

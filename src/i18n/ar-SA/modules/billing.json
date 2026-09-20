@@ -793,7 +793,6 @@
     },
     "annualSavings": "التوفير السنوي {amount} ({percent}%)",
     "approximatePricePrefix": "حوالي",
-    "audienceLabel": "المشهد المناسب",
     "billedAnnually": "الدفع كل 12 شهرًا بقيمة {price}",
     "campaignAnnualBilling": "أول 12 شهرًا بسعر {price}. يتجدد بسعر {renewalPrice} كل 12 شهرًا.",
     "campaignMonthlyBilling": "للشهر الأول فقط. يتجدد بسعر {renewalPrice} شهريًا.",
@@ -840,19 +839,15 @@
     "perMonth": "/ شهر",
     "plans": {
       "business": {
-        "description": "مؤسسات كبيرة تقدم تعلمًا مخصصًا على نطاق واسع.",
         "name": "Business"
       },
       "growth": {
-        "description": "مؤسسات تعليمية صغيرة ومتوسطة.",
         "name": "Growth"
       },
       "scale": {
-        "description": "مؤسسات فائقة الكبر تنفذ مشاريع تعلم واسعة النطاق.",
         "name": "Scale"
       },
       "studio": {
-        "description": "تجربة دورة خفيفة أو التحقق من أول مشروع تعلم.",
         "name": "Studio"
       }
     },
