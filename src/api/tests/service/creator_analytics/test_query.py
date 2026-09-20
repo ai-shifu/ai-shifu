@@ -14,6 +14,7 @@ from .conftest import (
     seed_archive,
     seed_bill_daily_metric,
     seed_generated_block,
+    seed_manual_order,
     seed_owned_course,
     seed_progress,
     seed_published_shifu,
@@ -390,6 +391,8 @@ def test_user_users_lookup_returns_nicknames_for_known_user_bids(
         seed_user_info(user_bid="u1", nickname="Python 学徒")
         seed_user_info(user_bid="u2", nickname="Alice")
         seed_user_info(user_bid="u3", nickname="not requested")
+        seed_progress(shifu_bid="shifu-a", user_bid="u1", status=602)
+        seed_progress(shifu_bid="shifu-a", user_bid="u2", status=602)
 
     info_calls: list[tuple] = []
     real_info = app.logger.info
@@ -425,6 +428,59 @@ def test_user_users_lookup_returns_nicknames_for_known_user_bids(
     )
 
 
+def test_user_users_lookup_excludes_users_from_another_course(
+    mock_request_user: object, test_client: object, app: object
+) -> None:
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        seed_owned_course(shifu_bid="shifu-b", user_id="teacher-2")
+        seed_user_info(user_bid="user-a", nickname="Course A learner")
+        seed_user_info(user_bid="user-b", nickname="Course B learner")
+        seed_progress(shifu_bid="shifu-a", user_bid="user-a", status=602)
+        seed_progress(shifu_bid="shifu-b", user_bid="user-b", status=602)
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "nickname"],
+            "where": [{"field": "user_bid", "op": "in", "value": ["user-a", "user-b"]}],
+            "limit": 10,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["rows"] == [["user-a", "Course A learner"]]
+
+
+def test_user_users_lookup_includes_manual_course_imports(
+    mock_request_user: object, test_client: object, app: object
+) -> None:
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        seed_user_info(user_bid="imported-user", nickname="Imported learner")
+        seed_manual_order(shifu_bid="shifu-a", user_bid="imported-user")
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "nickname"],
+            "where": [{"field": "user_bid", "op": "=", "value": "imported-user"}],
+            "limit": 1,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["rows"] == [["imported-user", "Imported learner"]]
+
+
 def test_user_users_lookup_redacts_phone_in_nickname(
     mock_request_user: object, test_client: object, app: object
 ) -> None:
@@ -433,6 +489,8 @@ def test_user_users_lookup_redacts_phone_in_nickname(
         seed_owned_course(shifu_bid="shifu-a")
         seed_user_info(user_bid="u1", nickname="张三 13812345678")
         seed_user_info(user_bid="u2", nickname="contact me john@example.com")
+        seed_progress(shifu_bid="shifu-a", user_bid="u1", status=602)
+        seed_progress(shifu_bid="shifu-a", user_bid="u2", status=602)
 
     response = _post(
         test_client,
@@ -508,6 +566,7 @@ def test_user_users_lookup_by_phone_returns_masked_user_identify(
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
         seed_user_info(user_bid="u1", nickname="张三", user_identify="13800138000")
+        seed_progress(shifu_bid="shifu-a", user_bid="u1", status=602)
 
     response = _post(
         test_client,
@@ -530,6 +589,36 @@ def test_user_users_lookup_by_phone_returns_masked_user_identify(
     assert "13800138000" not in str(rows)
 
 
+def test_user_users_lookup_by_phone_excludes_another_course_learner(
+    mock_request_user: object, test_client: object, app: object
+) -> None:
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        seed_owned_course(shifu_bid="shifu-b", user_id="teacher-2")
+        seed_user_info(
+            user_bid="user-b",
+            nickname="Course B learner",
+            user_identify="13800138000",
+        )
+        seed_progress(shifu_bid="shifu-b", user_bid="user-b", status=602)
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "user_identify"],
+            "where": [{"field": "user_identify", "op": "=", "value": "13800138000"}],
+            "limit": 1,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["rows"] == []
+
+
 def test_user_users_lookup_by_email_returns_masked_user_identify(
     mock_request_user: object, test_client: object, app: object
 ) -> None:
@@ -539,6 +628,7 @@ def test_user_users_lookup_by_email_returns_masked_user_identify(
         seed_user_info(
             user_bid="u1", nickname="Alice", user_identify="test@example.com"
         )
+        seed_progress(shifu_bid="shifu-a", user_bid="u1", status=602)
 
     response = _post(
         test_client,
@@ -572,6 +662,7 @@ def test_user_users_nickname_redacted_and_user_identify_masked_independently(
             nickname="张三 13812345678",
             user_identify="13800138000",
         )
+        seed_progress(shifu_bid="shifu-a", user_bid="u1", status=602)
 
     response = _post(
         test_client,
@@ -626,6 +717,7 @@ def test_user_users_lookup_by_phone_audit_log_emitted(
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
         seed_user_info(user_bid="u1", nickname="张三", user_identify="13800138000")
+        seed_progress(shifu_bid="shifu-a", user_bid="u1", status=602)
 
     info_calls: list[tuple] = []
     real_info = app.logger.info
