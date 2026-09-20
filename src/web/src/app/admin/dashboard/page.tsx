@@ -4,10 +4,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminCountCard from '@/app/admin/components/AdminCountCard';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/store';
@@ -44,7 +44,7 @@ import {
 import {
   ADMIN_TABLE_HEADER_CELL_CLASS,
   getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 
 const PAGE_SIZE = 20;
 
