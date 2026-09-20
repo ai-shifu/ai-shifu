@@ -328,7 +328,17 @@ class ListenElementRunStreamMixin:
         )
         if patch_element is None:
             return None
-        return self._element_message(patch_element)
+        # A patch carries one segment of audio for an element the stream is still writing. Under
+        # `persist_only_final` it is sent and not written: the block's finalisation resolves every
+        # segment for the element and writes it once, with all of them. Written per segment, a
+        # lesson turn's audio produced a full row of its text for each one -- the remaining half
+        # of the write amplification the text path already avoids.
+        send = (
+            self._stream_only_element_message
+            if getattr(self, "persist_only_final", False)
+            else self._element_message
+        )
+        return send(patch_element)
 
     def _resolve_or_buffer_audio_target_element_bid(
         self,
