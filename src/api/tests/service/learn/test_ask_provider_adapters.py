@@ -58,7 +58,17 @@ class _FakeResponse:
         return self._json_data
 
 
-def test_dify_adapter_streams_success_content(app: object, monkeypatch: object) -> None:
+@pytest.fixture
+def dify_app(app: object, monkeypatch: object) -> object:
+    """Isolate Dify policy configuration from the shared Flask test app."""
+    monkeypatch.setitem(app.config, "DIFY_TRUSTED_ORIGINS", "")
+    return app
+
+
+def test_dify_adapter_streams_success_content(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
     adapter = module.DifyAskProviderAdapter()
     request_state = {}
 
@@ -97,7 +107,7 @@ def test_dify_adapter_streams_success_content(app: object, monkeypatch: object) 
 
     chunks = list(
         adapter.stream_answer(
-            app=app,
+            app=dify_app,
             user_id="user-1",
             user_query="hello",
             messages=[
@@ -132,7 +142,7 @@ def test_dify_adapter_streams_success_content(app: object, monkeypatch: object) 
 
 
 def test_dify_adapter_maps_request_deadline_to_provider_timeout(
-    app: object,
+    dify_app: object,
     monkeypatch: object,
 ) -> None:
     adapter = module.DifyAskProviderAdapter()
@@ -146,7 +156,7 @@ def test_dify_adapter_maps_request_deadline_to_provider_timeout(
     with pytest.raises(module.AskProviderTimeoutError, match="dify request timeout"):
         list(
             adapter.stream_answer(
-                app=app,
+                app=dify_app,
                 user_id="user-1",
                 user_query="hello",
                 messages=[],
@@ -161,7 +171,7 @@ def test_dify_adapter_maps_request_deadline_to_provider_timeout(
 
 
 def test_dify_adapter_maps_stream_deadline_to_provider_timeout(
-    app: object,
+    dify_app: object,
     monkeypatch: object,
 ) -> None:
     adapter = module.DifyAskProviderAdapter()
@@ -182,7 +192,7 @@ def test_dify_adapter_maps_stream_deadline_to_provider_timeout(
     with pytest.raises(module.AskProviderTimeoutError, match="dify request timeout"):
         list(
             adapter.stream_answer(
-                app=app,
+                app=dify_app,
                 user_id="user-1",
                 user_query="hello",
                 messages=[],
@@ -205,7 +215,7 @@ def test_dify_adapter_maps_stream_deadline_to_provider_timeout(
     ],
 )
 def test_dify_adapter_rejects_internal_destinations(
-    app: object,
+    dify_app: object,
     base_url: str,
 ) -> None:
     adapter = module.DifyAskProviderAdapter()
@@ -216,7 +226,7 @@ def test_dify_adapter_rejects_internal_destinations(
     ):
         list(
             adapter.stream_answer(
-                app=app,
+                app=dify_app,
                 user_id="user-1",
                 user_query="hello",
                 messages=[],
@@ -231,13 +241,13 @@ def test_dify_adapter_rejects_internal_destinations(
 
 
 def test_dify_adapter_applies_deployment_trusted_origins(
-    app: object,
+    dify_app: object,
     monkeypatch: object,
 ) -> None:
     adapter = module.DifyAskProviderAdapter()
     captured = {}
     monkeypatch.setitem(
-        app.config,
+        dify_app.config,
         "DIFY_TRUSTED_ORIGINS",
         "http://dify.internal:5001",
     )
@@ -255,7 +265,7 @@ def test_dify_adapter_applies_deployment_trusted_origins(
     assert (
         list(
             adapter.stream_answer(
-                app=app,
+                app=dify_app,
                 user_id="user-1",
                 user_query="hello",
                 messages=[],
@@ -275,12 +285,12 @@ def test_dify_adapter_applies_deployment_trusted_origins(
 
 
 def test_dify_adapter_rejects_invalid_deployment_trusted_origin(
-    app: object,
+    dify_app: object,
     monkeypatch: object,
 ) -> None:
     adapter = module.DifyAskProviderAdapter()
     monkeypatch.setitem(
-        app.config,
+        dify_app.config,
         "DIFY_TRUSTED_ORIGINS",
         "http://user:secret@dify.internal:5001",
     )
@@ -291,7 +301,7 @@ def test_dify_adapter_rejects_invalid_deployment_trusted_origin(
     ):
         list(
             adapter.stream_answer(
-                app=app,
+                app=dify_app,
                 user_id="user-1",
                 user_query="hello",
                 messages=[],
