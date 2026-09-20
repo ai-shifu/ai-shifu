@@ -26,3 +26,17 @@ def test_a_separator_is_a_section_boundary_and_never_a_pause() -> None:
     assert "not a pause" in rule
     assert "do not call `interact`" in rule
     assert "soft pause" not in rule
+
+
+def test_a_pause_is_only_ever_the_script_s_own() -> None:
+    """A Continue button the author did not write is a pause the model invented.
+
+    The model was pausing between steps and after visuals on its own, each one a button the
+    learner had to press. Both the rule and the tool's description now say a pause is the
+    script's to ask for, never the model's.
+    """
+    system = (_PROMPT.parent / "system.md").read_text()
+    assert "only for a pause the script itself asks for" in system
+    assert "Never pause on your own judgement" in system
+    tools = (_PROMPT.parents[1] / "tools.py").read_text()
+    assert "ONLY when the script itself asks for a pause" in tools
