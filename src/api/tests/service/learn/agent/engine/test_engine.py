@@ -843,3 +843,93 @@ async def test_an_unanswerable_response_keeps_the_question_pending() -> None:
     assert any(isinstance(e, MemoryUpdated) for e in ok)
     assert s.pending == []
     assert s.memory["picked"] == "A"
+
+
+async def test_a_lesson_out_of_turns_ends_instead_of_running_the_model() -> None:
+    """A backstop against a lesson that never ends: the model often never calls `finish`.
+
+    Nothing else stops a lesson that has run out of script — the learner keeps continuing, and
+    each continuation is another model call and another slice of session. Reaching the limit
+    means the lesson is going in circles, not that it is long: the longest real lesson in
+    production runs to 138 blocks, and the default sits far above that.
+    """
+    called = False
+
+    async def never_called(
+        _messages: list[ModelMessage],
+        _info: AgentInfo,
+    ) -> StreamChunks:
+        nonlocal called
+        called = True
+        yield "x"
+
+    engine = Engine(FunctionModel(stream_function=never_called), turn_limit=3)
+    session = await engine.new_session("script")
+    session.turn = 3
+
+    events = await collect(engine.run_turn(session))
+
+    assert [type(e).__name__ for e in events] == ["TurnDone"]
+    assert events[0].reason == "finished"
+    assert called is False
+    # Marked finished, so a reload reads the lesson as over rather than starting it again.
+    assert session.finished is True
+
+
+async def test_a_lesson_within_its_turns_still_runs() -> None:
+    """The limit is a backstop; one turn below it changes nothing."""
+    engine = make_engine(turn_limit=3)
+    session = await engine.new_session("Greet the learner, then ask how they feel.")
+    session.turn = 2
+
+    events = await collect(engine.run_turn(session))
+
+    assert isinstance(events[0], ContentDelta)
+    assert session.finished is False
+
+
+async def test_the_answer_to_the_last_turn_s_question_is_still_accepted() -> None:
+    """Reaching the limit refuses another turn of teaching, not the answer to the one just asked.
+
+    The final allowed turn can end on a question. Refusing the answer would throw away what the
+    script asked for, and the memory it sets, while marking the lesson complete.
+    """
+    engine = make_engine(turn_limit=1)
+    session = await engine.new_session("script", user_id="u1")
+    await collect(engine.run_turn(session))
+    assert session.turn == 1  # the limit is now reached
+    assert session.pending
+
+    events = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["Good"]))
+    )
+
+    memory = [e for e in events if isinstance(e, MemoryUpdated)]
+    assert memory, [type(e).__name__ for e in events]
+    assert session.memory == {"feeling": "good"}
+    assert not session.pending
+    # And the answer reached the model: recording it without resuming would leave the script
+    # waiting on a reply it had already been given.
+    assert [e for e in events if isinstance(e, ContentDelta)], [
+        type(e).__name__ for e in events
+    ]
+
+
+async def test_a_resume_that_never_reached_the_model_may_be_retried() -> None:
+    """One network failure on the last turn must not end the lesson for good.
+
+    An answer already recorded is replayed on the next call; that call is finishing a turn that
+    was begun, not starting a new one, so the limit does not apply to it.
+    """
+    engine = make_engine(turn_limit=1)
+    session = await engine.new_session("script", user_id="u1")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["Good"])))
+    # The resume above reached the model; stage the state a failed one leaves behind.
+    session.answers = {"call_interact_1": "good"}
+    session.turn = 1
+
+    events = await collect(engine.run_turn(session))
+
+    assert not isinstance(events[0], TurnDone) or events[0].reason != "finished"
+    assert session.finished is False
