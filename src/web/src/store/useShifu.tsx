@@ -27,7 +27,7 @@ import api from '@/api';
 import { debounce } from 'lodash';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
-import { normalizeModelOptions } from './modelOptions';
+import { normalizeModelOptions } from '@/lib/modelOptions';
 import {
   createContext,
   ReactElement,

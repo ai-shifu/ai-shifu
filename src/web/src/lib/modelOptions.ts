@@ -1,5 +1,33 @@
 import type { ModelOption } from '@/types/shifu';
 
+type ModelOptionMetadataInput = {
+  credit_multiplier?: unknown;
+  creditMultiplier?: unknown;
+  credit_multiplier_label?: unknown;
+  creditMultiplierLabel?: unknown;
+  is_default?: unknown;
+  isDefault?: unknown;
+};
+
+export const normalizeModelOptionMetadata = (
+  item: ModelOptionMetadataInput,
+) => {
+  const rawMultiplier = item.credit_multiplier ?? item.creditMultiplier;
+  const parsedMultiplier = Number(rawMultiplier);
+  const creditMultiplier =
+    Number.isFinite(parsedMultiplier) && parsedMultiplier > 0
+      ? Math.ceil(parsedMultiplier)
+      : null;
+  const creditMultiplierLabel = String(
+    item.credit_multiplier_label || item.creditMultiplierLabel || '',
+  ).trim();
+  return {
+    creditMultiplier,
+    creditMultiplierLabel,
+    isDefault: Boolean(item.is_default ?? item.isDefault),
+  };
+};
+
 export const normalizeModelOptions = (list: any): ModelOption[] => {
   if (!Array.isArray(list)) return [];
   const seen = new Set<string>();
@@ -23,22 +51,11 @@ export const normalizeModelOptions = (list: any): ModelOption[] => {
       const labelSource =
         item.display_name || item.displayName || item.label || value;
       const label = String(labelSource || value).trim() || value;
-      const rawMultiplier = item.credit_multiplier ?? item.creditMultiplier;
-      const parsedMultiplier = Number(rawMultiplier);
-      const creditMultiplier =
-        Number.isFinite(parsedMultiplier) && parsedMultiplier > 0
-          ? Math.ceil(parsedMultiplier)
-          : null;
-      const creditMultiplierLabel = String(
-        item.credit_multiplier_label || item.creditMultiplierLabel || '',
-      ).trim();
       seen.add(value);
       options.push({
         value,
         label,
-        creditMultiplier,
-        creditMultiplierLabel,
-        isDefault: Boolean(item.is_default ?? item.isDefault),
+        ...normalizeModelOptionMetadata(item),
       });
     }
   });
