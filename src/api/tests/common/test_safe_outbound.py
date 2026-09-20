@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import ssl
 import threading
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from flaskr.common.safe_outbound import (
     OutboundDeadlineExceededError,
     OutboundRedirectError,
@@ -41,6 +48,8 @@ def _resolver(*addresses: str) -> Resolver:
 
 def _start_slow_http_server(
     response_parts: Iterable[tuple[float, bytes]],
+    *,
+    tls_context: ssl.SSLContext | None = None,
 ) -> tuple[int, threading.Thread]:
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -51,6 +60,8 @@ def _start_slow_http_server(
     def serve() -> None:
         with listener:
             connection, _address = listener.accept()
+            if tls_context is not None:
+                connection = tls_context.wrap_socket(connection, server_side=True)
             with connection:
                 connection.recv(4096)
                 for delay, data in response_parts:
@@ -63,6 +74,52 @@ def _start_slow_http_server(
     thread = threading.Thread(target=serve, daemon=True)
     thread.start()
     return port, thread
+
+
+@pytest.fixture(scope="module")
+def local_tls_contexts(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> tuple[
+    ssl.SSLContext,
+    ssl.SSLContext,
+]:
+    """Create a localhost certificate trusted only by the test client."""
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(private_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime(2020, 1, 1, tzinfo=UTC))
+        .not_valid_after(datetime(2100, 1, 1, tzinfo=UTC))
+        .add_extension(
+            x509.SubjectAlternativeName(
+                [
+                    x509.DNSName("localhost"),
+                    x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+                ]
+            ),
+            critical=False,
+        )
+        .sign(private_key, hashes.SHA256())
+    )
+    certificate_dir = Path(tmp_path_factory.mktemp("safe-outbound-tls"))
+    certificate_path = certificate_dir / "certificate.pem"
+    private_key_path = certificate_dir / "private-key.pem"
+    certificate_path.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
+    private_key_path.write_bytes(
+        private_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_context.load_cert_chain(certificate_path, private_key_path)
+    client_context = ssl.create_default_context(cafile=str(certificate_path))
+    return server_context, client_context
 
 
 @pytest.mark.parametrize(
@@ -623,6 +680,58 @@ def test_total_deadline_interrupts_slow_chunk_length_line() -> None:
     )
     response = client.request("GET", f"{origin}/slow-chunk")
     started_at = time.monotonic()
+
+    with pytest.raises(OutboundDeadlineExceededError, match="total timeout"):
+        list(response.iter_bytes())
+
+    assert time.monotonic() - started_at < 0.5
+    server_thread.join(timeout=1)
+
+
+@pytest.mark.parametrize("use_tls", [False, True], ids=["http", "https"])
+@pytest.mark.parametrize("slow_part", ["chunk-length", "trailer"])
+def test_total_deadline_survives_connection_close_response_handoff(
+    monkeypatch: pytest.MonkeyPatch,
+    local_tls_contexts: tuple[ssl.SSLContext, ssl.SSLContext],
+    *,
+    use_tls: bool,
+    slow_part: str,
+) -> None:
+    server_tls_context, client_tls_context = local_tls_contexts
+    if use_tls:
+        monkeypatch.setattr(
+            "flaskr.common.safe_outbound_transport.ssl.create_default_context",
+            lambda: client_tls_context,
+        )
+    response_head = (
+        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
+    )
+    if slow_part == "chunk-length":
+        response_parts = [
+            (0.0, response_head),
+            *[(0.03, b"1") for _index in range(20)],
+        ]
+    else:
+        response_parts = [
+            (0.0, response_head + b"1\r\na\r\n0\r\nX-Slow: "),
+            *[(0.03, b"x") for _index in range(20)],
+        ]
+    port, server_thread = _start_slow_http_server(
+        response_parts,
+        tls_context=server_tls_context if use_tls else None,
+    )
+    scheme = "https" if use_tls else "http"
+    origin = f"{scheme}://localhost:{port}"
+    client = SafeOutboundClient(
+        policy=OutboundUrlPolicy(
+            trusted_origins=frozenset({origin}),
+            total_timeout_seconds=0.15,
+            read_timeout_seconds=1,
+        ),
+        resolver=_resolver("127.0.0.1"),
+    )
+    started_at = time.monotonic()
+    response = client.request("GET", f"{origin}/connection-close")
 
     with pytest.raises(OutboundDeadlineExceededError, match="total timeout"):
         list(response.iter_bytes())
