@@ -177,7 +177,6 @@ const CREDIT_PACK_CODES = [
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 const STRIPE_PAYMENT_PROVIDER = 'stripe' as const;
 const LEARNING_TIME_ESTIMATE_MARKER = '①';
-const CREDIT_VALIDITY_MARKER = '②';
 const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
   'canceled',
   'expired',
@@ -554,9 +553,7 @@ export function GlobalBillingPricing() {
           {globalProducts ? (
             <div className='w-full rounded-xl border border-border bg-muted/40 px-6 py-5 text-sm leading-5 text-muted-foreground'>
               <BillingOverviewFootnote
-                validityNote={t(
-                  'module.billing.package.footnote.providerValidity',
-                )}
+                showValidity={false}
                 hasDiscountCampaign={PLAN_TIERS.some(tier => {
                   const code =
                     billingCycle === 'annual' && tier.annualCode
@@ -988,7 +985,6 @@ function PlanCard({
         >
           <p className='text-xs font-medium text-muted-foreground'>
             {t('module.billing.package.table.validityRowLabel')}
-            <span className='ml-1'>{CREDIT_VALIDITY_MARKER}</span>
           </p>
           <p className='mt-1 text-sm text-foreground'>
             {t(validityKey, {

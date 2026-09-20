@@ -24,16 +24,18 @@ translations in all five locales:
 > 时长按历史数据估算，仅供参考。课程内容、所选模型和互动情况都会影响实际积分消耗，听课模式会消耗更多积分。
 
 Global pricing reuses the domestic labels, credit amounts, cumulative benefit
-wording, credit-pack notes and footnote component. Plan names and purchase button copy remain Global-specific. Validity
-wording also reflects the actual payment-provider rules. Prices show the actual catalog
+wording, credit-pack notes and footnote component. Plan names and purchase
+button copy remain Global-specific. Global omits the validity footnote and its
+marker while retaining the short validity value on each card. Prices show the actual catalog
 amount for the displayed monthly or annual period; annual plans no longer show
 a monthly equivalent or savings copy. The existing Global benefit sets,
 including priority support, remain unchanged.
 
 The domestic validity note retains its original detailed wording, with aligned
 translations: **积分有效期：月度套餐自获取之日起 30 天内有效（含当日）；年度套餐自获取之日起按自然年有效。两类均以到期日 23:59 为截止。**
-Global currently retains **积分有效期以账户显示为准。** for its provider-managed
-period. The actual credit-bucket expiry follows each payment provider's cycle;
+Global shows no explanatory validity note. Its cards still display the short
+monthly or yearly validity value. Actual credit-bucket expiry follows each
+payment provider's cycle;
 changing display copy does not change the billing rules. Discounted
 plans show the original and payable period prices; a shared note below the plans
 states **优惠仅适用于本次支付。** only when a displayed plan has a campaign discount.

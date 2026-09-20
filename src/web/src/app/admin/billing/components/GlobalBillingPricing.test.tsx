@@ -149,8 +149,6 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.plans.studio.name': 'Studio',
         'module.billing.package.intervalTabs.topup': 'Credit Packs',
         'module.billing.package.intervalTabs.plans': 'Credit Plans',
-        'module.billing.package.footnote.providerValidity':
-          'Credit validity is as shown in your account.',
         'module.billing.package.actions.currentSubscription':
           'Current subscription',
         'module.billing.package.actions.downgradeDisabled':
@@ -425,8 +423,11 @@ describe('GlobalBillingPricing', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Credit validity is as shown in your account.'),
-    ).toBeInTheDocument();
+      within(screen.getByTestId('billing-overview-footnote')).getAllByRole(
+        'listitem',
+      ),
+    ).toHaveLength(1);
+    expect(screen.queryByText('②')).not.toBeInTheDocument();
     expect(within(growth).getByText('Credit validity')).toBeInTheDocument();
     expect(within(growth).getByText('1 year')).toBeInTheDocument();
     expect(within(studio).getByText('1 month')).toBeInTheDocument();

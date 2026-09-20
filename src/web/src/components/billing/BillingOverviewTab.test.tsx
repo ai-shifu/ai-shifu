@@ -561,6 +561,11 @@ describe('BillingOverviewTab', () => {
         'module.billing.package.footnote.learningTime',
       ),
     ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('billing-overview-footnote')).getByText(
+        'module.billing.package.footnote.validity',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('renders monthly and yearly plans together in a single combined tab', async () => {
