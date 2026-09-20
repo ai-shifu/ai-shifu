@@ -54,7 +54,8 @@ async def interact(
 
     `single`: exactly one choice. `multi`: several choices. `text`: free text only.
     `single_or_text` / `multi_or_text`: choices plus a text box for the learner's own answer.
-    `confirm`: one "continue"-style button; use it when the script pauses without a question,
+    `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
+    without a question -- never on your own judgement, not between steps, not after a visual --
     and only after you have presented content in this turn (a confirm on its own is rejected).
     A `confirm` never takes a `variable`: pressing it says "go on", not an answer, and it is
     dropped. To have the learner check something you wrote, ask it as `single`, or write the
