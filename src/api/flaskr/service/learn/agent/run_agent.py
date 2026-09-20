@@ -66,6 +66,7 @@ from flaskr.service.learn.memory import (
     load_memory,
     stage_memory,
 )
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
@@ -276,6 +277,7 @@ def run_agent_lesson(
             progress_record_bid=progress_record_bid,
             user_bid=user_bid,
             generated_block_bid=generated_block_bid,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else None,
         )
         if listen and progress_record_bid
         else None
