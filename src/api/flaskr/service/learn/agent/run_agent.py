@@ -66,6 +66,7 @@ from flaskr.service.learn.memory import (
     load_memory,
     stage_memory,
 )
+from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Generator, Iterable
@@ -238,8 +239,13 @@ def run_agent_lesson(
     # lesson identifier is the same, so a progress record, a block or a completion written here
     # would land in that learner's own history -- their preview turns showing up as lessons they
     # took. Their session is still stored, under its own key, so the preview resumes.
+    #
+    # It still gets an identifier, just an unwritten one -- the same shape the 1.0 run gives a
+    # preview, which builds a progress record and never adds it to the session. The spoken track
+    # hangs each piece of audio off one, so without it an author previewing a lesson in listening
+    # mode heard nothing at all.
     progress_record_bid = (
-        ""
+        generate_id(app)
         if preview_mode
         else _open_turn(
             app,
@@ -297,7 +303,7 @@ def run_agent_lesson(
         # The turn died before it could record what it taught -- an engine error, or the learner
         # closing the page. The block reserved for it would otherwise stay behind as an empty
         # assistant turn. GeneratorExit is caught too: a disconnect is the common case.
-        if progress_record_bid:
+        if not preview_mode:
             _retire_block(app, generated_block_bid=generated_block_bid)
         raise
 
@@ -714,7 +720,7 @@ def _persist(
         whoever commits next, a write from a turn that was meant to be discarded.
         """
         record = None
-        if progress_record_bid:
+        if not preview_mode:
             record = claim_for_writing(
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,

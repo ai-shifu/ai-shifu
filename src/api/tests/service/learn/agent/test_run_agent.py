@@ -1162,3 +1162,60 @@ def test_the_closing_sentence_comes_before_the_question_it_leads_to(
     # The text's block is closed before the question, as a 1.0 lesson closes it: history is
     # ordered by the moment of writing, and the question must be the last thing written.
     assert GeneratedType.BREAK in kinds[:question]
+
+
+@pytest.mark.usefixtures("calls")
+def test_an_author_previewing_in_listening_mode_hears_the_lesson(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A preview gets an identifier for its audio, unwritten, as the 1.0 run's preview does.
+
+    The spoken track hangs each piece of audio off a progress record. A preview writes none, and
+    an empty identifier left the author listening to silence with nothing to show for it.
+    """
+    spoken: list[str] = []
+
+    class _Processor:
+        def process_chunk(self, text: str) -> list[str]:
+            spoken.append(text)
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    asked: dict = {}
+
+    def _factory(_app: object, **kwargs: object) -> object:
+        asked.update(kwargs)
+        return _Processor()
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor", _factory
+    )
+    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-progress")
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine([ContentDelta(text="Teaching.\n"), TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            _App(),
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            listen=True,
+            iter_turn=_drive,
+        )
+    )
+
+    assert spoken, "the preview was silent"
+    assert asked["progress_record_bid"] == "preview-progress"
