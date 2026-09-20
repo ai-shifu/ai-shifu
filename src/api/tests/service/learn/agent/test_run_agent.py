@@ -989,3 +989,64 @@ def test_a_reading_lesson_is_not_paged() -> None:
         if not isinstance(e, str)
         for part in (e.get_mdflow_stream_parts() or [])
     ]
+
+
+@pytest.mark.usefixtures("calls")
+def test_no_lesson_text_escapes_a_listening_turn_unpaged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every piece of text in a listening turn carries a page, whichever path produced it.
+
+    Paged and unpaged text cannot share a turn: the unpaged kind is gathered into one element
+    holding the whole lesson, which sits beside the paged ones marked speakable, is never
+    finalised, and is retired at the end without notifying the browser. The learner then waits on
+    audio for it forever. One unpaged line does it -- the prompt beside a question was exactly
+    that, and it is why this is asserted over the whole turn rather than per call site.
+    """
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:
+            assert commit is False
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [
+            ContentDelta(text="Teaching.\n\n"),
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="Which of these do you agree with?",
+                    options=[Option(display="Yes"), Option(display="No")],
+                    variable="v",
+                ),
+            ),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine, listen=True, app=_App())
+
+    unpaged = [
+        str(e.content)[:60]
+        for e in events
+        if not isinstance(e, str)
+        and e.type == GeneratedType.CONTENT
+        and not e.get_mdflow_stream_parts()
+    ]
+    assert not unpaged, f"text left a listening turn without a page: {unpaged}"
