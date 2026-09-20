@@ -272,8 +272,11 @@ def _setup_handle_input_ask_patches(
     monkeypatch: object, module: object, ask_provider_config: object
 ) -> None:
     class _DummyLLMSettings:
-        def __init__(self, model: object, temperature: object) -> None:
+        def __init__(
+            self, model: object, temperature: object, usage_metadata: object = None
+        ) -> None:
             self.model = model
+            self.usage_metadata = usage_metadata
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:
@@ -1026,3 +1029,205 @@ def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(
     assert root_span.updated["output"] == "guardrail response"
     assert trace.updated["output"] == "guardrail response"
     assert context.langfuse_outputs == ["guardrail response"]
+
+
+def _run_numbered_ask(app: object, module: object) -> list:
+    return list(
+        module.handle_input_ask(
+            app=app,
+            context=_Context(),
+            user_info=types.SimpleNamespace(user_id="selection-user"),
+            attend_id="selection-attend",
+            user_input="hello",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="selection-course",
+                bid="selection-outline",
+                title="Outline",
+                position=1,
+            ),
+            trace_args={},
+            trace=_DummyTrace(),
+        )
+    )
+
+
+def _use_follow_up_selection(monkeypatch: object, module: object, config: dict) -> None:
+    info = _DummyFollowUpInfo(config)
+    info.ask_model = "fast"
+    info.usage_metadata = {
+        "model_selection_scope": "course",
+        "model_selection_record_id": 42,
+    }
+    monkeypatch.setattr(module, "get_follow_up_info_v2", lambda *_args: info)
+
+
+@pytest.mark.parametrize("provider", ["dify", "coze"])
+@pytest.mark.parametrize("mode", ["provider_only", "provider_then_llm"])
+@pytest.mark.parametrize("provider_fails", [False, True])
+def test_external_answers_only_require_a_selection_for_actual_fallback(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    mode: str,
+    provider_fails: bool,
+) -> None:
+    from flaskr.api.llm import model_selection
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {"provider": provider, "mode": mode, "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
+    provider_calls = []
+
+    def stream(**kwargs: object) -> object:
+        provider_calls.append(kwargs["provider"])
+        if kwargs["provider"] == "llm":
+            return kwargs["runtime"].llm_stream_factory()
+        if provider_fails:
+            message = "provider failed"
+            raise AskProviderError(message)
+        return iter([types.SimpleNamespace(content="external-answer")])
+
+    monkeypatch.setattr(module, "stream_ask_provider_response", stream)
+    monkeypatch.setattr(
+        module,
+        "chat_llm",
+        lambda *_args, **_kwargs: pytest.fail("unconfigured LLM invoked"),
+    )
+    with app.app_context():
+        if provider_fails and mode == "provider_then_llm":
+            with pytest.raises(AppError) as captured:
+                _run_numbered_ask(app, module)
+            assert (
+                captured.value.code
+                == ERROR_CODE["server.llm.modelSelectionNotConfigured"]
+            )
+            assert provider_calls == [provider, "llm"]
+        else:
+            events = _run_numbered_ask(app, module)
+            expected = (
+                "server.learn.askProviderUnavailable"
+                if provider_fails
+                else "external-answer"
+            )
+            assert _collect_content_chunks(events) == [expected]
+            assert provider_calls == [provider]
+
+
+@pytest.mark.parametrize("route", ["llm", "fallback", "synthesis"])
+def test_actual_llm_routes_snapshot_selection_model_and_metadata(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    route: str,
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.api.llm import model_selection
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {
+        "provider": {
+            "llm": "llm",
+            "fallback": "dify",
+            "synthesis": "get_biji_knowledge",
+        }[route],
+        "mode": "provider_then_llm" if route == "fallback" else "provider_only",
+        "config": {},
+    }
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
+    resolve = Mock(return_value="mapped-fast")
+    monkeypatch.setattr(model_selection, "resolve_model_slot", resolve)
+    llm_calls = []
+
+    def chat(*_args: object, **kwargs: object) -> object:
+        llm_calls.append(kwargs)
+        yield _LLMChunk("selection-answer")
+
+    def stream(**kwargs: object) -> object:
+        if route == "fallback" and kwargs["provider"] == "dify":
+            message = "provider failed"
+            raise AskProviderError(message)
+        runtime = kwargs["runtime"]
+        chunks = (
+            runtime.llm_context_stream_factory("knowledge")
+            if route == "synthesis"
+            else runtime.llm_stream_factory()
+        )
+        return (types.SimpleNamespace(content=chunk.result) for chunk in chunks)
+
+    monkeypatch.setattr(module, "chat_llm", chat)
+    monkeypatch.setattr(module, "stream_ask_provider_response", stream)
+    with app.app_context():
+        assert _collect_content_chunks(_run_numbered_ask(app, module)) == [
+            "selection-answer"
+        ]
+    resolve.assert_called_once_with("1")
+    assert llm_calls[0]["model"] == "mapped-fast"
+    assert llm_calls[0]["usage_metadata"] == {
+        "model_selection_scope": "course",
+        "model_selection_original": "fast",
+        "model_selection_record_id": 42,
+        "model_index": "1",
+        "model_selection_fallback": True,
+        "model_selection_fallback_reason": "invalid_selection",
+        "resolved_model": "mapped-fast",
+    }
+
+
+@pytest.mark.no_mock_llm
+@pytest.mark.parametrize("reject", [False, True])
+def test_guardrail_only_resolves_a_selection_when_it_needs_an_llm_response(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    reject: bool,
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.api import llm
+    from flaskr.api.llm import model_selection
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.learn import check_text
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {"provider": "dify", "mode": "provider_only", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
+    monkeypatch.setattr(
+        module, "check_text_with_llm_response", check_text.check_text_with_llm_response
+    )
+    monkeypatch.setattr(check_text, "invoke_llm", llm.invoke_llm)
+    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    monkeypatch.setattr(
+        check_text,
+        "check_text",
+        lambda *_args: types.SimpleNamespace(
+            check_result=check_text.CHECK_RESULT_REJECT
+            if reject
+            else check_text.CHECK_RESULT_PASS,
+            provider="test",
+            raw_data={},
+            risk_labels=[],
+        ),
+    )
+    provider = Mock(
+        return_value=iter([types.SimpleNamespace(content="external-answer")])
+    )
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    with app.app_context():
+        if reject:
+            with pytest.raises(AppError) as captured:
+                _run_numbered_ask(app, module)
+            assert (
+                captured.value.code
+                == ERROR_CODE["server.llm.modelSelectionNotConfigured"]
+            )
+            provider.assert_not_called()
+        else:
+            assert _collect_content_chunks(_run_numbered_ask(app, module)) == [
+                "external-answer"
+            ]
+            provider.assert_called_once()

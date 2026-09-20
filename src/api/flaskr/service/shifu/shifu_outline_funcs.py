@@ -6,8 +6,6 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from decimal import Decimal
-
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -383,12 +381,8 @@ def __insert_outline_locked(
         parent_bid=parent_id or "",
         position=new_position,
         prerequisite_item_bids="",
-        llm="",
-        llm_temperature=Decimal("0.3"),
         llm_system_prompt=system_prompt or "",
         ask_enabled_status=5101,  # ASK_MODE_DEFAULT
-        ask_llm="",
-        ask_llm_temperature=Decimal("0.3"),
         ask_llm_system_prompt="",
         deleted=0,
         created_at=now_time,

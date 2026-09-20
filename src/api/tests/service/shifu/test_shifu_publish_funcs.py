@@ -5,6 +5,8 @@ import sys
 import types
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import Mock
+from uuid import uuid4
 
 import pytest
 from flask import Flask
@@ -297,6 +299,8 @@ def test_publish_shifu_draft_preserves_outline_updated_at(
         draft = DraftShifu(
             shifu_bid="publish-preserve-outline-updated-at",
             title="Draft",
+            llm="ultimate",
+            ask_llm="fast",
             description="Desc",
             keywords="a,b",
             tts_enabled=1,
@@ -346,6 +350,10 @@ def test_publish_shifu_draft_preserves_outline_updated_at(
     assert published_outline.updated_at == draft_updated_at
     assert published_shifu is not None
     assert published_shifu.default_listen_mode_enabled == 1
+    assert published_shifu.llm == "ultimate"
+    assert published_shifu.ask_llm == "fast"
+    assert not hasattr(published_outline, "llm")
+    assert not hasattr(published_outline, "ask_llm")
     assert outline_load_calls == [
         (("publish-preserve-outline-updated-at",), {"include_content": True})
     ]
@@ -398,6 +406,72 @@ def test_publish_rejects_invalid_live_contract_before_retiring_current_version(
             deleted=0,
         ).one()
         assert current.title == "Current published course"
+
+
+@pytest.mark.parametrize(
+    "primary_model", [GEMINI_LIVE_MODEL_ID, "gemini-3.1-flash-live-preview"]
+)
+@pytest.mark.parametrize("follow_up_model", ["fast", GEMINI_LIVE_MODEL_ID])
+def test_publish_preserves_legacy_live_primary_using_effective_text_validation(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    primary_model: str,
+    follow_up_model: str,
+) -> None:
+    """Legacy primary IDs fall back for validation without rewriting either field."""
+    from flaskr.api.llm import model_selection
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    config = {"LLM_MODEL_1_ID": "configured/text-model"}
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    resolve_model = Mock(side_effect=AssertionError("Publish must not route models"))
+    monkeypatch.setattr(model_selection, "resolve_model_slot", resolve_model)
+    normalize_config = Mock(wraps=module.normalize_live_follow_up_course_config)
+    monkeypatch.setattr(
+        module, "normalize_live_follow_up_course_config", normalize_config
+    )
+    monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *_args: None)
+    shifu_bid = uuid4().hex
+    with app.app_context():
+        draft = DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Legacy course",
+            llm=primary_model,
+            ask_llm=follow_up_model,
+            ask_provider_config="{}",
+        )
+        db.session.add(draft)
+        db.session.commit()
+        draft_id = draft.id
+        draft_updated_at = draft.updated_at
+
+    result = module.publish_shifu_draft(
+        app,
+        user_id="teacher-1",
+        shifu_id=shifu_bid,
+        base_url="https://example.com",
+        sync_summary=True,
+    )
+
+    assert result == f"https://example.com/c/{shifu_bid}"
+    assert normalize_config.call_args.kwargs["course_model"] == "1"
+    assert normalize_config.call_args.kwargs["course_follow_up_model"] == (
+        follow_up_model
+    )
+    resolve_model.assert_not_called()
+    with app.app_context():
+        draft = db.session.get(DraftShifu, draft_id)
+        published = PublishedShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        assert draft.llm == published.llm == primary_model
+        assert draft.ask_llm == published.ask_llm == follow_up_model
+        assert draft.updated_at == draft_updated_at
+        assert json.loads(published.ask_provider_config)["config"] == (
+            {"live_voice": "Kore"} if follow_up_model == GEMINI_LIVE_MODEL_ID else {}
+        )
 
 
 def test_publish_live_follow_up_defaults_official_voice(

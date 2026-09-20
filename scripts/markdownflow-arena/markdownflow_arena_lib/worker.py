@@ -41,11 +41,9 @@ def build_app(config: dict) -> Flask:
 
     if not os.environ.get("SKIP_LOAD_DOTENV"):
         load_dotenv()
-    routes = config.get("model_routes")
-    if routes:
-        # The override belongs to this short-lived evaluation process only.
-        os.environ["LLM_ALLOWED_MODELS"] = ",".join(routes)
-        os.environ["LLM_ALLOWED_MODEL_DISPLAY_NAMES"] = ",".join(config["models"])
+    routes = config.get("model_routes") or config["models"]
+    # The override belongs to this short-lived evaluation process only.
+    _configure_model_slots(routes, config["models"])
     import pymysql
     from flask import Flask
     from flaskr import dao
@@ -59,6 +57,19 @@ def build_app(config: dict) -> Flask:
     dao.init_redis(app)
     load_translations(app)
     return app
+
+
+def _configure_model_slots(routes: list[str], names: list[str]) -> None:
+    """Replace inherited slot bindings only inside this evaluation process."""
+    if not routes or len(routes) > 9 or len(routes) != len(names):
+        message = "Arena requires matching names and routes for one to nine models"
+        raise ArenaError(message)
+    for index in range(1, 10):
+        os.environ.pop(f"LLM_MODEL_{index}_NAME", None)
+        os.environ.pop(f"LLM_MODEL_{index}_ID", None)
+    for index, (route, name) in enumerate(zip(routes, names, strict=True), start=1):
+        os.environ[f"LLM_MODEL_{index}_NAME"] = name
+        os.environ[f"LLM_MODEL_{index}_ID"] = route
 
 
 def execute(request: dict) -> object:

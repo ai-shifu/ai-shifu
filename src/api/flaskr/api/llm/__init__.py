@@ -35,8 +35,8 @@ from flaskr.api.langfuse import (
     normalize_langfuse_output_value,
     resolve_langfuse_trace_id,
 )
+from flaskr.api.llm.model_selection import resolve_selection
 from flaskr.common.config import (
-    get_explicit_env_override,
     parse_llm_model_max_output_tokens,
 )
 from flaskr.service.billing.consts import (
@@ -48,7 +48,7 @@ from flaskr.service.billing.rate_references import (
     format_credit_multiplier,
     load_llm_credit_1x_unit_cost,
 )
-from flaskr.service.common.models import raise_error_with_args
+from flaskr.service.common.models import ERROR_CODE, AppError, raise_error_with_args
 from flaskr.service.config import get_config
 from flaskr.service.metering import UsageContext, record_llm_usage
 from flaskr.service.metering.consts import (
@@ -262,59 +262,6 @@ def _build_langfuse_llm_output(
         "content": response_text,
         "reasoning_content": reasoning_text,
     }
-
-
-def _normalize_model_config(value: object) -> list[str]:
-    if not value:
-        return []
-    if isinstance(value, str):
-        return [item.strip() for item in value.split(",") if item.strip()]
-    if isinstance(value, (list, tuple, set)):
-        normalized = []
-        for item in value:
-            text = str(item).strip()
-            if text:
-                normalized.append(text)
-        return normalized
-    return []
-
-
-def _env_has_value(key: str) -> bool:
-    value = get_explicit_env_override(key)
-    if value is None:
-        return False
-    return bool(value.strip())
-
-
-def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
-    allowed_source = "default"
-    if _env_has_value("LLM_ALLOWED_MODELS"):
-        allowed = _normalize_model_config(
-            get_explicit_env_override("LLM_ALLOWED_MODELS") or ""
-        )
-        allowed_source = "env"
-    else:
-        legacy_allowed = _normalize_model_config(get_config("llm-allowed-models", None))
-        if legacy_allowed:
-            allowed = legacy_allowed
-            allowed_source = "legacy"
-        else:
-            allowed = _normalize_model_config(get_config("LLM_ALLOWED_MODELS", None))
-
-    if _env_has_value("LLM_ALLOWED_MODEL_DISPLAY_NAMES"):
-        display_names = _normalize_model_config(
-            get_explicit_env_override("LLM_ALLOWED_MODEL_DISPLAY_NAMES") or ""
-        )
-    elif allowed_source == "legacy":
-        display_names = _normalize_model_config(
-            get_config("llm-allowed-model-display-names", None)
-        )
-    else:
-        display_names = _normalize_model_config(
-            get_config("LLM_ALLOWED_MODEL_DISPLAY_NAMES", None)
-        )
-
-    return allowed, display_names
 
 
 def _load_and_register_model_max_output_tokens() -> dict[str, int]:
@@ -1249,7 +1196,7 @@ def invoke_llm(
     request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
     trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
-    model = model.strip()
+    model, usage_metadata = resolve_selection(model, usage_metadata)
     generation_input = []
     if system:
         generation_input.append({"role": "system", "content": system})
@@ -1259,6 +1206,11 @@ def invoke_llm(
         model=model,
         input=generation_input,
         name=generation_name,
+        metadata={
+            key: value
+            for key, value in usage_metadata.items()
+            if key.startswith("model_") or key == "resolved_model"
+        },
         **generation_link,
     )
     app.logger.info(
@@ -1399,7 +1351,14 @@ def invoke_llm(
         input=generation_input,
         output=_build_langfuse_llm_output(response_text, reasoning_text),
         usage=usage,
-        metadata=kwargs,
+        metadata={
+            **kwargs,
+            **{
+                key: value
+                for key, value in usage_metadata.items()
+                if key.startswith("model_") or key == "resolved_model"
+            },
+        },
         completion_start_time=start_completion_time,
     )
     span.update(output=response_text)
@@ -1436,13 +1395,18 @@ def chat_llm(
     request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
     trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
-    model = model.strip()
+    model, usage_metadata = resolve_selection(model, usage_metadata)
     generation_input = messages
     generation_link = build_langfuse_observation_link(span, trace_id)
     generation = span.generation(
         model=model,
         input=generation_input,
         name=generation_name,
+        metadata={
+            key: value
+            for key, value in usage_metadata.items()
+            if key.startswith("model_") or key == "resolved_model"
+        },
         **generation_link,
     )
     app.logger.info(
@@ -1625,7 +1589,14 @@ def chat_llm(
             response_text + tool_call_text, reasoning_text
         ),
         usage=usage,
-        metadata=kwargs,
+        metadata={
+            **kwargs,
+            **{
+                key: value
+                for key, value in usage_metadata.items()
+                if key.startswith("model_") or key == "resolved_model"
+            },
+        },
         completion_start_time=start_completion_time,
     )
 
@@ -1983,43 +1954,18 @@ def stream_openai_chat_completion(
 def _build_model_options(
     app: Flask, available_models: list[str]
 ) -> list[dict[str, object]]:
-    allowed, display_names = _resolve_allowed_model_config()
-
-    if not allowed:
-        return _attach_credit_multipliers(
-            app,
-            [{"model": model, "display_name": model} for model in available_models],
-        )
+    """Build a physical catalog from configured slots, never provider discovery alone."""
+    from flaskr.api.llm.model_selection import get_configured_model_slots
 
     available_set = set(available_models)
-    filtered_models: list[str] = []
-    for model in allowed:
-        if model in available_set and model not in filtered_models:
-            filtered_models.append(model)
-
-    if not filtered_models:
-        _log_warning(
-            "LLM_RECOMMENDED_MODELS configured but no matching models are available"
-        )
-        return []
-
-    display_names_enabled = allowed and len(display_names) == len(allowed)
-    if display_names and not display_names_enabled:
-        _log_warning(
-            "LLM_ALLOWED_MODEL_DISPLAY_NAMES ignored: length must match "
-            "LLM_ALLOWED_MODELS"
-        )
-    display_map: dict[str, str] = (
-        dict(zip(allowed, display_names, strict=False)) if display_names_enabled else {}
-    )
-
-    options = [
-        {
-            "model": model,
-            "display_name": display_map.get(model, model),
-        }
-        for model in filtered_models
-    ]
+    seen = set()
+    options = []
+    for slot in get_configured_model_slots():
+        model = slot["model"]
+        if model not in available_set or model in seen:
+            continue
+        seen.add(model)
+        options.append({"model": model, "display_name": slot["display_name"]})
     return _attach_credit_multipliers(app, options)
 
 
@@ -2102,7 +2048,18 @@ def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
 def _attach_credit_multipliers(
     app: Flask, options: list[dict[str, object]]
 ) -> list[dict[str, object]]:
+    from flaskr.api.llm.model_selection import get_configured_model_slots
+
     default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
+    if not default_model:
+        default_model = next(
+            (
+                slot["model"]
+                for slot in get_configured_model_slots()
+                if slot["index"] == "1"
+            ),
+            "",
+        )
     if not options:
         return [{**option, "credit_multiplier": None} for option in options]
 
@@ -2149,10 +2106,22 @@ def _attach_credit_multipliers(
 
 
 def get_current_models(app: Flask) -> list[dict[str, object]]:
-    """Return text-generation models available to the primary model picker."""
+    """Return configured physical text models for internal and gateway consumers."""
+    from flaskr.api.llm.model_selection import (
+        get_configured_model_slots,
+        resolve_model_slot,
+    )
+
     litellm_models: list[str] = []
-    for state in PROVIDER_STATES.values():
-        litellm_models.extend(state.models)
+    for slot in get_configured_model_slots():
+        try:
+            litellm_models.append(resolve_model_slot(slot["index"]))
+        except AppError as exc:
+            if exc.code not in {
+                ERROR_CODE["server.llm.modelUnavailable"],
+                ERROR_CODE["server.llm.modelSelectionNotConfigured"],
+            }:
+                raise
     available_models = [
         model
         for model in dict.fromkeys(litellm_models)
@@ -2193,7 +2162,7 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
             "billing_mode": "billable",
             "voices": [],
         }
-        for option in get_current_models(app)
+        for option in get_legacy_course_model_options(app)
     ]
     for model in GEMINI_LIVE_MODEL_ALLOWLIST:
         if not is_live_follow_up_model_available(model):
@@ -2214,7 +2183,55 @@ def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
     return options
 
 
-def get_allowed_models() -> list[str]:
-    """Return allowed models."""
-    allowed, _ = _resolve_allowed_model_config()
-    return allowed
+def get_course_model_options(app: Flask) -> list[dict[str, object]]:
+    """Return numbered course choices with labels, availability, and credit rates."""
+    from flaskr.api.llm.model_selection import (
+        get_configured_model_slots,
+        resolve_model_slot,
+    )
+
+    options = []
+    available_options = []
+    for slot in get_configured_model_slots():
+        option = {
+            "index": slot["index"],
+            "display_name": slot["display_name"],
+            "available": False,
+            "is_default": slot["index"] == "1",
+            "credit_multiplier": None,
+            "credit_multiplier_label": None,
+        }
+        try:
+            model = resolve_model_slot(slot["index"])
+        except AppError as exc:
+            if exc.code not in {
+                ERROR_CODE["server.llm.modelUnavailable"],
+                ERROR_CODE["server.llm.modelSelectionNotConfigured"],
+            }:
+                raise
+        else:
+            option["available"] = True
+            available_options.append((option, model))
+        options.append(option)
+    if available_options:
+        models = dict.fromkeys(model for _, model in available_options)
+        rates_by_model = {
+            rates["model"]: rates
+            for rates in _attach_credit_multipliers(
+                app, [{"model": model} for model in models]
+            )
+        }
+        for option, model in available_options:
+            rates = rates_by_model[model]
+            option.update(
+                credit_multiplier=rates.get("credit_multiplier"),
+                credit_multiplier_label=rates.get("credit_multiplier_label"),
+            )
+    return options
+
+
+def get_legacy_course_model_options(app: Flask) -> list[dict[str, object]]:
+    """Adapt course options to catalogs that expect an index in the model field."""
+    return [
+        {**option, "model": option["index"]} for option in get_course_model_options(app)
+    ]

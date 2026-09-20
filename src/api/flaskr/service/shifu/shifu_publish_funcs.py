@@ -8,7 +8,7 @@ Date: 2025-08-07
 
 import queue
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
@@ -16,6 +16,11 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm import invoke_llm
+from flaskr.api.llm.model_selection import (
+    course_model_selection,
+    selection_metadata,
+    selection_model,
+)
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
@@ -124,11 +129,11 @@ def publish_shifu_draft(
         outline_items = load_existing_outline_items(shifu_id, include_content=True)
         normalized_provider_config, live_contract_error = (
             normalize_live_follow_up_course_config(
-                course_model=shifu_draft.llm,
-                course_follow_up_model=shifu_draft.ask_llm,
+                course_model=course_model_selection(selection_model(shifu_draft))[
+                    "index"
+                ],
+                course_follow_up_model=selection_model(shifu_draft, follow_up=True),
                 provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
-                outline_models=tuple(item.llm for item in outline_items),
-                outline_follow_up_models=tuple(item.ask_llm for item in outline_items),
             )
         )
         if live_contract_error is not None:
@@ -201,12 +206,8 @@ def publish_shifu_draft(
             outline_item.type = draft_outline_item.type
             outline_item.hidden = draft_outline_item.hidden
             outline_item.parent_bid = draft_outline_item.parent_bid
-            outline_item.llm = draft_outline_item.llm
-            outline_item.llm_temperature = draft_outline_item.llm_temperature
             outline_item.llm_system_prompt = draft_outline_item.llm_system_prompt
             outline_item.ask_enabled_status = draft_outline_item.ask_enabled_status
-            outline_item.ask_llm = draft_outline_item.ask_llm
-            outline_item.ask_llm_temperature = draft_outline_item.ask_llm_temperature
             outline_item.ask_llm_system_prompt = (
                 draft_outline_item.ask_llm_system_prompt
             )
@@ -308,6 +309,7 @@ class _SummaryModelChoice:
 
     model_name: str
     temperature: object
+    usage_metadata: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -333,15 +335,16 @@ class _SummaryInputs:
 
 def _resolve_summary_model(app: object, shifu: PublishedShifu) -> _SummaryModelChoice:
     """Pick the model that generates summaries and ask prompts."""
-    if is_live_follow_up_model(shifu.ask_llm):
-        model_name = shifu.llm
-        temperature = shifu.llm_temperature or 0.3
-    else:
-        model_name = shifu.ask_llm or shifu.llm
-        temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
-    if not model_name:
-        model_name = app.config.get("DEFAULT_LLM_MODEL", "")
-    return _SummaryModelChoice(model_name=model_name, temperature=temperature)
+    _ = app
+    follow_up = not is_live_follow_up_model(selection_model(shifu, follow_up=True))
+    model_name = selection_model(shifu, follow_up=follow_up)
+    metadata = selection_metadata(shifu, follow_up=follow_up)
+    temperature = (
+        shifu.ask_llm_temperature if follow_up else shifu.llm_temperature
+    ) or 0.3
+    return _SummaryModelChoice(
+        model_name=model_name, temperature=temperature, usage_metadata=metadata
+    )
 
 
 def _load_published_shifu(shifu_id: str) -> PublishedShifu | None:
@@ -588,6 +591,7 @@ def _generate_summaries(
                 prompt=final_prompt,
                 model_name=model_choice.model_name,
                 temperature=model_choice.temperature,
+                usage_metadata=model_choice.usage_metadata,
             )
             outline_summary_map[section.bid] = {
                 "chapter_id": chapter.bid,
@@ -687,12 +691,14 @@ def _get_summary(
     model_name: object,
     user_id: object = None,
     temperature: object = 0.8,
+    usage_metadata: dict | None = None,
 ) -> str:
     """Call the AI model to generate summary.
 
     Args:
         app: Flask application instance
         prompt: Prompt to be summarized
+        usage_metadata: Selection provenance passed to the usage recorder.
         model_name: Model name to use
         user_id: Optional, user ID
         temperature: Optional, sampling temperature
@@ -723,6 +729,7 @@ def _get_summary(
             prompt,
             temperature=temperature,
             generation_name="shifu_summary",
+            usage_metadata=usage_metadata,
             usage_context=UsageContext(
                 user_bid=user_id or "shifu-summary",
                 shifu_bid="",

@@ -227,8 +227,13 @@ jobs:
             echo '' >> $GITHUB_STEP_SUMMARY
             echo '# Start with Docker Compose (production-ready)' >> $GITHUB_STEP_SUMMARY
             echo 'cd docker' >> $GITHUB_STEP_SUMMARY
+            echo '# Configure a provider API key in .env and map LLM_MODEL_1_ID' >> $GITHUB_STEP_SUMMARY
+            echo '# to its configured text model before startup (required; no default).' >> $GITHUB_STEP_SUMMARY
+            echo '# LLM_MODEL_1_NAME is optional; an empty name displays the configured model ID.' >> $GITHUB_STEP_SUMMARY
             echo 'docker compose -f docker-compose.yml up -d' >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo 'Existing installations: complete [Upgrading to numbered models](${{ github.server_url }}/${{ github.repository }}/blob/${{ needs.validate-release.outputs.tag }}/INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new API or workers.' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 📦 Image Details" >> $GITHUB_STEP_SUMMARY
             echo "- **API Server**: Contains the Flask backend with all business logic" >> $GITHUB_STEP_SUMMARY
