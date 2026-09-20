@@ -24,7 +24,12 @@ import re
 # The same shapes `markdown_flow` recognises: a fence line of `!` and three or more `=`, and the
 # inline tokens `!===` and `===`.
 _FENCE_LINE = re.compile(r"^[ \t]*!={3,}[ \t]*$")
-_CODE_FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
+# A code fence opens with three or more backticks or tildes; it closes only with a line of the
+# same character, at least as long, and nothing after it (CommonMark). A tilde line does not
+# close a backtick fence, a shorter fence does not close a longer one, and a line with trailing
+# text is content inside the block.
+_CODE_FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
+_CODE_FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
 _MARKERS = re.compile(r"!?={3,}")
 # An unfinished line that may still become a fence line of either kind.
 _MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*$")
@@ -39,7 +44,8 @@ class PreserveMarkerFilter:
         """Start with nothing buffered and no code fence open."""
         self._line = ""
         self._released_some_of_line = False
-        self._in_code = False
+        # The fence that opened the code block we are in: its character and length, or None.
+        self._fence: tuple[str, int] | None = None
 
     def feed(self, text: str) -> str:
         """Return `text` with markers removed, less any tail that might still become one."""
@@ -55,7 +61,7 @@ class PreserveMarkerFilter:
         self._line = held
         if head:
             self._released_some_of_line = True
-            out.append(head if self._in_code else _MARKERS.sub("", head))
+            out.append(head if self._fence else _MARKERS.sub("", head))
         return "".join(out)
 
     def flush(self) -> str:
@@ -65,15 +71,20 @@ class PreserveMarkerFilter:
         if not tail:
             return ""
         # A fragment that never became a marker is text, and is shown as it is.
-        return tail if self._in_code else _MARKERS.sub("", tail)
+        return tail if self._fence else _MARKERS.sub("", tail)
 
     def _complete_line(self, line: str) -> str:
         whole_line = not self._released_some_of_line
-        if whole_line and _CODE_FENCE.match(line):
-            self._in_code = not self._in_code
+        if self._fence is not None:
+            if whole_line and self._closes_fence(line):
+                self._fence = None
             return line + "\n"
-        if self._in_code:
-            return line + "\n"
+        if whole_line:
+            opening = _CODE_FENCE_OPEN.match(line)
+            if opening:
+                run = opening.group(1)
+                self._fence = (run[0], len(run))
+                return line + "\n"
         if whole_line and _FENCE_LINE.match(line):
             # The fence line itself: not content. Its newline goes too, or every fenced block
             # would gain a blank line.
@@ -86,7 +97,15 @@ class PreserveMarkerFilter:
             return "", ""
         if not self._released_some_of_line and _MAY_BE_FENCE.match(text):
             return "", text
-        if self._in_code:
+        if self._fence is not None:
             return text, ""
         match = _PARTIAL_TAIL.search(text)
         return text[: match.start()], text[match.start() :]
+
+    def _closes_fence(self, line: str) -> bool:
+        closing = _CODE_FENCE_CLOSE.match(line)
+        if closing is None or self._fence is None:
+            return False
+        run = closing.group(1)
+        char, length = self._fence
+        return run[0] == char and len(run) >= length

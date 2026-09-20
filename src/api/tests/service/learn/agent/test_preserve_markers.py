@@ -68,3 +68,28 @@ def test_nothing_else_is_touched() -> None:
     text = "Plain prose, with = signs, a == b, and a line\n\n---\n\nof more prose.\n"
     for seed in range(30):
         assert _through(text, seed) == text, f"seed {seed}"
+
+
+def test_a_fence_closes_only_with_its_own_kind_and_length() -> None:
+    """CommonMark: a tilde line does not close a backtick fence, nor a shorter fence a longer one.
+
+    Closed early, the rest of the block was read as prose and its `===` operators removed.
+    """
+    text = (
+        "````js\n"
+        "~~~\n"  # a tilde line inside a backtick block is code
+        "```\n"  # too short to close a four-backtick fence
+        "if (a === b) {}\n"
+        "````\n"  # this one closes it
+        "prose ===kept===\n"
+    )
+    for seed in range(30):
+        assert _through(text, seed) == text.replace("===kept===", "kept"), (
+            f"seed {seed}"
+        )
+
+
+def test_a_fence_line_with_trailing_text_does_not_close_the_block() -> None:
+    text = "```\n``` not a closer\na === b\n```\nafter ===x===\n"
+    for seed in range(30):
+        assert _through(text, seed) == text.replace("===x===", "x"), f"seed {seed}"
