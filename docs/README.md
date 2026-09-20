@@ -18,8 +18,9 @@ intent, engineering rules, and long-running execution context.
 - `exec-plans/active/`: currently active ExecPlans
 - `exec-plans/completed/`: archived ExecPlans
 - `generated/`: generated indexes and inventory files
-  Includes `doc-inventory.md`, `harness-health.md`, and the committed
-  architecture-boundary baseline.
+  Includes committed indexes, `doc-inventory.md`, and architecture-boundary
+  and unit-of-work baselines. The optional `harness-health.md` snapshot is
+  ignored by Git.
 
 ## Workflow
 
@@ -32,3 +33,30 @@ intent, engineering rules, and long-running execution context.
   `python scripts/check_architecture_boundaries.py`.
 - Historical flat topic docs are retired; new docs should be placed in the
   directory that matches their ownership and purpose.
+
+## Harness Health Snapshots
+
+`generated/harness-health.md` is a derived report, generated locally and in CI.
+Only this health report is excluded from version control; the other generated
+documents, indexes, inventory, and enforcement baselines remain committed.
+
+Refresh just the report from the repository root:
+
+```bash
+python scripts/build_repo_knowledge_index.py --health-only
+```
+
+The default command without `--health-only` refreshes both the committed
+knowledge documents and this ignored report. Local development and
+`python scripts/check_repo_harness.py` do not require the report to exist or
+be current. The checker still validates source documents, required assets,
+and committed generated indexes.
+
+An ignored snapshot can become stale after switching branches or changing
+documents or baseline entries. Regenerate it before relying on its counts;
+asset presence in the report does not prove that tests or runtime checks pass.
+
+In GitHub Actions, open a **Static Checks** or **Harness Gardening** run to read
+the report in its job summary. Download the `harness-health` artifact from
+Static Checks, or the `harness-gardening-summary` artifact from Harness
+Gardening, for the Markdown report generated from that run's checkout.

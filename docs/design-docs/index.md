@@ -5,11 +5,11 @@
 Implementation and architecture decisions that shape repository behavior live here.
 
 - [Agent-First Harness Phase 2](../design-docs/agent-first-harness-phase-2.md)
-  - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-09-20` | Canonical: `true`
 - [Agent-First Harness Migration](../design-docs/agent-first-harness.md)
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [AI Tool Compatibility Layer Design](../design-docs/ai-tool-compat.md)
-  - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-09-19` | Canonical: `true`
+  - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-09-20` | Canonical: `true`
 - [Billing Credit Domain Terminology](../design-docs/billing-credit-domain-terminology.md)
   - Status: `accepted` | Owner: `backend` | Last reviewed: `2026-07-29` | Canonical: `true`
 - [Billing Subscription Preorder](../design-docs/billing-subscription-preorder.md)

@@ -110,6 +110,7 @@ jobs:
         run: python scripts/check_architecture_boundaries.py --run-fixture-tests
 
       - name: Regenerate knowledge docs
+        id: knowledge
         run: python scripts/build_repo_knowledge_index.py
 
       - name: Ensure generated artifacts are up to date
@@ -121,6 +122,7 @@ jobs:
       - name: Run repo harness validation
         run: |
           python -m unittest discover -s scripts -p 'test_repo_instructions.py'
+          python -m unittest discover -s scripts -p 'test_repo_knowledge_index.py'
           python scripts/check_repo_harness.py
           python scripts/check_architecture_boundaries.py
 
@@ -137,3 +139,15 @@ jobs:
         run: |
           python scripts/generate_languages.py
           git diff --exit-code -- src/i18n/locales.json
+
+      - name: Summarize harness health
+        if: always() && steps.knowledge.outcome == 'success'
+        run: cat docs/generated/harness-health.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload harness health
+        if: always() && steps.knowledge.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-health
+          path: docs/generated/harness-health.md
+          if-no-files-found: error

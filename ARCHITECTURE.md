@@ -33,8 +33,11 @@ validation.
 - `docs/exec-plans/active/`: current complex work tracked as living ExecPlans
 - `docs/exec-plans/completed/`: archived execution plans
 - `docs/generated/`: generated knowledge indexes and inventories
-- `docs/generated/harness-health.md`: generated summary of harness assets and
-  boundary baseline state
+- `docs/generated/harness-health.md`: optional, ignored snapshot of harness
+  assets and boundary baseline state; regenerate locally with
+  `python scripts/build_repo_knowledge_index.py --health-only` or read the
+  current CI run summary and artifact. See
+  [harness health snapshots](docs/README.md#harness-health-snapshots).
 
 ## Runtime Flow
 

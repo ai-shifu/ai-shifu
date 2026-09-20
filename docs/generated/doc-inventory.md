@@ -9,9 +9,9 @@
 | `docs/QUALITY_SCORE.md` | Quality Score | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/RELIABILITY.md` | Reliability | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/SECURITY.md` | Security | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
-| `docs/design-docs/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
+| `docs/design-docs/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `design-doc` | `implemented` | `repo` | `2026-09-20` | `true` |
 | `docs/design-docs/agent-first-harness.md` | Agent-First Harness Migration | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
-| `docs/design-docs/ai-tool-compat.md` | AI Tool Compatibility Layer Design | `design-doc` | `implemented` | `repo` | `2026-09-19` | `true` |
+| `docs/design-docs/ai-tool-compat.md` | AI Tool Compatibility Layer Design | `design-doc` | `implemented` | `repo` | `2026-09-20` | `true` |
 | `docs/design-docs/billing-credit-domain-terminology.md` | Billing Credit Domain Terminology | `design-doc` | `accepted` | `backend` | `2026-07-29` | `true` |
 | `docs/design-docs/billing-subscription-preorder.md` | Billing Subscription Preorder | `design-doc` | `proposed` | `backend` | `2026-05-25` | `true` |
 | `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-07-12` | `true` |
@@ -71,6 +71,7 @@
 | `docs/exec-plans/completed/elevenlabs-tts.md` | ElevenLabs TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/frontend-unused-function-stack.md` | Frontend Unused Function Cleanup Stack | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/global-billing-pricing-page.md` | Global Billing Pricing Page | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/harness-health-local-report.md` | Keep harness health reports out of pull request conflicts | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/hide-sys-user-style-from-authoring-ui.md` | Hide `sys_user_style` From Course Authoring UI | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learn-run-decomposition.md` | ExecPlan: Learn /run Chain Decomposition (B6) | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-dialog-redesign.md` | Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
@@ -110,7 +111,6 @@
 | `docs/exec-plans/completed/verification-code-login-reuse.md` | Reuse Email and SMS Verification Login | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/tech-debt-tracker.md` | Tech Debt Tracker | `exec-plan-support` | `active` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-gardening-summary.md` | Harness Gardening Summary | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
-| `docs/generated/harness-health.md` | Harness Health | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page (v2) Technical Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-16` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |

@@ -59,6 +59,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Frontend Unused Function Cleanup Stack](./completed/frontend-unused-function-stack.md)
 - [Global Billing Pricing Page](./completed/global-billing-pricing-page.md)
+- [Keep harness health reports out of pull request conflicts](./completed/harness-health-local-report.md)
 - [Hide `sys_user_style` From Course Authoring UI](./completed/hide-sys-user-style-from-authoring-ui.md)
 - [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
 - [Learner Profile Dialog](./completed/learner-profile-dialog-redesign.md)

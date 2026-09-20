@@ -2,7 +2,7 @@
 title: Agent-First Harness Phase 2
 status: implemented
 owner_surface: repo
-last_reviewed: 2026-04-17
+last_reviewed: 2026-09-20
 canonical: true
 ---
 
@@ -39,9 +39,13 @@ observability, and recurring harness gardening are all versioned and enforced.
 
 - Add a new active ExecPlan for Phase 2 and treat it as the implementation
   source of truth.
-- Extend the generated knowledge system with a committed harness health report.
-- Make `scripts/check_repo_harness.py` aware of new workflows, docs, and
-  generated harness assets.
+- Generate an optional, Git-ignored harness health snapshot for local inspection
+  and CI summaries/artifacts. Refresh it with
+  `python scripts/build_repo_knowledge_index.py --health-only`; see
+  [harness health snapshots](../README.md#harness-health-snapshots).
+- Make `scripts/check_repo_harness.py` validate required workflows, source
+  assets, docs, and committed generated indexes directly. A missing or stale
+  health snapshot does not fail validation.
 
 ### Architecture boundaries
 
@@ -81,6 +85,7 @@ observability, and recurring harness gardening are all versioned and enforced.
 
 - Active ExecPlan and Phase 2 design/reference docs
 - `scripts/check_architecture_boundaries.py` plus fixtures and baseline
-- Generated `docs/generated/harness-health.md`
+- Optional `docs/generated/harness-health.md` snapshot, published in CI summaries
+  and artifacts and excluded from version control
 - Default dev observability stack and expanded backend diagnostics
 - Repo-harness, runtime-harness, and harness-gardening GitHub workflows
