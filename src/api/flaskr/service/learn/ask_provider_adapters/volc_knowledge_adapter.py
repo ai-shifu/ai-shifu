@@ -16,7 +16,7 @@ from flaskr.common.safe_outbound import (
     OutboundResponseTooLargeError,
     UnsafeOutboundUrlError,
 )
-from urllib3.exceptions import HTTPError
+from urllib3.exceptions import HTTPError, NewConnectionError
 from urllib3.exceptions import TimeoutError as UrllibTimeoutError
 
 from .base import (
@@ -313,6 +313,9 @@ class VolcKnowledgeAskProviderAdapter:
                 body=request_body.encode("utf-8"),
                 deadline=deadline,
             )
+        except NewConnectionError as exc:
+            error_message = "volc_knowledge request was rejected or failed"
+            raise AskProviderError(error_message) from exc
         except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             exception_message = "volc_knowledge request timeout"
             raise AskProviderTimeoutError(exception_message) from exc

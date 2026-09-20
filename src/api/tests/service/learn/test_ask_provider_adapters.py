@@ -13,6 +13,7 @@ from flaskr.service.learn.ask_provider_adapters import (
     dify_adapter,
     get_biji_knowledge_adapter,
 )
+from urllib3.exceptions import NewConnectionError
 
 
 class _FakeResponse:
@@ -784,6 +785,39 @@ def test_safe_provider_client_uses_separate_read_and_total_timeouts(
     assert client.policy.total_timeout_seconds == 90
 
 
+def test_safe_provider_client_honors_total_timeout_below_read_timeout(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+            "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": 10,
+        }.get,
+    )
+
+    client = common.safe_provider_client(
+        app,
+        trusted_origins_config="COZE_TRUSTED_ORIGINS",
+    )
+
+    assert client.policy.read_timeout_seconds == 20
+    assert client.policy.total_timeout_seconds == 10
+
+
+@pytest.mark.parametrize("configured_value", ["invalid", 0, -1])
+def test_provider_total_timeout_rejects_invalid_config(
+    monkeypatch: object,
+    configured_value: object,
+) -> None:
+    monkeypatch.setattr(common, "get_config", lambda _name: configured_value)
+
+    with pytest.raises(ValueError, match="ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS"):
+        common.provider_total_timeout_seconds()
+
+
 def test_safe_provider_client_requires_https_by_default(app: object) -> None:
     client = common.safe_provider_client(
         app,
@@ -827,6 +861,53 @@ def test_volc_knowledge_adapter_missing_config_raises_error(app: object) -> None
                 },
             )
         )
+
+
+def test_volc_knowledge_connection_refused_is_not_reported_as_timeout(
+    app: object, monkeypatch: object
+) -> None:
+    adapter = module.VolcKnowledgeAskProviderAdapter()
+    normalized_url = (
+        "https://api-knowledgebase.mlp.cn-beijing.volces.com/"
+        "api/knowledge/collection/search_knowledge"
+    )
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "validate_url",
+        lambda *_args, **_kwargs: types.SimpleNamespace(url=normalized_url),
+    )
+
+    def _raise_connection_refused(*_args: object, **_kwargs: object) -> None:
+        raise NewConnectionError(None, "Connection refused")
+
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        _raise_connection_refused,
+    )
+
+    with pytest.raises(
+        module.AskProviderError,
+        match="volc_knowledge request was rejected or failed",
+    ) as exc_info:
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "account_id": "acc-1",
+                        "ak": "ak-1",
+                        "sk": "sk-1",
+                        "collection_name": "collection-1",
+                    }
+                },
+            )
+        )
+
+    assert not isinstance(exc_info.value, module.AskProviderTimeoutError)
 
 
 @pytest.mark.parametrize(

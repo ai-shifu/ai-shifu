@@ -132,11 +132,17 @@ def provider_timeout_seconds() -> int:
 def provider_total_timeout_seconds() -> int:
     """Return the wall-clock budget for one provider request or stream."""
     raw = get_config("ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS")
+    if raw is None:
+        return 300
     try:
         value = int(raw)
-    except (TypeError, ValueError):
-        value = 300
-    return max(value, provider_timeout_seconds())
+    except (TypeError, ValueError) as exc:
+        message = "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS must be an integer"
+        raise ValueError(message) from exc
+    if value <= 0:
+        message = "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS must be positive"
+        raise ValueError(message)
+    return value
 
 
 def safe_provider_client(
