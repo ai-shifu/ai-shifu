@@ -7,7 +7,7 @@
 
 ## 复用规则
 
-- 后台管理页表格优先复用 `src/app/admin/components/AdminTableShell.tsx` 和 `src/app/admin/components/adminTableStyles.ts`，不要在单个页面重复写表格外框、表头 token 和 sticky 列样式。
+- 后台管理页表格优先复用 `src/components/admin/AdminTableShell.tsx` 和 `src/components/admin/adminTableStyles.ts`，不要在单个页面重复写表格外框、表头 token 和 sticky 列样式。
 - 表格外框边框统一使用 `--base-border`，表头背景统一使用 `--base-muted`，表头文字统一使用 `--base-foreground` 与 text-sm/medium/20px line-height token。
 - 表头单元格默认高度为 `40px`、最小宽度为 `85px`、左右内边距为 `8px`、文字左对齐；不要为了模拟设计稿额外添加拖拽列或 checkbox 选择列。
 - tbody 单元格默认保持原生 table-cell 布局，高度为 `53px`、最小宽度为 `85px`、内边距为 `8px`、文字左对齐、垂直居中，并使用 `--base-foreground` 与 text-sm/normal/20px line-height token；不要在 `td` 上强制 flex，避免破坏表格列布局。
