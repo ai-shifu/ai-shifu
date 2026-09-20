@@ -15,6 +15,12 @@ SHIFU = "shifu-on-the-list"
 OTHER = "shifu-not-on-the-list"
 
 
+@pytest.fixture(autouse=True)
+def _no_real_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The agent path ends with a commit checkpoint; these tests run without a database."""
+    monkeypatch.setattr(runscript_v2, "_commit_pending_step", lambda: None)
+
+
 @pytest.fixture
 def allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
     """Put one course on the 2.0 allowlist, as a deployment's environment would."""
@@ -341,3 +347,50 @@ def test_falling_back_to_the_script_engine_restores_per_update_writes(
     )
 
     assert adapter.persist_only_final is False
+
+
+@pytest.mark.usefixtures("allowlisted")
+def test_the_agent_path_makes_what_the_adapter_staged_durable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The adapter finalises the block after the turn's last event, outside the turn's transaction.
+
+    The 1.0 run ends with a commit checkpoint for exactly that; the 2.0 path did not, and every
+    element written at finalisation -- a lesson's cards among them -- was dropped with the session.
+    """
+    from flaskr.service.learn.agent import lesson_entry
+
+    monkeypatch.setattr(
+        lesson_entry, "agent_lesson_events", lambda *_a, **_k: iter(["event"])
+    )
+    committed: list[bool] = []
+    monkeypatch.setattr(
+        runscript_v2, "_commit_pending_step", lambda: committed.append(True)
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_lesson_routing")
+
+    events = list(
+        runscript_v2._lesson_events(
+            app=_App(),
+            user_bid="user-bid",
+            shifu_bid=SHIFU,
+            outline_bid="outline-bid",
+            user_input=None,
+            input_type=None,
+            reload_generated_block_bid=None,
+            reload_element_bid=None,
+            listen=False,
+            learning_mode="read",
+            preview_mode=False,
+            stop_event=None,
+            element_adapter=None,
+            heartbeat_interval=0.5,
+        )
+    )
+
+    assert events == ["event"]
+    assert committed == [True]
