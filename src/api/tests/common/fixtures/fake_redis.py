@@ -69,6 +69,10 @@ class FakeRedis:
             return None
         return self._store.get(key)
 
+    def exists(self, key: str) -> int:
+        """Return whether an unexpired key exists."""
+        return int(self.get(key) is not None)
+
     def getex(self, key: str, ex: int | None = None, px: int | None = None) -> object:
         value = self.get(key)
         if value is None:
@@ -127,6 +131,24 @@ class FakeRedis:
         if ttl is not None:
             self._expires[key] = ttl
         return new_value
+
+    def eval(self, script: str, numkeys: int, *keys_and_args: object) -> object:
+        """Execute the password failure counter script used by authentication."""
+        if numkeys != 2 or "password_login" not in str(keys_and_args[0]):
+            message = "FakeRedis only supports the password login counter script"
+            raise NotImplementedError(message)
+        _ = script
+        failure_key = str(keys_and_args[0])
+        cooldown_key = str(keys_and_args[1])
+        window_seconds = int(keys_and_args[2])
+        max_failures = int(keys_and_args[3])
+        cooldown_seconds = int(keys_and_args[4])
+        failures = int(self.incr(failure_key))
+        if failures == 1:
+            self._expires[failure_key] = self._now() + window_seconds
+        if failures >= max_failures:
+            self.set(cooldown_key, "1", ex=cooldown_seconds, nx=True)
+        return failures
 
     def ttl(self, key: str) -> int:
         if key not in self._store:
