@@ -42,7 +42,15 @@ npx playwright install chromium
 ```
 
 Copy `example.json` to a private path and configure the authorized owner's phone,
-fixed learner variables, and any backend transport. From the repository root:
+fixed learner variables, and any backend transport. Each worker binds the five
+requested model IDs to its own numbered slots, independently of the deployment's
+course selections. Configure provider credentials for those IDs. If your provider
+uses prefixed routes, add `model_routes` as a five-item array in the same order as
+`models`, retaining each requested version as the final path segment. These
+bindings exist only in the worker process; saved course settings and environment
+files are unchanged.
+
+From the repository root:
 
 ```sh
 python scripts/markdownflow-arena/markdownflow_arena.py run --config /private/path/arena.json

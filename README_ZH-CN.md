@@ -42,7 +42,7 @@ AI师傅面向老师、讲师、培训与教育团队，提供“可扩展的一
 
 请先确认你的机器已经安装好[Docker](https://docs.docker.com/get-docker/)和[Docker Compose](https://docs.docker.com/compose/install/)。
 
-### 一键快速启动（Docker，无需修改）
+### 快速启动（Docker）
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
@@ -51,8 +51,9 @@ cd ai-shifu/docker
 # 直接使用 Docker 模板配置
 cp .env.example.full .env
 
-# 唯一需要改动的内容：在 .env 中填写至少一个大模型 API Key
-# 例如：OPENAI_API_KEY=sk-xxx 或 ERNIE_API_KEY=xxx
+# 编辑 .env：填写模型服务商 API Key，并将 LLM_MODEL_1_ID
+# 设置为该服务商已配置的文本模型 ID（必填，没有默认值）。
+# LLM_MODEL_1_NAME 可选；未填写或留空时直接显示模型 ID。
 
 # 启动全部服务
 docker compose -f docker-compose.latest.yml up -d
@@ -60,6 +61,8 @@ docker compose -f docker-compose.latest.yml up -d
 
 说明
 
+- `LLM_MODEL_1_ID` 必填且没有默认值；2–9 号模型 ID 可选，支持跳号。所有编号的 `NAME` 均可选，未填写或留空时直接显示该编号配置的模型 ID；只有名称、没有模型 ID 的编号不会展示。历史课程中的无效选择自动使用 1 号，无需数据清洗。
+- 已有安装升级前，请按照[编号模型升级说明](INSTALL_MANUAL.md#upgrading-to-numbered-models)完成新编号配置，再启动新镜像；latest、固定版本和开发模式均适用。
 - 第一个完成验证登录的用户会自动成为管理员和老师，并获得内置 Demo 课程的所有权。
 - 默认通用验证码为 1024（仅用于演示/测试，生产环境请修改或禁用）。
 - `docker-compose.latest.yml` 使用 `:latest` 镜像标签，适合希望获取最新构建的场景（或在本地构建 `:latest` 镜像后启动）; 如需固定版本，可使用 `docker-compose.yml`。
@@ -73,8 +76,10 @@ cd ai-shifu/docker
 # 复制完整模板（已包含 Docker 默认值）
 cp .env.example.full .env
 
-# 按需修改 .env（快速启动仅需填写 LLM Key）：
+# 编辑 .env，必须同时配置服务商密钥和 1 号模型 ID：
 # - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
+# - LLM_MODEL_1_NAME：可选的显示名称；留空时显示该编号配置的模型 ID
+# - LLM_MODEL_1_ID：已配置的文本模型 ID，没有默认值
 # - SQLALCHEMY_DATABASE_URI：默认指向 docker 中的 MySQL 服务
 # - REDIS_HOST：可选；如需 Redis 缓存/锁可配置外部 Redis（留空则禁用）
 # - SECRET_KEY：示例值，仅用于演示；生产环境请替换（生成：python -c "import secrets; print(secrets.token_urlsafe(32))"）
@@ -92,7 +97,9 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
 cp .env.example.full .env
-# 在 .env 中填入至少一个大模型 API Key
+# 在 .env 中填入模型 API Key，并将 LLM_MODEL_1_ID
+# 设置为该服务商已配置的文本模型 ID。
+# LLM_MODEL_1_NAME 可选；留空时显示该编号配置的模型 ID。
 
 ./dev_in_docker.sh
 ```

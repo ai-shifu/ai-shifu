@@ -186,17 +186,6 @@ def _build_latest_operator_course_rows_query(
         latest_subquery = latest_subquery.filter(model.shifu_bid == shifu_bid)
     latest_subquery = latest_subquery.group_by(model.shifu_bid).subquery()
 
-    latest_nonempty_llm_subquery = (
-        db.session.query(
-            model.shifu_bid.label("shifu_bid"),
-            model.llm.label("llm"),
-            db.func.row_number()
-            .over(partition_by=model.shifu_bid, order_by=model.id.desc())
-            .label("row_num"),
-        )
-        .filter(model.deleted == 0, db.func.coalesce(model.llm, "") != "")
-        .cte(f"{model.__tablename__}_latest_nonempty_llm")
-    )
     latest_nonempty_tts_subquery = (
         db.session.query(
             model.shifu_bid.label("shifu_bid"),
@@ -214,11 +203,7 @@ def _build_latest_operator_course_rows_query(
         model.shifu_bid.label("shifu_bid"),
         model.title.label("title"),
         model.price.label("price"),
-        db.func.coalesce(
-            db.func.nullif(model.llm, ""),
-            latest_nonempty_llm_subquery.c.llm,
-            "",
-        ).label("llm"),
+        model.llm.label("llm"),
         db.func.coalesce(
             db.func.nullif(model.tts_model, ""),
             latest_nonempty_tts_subquery.c.tts_model,
@@ -230,12 +215,6 @@ def _build_latest_operator_course_rows_query(
         model.updated_at.label("updated_at"),
     ).join(latest_subquery, model.id == latest_subquery.c.max_id)
     query = query.outerjoin(
-        latest_nonempty_llm_subquery,
-        and_(
-            latest_nonempty_llm_subquery.c.shifu_bid == model.shifu_bid,
-            latest_nonempty_llm_subquery.c.row_num == 1,
-        ),
-    ).outerjoin(
         latest_nonempty_tts_subquery,
         and_(
             latest_nonempty_tts_subquery.c.shifu_bid == model.shifu_bid,
@@ -397,11 +376,7 @@ def _build_operator_course_candidate_query(
         case(
             (
                 draft_visible_subquery.c.id.isnot(None),
-                db.func.coalesce(
-                    db.func.nullif(draft_visible_subquery.c.llm, ""),
-                    published_visible_subquery.c.llm,
-                    "",
-                ),
+                draft_visible_subquery.c.llm,
             ),
             else_=db.func.coalesce(published_visible_subquery.c.llm, ""),
         ).label("llm"),
@@ -678,7 +653,6 @@ def _apply_latest_nonempty_model_fields(model: object, rows: object) -> None:
     latest_nonempty_rows = (
         db.session.query(
             model.shifu_bid.label("shifu_bid"),
-            model.llm.label("llm"),
             model.tts_model.label("tts_model"),
             db.func.row_number()
             .over(partition_by=model.shifu_bid, order_by=model.id.desc())
@@ -687,17 +661,13 @@ def _apply_latest_nonempty_model_fields(model: object, rows: object) -> None:
         .filter(
             model.deleted == 0,
             model.shifu_bid.in_(shifu_bids),
-            or_(
-                db.func.coalesce(model.llm, "") != "",
-                db.func.coalesce(model.tts_model, "") != "",
-            ),
+            db.func.coalesce(model.tts_model, "") != "",
         )
         .subquery()
     )
     fallback_rows = (
         db.session.query(
             latest_nonempty_rows.c.shifu_bid,
-            latest_nonempty_rows.c.llm,
             latest_nonempty_rows.c.tts_model,
         )
         .filter(latest_nonempty_rows.c.row_num == 1)
@@ -705,7 +675,6 @@ def _apply_latest_nonempty_model_fields(model: object, rows: object) -> None:
     )
     fallback_map = {
         str(row.shifu_bid or ""): {
-            "llm": str(getattr(row, "llm", "") or ""),
             "tts_model": str(getattr(row, "tts_model", "") or ""),
         }
         for row in fallback_rows
@@ -714,8 +683,6 @@ def _apply_latest_nonempty_model_fields(model: object, rows: object) -> None:
         fallback = fallback_map.get(str(getattr(row, "shifu_bid", "") or ""))
         if not fallback:
             continue
-        if not str(getattr(row, "llm", "") or "").strip():
-            row.llm = fallback["llm"]
         if not str(getattr(row, "tts_model", "") or "").strip():
             row.tts_model = fallback["tts_model"]
 

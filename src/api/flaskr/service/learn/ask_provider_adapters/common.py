@@ -6,6 +6,8 @@ from collections.abc import Iterable
 from functools import lru_cache
 
 import requests
+from flask import Flask
+from flaskr.common.safe_outbound import OutboundUrlPolicy, SafeOutboundClient
 from flaskr.service.config import get_config
 from flaskr.util.prompt_loader import load_prompt_template
 
@@ -125,6 +127,55 @@ def provider_timeout_seconds() -> int:
     except (TypeError, ValueError):
         value = 20
     return max(value, 1)
+
+
+def provider_total_timeout_seconds() -> int:
+    """Return the wall-clock budget for one provider request or stream."""
+    raw = get_config("ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS")
+    if raw is None:
+        return 300
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        message = "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS must be an integer"
+        raise ValueError(message) from exc
+    if value <= 0:
+        message = "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS must be positive"
+        raise ValueError(message)
+    return value
+
+
+def safe_provider_client(
+    app: Flask,
+    *,
+    trusted_origins_config: str,
+    max_response_bytes: int = 10 * 1024 * 1024,
+) -> SafeOutboundClient:
+    """Build the shared bounded client for a configurable ask provider."""
+    configured = app.config.get(trusted_origins_config, [])
+    if isinstance(configured, str):
+        values = configured.split(",")
+    elif isinstance(configured, (list, tuple, set, frozenset)):
+        values = configured
+    else:
+        values = []
+    trusted_origins = frozenset(
+        str(origin).strip() for origin in values if str(origin).strip()
+    )
+    allowed_schemes = frozenset({"https"})
+    if app.config.get("ASK_PROVIDER_ALLOW_INSECURE_HTTP", False):
+        allowed_schemes = frozenset({"http", "https"})
+    return SafeOutboundClient(
+        policy=OutboundUrlPolicy(
+            allowed_schemes=allowed_schemes,
+            trusted_origins=trusted_origins,
+            max_redirects=3,
+            max_response_bytes=max_response_bytes,
+            connect_timeout_seconds=5,
+            read_timeout_seconds=provider_timeout_seconds(),
+            total_timeout_seconds=provider_total_timeout_seconds(),
+        )
+    )
 
 
 def iter_sse_payloads(response: requests.Response) -> Iterable[str]:

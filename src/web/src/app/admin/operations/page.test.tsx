@@ -554,12 +554,12 @@ describe('OperationsPage', () => {
     mockGetAdminOperationCoursesOverview.mockResolvedValue(DEFAULT_OVERVIEW);
     mockGetModelList.mockResolvedValue([
       {
-        model: 'gpt-4.1-mini',
-        display_name: 'GPT-4.1 Mini',
+        model: '1',
+        display_name: 'Everyday',
       },
       {
-        model: 'gpt-4.1',
-        display_name: 'GPT-4.1',
+        model: '3',
+        display_name: 'Deep thinking',
       },
     ]);
     mockGetAdminOperationCourses.mockResolvedValue({
@@ -569,7 +569,7 @@ describe('OperationsPage', () => {
           course_name: 'Course 1',
           course_status: 'published',
           price: '99',
-          llm_model: 'gpt-4.1-mini',
+          llm_model: '1',
           tts_model: 'speech-01',
           has_course_prompt: true,
           creator_user_bid: 'creator-1',
@@ -588,7 +588,7 @@ describe('OperationsPage', () => {
           course_name: 'Custom System Course',
           course_status: 'unpublished',
           price: '0',
-          llm_model: '',
+          llm_model: '3',
           tts_model: '',
           has_course_prompt: false,
           creator_user_bid: 'system',
@@ -668,7 +668,9 @@ describe('OperationsPage', () => {
         'module.operationsCourse.overview.tooltips.totalCourses',
       ).tagName,
     ).toBe('BUTTON');
-    expect(screen.getByText('GPT-4.1 Mini')).toBeInTheDocument();
+    expect(screen.getByText('Everyday')).toBeInTheDocument();
+    expect(screen.getByText('Deep thinking')).toBeInTheDocument();
+    expect(screen.queryByText(/gpt-4\.1/)).not.toBeInTheDocument();
     expect(mockTtsConfig).toHaveBeenCalledWith(
       expect.objectContaining({ language: 'en-US' }),
     );
@@ -727,7 +729,7 @@ describe('OperationsPage', () => {
           course_name: 'Timezone Course',
           course_status: 'published',
           price: '0',
-          llm_model: '',
+          llm_model: '3',
           tts_model: '',
           has_course_prompt: false,
           creator_user_bid: 'creator-1',
@@ -1461,7 +1463,7 @@ describe('OperationsPage', () => {
           course_name: 'Course 1',
           course_status: 'published',
           price: '99',
-          llm_model: 'gpt-4.1-mini',
+          llm_model: '1',
           tts_model: 'speech-01',
           has_course_prompt: true,
           creator_user_bid: 'creator-1',
@@ -1579,7 +1581,7 @@ describe('OperationsPage', () => {
           course_name: 'Course Second',
           course_status: 'published',
           price: '29',
-          llm_model: 'gpt-4.1',
+          llm_model: '3',
           tts_model: 'speech-01',
           has_course_prompt: true,
           creator_user_bid: 'creator-2',
@@ -1609,7 +1611,7 @@ describe('OperationsPage', () => {
           course_name: 'Course First',
           course_status: 'published',
           price: '19',
-          llm_model: 'gpt-4.1',
+          llm_model: '3',
           tts_model: 'speech-01',
           has_course_prompt: true,
           creator_user_bid: 'creator-1',

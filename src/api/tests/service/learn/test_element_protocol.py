@@ -126,8 +126,11 @@ def _setup_handle_input_ask_test_doubles(
     from flaskr.service.learn.ask_provider_adapters import AskProviderError
 
     class _DummyLLMSettings:
-        def __init__(self, model: object, temperature: object) -> None:
+        def __init__(
+            self, model: object, temperature: object, usage_metadata: object = None
+        ) -> None:
             self.model = model
+            self.usage_metadata = usage_metadata
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:
