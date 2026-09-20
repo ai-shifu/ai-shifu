@@ -311,6 +311,34 @@ def _retire_block(app: Flask, *, generated_block_bid: str) -> None:
         )
 
 
+def _on_this_page(
+    events: object,
+    *,
+    pager: LessonPager | None,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Put any lesson text that reached here unpaged on the page the lesson is on.
+
+    Paged text and unpaged text cannot share a turn. The unpaged kind is assembled into one
+    element holding the whole lesson, which then sits beside the paged ones marked speakable,
+    never finalised, and retired at the end without telling the browser -- so the learner waits on
+    audio for it that will never come. A single unpaged line is enough to do it, and there was
+    one: the prompt beside a question.
+
+    Rather than tagging each place that can produce lesson text and relying on the next one to
+    remember, everything leaving here is checked.
+    """
+    for event in events:
+        if (
+            pager is not None
+            and getattr(event, "type", None) == GeneratedType.CONTENT
+            and not event.get_mdflow_stream_parts()
+        ):
+            text = str(event.content or "")
+            if text:
+                event.set_mdflow_stream_parts([(text, "text", pager.page)])
+        yield event
+
+
 def _paged(
     text: str,
     *,
@@ -407,10 +435,13 @@ def _stream_turn(
                 pending_memory = []
 
         try:
-            yield from translate(
-                event,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
+            yield from _on_this_page(
+                translate(
+                    event,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                ),
+                pager=pager,
             )
         except UnrepresentableInteractionError:
             # The controls would ask something other than the model did, so they are not sent. The
@@ -424,11 +455,16 @@ def _stream_turn(
             )
             prompt = getattr(event, "spec", None) and event.spec.prompt
             if prompt and prompt.strip():
-                yield RunMarkdownFlowDTO(
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                    type=GeneratedType.CONTENT,
-                    content=prompt,
+                yield from _on_this_page(
+                    [
+                        RunMarkdownFlowDTO(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content=prompt,
+                        )
+                    ],
+                    pager=pager,
                 )
 
     # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for

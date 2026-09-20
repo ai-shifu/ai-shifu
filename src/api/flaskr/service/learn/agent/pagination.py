@@ -27,6 +27,7 @@ class LessonPager:
     def __init__(self) -> None:
         """Start on the first page with nothing said yet."""
         self._full = ""
+        self._page = 0
 
     def add(self, text: str) -> list[tuple[str, int]]:
         """Return the new text split into `(text, page)` pieces, in order and complete.
@@ -62,7 +63,19 @@ class LessonPager:
             buffer.append(self._full[index])
         if buffer:
             pieces.append(("".join(buffer), current))
+        if pieces:
+            self._page = pieces[-1][1]
         return pieces
+
+    @property
+    def page(self) -> int:
+        """The page the lesson is on now.
+
+        For text that belongs on the current page without being part of it -- the prompt beside a
+        question, say. Such text is not added to the turn, so it cannot move the page boundaries
+        the speech pipeline derives from what was actually taught.
+        """
+        return self._page
 
     def _page_spans(self) -> list[tuple[int, tuple[int, int]]]:
         contract = build_av_segmentation_contract(self._full)
