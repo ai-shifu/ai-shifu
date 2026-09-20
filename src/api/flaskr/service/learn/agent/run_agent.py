@@ -51,6 +51,7 @@ from flaskr.service.learn.agent.lesson_record import (
     stage_turn_block,
 )
 from flaskr.service.learn.agent.listen import LessonVoice
+from flaskr.service.learn.agent.pagination import LessonPager
 from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
     load_agent_session,
@@ -271,11 +272,15 @@ def run_agent_lesson(
         if listen and progress_record_bid
         else None
     )
+    # Paging is what listening needs: it is how a page's audio finds the text it belongs to. A
+    # reading lesson has no audio to bind and keeps the single-element shape it has today.
+    pager = LessonPager() if listen else None
     try:
         yield from _stream_turn(
             app,
             run_turn_on_thread=run_turn_on_thread,
             voice=voice,
+            pager=pager,
             make_events=make_events,
             session_holder=session_holder,
             user_bid=user_bid,
@@ -306,11 +311,37 @@ def _retire_block(app: Flask, *, generated_block_bid: str) -> None:
         )
 
 
+def _paged(
+    text: str,
+    *,
+    pager: LessonPager,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send one stretch of lesson text a page at a time, each page spoken after it is shown.
+
+    Text first and then its audio, the order a 1.0 lesson sends them in: the browser treats a
+    passage marked speakable with no audio yet as buffering and waits, so audio that arrives ahead
+    of the text it belongs to has no element to attach to.
+    """
+    for piece, page in pager.add(text):
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+            type=GeneratedType.CONTENT,
+            content=piece,
+        ).set_mdflow_stream_parts([(piece, "text", page)])
+        if voice is not None:
+            yield from voice.speak(piece)
+
+
 def _stream_turn(
     app: Flask,
     *,
     run_turn_on_thread: Callable[..., Any],
     voice: LessonVoice | None,
+    pager: LessonPager | None,
     make_events: Callable[[], Any],
     session_holder: dict[str, Session],
     user_bid: str,
@@ -329,10 +360,19 @@ def _stream_turn(
     for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
         if isinstance(event, ContentDelta):
             taught.append(event.text)
-            if voice is not None:
-                # Before the text itself goes out: audio for a sentence the learner has not been
-                # shown yet is the order listen mode expects.
-                yield from voice.speak(event.text)
+            if pager is not None:
+                # A listening lesson is read page by page, and the audio for a page is bound to
+                # the element that page's text is in. Sent as one undivided element, only one
+                # page's audio survives that binding and every other page is left marked speakable
+                # with nothing to play -- which the browser waits on rather than skipping.
+                yield from _paged(
+                    event.text,
+                    pager=pager,
+                    voice=voice,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                )
+                continue
 
         if isinstance(event, MemoryUpdated):
             # Held rather than written now: the turn may still fail, and a memory write that
