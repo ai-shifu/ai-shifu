@@ -17,7 +17,7 @@ OTHER = "shifu-not-on-the-list"
 
 @pytest.fixture(autouse=True)
 def _no_real_commit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The agent path ends with a commit checkpoint; these tests run without a database."""
+    """Stand in for the commit checkpoint the agent path ends with: there is no database here."""
     monkeypatch.setattr(runscript_v2, "_commit_pending_step", lambda: None)
 
 
