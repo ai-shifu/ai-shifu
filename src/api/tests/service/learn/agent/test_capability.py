@@ -8,12 +8,9 @@ routes through its own gateway is reported as unable to call tools by
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
+import pytest
 from flaskr.service.learn.agent import capability
-
-if TYPE_CHECKING:
-    import pytest
 
 
 class _App:
@@ -157,3 +154,21 @@ def test_a_model_that_cannot_be_reached_cannot_teach(
     assert result.can_teach is False
     assert "the gateway call failed" in result.detail
     assert "not supported" in result.detail
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        pytest.param('{"type":"confirm","prompt":1}', id="number"),
+        pytest.param('{"type":"confirm","prompt":{"text":"Go on?"}}', id="object"),
+        pytest.param('{"type":"confirm","prompt":"   "}', id="blank"),
+        pytest.param('{"type":"confirm"}', id="missing"),
+    ],
+)
+def test_a_prompt_that_is_not_a_question_is_not_good_enough(
+    monkeypatch: pytest.MonkeyPatch, arguments: str
+) -> None:
+    """The tool declares `prompt` as a string; anything else is not a question to ask."""
+    _gateway(monkeypatch, [_Chunk(tool_call_deltas=[_call(arguments=arguments)])])
+
+    assert capability.probe_model(_App(), "m").can_teach is False

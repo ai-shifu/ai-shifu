@@ -167,4 +167,9 @@ def _has_question(arguments: str) -> bool:
         parsed = json.loads(arguments or "")
     except ValueError:
         return False
-    return isinstance(parsed, dict) and bool(parsed.get("prompt"))
+    if not isinstance(parsed, dict):
+        return False
+    prompt = parsed.get("prompt")
+    # A string, as the tool declares it: a number or an object in that field is not a question
+    # anyone can be asked, however truthy it is.
+    return isinstance(prompt, str) and bool(prompt.strip())
