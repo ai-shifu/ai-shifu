@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build parser."""
     parser = argparse.ArgumentParser(
         description=(
-            "Run read-only billing, wallet, model, SMS, and notification "
+            "Run read-only billing, wallet, SMS, and notification "
             "consistency probes. Output is JSON."
         )
     )
@@ -55,7 +55,6 @@ def build_parser() -> argparse.ArgumentParser:
             "usage-ledger",
             "wallet-snapshot",
             "bucket-expiration",
-            "model-override-inventory",
             "sms-send-failures",
             "notification-template-sync",
         ],
@@ -422,85 +421,6 @@ def probe_bucket_expiration(
     return rows_probe(name="bucket-expiration", description=description, rows=rows)
 
 
-def probe_model_override_inventory(
-    db: object,
-    inspector: object,
-    args: argparse.Namespace,
-    now: datetime,
-    since: datetime,
-) -> dict[str, object]:
-    """Probe model override inventory."""
-    _ = (now, since)
-    description = (
-        "Published outline items whose explicit model differs from course defaults."
-    )
-    if not table_has_columns(
-        inspector,
-        "shifu_published_shifus",
-        {"id", "shifu_bid", "title", "llm", "ask_llm", "deleted"},
-    ) or not table_has_columns(
-        inspector,
-        "shifu_published_outline_items",
-        {"id", "outline_item_bid", "shifu_bid", "title", "llm", "ask_llm", "deleted"},
-    ):
-        return skipped_probe(
-            "model-override-inventory",
-            description,
-            "required tables are missing",
-        )
-
-    rows = execute_rows(
-        db,
-        """
-        SELECT
-          o.shifu_bid,
-          s.title AS shifu_title,
-          o.outline_item_bid,
-          o.title AS outline_title,
-          s.llm AS course_llm,
-          o.llm AS outline_llm,
-          s.ask_llm AS course_ask_llm,
-          o.ask_llm AS outline_ask_llm
-        FROM shifu_published_outline_items o
-        JOIN (
-          SELECT outline_item_bid, MAX(id) AS max_id
-          FROM shifu_published_outline_items
-          WHERE deleted = 0
-          GROUP BY outline_item_bid
-        ) latest_o ON latest_o.max_id = o.id
-        JOIN shifu_published_shifus s
-          ON s.shifu_bid = o.shifu_bid
-        JOIN (
-          SELECT shifu_bid, MAX(id) AS max_id
-          FROM shifu_published_shifus
-          WHERE deleted = 0
-          GROUP BY shifu_bid
-        ) latest_s ON latest_s.max_id = s.id
-        WHERE o.deleted = 0
-          AND s.deleted = 0
-          AND (
-            (TRIM(COALESCE(o.llm, '')) <> ''
-              AND TRIM(COALESCE(s.llm, '')) <> ''
-              AND TRIM(o.llm) <> TRIM(s.llm))
-            OR
-            (TRIM(COALESCE(o.ask_llm, '')) <> ''
-              AND TRIM(COALESCE(s.ask_llm, '')) <> ''
-              AND TRIM(o.ask_llm) <> TRIM(s.ask_llm))
-          )
-        ORDER BY o.updated_at DESC
-        LIMIT :limit
-        """,
-        {"limit": args.limit},
-    )
-    return rows_probe(
-        name="model-override-inventory",
-        description=description,
-        rows=rows,
-        severity="info",
-        status_when_found="info",
-    )
-
-
 def probe_sms_send_failures(
     db: object,
     inspector: object,
@@ -606,7 +526,6 @@ PROBES: dict[str, ProbeFn] = {
     "usage-ledger": probe_usage_ledger,
     "wallet-snapshot": probe_wallet_snapshot,
     "bucket-expiration": probe_bucket_expiration,
-    "model-override-inventory": probe_model_override_inventory,
     "sms-send-failures": probe_sms_send_failures,
     "notification-template-sync": probe_notification_template_sync,
 }

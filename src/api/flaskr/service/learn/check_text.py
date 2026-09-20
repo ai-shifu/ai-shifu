@@ -84,6 +84,7 @@ def check_text_with_llm_response(
             span,
             message=prompt,
             model=llm_settings.model,
+            usage_metadata=llm_settings.usage_metadata,
             json=False,
             stream=True,
             generation_name=build_langfuse_generation_name(

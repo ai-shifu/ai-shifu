@@ -47,7 +47,7 @@ while the caller remains the actor. Permission and spoofing regressions pass.
 All local verification passed: 542 backend tests, 75 frontend tests, type
 checking, lint, repository harness, architecture checks, and all-file pre-commit
 checks. The API and web must deploy together because missing course IDs fail
-closed. No migration or model-tier change is included.
+closed. No migration or model-selection change is included.
 
 ## Context and Orientation
 

@@ -41,22 +41,11 @@ def test_credential_rotation_defaults_off_and_requires_explicit_enablement(
     assert live_follow_up_config.is_gemini_live_rotation_enabled() is enabled
 
 
-@pytest.mark.parametrize(
-    ("course_model", "outline_models"),
-    [
-        (GEMINI_LIVE_MODEL_ID, ()),
-        ("gpt-text", (GEMINI_LIVE_MODEL_ID,)),
-    ],
-)
-def test_course_contract_rejects_live_in_any_primary_model_field(
-    course_model: str,
-    outline_models: tuple[str, ...],
-) -> None:
+def test_course_contract_rejects_live_primary_model() -> None:
     _normalized, error_field = normalize_live_follow_up_course_config(
-        course_model=course_model,
+        course_model=GEMINI_LIVE_MODEL_ID,
         course_follow_up_model="gpt-text",
         provider_config={},
-        outline_models=outline_models,
     )
 
     assert error_field == "model"
@@ -91,26 +80,24 @@ def test_course_contract_rejects_live_in_any_primary_model_field(
         ),
     ],
 )
-def test_outline_live_follow_up_enforces_course_provider_and_voice(
+def test_course_live_follow_up_enforces_course_provider_and_voice(
     provider_config: dict[str, object],
     error_field: str,
 ) -> None:
     _normalized, actual_error = normalize_live_follow_up_course_config(
         course_model="gpt-main",
-        course_follow_up_model="gpt-follow-up",
+        course_follow_up_model=GEMINI_LIVE_MODEL_ID,
         provider_config=provider_config,
-        outline_follow_up_models=(GEMINI_LIVE_MODEL_ID,),
     )
 
     assert actual_error == error_field
 
 
-def test_outline_live_follow_up_defaults_official_voice() -> None:
+def test_course_live_follow_up_defaults_official_voice() -> None:
     normalized, error_field = normalize_live_follow_up_course_config(
         course_model="gpt-main",
-        course_follow_up_model="gpt-follow-up",
+        course_follow_up_model=GEMINI_LIVE_MODEL_ID,
         provider_config={},
-        outline_follow_up_models=(GEMINI_LIVE_MODEL_ID,),
     )
 
     assert error_field is None

@@ -148,7 +148,7 @@ def test_get_outline_item_tree_preview_mode(app: object) -> None:
     assert result.outline_items[0].follow_up_mode == "text"
 
 
-def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
+def test_get_outline_item_tree_uses_course_model_with_outline_ask_status(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -179,7 +179,6 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
             type=401,
             hidden=0,
             ask_enabled_status=5103,
-            ask_llm="gpt-text-follow-up",
         )
         inherited_lesson = DraftOutlineItem(
             outline_item_bid="lesson-inherited-text-follow-up",
@@ -256,8 +255,8 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
 
     result = get_outline_item_tree(app, shifu_bid, "teacher-1", preview_mode=True)
 
-    assert result.outline_items[0].follow_up_mode == "text"
-    assert result.outline_items[0].children[0].follow_up_mode == "text"
+    assert result.outline_items[0].follow_up_mode == "live_voice"
+    assert result.outline_items[0].children[0].follow_up_mode == "live_voice"
     assert result.outline_items[1].follow_up_mode == "live_voice"
     assert result.outline_items[2].follow_up_mode == "disabled"
 
@@ -266,7 +265,7 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
         app, shifu_bid, "teacher-1", preview_mode=True
     )
 
-    assert unavailable_result.outline_items[0].follow_up_mode == "text"
+    assert unavailable_result.outline_items[0].follow_up_mode == "disabled"
     assert unavailable_result.outline_items[1].follow_up_mode == "disabled"
     assert unavailable_result.outline_items[2].follow_up_mode == "disabled"
 
@@ -283,7 +282,7 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
         unsupported_result = get_outline_item_tree(
             app, shifu_bid, "teacher-1", preview_mode=True
         )
-        assert unsupported_result.outline_items[0].follow_up_mode == "text"
+        assert unsupported_result.outline_items[0].follow_up_mode == "disabled"
         assert unsupported_result.outline_items[1].follow_up_mode == "disabled"
         assert unsupported_result.outline_items[2].follow_up_mode == "disabled"
 
@@ -297,8 +296,11 @@ def test_get_outline_item_tree_resolves_live_follow_up_mode_per_outline(
         app, shifu_bid, "teacher-1", preview_mode=True
     )
 
-    assert course_disabled_result.outline_items[0].follow_up_mode == "text"
-    assert course_disabled_result.outline_items[0].children[0].follow_up_mode == "text"
+    assert course_disabled_result.outline_items[0].follow_up_mode == "live_voice"
+    assert (
+        course_disabled_result.outline_items[0].children[0].follow_up_mode
+        == "live_voice"
+    )
     assert course_disabled_result.outline_items[1].follow_up_mode == "disabled"
     assert course_disabled_result.outline_items[2].follow_up_mode == "disabled"
 

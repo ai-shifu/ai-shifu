@@ -168,6 +168,8 @@ DOCKER_ENV_CONFIG = {
     "REDIS_HOST": "ai-shifu-redis",
     "REDIS_PORT": "6379",
     "OPENAI_API_KEY": "sk-docker-test-key",
+    "LLM_MODEL_1_ID": "gpt-test",
+    "LLM_MODEL_1_NAME": "Test",
     "DEFAULT_LLM_TEMPERATURE": "0.5",
     "SWAGGER_ENABLED": "true",
 }
@@ -180,6 +182,8 @@ PRODUCTION_ENV_CONFIG = {
     "REDIS_HOST": "redis.production.internal",
     "REDIS_PORT": "6379",
     "OPENAI_API_KEY": "sk-prod-real-key",
+    "LLM_MODEL_1_ID": "gpt-test",
+    "LLM_MODEL_1_NAME": "Test",
     "DEFAULT_LLM_TEMPERATURE": "0.3",
     "SWAGGER_ENABLED": "false",
 }

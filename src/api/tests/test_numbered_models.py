@@ -1,0 +1,427 @@
+"""Verify numbered model identity, compatibility fallback, and routing boundaries."""
+
+from datetime import datetime
+from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+from flaskr.api import llm
+from flaskr.api.llm import _attach_credit_multipliers, model_selection
+from flaskr.service.common.models import AppError
+
+pytestmark = pytest.mark.no_mock_llm
+
+
+@pytest.fixture(autouse=True)
+def model_config(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    """Configure sparse numbered slots without contacting providers or storage."""
+    config = {
+        "LLM_MODEL_1_NAME": "Daily",
+        "LLM_MODEL_1_ID": "test/default",
+        "LLM_MODEL_3_NAME": "Detailed",
+        "LLM_MODEL_3_ID": "test/advanced",
+        "LLM_MODEL_7_NAME": "Same route",
+        "LLM_MODEL_7_ID": "test/advanced",
+    }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    monkeypatch.setattr(
+        llm, "get_config", lambda key, default=None: config.get(key, default)
+    )
+    monkeypatch.setattr(llm, "MODEL_SUPPORTED_GENERATION_METHODS", {})
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda model: ({"api_key": "test"}, model, "test"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_attach_credit_multipliers",
+        lambda _app, options: [
+            {**option, "credit_multiplier": 2} for option in options
+        ],
+    )
+    return config
+
+
+def test_slot_identity_survives_insert_delete_and_restore(
+    model_config: dict[str, str],
+) -> None:
+    """A missing slot falls back temporarily without mutating the original record."""
+    record = SimpleNamespace(llm="3")
+    assert model_selection.course_model_selection(record.llm) == {
+        "index": "3",
+        "fallback": False,
+        "fallback_reason": None,
+    }
+    model_config["LLM_MODEL_2_NAME"] = "New"
+    model_config["LLM_MODEL_2_ID"] = "test/new"
+    assert [slot["index"] for slot in model_selection.get_configured_model_slots()] == [
+        "1",
+        "2",
+        "3",
+        "7",
+    ]
+    del model_config["LLM_MODEL_3_ID"]
+    assert model_selection.resolve_course_selection(record.llm)[0] == "test/default"
+    assert record.llm == "3"
+    model_config["LLM_MODEL_3_ID"] = "test/replacement"
+    assert model_selection.resolve_course_selection(record.llm)[0] == "test/replacement"
+
+
+@pytest.mark.parametrize(
+    "saved",
+    [
+        None,
+        "",
+        "  ",
+        "fast",
+        "balanced",
+        "ultimate",
+        "gpt-test",
+        "test/advanced",
+        "0",
+        "10",
+        "01",
+        3,
+    ],
+)
+def test_legacy_and_invalid_choices_use_default(
+    saved: object,
+) -> None:
+    """Only canonical configured string indices are course selections."""
+    resolved, metadata = model_selection.resolve_course_selection(saved)
+    assert resolved == "test/default"
+    assert metadata["model_index"] == "1"
+    assert metadata["model_selection_original"] == saved
+    assert metadata["model_selection_fallback"] is True
+    assert model_selection.normalize_course_model(saved) == "1"
+
+
+def test_slots_without_model_bindings_are_not_selectable(
+    model_config: dict[str, str],
+) -> None:
+    """A missing or blank model binding cannot activate an optional slot."""
+    model_config.update(
+        LLM_MODEL_2_NAME="Name only",
+        LLM_MODEL_4_ID="",
+        LLM_MODEL_5_NAME="   ",
+        LLM_MODEL_5_ID=" \t ",
+    )
+    assert [slot["index"] for slot in model_selection.get_configured_model_slots()] == [
+        "1",
+        "3",
+        "7",
+    ]
+    for index in ("2", "4", "5", "9"):
+        assert model_selection.course_model_selection(index) == {
+            "index": "1",
+            "fallback": True,
+            "fallback_reason": "unconfigured_index",
+        }
+
+
+@pytest.mark.parametrize("index", ["1", "3", "7"])
+@pytest.mark.parametrize("name", [None, "", " \t "])
+def test_unnamed_slots_use_model_ids_without_changing_selection(
+    model_config: dict[str, str], index: str, name: str | None
+) -> None:
+    """Default and sparse optional slots only need a nonblank model ID."""
+    name_key = f"LLM_MODEL_{index}_NAME"
+    if name is None:
+        model_config.pop(name_key)
+    else:
+        model_config[name_key] = name
+    model = model_config[f"LLM_MODEL_{index}_ID"]
+    model_config[f"LLM_MODEL_{index}_ID"] = f" \t{model}\n "
+
+    slots = model_selection.get_configured_model_slots()
+    assert [slot["index"] for slot in slots] == ["1", "3", "7"]
+    assert next(slot for slot in slots if slot["index"] == index) == {
+        "index": index,
+        "display_name": model,
+        "model": model,
+    }
+    assert model_selection.course_model_selection(index) == {
+        "index": index,
+        "fallback": False,
+        "fallback_reason": None,
+    }
+    resolved, metadata = model_selection.resolve_course_selection(index)
+    assert resolved == model
+    assert metadata["model_index"] == index
+    assert metadata["model_selection_fallback"] is False
+    for catalog in (
+        llm.get_course_model_options(object()),
+        llm.get_legacy_course_model_options(object()),
+    ):
+        option = next(item for item in catalog if item["index"] == index)
+        assert option["display_name"] == model
+        assert option["available"] is True
+        assert option["is_default"] is (index == "1")
+
+
+def test_unnamed_duplicate_binding_keeps_lowest_slot_label(
+    model_config: dict[str, str],
+) -> None:
+    """Physical deduplication retains the first slot's fallback display name."""
+    del model_config["LLM_MODEL_3_NAME"]
+    model_config["LLM_MODEL_7_NAME"] = "  Named duplicate  "
+    course_options = llm.get_legacy_course_model_options(object())
+    assert [(item["model"], item["display_name"]) for item in course_options] == [
+        ("1", "Daily"),
+        ("3", "test/advanced"),
+        ("7", "Named duplicate"),
+    ]
+    assert llm.get_current_models(object()) == [
+        {"model": "test/default", "display_name": "Daily", "credit_multiplier": 2},
+        {
+            "model": "test/advanced",
+            "display_name": "test/advanced",
+            "credit_multiplier": 2,
+        },
+    ]
+
+
+def test_missing_default_binding_errors(model_config: dict[str, str]) -> None:
+    """Fallback cannot invent a physical model when slot one is unavailable."""
+    del model_config["LLM_MODEL_1_ID"]
+    with pytest.raises(AppError):
+        model_selection.resolve_course_selection("legacy-model")
+
+
+def test_provider_route_failure_does_not_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A complete slot whose route is unusable must fail instead of changing model."""
+    requested = []
+
+    def missing_route(model: str) -> tuple:
+        requested.append(model)
+        return None, model, None
+
+    monkeypatch.setattr(llm, "get_litellm_params_and_model", missing_route)
+    with pytest.raises(AppError):
+        model_selection.resolve_course_selection("3")
+    assert requested == ["test/advanced"]
+
+
+def test_course_snapshot_is_idempotent_and_keeps_revision(
+    model_config: dict[str, str],
+) -> None:
+    """Configuration changes cannot alter the model of an already resolved call."""
+    record = SimpleNamespace(llm="old/model", id=23, __tablename__="published_shifu")
+    model, metadata = model_selection.resolve_course_selection(
+        record.llm, model_selection.selection_metadata(record)
+    )
+    model_config["LLM_MODEL_1_ID"] = "test/changed"
+    assert model_selection.resolve_selection(model, metadata) == (model, metadata)
+    assert metadata["model_selection_record_id"] == 23
+    assert metadata["model_selection_table"] == "published_shifu"
+    assert metadata["model_selection_original"] == "old/model"
+    assert record.llm == "old/model"
+
+
+def test_generic_physical_models_and_live_are_not_course_normalized() -> None:
+    """Course fallback cannot replace gateway, internal, or Live model identifiers."""
+    assert (
+        model_selection.resolve_selection("unconfigured/physical")[0]
+        == "unconfigured/physical"
+    )
+    record = SimpleNamespace(ask_llm="gemini-3.8-live")
+    metadata = model_selection.selection_metadata(record, follow_up=True)
+    assert metadata["model_selection_scope"] == "live"
+    assert (
+        model_selection.resolve_selection(record.ask_llm, metadata)[0] == record.ask_llm
+    )
+    assert "model_index" not in metadata
+
+
+def test_course_and_physical_catalogs_share_slots_without_leaking_ids() -> None:
+    """Course slots remain distinct while the physical catalog deduplicates bindings."""
+    options = llm.get_course_model_options(object())
+    assert [option["index"] for option in options] == ["1", "3", "7"]
+    assert [option["is_default"] for option in options] == [True, False, False]
+    assert all(option["available"] for option in options)
+    assert all("model" not in option for option in options)
+    assert "test/" not in str(options)
+    assert [
+        option["model"] for option in llm.get_legacy_course_model_options(object())
+    ] == [
+        "1",
+        "3",
+        "7",
+    ]
+    assert llm.get_current_models(object()) == [
+        {"model": "test/default", "display_name": "Daily", "credit_multiplier": 2},
+        {"model": "test/advanced", "display_name": "Detailed", "credit_multiplier": 2},
+    ]
+
+
+@pytest.mark.parametrize("all_unavailable", [False, True])
+def test_course_catalog_loads_rates_once_for_available_slots(
+    monkeypatch: pytest.MonkeyPatch,
+    model_config: dict[str, str],
+    all_unavailable: bool,
+) -> None:
+    """One rate snapshot serves sparse duplicate slots without changing their shape."""
+    model_config.update(
+        LLM_MODEL_2_NAME="Offline",
+        LLM_MODEL_2_ID="test/offline",
+        DEFAULT_LLM_MODEL="test/advanced",
+    )
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda model: (
+            None if all_unavailable or model == "test/offline" else {"api_key": "test"},
+            model,
+            "test",
+        ),
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_ALIAS_MAP",
+        {model: ("test", model) for model in ("test/default", "test/advanced")},
+    )
+    rates = [
+        SimpleNamespace(
+            id=index,
+            provider="test",
+            model=model,
+            unit_size=1,
+            credits_per_unit=Decimal(cost),
+            effective_from=datetime(2026, 1, 1),
+            effective_to=None,
+        )
+        for index, (model, cost) in enumerate(
+            [("test/default", "1.25"), ("test/advanced", "2.7")], start=1
+        )
+    ]
+    load_rates = Mock(return_value=rates)
+    attach_rates = Mock(wraps=_attach_credit_multipliers)
+    monkeypatch.setattr(llm, "_load_llm_output_rate_rows", load_rates)
+    monkeypatch.setattr(llm, "_attach_credit_multipliers", attach_rates)
+    monkeypatch.setattr(llm, "load_llm_credit_1x_unit_cost", lambda: Decimal(1))
+    monkeypatch.setattr(llm, "now_utc", lambda: datetime(2026, 9, 19))
+    app = object()
+
+    options = llm.get_course_model_options(app)
+
+    if all_unavailable:
+        load_rates.assert_not_called()
+        attach_rates.assert_not_called()
+    else:
+        load_rates.assert_called_once_with(app)
+        attach_rates.assert_called_once_with(
+            app, [{"model": "test/default"}, {"model": "test/advanced"}]
+        )
+    expected_rates = (
+        [(None, None)] * 4
+        if all_unavailable
+        else [
+            (2, "1.25x"),
+            (None, None),
+            (3, "2.7x"),
+            (3, "2.7x"),
+        ]
+    )
+    assert options == [
+        {
+            "index": index,
+            "display_name": label,
+            "available": not all_unavailable and index != "2",
+            "is_default": index == "1",
+            "credit_multiplier": multiplier,
+            "credit_multiplier_label": multiplier_label,
+        }
+        for (index, label), (multiplier, multiplier_label) in zip(
+            [("1", "Daily"), ("2", "Offline"), ("3", "Detailed"), ("7", "Same route")],
+            expected_rates,
+            strict=True,
+        )
+    ]
+
+
+def test_old_allowlist_and_discovered_models_never_define_catalog(
+    monkeypatch: pytest.MonkeyPatch, model_config: dict[str, str]
+) -> None:
+    """Only numbered bindings can add selectable or gateway catalog entries."""
+    model_config.clear()
+    model_config.update(
+        LLM_ALLOWED_MODELS="test/old",
+        LLM_ALLOWED_MODEL_DISPLAY_NAMES="Old",
+        **{"llm-allowed-models": "test/legacy"},
+    )
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "test": llm.ProviderState(
+                enabled=True, params={"api_key": "test"}, models=["test/discovered"]
+            )
+        },
+    )
+    assert llm.get_current_models(object()) == []
+    assert llm.get_course_model_options(object()) == []
+
+
+def test_reusing_metadata_with_a_new_selection_resolves_the_new_slot() -> None:
+    """Only an unchanged physical snapshot can bypass selection resolution."""
+    _, previous = model_selection.resolve_course_selection("old/model")
+    resolved, metadata = model_selection.resolve_course_selection("3", previous)
+    assert resolved == "test/advanced"
+    assert metadata["model_selection_original"] == "3"
+    assert metadata["model_index"] == "3"
+    assert metadata["model_selection_fallback"] is False
+    assert metadata["resolved_model"] == resolved
+
+
+@pytest.mark.parametrize("configured_model", ["gemini-3.8-live", "test/bidi", "3"])
+def test_configured_nontext_bindings_fail_without_default_switch(
+    monkeypatch: pytest.MonkeyPatch, model_config: dict[str, str], configured_model: str
+) -> None:
+    """A configured slot remains itself even when its binding is unsuitable."""
+    model_config["LLM_MODEL_3_ID"] = configured_model
+    monkeypatch.setattr(
+        llm,
+        "MODEL_SUPPORTED_GENERATION_METHODS",
+        {"test/bidi": frozenset({"bidiGenerateContent"})},
+    )
+    with pytest.raises(AppError):
+        model_selection.resolve_course_selection("3")
+    option = next(
+        item for item in llm.get_course_model_options(object()) if item["index"] == "3"
+    )
+    assert option["available"] is False
+
+
+def test_numbered_environment_config_never_probes_persisted_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Absent optional slots must not make SQL or Redis configuration requests."""
+
+    def unexpected_lookup(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Persisted config must not be consulted for numbered slots")
+
+    monkeypatch.setattr(model_selection, "get_override_config", unexpected_lookup)
+    assert [slot["index"] for slot in model_selection.get_configured_model_slots()] == [
+        "1",
+        "3",
+        "7",
+    ]
+
+
+def test_process_local_slot_overrides_support_isolated_arena_runs() -> None:
+    """Arena's explicit thread-local overrides do not require persisted config."""
+    from flaskr.service.config import config_overrides
+
+    with config_overrides(
+        {"LLM_MODEL_1_NAME": "Arena", "LLM_MODEL_1_ID": "test/arena"}
+    ):
+        assert model_selection.resolve_course_selection("legacy")[0] == "test/arena"
+    assert model_selection.resolve_course_selection("legacy")[0] == "test/default"

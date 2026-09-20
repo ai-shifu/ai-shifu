@@ -1,3 +1,5 @@
+export type ModelIndex = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import type { LearningPermission } from '@/api/studyV2';
 
@@ -348,8 +350,6 @@ export interface ShifuContextType extends ShifuState {
 export interface AIBlockProperties {
   prompt: string;
   profiles?: string[];
-  model?: string;
-  temperature?: string;
   other_conf?: string;
 }
 
@@ -365,8 +365,6 @@ export interface LabelDTO {
 export interface ContentDTO {
   content: string;
   llm_enabled: boolean;
-  llm: string;
-  llm_temperature: number;
 }
 
 export interface ButtonDTO {
@@ -377,8 +375,6 @@ export interface InputDTO {
   placeholder: LabelDTO;
   prompt: string;
   result_variable_bids: string[];
-  llm: string;
-  llm_temperature: number;
 }
 
 export interface OptionItemDTO {

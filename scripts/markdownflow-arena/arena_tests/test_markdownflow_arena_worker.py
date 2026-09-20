@@ -9,6 +9,7 @@ import base64
 import gzip
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +23,108 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 from markdownflow_arena_lib import engine, pipeline, source, worker  # noqa: E402
-from markdownflow_arena_lib.state import REQUESTED_MODELS, ArenaError  # noqa: E402
+from markdownflow_arena_lib.state import (  # noqa: E402
+    REQUESTED_MODELS,
+    ArenaError,
+    validate_config,
+)
+
+
+@pytest.mark.no_mock_llm
+@pytest.mark.parametrize("route_mode", ["omitted", "empty", "explicit"])
+def test_worker_builds_catalog_from_comparison_models(
+    route_mode: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A minimal deployment does not constrain the isolated comparison catalog."""
+    from flaskr import dao, i18n
+    from flaskr.api import llm
+
+    config = json.loads((SCRIPTS / "example.json").read_text(encoding="utf-8"))
+    assert "model_routes" not in config
+    for index in range(1, 10):
+        monkeypatch.delenv(f"LLM_MODEL_{index}_NAME", raising=False)
+        monkeypatch.delenv(f"LLM_MODEL_{index}_ID", raising=False)
+    monkeypatch.setenv("SKIP_LOAD_DOTENV", "1")
+    monkeypatch.setenv("SKIP_APP_AUTOCREATE", "1")
+    routes = list(REQUESTED_MODELS)
+    if route_mode == "explicit":
+        routes = [f"vendor/{model}" for model in REQUESTED_MODELS]
+        routes[-1] = "vendor/ZHIPU/GLM-5.3-Flash"
+        config["model_routes"] = routes
+        monkeypatch.setenv("LLM_MODEL_9_ID", "inherited-extra-model")
+        monkeypatch.setenv("LLM_MODEL_9_NAME", "Inherited extra")
+    elif route_mode == "empty":
+        config["model_routes"] = []
+
+    monkeypatch.setenv("LLM_MODEL_1_ID", REQUESTED_MODELS[0])
+    monkeypatch.setenv("LLM_MODEL_1_NAME", "Inherited")
+    monkeypatch.setenv("DEFAULT_LLM_MODEL", routes[0])
+    monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+    monkeypatch.setenv("SECRET_KEY", "test-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(dao, "init_db", Mock())
+    monkeypatch.setattr(dao, "init_redis", Mock())
+    monkeypatch.setattr(i18n, "load_translations", Mock())
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "test": llm.ProviderState(
+                enabled=True, params={"api_key": "test-key"}, models=routes
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm, "MODEL_ALIAS_MAP", {model: ("test", model) for model in routes}
+    )
+    monkeypatch.setattr(llm, "MODEL_SUPPORTED_GENERATION_METHODS", {})
+    monkeypatch.setattr(llm, "_load_llm_output_rate_rows", lambda _app: [])
+    monkeypatch.setattr(llm, "load_llm_credit_1x_unit_cost", lambda: None)
+
+    app = worker.build_app(validate_config(config))
+    with app.app_context():
+        catalog = llm.get_current_models(app)
+        resolved = engine.resolve_models(app, list(REQUESTED_MODELS))
+
+    assert [item["model"] for item in catalog] == routes
+    assert [item["display_name"] for item in catalog] == list(REQUESTED_MODELS)
+    assert resolved == [
+        {"requested": name, "model": route, "display_name": name}
+        for name, route in zip(REQUESTED_MODELS, routes, strict=True)
+    ]
+    for index in range(6, 10):
+        assert f"LLM_MODEL_{index}_NAME" not in os.environ
+        assert f"LLM_MODEL_{index}_ID" not in os.environ
+
+
+def test_worker_model_overrides_replace_inherited_numbered_slots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A comparison exposes only its own physical routes and display names."""
+    for index in range(1, 10):
+        monkeypatch.setenv(f"LLM_MODEL_{index}_NAME", "Inherited")
+        monkeypatch.setenv(f"LLM_MODEL_{index}_ID", "inherited-model")
+    worker._configure_model_slots(["route-a", "route-b"], ["Model A", "Model B"])
+    assert os.environ["LLM_MODEL_1_NAME"] == "Model A"
+    assert os.environ["LLM_MODEL_1_ID"] == "route-a"
+    assert os.environ["LLM_MODEL_2_NAME"] == "Model B"
+    assert os.environ["LLM_MODEL_2_ID"] == "route-b"
+    for index in range(3, 10):
+        assert f"LLM_MODEL_{index}_NAME" not in os.environ
+        assert f"LLM_MODEL_{index}_ID" not in os.environ
+
+
+@pytest.mark.parametrize(
+    ("routes", "names"), [([], []), (["a"], []), (["a"] * 10, ["A"] * 10)]
+)
+def test_worker_rejects_invalid_slot_overrides_before_mutating_environment(
+    routes: list[str], names: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bad comparison configuration must not partially clear inherited routes."""
+    monkeypatch.setenv("LLM_MODEL_1_ID", "original")
+    with pytest.raises(ArenaError, match="one to nine"):
+        worker._configure_model_slots(routes, names)
+    assert os.environ["LLM_MODEL_1_ID"] == "original"
 
 
 @pytest.mark.parametrize("operation", ["generate", "revalidate"])

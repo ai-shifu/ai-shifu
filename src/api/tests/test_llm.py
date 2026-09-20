@@ -100,6 +100,7 @@ _install_litellm_stub()
 _install_openai_responses_stub()
 
 from flaskr.api import llm
+from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_CACHE_TOKENS,
@@ -260,11 +261,19 @@ def _configure_model_list(monkeypatch: object) -> None:
     config = {
         "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
         "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
-        "LLM_ALLOWED_MODELS": ",".join(available_models),
-        "LLM_ALLOWED_MODEL_DISPLAY_NAMES": (
-            "DeepSeek-V4-Flash,Doubao-Seed-2.0-lite,No Rate"
-        ),
+        **{
+            f"LLM_MODEL_{index}_ID": model
+            for index, model in enumerate(available_models, 1)
+        },
+        "LLM_MODEL_1_NAME": "DeepSeek-V4-Flash",
+        "LLM_MODEL_2_NAME": "Doubao-Seed-2.0-lite",
+        "LLM_MODEL_3_NAME": "No Rate",
     }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
     monkeypatch.setattr(
         llm, "get_config", lambda key, default=None: config.get(key, default)
     )
@@ -406,10 +415,16 @@ def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
     _configure_model_list(monkeypatch)
     missing_anchor_config = {
         "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
-        "LLM_ALLOWED_MODELS": (
-            "qwen/deepseek-v4-flash,ark/doubao-seed-2-0-lite-260428"
-        ),
+        "LLM_MODEL_1_NAME": "Default",
+        "LLM_MODEL_1_ID": "qwen/deepseek-v4-flash",
+        "LLM_MODEL_2_NAME": "Second",
+        "LLM_MODEL_2_ID": "ark/doubao-seed-2-0-lite-260428",
     }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: missing_anchor_config.get(key, default),
+    )
     monkeypatch.setattr(
         llm,
         "get_config",
@@ -823,12 +838,24 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
             other_bidi_only_model: frozenset({"bidiGenerateContent"}),
         },
     )
+    config = {
+        "LLM_MODEL_1_NAME": "First",
+        "LLM_MODEL_1_ID": "gemini-3.7-flash",
+        "LLM_MODEL_3_NAME": "Third",
+        "LLM_MODEL_3_ID": "openai-compatible-without-capabilities",
+    }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
     monkeypatch.setattr(
         llm,
-        "_build_model_options",
-        lambda _app, models: [
-            {"model": model, "display_name": model} for model in models
-        ],
+        "get_litellm_params_and_model",
+        lambda model: ({"api_key": "test-key"}, model, "gemini"),
+    )
+    monkeypatch.setattr(
+        llm, "_attach_credit_multipliers", lambda _app, options: options
     )
 
     monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: False)
@@ -836,18 +863,11 @@ def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
         "gemini-3.7-flash",
         "openai-compatible-without-capabilities",
     ]
-    assert [item["model"] for item in llm.get_follow_up_models(object())] == [
-        "gemini-3.7-flash",
-        "openai-compatible-without-capabilities",
-    ]
+    assert [item["model"] for item in llm.get_follow_up_models(object())] == ["1", "3"]
 
     monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
     follow_up_models = llm.get_follow_up_models(object())
-    assert [item["model"] for item in follow_up_models] == [
-        "gemini-3.7-flash",
-        "openai-compatible-without-capabilities",
-        live_model,
-    ]
+    assert [item["model"] for item in follow_up_models] == ["1", "3", live_model]
     assert follow_up_models[0]["interaction_mode"] == "text"
     assert follow_up_models[0]["allowed_roles"] == ["main", "follow_up"]
     assert follow_up_models[0]["billing_mode"] == "billable"
@@ -886,9 +906,7 @@ def test_known_live_only_models_never_enter_text_catalogs(
         {model: frozenset({"bidiGenerateContent"})} if capabilities_discovered else {},
     )
     monkeypatch.setattr(
-        llm,
-        "_build_model_options",
-        lambda _app, models: [{"model": item} for item in models],
+        model_selection, "get_config", lambda _key, default=None: default
     )
 
     available = model == "gemini-3.8-live" and capabilities_discovered
@@ -3272,3 +3290,133 @@ def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
             )
         )
     assert [d["name"] for c in chunks for d in c.tool_call_deltas] == ["interact"]
+
+
+@pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])
+def test_numbered_call_uses_one_model_for_provider_usage_and_trace(
+    monkeypatch: pytest.MonkeyPatch, app: object, method: str
+) -> None:
+    from flaskr.api.llm import model_selection
+
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "gpt-test")
+    captured = {}
+    usage = {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("part", content="done", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    arguments = {
+        "app": app,
+        "user_id": "selection-user",
+        "span": span,
+        "model": "legacy-model",
+        "usage_metadata": {
+            "model_selection_scope": "course",
+            "model_selection_record_id": 123,
+        },
+    }
+    if method == "invoke_llm":
+        list(llm.invoke_llm(message="hello", **arguments))
+    else:
+        list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
+    assert captured["model"] == "gpt-test"
+    assert usage["model"] == "gpt-test"
+    assert usage["extra"]["resolved_model"] == "gpt-test"
+    assert usage["extra"]["model_index"] == "1"
+    assert usage["extra"]["model_selection_original"] == "legacy-model"
+    assert usage["extra"]["model_selection_fallback"] is True
+    assert (
+        span.generation_args["metadata"]["model_selection_original"] == "legacy-model"
+    )
+    assert span.end_args["metadata"]["resolved_model"] == "gpt-test"
+    assert span.end_args["metadata"]["model_selection_record_id"] == 123
+
+
+@pytest.mark.parametrize("preview", [True, False])
+@pytest.mark.parametrize("selection", ["1", "3", "7", "fast", "gpt-test", ""])
+def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
+    monkeypatch: pytest.MonkeyPatch, app: object, preview: bool, selection: str
+) -> None:
+    """The 2.0 entry point carries revision, number and actual model into usage."""
+    from uuid import uuid4
+
+    from flaskr.api.llm import model_selection
+    from flaskr.dao import db
+    from flaskr.service.learn.agent import lesson_entry
+    from pydantic_ai.models import ModelRequestParameters
+
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "gpt-test")
+    captured, usage = {}, {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("part", content="done", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    monkeypatch.setattr(
+        lesson_entry, "create_trace_with_root_span", lambda **_kw: (None, span)
+    )
+    monkeypatch.setattr(lesson_entry, "finalize_langfuse_trace", lambda **_kw: None)
+    monkeypatch.setattr(
+        lesson_entry,
+        "Engine",
+        lambda model, **kwargs: SimpleNamespace(
+            model=model, settings=kwargs["model_settings"]
+        ),
+    )
+
+    def run_gateway(_app: object, *, engine: object, **_kwargs: object) -> object:
+        yield from engine.model._stream([], ModelRequestParameters(), engine.settings)
+
+    monkeypatch.setattr(lesson_entry, "run_agent_lesson", run_gateway)
+    with app.test_request_context():
+        outline_type, course_type = lesson_entry._models(preview)
+        course_bid, outline_bid = uuid4().hex, uuid4().hex
+        course = course_type(shifu_bid=course_bid, llm=selection, llm_temperature=0.4)
+        outline = outline_type(
+            shifu_bid=course_bid, outline_item_bid=outline_bid, content="Teach."
+        )
+        db.session.add_all([course, outline])
+        db.session.flush()
+        db.session.commit()
+        list(
+            lesson_entry.agent_lesson_events(
+                app,
+                user_bid="selection-user",
+                shifu_bid=course_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview,
+            )
+        )
+        assert captured["model"] == usage["model"] == "gpt-test"
+        assert captured["temperature"] == 0.4
+        metadata = usage["extra"]
+        assert metadata["resolved_model"] == "gpt-test"
+        assert metadata["model_index"] == (
+            selection if selection in {"1", "3", "7"} else "1"
+        )
+        assert metadata["model_selection_original"] == selection
+        assert metadata["model_selection_fallback"] is (
+            selection not in {"1", "3", "7"}
+        )
+        assert course.llm == selection
+        assert metadata["model_selection_table"] == course_type.__tablename__
+        assert metadata["model_selection_record_id"] == course.id
+        assert metadata["model_selection_field"] == "llm"
+        assert metadata["model_selection_scope"] == "course"
+        assert "model_migration_batch" not in metadata
+        for key in metadata:
+            if key.startswith("model_") or key == "resolved_model":
+                assert span.end_args["metadata"][key] == metadata[key]

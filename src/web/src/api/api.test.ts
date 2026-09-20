@@ -1,5 +1,11 @@
 import api from './api';
 
+describe('course model api definitions', () => {
+  test('loads numbered course model options from the dedicated endpoint', () => {
+    expect(api.getCourseModelOptions).toBe('GET /llm/course-model-options');
+  });
+});
+
 describe('unused catalog cleanup', () => {
   test('drops unused catalog keys and keeps profile item definitions', () => {
     const unusedCatalogKeys = [

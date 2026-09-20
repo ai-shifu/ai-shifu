@@ -1,7 +1,6 @@
 """Verify MarkdownFlow parsing and history compatibility."""
 
 from datetime import datetime, timedelta
-from decimal import Decimal
 
 import pytest
 from flaskr.dao import db
@@ -64,12 +63,8 @@ def _add_outline_version(
             parent_bid=parent_bid,
             position=position,
             prerequisite_item_bids="",
-            llm="",
-            llm_temperature=Decimal("0.3"),
             llm_system_prompt="",
             ask_enabled_status=5101,
-            ask_llm="",
-            ask_llm_temperature=Decimal("0.3"),
             ask_llm_system_prompt="",
             deleted=0,
             updated_user_bid=updated_user_bid,
