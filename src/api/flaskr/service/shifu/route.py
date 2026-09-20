@@ -912,7 +912,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/favorite", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
     @with_shifu_context()
-    def mark_favorite_shifu_api() -> str:
+    def mark_favorite_shifu_api(shifu_bid: str) -> str:
         """Mark favorite shifu.
 
         ---
@@ -949,7 +949,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     description: is favorite
         """
         user_id = request.user.user_id
-        shifu_bid = request.view_args.get("shifu_bid")
         is_favorite = request.get_json().get("is_favorite")
         if isinstance(is_favorite, str):
             is_favorite = is_favorite.lower() == "true"
