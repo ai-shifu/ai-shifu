@@ -1275,10 +1275,9 @@ class TencentTTSProvider(BaseTTSProvider):
             stream=True,
             timeout=(10, 90),
         )
-        response.raise_for_status()
-
         received_audio = False
         try:
+            response.raise_for_status()
             for raw_line in response.iter_lines(decode_unicode=True):
                 line = _decode_tencent_sse_line(raw_line)
                 if not line:

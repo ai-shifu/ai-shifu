@@ -503,54 +503,61 @@ class MinimaxTTSProvider(BaseTTSProvider):
             stream=True,
             timeout=(10, 90),
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
 
-        for raw_line in response.iter_lines(decode_unicode=True):
-            line = str(raw_line or "").strip()
-            if not line:
-                continue
-            if line.startswith("data:"):
-                line = line[5:].strip()
-            if line == "[DONE]":
-                break
+            for raw_line in response.iter_lines(decode_unicode=True):
+                line = str(raw_line or "").strip()
+                if not line:
+                    continue
+                if line.startswith("data:"):
+                    line = line[5:].strip()
+                if line == "[DONE]":
+                    break
 
-            try:
-                message = json.loads(line)
-            except json.JSONDecodeError as exc:
-                error_message = "Invalid MiniMax HTTP streaming JSON response"
-                raise ValueError(error_message) from exc
+                try:
+                    message = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    error_message = "Invalid MiniMax HTTP streaming JSON response"
+                    raise ValueError(error_message) from exc
 
-            _ensure_minimax_base_resp(message, "MiniMax HTTP streaming error")
-            data = message.get("data") or {}
-            extra_info = message.get("extra_info") or {}
-            audio_hex = data.get("audio") or ""
-            try:
-                audio_data = bytes.fromhex(audio_hex) if audio_hex else b""
-            except ValueError as exc:
-                error_message = "Invalid MiniMax HTTP streaming audio hex"
-                raise ValueError(error_message) from exc
+                _ensure_minimax_base_resp(message, "MiniMax HTTP streaming error")
+                data = message.get("data") or {}
+                extra_info = message.get("extra_info") or {}
+                audio_hex = data.get("audio") or ""
+                try:
+                    audio_data = bytes.fromhex(audio_hex) if audio_hex else b""
+                except ValueError as exc:
+                    error_message = "Invalid MiniMax HTTP streaming audio hex"
+                    raise ValueError(error_message) from exc
 
-            status = int(data.get("status") or 0)
-            is_final = status == 2 or bool(extra_info) or bool(message.get("is_final"))
-            subtitles = _extract_minimax_subtitles(message)
-            yield MinimaxHTTPStreamChunk(
-                audio_data=audio_data,
-                is_final=is_final,
-                duration_ms=int(extra_info.get("audio_length") or 0),
-                sample_rate=int(
-                    extra_info.get("audio_sample_rate")
-                    or audio_settings.sample_rate
-                    or 24000
-                ),
-                format=str(
-                    extra_info.get("audio_format") or audio_settings.format or "mp3"
-                ),
-                word_count=int(extra_info.get("word_count") or 0),
-                usage_characters=int(extra_info.get("usage_characters") or 0),
-                subtitles=subtitles,
-                extra_info=extra_info,
-                trace_id=str(message.get("trace_id") or ""),
-            )
+                status = int(data.get("status") or 0)
+                is_final = (
+                    status == 2 or bool(extra_info) or bool(message.get("is_final"))
+                )
+                subtitles = _extract_minimax_subtitles(message)
+                yield MinimaxHTTPStreamChunk(
+                    audio_data=audio_data,
+                    is_final=is_final,
+                    duration_ms=int(extra_info.get("audio_length") or 0),
+                    sample_rate=int(
+                        extra_info.get("audio_sample_rate")
+                        or audio_settings.sample_rate
+                        or 24000
+                    ),
+                    format=str(
+                        extra_info.get("audio_format") or audio_settings.format or "mp3"
+                    ),
+                    word_count=int(extra_info.get("word_count") or 0),
+                    usage_characters=int(extra_info.get("usage_characters") or 0),
+                    subtitles=subtitles,
+                    extra_info=extra_info,
+                    trace_id=str(message.get("trace_id") or ""),
+                )
+        finally:
+            close = getattr(response, "close", None)
+            if callable(close):
+                close()
 
     def _call_api(
         self,
