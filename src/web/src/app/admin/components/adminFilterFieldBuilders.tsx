@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import type { AdminFilterItem } from '@/app/admin/components/AdminFilter';
 import {
