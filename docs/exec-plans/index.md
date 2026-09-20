@@ -83,6 +83,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Retire the AI Instruction Generator](./completed/retire-ai-instruction-generator.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Safe Frontend Dead Code Cleanup](./completed/safe-frontend-dead-code-cleanup.md)
+- [Safe Outbound URL Validation](./completed/safe-outbound-url-validation.md)
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
