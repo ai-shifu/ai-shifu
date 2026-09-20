@@ -299,14 +299,14 @@ def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> Non
         ]
     )
     events = _run(engine, app=_App())
-    # The text's block closes before the question, then the prompt stands in for the controls.
+    # The prompt joins the text and stands in for the controls; the text's block closes after it.
     assert [e.type for e in events] == [
         GeneratedType.CONTENT,
-        GeneratedType.BREAK,
         GeneratedType.CONTENT,
         GeneratedType.BREAK,
+        GeneratedType.BREAK,
     ]
-    assert [events[0].content, events[2].content] == ["before", "pick"]
+    assert [e.content for e in events[:2]] == ["before", "pick"]
 
 
 # --- when things are written -------------------------------------------------------------
