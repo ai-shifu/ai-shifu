@@ -1046,3 +1046,53 @@ def test_no_lesson_text_escapes_a_listening_turn_unpaged(
         and not e.get_mdflow_stream_parts()
     ]
     assert not unpaged, f"text left a listening turn without a page: {unpaged}"
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+def test_verbatim_markers_never_reach_the_learner(
+    monkeypatch: pytest.MonkeyPatch, listen: bool
+) -> None:
+    """The script's `===` markers come back in the engine's text; a 1.0 lesson never shows them.
+
+    They were rendered, spoken and subtitled. What they wrap is the lesson and is kept.
+    """
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [
+            ContentDelta(text="My goal: ==="),
+            ContentDelta(text="=help a million people=="),
+            ContentDelta(text="= and that is why.\n"),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine, listen=listen, app=_App())
+
+    said = "".join(
+        str(e.content)
+        for e in events
+        if not isinstance(e, str) and e.type == GeneratedType.CONTENT
+    )
+    assert "===" not in said
+    assert "help a million people" in said
+    assert said.startswith("My goal: help a million people and that is why.")
