@@ -247,14 +247,6 @@ class Engine:
             # Terminal: a repeated or late request must not run the model on a finished lesson.
             yield TurnDone(reason="finished", usage=session.usage)
             return
-        if self.turn_limit and session.turn >= self.turn_limit:
-            # Out of turns: end the lesson rather than run the model again. Marked finished so a
-            # reload does not start it over, and reported as finished rather than as an error --
-            # everything the learner was taught stands, and the host reads this as a lesson that
-            # is over.
-            session.finished = True
-            yield TurnDone(reason="finished", usage=session.usage)
-            return
         turn = turn or (StartTurn() if not session.started else ContinueTurn())
         deps = Deps(
             memory=session.memory,
@@ -336,6 +328,21 @@ class Engine:
                 yield ErrorEvent(message="no interaction is pending")
                 return
             prompt = turn.text if isinstance(turn, MessageTurn) else "continue"
+        if prompt is not None and self.turn_limit and session.turn >= self.turn_limit:
+            # Out of turns: end the lesson rather than teach another one. Marked finished so a
+            # reload does not start it over, and reported as finished rather than as an error --
+            # everything the learner was taught stands, and the host reads this as a lesson that
+            # is over.
+            #
+            # Only a new turn of teaching is refused. A `prompt` of None means this call is
+            # finishing something already begun: the learner answering the question the last turn
+            # asked, or a resume that never reached the model. Refusing those would throw away an
+            # answer the script requires -- along with the memory it sets -- and would turn one
+            # network failure on the last turn into a lesson that can never be continued.
+            session.finished = True
+            yield TurnDone(reason="finished", usage=session.usage)
+            return
+
         if session.started:
             kwargs["message_history"] = session.messages
 
