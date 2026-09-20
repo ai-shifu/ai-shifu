@@ -52,6 +52,7 @@ from flaskr.service.learn.agent.lesson_record import (
 )
 from flaskr.service.learn.agent.listen import LessonVoice
 from flaskr.service.learn.agent.pagination import LessonPager
+from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
     load_agent_session,
@@ -66,7 +67,7 @@ from flaskr.service.learn.memory import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Generator
+    from collections.abc import AsyncIterator, Callable, Generator, Iterable
 
     from flask import Flask
     from flaskr.service.learn.agent.engine.engine import Engine, TurnInput
@@ -370,6 +371,49 @@ def _paged(
     )
 
 
+def _without_markers(
+    events: Iterable[object], markers: PreserveMarkerFilter
+) -> Generator[object, None, None]:
+    """Pass the turn's events through, with the script's verbatim markers taken out of its text.
+
+    A piece that is nothing but markers, or a fragment held back until more text arrives, is not
+    passed on at all; the filter releases what it holds at the end of the turn.
+    """
+    for event in events:
+        if not isinstance(event, ContentDelta):
+            yield event
+            continue
+        text = markers.feed(event.text)
+        if text:
+            yield event if text == event.text else ContentDelta(text=text)
+
+
+def _say(
+    text: str,
+    *,
+    pager: LessonPager | None,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send lesson text the way this turn sends it: paged when listening, plain otherwise."""
+    if pager is not None:
+        yield from _paged(
+            text,
+            pager=pager,
+            voice=voice,
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+        )
+        return
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        type=GeneratedType.CONTENT,
+        content=text,
+    )
+
+
 def _pieces(
     pieces: list[tuple[str, str, int]],
     *,
@@ -411,8 +455,12 @@ def _stream_turn(
     pending_memory: list[MemoryUpdated] = []
     taught: list[str] = []
     persisted = False
+    # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
+    markers = PreserveMarkerFilter()
 
-    for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
+    for event in _without_markers(
+        run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval), markers
+    ):
         if isinstance(event, ContentDelta):
             taught.append(event.text)
             if pager is not None:
@@ -438,6 +486,17 @@ def _stream_turn(
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
         # question emits one and then re-asks the question and ends the turn properly, so treating
         # it as terminal would write the turn twice and stage its block twice.
+        if isinstance(event, TurnDone):
+            tail = markers.flush()
+            if tail:
+                taught.append(tail)
+                yield from _say(
+                    tail,
+                    pager=pager,
+                    voice=voice,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                )
         if isinstance(event, TurnDone) and pager is not None:
             # The formatter holds the last line until it sees its end; the turn is that end.
             yield from _pieces(
@@ -507,6 +566,17 @@ def _stream_turn(
     # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
     # the failures it cannot continue past. What the turn produced still has to be written, or the
     # learner replays an exchange that already happened.
+    if not persisted:
+        tail = markers.flush()
+        if tail:
+            taught.append(tail)
+            yield from _say(
+                tail,
+                pager=pager,
+                voice=voice,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+            )
     if pager is not None and not persisted:
         yield from _pieces(
             pager.flush(),
