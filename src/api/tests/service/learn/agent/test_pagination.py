@@ -98,3 +98,38 @@ def test_the_current_number_follows_the_last_piece() -> None:
     pager = LessonPager()
     pager.add("Prose.\n\n---\n\nMore prose.\n")
     assert pager.number == 1
+
+
+def test_the_pieces_are_the_same_wherever_the_stream_is_cut() -> None:
+    """A model's chunks fall wherever they fall; the lesson must not depend on that.
+
+    Asserted at every character boundary rather than at random ones: a boundary inside a marker,
+    a fence or a tag is exactly where a formatter goes wrong, and there are few enough of them to
+    check them all. Trailing whitespace is normalised away -- it carries no meaning in Markdown
+    and rides with whichever piece the buffer happened to release.
+    """
+    lesson = (
+        "First page.\n\n---\n\n"
+        '<div class="card">A cover</div>\n\n'
+        "```js\nif (a === b) {}\n```\n\n"
+        "![图](http://example.com/y.png)\n\nLast page.\n"
+    )
+
+    def shape(cut: int) -> tuple:
+        pager = LessonPager()
+        pieces = pager.add(lesson[:cut]) + pager.add(lesson[cut:]) + pager.flush()
+        grouped: dict[tuple[str, int], list[str]] = {}
+        for content, stream_type, number in pieces:
+            grouped.setdefault((stream_type, number), []).append(content)
+        return tuple(
+            (stream_type, number, "".join(parts).strip())
+            for (stream_type, number), parts in sorted(
+                grouped.items(), key=lambda item: item[0][1]
+            )
+        )
+
+    whole = shape(len(lesson))
+    for cut in range(len(lesson) + 1):
+        assert shape(cut) == whole, f"cut at {cut} changed the pieces"
+    # And the visuals are typed as visuals, not as text a listening lesson would speak.
+    assert {stream_type for stream_type, _, _ in whole} >= {"html", "code", "img"}
