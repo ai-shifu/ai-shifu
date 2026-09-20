@@ -634,6 +634,14 @@ def test_volc_knowledge_adapter_streams_success_content(
 
     request_state = {}
 
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "validate_url",
+        lambda *_args, **_kwargs: types.SimpleNamespace(
+            url="https://api-knowledgebase.mlp.cn-beijing.volces.com/api/knowledge/collection/search_knowledge"
+        ),
+    )
+
     def _fake_request(
         _self: object, method: object, url: object, **kwargs: object
     ) -> object:
@@ -683,6 +691,92 @@ def test_volc_knowledge_adapter_streams_success_content(
     )
     assert request_state["headers"]["X-Date"]
     assert request_state["headers"]["X-Content-Sha256"]
+
+
+@pytest.mark.parametrize(
+    ("domain", "normalized_url", "expected_host"),
+    [
+        (
+            "api-knowledgebase.mlp.cn-beijing.volces.com:443",
+            "https://api-knowledgebase.mlp.cn-beijing.volces.com/api/knowledge/collection/search_knowledge",
+            "api-knowledgebase.mlp.cn-beijing.volces.com",
+        ),
+        (
+            "api-knowledgebase.mlp.cn-beijing.volces.com.",
+            "https://api-knowledgebase.mlp.cn-beijing.volces.com/api/knowledge/collection/search_knowledge",
+            "api-knowledgebase.mlp.cn-beijing.volces.com",
+        ),
+    ],
+)
+def test_volc_signature_uses_the_normalized_transport_host(
+    app: object,
+    monkeypatch: object,
+    domain: str,
+    normalized_url: str,
+    expected_host: str,
+) -> None:
+    adapter = module.VolcKnowledgeAskProviderAdapter()
+    request_state = {}
+
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "validate_url",
+        lambda *_args, **_kwargs: types.SimpleNamespace(url=normalized_url),
+    )
+
+    def _fake_request(
+        _self: object, method: object, url: object, **kwargs: object
+    ) -> object:
+        request_state["method"] = method
+        request_state["url"] = url
+        request_state["headers"] = kwargs.get("headers") or {}
+        return _FakeResponse(json_data={"code": 0, "data": {"text": "ok"}})
+
+    monkeypatch.setattr(common.SafeOutboundClient, "request", _fake_request)
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "account_id": "acc-1",
+                    "ak": "ak-1",
+                    "sk": "sk-1",
+                    "collection_name": "collection-1",
+                    "domain": domain,
+                }
+            },
+        )
+    )
+
+    assert [chunk.content for chunk in chunks] == ["ok"]
+    assert request_state["url"] == normalized_url
+    assert request_state["headers"]["Host"] == expected_host
+
+
+def test_safe_provider_client_uses_separate_read_and_total_timeouts(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+            "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": 90,
+        }.get,
+    )
+
+    client = common.safe_provider_client(
+        app,
+        trusted_origins_config="COZE_TRUSTED_ORIGINS",
+    )
+
+    assert client.policy.read_timeout_seconds == 20
+    assert client.policy.total_timeout_seconds == 90
 
 
 def test_volc_knowledge_adapter_missing_config_raises_error(app: object) -> None:

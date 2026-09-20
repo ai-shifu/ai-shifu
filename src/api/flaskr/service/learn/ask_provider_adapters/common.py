@@ -129,6 +129,16 @@ def provider_timeout_seconds() -> int:
     return max(value, 1)
 
 
+def provider_total_timeout_seconds() -> int:
+    """Return the wall-clock budget for one provider request or stream."""
+    raw = get_config("ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = 300
+    return max(value, provider_timeout_seconds())
+
+
 def safe_provider_client(
     app: Flask,
     *,
@@ -153,6 +163,7 @@ def safe_provider_client(
             max_response_bytes=max_response_bytes,
             connect_timeout_seconds=5,
             read_timeout_seconds=provider_timeout_seconds(),
+            total_timeout_seconds=provider_total_timeout_seconds(),
         )
     )
 

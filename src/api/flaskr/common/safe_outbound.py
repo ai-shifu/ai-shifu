@@ -261,6 +261,15 @@ class SafeOutboundClient:
         self._resolver = resolver or _resolve_addresses
         self._transport = transport
 
+    def validate_url(self, url: str) -> ValidatedOutboundUrl:
+        """Validate and normalize one URL within the client's total budget."""
+        deadline = time.monotonic() + self.policy.total_timeout_seconds
+        return validate_outbound_url(
+            url,
+            policy=self.policy,
+            resolver=self._deadline_resolver(deadline),
+        )
+
     def request(
         self,
         method: str,

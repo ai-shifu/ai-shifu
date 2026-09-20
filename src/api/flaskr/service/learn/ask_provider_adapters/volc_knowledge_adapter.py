@@ -7,7 +7,7 @@ import json
 from collections.abc import Generator
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from flask import Flask
 from flaskr.common.safe_outbound import (
@@ -266,10 +266,28 @@ class VolcKnowledgeAskProviderAdapter:
             if isinstance(value, dict):
                 payload[field] = copy.deepcopy(value)
 
+        raw_url = f"{scheme}://{domain}{path}"
+        try:
+            client = safe_provider_client(
+                app, trusted_origins_config="VOLC_KNOWLEDGE_TRUSTED_ORIGINS"
+            )
+        except ValueError as exc:
+            message = "VOLC_KNOWLEDGE_TRUSTED_ORIGINS contains an invalid origin"
+            raise AskProviderConfigError(message) from exc
+        try:
+            validated_target = client.validate_url(raw_url)
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "volc_knowledge request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except UnsafeOutboundUrlError as exc:
+            error_message = "volc_knowledge request was rejected or failed"
+            raise AskProviderError(error_message) from exc
+
+        normalized_host = urlsplit(validated_target.url).netloc
         unsigned_headers = {
             "Accept": "application/json",
             "Content-Type": "application/json; charset=utf-8",
-            "Host": domain,
+            "Host": normalized_host,
             "V-Account-Id": account_id,
         }
         request_body = json.dumps(payload, ensure_ascii=False)
@@ -287,16 +305,9 @@ class VolcKnowledgeAskProviderAdapter:
         request_headers = {**unsigned_headers, **signed_headers}
 
         try:
-            client = safe_provider_client(
-                app, trusted_origins_config="VOLC_KNOWLEDGE_TRUSTED_ORIGINS"
-            )
-        except ValueError as exc:
-            message = "VOLC_KNOWLEDGE_TRUSTED_ORIGINS contains an invalid origin"
-            raise AskProviderConfigError(message) from exc
-        try:
             response = client.request(
                 "POST",
-                f"{scheme}://{domain}{path}",
+                validated_target.url,
                 headers=request_headers,
                 body=request_body.encode("utf-8"),
             )

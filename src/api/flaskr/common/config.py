@@ -723,6 +723,18 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
+    "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": EnvVar(
+        name="ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS",
+        default=300,
+        type=int,
+        description=(
+            "Maximum wall-clock seconds for one external ask provider request or "
+            "stream. This must remain bounded even when response chunks continue "
+            "arriving."
+        ),
+        group="llm",
+        required=False,
+    ),
     "DIFY_TRUSTED_ORIGINS": EnvVar(
         name="DIFY_TRUSTED_ORIGINS",
         default=[],
