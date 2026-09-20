@@ -483,10 +483,13 @@ def _stream_turn(
             pending_memory.append(event)
             continue
 
-        # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
-        # question emits one and then re-asks the question and ends the turn properly, so treating
-        # it as terminal would write the turn twice and stage its block twice.
-        if isinstance(event, TurnDone):
+        if not isinstance(event, ContentDelta):
+            # Anything that is not lesson text ends the text before it. The formatter holds the
+            # last line until it sees its end, and the marker filter a trailing fragment; released
+            # only at the end of the turn, the lesson's closing sentence landed after the
+            # question's controls, so the last thing in the learner's history was text rather
+            # than the question -- and the browser, seeing no question to answer, asked the
+            # lesson to continue with nothing.
             tail = markers.flush()
             if tail:
                 taught.append(tail)
@@ -497,14 +500,17 @@ def _stream_turn(
                     outline_bid=outline_bid,
                     generated_block_bid=generated_block_bid,
                 )
-        if isinstance(event, TurnDone) and pager is not None:
-            # The formatter holds the last line until it sees its end; the turn is that end.
-            yield from _pieces(
-                pager.flush(),
-                voice=voice,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
-            )
+            if pager is not None:
+                yield from _pieces(
+                    pager.flush(),
+                    voice=voice,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                )
+
+        # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
+        # question emits one and then re-asks the question and ends the turn properly, so treating
+        # it as terminal would write the turn twice and stage its block twice.
         if isinstance(event, TurnDone) and voice is not None:
             # Whatever is still mid-synthesis when the text runs out, which is usually the last
             # sentence of the turn.

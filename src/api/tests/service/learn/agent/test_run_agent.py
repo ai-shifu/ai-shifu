@@ -1096,3 +1096,64 @@ def test_verbatim_markers_never_reach_the_learner(
     assert "===" not in said
     assert "help a million people" in said
     assert said.startswith("My goal: help a million people and that is why.")
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+def test_the_closing_sentence_comes_before_the_question_it_leads_to(
+    monkeypatch: pytest.MonkeyPatch, listen: bool
+) -> None:
+    """A lesson's last line usually has no newline after it, and the question follows it.
+
+    Held until the end of the turn, that line was sent after the question's controls, so the last
+    thing in the learner's history was text. The browser reads a history that does not end in a
+    question as a lesson to continue, and asked the engine to go on with nothing -- which re-asked
+    the question, and again on the next reload.
+    """
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [
+            ContentDelta(text="Which of these do you agree with?"),
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="",
+                    options=[Option(display="Yes"), Option(display="No")],
+                    variable="v",
+                ),
+            ),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = [
+        e for e in _run(engine, listen=listen, app=_App()) if not isinstance(e, str)
+    ]
+
+    kinds = [e.type for e in events]
+    assert GeneratedType.CONTENT in kinds
+    assert GeneratedType.INTERACTION in kinds
+    assert kinds.index(GeneratedType.CONTENT) < kinds.index(GeneratedType.INTERACTION)
+    assert kinds.index(GeneratedType.INTERACTION) > max(
+        i for i, k in enumerate(kinds) if k == GeneratedType.CONTENT
+    ), "lesson text was sent after the question it leads to"
