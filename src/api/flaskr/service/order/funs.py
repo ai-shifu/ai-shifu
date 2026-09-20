@@ -1826,6 +1826,8 @@ def sync_stripe_checkout_session(
         _update_stripe_order_snapshot(
             stripe_order=stripe_order, session=session, intent=intent
         )
+        if paid:
+            stripe_order.status = 1
 
         if paid and order.status != ORDER_STATUS_SUCCESS:
             success_buy_record(app, order.order_bid)
