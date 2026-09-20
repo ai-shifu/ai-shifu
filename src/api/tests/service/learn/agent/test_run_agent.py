@@ -299,12 +299,14 @@ def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> Non
         ]
     )
     events = _run(engine, app=_App())
+    # The text's block closes before the question, then the prompt stands in for the controls.
     assert [e.type for e in events] == [
         GeneratedType.CONTENT,
+        GeneratedType.BREAK,
         GeneratedType.CONTENT,
         GeneratedType.BREAK,
     ]
-    assert [e.content for e in events[:2]] == ["before", "pick"]
+    assert [events[0].content, events[2].content] == ["before", "pick"]
 
 
 # --- when things are written -------------------------------------------------------------
@@ -1153,7 +1155,10 @@ def test_the_closing_sentence_comes_before_the_question_it_leads_to(
     kinds = [e.type for e in events]
     assert GeneratedType.CONTENT in kinds
     assert GeneratedType.INTERACTION in kinds
-    assert kinds.index(GeneratedType.CONTENT) < kinds.index(GeneratedType.INTERACTION)
-    assert kinds.index(GeneratedType.INTERACTION) > max(
+    question = kinds.index(GeneratedType.INTERACTION)
+    assert question > max(
         i for i, k in enumerate(kinds) if k == GeneratedType.CONTENT
     ), "lesson text was sent after the question it leads to"
+    # The text's block is closed before the question, as a 1.0 lesson closes it: history is
+    # ordered by the moment of writing, and the question must be the last thing written.
+    assert GeneratedType.BREAK in kinds[:question]
