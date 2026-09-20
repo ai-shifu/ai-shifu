@@ -193,6 +193,42 @@ class SafeOutboundResponse:
         finally:
             self.close()
 
+    def iter_lines(self, *, decode_unicode: bool = False) -> Iterable[bytes | str]:
+        """Yield bounded response lines without buffering the complete body."""
+        pending = bytearray()
+        for chunk in self.iter_bytes():
+            pending.extend(chunk)
+            while True:
+                separator_index = next(
+                    (
+                        index
+                        for index, value in enumerate(pending)
+                        if value in {0x0A, 0x0D}
+                    ),
+                    -1,
+                )
+                if separator_index < 0:
+                    break
+                separator = pending[separator_index]
+                if separator == 0x0D and separator_index + 1 == len(pending):
+                    break
+                separator_size = (
+                    2
+                    if separator == 0x0D and pending[separator_index + 1] == 0x0A
+                    else 1
+                )
+                line = bytes(pending[:separator_index])
+                del pending[: separator_index + separator_size]
+                yield line.decode("utf-8", errors="replace") if decode_unicode else line
+        if pending.endswith(b"\r"):
+            pending.pop()
+            line = bytes(pending)
+            yield line.decode("utf-8", errors="replace") if decode_unicode else line
+            return
+        if pending:
+            line = bytes(pending)
+            yield (line.decode("utf-8", errors="replace") if decode_unicode else line)
+
     def close(self) -> None:
         """Close the underlying connection."""
         self._raw.close()

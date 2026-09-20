@@ -1,6 +1,8 @@
 """Verify ask provider adapter behavior."""
 
+import json
 import types
+from typing import Self
 
 import pytest
 import requests
@@ -32,6 +34,16 @@ class _FakeResponse:
         self._json_data = json_data
         self._json_error = json_error
 
+    @property
+    def status(self) -> object:
+        return self.status_code
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_exc_info: object) -> None:
+        return None
+
     def iter_lines(self, decode_unicode: object = True) -> object:
         _ = decode_unicode
         yield from self._lines
@@ -46,7 +58,17 @@ class _FakeResponse:
         return self._json_data
 
 
-def test_dify_adapter_streams_success_content(app: object, monkeypatch: object) -> None:
+@pytest.fixture
+def dify_app(app: object, monkeypatch: object) -> object:
+    """Isolate Dify policy configuration from the shared Flask test app."""
+    monkeypatch.setitem(app.config, "DIFY_TRUSTED_ORIGINS", "")
+    return app
+
+
+def test_dify_adapter_streams_success_content(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
     adapter = module.DifyAskProviderAdapter()
     request_state = {}
 
@@ -58,8 +80,17 @@ def test_dify_adapter_streams_success_content(app: object, monkeypatch: object) 
         }.get,
     )
 
-    def _fake_post(*_args: object, **kwargs: object) -> object:
-        request_state["json"] = kwargs.get("json")
+    def _fake_request(
+        _self: object,
+        method: object,
+        url: object,
+        **kwargs: object,
+    ) -> object:
+        request_state["method"] = method
+        request_state["url"] = url
+        request_state["headers"] = kwargs.get("headers")
+        request_state["json"] = json.loads(kwargs.get("body", b"{}"))
+        request_state["policy"] = _self.policy
         return _FakeResponse(
             lines=[
                 'data: {"event":"message","answer":"hello"}',
@@ -69,14 +100,14 @@ def test_dify_adapter_streams_success_content(app: object, monkeypatch: object) 
         )
 
     monkeypatch.setattr(
-        dify_adapter.requests,
-        "post",
-        _fake_post,
+        dify_adapter.SafeOutboundClient,
+        "request",
+        _fake_request,
     )
 
     chunks = list(
         adapter.stream_answer(
-            app=app,
+            app=dify_app,
             user_id="user-1",
             user_query="hello",
             messages=[
@@ -95,12 +126,193 @@ def test_dify_adapter_streams_success_content(app: object, monkeypatch: object) 
     )
 
     assert [chunk.content for chunk in chunks] == ["hello", " world"]
+    assert request_state["method"] == "POST"
+    assert request_state["url"] == "https://dify.example.com/chat-messages"
+    assert request_state["headers"] == {
+        "Authorization": "Bearer test-key",
+        "Content-Type": "application/json",
+    }
+    assert request_state["policy"].trusted_origins == frozenset()
     assert request_state["json"]["query"] == (
         "[system]\ncourse prompt\n\n"
         "[user]\nprevious question\n\n"
         "[assistant]\nprevious answer\n\n"
         "[user]\nhello"
     )
+
+
+def test_dify_adapter_maps_request_deadline_to_provider_timeout(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+
+    def _raise_deadline(*_args: object, **_kwargs: object) -> object:
+        message = "outbound request exceeded its total timeout"
+        raise dify_adapter.OutboundDeadlineExceededError(message)
+
+    monkeypatch.setattr(dify_adapter.SafeOutboundClient, "request", _raise_deadline)
+
+    with pytest.raises(module.AskProviderTimeoutError, match="dify request timeout"):
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "https://dify.example.com",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
+def test_dify_adapter_maps_stream_deadline_to_provider_timeout(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+
+    class _DeadlineResponse(_FakeResponse):
+        def iter_lines(self, decode_unicode: object = True) -> object:
+            _ = decode_unicode
+            message = "outbound request exceeded its total timeout"
+            raise dify_adapter.OutboundDeadlineExceededError(message)
+            yield
+
+    monkeypatch.setattr(
+        dify_adapter.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _DeadlineResponse(),
+    )
+
+    with pytest.raises(module.AskProviderTimeoutError, match="dify request timeout"):
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "https://dify.example.com",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://127.0.0.1:80/v1",
+        "http://[::1]:80/v1",
+        "http://169.254.169.254/latest/meta-data",
+    ],
+)
+def test_dify_adapter_rejects_internal_destinations(
+    dify_app: object,
+    base_url: str,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+
+    with pytest.raises(
+        module.AskProviderError,
+        match="dify request was rejected or failed",
+    ):
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": base_url,
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
+def test_dify_adapter_applies_deployment_trusted_origins(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+    captured = {}
+    monkeypatch.setitem(
+        dify_app.config,
+        "DIFY_TRUSTED_ORIGINS",
+        "http://dify.internal:5001",
+    )
+
+    def _fake_request(
+        client: object,
+        *_args: object,
+        **_kwargs: object,
+    ) -> object:
+        captured["policy"] = client.policy
+        return _FakeResponse(lines=["data: [DONE]"])
+
+    monkeypatch.setattr(dify_adapter.SafeOutboundClient, "request", _fake_request)
+
+    assert (
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "http://dify.internal:5001/v1",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+        == []
+    )
+    assert captured["policy"].trusted_origins == frozenset(
+        {"http://dify.internal:5001"}
+    )
+
+
+def test_dify_adapter_rejects_invalid_deployment_trusted_origin(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+    monkeypatch.setitem(
+        dify_app.config,
+        "DIFY_TRUSTED_ORIGINS",
+        "http://user:secret@dify.internal:5001",
+    )
+
+    with pytest.raises(
+        module.AskProviderConfigError,
+        match="DIFY_TRUSTED_ORIGINS contains an invalid origin",
+    ):
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "https://dify.example.com/v1",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
 
 
 def test_coze_adapter_timeout_raises_timeout_error(
