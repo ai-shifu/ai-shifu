@@ -35,6 +35,7 @@ from flaskr.service.learn.agent.engine.engine import (
 )
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
+    InteractionRequest,
     MemoryUpdated,
     TurnDone,
 )
@@ -51,6 +52,8 @@ from flaskr.service.learn.agent.lesson_record import (
     stage_turn_block,
 )
 from flaskr.service.learn.agent.listen import LessonVoice
+from flaskr.service.learn.agent.pagination import LessonPager
+from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
     load_agent_session,
@@ -65,7 +68,7 @@ from flaskr.service.learn.memory import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Generator
+    from collections.abc import AsyncIterator, Callable, Generator, Iterable
 
     from flask import Flask
     from flaskr.service.learn.agent.engine.engine import Engine, TurnInput
@@ -271,11 +274,15 @@ def run_agent_lesson(
         if listen and progress_record_bid
         else None
     )
+    # Paging is what listening needs: it is how a page's audio finds the text it belongs to. A
+    # reading lesson has no audio to bind and keeps the single-element shape it has today.
+    pager = LessonPager() if listen else None
     try:
         yield from _stream_turn(
             app,
             run_turn_on_thread=run_turn_on_thread,
             voice=voice,
+            pager=pager,
             make_events=make_events,
             session_holder=session_holder,
             user_bid=user_bid,
@@ -306,11 +313,188 @@ def _retire_block(app: Flask, *, generated_block_bid: str) -> None:
         )
 
 
+def _on_this_page(
+    events: object,
+    *,
+    pager: LessonPager | None,
+    voice: LessonVoice | None,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Put any lesson text that reached here unpaged on the page the lesson is on.
+
+    Paged text and unpaged text cannot share a turn. The unpaged kind is assembled into one
+    element holding the whole lesson, which then sits beside the paged ones marked speakable,
+    never finalised, and retired at the end without telling the browser -- so the learner waits on
+    audio for it that will never come. A single unpaged line is enough to do it, and there was
+    one: the prompt beside a question.
+
+    Rather than tagging each place that can produce lesson text and relying on the next one to
+    remember, everything leaving here is checked.
+    """
+    for event in events:
+        if (
+            pager is not None
+            and getattr(event, "type", None) == GeneratedType.CONTENT
+            and not event.get_mdflow_stream_parts()
+        ):
+            text = str(event.content or "")
+            if text:
+                event.set_mdflow_stream_parts([(text, "text", pager.number)])
+                yield event
+                if voice is not None:
+                    # The question beside a set of choices is often the only place the model
+                    # asks it; a listener who does not hear it has nothing to answer.
+                    yield from voice.speak(
+                        text, stream_type="text", stream_number=pager.number
+                    )
+                continue
+        yield event
+
+
+def _paged(
+    text: str,
+    *,
+    pager: LessonPager,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send one stretch of lesson text in formatted pieces, each spoken after it is shown.
+
+    Text first and then its audio, the order a 1.0 lesson sends them in: the browser treats a
+    passage marked speakable with no audio yet as buffering and waits, so audio that arrives ahead
+    of the text it belongs to has no element to attach to.
+    """
+    yield from _pieces(
+        pager.add(text),
+        voice=voice,
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+    )
+
+
+def _question(
+    event: InteractionRequest,
+    *,
+    pager: LessonPager | None,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+    app: Flask,
+    user_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Deliver a question as a 1.0 lesson does: its prompt with the text, then its controls."""
+    try:
+        translated = translate(
+            event, outline_bid=outline_bid, generated_block_bid=generated_block_bid
+        )
+    except UnrepresentableInteractionError:
+        # The controls would ask something other than the model did, so they are not sent. The
+        # question still is, as text, so the learner has something to answer.
+        app.logger.warning(
+            "interaction cannot be rendered as MarkdownFlow: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+            exc_info=True,
+        )
+        prompt = (
+            event.spec.prompt if event.spec.prompt and event.spec.prompt.strip() else ""
+        )
+        translated = (
+            [
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                    type=GeneratedType.CONTENT,
+                    content=prompt,
+                )
+            ]
+            if prompt
+            else []
+        )
+    prompts = [d for d in translated if d.type == GeneratedType.CONTENT]
+    controls = [d for d in translated if d.type != GeneratedType.CONTENT]
+    yield from _on_this_page(prompts, pager=pager, voice=voice)
+    if voice is not None:
+        yield from voice.finish()
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        type=GeneratedType.BREAK,
+        content="",
+    )
+    yield from controls
+
+
+def _without_markers(
+    events: Iterable[object], markers: PreserveMarkerFilter
+) -> Generator[object, None, None]:
+    """Pass the turn's events through, with the script's verbatim markers taken out of its text.
+
+    A piece that is nothing but markers, or a fragment held back until more text arrives, is not
+    passed on at all; the filter releases what it holds at the end of the turn.
+    """
+    for event in events:
+        if not isinstance(event, ContentDelta):
+            yield event
+            continue
+        text = markers.feed(event.text)
+        if text:
+            yield event if text == event.text else ContentDelta(text=text)
+
+
+def _say(
+    text: str,
+    *,
+    pager: LessonPager | None,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send lesson text the way this turn sends it: paged when listening, plain otherwise."""
+    if pager is not None:
+        yield from _paged(
+            text,
+            pager=pager,
+            voice=voice,
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+        )
+        return
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        type=GeneratedType.CONTENT,
+        content=text,
+    )
+
+
+def _pieces(
+    pieces: list[tuple[str, str, int]],
+    *,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send formatted pieces the way a 1.0 lesson sends them: each typed and numbered, then spoken."""
+    for content, stream_type, number in pieces:
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+            type=GeneratedType.CONTENT,
+            content=content,
+        ).set_mdflow_stream_parts([(content, stream_type, number)])
+        if voice is not None:
+            yield from voice.speak(
+                content, stream_type=stream_type, stream_number=number
+            )
+
+
 def _stream_turn(
     app: Flask,
     *,
     run_turn_on_thread: Callable[..., Any],
     voice: LessonVoice | None,
+    pager: LessonPager | None,
     make_events: Callable[[], Any],
     session_holder: dict[str, Session],
     user_bid: str,
@@ -325,19 +509,74 @@ def _stream_turn(
     pending_memory: list[MemoryUpdated] = []
     taught: list[str] = []
     persisted = False
+    # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
+    markers = PreserveMarkerFilter()
 
-    for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
+    for event in _without_markers(
+        run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval), markers
+    ):
         if isinstance(event, ContentDelta):
             taught.append(event.text)
-            if voice is not None:
-                # Before the text itself goes out: audio for a sentence the learner has not been
-                # shown yet is the order listen mode expects.
-                yield from voice.speak(event.text)
+            if pager is not None:
+                # A listening lesson is read page by page, and the audio for a page is bound to
+                # the element that page's text is in. Sent as one undivided element, only one
+                # page's audio survives that binding and every other page is left marked speakable
+                # with nothing to play -- which the browser waits on rather than skipping.
+                yield from _paged(
+                    event.text,
+                    pager=pager,
+                    voice=voice,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                )
+                continue
 
         if isinstance(event, MemoryUpdated):
             # Held rather than written now: the turn may still fail, and a memory write that
             # outlived a failed session save would describe a learner who never said it.
             pending_memory.append(event)
+            continue
+
+        if not isinstance(event, ContentDelta):
+            # Anything that is not lesson text ends the text before it. The formatter holds the
+            # last line until it sees its end, and the marker filter a trailing fragment; released
+            # only at the end of the turn, the lesson's closing sentence landed after the
+            # question's controls, so the last thing in the learner's history was text rather
+            # than the question -- and the browser, seeing no question to answer, asked the
+            # lesson to continue with nothing.
+            tail = markers.flush()
+            if tail:
+                taught.append(tail)
+                yield from _say(
+                    tail,
+                    pager=pager,
+                    voice=voice,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                )
+            if pager is not None:
+                yield from _pieces(
+                    pager.flush(),
+                    voice=voice,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                )
+        if isinstance(event, InteractionRequest):
+            # The question comes after the lesson text as its own block, the way a 1.0 lesson
+            # delivers it: the question's own prompt joins the text, then the text's audio is
+            # finished and its block finalised, so every row of it is written before the
+            # question's controls. History is ordered by the moment of writing, and a history
+            # whose last row was not the question read to the browser as a lesson to continue --
+            # which it did, with nothing, on every reload.
+            yield from _question(
+                event,
+                pager=pager,
+                voice=voice,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                app=app,
+                user_bid=user_bid,
+            )
             continue
 
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
@@ -367,10 +606,14 @@ def _stream_turn(
                 pending_memory = []
 
         try:
-            yield from translate(
-                event,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
+            yield from _on_this_page(
+                translate(
+                    event,
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                ),
+                pager=pager,
+                voice=voice,
             )
         except UnrepresentableInteractionError:
             # The controls would ask something other than the model did, so they are not sent. The
@@ -384,16 +627,40 @@ def _stream_turn(
             )
             prompt = getattr(event, "spec", None) and event.spec.prompt
             if prompt and prompt.strip():
-                yield RunMarkdownFlowDTO(
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                    type=GeneratedType.CONTENT,
-                    content=prompt,
+                yield from _on_this_page(
+                    [
+                        RunMarkdownFlowDTO(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content=prompt,
+                        )
+                    ],
+                    pager=pager,
+                    voice=voice,
                 )
 
     # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
     # the failures it cannot continue past. What the turn produced still has to be written, or the
     # learner replays an exchange that already happened.
+    if not persisted:
+        tail = markers.flush()
+        if tail:
+            taught.append(tail)
+            yield from _say(
+                tail,
+                pager=pager,
+                voice=voice,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+            )
+    if pager is not None and not persisted:
+        yield from _pieces(
+            pager.flush(),
+            voice=voice,
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+        )
     if voice is not None and not persisted:
         # Speech buffered when the turn died would otherwise never reach the learner, while the
         # synthesis already submitted carries on with nowhere to go.

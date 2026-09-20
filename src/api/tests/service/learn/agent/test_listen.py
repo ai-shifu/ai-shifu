@@ -30,9 +30,8 @@ class _Processor:
         self.spoken.append(text)
         return [f"audio:{text}"]
 
-    def finalize(self, *, commit: bool) -> list[str]:
+    def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
         self.finalized = True
-        assert commit is False
         return ["audio:tail"]
 
 
@@ -146,19 +145,19 @@ def test_a_failure_while_finishing_is_also_survivable(
     assert list(voice.finish()) == []
 
 
-def test_the_voice_asks_for_the_processor_that_carries_the_slides(
+def test_each_text_piece_gets_its_own_processor_numbered_like_the_piece(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Without this flag the audio arrives with no AV contract.
+    """One processor per text piece, keyed the way a 1.0 lesson keys them.
 
-    The element adapter has nothing else to rebuild visual boundaries from for a 2.0 turn, so the
-    learner would hear the lesson against one unchanging block of text -- a regression that looks
-    like nothing at all in the other tests here, since they patch the factory away.
+    The element adapter binds audio to the element whose stream number the audio carries. A single
+    processor for the whole turn gives every segment the same number, so every page's audio lands
+    on one element and the rest are left marked speakable with nothing to play.
     """
-    asked: dict = {}
+    asked: list[dict] = []
 
     def _factory(_app: object, **kwargs: object) -> object:
-        asked.update(kwargs)
+        asked.append(kwargs)
         return _Processor()
 
     monkeypatch.setattr(listen, "create_tts_processor", _factory)
@@ -172,11 +171,42 @@ def test_the_voice_asks_for_the_processor_that_carries_the_slides(
         generated_block_bid="block-bid",
     )
 
-    list(voice.speak("text"))
+    list(voice.speak("first page", stream_type="text", stream_number=0))
+    list(voice.speak("still first", stream_type="text", stream_number=0))
+    list(voice.speak("<div>card</div>", stream_type="html", stream_number=1))
+    list(voice.speak("second page", stream_type="text", stream_number=2))
 
-    assert asked["derive_visuals_from_text"] is True
+    assert [(k["stream_element_number"], k["position"]) for k in asked] == [
+        (0, 0),
+        (2, 1),
+    ]
+    assert all(k["stream_element_type"] == "text" for k in asked)
     # Usage is recorded by the processor, and a listening lesson billed without this reads as a
     # reading one.
-    assert asked["learning_mode"] == "listen"
-    assert asked["generated_block_bid"] == "block-bid"
-    assert asked["progress_record_bid"] == "progress-bid"
+    assert all(k["learning_mode"] == "listen" for k in asked)
+    assert asked[0]["generated_block_bid"] == "block-bid"
+    assert asked[0]["progress_record_bid"] == "progress-bid"
+
+
+def test_a_card_is_shown_not_spoken_and_ends_the_passage_before_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reaching a non-text piece finishes the text before it, so its tail is not held back."""
+    first = _Processor()
+    monkeypatch.setattr(listen, "create_tts_processor", lambda *_a, **_k: first)
+    voice = listen.LessonVoice(
+        _App(),
+        shifu_model=object,
+        shifu_bid="shifu-bid",
+        outline_bid="outline-bid",
+        progress_record_bid="progress-bid",
+        user_bid="user-bid",
+        generated_block_bid="block-bid",
+    )
+
+    list(voice.speak("prose", stream_type="text", stream_number=0))
+    events = list(voice.speak("<div>card</div>", stream_type="html", stream_number=1))
+
+    assert first.spoken == ["prose"]
+    assert first.finalized is True
+    assert "audio:tail" in events
