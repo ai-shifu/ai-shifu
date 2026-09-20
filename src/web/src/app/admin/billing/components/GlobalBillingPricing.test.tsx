@@ -427,7 +427,7 @@ describe('GlobalBillingPricing', () => {
         'listitem',
       ),
     ).toHaveLength(1);
-    expect(screen.queryByText('②')).not.toBeInTheDocument();
+    expect(screen.queryByText('**')).not.toBeInTheDocument();
     expect(within(growth).getByText('Credit validity')).toBeInTheDocument();
     expect(within(growth).getByText('1 year')).toBeInTheDocument();
     expect(within(studio).getByText('1 month')).toBeInTheDocument();

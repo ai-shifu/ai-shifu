@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next';
 
-// Language-neutral typographic enumerators that anchor the footnote items to
+// Language-neutral typographic markers that anchor the footnote items to
 // the matching table rows. Not user-facing copy, so they stay out of i18n.
-const FOOTNOTE_ENUM_LEARNING_TIME = '①';
-const FOOTNOTE_ENUM_VALIDITY = '②';
+const FOOTNOTE_MARKER_LEARNING_TIME = '*';
+const FOOTNOTE_MARKER_VALIDITY = '**';
 
 export function BillingOverviewFootnote({
   hasDiscountCampaign = false,
@@ -22,7 +22,7 @@ export function BillingOverviewFootnote({
       <ul className='space-y-3'>
         <li className='flex gap-2'>
           <span className='shrink-0 font-medium'>
-            {FOOTNOTE_ENUM_LEARNING_TIME}
+            <sup>{FOOTNOTE_MARKER_LEARNING_TIME}</sup>
           </span>
           <div className='flex-1'>
             {t('module.billing.package.footnote.learningTime')}
@@ -31,7 +31,7 @@ export function BillingOverviewFootnote({
         {showValidity ? (
           <li className='flex gap-2'>
             <span className='shrink-0 font-medium'>
-              {FOOTNOTE_ENUM_VALIDITY}
+              <sup>{FOOTNOTE_MARKER_VALIDITY}</sup>
             </span>
             <div className='flex-1'>
               {t('module.billing.package.footnote.validity')}

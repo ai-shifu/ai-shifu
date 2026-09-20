@@ -18,6 +18,9 @@ minute value. Minutes remain the time unit for every plan; large Chinese numbers
 use compact magnitudes such as 万. Both pricing surfaces omit the audience
 scenario descriptions to keep the comparison concise.
 
+Footnote references use superscript asterisks: `*` for learning-time estimates
+and `**` for credit validity, with matching superscripts beside each note.
+
 Both pricing surfaces use this concise shared Chinese footnote, with aligned
 translations in all five locales:
 

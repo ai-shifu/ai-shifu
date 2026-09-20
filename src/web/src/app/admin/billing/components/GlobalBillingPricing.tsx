@@ -176,7 +176,7 @@ const CREDIT_PACK_CODES = [
 
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 const STRIPE_PAYMENT_PROVIDER = 'stripe' as const;
-const LEARNING_TIME_ESTIMATE_MARKER = '①';
+const LEARNING_TIME_ESTIMATE_MARKER = '*';
 const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
   'canceled',
   'expired',
@@ -968,7 +968,7 @@ function PlanCard({
         >
           <p className='text-xs font-medium text-muted-foreground'>
             {t('module.billing.package.learningTime.label')}
-            <span className='ml-1'>{LEARNING_TIME_ESTIMATE_MARKER}</span>
+            <sup className='ml-1'>{LEARNING_TIME_ESTIMATE_MARKER}</sup>
           </p>
           <p className='mt-1 text-sm text-foreground'>
             {formatBillingLearningTime(

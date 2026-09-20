@@ -29,11 +29,11 @@ import { formatBillingLearningTime } from '@/lib/billingLearningTime';
 import { getFreeFeatureData, getPlanFeatureData } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
 
-// Language-neutral typographic enumerators that anchor each metric row label
+// Language-neutral typographic markers that anchor each metric row label
 // to the matching footnote item. Not user-facing copy, so they stay out of
 // i18n.
-const ROW_ENUM_LEARNING_TIME = '①';
-const ROW_ENUM_VALIDITY = '②';
+const ROW_MARKER_LEARNING_TIME = '*';
+const ROW_MARKER_VALIDITY = '**';
 const SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 const MIN_PLAN_COLUMN_WIDTH_PX = 180;
 
@@ -678,9 +678,9 @@ export function BillingPlanComparisonTable({
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.learningTime.label')}
-                  <span className='ml-1 font-medium'>
-                    {ROW_ENUM_LEARNING_TIME}
-                  </span>
+                  <sup className='ml-1 font-medium'>
+                    {ROW_MARKER_LEARNING_TIME}
+                  </sup>
                 </div>
                 <div
                   className={styles.cellValue}
@@ -699,7 +699,7 @@ export function BillingPlanComparisonTable({
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.validityRowLabel')}
-                  <span className='ml-1 font-medium'>{ROW_ENUM_VALIDITY}</span>
+                  <sup className='ml-1 font-medium'>{ROW_MARKER_VALIDITY}</sup>
                 </div>
                 <div className={styles.cellValue}>
                   <span>{col.validityShort || emptyValue}</span>
