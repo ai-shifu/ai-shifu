@@ -17,6 +17,8 @@ from flask.testing import FlaskClient
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
+# Third-party integrations may call load_dotenv without the app's skip flag.
+os.environ["PYTHON_DOTENV_DISABLED"] = "1"
 
 from flaskr.common.config import ENV_VARS
 

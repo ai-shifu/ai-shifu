@@ -74,6 +74,11 @@ def _select_targets(changed_paths: list[str], tmp_path: Path) -> dict[str, str]:
         (["src/api/flaskr/route/user.py"], "tests", "--testmon-noselect"),
         ([".github/workflows/backend-tests.yml"], "tests", "--testmon-noselect"),
         (
+            ["src/api/tests/service/removed/test_deleted_coverage.py"],
+            "tests",
+            "--testmon-noselect",
+        ),
+        (
             [
                 "src/api/flaskr/service/billing/models.py",
                 "src/api/migrations/versions/new_revision.py",
@@ -135,3 +140,71 @@ def test_pr_control_plane_only_changes_still_skip_backend_tests(tmp_path: Path) 
 
     assert selection["SKIP_BACKEND_TESTS"] == "1"
     assert selection["TEST_TARGETS"] == ""
+
+
+def test_coverage_artifact_keeps_raw_data_and_reports_even_after_gate_failure() -> None:
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
+    artifact = next(
+        step
+        for step in workflow["jobs"]["backend-tests"]["steps"]
+        if step["name"] == "Upload backend coverage evidence"
+    )
+    assert artifact["uses"] == "actions/upload-artifact@v4"
+    assert artifact["with"]["include-hidden-files"] is True
+    assert artifact["with"]["path"].splitlines() == [
+        "src/api/.coverage",
+        "src/api/coverage.json",
+        "src/api/coverage.xml",
+        "src/api/coverage-summary.txt",
+    ]
+    assert artifact["if"] == (
+        "always() && steps.coverage.outcome != 'skipped' && steps.coverage.outcome != ''"
+    )
+
+
+@pytest.mark.parametrize(
+    ("test_status", "coverage_status", "expected_status"),
+    [(0, 0, 0), (0, 2, 2), (1, 0, 1), (1, 2, 1)],
+)
+def test_full_coverage_runs_all_tests_and_preserves_both_failure_gates(
+    tmp_path: Path, test_status: int, coverage_status: int, expected_status: int
+) -> None:
+    # Run the workflow's actual shell with a recording Python stub. Both kinds
+    # of failure must retain reports, and a failed suite must never be masked.
+    stub = r"""
+python() {
+  printf '%s\n' "$*" >> "$COMMAND_LOG"
+  if [[ "$*" == "-m coverage run -m pytest -p no:testmon tests" ]]; then
+    return "$TEST_STATUS"
+  fi
+  if [[ "$*" == "-m coverage report -m" ]]; then
+    printf 'coverage summary\n'
+    return "$COVERAGE_STATUS"
+  fi
+}
+"""
+    log = tmp_path / "commands.txt"
+    summary = tmp_path / "summary.txt"
+    result = subprocess.run(
+        ["bash", "-e", "-c", stub + _workflow_script("Run full backend coverage")],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "COMMAND_LOG": str(log),
+            "GITHUB_STEP_SUMMARY": str(summary),
+            "TEST_STATUS": str(test_status),
+            "COVERAGE_STATUS": str(coverage_status),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == expected_status, result.stderr
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        "-m coverage erase",
+        "-m coverage run -m pytest -p no:testmon tests",
+        "-m coverage json --fail-under=0",
+        "-m coverage xml --fail-under=0",
+        "-m coverage report -m",
+    ]
+    assert summary.read_text(encoding="utf-8") == "coverage summary\n"

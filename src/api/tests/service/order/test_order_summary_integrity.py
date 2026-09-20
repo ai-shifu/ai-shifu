@@ -1,6 +1,8 @@
 """Verify committed order summaries, notification evidence, and discount limits."""
 
 from collections.abc import Iterator
+from datetime import timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
@@ -13,13 +15,18 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE
 from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
     COUPON_TYPE_FIXED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
 )
 from flaskr.service.promo.models import (
     Coupon,
     CouponUsage,
+    PromoCampaign,
+    PromoRedemption,
 )
 from flaskr.service.user.consts import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.user.models import UserConversion, UserInfo
+from flaskr.util.datetime import now_utc
 from sqlalchemy import text
 
 from tests.service.billing.test_billing_callbacks import billing_callback_app
@@ -137,6 +144,100 @@ def test_notification_uses_real_order_coupon_and_conversion_evidence(
             "is_discount": True,
         }
     ]
+
+
+@pytest.mark.parametrize("missing", ["user", "course"])
+def test_notification_skips_unresolvable_order_dependencies(
+    app: object,
+    summary_scope: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    missing: str,
+) -> None:
+    aggregate = None if missing == "user" else SimpleNamespace(mobile="", name="")
+    monkeypatch.setattr(funs, "load_user_aggregate", Mock(return_value=aggregate))
+    if missing == "course":
+        funs.get_shifu_info.return_value = None
+    funs.send_order_feishu(app, summary_scope.order.order_bid)
+    summary_scope.notify.assert_not_called()
+    if missing == "user":
+        funs.get_shifu_info.assert_not_called()
+
+
+@pytest.mark.parametrize("course_exists", [True, False])
+def test_revocation_notification_uses_course_title_or_stable_identifier(
+    app: object, summary_scope: SimpleNamespace, course_exists: bool
+) -> None:
+    scope = summary_scope
+    if not course_exists:
+        funs.get_shifu_info.return_value = None
+    funs.send_revoke_feishu(app, scope.order.order_bid, "learner@example.test")
+    messages = scope.notify.call_args.args[2]
+    assert messages[1].endswith("Course" if course_exists else scope.order.shifu_bid)
+    assert messages[2].endswith(scope.order.order_bid)
+    scope.notify.reset_mock()
+    funs.send_revoke_feishu(app, uuid4().hex, "learner@example.test")
+    scope.notify.assert_not_called()
+
+
+def test_promotion_supplement_excludes_voided_deleted_and_duplicates_and_caps_total(
+    summary_scope: SimpleNamespace,
+) -> None:
+    scope = summary_scope
+    now = now_utc()
+    campaign = PromoCampaign(promo_bid=uuid4().hex, name="Current campaign name")
+    db.session.add(campaign)
+    # The newest eligible evidence is considered first; ignored rows must not
+    # consume the remaining discount budget.
+    for minutes, name, amount, status, deleted, bid in [
+        (0, "Deleted", 100, PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED, 1, ""),
+        (1, "Voided", 100, PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED, 0, ""),
+        (2, "Existing", 30, PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED, 0, ""),
+        (3, "Zero", 0, PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED, 0, ""),
+        (
+            4,
+            "Old campaign name",
+            100,
+            PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+            0,
+            campaign.promo_bid,
+        ),
+        (5, "Excess", 50, PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED, 0, ""),
+    ]:
+        db.session.add(
+            PromoRedemption(
+                order_bid=scope.order.order_bid,
+                promo_bid=bid,
+                promo_name=name,
+                discount_amount=amount,
+                status=status,
+                deleted=deleted,
+                updated_at=now - timedelta(minutes=minutes),
+            )
+        )
+    db.session.flush()
+    items = [
+        funs.PayItemDto(
+            "Promotion", "Existing", Decimal(5), is_discount=True, discount_code=None
+        )
+    ]
+
+    result = funs._supplement_promo_discount_items(
+        scope.order.order_bid, items, Decimal(25)
+    )
+
+    assert result is items
+    assert [(item.price_name, item.price) for item in result] == [
+        ("Existing", Decimal(5)),
+        ("Current campaign name", Decimal(20)),
+    ]
+    assert funs._sum_discount_items(result) == Decimal(25)
+    assert (
+        funs._supplement_promo_discount_items(
+            scope.order.order_bid, result, Decimal(25)
+        )
+        is result
+    )
+    assert len(result) == 2
 
 
 @pytest.mark.parametrize(

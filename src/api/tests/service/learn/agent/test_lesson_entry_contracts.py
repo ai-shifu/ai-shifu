@@ -1,0 +1,254 @@
+"""Verify agent lesson lookup, course model identity, paid access, and trace closure."""
+
+import uuid
+from decimal import Decimal
+from unittest.mock import Mock
+
+import pytest
+from flaskr.api.llm import model_selection
+from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.learn.agent import lesson_entry as entry
+from flaskr.service.learn.exceptions import PaidError
+from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
+from flaskr.service.order.models import Order
+from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+
+
+@pytest.fixture
+def lesson(app: object, monkeypatch: object) -> object:
+    identity = uuid.uuid4().hex
+    monkeypatch.setitem(app.config, "DEFAULT_LLM_MODEL", "deployment-model")
+    monkeypatch.setitem(app.config, "DEFAULT_LLM_TEMPERATURE", 0.4)
+    with app.app_context(), unit_of_work():
+        for model, name in ((DraftShifu, "draft"), (PublishedShifu, "published")):
+            db.session.add(
+                model(
+                    shifu_bid=identity,
+                    title=name,
+                    llm=f"{name}-model",
+                    llm_temperature=Decimal("0.2"),
+                    price=0,
+                )
+            )
+        for model, name in (
+            (DraftOutlineItem, "draft"),
+            (PublishedOutlineItem, "published"),
+        ):
+            db.session.add(
+                model(
+                    shifu_bid=identity,
+                    outline_item_bid=identity,
+                    content=f"{name} lesson script",
+                    type=UNIT_TYPE_VALUE_NORMAL,
+                    position=0,
+                )
+            )
+    yield identity
+    with app.app_context(), unit_of_work():
+        for model in (
+            Order,
+            DraftOutlineItem,
+            DraftShifu,
+            PublishedOutlineItem,
+            PublishedShifu,
+        ):
+            model.query.filter_by(shifu_bid=identity).delete()
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("saved", ["2", "", "legacy-model"])
+def test_lesson_resolution_preserves_course_selection_and_revision_metadata(
+    app: object, lesson: str, preview: bool, saved: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, course_model = entry._models(preview)
+    monkeypatch.setattr(
+        model_selection,
+        "get_configured_model_slots",
+        lambda: [{"index": "2", "model": "provider-model"}],
+    )
+    with app.app_context(), unit_of_work():
+        course = course_model.query.filter_by(shifu_bid=lesson).one()
+        course.llm = saved
+        record_id = course.id
+    with app.app_context():
+        script, settings = entry._resolve(
+            app,
+            user_bid="learner",
+            shifu_bid=lesson,
+            outline_bid=lesson,
+            preview_mode=preview,
+        )
+    version = "draft" if preview else "published"
+    assert script == f"{version} lesson script"
+    assert settings.model == saved
+    assert float(settings.temperature) == 0.2
+    assert settings.usage_metadata == {
+        "model_selection_scope": "course",
+        "model_selection_original": saved,
+        "model_selection_field": "llm",
+        "model_selection_table": course_model.__tablename__,
+        "model_selection_record_id": record_id,
+        "model_index": "2" if saved == "2" else "1",
+        "model_selection_fallback": saved != "2",
+        "model_selection_fallback_reason": None
+        if saved == "2"
+        else ("missing_selection" if saved == "" else "invalid_selection"),
+    }
+
+
+@pytest.mark.parametrize("invalid", ["other-course", "blank-script", "deleted"])
+def test_unteachable_lesson_falls_back_without_exposing_another_course_script(
+    app: object, lesson: str, invalid: str
+) -> None:
+    with app.app_context(), unit_of_work():
+        row = PublishedOutlineItem.query.filter_by(shifu_bid=lesson).one()
+        if invalid == "blank-script":
+            row.content = " \n"
+        elif invalid == "deleted":
+            row.deleted = 1
+    with app.app_context(), pytest.raises(entry.LessonNotTeachable):
+        entry._resolve(
+            app,
+            user_bid="learner",
+            shifu_bid="another-course" if invalid == "other-course" else lesson,
+            outline_bid=lesson,
+            preview_mode=False,
+        )
+
+
+@pytest.mark.parametrize("order_kind", ["valid", "other-user", "deleted", "unpaid"])
+def test_paid_agent_lesson_requires_the_learners_own_successful_active_order(
+    app: object, lesson: str, order_kind: str
+) -> None:
+    with app.app_context(), unit_of_work():
+        PublishedShifu.query.filter_by(shifu_bid=lesson).one().price = Decimal(99)
+        db.session.add(
+            Order(
+                order_bid=uuid.uuid4().hex,
+                shifu_bid=lesson,
+                user_bid="other" if order_kind == "other-user" else "learner",
+                status=ORDER_STATUS_INIT
+                if order_kind == "unpaid"
+                else ORDER_STATUS_SUCCESS,
+                deleted=int(order_kind == "deleted"),
+            )
+        )
+    with app.app_context():
+        if order_kind == "valid":
+            assert (
+                entry._resolve(
+                    app,
+                    user_bid="learner",
+                    shifu_bid=lesson,
+                    outline_bid=lesson,
+                    preview_mode=False,
+                )[0]
+                == "published lesson script"
+            )
+        else:
+            with pytest.raises(PaidError):
+                entry._resolve(
+                    app,
+                    user_bid="learner",
+                    shifu_bid=lesson,
+                    outline_bid=lesson,
+                    preview_mode=False,
+                )
+
+
+@pytest.mark.parametrize("termination", ["completed", "error", "disconnected"])
+def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
+    app: object, monkeypatch: object, termination: str
+) -> None:
+    settings = LLMSettings(
+        model="2",
+        temperature=0.25,
+        usage_metadata={
+            "model_selection_scope": "course",
+            "model_selection_original": "2",
+        },
+    )
+    monkeypatch.setattr(entry, "_resolve", lambda *_a, **_kw: ("script", settings))
+    trace, span = object(), object()
+    monkeypatch.setattr(entry, "get_langfuse_client", object)
+    monkeypatch.setattr(
+        entry, "create_trace_with_root_span", lambda **_kw: (trace, span)
+    )
+    finalize = Mock()
+    monkeypatch.setattr(entry, "finalize_langfuse_trace", finalize)
+    gateway = Mock(return_value=object())
+    engine = Mock(return_value=object())
+    monkeypatch.setattr(entry, "GatewayModel", gateway)
+    monkeypatch.setattr(entry, "Engine", engine)
+    event = RunMarkdownFlowDTO(
+        outline_bid="lesson",
+        generated_block_bid="block",
+        type=GeneratedType.CONTENT,
+        content="Visible answer",
+    )
+
+    def produce(*_args: object, **_kwargs: object) -> object:
+        yield event
+        if termination == "error":
+            message = "provider failed"
+            raise RuntimeError(message)
+
+    runner = Mock(side_effect=produce)
+    monkeypatch.setattr(entry, "run_agent_lesson", runner)
+    stream = entry.agent_lesson_events(
+        app,
+        user_bid="learner",
+        shifu_bid="course",
+        outline_bid="lesson",
+        user_input={"choice": ["a"]},
+        listen=True,
+        preview_mode=True,
+        heartbeat_interval=0.1,
+    )
+    assert next(stream) is event
+    finalize.assert_not_called()
+    if termination == "disconnected":
+        stream.close()
+    elif termination == "error":
+        with pytest.raises(RuntimeError, match="provider failed"):
+            next(stream)
+    else:
+        assert list(stream) == []
+    finalize.assert_called_once_with(
+        trace=trace,
+        root_span=span,
+        root_span_payload={"metadata": {"end_reason": termination}},
+    )
+    gateway.assert_called_once_with(
+        app,
+        "2",
+        user_id="learner",
+        span=span,
+        usage_metadata=settings.usage_metadata,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+    engine.assert_called_once_with(
+        gateway.return_value, memory_store=None, model_settings={"temperature": 0.25}
+    )
+    assert runner.call_args.kwargs == {
+        "engine": engine.return_value,
+        "script": "script",
+        "user_bid": "learner",
+        "shifu_bid": "course",
+        "outline_bid": "lesson",
+        "user_input": {"choice": ["a"]},
+        "listen": True,
+        "preview_mode": True,
+        "shifu_model": DraftShifu,
+        "heartbeat_interval": 0.1,
+    }

@@ -1,0 +1,21 @@
+[run]
+# Use a directory: module-name discovery can import app before pytest's safe
+# environment is established. A source root also includes unimported modules.
+source = .
+
+[report]
+# Keep the denominator application-only, including the Flask entrypoint and
+# every runtime module. Tests, scripts and migrations cannot inflate this score.
+include_namespace_packages = True
+include =
+    app.py
+    flaskr/*
+precision = 2
+show_missing = True
+fail_under = 95.01
+
+[html]
+directory = htmlcov
+
+[json]
+output = coverage.json
