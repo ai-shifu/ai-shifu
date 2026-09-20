@@ -35,14 +35,8 @@ def create_tts_processor(
     position: int = 0,
     stream_element_number: int | None = None,
     stream_element_type: str | None = None,
-    derive_visuals_from_text: bool = False,
 ) -> object | None:
     """Return the processor this lesson speaks through, or None if it is not spoken.
-
-    `derive_visuals_from_text` picks the processor that recomputes the AV contract as the text
-    streams and attaches it to its audio events. A lesson whose text arrives without MarkdownFlow
-    stream parts -- which is every 2.0 lesson -- has no other source of visual boundaries, so
-    without it the learner hears the lesson against a single unchanging block of text.
 
     Typed as `object` rather than `StreamingTTSProcessor`: naming that class here would reach into
     the tts service past its own entry point, which is the boundary this module is on the wrong
@@ -53,10 +47,7 @@ def create_tts_processor(
         from flaskr.service.learn.learn_funcs import _resolve_runtime_tts_voice_id
 
         # Through the tts service's own entry point rather than reaching into its internals.
-        from flaskr.service.tts.api import (
-            create_av_streaming_tts_processor,
-            create_streaming_tts_processor,
-        )
+        from flaskr.service.tts.api import create_streaming_tts_processor
         from flaskr.service.tts.validation import validate_tts_settings_strict
 
         shifu_record = (
@@ -102,23 +93,6 @@ def create_tts_processor(
         max_segment_chars = (
             get_config("TTS_MAX_SEGMENT_CHARS") or _DEFAULT_MAX_SEGMENT_CHARS
         )
-        if derive_visuals_from_text:
-            return create_av_streaming_tts_processor(
-                app=app,
-                generated_block_bid=generated_block_bid,
-                outline_bid=outline_bid,
-                progress_record_bid=progress_record_bid,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                voice_id=runtime_voice_id,
-                speed=validated.speed,
-                pitch=validated.pitch,
-                emotion=validated.emotion,
-                max_segment_chars=int(max_segment_chars),
-                tts_provider=validated.provider,
-                tts_model=validated.model,
-                learning_mode=learning_mode,
-            )
         return create_streaming_tts_processor(
             app=app,
             generated_block_bid=generated_block_bid,
