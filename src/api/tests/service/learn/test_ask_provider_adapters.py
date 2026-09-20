@@ -634,13 +634,15 @@ def test_volc_knowledge_adapter_streams_success_content(
 
     request_state = {}
 
-    monkeypatch.setattr(
-        common.SafeOutboundClient,
-        "validate_url",
-        lambda *_args, **_kwargs: types.SimpleNamespace(
+    monkeypatch.setattr(common.SafeOutboundClient, "new_deadline", lambda _self: 123.0)
+
+    def _fake_validate_url(_self: object, _url: object, **kwargs: object) -> object:
+        request_state["validation_deadline"] = kwargs.get("deadline")
+        return types.SimpleNamespace(
             url="https://api-knowledgebase.mlp.cn-beijing.volces.com/api/knowledge/collection/search_knowledge"
-        ),
-    )
+        )
+
+    monkeypatch.setattr(common.SafeOutboundClient, "validate_url", _fake_validate_url)
 
     def _fake_request(
         _self: object, method: object, url: object, **kwargs: object
@@ -648,6 +650,7 @@ def test_volc_knowledge_adapter_streams_success_content(
         request_state["method"] = method
         request_state["headers"] = kwargs.get("headers") or {}
         request_state["url"] = url
+        request_state["request_deadline"] = kwargs.get("deadline")
         return _FakeResponse(
             json_data={
                 "code": 0,
@@ -691,6 +694,8 @@ def test_volc_knowledge_adapter_streams_success_content(
     )
     assert request_state["headers"]["X-Date"]
     assert request_state["headers"]["X-Content-Sha256"]
+    assert request_state["validation_deadline"] == 123.0
+    assert request_state["request_deadline"] == 123.0
 
 
 @pytest.mark.parametrize(

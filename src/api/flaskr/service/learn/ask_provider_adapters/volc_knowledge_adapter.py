@@ -274,8 +274,9 @@ class VolcKnowledgeAskProviderAdapter:
         except ValueError as exc:
             message = "VOLC_KNOWLEDGE_TRUSTED_ORIGINS contains an invalid origin"
             raise AskProviderConfigError(message) from exc
+        deadline = client.new_deadline()
         try:
-            validated_target = client.validate_url(raw_url)
+            validated_target = client.validate_url(raw_url, deadline=deadline)
         except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             exception_message = "volc_knowledge request timeout"
             raise AskProviderTimeoutError(exception_message) from exc
@@ -310,6 +311,7 @@ class VolcKnowledgeAskProviderAdapter:
                 validated_target.url,
                 headers=request_headers,
                 body=request_body.encode("utf-8"),
+                deadline=deadline,
             )
         except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             exception_message = "volc_knowledge request timeout"
