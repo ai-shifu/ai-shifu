@@ -1314,7 +1314,14 @@ class TencentTTSProvider(BaseTTSProvider):
         finally:
             close = getattr(response, "close", None)
             if callable(close):
-                close()
+                try:
+                    close()
+                except Exception:
+                    # Cleanup must preserve completed audio and the original error.
+                    logger.warning(
+                        "Failed to close Tencent TTS streaming response",
+                        exc_info=True,
+                    )
 
     def synthesize(
         self,
