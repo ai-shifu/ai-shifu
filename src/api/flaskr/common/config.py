@@ -723,6 +723,30 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
+    "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": EnvVar(
+        name="ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS",
+        default=300,
+        type=int,
+        description=(
+            "Maximum wall-clock seconds for one external ask provider request or "
+            "stream. This must remain bounded even when response chunks continue "
+            "arriving."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "ASK_PROVIDER_ALLOW_INSECURE_HTTP": EnvVar(
+        name="ASK_PROVIDER_ALLOW_INSECURE_HTTP",
+        default=False,
+        type=bool,
+        description=(
+            "Allow credential-bearing Coze and Volcengine-compatible provider "
+            "requests over plain HTTP. Leave disabled unless a trusted private "
+            "deployment cannot provide HTTPS."
+        ),
+        group="llm",
+        required=False,
+    ),
     "DIFY_TRUSTED_ORIGINS": EnvVar(
         name="DIFY_TRUSTED_ORIGINS",
         default=[],
@@ -732,6 +756,42 @@ Default: "phone".""",
             "addresses. Leave empty unless this deployment intentionally uses "
             "a self-hosted Dify service, for example "
             "http://host.docker.internal:5001."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze chat origins allowed to resolve to private "
+            "addresses. Leave empty unless this deployment intentionally uses a "
+            "self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_WORKFLOW_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_WORKFLOW_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze workflow origins allowed to resolve to "
+            "private addresses. Leave empty unless this deployment intentionally "
+            "uses a self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "VOLC_KNOWLEDGE_TRUSTED_ORIGINS": EnvVar(
+        name="VOLC_KNOWLEDGE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Volcengine Knowledge origins allowed to resolve "
+            "to private addresses. Leave empty unless this deployment intentionally "
+            "uses a private compatible endpoint."
         ),
         group="llm",
         required=False,
