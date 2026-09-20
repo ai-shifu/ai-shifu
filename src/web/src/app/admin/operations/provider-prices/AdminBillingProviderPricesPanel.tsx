@@ -5,9 +5,9 @@ import { ChevronDown, Plus } from 'lucide-react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import {
   AlertDialog,
   AlertDialogAction,

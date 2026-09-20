@@ -754,6 +754,13 @@ def _lesson_events(
                 preview_mode=preview_mode,
                 heartbeat_interval=heartbeat_interval,
             )
+            # The element adapter finalises the block on the turn's last event and stages every
+            # element it streamed; that happens in the caller, between the last yield above and
+            # this line. The turn's own transaction has already closed by then, so without this
+            # checkpoint -- the one the 1.0 run ends with -- those rows are dropped with the
+            # session: a lesson's cards were never written, and a reload showed the narration
+            # over an empty page.
+            _commit_pending_step()
         except TurnCapacityError:
             # This worker is already running as many turns as it can. Refusing is the bridge's
             # deliberate choice over queueing -- a request parked waiting for a slot has not
