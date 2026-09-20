@@ -143,7 +143,7 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.creditPacks.instantAndPermanent':
           'Credits are added immediately and never expire.',
         'module.billing.package.footnote.learningTime':
-          'Estimated from past learning data (reading mode, 1× model), for reference only. Actual credit usage varies by course content, model choice and interactions. Listening mode uses additional speech credits.',
+          'These estimates are based on past learning data (reading mode, 1× model) and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.',
         'module.billing.package.learningTime.label': 'Estimated learning time',
         'module.billing.globalPricing.monthlyOnly': 'Monthly only',
         'module.billing.globalPricing.mostPopular': 'Most Popular',
@@ -192,7 +192,10 @@ jest.mock('react-i18next', () => ({
       if (key === 'module.billing.globalPricing.creditsPerYear') {
         return `${options?.credits} credits per 12-month billing period`;
       }
-      if (key === 'module.billing.package.learningTime.value') {
+      if (
+        key === 'module.billing.package.learningTime.value' ||
+        key === 'module.billing.package.learningTime.compactValue'
+      ) {
         return `About ${options?.minutes} minutes`;
       }
       return labels[key] || key;
@@ -389,7 +392,7 @@ describe('GlobalBillingPricing', () => {
     expect(screen.queryByText(/extra|bonus/i)).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        'Estimated from past learning data (reading mode, 1× model), for reference only. Actual credit usage varies by course content, model choice and interactions. Listening mode uses additional speech credits.',
+        'These estimates are based on past learning data (reading mode, 1× model) and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.',
       ),
     ).toBeInTheDocument();
     expect(

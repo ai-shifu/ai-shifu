@@ -246,20 +246,8 @@ $color-on-accent: #fff;
 }
 
 // ============================================================================
-// Body rows (scenario, data, features)
+// Body rows (data, features)
 // ============================================================================
-
-.scenarioRow td {
-  padding: 14px 16px !important;
-  border-top: 1px solid var(--base-border, #e5e5e5);
-  text-align: left;
-  vertical-align: top;
-}
-
-.scenarioText {
-  color: $color-fg;
-  @include font-body;
-}
 
 .dataRow td {
   padding: 14px 16px !important;

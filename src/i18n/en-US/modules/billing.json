@@ -1053,7 +1053,7 @@
     },
     "featuresTitle": "Included benefits:",
     "footnote": {
-      "learningTime": "Estimated from past learning data (reading mode, 1× model), for reference only. Actual credit usage varies by course content, model choice and interactions. Listening mode uses additional speech credits.",
+      "learningTime": "These estimates are based on past learning data (reading mode, 1× model) and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.",
       "validity": "Credit validity: Monthly plans are valid for 30 days from the day you receive them (inclusive); yearly plans are valid by calendar year from the day you receive them. Both end at 23:59 on the expiry day."
     },
     "free": {
@@ -1071,6 +1071,7 @@
       "yearly": "Yearly Plans"
     },
     "learningTime": {
+      "compactValue": "About {minutes} minutes",
       "label": "Estimated learning time",
       "lessThanOne": "Less than 1 minute",
       "unavailable": "—",

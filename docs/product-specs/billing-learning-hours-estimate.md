@@ -15,12 +15,13 @@ Plan comparisons show **approximately 6,000 minutes of cumulative learning per
 calibrated 100-hour reference expressed in minutes, with no capacity increase.
 The main comparison shows only the label **预估支持学习时长** and an approximate
 minute value. Minutes remain the time unit for every plan; large Chinese numbers
-use compact magnitudes such as 万.
+use compact magnitudes such as 万. The domestic comparison omits the audience
+scenario row to keep the table concise.
 
 Both pricing surfaces use this concise shared Chinese footnote, with aligned
 translations in all five locales:
 
-> 按过往学习数据估算（阅读模式、1× 模型），仅供参考。实际积分消耗随课程内容、模型选择及互动情况变化，听课模式另计语音积分。
+> 以上时长按过往学习数据估算（阅读模式、1× 模型），仅供参考。课程内容、所选模型和互动情况都会影响实际积分消耗，听课模式会消耗更多积分。
 
 The historical usage and assumed completion duration behind that copy remain
 fully documented below. The short copy does not claim measured online time,
@@ -194,8 +195,9 @@ this does not mean audio is shared free across learners.
 
 Below 10,000 minutes, use standard locale number grouping. At 10,000 or more,
 use locale compact number formatting with up to two decimal places. Chinese
-adds a space before the compact magnitude (for example, `30 万`); other locales
-use their customary forms, such as `300K` or `1.32M`. Only the number magnitude
+adds a space before the compact magnitude and joins that magnitude directly to
+the minute unit (for example, `约 30 万分钟`); other locales use their customary
+forms, such as `300K` or `1.32M`. Only the number magnitude
 changes; the duration unit always remains minutes.
 
 The UI always calculates from the live catalog, including custom or edited

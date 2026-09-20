@@ -96,6 +96,12 @@ page overflow at 1440-pixel desktop and 390-pixel mobile widths.
 The later minute-display revision passed 122 focused tests, full type checking
 and all-file pre-commit gates. It preserves the existing table structure and
 replaces the longer footnotes with one shared paragraph.
+A subsequent copy refinement removes the domestic audience scenario row, joins
+Chinese compact magnitudes directly to 分钟, and describes listening as consuming
+more credits without introducing a separate credit concept.
+That refinement passed the same 122 focused tests and full type checking.
+Readback of the local billing page confirmed the removed row, compact minute
+spacing and revised footnote; a desktop screenshot confirmed the table layout.
 
 ## Context and Orientation
 
@@ -125,7 +131,7 @@ pre-commit gate before committing.
   Catalog changes update estimates without SKU edits or annual multiplication.
 - Only the learning-time label and approximate value appear in the comparison.
 - One shared footnote states historical data, reading mode, 1× model, reference-only
-  status and variable credit consumption; listening adds speech credits.
+  status and variable credit consumption; listening uses more credits.
 - Invalid allocations do not promise minutes; positive sub-minute values remain
   distinct from unavailable data. Locale formatting remains intact.
 - Existing checkout behavior stays covered by billing regression suites.

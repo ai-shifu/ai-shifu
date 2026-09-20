@@ -27,7 +27,10 @@ jest.mock('@/hooks/useTracking', () => ({
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {
-      if (key === 'module.billing.package.learningTime.value') {
+      if (
+        key === 'module.billing.package.learningTime.value' ||
+        key === 'module.billing.package.learningTime.compactValue'
+      ) {
         return `About ${options?.minutes} minutes`;
       }
       if (options?.date) {

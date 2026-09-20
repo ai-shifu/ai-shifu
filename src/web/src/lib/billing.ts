@@ -967,6 +967,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.topup.noteInstant'),
     t('module.billing.package.learningTime.label'),
     t('module.billing.package.learningTime.value', { minutes: '6,000' }),
+    t('module.billing.package.learningTime.compactValue', { minutes: '30 万' }),
     t('module.billing.package.learningTime.lessThanOne'),
     t('module.billing.package.learningTime.unavailable'),
     t('module.billing.package.features.advanced.includesLabel'),

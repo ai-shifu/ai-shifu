@@ -16,7 +16,6 @@ import {
   hasBillingProductDiscountCampaign,
   resolveBillingProductPayableAmount,
   resolveBillingProductTitle,
-  resolveBillingProductDescription,
 } from '@/lib/billing';
 import type {
   BillingPlan,
@@ -158,7 +157,6 @@ type ColumnDescriptor = {
   key: string;
   testId: string;
   title: string;
-  description: string;
   badgeLabel?: string;
   campaignLabel?: string;
   originalPriceLabel?: string;
@@ -324,11 +322,6 @@ export function BillingPlanComparisonTable({
         trialOffer,
         t('module.billing.package.free.title'),
       ),
-      description: resolveBillingProductDescription(
-        t,
-        trialOffer,
-        t('module.billing.package.free.description'),
-      ),
       priceLabel:
         trialOffer && trialOffer.currency
           ? formatBillingPrice(
@@ -490,7 +483,6 @@ export function BillingPlanComparisonTable({
       key: plan.product_bid,
       testId: `billing-plan-card-${plan.product_bid}`,
       title: resolveBillingProductTitle(t, plan),
-      description: resolveBillingProductDescription(t, plan),
       badgeLabel: badgeKey ? t(badgeKey) : undefined,
       campaignLabel: hasDiscountCampaign
         ? t('module.billing.package.campaign.discountBadge')
@@ -678,16 +670,6 @@ export function BillingPlanComparisonTable({
           </tr>
         </thead>
         <tbody>
-          <tr className={styles.scenarioRow}>
-            {columns.map(col => (
-              <td
-                key={col.key}
-                className={cn(col.featured && styles.featuredColumn)}
-              >
-                <div className={styles.scenarioText}>{col.description}</div>
-              </td>
-            ))}
-          </tr>
           <tr className={styles.dataRow}>
             {columns.map(col => (
               <td

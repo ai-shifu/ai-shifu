@@ -28,8 +28,9 @@ export function formatBillingLearningTime(
   if (estimate < 1) {
     return t('module.billing.package.learningTime.lessThanOne');
   }
+  const isCompact = estimate >= 10000;
   const minutes = new Intl.NumberFormat(locale || 'en-US', {
-    notation: estimate >= 10000 ? 'compact' : 'standard',
+    notation: isCompact ? 'compact' : 'standard',
     maximumFractionDigits: 2,
   })
     .formatToParts(estimate)
@@ -40,7 +41,10 @@ export function formatBillingLearningTime(
     )
     .join('');
 
-  return t('module.billing.package.learningTime.value', {
-    minutes,
-  });
+  return t(
+    isCompact
+      ? 'module.billing.package.learningTime.compactValue'
+      : 'module.billing.package.learningTime.value',
+    { minutes },
+  );
 }

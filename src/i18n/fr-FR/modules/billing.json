@@ -1053,7 +1053,7 @@
     },
     "featuresTitle": "Avantages inclus :",
     "footnote": {
-      "learningTime": "Estimation fondée sur les données d’apprentissage passées (mode lecture, modèle 1×), à titre indicatif. La consommation réelle de crédits varie selon le contenu du cours, le modèle choisi et les interactions. Le mode écoute utilise des crédits vocaux supplémentaires.",
+      "learningTime": "Ces durées sont estimées à partir des données d’apprentissage passées (mode lecture, modèle 1×) et sont données à titre indicatif. Le contenu du cours, le modèle choisi et les interactions influencent la consommation réelle de crédits. Le mode écoute consomme davantage de crédits.",
       "validity": "Validité des crédits : les forfaits mensuels sont valables 30 jours à compter du jour de réception inclus ; les forfaits annuels sont valables par année calendaire à compter du jour de réception. Les deux expirent à 23:59 le jour d’expiration."
     },
     "free": {
@@ -1071,6 +1071,7 @@
       "yearly": "Forfaits annuels"
     },
     "learningTime": {
+      "compactValue": "Environ {minutes} minutes",
       "label": "Temps d’apprentissage estimé",
       "lessThanOne": "Moins de 1 minute",
       "unavailable": "—",

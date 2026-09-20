@@ -956,6 +956,7 @@ export type I18nKey =
   | 'module.billing.package.intervalTabs.plans'
   | 'module.billing.package.intervalTabs.topup'
   | 'module.billing.package.intervalTabs.yearly'
+  | 'module.billing.package.learningTime.compactValue'
   | 'module.billing.package.learningTime.label'
   | 'module.billing.package.learningTime.lessThanOne'
   | 'module.billing.package.learningTime.unavailable'
