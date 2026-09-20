@@ -7,10 +7,17 @@ import json
 from collections.abc import Generator
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
-import requests
 from flask import Flask
+from flaskr.common.safe_outbound import (
+    OutboundDeadlineExceededError,
+    OutboundRedirectError,
+    OutboundResponseTooLargeError,
+    UnsafeOutboundUrlError,
+)
+from urllib3.exceptions import HTTPError, NewConnectionError
+from urllib3.exceptions import TimeoutError as UrllibTimeoutError
 
 from .base import (
     AskProviderChunk,
@@ -19,7 +26,7 @@ from .base import (
     AskProviderRuntime,
     AskProviderTimeoutError,
 )
-from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
+from .common import extract_text, safe_provider_client
 from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
 
 
@@ -259,11 +266,29 @@ class VolcKnowledgeAskProviderAdapter:
             if isinstance(value, dict):
                 payload[field] = copy.deepcopy(value)
 
-        request_timeout_seconds = provider_timeout_seconds()
+        raw_url = f"{scheme}://{domain}{path}"
+        try:
+            client = safe_provider_client(
+                app, trusted_origins_config="VOLC_KNOWLEDGE_TRUSTED_ORIGINS"
+            )
+        except ValueError as exc:
+            message = "VOLC_KNOWLEDGE_TRUSTED_ORIGINS contains an invalid origin"
+            raise AskProviderConfigError(message) from exc
+        deadline = client.new_deadline()
+        try:
+            validated_target = client.validate_url(raw_url, deadline=deadline)
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "volc_knowledge request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except UnsafeOutboundUrlError as exc:
+            error_message = "volc_knowledge request was rejected or failed"
+            raise AskProviderError(error_message) from exc
+
+        normalized_host = urlsplit(validated_target.url).netloc
         unsigned_headers = {
             "Accept": "application/json",
             "Content-Type": "application/json; charset=utf-8",
-            "Host": domain,
+            "Host": normalized_host,
             "V-Account-Id": account_id,
         }
         request_body = json.dumps(payload, ensure_ascii=False)
@@ -281,27 +306,45 @@ class VolcKnowledgeAskProviderAdapter:
         request_headers = {**unsigned_headers, **signed_headers}
 
         try:
-            response = requests.request(
-                method="POST",
-                url=f"{scheme}://{domain}{path}",
+            response = client.request(
+                "POST",
+                validated_target.url,
                 headers=request_headers,
-                data=request_body,
-                timeout=(5, request_timeout_seconds),
+                body=request_body.encode("utf-8"),
+                deadline=deadline,
             )
-        except requests.Timeout as exc:
+        except NewConnectionError as exc:
+            error_message = "volc_knowledge request was rejected or failed"
+            raise AskProviderError(error_message) from exc
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             exception_message = "volc_knowledge request timeout"
             raise AskProviderTimeoutError(exception_message) from exc
-        except requests.RequestException as exc:
-            error_message = f"volc_knowledge request failed: {exc}"
+        except (
+            HTTPError,
+            OutboundRedirectError,
+            OutboundResponseTooLargeError,
+            UnsafeOutboundUrlError,
+        ) as exc:
+            error_message = "volc_knowledge request was rejected or failed"
             raise AskProviderError(error_message) from exc
 
-        response = raise_for_provider_response(response, self.provider)
-
         try:
-            payload_data = response.json()
-        except ValueError as exc:
+            with response:
+                if not 200 <= response.status < 300:
+                    message = (
+                        f"volc_knowledge request failed with status {response.status}"
+                    )
+                    raise AskProviderError(message)
+                payload_data = json.loads(response.content)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             exception_message = "volc_knowledge response is not valid json"
             raise AskProviderError(exception_message) from exc
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "volc_knowledge request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except (HTTPError, OutboundResponseTooLargeError) as exc:
+            message = "volc_knowledge response was rejected or failed"
+            raise AskProviderError(message) from exc
 
         if isinstance(payload_data, dict):
             code = payload_data.get("code")

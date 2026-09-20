@@ -4,8 +4,15 @@ import json
 from collections.abc import Generator
 from typing import Any
 
-import requests
 from flask import Flask
+from flaskr.common.safe_outbound import (
+    OutboundDeadlineExceededError,
+    OutboundRedirectError,
+    OutboundResponseTooLargeError,
+    UnsafeOutboundUrlError,
+)
+from urllib3.exceptions import HTTPError
+from urllib3.exceptions import TimeoutError as UrllibTimeoutError
 
 from .base import (
     AskProviderChunk,
@@ -14,7 +21,7 @@ from .base import (
     AskProviderRuntime,
     AskProviderTimeoutError,
 )
-from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
+from .common import extract_text, safe_provider_client
 from .consts import ASK_PROVIDER_COZE_WORKFLOW
 
 DEFAULT_COZE_WORKFLOW_BASE_URL = "https://api.coze.cn"
@@ -225,26 +232,48 @@ class CozeWorkflowAskProviderAdapter:
         url = base_url.rstrip("/") + WORKFLOW_PATH
 
         try:
-            response = requests.post(
+            client = safe_provider_client(
+                app, trusted_origins_config="COZE_WORKFLOW_TRUSTED_ORIGINS"
+            )
+        except ValueError as exc:
+            message = "COZE_WORKFLOW_TRUSTED_ORIGINS contains an invalid origin"
+            raise AskProviderConfigError(message) from exc
+        try:
+            response = client.request(
+                "POST",
                 url,
                 headers=headers,
-                json=payload,
-                timeout=(5, provider_timeout_seconds()),
+                body=json.dumps(payload).encode("utf-8"),
             )
-        except requests.Timeout as exc:
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             error_message = "coze_workflow request timeout"
             raise AskProviderTimeoutError(error_message) from exc
-        except requests.RequestException as exc:
-            message = f"coze_workflow request failed: {exc}"
+        except (
+            HTTPError,
+            OutboundRedirectError,
+            OutboundResponseTooLargeError,
+            UnsafeOutboundUrlError,
+        ) as exc:
+            message = "coze_workflow request was rejected or failed"
             raise AskProviderError(message) from exc
 
-        response = raise_for_provider_response(response, self.provider)
-
         try:
-            response_payload = response.json()
-        except ValueError as exc:
+            with response:
+                if not 200 <= response.status < 300:
+                    message = (
+                        f"coze_workflow request failed with status {response.status}"
+                    )
+                    raise AskProviderError(message)
+                response_payload = json.loads(response.content)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             error_message = "coze_workflow response is not valid json"
             raise AskProviderError(error_message) from exc
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            error_message = "coze_workflow request timeout"
+            raise AskProviderTimeoutError(error_message) from exc
+        except (HTTPError, OutboundResponseTooLargeError) as exc:
+            message = "coze_workflow response was rejected or failed"
+            raise AskProviderError(message) from exc
 
         if not isinstance(response_payload, dict):
             error_message = "coze_workflow response has invalid payload"
