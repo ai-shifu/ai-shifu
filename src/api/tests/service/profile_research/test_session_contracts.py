@@ -1,5 +1,7 @@
 """Regression coverage for the accompanying runtime fix."""
 
+import json
+
 import pytest
 from flaskr.service.profile_research import session as sessions
 
@@ -40,3 +42,31 @@ def test_cached_state_validation_rejects_incompatible_fields(overrides: dict) ->
     payload.update(overrides)
     with pytest.raises(sessions.ProfileResearchSessionNotFound):
         sessions._ProfileResearchSession.from_cache_payload(payload)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "schema_version",
+        "config_revision",
+        "block_index",
+        "block_count",
+        "profile_draft_block_index",
+        "last_expected_block_index",
+    ],
+)
+@pytest.mark.parametrize("number", ["Infinity", "-Infinity", "1e309", "-1e309"])
+def test_nonfinite_cached_integer_fields_fail_as_missing_sessions(
+    field: str, number: str
+) -> None:
+    _app, runtime, _providers = _make_runtime()
+    view = _start_test_session(runtime)
+    key = runtime.store._key(view["session_id"])
+    payload = runtime.store.load(view["session_id"]).to_cache_payload()
+    payload[field] = "nonfinite-placeholder"
+    raw = json.dumps(payload).replace('"nonfinite-placeholder"', number)
+    runtime.store._cache.setex(key, 30, raw)
+    with pytest.raises(sessions.ProfileResearchSessionNotFound) as error:
+        runtime.store.load(view["session_id"])
+    assert error.value.public_code == "transient_markdownflow_session_not_found"
+    assert runtime.store._cache.get(key) == raw.encode("utf-8")

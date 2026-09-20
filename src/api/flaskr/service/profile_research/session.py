@@ -283,7 +283,7 @@ class _ProfileResearchSession:
             )
         except ProfileResearchError:
             raise
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError, OverflowError) as exc:
             msg = "invalid session payload"
             raise ProfileResearchSessionNotFound(msg) from exc
 
