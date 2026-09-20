@@ -35,6 +35,7 @@ def create_tts_processor(
     position: int = 0,
     stream_element_number: int | None = None,
     stream_element_type: str | None = None,
+    usage_scene: int | None = None,
 ) -> object | None:
     """Return the processor this lesson speaks through, or None if it is not spoken.
 
@@ -95,6 +96,7 @@ def create_tts_processor(
         )
         return create_streaming_tts_processor(
             app=app,
+            **({} if usage_scene is None else {"usage_scene": usage_scene}),
             generated_block_bid=generated_block_bid,
             outline_bid=outline_bid,
             progress_record_bid=progress_record_bid,
