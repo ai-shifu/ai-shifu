@@ -652,7 +652,7 @@ def payment_lifecycle_lock(order_bid: str) -> Iterator[_PaymentLifecycleLease]:
         blocking_timeout=60,
         thread_local=False,
     )
-    if not lock.acquire(blocking=True):
+    if not lock or not lock.acquire(blocking=True):
         raise_error("server.order.orderStatusError")
     lease = _PaymentLifecycleLease(lock)
     ownership_token = _payment_lock_ownership_events.set(
@@ -2824,6 +2824,7 @@ def success_buy_record_from_pingxx(
 
         if not lock:
             app.logger.error('lock failed for charge:"%s"', charge_id)
+            raise_error("server.order.orderStatusError")
         if lock.acquire(blocking=True):
             try:
                 app.logger.info('success buy record from pingxx charge:"%s"', charge_id)
@@ -2884,6 +2885,8 @@ def success_buy_record_from_pingxx(
                 )
             finally:
                 lock.release()
+        else:
+            raise_error("server.order.orderStatusError")
     return None
 
 
