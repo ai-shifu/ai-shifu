@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import { Card, CardContent } from '@/components/ui/Card';
 import {
   Table,

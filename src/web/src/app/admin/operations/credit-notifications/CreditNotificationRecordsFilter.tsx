@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import { useEnvStore } from '@/store';

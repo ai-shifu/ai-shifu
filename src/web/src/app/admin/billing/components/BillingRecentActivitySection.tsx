@@ -3,7 +3,7 @@ import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { Skeleton } from '@/components/ui/Skeleton';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import {
   Table,
   TableBody,

@@ -25,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live Voice Follow-Up](./active/gemini-live-voice-follow-up.md)
 - [Gemini TTS Provider](./active/gemini-tts.md)
+- [Keep common payment synchronization idempotent](./active/idempotent-payment-sync.md)
 - [Learner listen playback stability](./active/learner-listen-playback-stability.md)
 - [Lobster Course Entry Analytics](./active/lobster-course-entry-analytics.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./active/markdownflow-model-arena.md)
@@ -40,6 +41,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
+- [Secure learner Stripe payment synchronization](./active/stripe-payment-sync-security.md)
 
 ## Completed
 
@@ -49,6 +51,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Arabic and Thai Product i18n](./completed/arabic-thai-i18n.md)
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
+- [Consolidate shared admin primitives](./completed/consolidate-admin-primitives.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [Charge settings previews to the course owner](./completed/course-owner-preview-billing.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)

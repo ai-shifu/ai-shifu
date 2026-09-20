@@ -40,6 +40,7 @@
 | `docs/exec-plans/active/gemini-live-configurable-capacity.md` | Configurable Gemini Live admission capacity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live Voice Follow-Up | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-tts.md` | Gemini TTS Provider | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/learner-listen-playback-stability.md` | Learner listen playback stability | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -55,12 +56,14 @@
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Minimize the Explicit Ruff Policy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/stripe-payment-sync-security.md` | Secure learner Stripe payment synchronization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-rate-management-create.md` | Add arbitrary rate entries to Rate Management | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/agent-first-harness-migration.md` | Agent-First Harness Migration | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/arabic-thai-i18n.md` | Arabic and Thai Product i18n | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/billing-timezone-cleanup.md` | Billing 时区死管道清理 — 执行计划 | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/canonical-background-onboarding-contract.md` | Canonical Background And Onboarding Contract | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/consolidate-admin-primitives.md` | Consolidate shared admin primitives | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/course-copy-operator.md` | Operator Course Copy | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/course-owner-preview-billing.md` | Charge settings previews to the course owner | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/elevenlabs-tts.md` | ElevenLabs TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
