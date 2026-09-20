@@ -277,12 +277,15 @@ class _ProfileResearchSession:
                     else None
                 ),
                 last_user_input=_normalize_profile_research_user_input(
-                    payload.get("last_user_input") or None
+                    payload.get("last_user_input")
                 ),
                 last_events=events,
             )
-        except ProfileResearchError:
-            raise
+        except ProfileResearchError as exc:
+            if isinstance(exc, ProfileResearchSessionNotFound):
+                raise
+            msg = "invalid session payload"
+            raise ProfileResearchSessionNotFound(msg) from exc
         except (KeyError, TypeError, ValueError, OverflowError) as exc:
             msg = "invalid session payload"
             raise ProfileResearchSessionNotFound(msg) from exc

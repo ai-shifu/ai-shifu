@@ -70,3 +70,55 @@ def test_nonfinite_cached_integer_fields_fail_as_missing_sessions(
         runtime.store.load(view["session_id"])
     assert error.value.public_code == "transient_markdownflow_session_not_found"
     assert runtime.store._cache.get(key) == raw.encode("utf-8")
+
+
+@pytest.mark.parametrize(
+    "user_input",
+    [
+        False,
+        0,
+        [],
+        "answer",
+        ["answer"],
+        {"input": "answer"},
+        {"input": [1]},
+        {"input": [" "]},
+        {"input": []},
+        {"": ["answer"]},
+        {"input": ["x" * 4_001]},
+    ],
+)
+def test_corrupt_replay_input_is_reported_as_missing_session_and_does_not_prevent_restart(
+    user_input: object,
+) -> None:
+    _app, runtime, providers = _make_runtime()
+    previous = _start_test_session(runtime)
+    key = runtime.store._key(previous["session_id"])
+    payload = runtime.store.load(previous["session_id"]).to_cache_payload()
+    payload["last_user_input"] = user_input
+    raw = json.dumps(payload)
+    runtime.store._cache.setex(key, 30, raw)
+    with pytest.raises(sessions.ProfileResearchSessionNotFound) as error:
+        runtime.store.load(previous["session_id"])
+    assert error.value.public_code == "transient_markdownflow_session_not_found"
+    assert runtime.store._cache.get(key) == raw.encode("utf-8")
+    replacement = _start_test_session(runtime)
+    assert replacement["session_id"] != previous["session_id"]
+    assert (
+        runtime.store.active_session_id(
+            user_bid="user-1", purpose=sessions.PROFILE_ONBOARDING_PURPOSE
+        )
+        == replacement["session_id"]
+    )
+    assert runtime.store.load(replacement["session_id"]).last_user_input == {}
+    assert providers == []
+
+
+@pytest.mark.parametrize("user_input", [None, {}, {"input": ["valid", "0"]}])
+def test_valid_cached_replay_input_keeps_its_existing_shape(user_input: object) -> None:
+    _app, runtime, _providers = _make_runtime()
+    view = _start_test_session(runtime)
+    payload = runtime.store.load(view["session_id"]).to_cache_payload()
+    payload["last_user_input"] = user_input
+    restored = sessions._ProfileResearchSession.from_cache_payload(payload)
+    assert restored.last_user_input == (user_input or {})
