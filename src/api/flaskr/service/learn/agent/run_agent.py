@@ -35,6 +35,7 @@ from flaskr.service.learn.agent.engine.engine import (
 )
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
+    InteractionRequest,
     MemoryUpdated,
     TurnDone,
 )
@@ -507,6 +508,20 @@ def _stream_turn(
                     outline_bid=outline_bid,
                     generated_block_bid=generated_block_bid,
                 )
+        if isinstance(event, InteractionRequest):
+            # The question comes after the lesson text as its own block, the way a 1.0 lesson
+            # delivers it: the text's audio is finished and its block finalised first, so every
+            # row of it is written before the question's. History is ordered by the moment of
+            # writing, and a history whose last row was not the question read to the browser as a
+            # lesson to continue -- which it did, with nothing, on every reload.
+            if voice is not None:
+                yield from voice.finish()
+            yield RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            )
 
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
         # question emits one and then re-asks the question and ends the turn properly, so treating
