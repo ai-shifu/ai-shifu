@@ -1,15 +1,15 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
