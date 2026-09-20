@@ -1012,6 +1012,7 @@
       "unavailable": "—",
       "value": "About {minutes} minutes"
     },
+    "loading": "Loading plans...",
     "preorder": {
       "pending": "Pending preorder: {plan} will take effect at {date}."
     },

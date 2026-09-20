@@ -478,6 +478,21 @@ describe('BillingOverviewTab', () => {
     jest.useRealTimers();
   });
 
+  test('uses the shared loading announcement while the catalog is pending', () => {
+    mockUseSWR.mockReturnValue({ data: undefined, isLoading: true });
+    const { rerender } = renderOverviewTab();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.billing.package.loading',
+    );
+
+    mockUseSWR.mockReturnValue({ data: CATALOG_RESPONSE, isLoading: false });
+    rerender(<BillingOverviewTab />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-plan-comparison-table'),
+    ).toBeInTheDocument();
+  });
+
   test('shows the one-payment discount note only for discounted plans', () => {
     const { rerender } = renderOverviewTab();
     const note = 'module.billing.package.campaign.paymentOnly';

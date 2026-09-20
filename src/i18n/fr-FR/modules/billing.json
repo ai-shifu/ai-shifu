@@ -1012,6 +1012,7 @@
       "unavailable": "—",
       "value": "Environ {minutes} minutes"
     },
+    "loading": "Chargement des forfaits…",
     "preorder": {
       "pending": "Précommande en attente : {plan} prendra effet le {date}."
     },

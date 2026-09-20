@@ -140,10 +140,23 @@ export function BillingOverviewShowcase({
       </div>
 
       {isLoading ? (
-        <div className='grid gap-6 xl:grid-cols-3'>
-          <Skeleton className='h-[620px] rounded-[34px]' />
-          <Skeleton className='h-[620px] rounded-[34px]' />
-          <Skeleton className='h-[620px] rounded-[34px]' />
+        <div
+          className='grid gap-6 xl:grid-cols-3'
+          role='status'
+        >
+          <span className='sr-only'>{t('module.billing.package.loading')}</span>
+          <Skeleton
+            className='h-[620px] rounded-[34px]'
+            aria-hidden='true'
+          />
+          <Skeleton
+            className='h-[620px] rounded-[34px]'
+            aria-hidden='true'
+          />
+          <Skeleton
+            className='h-[620px] rounded-[34px]'
+            aria-hidden='true'
+          />
         </div>
       ) : showcaseTab === 'topup' ? (
         <div className='space-y-6'>

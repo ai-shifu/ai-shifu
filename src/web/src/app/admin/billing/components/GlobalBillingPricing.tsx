@@ -678,8 +678,13 @@ function CatalogState({
       <div
         className='rounded-xl border border-border bg-card px-6 py-16 text-center text-muted-foreground'
         data-testid='global-billing-loading'
+        role='status'
       >
-        <Skeleton className='mx-auto h-6 w-40' />
+        <span className='sr-only'>{t('module.billing.package.loading')}</span>
+        <Skeleton
+          className='mx-auto h-6 w-40'
+          aria-hidden='true'
+        />
       </div>
     );
   }

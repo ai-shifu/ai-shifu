@@ -126,6 +126,9 @@ The subsequent Global copy alignment reuses domestic translations and the
 footnote component, shows full-period prices and cumulative benefits, and passes
 128 focused tests plus full type checking. Browser readback confirmed the
 shared short validity note on the domestic page.
+Review follow-up restores the catalog loading announcement through a shared
+localized status for both skeleton screens. Focused regressions verify that
+the announcement is present only while the catalog is pending.
 
 ## Context and Orientation
 

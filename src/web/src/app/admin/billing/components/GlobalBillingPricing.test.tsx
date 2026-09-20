@@ -315,6 +315,27 @@ describe('GlobalBillingPricing', () => {
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
   });
 
+  test('announces catalog loading until the plan cards are ready', async () => {
+    let resolveCatalog!: (
+      catalog: ReturnType<typeof buildGlobalCatalog>,
+    ) => void;
+    mockGetBillingCatalog.mockReturnValue(
+      new Promise(resolve => {
+        resolveCatalog = resolve;
+      }),
+    );
+    renderPricing();
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.billing.package.loading',
+    );
+    await act(async () => {
+      resolveCatalog(buildGlobalCatalog());
+    });
+    expect(await screen.findByTestId('global-plan-growth')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
   test('renders annual plans with learning minutes and one shared explanatory note', async () => {
     renderPricing();
 

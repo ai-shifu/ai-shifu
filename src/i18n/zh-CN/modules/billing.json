@@ -1012,6 +1012,7 @@
       "unavailable": "—",
       "value": "约 {minutes} 分钟"
     },
+    "loading": "正在加载套餐……",
     "preorder": {
       "pending": "待生效预购：{plan} 将于 {date} 生效。"
     },

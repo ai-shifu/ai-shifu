@@ -1012,6 +1012,7 @@
       "unavailable": "—",
       "value": "حوالي {minutes} دقيقة"
     },
+    "loading": "جارٍ تحميل الباقات...",
     "preorder": {
       "pending": "شراء مسبق بانتظار السريان: ستسري {plan} في {date}."
     },

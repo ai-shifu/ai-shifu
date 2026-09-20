@@ -1012,6 +1012,7 @@
       "unavailable": "—",
       "value": "ประมาณ {minutes} นาที"
     },
+    "loading": "กำลังโหลดแพ็กเกจ...",
     "preorder": {
       "pending": "การซื้อล่วงหน้ารอมีผล: {plan} จะมีผลวันที่ {date}"
     },

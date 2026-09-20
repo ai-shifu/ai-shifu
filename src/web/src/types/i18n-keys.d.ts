@@ -914,6 +914,7 @@ export type I18nKey =
   | 'module.billing.package.learningTime.lessThanOne'
   | 'module.billing.package.learningTime.unavailable'
   | 'module.billing.package.learningTime.value'
+  | 'module.billing.package.loading'
   | 'module.billing.package.preorder.pending'
   | 'module.billing.package.subtitle'
   | 'module.billing.package.table.creditsRowLabel'
