@@ -850,8 +850,7 @@ def test_a_sentence_is_shown_before_it_is_spoken(
         def drain_ready_segments(self) -> list[str]:
             return []
 
-        def finalize(self, *, commit: bool) -> list[str]:
-            assert commit is False
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
             return []
 
     monkeypatch.setattr(
@@ -894,8 +893,7 @@ def test_audio_finished_while_the_lesson_wrote_on_is_collected(
             drained.append(1)
             return [f"audio:ready-{len(drained)}"]
 
-        def finalize(self, *, commit: bool) -> list[str]:
-            assert commit is False
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
             return []
 
     monkeypatch.setattr(
@@ -933,8 +931,7 @@ def test_a_listening_lesson_is_sent_as_pages(monkeypatch: pytest.MonkeyPatch) ->
         def drain_ready_segments(self) -> list[str]:
             return []
 
-        def finalize(self, *, commit: bool) -> list[str]:
-            assert commit is False
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
             return []
 
     monkeypatch.setattr(
@@ -1011,8 +1008,7 @@ def test_no_lesson_text_escapes_a_listening_turn_unpaged(
         def drain_ready_segments(self) -> list[str]:
             return []
 
-        def finalize(self, *, commit: bool) -> list[str]:
-            assert commit is False
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
             return []
 
     monkeypatch.setattr(

@@ -315,6 +315,7 @@ def _on_this_page(
     events: object,
     *,
     pager: LessonPager | None,
+    voice: LessonVoice | None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Put any lesson text that reached here unpaged on the page the lesson is on.
 
@@ -335,7 +336,15 @@ def _on_this_page(
         ):
             text = str(event.content or "")
             if text:
-                event.set_mdflow_stream_parts([(text, "text", pager.page)])
+                event.set_mdflow_stream_parts([(text, "text", pager.number)])
+                yield event
+                if voice is not None:
+                    # The question beside a set of choices is often the only place the model
+                    # asks it; a listener who does not hear it has nothing to answer.
+                    yield from voice.speak(
+                        text, stream_type="text", stream_number=pager.number
+                    )
+                continue
         yield event
 
 
@@ -347,21 +356,39 @@ def _paged(
     outline_bid: str,
     generated_block_bid: str,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Send one stretch of lesson text a page at a time, each page spoken after it is shown.
+    """Send one stretch of lesson text in formatted pieces, each spoken after it is shown.
 
     Text first and then its audio, the order a 1.0 lesson sends them in: the browser treats a
     passage marked speakable with no audio yet as buffering and waits, so audio that arrives ahead
     of the text it belongs to has no element to attach to.
     """
-    for piece, page in pager.add(text):
+    yield from _pieces(
+        pager.add(text),
+        voice=voice,
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+    )
+
+
+def _pieces(
+    pieces: list[tuple[str, str, int]],
+    *,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send formatted pieces the way a 1.0 lesson sends them: each typed and numbered, then spoken."""
+    for content, stream_type, number in pieces:
         yield RunMarkdownFlowDTO(
             outline_bid=outline_bid,
             generated_block_bid=generated_block_bid,
             type=GeneratedType.CONTENT,
-            content=piece,
-        ).set_mdflow_stream_parts([(piece, "text", page)])
+            content=content,
+        ).set_mdflow_stream_parts([(content, stream_type, number)])
         if voice is not None:
-            yield from voice.speak(piece)
+            yield from voice.speak(
+                content, stream_type=stream_type, stream_number=number
+            )
 
 
 def _stream_turn(
@@ -411,6 +438,14 @@ def _stream_turn(
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
         # question emits one and then re-asks the question and ends the turn properly, so treating
         # it as terminal would write the turn twice and stage its block twice.
+        if isinstance(event, TurnDone) and pager is not None:
+            # The formatter holds the last line until it sees its end; the turn is that end.
+            yield from _pieces(
+                pager.flush(),
+                voice=voice,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+            )
         if isinstance(event, TurnDone) and voice is not None:
             # Whatever is still mid-synthesis when the text runs out, which is usually the last
             # sentence of the turn.
@@ -442,6 +477,7 @@ def _stream_turn(
                     generated_block_bid=generated_block_bid,
                 ),
                 pager=pager,
+                voice=voice,
             )
         except UnrepresentableInteractionError:
             # The controls would ask something other than the model did, so they are not sent. The
@@ -465,11 +501,19 @@ def _stream_turn(
                         )
                     ],
                     pager=pager,
+                    voice=voice,
                 )
 
     # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
     # the failures it cannot continue past. What the turn produced still has to be written, or the
     # learner replays an exchange that already happened.
+    if pager is not None and not persisted:
+        yield from _pieces(
+            pager.flush(),
+            voice=voice,
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+        )
     if voice is not None and not persisted:
         # Speech buffered when the turn died would otherwise never reach the learner, while the
         # synthesis already submitted carries on with nowhere to go.
