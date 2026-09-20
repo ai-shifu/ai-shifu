@@ -49,8 +49,16 @@ def _gateway(monkeypatch: pytest.MonkeyPatch, chunks: object) -> dict:
     return asked
 
 
+def _call(
+    index: int = 0,
+    name: str = "interact",
+    arguments: str = '{"type":"confirm","prompt":"Continue?"}',
+) -> dict:
+    return {"index": index, "name": name, "arguments": arguments}
+
+
 def test_a_model_that_calls_the_tool_can_teach(monkeypatch: pytest.MonkeyPatch) -> None:
-    asked = _gateway(monkeypatch, [_Chunk(tool_call_deltas=[{"index": 0}])])
+    asked = _gateway(monkeypatch, [_Chunk(tool_call_deltas=[_call()])])
 
     result = capability.probe_model(_App(), "ark/some-model")
 
@@ -62,13 +70,68 @@ def test_a_model_that_calls_the_tool_can_teach(monkeypatch: pytest.MonkeyPatch) 
     assert asked["model"] == "ark/some-model"
 
 
-def test_a_provider_that_reports_a_tool_call_stop_counts_as_calling(
+def test_arguments_split_across_chunks_are_stitched_back_together(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Some providers report the stop reason without a delta the probe can see."""
-    _gateway(monkeypatch, [_Chunk(finish_reason="tool_calls")])
+    """A provider sends one call's arguments in pieces; the index is what joins them."""
+    _gateway(
+        monkeypatch,
+        [
+            _Chunk(tool_call_deltas=[_call(arguments='{"type":"conf')]),
+            _Chunk(
+                tool_call_deltas=[{"index": 0, "arguments": 'irm","prompt":"Go on?"}'}]
+            ),
+        ],
+    )
 
     assert capability.probe_model(_App(), "m").can_teach is True
+
+
+def test_a_call_that_never_completes_is_not_good_enough(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fragments say the model reached for a tool, not that it produced a usable one.
+
+    Approving on the fragment alone would pass a model that cannot actually give the learner
+    controls -- the failure this probe exists to catch.
+    """
+    _gateway(
+        monkeypatch,
+        [
+            _Chunk(
+                tool_call_deltas=[_call(arguments='{"type":"conf')],
+                finish_reason="tool_calls",
+            )
+        ],
+    )
+
+    result = capability.probe_model(_App(), "m")
+
+    assert result.can_teach is False
+    assert "did not complete" in result.detail
+
+
+def test_a_stop_reason_with_nothing_behind_it_is_not_good_enough(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A provider claiming a tool call while sending none has still sent none."""
+    _gateway(monkeypatch, [_Chunk(finish_reason="tool_calls")])
+
+    result = capability.probe_model(_App(), "m")
+
+    assert result.can_teach is False
+    assert "did not complete" in result.detail
+
+
+def test_a_call_to_something_else_is_not_the_tool_it_was_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _gateway(monkeypatch, [_Chunk(tool_call_deltas=[_call(name="search")])])
+
+    result = capability.probe_model(_App(), "m")
+
+    assert result.can_teach is False
+    assert "called search" in result.detail
 
 
 def test_a_model_that_answers_in_prose_cannot_teach(

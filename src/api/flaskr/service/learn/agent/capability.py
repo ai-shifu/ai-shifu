@@ -17,6 +17,7 @@ Run before putting a course on the 2.0 allowlist:
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -87,7 +88,9 @@ def probe_model(app: Flask, model: str, *, user_bid: str = "") -> ModelCapabilit
         trace_payload={"name": "agent_model_probe", "metadata": {"model": model}},
         root_span_payload={"name": "agent_model_probe"},
     )
-    saw_tool_call = False
+    # Arguments arrive in fragments, stitched back together by index -- a fragment on its own
+    # says the model started a call, not that it produced one that works.
+    fragments: dict[object, dict[str, str]] = {}
     finish_reason = ""
     failure = ""
     try:
@@ -102,8 +105,12 @@ def probe_model(app: Flask, model: str, *, user_bid: str = "") -> ModelCapabilit
             temperature=0,
             tools=_PROBE_TOOLS,
         ):
-            if getattr(chunk, "tool_call_deltas", None):
-                saw_tool_call = True
+            for delta in getattr(chunk, "tool_call_deltas", None) or []:
+                call = fragments.setdefault(
+                    delta.get("index"), {"name": "", "arguments": ""}
+                )
+                call["name"] = call["name"] or (delta.get("name") or "")
+                call["arguments"] += delta.get("arguments") or ""
             reason = getattr(chunk, "finish_reason", "") or ""
             if reason:
                 finish_reason = str(reason)
@@ -114,9 +121,30 @@ def probe_model(app: Flask, model: str, *, user_bid: str = "") -> ModelCapabilit
 
     if failure:
         return ModelCapability(model=model, calls_tools=False, detail=failure)
-    if saw_tool_call or finish_reason == "tool_calls":
+
+    usable = [
+        call
+        for call in fragments.values()
+        if call["name"] == "interact" and _has_question(call["arguments"])
+    ]
+    if usable:
         return ModelCapability(
             model=model, calls_tools=True, detail="called the tool it was given"
+        )
+    if fragments or finish_reason == "tool_calls":
+        # It reached for a tool and did not come back with one that works: a call for something
+        # other than `interact`, arguments that do not parse, or a stop reason saying it called
+        # while nothing arrived. Reported apart from an answer in prose, because the two are
+        # fixed in different places.
+        names = sorted({call["name"] for call in fragments.values() if call["name"]})
+        return ModelCapability(
+            model=model,
+            calls_tools=False,
+            detail=(
+                "started a tool call it did not complete"
+                + (f" (called {', '.join(names)})" if names else "")
+                + (f" (stopped on {finish_reason})" if finish_reason else "")
+            ),
         )
     return ModelCapability(
         model=model,
@@ -126,3 +154,17 @@ def probe_model(app: Flask, model: str, *, user_bid: str = "") -> ModelCapabilit
             + (f" (stopped on {finish_reason})" if finish_reason else "")
         ),
     )
+
+
+def _has_question(arguments: str) -> bool:
+    """Whether the assembled arguments parse and carry the question to ask.
+
+    Only that much: a model that fills the rest in differently than the engine would has still
+    called the tool, and refusing it here would repeat the mistake this probe exists to avoid --
+    deciding from a rule about the model rather than from what it did.
+    """
+    try:
+        parsed = json.loads(arguments or "")
+    except ValueError:
+        return False
+    return isinstance(parsed, dict) and bool(parsed.get("prompt"))
