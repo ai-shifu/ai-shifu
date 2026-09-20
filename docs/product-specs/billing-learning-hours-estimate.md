@@ -21,9 +21,10 @@ scenario row to keep the table concise.
 Both pricing surfaces use this concise shared Chinese footnote, with aligned
 translations in all five locales:
 
-> 以上时长按过往学习数据估算（阅读模式、1× 模型），仅供参考。课程内容、所选模型和互动情况都会影响实际积分消耗，听课模式会消耗更多积分。
+> 以上时长按过往学习数据估算，仅供参考。课程内容、所选模型和互动情况都会影响实际积分消耗，听课模式会消耗更多积分。
 
-The historical usage and assumed completion duration behind that copy remain
+The reading-mode, 1×-model assumptions remain in this specification rather than
+the public footnote. The historical usage and assumed completion duration behind that copy remain
 fully documented below. The short copy does not claim measured online time,
 a broad statistical average or a guaranteed service entitlement.
 

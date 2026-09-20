@@ -143,7 +143,7 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.creditPacks.instantAndPermanent':
           'Credits are added immediately and never expire.',
         'module.billing.package.footnote.learningTime':
-          'These estimates are based on past learning data (reading mode, 1× model) and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.',
+          'These estimates are based on past learning data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.',
         'module.billing.package.learningTime.label': 'Estimated learning time',
         'module.billing.globalPricing.monthlyOnly': 'Monthly only',
         'module.billing.globalPricing.mostPopular': 'Most Popular',
@@ -392,7 +392,7 @@ describe('GlobalBillingPricing', () => {
     expect(screen.queryByText(/extra|bonus/i)).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        'These estimates are based on past learning data (reading mode, 1× model) and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.',
+        'These estimates are based on past learning data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. Listening mode uses more credits.',
       ),
     ).toBeInTheDocument();
     expect(

@@ -72,8 +72,8 @@ calibration evidence in the product specification.
   by 25.24 sample credits, approximately 100 hours per 1,000 credits. Do not
   present a single-course observation as a universal statistical range.
 - Keep the main content to an estimated-learning-time label and approximate
-  minute value. Keep the shared footnote to historical data, reading mode, 1×
-  model, reference-only status, consumption variability and higher credit usage
+  minute value. Keep the shared footnote to historical data, reference-only
+  status, consumption variability and higher credit usage
   in listening mode. Keep course, sample and rate details in the product specification.
 - Keep purchase actions and existing analytics unchanged: this replaces
   explanatory values and copy without adding an interaction path.
@@ -112,6 +112,8 @@ changes Growth Monthly from 4,000 to 5,000 credits, verifies 30,000 learning
 minutes and the existing checkout path, and checks that the checkout event uses
 the updated allocation. Invalid allocations remain rejected. All 127 focused
 tests and full type checking passed after this fix.
+The user subsequently removed the reading-mode and 1×-model parenthetical from
+the public footnote; the calibration and internal evidence remain unchanged.
 
 ## Context and Orientation
 
@@ -140,8 +142,9 @@ pre-commit gate before committing.
   Chinese annual allocations show 30 万, 60 万 and 132 万 minutes.
   Catalog changes update estimates without SKU edits or annual multiplication.
 - Only the learning-time label and approximate value appear in the comparison.
-- One shared footnote states historical data, reading mode, 1× model, reference-only
-  status and variable credit consumption; listening uses more credits.
+- One shared footnote states historical data, reference-only status and variable
+  credit consumption; listening uses more credits. Reading-mode and 1×-model
+  calibration assumptions remain in the internal product specification.
 - Invalid allocations do not promise minutes; positive sub-minute values remain
   distinct from unavailable data. Locale formatting remains intact.
 - Existing checkout behavior stays covered by billing regression suites.
