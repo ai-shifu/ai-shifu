@@ -68,6 +68,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
+- [Centralize model option display normalization](./completed/model-option-display-normalization.md)
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
