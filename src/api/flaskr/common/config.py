@@ -735,6 +735,18 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
+    "ASK_PROVIDER_ALLOW_INSECURE_HTTP": EnvVar(
+        name="ASK_PROVIDER_ALLOW_INSECURE_HTTP",
+        default=False,
+        type=bool,
+        description=(
+            "Allow credential-bearing Coze and Volcengine-compatible provider "
+            "requests over plain HTTP. Leave disabled unless a trusted private "
+            "deployment cannot provide HTTPS."
+        ),
+        group="llm",
+        required=False,
+    ),
     "DIFY_TRUSTED_ORIGINS": EnvVar(
         name="DIFY_TRUSTED_ORIGINS",
         default=[],

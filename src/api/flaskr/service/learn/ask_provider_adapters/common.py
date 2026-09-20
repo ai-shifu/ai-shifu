@@ -156,8 +156,12 @@ def safe_provider_client(
     trusted_origins = frozenset(
         str(origin).strip() for origin in values if str(origin).strip()
     )
+    allowed_schemes = frozenset({"https"})
+    if app.config.get("ASK_PROVIDER_ALLOW_INSECURE_HTTP", False):
+        allowed_schemes = frozenset({"http", "https"})
     return SafeOutboundClient(
         policy=OutboundUrlPolicy(
+            allowed_schemes=allowed_schemes,
             trusted_origins=trusted_origins,
             max_redirects=3,
             max_response_bytes=max_response_bytes,

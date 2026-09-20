@@ -779,6 +779,26 @@ def test_safe_provider_client_uses_separate_read_and_total_timeouts(
     assert client.policy.total_timeout_seconds == 90
 
 
+def test_safe_provider_client_requires_https_by_default(app: object) -> None:
+    client = common.safe_provider_client(
+        app,
+        trusted_origins_config="COZE_TRUSTED_ORIGINS",
+    )
+
+    assert client.policy.allowed_schemes == frozenset({"https"})
+
+
+def test_safe_provider_client_allows_explicit_private_http_opt_in(app: object) -> None:
+    app.config["ASK_PROVIDER_ALLOW_INSECURE_HTTP"] = True
+
+    client = common.safe_provider_client(
+        app,
+        trusted_origins_config="COZE_TRUSTED_ORIGINS",
+    )
+
+    assert client.policy.allowed_schemes == frozenset({"http", "https"})
+
+
 def test_volc_knowledge_adapter_missing_config_raises_error(app: object) -> None:
     adapter = module.VolcKnowledgeAskProviderAdapter()
 
