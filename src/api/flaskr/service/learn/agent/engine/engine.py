@@ -143,6 +143,7 @@ class Engine:
         render: RenderProfile = "sandbox",
         request_limit: int = 12,
         tool_calls_limit: int | None = 30,
+        turn_limit: int = 200,
         model_settings: ModelSettings | None = None,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn."""
@@ -153,6 +154,12 @@ class Engine:
         self.limits = UsageLimits(
             request_limit=request_limit, tool_calls_limit=tool_calls_limit
         )
+        # A backstop, not a teaching limit. The model often never calls `finish`, so nothing else
+        # ends a lesson that has run out of script: the learner keeps continuing and the session
+        # keeps growing, one model call at a time. The longest real lesson in production runs to
+        # 138 blocks, and a 2.0 turn covers roughly one block, so this sits far above any lesson
+        # anyone writes -- reaching it means the lesson is going in circles, not that it is long.
+        self.turn_limit = turn_limit
         self.agent: Agent[Deps, str | DeferredToolRequests] = Agent(
             model,
             deps_type=Deps,
@@ -238,6 +245,14 @@ class Engine:
         """
         if session.finished:
             # Terminal: a repeated or late request must not run the model on a finished lesson.
+            yield TurnDone(reason="finished", usage=session.usage)
+            return
+        if self.turn_limit and session.turn >= self.turn_limit:
+            # Out of turns: end the lesson rather than run the model again. Marked finished so a
+            # reload does not start it over, and reported as finished rather than as an error --
+            # everything the learner was taught stands, and the host reads this as a lesson that
+            # is over.
+            session.finished = True
             yield TurnDone(reason="finished", usage=session.usage)
             return
         turn = turn or (StartTurn() if not session.started else ContinueTurn())

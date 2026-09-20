@@ -843,3 +843,46 @@ async def test_an_unanswerable_response_keeps_the_question_pending() -> None:
     assert any(isinstance(e, MemoryUpdated) for e in ok)
     assert s.pending == []
     assert s.memory["picked"] == "A"
+
+
+async def test_a_lesson_out_of_turns_ends_instead_of_running_the_model() -> None:
+    """A backstop against a lesson that never ends: the model often never calls `finish`.
+
+    Nothing else stops a lesson that has run out of script — the learner keeps continuing, and
+    each continuation is another model call and another slice of session. Reaching the limit
+    means the lesson is going in circles, not that it is long: the longest real lesson in
+    production runs to 138 blocks, and the default sits far above that.
+    """
+    called = False
+
+    async def never_called(
+        _messages: list[ModelMessage],
+        _info: AgentInfo,
+    ) -> StreamChunks:
+        nonlocal called
+        called = True
+        yield "x"
+
+    engine = Engine(FunctionModel(stream_function=never_called), turn_limit=3)
+    session = await engine.new_session("script")
+    session.turn = 3
+
+    events = await collect(engine.run_turn(session))
+
+    assert [type(e).__name__ for e in events] == ["TurnDone"]
+    assert events[0].reason == "finished"
+    assert called is False
+    # Marked finished, so a reload reads the lesson as over rather than starting it again.
+    assert session.finished is True
+
+
+async def test_a_lesson_within_its_turns_still_runs() -> None:
+    """The limit is a backstop; one turn below it changes nothing."""
+    engine = make_engine(turn_limit=3)
+    session = await engine.new_session("Greet the learner, then ask how they feel.")
+    session.turn = 2
+
+    events = await collect(engine.run_turn(session))
+
+    assert isinstance(events[0], ContentDelta)
+    assert session.finished is False
