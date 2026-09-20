@@ -7,7 +7,7 @@ import socket
 import ssl
 import threading
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlsplit
 
 import urllib3
@@ -34,6 +34,7 @@ def open_pinned_request(
     deadline: float,
 ) -> HTTPResponse:
     """Connect to a validated IP while preserving HTTP Host and HTTPS SNI."""
+    deadline_guard = _AbsoluteDeadlineGuard(deadline)
     request_headers = {
         key: value for key, value in headers.items() if key.lower() != "host"
     }
@@ -66,7 +67,7 @@ def open_pinned_request(
             if target.scheme == "https"
             else _DeadlineHTTPConnection
         )
-        pool.conn_kw["absolute_deadline"] = deadline
+        pool.conn_kw["deadline_guard"] = deadline_guard
     try:
         response = pool.urlopen(
             method,
@@ -79,61 +80,84 @@ def open_pinned_request(
             timeout=timeout,
         )
     except Exception as exc:
+        deadline_guard.cancel()
         if time.monotonic() >= deadline:
             _raise_deadline_exceeded(exc)
         raise
     if time.monotonic() >= deadline:
         response.close()
+        deadline_guard.cancel()
         _raise_deadline_exceeded()
+    _cancel_guard_when_response_closes(response, deadline_guard)
     return response
 
 
+class _SocketOwner(Protocol):
+    sock: socket.socket | ssl.SSLSocket | None
+
+
+class _AbsoluteDeadlineGuard:
+    """Interrupt every socket retained by one response at its deadline."""
+
+    def __init__(self, absolute_deadline: float) -> None:
+        self._owner: _SocketOwner | None = None
+        self._retained_sockets: set[socket.socket | ssl.SSLSocket] = set()
+        self._state_lock = threading.Lock()
+        delay = max(0.0, absolute_deadline - time.monotonic())
+        self._timer = threading.Timer(delay, self._interrupt_sockets)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def bind_owner(self, owner: _SocketOwner) -> None:
+        with self._state_lock:
+            self._owner = owner
+
+    def retain_socket(
+        self,
+        active_socket: socket.socket | ssl.SSLSocket | None,
+    ) -> None:
+        if active_socket is None:
+            return
+        with self._state_lock:
+            self._retained_sockets.add(active_socket)
+
+    def cancel(self) -> None:
+        self._timer.cancel()
+        with self._state_lock:
+            self._owner = None
+            self._retained_sockets.clear()
+
+    def _interrupt_sockets(self) -> None:
+        with self._state_lock:
+            owner_socket = self._owner.sock if self._owner is not None else None
+            sockets = set(self._retained_sockets)
+            if owner_socket is not None:
+                sockets.add(owner_socket)
+            self._owner = None
+            self._retained_sockets.clear()
+        for active_socket in sockets:
+            with contextlib.suppress(OSError):
+                active_socket.shutdown(socket.SHUT_RDWR)
+            with contextlib.suppress(OSError):
+                active_socket.close()
+
+
 class _AbsoluteDeadlineConnection:
-    """Close an active socket when its request's wall-clock budget expires."""
+    """Keep the response's deadline guard attached across connection close."""
 
     def __init__(
         self,
         *args: object,
-        absolute_deadline: float,
+        deadline_guard: _AbsoluteDeadlineGuard,
         **kwargs: object,
     ) -> None:
-        self._absolute_deadline = absolute_deadline
-        self._deadline_timer: threading.Timer | None = None
+        self._deadline_guard = deadline_guard
         super().__init__(*args, **kwargs)
-
-    def connect(self) -> None:
-        self._arm_deadline()
-        try:
-            super().connect()
-        except Exception:
-            self._cancel_deadline()
-            raise
+        self._deadline_guard.bind_owner(self)
 
     def close(self) -> None:
-        self._cancel_deadline()
+        self._deadline_guard.retain_socket(self.sock)
         super().close()
-
-    def _arm_deadline(self) -> None:
-        delay = max(0.0, self._absolute_deadline - time.monotonic())
-        timer = threading.Timer(delay, self._interrupt_socket)
-        timer.daemon = True
-        self._deadline_timer = timer
-        timer.start()
-
-    def _cancel_deadline(self) -> None:
-        timer = self._deadline_timer
-        self._deadline_timer = None
-        if timer is not None:
-            timer.cancel()
-
-    def _interrupt_socket(self) -> None:
-        active_socket = self.sock
-        if active_socket is None:
-            return
-        with contextlib.suppress(OSError):
-            active_socket.shutdown(socket.SHUT_RDWR)
-        with contextlib.suppress(OSError):
-            active_socket.close()
 
 
 class _DeadlineHTTPConnection(_AbsoluteDeadlineConnection, HTTPConnection):
@@ -142,6 +166,21 @@ class _DeadlineHTTPConnection(_AbsoluteDeadlineConnection, HTTPConnection):
 
 class _DeadlineHTTPSConnection(_AbsoluteDeadlineConnection, HTTPSConnection):
     """HTTPS connection interrupted at an absolute monotonic deadline."""
+
+
+def _cancel_guard_when_response_closes(
+    response: HTTPResponse,
+    deadline_guard: _AbsoluteDeadlineGuard,
+) -> None:
+    original_close = response.close
+
+    def close_with_deadline_cleanup() -> None:
+        try:
+            original_close()
+        finally:
+            deadline_guard.cancel()
+
+    response.close = close_with_deadline_cleanup
 
 
 def _raise_deadline_exceeded(exc: Exception | None = None) -> None:
