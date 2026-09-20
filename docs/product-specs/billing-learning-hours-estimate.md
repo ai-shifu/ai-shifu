@@ -138,9 +138,10 @@ learning duration.
 For 2.5 hours, the earlier range implied 83.33–250 credits per completion. The
 fully traced example used 25.24, so that range did **not** fit the supplied course
 benchmark. The coefficient uses the documented course example, not an unsupported
-universal range derived from one completion. The purchase footnote identifies
-historical usage, reading mode, the 1× model and consumption variability. The
-sample size and assumed duration remain in this methodology document.
+universal range derived from one completion. The purchase footnote describes
+estimates based on historical data for reference only, variable credit
+consumption and higher credit usage in listening mode. Reading mode, the 1×
+model, sample size and assumed duration remain in this methodology document.
 
 ## Comparison with the previous page
 
