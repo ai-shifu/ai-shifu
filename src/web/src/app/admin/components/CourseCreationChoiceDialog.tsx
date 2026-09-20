@@ -16,6 +16,7 @@ import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
+import CreateShifuForm, { type CreateShifuValues } from './CreateShifuForm';
 
 interface CourseCreationChoiceDialogProps {
   open: boolean;
@@ -23,7 +24,8 @@ interface CourseCreationChoiceDialogProps {
   courseCreatorUrl: string | null;
   onAiCourseCreatorClick: () => void;
   onAiCoursePromptCopy: (prompt: string) => Promise<boolean>;
-  onManualCreateClick: () => void;
+  onManualCreate: (values: CreateShifuValues) => Promise<void>;
+  onManualCreateCancel: () => void;
 }
 
 export default function CourseCreationChoiceDialog({
@@ -32,12 +34,16 @@ export default function CourseCreationChoiceDialog({
   courseCreatorUrl,
   onAiCourseCreatorClick,
   onAiCoursePromptCopy,
-  onManualCreateClick,
+  onManualCreate,
+  onManualCreateCancel,
 }: CourseCreationChoiceDialogProps) {
   const { t } = useTranslation();
   const [copying, setCopying] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyAttemptRef = useRef(0);
+  const [submitting, setSubmitting] = useState(false);
+  const manualSubmitRef = useRef(false);
+  const manualEngagedRef = useRef(false);
   const copyActionLabel = copied
     ? t('component.courseCreationChoiceDialog.copiedAction')
     : t('component.courseCreationChoiceDialog.copyAction');
@@ -47,8 +53,30 @@ export default function CourseCreationChoiceDialog({
       copyAttemptRef.current += 1;
       setCopying(false);
       setCopied(false);
+      manualEngagedRef.current = false;
     }
   }, [open]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (manualSubmitRef.current) return;
+    if (!nextOpen && open && manualEngagedRef.current) {
+      manualEngagedRef.current = false;
+      onManualCreateCancel();
+    }
+    onOpenChange(nextOpen);
+  };
+
+  const handleManualCreate = async (values: CreateShifuValues) => {
+    if (manualSubmitRef.current) return;
+    manualSubmitRef.current = true;
+    setSubmitting(true);
+    try {
+      await onManualCreate(values);
+    } finally {
+      manualSubmitRef.current = false;
+      setSubmitting(false);
+    }
+  };
 
   const handleCopy = async () => {
     if (copying) return;
@@ -65,14 +93,18 @@ export default function CourseCreationChoiceDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
     >
       <DialogContent
-        className='max-h-[calc(100dvh-32px)] gap-7 overflow-y-auto rounded-2xl p-6 sm:max-w-[840px] sm:gap-8 sm:rounded-2xl sm:p-8'
+        className='max-h-[calc(100dvh-32px)] max-w-[920px] gap-6 overflow-y-auto rounded-2xl p-5 sm:w-[calc(100vw-48px)] sm:gap-7 sm:rounded-2xl sm:p-8'
         overlayClassName='bg-black/45 backdrop-blur-sm'
+        showClose={!submitting}
+        onEscapeKeyDown={event => {
+          if (manualSubmitRef.current) event.preventDefault();
+        }}
       >
         <DialogHeader className='pe-6 text-start'>
-          <DialogTitle className='text-2xl leading-8 sm:text-3xl sm:leading-9'>
+          <DialogTitle className='text-2xl leading-8'>
             {t('component.courseCreationChoiceDialog.title')}
           </DialogTitle>
           <DialogDescription className='sr-only'>
@@ -80,19 +112,19 @@ export default function CourseCreationChoiceDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className='grid items-stretch gap-4 sm:grid-cols-2'>
-          <section className='min-w-0 rounded-xl border border-primary/15 bg-primary/[0.025] p-5 sm:p-6'>
+        <div className='grid items-stretch gap-5 md:grid-cols-2'>
+          <section className='flex min-w-0 flex-col rounded-xl border border-primary/15 bg-primary/[0.025] p-5 sm:p-6'>
             <div>
-              <div className='flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2'>
+              <div className='flex items-center gap-3'>
                 <Sparkles
                   aria-hidden='true'
-                  className='h-7 w-7 shrink-0 text-primary'
+                  className='h-10 w-10 shrink-0 rounded-lg bg-primary/10 p-2.5 text-primary'
                 />
-                <h3 className='text-xl font-semibold leading-7 sm:text-2xl sm:leading-8'>
+                <h3 className='text-xl font-semibold leading-7'>
                   {t('component.courseCreationChoiceDialog.aiTitle')}
                 </h3>
               </div>
-              <p className='mt-3 text-sm leading-6 text-muted-foreground sm:text-base'>
+              <p className='mt-3 text-sm leading-6 text-muted-foreground'>
                 {t('component.courseCreationChoiceDialog.aiDescription')}
               </p>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>
@@ -106,7 +138,8 @@ export default function CourseCreationChoiceDialog({
                   {t('component.courseCreationChoiceDialog.installStep')}
                 </h4>
                 <Button
-                  className='mt-3 h-auto min-h-11 w-full whitespace-normal rounded-lg px-4 py-3 text-base focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  variant='outline'
+                  className='mt-3 h-auto min-h-11 w-full whitespace-normal rounded-lg border-primary/25 bg-background px-4 py-3 text-sm text-primary hover:bg-primary/5 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                   disabled={copying}
                   onClick={handleCopy}
                 >
@@ -139,13 +172,13 @@ export default function CourseCreationChoiceDialog({
               </li>
             </ol>
 
-            <div>
+            <div className='mt-auto pt-5'>
               {courseCreatorUrl ? (
                 <a
                   href={courseCreatorUrl}
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='mt-4 inline-flex min-h-9 items-center rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  className='inline-flex min-h-11 items-center rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                   onClick={onAiCourseCreatorClick}
                   {...buildOnboardingTargetProps(
                     ONBOARDING_TARGET_IDS.lobsterCreateEntry,
@@ -161,31 +194,29 @@ export default function CourseCreationChoiceDialog({
             </div>
           </section>
 
-          <section className='flex min-w-0 flex-col items-center justify-center rounded-xl border border-border bg-muted/30 px-5 py-8 text-center sm:p-6'>
+          <section className='flex min-w-0 flex-col rounded-xl border border-border bg-background p-5 sm:p-6'>
             <div>
-              <div className='flex flex-col items-center gap-4'>
+              <div className='flex items-center gap-3'>
                 <PencilLine
                   aria-hidden='true'
-                  className='h-12 w-12 shrink-0 rounded-xl bg-background p-3 text-muted-foreground ring-1 ring-border'
+                  className='h-10 w-10 shrink-0 rounded-lg bg-muted p-2.5 text-muted-foreground'
                 />
-                <h3 className='text-xl font-semibold leading-7 sm:text-2xl sm:leading-8'>
+                <h3 className='text-xl font-semibold leading-7'>
                   {t('component.courseCreationChoiceDialog.manualTitle')}
                 </h3>
               </div>
-              <p className='mt-3 text-sm leading-6 text-muted-foreground sm:text-base'>
+              <p className='mt-3 text-sm leading-6 text-muted-foreground'>
                 {t('component.courseCreationChoiceDialog.manualDescription')}
               </p>
             </div>
-            <Button
-              variant='outline'
-              className='mt-6 h-auto min-h-11 w-full whitespace-normal rounded-lg border-primary px-4 py-3 text-base text-primary hover:bg-primary/5 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-              onClick={onManualCreateClick}
-              {...buildOnboardingTargetProps(
-                ONBOARDING_TARGET_IDS.blankCreateEntry,
-              )}
-            >
-              {t('component.courseCreationChoiceDialog.manualAction')}
-            </Button>
+            <CreateShifuForm
+              open={open}
+              submitting={submitting}
+              onSubmit={handleManualCreate}
+              onInteraction={() => {
+                manualEngagedRef.current = true;
+              }}
+            />
           </section>
         </div>
       </DialogContent>
