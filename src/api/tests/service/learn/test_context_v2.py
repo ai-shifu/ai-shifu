@@ -1282,12 +1282,10 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
             DEFAULT_LLM_TEMPERATURE=0.3,
         )
         preview_ctx = RunScriptPreviewContextV2(app)
-        preview_request = PlaygroundPreviewRequest(block_index=0)
-        outline = types.SimpleNamespace(
+        shifu = types.SimpleNamespace(
             llm="silicon/fishaudio/fish-speech-1.5",
-            llm_temperature=None,
+            llm_temperature=0.7,
         )
-        shifu = types.SimpleNamespace(llm=None, llm_temperature=None)
 
         with (
             patch(
@@ -1301,11 +1299,7 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
                 ],
             ),
         ):
-            model, temperature = preview_ctx._resolve_llm_settings(
-                preview_request,
-                outline,
-                shifu,
-            )
+            model, temperature = preview_ctx._resolve_llm_settings(shifu)
 
         assert model == "ark/deepseek-v3-2"
         assert temperature == 0.3

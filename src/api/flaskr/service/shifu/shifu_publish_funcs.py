@@ -127,8 +127,6 @@ def publish_shifu_draft(
                 course_model=shifu_draft.llm,
                 course_follow_up_model=shifu_draft.ask_llm,
                 provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
-                outline_models=tuple(item.llm for item in outline_items),
-                outline_follow_up_models=tuple(item.ask_llm for item in outline_items),
             )
         )
         if live_contract_error is not None:
@@ -201,12 +199,8 @@ def publish_shifu_draft(
             outline_item.type = draft_outline_item.type
             outline_item.hidden = draft_outline_item.hidden
             outline_item.parent_bid = draft_outline_item.parent_bid
-            outline_item.llm = draft_outline_item.llm
-            outline_item.llm_temperature = draft_outline_item.llm_temperature
             outline_item.llm_system_prompt = draft_outline_item.llm_system_prompt
             outline_item.ask_enabled_status = draft_outline_item.ask_enabled_status
-            outline_item.ask_llm = draft_outline_item.ask_llm
-            outline_item.ask_llm_temperature = draft_outline_item.ask_llm_temperature
             outline_item.ask_llm_system_prompt = (
                 draft_outline_item.ask_llm_system_prompt
             )

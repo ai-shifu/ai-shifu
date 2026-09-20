@@ -245,11 +245,11 @@ def get_follow_up_info_v2(
             outline_info = outline_infos_map.get(p.bid)
             if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
                 return FollowUpInfo(
-                    ask_model=outline_info.ask_llm or ask_model,
+                    ask_model=ask_model,
                     ask_prompt=outline_info.ask_llm_system_prompt,
                     ask_history_count=10,
                     ask_limit_count=10,
-                    model_args={"temperature": outline_info.ask_llm_temperature},
+                    model_args={"temperature": shifu_info.ask_llm_temperature},
                     ask_mode=outline_info.ask_enabled_status,
                     ask_provider_config=shifu_ask_provider_config,
                 )

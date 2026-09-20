@@ -34,7 +34,6 @@ from werkzeug.datastructures import FileStorage
 
 def _extract_import_ask_provider_config(
     shifu_data: dict,
-    outline_items_data: list[dict],
 ) -> str:
     """Extract and normalize ask_provider_config from import payload.
 
@@ -44,16 +43,10 @@ def _extract_import_ask_provider_config(
         course_model=shifu_data.get("llm", ""),
         course_follow_up_model=shifu_data.get("ask_llm", ""),
         provider_config=shifu_data.get("ask_provider_config", {}),
-        outline_models=tuple(item.get("llm", "") for item in outline_items_data),
-        outline_follow_up_models=tuple(
-            item.get("ask_llm", "") for item in outline_items_data
-        ),
     )
     if error_field is not None:
         raise_error("server.shifu.importFileInvalid")
-    has_live_follow_up = is_live_follow_up_model(shifu_data.get("ask_llm", "")) or any(
-        is_live_follow_up_model(item.get("ask_llm", "")) for item in outline_items_data
-    )
+    has_live_follow_up = is_live_follow_up_model(shifu_data.get("ask_llm", ""))
     if "ask_provider_config" not in shifu_data and not has_live_follow_up:
         return "{}"
     return serialize_ask_provider_config(normalized)
@@ -102,8 +95,6 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                 course_model=shifu_draft.llm,
                 course_follow_up_model=shifu_draft.ask_llm,
                 provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
-                outline_models=tuple(item.llm for item in outline_items),
-                outline_follow_up_models=tuple(item.ask_llm for item in outline_items),
             )
         )
         if live_contract_error is not None:
@@ -150,17 +141,9 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                     "parent_bid": item.parent_bid,
                     "position": item.position,
                     "prerequisite_item_bids": item.prerequisite_item_bids,
-                    "llm": item.llm,
-                    "llm_temperature": float(item.llm_temperature)
-                    if item.llm_temperature
-                    else 0,
                     "llm_system_prompt": item.llm_system_prompt,
-                    "ask_enabled_status": item.ask_enabled_status,
-                    "ask_llm": item.ask_llm,
-                    "ask_llm_temperature": float(item.ask_llm_temperature)
-                    if item.ask_llm_temperature
-                    else 0.0,
                     "ask_llm_system_prompt": item.ask_llm_system_prompt,
+                    "ask_enabled_status": item.ask_enabled_status,
                     "content": item.content,
                 }
                 for item in outline_items
@@ -217,10 +200,7 @@ def import_shifu(
         if any(not isinstance(item, dict) for item in outline_items_data):
             raise_error("server.shifu.importFileInvalid")
         structure_data = import_data.get("structure")
-        ask_provider_config = _extract_import_ask_provider_config(
-            shifu_data,
-            outline_items_data,
-        )
+        ask_provider_config = _extract_import_ask_provider_config(shifu_data)
 
         now_time = now_utc()
 
@@ -375,15 +355,9 @@ def import_shifu(
                 parent_bid="",  # Will update after all items are created
                 position=item_data.get("position", ""),
                 prerequisite_item_bids="",  # Will update after all items are created
-                llm=item_data.get("llm", ""),
-                llm_temperature=Decimal(str(item_data.get("llm_temperature", 0))),
                 llm_system_prompt=item_data.get("llm_system_prompt", ""),
-                ask_enabled_status=item_data.get("ask_enabled_status", 5101),
-                ask_llm=item_data.get("ask_llm", ""),
-                ask_llm_temperature=Decimal(
-                    str(item_data.get("ask_llm_temperature", 0.0))
-                ),
                 ask_llm_system_prompt=item_data.get("ask_llm_system_prompt", ""),
+                ask_enabled_status=item_data.get("ask_enabled_status", 5101),
                 content=item_data.get("content", ""),
                 deleted=0,
                 created_at=now_time,

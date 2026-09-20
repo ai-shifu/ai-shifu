@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from itertools import chain
 from typing import Literal
 
 from flaskr.service.config import get_config
@@ -181,27 +180,12 @@ def normalize_live_follow_up_course_config(
     course_model: object,
     course_follow_up_model: object,
     provider_config: object,
-    outline_models: tuple[object, ...] = (),
-    outline_follow_up_models: tuple[object, ...] = (),
 ) -> tuple[dict[str, object], str | None]:
-    """Validate every model-bearing field in an imported or copied course.
-
-    Live is valid only in follow-up model fields. If any course or outline
-    follow-up selects Live, the single course-level provider configuration must
-    satisfy the built-in ``llm + provider_only`` and official voice contract.
-    """
-    primary_models = chain((course_model,), outline_models)
-    has_live_primary = any(is_live_follow_up_model(model) for model in primary_models)
-    follow_up_models = tuple(chain((course_follow_up_model,), outline_follow_up_models))
-    validation_model = (
-        GEMINI_LIVE_MODEL_ID
-        if any(is_live_follow_up_model(model) for model in follow_up_models)
-        else course_follow_up_model
-    )
+    """Validate the course-owned teaching and follow-up model selections."""
     normalized, error_field = normalize_live_follow_up_provider_config(
-        validation_model,
+        course_follow_up_model,
         provider_config,
     )
-    if has_live_primary:
+    if is_live_follow_up_model(course_model):
         return normalized, "model"
     return normalized, error_field
