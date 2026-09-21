@@ -44,8 +44,12 @@ def _create_phone_password_account(
 
 
 def test_tenth_failure_starts_cooldown_and_blocks_correct_password(
-    app: Flask, test_client: object, mock_redis_client: object
+    app: Flask,
+    test_client: object,
+    mock_redis_client: object,
+    monkeypatch: object,
 ) -> None:
+    monkeypatch.setitem(app.config, "PASSWORD_LOGIN_MAX_FAILURES", 10)
     phone = "15500007101"
     password = "Correct123"
     _create_phone_password_account(app, test_client, phone=phone, password=password)
