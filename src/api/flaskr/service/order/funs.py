@@ -16,6 +16,7 @@ import pytz
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.common.cache_provider import redis_cache
 from flaskr.common.public_urls import build_stripe_learner_result_url
 from flaskr.common.shifu_context import set_shifu_context
 from flaskr.common.swagger import register_schema_to_swagger
@@ -2817,7 +2818,8 @@ def success_buy_record_from_pingxx(
         if not pingxx_order:
             return None
         try:
-            lock = cache_provider.lock(
+            # Payment callbacks must never fall back to a process-local lock.
+            lock = redis_cache.lock(
                 "success_buy_record_from_pingxx" + charge_id,
                 timeout=10,
                 blocking_timeout=10,

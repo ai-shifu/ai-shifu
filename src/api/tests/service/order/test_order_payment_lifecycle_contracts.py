@@ -113,7 +113,7 @@ def test_pingxx_callback_without_lock_preserves_pending_payment(
 ) -> None:
     lock = Mock(acquire=Mock(return_value=False))
     monkeypatch.setattr(
-        funs.cache_provider,
+        funs.redis_cache,
         "lock",
         Mock(return_value=None if missing_lock else lock),
     )
