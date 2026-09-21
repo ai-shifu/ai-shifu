@@ -731,8 +731,9 @@ def _load_latest_shifus(
             model.created_at.label("created_at"),
             model.updated_at.label("updated_at"),
         ).all()
-        _apply_latest_nonempty_model_fields(model, rows)
-        return [_build_operator_course_list_seed(row) for row in rows]
+        seeds = [_build_operator_course_list_seed(row) for row in rows]
+        _apply_latest_nonempty_model_fields(model, seeds)
+        return seeds
 
     rows = ordered_query.all()
     if hasattr(model, "__mapper__"):
@@ -783,8 +784,9 @@ def _load_latest_shifu_seeds(
         model.created_at.label("created_at"),
         model.updated_at.label("updated_at"),
     ).all()
-    _apply_latest_nonempty_model_fields(model, rows)
-    return [_build_operator_course_list_seed(row) for row in rows]
+    seeds = [_build_operator_course_list_seed(row) for row in rows]
+    _apply_latest_nonempty_model_fields(model, seeds)
+    return seeds
 
 
 def _attach_course_prompt_flags(model: object, rows: object) -> None:

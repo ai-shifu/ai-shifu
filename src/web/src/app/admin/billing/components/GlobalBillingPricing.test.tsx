@@ -125,7 +125,7 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.actions.cycleSwitchDisabled':
           'Billing cycle change unavailable',
         'module.billing.globalPricing.actions.viewMonthly': 'View monthly plan',
-        'module.billing.globalPricing.approximatePricePrefix': 'Approx.',
+        'module.billing.globalPricing.monthlyOnly': 'Monthly only',
         'module.billing.checkout.unsupported':
           'This payment method is not available right now.',
         'module.billing.checkout.redirect.creating': 'Creating your order...',
@@ -134,52 +134,22 @@ jest.mock('react-i18next', () => ({
         'module.billing.checkout.redirect.openingStripe':
           'Opening Stripe secure checkout...',
         'module.billing.checkout.redirect.retry': 'Open checkout again',
-        'module.billing.globalPricing.checkoutNotice':
-          'Stripe checkout is available. You will be redirected to Stripe to complete payment.',
-        'module.billing.globalPricing.cycles.annual': 'Annual',
-        'module.billing.globalPricing.cycles.monthly': 'Monthly',
-        'module.billing.globalPricing.creditPacks.activeSubscriptionRequired':
-          'An active subscription is required to use Credit Pack credits. Unused credits remain in the account while the subscription is inactive.',
-        'module.billing.globalPricing.creditPacks.instantAndPermanent':
-          'Credits are added immediately and never expire.',
-        'module.billing.globalPricing.footnote.intro':
-          'Estimates use the default model.',
-        'module.billing.globalPricing.learnerEstimateLabel':
-          'Estimated learner sessions',
-        'module.billing.globalPricing.monthlyOnly': 'Monthly only',
-        'module.billing.globalPricing.mostPopular': 'Most Popular',
+        'module.billing.package.intervalTabs.yearly': 'Yearly Plans',
+        'module.billing.package.intervalTabs.monthly': 'Monthly Plans',
+        'module.billing.package.topup.noteFrozen':
+          'Credit pack credits can be used only when the account has an active credit plan.',
+        'module.billing.package.topup.noteInstant':
+          'Credits take effect immediately after purchase and never expire.',
+        'module.billing.package.footnote.learningTime':
+          'These estimates are based on historical data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. If speech synthesis is enabled, more credits will be used.',
+        'module.billing.package.learningTime.label': 'Estimated learning time',
+        'module.billing.catalog.badges.recommended': 'Hot',
         'module.billing.globalPricing.plans.business.name': 'Business',
-        'module.billing.globalPricing.plans.business.estimates.annual':
-          '500 - 1,500 learner sessions',
-        'module.billing.globalPricing.plans.business.estimates.monthly':
-          '40 - 120 learner sessions',
         'module.billing.globalPricing.plans.growth.name': 'Growth',
-        'module.billing.globalPricing.plans.growth.estimates.annual':
-          '250 - 750 learner sessions',
-        'module.billing.globalPricing.plans.growth.estimates.monthly':
-          '20 - 60 learner sessions',
         'module.billing.globalPricing.plans.scale.name': 'Scale',
-        'module.billing.globalPricing.plans.scale.estimates.annual':
-          '1,100 - 3,300 learner sessions',
-        'module.billing.globalPricing.plans.scale.estimates.monthly':
-          '90 - 270 learner sessions',
         'module.billing.globalPricing.plans.studio.name': 'Studio',
-        'module.billing.globalPricing.plans.studio.estimates.monthly':
-          '5 - 15 learner sessions',
-        'module.billing.globalPricing.tabs.creditPacks': 'Credit Packs',
-        'module.billing.globalPricing.tabs.plans': 'Plans',
-        'module.billing.globalPricing.validity.annual':
-          'Valid for 12 months from the day credits are granted. Ends at 23:59 on the expiry day.',
-        'module.billing.globalPricing.validity.monthly':
-          'Valid for 30 days from the day credits are granted, inclusive. Ends at 23:59 on the expiry day.',
-        'module.billing.globalPricing.footnote.validity':
-          'Credit validity: annual credits are valid for 12 months from the day they are granted.',
-        'module.billing.package.footnote.learnerEstimateMode':
-          'Listen mode affects supported sessions.',
-        'module.billing.package.footnote.learnerEstimateModel':
-          'Model choice affects credit consumption.',
-        'module.billing.package.footnote.learnerEstimateScale':
-          'Course scale affects credit consumption.',
+        'module.billing.package.intervalTabs.topup': 'Credit Packs',
+        'module.billing.package.intervalTabs.plans': 'Credit Plans',
         'module.billing.package.actions.currentSubscription':
           'Current subscription',
         'module.billing.package.actions.downgradeDisabled':
@@ -188,33 +158,48 @@ jest.mock('react-i18next', () => ({
           'Monthly billing unavailable',
         'module.billing.package.actions.upgradeNow': 'Upgrade now',
         'module.billing.package.campaign.discountBadge': 'Discounted price',
+        'module.billing.package.campaign.paymentOnly':
+          'The offer applies only to this payment.',
+        'module.billing.package.table.featuresRowLabel': 'Entitlements',
+        'module.billing.package.table.validityRowLabel': 'Credit validity',
+        'module.billing.catalog.labels.perMonth': 'monthly',
+        'module.billing.catalog.labels.perYear': 'yearly',
+        'module.billing.package.features.common.allTeachingAndLearning':
+          'All teaching & research features',
+        'module.billing.package.features.common.higherConcurrency':
+          'Higher concurrency support',
+        'module.billing.package.features.pro.branding': 'Custom branding',
+        'module.billing.package.features.pro.customDomain': 'Custom domain',
+        'module.billing.package.features.pro.techPriority':
+          'Priority technical support',
+        'module.billing.package.features.premium.dedicatedSupport':
+          'Dedicated technical support',
+        'module.billing.package.features.premium.onboarding':
+          'Exclusive course-building training session',
       };
-      if (key === 'module.billing.globalPricing.billedAnnually') {
-        return `Billed ${options?.price} every 12 months.`;
-      }
-      if (key === 'module.billing.globalPricing.campaignAnnualBilling') {
-        return `First 12 months: ${options?.price}. Renews at ${options?.renewalPrice} every 12 months.`;
-      }
-      if (key === 'module.billing.globalPricing.campaignMonthlyBilling') {
-        return `First month only. Renews at ${options?.renewalPrice} per month.`;
-      }
       if (key === 'module.billing.globalPricing.annualSavings') {
-        return `Save ${options?.amount} per year (${options?.percent}%)`;
+        return `Save ${options?.amount} per year compared with monthly billing`;
+      }
+      if (key === 'module.billing.globalPricing.renewalPrice') {
+        return `Then renews at ${options?.price} / ${options?.period}.`;
+      }
+      if (key === 'module.billing.package.validityShort.monthly') {
+        return `${options?.count} month`;
+      }
+      if (key === 'module.billing.package.validityShort.yearly') {
+        return `${options?.count} year`;
       }
       if (key === 'module.billing.package.campaign.bonusBadge') {
         return `${options?.credits} bonus credits`;
       }
-      if (key === 'module.billing.globalPricing.creditPacks.packName') {
+      if (key === 'module.billing.package.topup.creditLabel') {
         return `${options?.credits} credits`;
       }
-      if (key === 'module.billing.globalPricing.creditsPerMonth') {
-        return `${options?.credits} credits per month`;
-      }
-      if (key === 'module.billing.globalPricing.creditsPerYear') {
-        return `${options?.credits} credits per 12-month billing period`;
-      }
-      if (key === 'module.billing.globalPricing.learnerEstimateValue') {
-        return `${options?.minimum} - ${options?.maximum} learner sessions`;
+      if (
+        key === 'module.billing.package.learningTime.value' ||
+        key === 'module.billing.package.learningTime.compactValue'
+      ) {
+        return `About ${options?.minutes} minutes`;
       }
       return labels[key] || key;
     };
@@ -334,26 +319,34 @@ describe('GlobalBillingPricing', () => {
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
   });
 
-  test('renders the approved annual plans with domestic learner estimates', async () => {
+  test('announces catalog loading until the plan cards are ready', async () => {
+    let resolveCatalog!: (
+      catalog: ReturnType<typeof buildGlobalCatalog>,
+    ) => void;
+    mockGetBillingCatalog.mockReturnValue(
+      new Promise(resolve => {
+        resolveCatalog = resolve;
+      }),
+    );
+    renderPricing();
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.billing.package.loading',
+    );
+    await act(async () => {
+      resolveCatalog(buildGlobalCatalog());
+    });
+    expect(await screen.findByTestId('global-plan-growth')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  test('renders annual plans with learning minutes and one shared explanatory note', async () => {
     renderPricing();
 
     const studio = await screen.findByTestId('global-plan-studio');
     const growth = screen.getByTestId('global-plan-growth');
     const business = screen.getByTestId('global-plan-business');
     const scale = screen.getByTestId('global-plan-scale');
-    const planGrid = screen.getByTestId('global-plan-grid');
-
-    expect(planGrid).toHaveClass(
-      'grid-cols-1',
-      'gap-4',
-      'sm:grid-cols-2',
-      'xl:grid-cols-4',
-      '2xl:gap-5',
-    );
-    for (const card of [studio, growth, business, scale]) {
-      expect(card).toHaveClass('min-w-0', 'flex-col');
-      expect(card).not.toHaveClass('sm:grid-rows-subgrid');
-    }
     for (const tier of ['studio', 'growth', 'business', 'scale']) {
       expect(
         screen.getByTestId(`global-plan-${tier}-title`),
@@ -368,9 +361,6 @@ describe('GlobalBillingPricing', () => {
         screen.getByTestId(`global-plan-${tier}-action`),
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId(`global-plan-${tier}-audience`),
-      ).toBeInTheDocument();
-      expect(
         screen.getByTestId(`global-plan-${tier}-estimate`),
       ).toBeInTheDocument();
       expect(
@@ -378,67 +368,78 @@ describe('GlobalBillingPricing', () => {
       ).toBeInTheDocument();
     }
 
-    expect(within(studio).getByText('Monthly only')).toBeInTheDocument();
     expect(within(studio).getByText('$59')).toBeInTheDocument();
+    expect(within(studio).getByText('Monthly only')).toBeInTheDocument();
+    expect(within(studio).queryByText(/Save /)).not.toBeInTheDocument();
+    expect(within(studio).getByText('About 6,000 minutes')).toBeInTheDocument();
+    expect(within(growth).getByText('$2,199')).toBeInTheDocument();
     expect(
-      within(studio).getByText('5 - 15 learner sessions'),
+      within(growth).getByText(
+        'Save $549 per year compared with monthly billing',
+      ),
     ).toBeInTheDocument();
-    expect(within(growth).getByText('$183')).toBeInTheDocument();
+    expect(within(growth).getByText('50,000 credits')).toBeInTheDocument();
+    expect(within(growth).getByText('About 30 万 minutes')).toBeInTheDocument();
+    expect(within(business).getByText('$3,999')).toBeInTheDocument();
     expect(
-      within(growth).getByText('50,000 credits per 12-month billing period'),
+      within(business).getByText(
+        'Save $1,029 per year compared with monthly billing',
+      ),
     ).toBeInTheDocument();
+    expect(within(business).getByText('Hot')).toBeInTheDocument();
     expect(
-      within(growth).getByText('250 - 750 learner sessions'),
+      within(business).getByText('About 60 万 minutes'),
     ).toBeInTheDocument();
+    expect(within(scale).getByText('$7,999')).toBeInTheDocument();
     expect(
-      within(growth).getByText('Save $549 per year (20.0%)'),
+      within(scale).getByText(
+        'Save $2,069 per year compared with monthly billing',
+      ),
     ).toBeInTheDocument();
-    expect(within(business).getByText('$333')).toBeInTheDocument();
-    expect(within(business).getByText('Most Popular')).toBeInTheDocument();
-    expect(
-      within(business).getByText('Save $1,029 per year (20.5%)'),
-    ).toBeInTheDocument();
-    expect(
-      within(business).getByText('500 - 1,500 learner sessions'),
-    ).toBeInTheDocument();
-    expect(business).not.toHaveClass('border-primary');
-    expect(business).not.toHaveClass('ring-1');
-    expect(within(scale).getByText('$667')).toBeInTheDocument();
-    expect(
-      within(scale).getByText('220,000 credits per 12-month billing period'),
-    ).toBeInTheDocument();
-    expect(
-      within(scale).getByText('1,100 - 3,300 learner sessions'),
-    ).toBeInTheDocument();
-    expect(
-      within(scale).getByText('Save $2,069 per year (20.6%)'),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Then renews at/)).not.toBeInTheDocument();
+    expect(within(scale).getByText('220,000 credits')).toBeInTheDocument();
+    expect(within(scale).getByText('About 132 万 minutes')).toBeInTheDocument();
     expect(screen.queryByText(/extra|bonus/i)).not.toBeInTheDocument();
     expect(
-      screen.getByText('Estimates use the default model.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Stripe checkout is available. You will be redirected to Stripe to complete payment.',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Listen mode affects supported sessions.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Model choice affects credit consumption.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Course scale affects credit consumption.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Credit validity: annual credits are valid for 12 months from the day they are granted.',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(growth).queryByText('Credit validity'),
+      screen.queryByText('The offer applies only to this payment.'),
     ).not.toBeInTheDocument();
+    const inheritedBenefits = [
+      'All teaching & research features',
+      'Higher concurrency support',
+      'Custom branding',
+      'Custom domain',
+      'Priority technical support',
+      'Dedicated technical support',
+      'Exclusive course-building training session',
+    ];
+    for (const [card, featureCount] of [
+      [studio, 1],
+      [growth, 2],
+      [business, 5],
+      [scale, 7],
+    ] as const) {
+      const benefits = within(card).getByText('Entitlements').parentElement!;
+      expect(within(benefits).getAllByRole('listitem')).toHaveLength(
+        featureCount,
+      );
+      inheritedBenefits.slice(0, featureCount).forEach(label => {
+        expect(within(benefits).getByText(label)).toBeInTheDocument();
+      });
+    }
+    expect(
+      screen.getByText(
+        'These estimates are based on historical data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. If speech synthesis is enabled, more credits will be used.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('billing-overview-footnote')).getAllByRole(
+        'listitem',
+      ),
+    ).toHaveLength(1);
+    expect(screen.queryByText('**')).not.toBeInTheDocument();
+    expect(within(growth).getByText('Credit validity')).toBeInTheDocument();
+    expect(within(growth).getByText('1 year')).toBeInTheDocument();
+    expect(within(studio).getByText('1 month')).toBeInTheDocument();
     expect(
       within(growth).queryByText(/Valid for 12 months/),
     ).not.toBeInTheDocument();
@@ -450,7 +451,7 @@ describe('GlobalBillingPricing', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('formats annual savings with the active language locale', async () => {
+  test('formats the annual price and credits with the active language locale', async () => {
     mockResolvedLanguage = 'fr-FR';
 
     renderPricing();
@@ -458,13 +459,8 @@ describe('GlobalBillingPricing', () => {
     const studio = await screen.findByTestId('global-plan-studio');
     const growth = await screen.findByTestId('global-plan-growth');
     expect(within(studio).getByText(/59\s\$/)).toBeInTheDocument();
-    expect(within(growth).getByText(/183\s\$/)).toBeInTheDocument();
-    expect(
-      within(growth).getByText(/Save 549\s\$ per year \(20,0%\)/),
-    ).toBeInTheDocument();
-    expect(
-      within(growth).getByText(/50\s000 credits per 12-month billing period/),
-    ).toBeInTheDocument();
+    expect(within(growth).getByText(/2\s199\s\$/)).toBeInTheDocument();
+    expect(within(growth).getByText(/50\s000 credits/)).toBeInTheDocument();
   });
 
   test('switches to monthly pricing without a Studio first-month offer', async () => {
@@ -473,7 +469,7 @@ describe('GlobalBillingPricing', () => {
 
     await screen.findByTestId('global-plan-studio');
     await act(async () => {
-      await user.click(screen.getByRole('tab', { name: 'Monthly' }));
+      await user.click(screen.getByRole('tab', { name: 'Monthly Plans' }));
     });
 
     expect(
@@ -490,23 +486,69 @@ describe('GlobalBillingPricing', () => {
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-growth')).getByText(
-        '20 - 60 learner sessions',
+        'About 2.4 万 minutes',
       ),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-business')).getByText(
-        '40 - 120 learner sessions',
+        'About 4.8 万 minutes',
       ),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-scale')).getByText(
-        '90 - 270 learner sessions',
+        'About 10.8 万 minutes',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/first month/i)).not.toBeInTheDocument();
     expect(
       screen.queryByText('module.billing.globalPricing.studioBonus'),
     ).not.toBeInTheDocument();
+  });
+
+  test('uses updated catalog credits for learning minutes and checkout', async () => {
+    const user = userEvent.setup();
+    const catalog = buildGlobalCatalog();
+    catalog.plans[1].credit_amount = 5000;
+    mockGetBillingCatalog.mockResolvedValue(catalog);
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'order-growth-updated-credits',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'pending',
+      redirect_url: 'https://checkout.stripe.test/updated-credits',
+    });
+
+    renderPricing();
+    await screen.findByTestId('global-plan-growth');
+    await act(async () => {
+      await user.click(screen.getByRole('tab', { name: 'Monthly Plans' }));
+    });
+
+    const growth = screen.getByTestId('global-plan-growth');
+    expect(within(growth).getByText('5,000 credits')).toBeInTheDocument();
+    expect(within(growth).getByText('About 3 万 minutes')).toBeInTheDocument();
+    const checkoutButton = within(growth).getByRole('button', {
+      name: 'Choose plan',
+    });
+    expect(checkoutButton).toBeEnabled();
+    await act(async () => {
+      await user.click(checkoutButton);
+    });
+
+    expect(mockCheckoutSubscription).toHaveBeenCalledWith({
+      payment_provider: 'stripe',
+      product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.growthMonthly}`,
+    });
+    expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
+      'https://checkout.stripe.test/updated-credits',
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_attempt',
+      expect.objectContaining({
+        product_code: GLOBAL_BILLING_PRODUCT_CODES.growthMonthly,
+        credit_amount: 5000,
+      }),
+    );
   });
 
   test('shows discount campaign prices on global plan cards', async () => {
@@ -526,13 +568,16 @@ describe('GlobalBillingPricing', () => {
     const studioOriginalPriceSlot = within(studio).getByTestId(
       'global-plan-studio-original-price-slot',
     );
-    expect(within(studioOriginalPriceSlot).getByText('$59')).toHaveClass(
-      'line-through',
-    );
+    expect(
+      within(studioOriginalPriceSlot).getByText('$59'),
+    ).toBeInTheDocument();
     expect(within(studio).getByText('$49')).toBeInTheDocument();
     expect(within(studio).getByText('Discounted price')).toBeInTheDocument();
     expect(
-      within(studio).getByText('First month only. Renews at $59 per month.'),
+      within(studio).getByText('Then renews at $59 / monthly.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('The offer applies only to this payment.'),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-growth')).getByTestId(
@@ -541,7 +586,8 @@ describe('GlobalBillingPricing', () => {
     ).toBeEmptyDOMElement();
   });
 
-  test('shows annual campaign pricing with a neutral annual savings note', async () => {
+  test('shows full annual campaign and renewal prices with the shared discount note', async () => {
+    const user = userEvent.setup();
     const catalog = buildGlobalCatalog();
     catalog.plans[2] = plan(
       GLOBAL_BILLING_PRODUCT_CODES.growthAnnual,
@@ -558,21 +604,31 @@ describe('GlobalBillingPricing', () => {
     expect(
       within(
         within(growth).getByTestId('global-plan-growth-original-price-slot'),
-      ).getByText('$183'),
-    ).toHaveClass('line-through');
-    expect(within(growth).getByText('$166.58')).toBeInTheDocument();
+      ).getByText('$2,199'),
+    ).toBeInTheDocument();
+    expect(within(growth).getByText('$1,999')).toBeInTheDocument();
     expect(within(growth).getByText('Discounted price')).toBeInTheDocument();
     expect(
+      within(growth).getByText('Then renews at $2,199 / yearly.'),
+    ).toBeInTheDocument();
+    expect(
       within(growth).getByText(
-        'First 12 months: $1,999. Renews at $2,199 every 12 months.',
+        'Save $549 per year compared with monthly billing',
       ),
     ).toBeInTheDocument();
-    const savingsSlot = within(growth).getByTestId(
-      'global-plan-growth-savings-slot',
-    );
     expect(
-      within(savingsSlot).getByText('Save $549 per year (20.0%)'),
-    ).toHaveClass('text-muted-foreground');
+      screen.getByText('The offer applies only to this payment.'),
+    ).toBeInTheDocument();
+    expect(within(growth).getByText('/ yearly')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(screen.getByRole('tab', { name: 'Monthly Plans' }));
+    });
+    expect(
+      screen.queryByText('The offer applies only to this payment.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Save /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Then renews at/)).not.toBeInTheDocument();
   });
 
   test('shows bonus campaign labels on global plan cards', async () => {
@@ -595,12 +651,15 @@ describe('GlobalBillingPricing', () => {
 
     await screen.findByTestId('global-plan-studio');
     await act(async () => {
-      await user.click(screen.getByRole('tab', { name: 'Monthly' }));
+      await user.click(screen.getByRole('tab', { name: 'Monthly Plans' }));
     });
 
     const growth = screen.getByTestId('global-plan-growth');
     expect(within(growth).getByText('$229')).toBeInTheDocument();
     expect(within(growth).getByText('300 bonus credits')).toBeInTheDocument();
+    expect(
+      screen.queryByText('The offer applies only to this payment.'),
+    ).not.toBeInTheDocument();
   });
 
   test('switches Studio to monthly without tracking a payment click', async () => {
@@ -719,20 +778,19 @@ describe('GlobalBillingPricing', () => {
 
     const smallPack = screen.getByTestId('global-credit-pack-250');
     const largePack = screen.getByTestId('global-credit-pack-3000');
-    expect(screen.getByTestId('global-credit-pack-grid')).toHaveStyle({
-      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-    });
     expect(within(smallPack).getByText('$29')).toBeInTheDocument();
     expect(within(largePack).getByText('$279')).toBeInTheDocument();
     expect(
       within(largePack).getByRole('button', { name: 'Buy credits' }),
-    ).toHaveClass('min-w-32');
+    ).toBeEnabled();
     expect(
-      screen.getByText('Credits are added immediately and never expire.'),
+      screen.getByText(
+        'Credits take effect immediately after purchase and never expire.',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'An active subscription is required to use Credit Pack credits. Unused credits remain in the account while the subscription is inactive.',
+        'Credit pack credits can be used only when the account has an active credit plan.',
       ),
     ).toBeInTheDocument();
 
@@ -884,7 +942,7 @@ describe('GlobalBillingPricing', () => {
     ).toBeDisabled();
 
     await act(async () => {
-      await user.click(screen.getByRole('tab', { name: 'Monthly' }));
+      await user.click(screen.getByRole('tab', { name: 'Monthly Plans' }));
     });
 
     expect(
@@ -942,7 +1000,9 @@ describe('GlobalBillingPricing', () => {
     renderPricing();
 
     await act(async () => {
-      await user.click(await screen.findByRole('tab', { name: 'Monthly' }));
+      await user.click(
+        await screen.findByRole('tab', { name: 'Monthly Plans' }),
+      );
     });
     const business = await screen.findByTestId('global-plan-business');
     await act(async () => {
@@ -1193,6 +1253,23 @@ describe('GlobalBillingPricing', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Choose plan')).not.toBeInTheDocument();
   });
+
+  test.each([0, -1, NaN, Infinity])(
+    'fails closed when catalog credits are not a positive finite amount (%s)',
+    async creditAmount => {
+      const catalog = buildGlobalCatalog();
+      catalog.plans[1].credit_amount = creditAmount;
+      mockGetBillingCatalog.mockResolvedValue(catalog);
+
+      renderPricing();
+
+      expect(
+        await screen.findByTestId('global-billing-unavailable'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Choose plan')).not.toBeInTheDocument();
+      expect(mockCheckoutSubscription).not.toHaveBeenCalled();
+    },
+  );
 
   test('fails closed instead of crashing when a catalog currency is missing', async () => {
     const catalog = buildGlobalCatalog();
