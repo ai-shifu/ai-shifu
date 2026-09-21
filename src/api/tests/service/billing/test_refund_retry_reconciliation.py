@@ -628,12 +628,16 @@ def test_refund_rejects_nested_unit_of_work_before_provider_io(
 
 
 @pytest.mark.parametrize("commit_event", ["before_commit", "after_commit"])
+@pytest.mark.parametrize("include_provider_extra", [True, False])
 def test_final_commit_failure_or_lost_ack_recovers_without_second_refund(
     commit_event: str,
+    include_provider_extra: bool,
     refund_app: Flask,
     gateway: RefundGateway,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    if not include_provider_extra:
+        _use_expanded_payment_metadata(refund_app)
     original = checkout.grant_refund_return_credits
 
     def mark_final_transaction(*args: object, **kwargs: object) -> object:
@@ -1450,3 +1454,79 @@ def test_webhook_refund_after_prepare_blocks_dispatch_with_empty_remote_history(
     assert state["subscription"][0] == BILLING_SUBSCRIPTION_STATUS_ACTIVE
     assert _operation(refund_app)["submitted_at"] is None
     assert _operation(refund_app)["finalized_at"] is None
+
+
+def _use_expanded_payment_metadata(app: Flask, *, checkout_extra: bool = False) -> None:
+    """Persist the expanded payment objects returned by a manual Stripe sync."""
+    with app.app_context(), Session(db.engine) as session:
+        order = session.execute(select(BillingOrder)).scalar_one()
+        metadata = {
+            **order.metadata_json,
+            "latest_provider_payload": {
+                "payment_intent": {
+                    "id": "pi_refund_recovery",
+                    "latest_charge": "ch_refund_recovery",
+                },
+            },
+        }
+        metadata.pop("provider_extra", None)
+        if checkout_extra:
+            # The Stripe checkout adapter stores latest_charge_id, not charge_id.
+            metadata["provider_extra"] = {
+                "payment_intent_id": "pi_refund_recovery",
+                "latest_charge_id": "ch_refund_recovery",
+            }
+        order.metadata_json = metadata
+        session.commit()
+
+
+@pytest.mark.parametrize("checkout_extra", [False, True])
+def test_completed_refund_retry_accepts_saved_scalar_payment_references(
+    checkout_extra: bool, refund_app: Flask, gateway: RefundGateway
+) -> None:
+    _use_expanded_payment_metadata(refund_app, checkout_extra=checkout_extra)
+
+    first = _refund(refund_app)
+
+    assert first.status == "refunded"
+    assert gateway.requests[0].metadata["payment_intent_id"] == "pi_refund_recovery"
+    assert gateway.requests[0].metadata["charge_id"] == "ch_refund_recovery"
+    before = _legacy_refund_state(refund_app)
+    saved_payload = before["order_metadata"]["latest_provider_payload"]
+    assert saved_payload["payment_intent"] == "pi_refund_recovery"
+    assert saved_payload["charge"] == "ch_refund_recovery"
+    completed_operation = _operation(refund_app)
+    assert completed_operation["finalized_at"] is not None
+    gateway.lookup_error = RuntimeError("completed refund must not contact Stripe")
+
+    for _ in range(2):
+        retry = _refund(refund_app)
+        assert retry.status == "refunded"
+        assert retry.refund_reference_id == first.refund_reference_id
+        assert _operation(refund_app) == completed_operation
+        assert _legacy_refund_state(refund_app) == before
+    assert len(gateway.lookups) == len(gateway.requests) == len(gateway.remote) == 1
+    _assert_accounting(refund_app, finalized=True)
+
+
+@pytest.mark.parametrize("reference_field", ["payment_intent", "charge"])
+def test_completed_refund_still_rejects_changed_scalar_payment_identity(
+    reference_field: str, refund_app: Flask, gateway: RefundGateway
+) -> None:
+    _use_expanded_payment_metadata(refund_app)
+    _refund(refund_app)
+    with refund_app.app_context(), Session(db.engine) as session:
+        order = session.execute(select(BillingOrder)).scalar_one()
+        metadata = deepcopy(order.metadata_json)
+        metadata["latest_provider_payload"][reference_field] = "other_payment"
+        order.metadata_json = metadata
+        session.commit()
+    before = _legacy_refund_state(refund_app)
+    completed_operation = _operation(refund_app)
+
+    with pytest.raises(AppError):
+        _refund(refund_app)
+
+    assert _legacy_refund_state(refund_app) == before
+    assert _operation(refund_app) == completed_operation
+    assert len(gateway.lookups) == len(gateway.requests) == len(gateway.remote) == 1

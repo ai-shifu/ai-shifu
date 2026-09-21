@@ -3022,11 +3022,18 @@ def _build_refund_provider_metadata(order: BillingOrder) -> RefundProviderMetada
 
     payment_intent_payload = latest_provider_payload.get("payment_intent", {}) or {}
     charge_payload = latest_provider_payload.get("charge", {}) or {}
+    # Payment syncs can store expanded objects; Stripe Refund objects use the
+    # same fields for scalar IDs. Keep both forms available to retry validation.
     payment_intent_id = payment_intent_id or _normalize_bid(
-        payment_intent_payload.get("id")
+        payment_intent_payload
+        if isinstance(payment_intent_payload, str)
+        else payment_intent_payload.get("id")
     )
-    charge_id = charge_id or _normalize_bid(charge_payload.get("id"))
-    charge_id = charge_id or _normalize_bid(payment_intent_payload.get("latest_charge"))
+    charge_id = charge_id or _normalize_bid(
+        charge_payload if isinstance(charge_payload, str) else charge_payload.get("id")
+    )
+    if not charge_id and not isinstance(payment_intent_payload, str):
+        charge_id = _normalize_bid(payment_intent_payload.get("latest_charge"))
 
     return RefundProviderMetadata(
         bill_order_bid=order.bill_order_bid,
