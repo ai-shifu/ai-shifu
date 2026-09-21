@@ -1,11 +1,11 @@
 """Verify trusted proxy client-address resolution."""
 
+import pytest
 from flask import Flask, request
 from flaskr.common.client_ip import (
     resolve_client_ip,
     validate_trusted_proxy_cidrs,
 )
-from flaskr.route.common import bypass_token_validation
 
 
 def _resolve(
@@ -139,18 +139,15 @@ def test_trusted_proxy_configuration_validation() -> None:
 
 
 def test_request_logging_exposes_the_same_resolved_client_ip(
-    app: Flask, test_client: object
+    app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    app.config["TRUSTED_PROXY_CIDRS"] = "127.0.0.1/32"
+    monkeypatch.setitem(app.config, "TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
 
-    @app.get("/_test/resolved-client-ip")
-    @bypass_token_validation
-    def resolved_client_ip() -> str:
-        return str(request.client_ip)
-
-    response = test_client.get(
+    with app.test_request_context(
         "/_test/resolved-client-ip",
         headers={"X-Forwarded-For": "198.51.100.20"},
-    )
+        environ_base={"REMOTE_ADDR": "127.0.0.1"},
+    ):
+        app.preprocess_request()
 
-    assert response.get_data(as_text=True) == "198.51.100.20"
+        assert request.client_ip == "198.51.100.20"
