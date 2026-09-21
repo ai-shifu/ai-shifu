@@ -622,9 +622,12 @@ def send_email_code(
                     server.starttls()
                 server.login(smtp_username, smtp_password)
                 server.sendmail(smtp_sender, email, msg.as_string())
-                app.logger.info("Verification code sent to %s", email)
-            except Exception:
-                app.logger.exception("Failed to send verification code to %s", email)
+                app.logger.info("auth_event=email_verification_code_sent")
+            except Exception as error:
+                app.logger.warning(
+                    "auth_event=email_verification_code_failed error_type=%s",
+                    type(error).__name__,
+                )
                 raise_error("server.user.emailSendFailed")
             else:
                 return True
