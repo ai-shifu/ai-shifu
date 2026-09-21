@@ -1,7 +1,7 @@
 """Verify authentication provider dispatch and credential result contracts."""
 
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from flaskr.service.common.dtos import UserInfo, UserToken
@@ -237,7 +237,7 @@ def test_password_provider_rejects_empty_credentials_before_account_lookup(
     "failure", ["missing_account", "missing_credential", "empty_hash", "wrong_password"]
 )
 def test_password_failures_share_one_public_error_and_never_mint_tokens(
-    app: object, monkeypatch: pytest.MonkeyPatch, failure: str
+    app: object, monkeypatch: pytest.MonkeyPatch, user_token: UserToken, failure: str
 ) -> None:
     aggregate = (
         None if failure == "missing_account" else SimpleNamespace(user_bid="account-1")
@@ -258,7 +258,12 @@ def test_password_failures_share_one_public_error_and_never_mint_tokens(
     )
     monkeypatch.setattr(password, "verify_password", Mock(return_value=False))
     mint = Mock()
-    monkeypatch.setattr(password, "generate_token", mint)
+    monkeypatch.setattr(password, "create_token_value", mint)
+    monkeypatch.setattr(
+        password,
+        "build_user_info_from_aggregate",
+        Mock(return_value=user_token.userInfo),
+    )
     with app.app_context(), pytest.raises(AppError) as error:
         password.PasswordAuthProvider().verify(
             app, VerificationRequest(identifier="person@example.com", code="wrong")
@@ -299,11 +304,18 @@ def test_password_login_finds_password_by_account_across_identifier_types(
         "build_user_info_from_aggregate",
         Mock(return_value=user_token.userInfo),
     )
-    monkeypatch.setattr(password, "generate_token", Mock(return_value="issued-token"))
-    result = password.PasswordAuthProvider().verify(
-        app, VerificationRequest(identifier=identifier, code="correct")
-    )
-    lookup.assert_called_once_with(normalized, providers=["phone", "email"])
+    mint = Mock(return_value="issued-token")
+    monkeypatch.setattr(password, "create_token_value", mint)
+    with app.app_context():
+        result = password.PasswordAuthProvider().verify(
+            app, VerificationRequest(identifier=identifier, code="correct")
+        )
+    # Resolve the alias again under the account guard before checking credentials.
+    assert lookup.call_args_list == [
+        call(normalized, providers=["phone", "email"]),
+        call(normalized, providers=["phone", "email"]),
+    ]
+    mint.assert_called_once_with(app, "account-1")
     credentials.assert_called_once_with(user_bid="account-1", provider_name="password")
     verifier.assert_called_once_with("correct", "stored-hash")
     assert result.user is user_token.userInfo
