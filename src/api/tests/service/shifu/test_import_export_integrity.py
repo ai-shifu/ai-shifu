@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.shifu import shifu_import_export_funcs as transfers
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
@@ -19,7 +20,7 @@ def import_owner(app: object, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     owner = uuid.uuid4().hex
     monkeypatch.setattr(transfers, "check_text_with_risk_control", Mock())
     yield owner
-    with app.app_context():
+    with app.app_context(), unit_of_work():
         bids = [
             row[0]
             for row in db.session.query(DraftShifu.shifu_bid)
@@ -36,7 +37,6 @@ def import_owner(app: object, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
             DraftShifu.query.filter(DraftShifu.shifu_bid.in_(bids)).delete(
                 synchronize_session=False
             )
-            db.session.commit()
 
 
 def _file(payload: object) -> FileStorage:
