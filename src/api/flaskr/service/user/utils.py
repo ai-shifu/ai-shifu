@@ -627,8 +627,11 @@ def send_email_code(
                 server.login(smtp_username, smtp_password)
                 server.sendmail(smtp_sender, email, msg.as_string())
                 app.logger.info("auth_event=email_verification_code_sent")
-            except Exception:
-                app.logger.exception("auth_event=email_verification_code_failed")
+            except Exception as error:
+                app.logger.warning(
+                    "auth_event=email_verification_code_failed error_type=%s",
+                    type(error).__name__,
+                )
                 raise_error("server.user.emailSendFailed")
             else:
                 return True

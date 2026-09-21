@@ -537,9 +537,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         wx_code = payload.get("wxcode", None)
         language = payload.get("language") or "en-US"
         app.logger.info(
-            "auth_event=temp_user_requested has_temp_id=%s source=%s has_wechat_code=%s",
+            "auth_event=temp_user_requested has_temp_id=%s has_source=%s has_wechat_code=%s",
             bool(tmp_id),
-            source,
+            bool(payload.get("source")),
             bool(wx_code),
         )
         if not tmp_id:
@@ -549,6 +549,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/captcha", methods=["GET"])
     @bypass_token_validation
+    @sensitive_body()
     def captcha_api() -> str:
         """Create image captcha.
 
@@ -1001,7 +1002,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/update_profile", methods=["POST"])
-    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
+    @sensitive_body()
     def update_profile() -> str:
         """Update user profile.
 
@@ -1063,6 +1064,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(ret.__json__())
 
     @app.route(path_prefix + "/upload_avatar", methods=["POST"])
+    @sensitive_body()
     def upload_avatar() -> str:
         """Upload avatar.
 
@@ -1145,6 +1147,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/submit-feedback", methods=["POST"])
+    @sensitive_body()
     @bypass_token_validation
     @recovery_optional_token_validation
     def sumbit_feedback_api() -> str:

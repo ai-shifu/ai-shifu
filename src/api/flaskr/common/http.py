@@ -27,10 +27,13 @@ by_pass_login_func = [
 ]
 
 
-def sensitive_body(*, max_bytes: int) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Omit a route's bodies from logs and bound parsing before authentication."""
+def sensitive_body(
+    *, max_bytes: int | None = None
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Omit a route's bodies from logs and optionally bound request parsing."""
 
     def decorate(func: Callable[P, R]) -> Callable[P, R]:
+        func._sensitive_body = True
         func._sensitive_body_max_bytes = max_bytes
         return func
 
@@ -41,6 +44,12 @@ def get_sensitive_body_limit() -> int | None:
     """Resolve the matched endpoint's opt-in body policy without reading input."""
     view = current_app.view_functions.get(request.endpoint)
     return getattr(view, "_sensitive_body_max_bytes", None)
+
+
+def is_sensitive_body() -> bool:
+    """Return whether the matched endpoint suppresses request and response bodies."""
+    view = current_app.view_functions.get(request.endpoint)
+    return bool(getattr(view, "_sensitive_body", False))
 
 
 def init_sensitive_body_policy(app: Flask) -> None:
@@ -78,7 +87,7 @@ def init_sensitive_body_policy(app: Flask) -> None:
 
     @app.after_request
     def prevent_sensitive_body_caching(response: Response) -> Response:
-        if get_sensitive_body_limit() is not None:
+        if is_sensitive_body():
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -128,6 +137,7 @@ __all__ = [
     "fmt",
     "get_sensitive_body_limit",
     "init_sensitive_body_policy",
+    "is_sensitive_body",
     "make_common_response",
     "sensitive_body",
 ]

@@ -34,7 +34,6 @@ from flaskr.service.user.user import update_user_open_id
         ("POST", "/api/user/sessions/revoke"),
         ("POST", "/api/user/sessions/revoke-others"),
         ("GET", "/api/user/get_profile"),
-        ("POST", "/api/user/update_profile"),
         ("POST", "/api/user/update_openid"),
         ("GET", "/api/user/oauth/google"),
         ("GET", "/api/user/oauth/google/callback-origin"),
@@ -53,6 +52,39 @@ def test_auth_routes_omit_request_and_response_bodies_from_logs(
     view = app.view_functions[endpoint]
 
     assert getattr(view, "_sensitive_body_max_bytes", None) == 32 * 1024
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/api/user/captcha"),
+        ("GET", "/api/user/profile-onboarding"),
+        ("POST", "/api/user/profile-onboarding/session"),
+        ("POST", "/api/user/profile-onboarding/session/session-id/run"),
+        (
+            "POST",
+            "/api/user/profile-onboarding/session/session-id/assistant-answers",
+        ),
+        ("POST", "/api/user/profile-onboarding/complete"),
+        ("POST", "/api/user/profile-onboarding/skip"),
+        ("GET", "/api/user/learner-profile"),
+        ("PUT", "/api/user/learner-profile"),
+        ("DELETE", "/api/user/learner-profile"),
+        ("POST", "/api/user/learner-profile/optimize"),
+        ("POST", "/api/user/update_profile"),
+        ("POST", "/api/user/upload_avatar"),
+        ("POST", "/api/user/submit-feedback"),
+    ],
+)
+def test_profile_routes_suppress_bodies_without_a_new_transport_limit(
+    app: object, method: str, path: str
+) -> None:
+    adapter = app.url_map.bind("localhost")
+    endpoint, _values = adapter.match(path, method=method)
+    view = app.view_functions[endpoint]
+
+    assert getattr(view, "_sensitive_body", False) is True
+    assert getattr(view, "_sensitive_body_max_bytes", None) is None
 
 
 def test_wechat_exchange_logs_no_authorization_code_or_openid(
@@ -129,3 +161,26 @@ def test_google_callback_log_does_not_include_state(
 
     assert "auth_event=google_oauth_callback_received" in caplog.text
     assert state not in caplog.text
+
+
+def test_temp_user_log_does_not_include_client_controlled_source(
+    app: object,
+    test_client: object,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = "private-source\nforged-log-entry"
+    app.logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.INFO):
+            response = test_client.post(
+                "/api/user/require_tmp",
+                json={"source": source},
+            )
+    finally:
+        app.logger.removeHandler(caplog.handler)
+
+    assert response.status_code == 200
+    assert "auth_event=temp_user_requested" in caplog.text
+    assert "has_source=True" in caplog.text
+    assert source not in caplog.text
+    assert "forged-log-entry" not in caplog.text

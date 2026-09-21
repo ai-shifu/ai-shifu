@@ -235,7 +235,7 @@ def save_user_profiles(
 ) -> bool:
     """Persist user profiles."""
     profile_labels = get_profile_labels()
-    app.logger.info("save user profiles:%s", profiles)
+    app.logger.info("save user profiles count=%s", len(profiles))
     for profile in profiles:
         if profile.key == SYS_USER_BACKGROUND:
             profile.value = validate_learner_profile_system_value(
@@ -585,7 +585,15 @@ def update_user_profile_with_lable(
     course_id: str | None = None,
 ) -> bool:
     """Update user profile with lable."""
-    app.logger.info("update user profile with lable:%s", course_id)
+    app.logger.info(
+        "update user profiles course_scoped=%s count=%s",
+        bool(course_id),
+        len(profiles.profiles or [])
+        if isinstance(profiles, UserProfileLabelDTO)
+        else 1
+        if isinstance(profiles, UserProfileLabelItemDTO)
+        else len(profiles),
+    )
     profile_labels = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):
         profiles = profiles.profiles or []
@@ -646,8 +654,6 @@ def update_user_profile_with_lable(
             None,
         )
 
-        app.logger.info("update user profile:%s-%s", key, profile_value)
-
         profile_lable = profile_labels.get(key, None)
         default_value = profile_lable.get("default", None) if profile_lable else None
 
@@ -657,7 +663,6 @@ def update_user_profile_with_lable(
                     profile_value = source_value
                     break
 
-        app.logger.info("profile_value:%s", profile_value)
         mapping = profile_lable.get("mapping") if profile_lable else None
         mapping_already_applied = False
         if mapping == "learner_profile":
@@ -678,15 +683,8 @@ def update_user_profile_with_lable(
                 )
             )
         ):
-            app.logger.info(
-                "update user info: %s - %s",
-                key,
-                profile_value,
-            )
             normalized = _apply_core_mapping(user_id, mapping, profile_value)
             _update_aggregate_field(aggregate, mapping, normalized)
-        elif not profile_lable:
-            app.logger.info("profile_lable not found:%s", key)
 
         # System variables (in profile_labels) are global; custom variables
         # are scoped to the course.  This must match save_user_profiles() so

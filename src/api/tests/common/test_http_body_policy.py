@@ -39,6 +39,11 @@ def body_policy_app(tmp_path: Path) -> Iterator[Flask]:
     def ordinary_endpoint() -> Response:
         return jsonify(result="ordinary response")
 
+    @app.post("/sensitive-unbounded")
+    @sensitive_body()
+    def sensitive_unbounded_endpoint() -> Response:
+        return jsonify(result="private response")
+
     yield app
     for handler in list(app.logger.handlers):
         app.logger.removeHandler(handler)
@@ -99,6 +104,22 @@ def test_sensitive_policy_preserves_a_stricter_global_body_limit(
     body_policy_app.config["MAX_CONTENT_LENGTH"] = 10
     response = body_policy_app.test_client().post("/sensitive", json={"text": "x" * 20})
     assert response.status_code == 413
+
+
+def test_sensitive_policy_can_suppress_logs_without_adding_a_body_limit(
+    body_policy_app: Flask, caplog: pytest.LogCaptureFixture
+) -> None:
+    response = body_policy_app.test_client().post(
+        "/sensitive-unbounded",
+        json={"profile": "private profile", "padding": "x" * 4096},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    assert "Request body: <sensitive body omitted>" in caplog.text
+    assert "Response: <sensitive body omitted>" in caplog.text
+    assert "private profile" not in caplog.text
+    assert "private response" not in caplog.text
 
 
 def test_other_routes_keep_existing_logging_and_body_limits(
