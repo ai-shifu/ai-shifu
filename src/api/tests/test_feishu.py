@@ -56,7 +56,7 @@ def test_send_order_feishu_formats_notification(
         def __eq__(self, other: object) -> bool:
             return True
 
-        def __ge__(self, other: object) -> bool:
+        def in_(self, _other: object) -> bool:
             return True
 
     class FakeUserConversion:

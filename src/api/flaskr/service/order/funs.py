@@ -16,6 +16,7 @@ import pytz
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.common.cache_provider import redis_cache
 from flaskr.common.public_urls import build_stripe_learner_result_url
 from flaskr.common.shifu_context import set_shifu_context
 from flaskr.common.swagger import register_schema_to_swagger
@@ -29,7 +30,6 @@ from flaskr.service.billing.api import (
     resolve_payment_integration_for_new_order,
     resolve_provider_credential_context,
 )
-from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.native_payment_status import (
     extract_native_trade_payload,
@@ -93,9 +93,15 @@ from flaskr.service.promo.models import (
     CouponUsage as CouponUsageModel,
 )
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.user.consts import (
+    USER_STATE_PAID,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+)
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
+    STATE_TO_PUBLIC_STATE,
     load_user_aggregate,
     set_user_state,
 )
@@ -245,12 +251,21 @@ def send_order_feishu(app: Flask, record_id: str) -> None:
         msgs.append(f"{item.name}-{item.price_name}-{item.price}")
         if item.is_discount:
             msgs.append(f"优惠码：{item.discount_code}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    # Historical rows can retain the public state codes until separately normalized.
+    paid_states = (USER_STATE_PAID, STATE_TO_PUBLIC_STATE[USER_STATE_PAID])
+    verified_states = (USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID)
     user_count = UserEntity.query.filter(
-        UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
+        UserEntity.state.in_(paid_states), UserEntity.deleted == 0
     ).count()
     msgs.append(f"总付费用户数：{user_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_reg_count = UserEntity.query.filter(
-        UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
+        UserEntity.state.in_(
+            (
+                *verified_states,
+                *(STATE_TO_PUBLIC_STATE[state] for state in verified_states),
+            )
+        ),
+        UserEntity.deleted == 0,
     ).count()
     msgs.append(f"总注册用户数：{user_reg_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
@@ -652,7 +667,7 @@ def payment_lifecycle_lock(order_bid: str) -> Iterator[_PaymentLifecycleLease]:
         blocking_timeout=60,
         thread_local=False,
     )
-    if not lock.acquire(blocking=True):
+    if not lock or not lock.acquire(blocking=True):
         raise_error("server.order.orderStatusError")
     lease = _PaymentLifecycleLease(lock)
     ownership_token = _payment_lock_ownership_events.set(
@@ -1814,7 +1829,8 @@ def sync_stripe_checkout_session(
         if paid:
             already_completed = (
                 order.status == ORDER_STATUS_SUCCESS
-                and stripe_order.status == 1
+                # Earlier syncs left fulfilled orders with pending/expired snapshots.
+                and stripe_order.status in {0, 1, 3}
                 and _stripe_attempt_matches_order(order, stripe_order)
             )
             if not already_completed and not _stripe_attempt_can_complete(
@@ -1825,6 +1841,8 @@ def sync_stripe_checkout_session(
         _update_stripe_order_snapshot(
             stripe_order=stripe_order, session=session, intent=intent
         )
+        if paid:
+            stripe_order.status = 1
 
         if paid and order.status != ORDER_STATUS_SUCCESS:
             success_buy_record(app, order.order_bid)
@@ -2816,15 +2834,19 @@ def success_buy_record_from_pingxx(
         )
         if not pingxx_order:
             return None
-        lock = cache_provider.lock(
-            "success_buy_record_from_pingxx" + charge_id,
-            timeout=10,
-            blocking_timeout=10,
-        )
+        try:
+            # Payment callbacks must never fall back to a process-local lock.
+            lock = redis_cache.lock(
+                "success_buy_record_from_pingxx" + charge_id,
+                timeout=10,
+                blocking_timeout=10,
+            )
+            acquired = bool(lock and lock.acquire(blocking=True))
+        except Exception:
+            app.logger.exception('lock acquisition failed for charge:"%s"', charge_id)
+            raise_error("server.order.orderStatusError")
 
-        if not lock:
-            app.logger.error('lock failed for charge:"%s"', charge_id)
-        if lock.acquire(blocking=True):
+        if acquired:
             try:
                 app.logger.info('success buy record from pingxx charge:"%s"', charge_id)
                 with unit_of_work():
@@ -2884,6 +2906,9 @@ def success_buy_record_from_pingxx(
                 )
             finally:
                 lock.release()
+        else:
+            app.logger.error('lock failed for charge:"%s"', charge_id)
+            raise_error("server.order.orderStatusError")
     return None
 
 
