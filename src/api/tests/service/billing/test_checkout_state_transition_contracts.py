@@ -41,9 +41,14 @@ from flaskr.service.order.payment_providers.base import (
 from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_billing_product
+from tests.service.billing.test_billing_tasks import (
+    billing_task_integration_app as catalog_app,
+)
 
 if TYPE_CHECKING:
     from flask import Flask
+
+__all__ = ["catalog_app"]
 
 
 def _seed(
@@ -537,9 +542,10 @@ def test_preorder_refuses_incompatible_provider_product_and_period(gate: str) ->
 
 @pytest.mark.parametrize("gate", ["blank", "missing", "wrong-type", "trial"])
 def test_catalog_checkout_hides_unavailable_and_trial_products(
-    gate: str, app: Flask
+    gate: str, catalog_app: Flask
 ) -> None:
-    with app.app_context():
+    # The canonical trial code is unique and must not leak into the shared app.
+    with catalog_app.app_context():
         order, product, _ = _seed(subscription=True)
         if gate == "trial":
             product.product_code = "creator-plan-trial"
