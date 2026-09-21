@@ -133,6 +133,47 @@ def test_phone_and_email_aliases_share_one_failure_budget(
     assert _post_password(test_client, email, password)["code"] == 1016
 
 
+def test_blocked_account_alias_matches_unknown_identifier_response_budget(
+    app: Flask, test_client: object
+) -> None:
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.user.repository import upsert_credential
+
+    app.config["PASSWORD_LOGIN_MAX_FAILURES"] = 3
+    phone = "15500007109"
+    linked_email = "blocked-alias@example.com"
+    missing_email = "missing-alias@example.com"
+    user_bid = _create_phone_password_account(
+        app, test_client, phone=phone, password="Correct123"
+    )
+    with app.app_context(), unit_of_work():
+        upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="email",
+            subject_id=linked_email,
+            subject_format="email",
+            identifier=linked_email,
+            metadata={},
+            verified=True,
+        )
+
+    for _attempt in range(2):
+        assert _post_password(test_client, phone, "Wrong123")["code"] == 1016
+    assert _post_password(test_client, phone, "Wrong123")["code"] == 1039
+
+    linked_codes = [
+        _post_password(test_client, linked_email, "Wrong123")["code"]
+        for _attempt in range(3)
+    ]
+    missing_codes = [
+        _post_password(test_client, missing_email, "Wrong123")["code"]
+        for _attempt in range(3)
+    ]
+
+    assert linked_codes == missing_codes == [1016, 1016, 1039]
+
+
 def test_blocked_account_performs_dummy_bcrypt_before_rejection(
     app: Flask, test_client: object, monkeypatch: object
 ) -> None:
@@ -254,11 +295,18 @@ def test_lost_account_guard_rejects_an_otherwise_valid_login(
     mock_redis_client: object,
 ) -> None:
     from flaskr.service.user.auth.providers import password as password_provider
+    from flaskr.service.user.password_rate_limit import account_digest
 
     phone = "15500007106"
     password = "Correct123"
     _create_phone_password_account(app, test_client, phone=phone, password=password)
     app.config["PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS"] = 1
+    response_digest = account_digest(app, f"response:{phone}")
+    response_cooldown_key = (
+        f"{app.config.get('REDIS_KEY_PREFIX', 'ai-shifu:')}"
+        f"password_login:{response_digest}:cooldown"
+    )
+    mock_redis_client.set(response_cooldown_key, "1", ex=60)
 
     original_verify = password_provider.verify_password
 
@@ -278,6 +326,7 @@ def test_lost_account_guard_rejects_an_otherwise_valid_login(
     monkeypatch.setattr(mock_redis_client, "lock", losing_lock)
 
     assert _post_password(test_client, phone, password)["code"] == 1039
+    assert mock_redis_client.exists(response_cooldown_key)
 
 
 def test_stale_guard_cannot_clear_successor_cooldown(

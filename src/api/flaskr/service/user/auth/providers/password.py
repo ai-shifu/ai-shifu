@@ -116,8 +116,10 @@ class PasswordAuthProvider(AuthProvider):
                             raise_error("server.user.passwordLoginTooManyAttempts")
                     raise_error("server.user.invalidCredentials")
 
+                if not attempt.clear():
+                    raise_error("server.user.passwordLoginTooManyAttempts")
                 with PasswordLoginAttempt(app, response_identity) as response_attempt:
-                    if not response_attempt.clear() or not attempt.clear():
+                    if not response_attempt.clear():
                         raise_error("server.user.passwordLoginTooManyAttempts")
                 break
 
@@ -145,6 +147,9 @@ class PasswordAuthProvider(AuthProvider):
     def _raise_account_blocked(app: Flask, response_identity: str) -> None:
         """Reject a blocked account without disclosing alias relationships."""
         with PasswordLoginAttempt(app, response_identity) as response_attempt:
+            if response_attempt.cooldown_active:
+                raise_error("server.user.passwordLoginTooManyAttempts")
+            response_attempt.record_failure()
             if response_attempt.cooldown_active:
                 raise_error("server.user.passwordLoginTooManyAttempts")
         raise_error("server.user.invalidCredentials")

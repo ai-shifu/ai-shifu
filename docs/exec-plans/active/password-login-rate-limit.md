@@ -13,6 +13,7 @@ Password login currently allows unlimited guesses and returns early for unknown 
 - [x] 2026-09-20 20:08 CST: Verified 20 focused route tests, 93 configuration tests, translations, and a 20-request real Redis concurrency probe.
 - [x] 2026-09-20 21:35 CST: Passed final repository gates, committed, pushed, and opened #2897.
 - [x] 2026-09-20 22:05 CST: Addressed review findings for database connection retention, renewable lock ownership, cooldown analytics, and the CodeQL identifier-digest alert.
+- [x] 2026-09-21 10:01 CST: Kept identifier response budgets consistent while an account is blocked and deferred response cleanup until account-lock ownership is confirmed.
 
 ## Surprises & Discoveries
 
@@ -33,6 +34,8 @@ Password login currently allows unlimited guesses and returns early for unknown 
   Rationale: removes the obvious fast path used for account discovery.
 - Decision: renew the account lock while password verification runs and reject the attempt if ownership is lost.
   Rationale: bcrypt duration can vary under load, so a fixed lease alone cannot preserve serialization.
+- Decision: count blocked-account requests only in the submitted identifier's public-response budget.
+  Rationale: linked and unknown identifiers must expose the same error sequence without extending or clearing the authoritative account cooldown.
 
 ## Outcomes & Retrospective
 
