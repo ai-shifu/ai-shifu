@@ -124,9 +124,22 @@ def test_session_routes_forward_the_same_current_token_used_for_authentication(
 
 
 @pytest.mark.usefixtures("signed_in")
-def test_device_routes_use_authenticated_account_and_forwarded_client_ip(
-    app: object, test_client: object, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("trusted_proxies", "expected_ip"),
+    [
+        ("", "127.0.0.1"),
+        ("127.0.0.1/32", "198.51.100.2"),
+        ("127.0.0.1/32,198.51.100.2/32", "203.0.113.6"),
+    ],
+)
+def test_device_routes_use_authenticated_account_and_trusted_client_ip(
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    trusted_proxies: str,
+    expected_ip: str,
 ) -> None:
+    monkeypatch.setitem(app.config, "TRUSTED_PROXY_CIDRS", trusted_proxies)
     pending = Mock(return_value={"device_name": "Laptop"})
     approve = Mock(return_value={"status": "approved"})
     deny = Mock(return_value={"status": "denied"})
@@ -137,19 +150,19 @@ def test_device_routes_use_authenticated_account_and_forwarded_client_ip(
     assert test_client.get(
         "/api/user/device/pending?user_code=ABC-DEF", headers=headers
     ).get_json(force=True)["data"] == {"device_name": "Laptop"}
-    pending.assert_called_once_with(app, user_code="ABC-DEF", client_ip="203.0.113.6")
+    pending.assert_called_once_with(app, user_code="ABC-DEF", client_ip=expected_ip)
     assert test_client.post(
         "/api/user/device/approve",
         json={"user_code": "ABC-DEF", "user_id": "cannot-override"},
         headers=headers,
     ).get_json(force=True)["data"] == {"status": "approved"}
     approve.assert_called_once_with(
-        app, user_code="ABC-DEF", user_id="account", client_ip="203.0.113.6"
+        app, user_code="ABC-DEF", user_id="account", client_ip=expected_ip
     )
     assert test_client.post(
         "/api/user/device/deny", json={"user_code": "ABC-DEF"}, headers=headers
     ).get_json(force=True)["data"] == {"status": "denied"}
-    deny.assert_called_once_with(app, user_code="ABC-DEF", client_ip="203.0.113.6")
+    deny.assert_called_once_with(app, user_code="ABC-DEF", client_ip=expected_ip)
 
 
 @pytest.mark.usefixtures("signed_in")
