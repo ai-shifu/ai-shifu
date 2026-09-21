@@ -168,6 +168,26 @@ def test_public_paid_state_normalizes_to_canonical_paid_state(
         assert aggregate.public_state == 3
 
 
+def test_persisted_legacy_paid_state_loads_as_canonical_paid_state(
+    app: object, user_bid: str
+) -> None:
+    with app.app_context():
+        entity = create_user_entity(
+            user_bid=user_bid,
+            identify=f"{uuid.uuid4().hex[:12]}@example.com",
+            state=USER_STATE_REGISTERED,
+        )
+        entity.state = 3
+        db.session.commit()
+
+        aggregate = load_user_aggregate(user_bid)
+
+        assert entity.state == 3
+        assert aggregate is not None
+        assert aggregate.state == USER_STATE_PAID
+        assert aggregate.public_state == 3
+
+
 def test_load_user_aggregate_by_identifier_uses_credentials(
     app: object, user_bid: object
 ) -> None:
