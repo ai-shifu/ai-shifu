@@ -66,6 +66,7 @@ from flaskr.service.user.sessions import (
     revoke_other_user_sessions,
     revoke_user_session,
 )
+from flaskr.service.user.token_store import token_store
 from flaskr.service.user.user import (
     generate_temp_user,
     update_user_open_id,
@@ -73,6 +74,7 @@ from flaskr.service.user.user import (
 )
 from flaskr.service.user.utils import (
     ensure_admin_creator_and_demo_permissions,
+    persist_token,
 )
 
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
@@ -1277,30 +1279,37 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("password")
         provider = get_provider("password")
         vr = VerificationRequest(identifier=identifier, code=password)
-        # TODO(geyunfei): Add rate-limiting and failed login attempt tracking
-        # (record identifier, request.remote_addr, timestamp on failure)
-        with unit_of_work():
-            auth_result = provider.verify(app, vr)
-            current_user = _best_effort_password_login_user(app)
-            current_user_id = (
-                getattr(current_user, "user_id", None)
-                if current_user is not None
-                else None
-            )
-            if current_user_id and current_user_id != auth_result.user.user_id:
-                merge_learner_profile_for_sign_in(
-                    source_user_id=current_user_id,
-                    target_user_id=auth_result.user.user_id,
-                )
-                refreshed = load_user_aggregate(auth_result.user.user_id)
-                if not refreshed:
-                    raise_error("USER.USER_NOT_FOUND")
-                refreshed_user = build_user_info_from_aggregate(refreshed)
-                auth_result.user = refreshed_user
-                auth_result.token = UserToken(
-                    user_info=refreshed_user,
+        auth_result = provider.verify(app, vr)
+        try:
+            with unit_of_work():
+                persist_token(
+                    app,
+                    user_id=auth_result.user.user_id,
                     token=auth_result.token.token,
                 )
+                current_user = _best_effort_password_login_user(app)
+                current_user_id = (
+                    getattr(current_user, "user_id", None)
+                    if current_user is not None
+                    else None
+                )
+                if current_user_id and current_user_id != auth_result.user.user_id:
+                    merge_learner_profile_for_sign_in(
+                        source_user_id=current_user_id,
+                        target_user_id=auth_result.user.user_id,
+                    )
+                    refreshed = load_user_aggregate(auth_result.user.user_id)
+                    if not refreshed:
+                        raise_error("USER.USER_NOT_FOUND")
+                    refreshed_user = build_user_info_from_aggregate(refreshed)
+                    auth_result.user = refreshed_user
+                    auth_result.token = UserToken(
+                        user_info=refreshed_user,
+                        token=auth_result.token.token,
+                    )
+        except Exception:
+            token_store.discard_uncommitted(app, auth_result.token.token)
+            raise
         run_post_auth_extensions(
             app,
             PostAuthContext(
