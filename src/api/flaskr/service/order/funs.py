@@ -1815,7 +1815,8 @@ def sync_stripe_checkout_session(
         if paid:
             already_completed = (
                 order.status == ORDER_STATUS_SUCCESS
-                and stripe_order.status == 1
+                # Earlier syncs left fulfilled orders with pending/expired snapshots.
+                and stripe_order.status in {0, 1, 3}
                 and _stripe_attempt_matches_order(order, stripe_order)
             )
             if not already_completed and not _stripe_attempt_can_complete(
@@ -1826,6 +1827,8 @@ def sync_stripe_checkout_session(
         _update_stripe_order_snapshot(
             stripe_order=stripe_order, session=session, intent=intent
         )
+        if paid:
+            stripe_order.status = 1
 
         if paid and order.status != ORDER_STATUS_SUCCESS:
             success_buy_record(app, order.order_bid)
