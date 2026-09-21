@@ -58,11 +58,16 @@ from flaskr.api.llm.model_selection import (
     selection_model,
 )
 from flaskr.common.config import get_config
+from flaskr.common.http import sensitive_body
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import _, get_current_language, set_language
-from flaskr.route.common import bypass_token_validation, fmt, make_common_response
+from flaskr.route.common import (
+    bypass_token_validation,
+    fmt,
+    make_common_response,
+)
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import (
     admit_creator_preview_usage,
@@ -140,7 +145,6 @@ from flaskr.service.user.utils import (
     get_user_language,
 )
 from werkzeug.datastructures import FileStorage
-from werkzeug.exceptions import RequestEntityTooLarge
 
 from .funcs import (
     get_video_info,
@@ -2435,22 +2439,19 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             }
         )
 
+    from flaskr.service.tts.api import MINIMAX_CLONE_REQUEST_MAX_BYTES
+
     @app.route(path_prefix + "/tts/minimax/voices/clone", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
+    @sensitive_body(max_bytes=MINIMAX_CLONE_REQUEST_MAX_BYTES)
     def clone_minimax_tts_voice_api() -> Response:
         from flaskr.service.tts.api import (
             MINIMAX_CLONE_PROMPT_MAX_BYTES,
-            MINIMAX_CLONE_REQUEST_MAX_BYTES,
             MINIMAX_CLONE_SOURCE_MAX_BYTES,
             serialize_minimax_cloned_voice,
             submit_minimax_voice_clone,
         )
 
-        if (
-            request.content_length is not None
-            and request.content_length > MINIMAX_CLONE_REQUEST_MAX_BYTES
-        ):
-            raise RequestEntityTooLarge
         source_file = request.files.get("source_audio")
         if source_file is None:
             raise_param_error("source_audio is required")
