@@ -14,12 +14,16 @@ services:
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
       GEMINI_LIVE_ENABLED: "${GEMINI_LIVE_ENABLED:-false}"
+      TRUSTED_PROXY_CIDRS: "${TRUSTED_PROXY_CIDRS:-172.29.1.2/32}"
     volumes:
       - ./storage:/app/storage
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
     restart: unless-stopped
+    networks:
+      - default
+      - ai-shifu-proxy
   ai-shifu-celery-worker:
     container_name: ai-shifu-celery-worker
     image: aishifu/ai-shifu-api:latest
@@ -66,6 +70,8 @@ services:
     depends_on:
       - ai-shifu-api
     restart: unless-stopped
+    networks:
+      - ai-shifu-proxy
 
   ai-shifu-nginx:
     container_name: ai-shifu-nginx
@@ -78,6 +84,9 @@ services:
     restart: unless-stopped
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      ai-shifu-proxy:
+        ipv4_address: "${AI_SHIFU_NGINX_IP:-172.29.1.2}"
   ai-shifu-mysql:
     container_name: ai-shifu-mysql
     environment:
@@ -93,3 +102,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./redis_data:/data
+networks:
+  ai-shifu-proxy:
+    ipam:
+      config:
+        - subnet: "${AI_SHIFU_PROXY_SUBNET:-172.29.1.0/24}"

@@ -100,6 +100,31 @@ These variables are essential for the application to run:
 - For production deployments, use environment-specific configurations
 - Refer to the example files for detailed explanations of each variable
 
+#### Trusted reverse proxies and client IPs
+
+The backend ignores `X-Forwarded-For` unless the immediate connection comes
+from a network listed in `TRUSTED_PROXY_CIDRS`. The backend default is empty
+because proxy addresses differ between deployments. The bundled Compose files
+instead place nginx on a dedicated network with a stable address and trust only
+that address. If `AI_SHIFU_NGINX_IP` or `AI_SHIFU_PROXY_SUBNET` is overridden,
+set both consistently and update `TRUSTED_PROXY_CIDRS` to the nginx address as
+a single-host `/32`. Custom deployments should list only exact nginx and CDN
+egress CIDRs, separated by commas; do not trust an entire Docker or private
+network merely for convenience.
+
+Nginx must continue appending its TCP peer with
+`proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`. A CDN in front
+of nginx must overwrite or correctly append its own forwarding chain, and its
+egress CIDRs must also be listed. The backend walks the chain from right to
+left and selects the first untrusted address. Invalid chains fall back to the
+immediate TCP peer.
+
+Keep the API port private. The bundled production Compose files expose only
+nginx; the development API port is bound to loopback. If a custom deployment
+publishes the API directly, firewall it so clients cannot bypass the trusted
+proxy path. Verify the resolved address in request logs before enabling IP
+security thresholds.
+
 #### Optional Gemini Live Voice Follow-Up
 
 Gemini Live is disabled by default. Leave `GEMINI_LIVE_ENABLED=false` until
