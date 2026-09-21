@@ -27,10 +27,13 @@ by_pass_login_func = [
 ]
 
 
-def sensitive_body(*, max_bytes: int) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Omit a route's bodies from logs and bound parsing before authentication."""
+def sensitive_body(
+    *, max_bytes: int | None = None
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Omit a route's bodies from logs and optionally bound request parsing."""
 
     def decorate(func: Callable[P, R]) -> Callable[P, R]:
+        func._sensitive_body = True
         func._sensitive_body_max_bytes = max_bytes
         return func
 
@@ -41,6 +44,12 @@ def get_sensitive_body_limit() -> int | None:
     """Resolve the matched endpoint's opt-in body policy without reading input."""
     view = current_app.view_functions.get(request.endpoint)
     return getattr(view, "_sensitive_body_max_bytes", None)
+
+
+def is_sensitive_body() -> bool:
+    """Return whether the matched endpoint suppresses request and response bodies."""
+    view = current_app.view_functions.get(request.endpoint)
+    return bool(getattr(view, "_sensitive_body", False))
 
 
 def init_sensitive_body_policy(app: Flask) -> None:
@@ -62,13 +71,23 @@ def init_sensitive_body_policy(app: Flask) -> None:
         # Werkzeug may return a truncated stream at its limit without raising.
         # Read one bounded overflow byte for chunked bodies and cache accepted
         # input so auth/context parsing cannot consume it before the route.
-        request.max_content_length = max_bytes + 1
+        request_object = request._get_current_object()
+        try:
+            request_object.max_content_length = max_bytes + 1
+        except AttributeError:
+            # Flask 3.1 added the per-request setter. On older compatible
+            # releases, read and cache at most one overflow byte ourselves.
+            body = request_object.stream.read(max_bytes + 1)
+            request_object._cached_data = body
+            if len(body) > max_bytes:
+                raise RequestEntityTooLarge from None
+            return
         if len(request.get_data(cache=True)) > max_bytes:
             raise RequestEntityTooLarge
 
     @app.after_request
     def prevent_sensitive_body_caching(response: Response) -> Response:
-        if get_sensitive_body_limit() is not None:
+        if is_sensitive_body():
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -118,6 +137,7 @@ __all__ = [
     "fmt",
     "get_sensitive_body_limit",
     "init_sensitive_body_policy",
+    "is_sensitive_body",
     "make_common_response",
     "sensitive_body",
 ]

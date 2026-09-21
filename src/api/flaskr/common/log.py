@@ -15,7 +15,7 @@ import requests
 from flask import Flask, Response, request
 
 from .client_ip import resolve_client_ip
-from .http import get_sensitive_body_limit
+from .http import is_sensitive_body
 from .observability import current_trace_ids
 from .request_context import thread_local
 
@@ -182,7 +182,7 @@ def init_log(app: Flask) -> Flask:
         user_ip = resolve_client_ip()
         request.client_ip = user_ip
         thread_local.client_ip = user_ip
-        if get_sensitive_body_limit() is not None:
+        if is_sensitive_body():
             app.logger.info("Request body: <sensitive body omitted>")
             return
         if request.method == "POST":
@@ -210,7 +210,7 @@ def init_log(app: Flask) -> Flask:
     def after_request(response: Response) -> Response:
         try:
             _update_request_timing(response.status_code)
-            if get_sensitive_body_limit() is not None:
+            if is_sensitive_body():
                 app.logger.info("Response: <sensitive body omitted>")
                 return response
             if response.headers.get(

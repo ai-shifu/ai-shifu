@@ -224,7 +224,7 @@ class GoogleAuthProvider(AuthProvider):
             state=state,
             **create_url_kwargs,
         )
-        current_app.logger.info("Google OAuth begin state=%s", state)
+        current_app.logger.info("auth_event=google_oauth_started")
         return {"authorization_url": authorization_url, "state": state}
 
     def handle_oauth_callback(
@@ -239,7 +239,7 @@ class GoogleAuthProvider(AuthProvider):
             )
             raise_error("server.user.googleOAuthStateInvalid")
 
-        current_app.logger.info("Google OAuth callback state=%s", request.state)
+        current_app.logger.info("auth_event=google_oauth_callback_received")
         state_payload = _decode_state(app, request.state)
         if not state_payload:
             raise_error("server.user.googleOAuthStateInvalid")
