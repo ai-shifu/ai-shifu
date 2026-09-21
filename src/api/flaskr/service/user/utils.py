@@ -231,19 +231,16 @@ def generate_token(
     The session description is collected here rather than at each call site, so
     every sign-in path records it, including ones added later.
     """
+    token = create_token_value(app, user_id)
 
     def _generate() -> str:
-        token = jwt.encode(
-            {"user_id": user_id, "time_stamp": time.time()},
-            app.config["SECRET_KEY"],
-            algorithm="HS256",
-        )
-        token_store.save(
+        persist_token(
             app,
             user_id=user_id,
             token=token,
-            ttl_seconds=app.config["TOKEN_EXPIRE_TIME"],
-            metadata=_current_session_metadata(source, device_name, device_os),
+            source=source,
+            device_name=device_name,
+            device_os=device_os,
         )
         return token
 
@@ -251,8 +248,42 @@ def generate_token(
         return _generate()
     with app.app_context():
         return _generate()
+
+
+def create_token_value(app: Flask, user_id: str) -> str:
+    """Create a signed token value without persisting or exposing it."""
+    return jwt.encode(
+        {"user_id": user_id, "time_stamp": time.time()},
+        app.config["SECRET_KEY"],
+        algorithm="HS256",
+    )
+
+
+def persist_token(
+    app: Flask,
+    *,
+    user_id: str,
+    token: str,
+    source: str = "web",
+    device_name: str = "",
+    device_os: str = "",
+) -> None:
+    """Persist a signed token inside the caller's transaction."""
+
+    def _persist() -> None:
+        token_store.save(
+            app,
+            user_id=user_id,
+            token=token,
+            ttl_seconds=app.config["TOKEN_EXPIRE_TIME"],
+            metadata=_current_session_metadata(source, device_name, device_os),
+        )
+
+    if has_app_context():
+        _persist()
+        return
     with app.app_context():
-        return _generate()
+        _persist()
 
 
 def _format_email_verification_message(
