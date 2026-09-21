@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+from flaskr.common.client_ip import resolve_client_ip
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
@@ -103,13 +104,16 @@ def test_resaving_a_token_preserves_where_the_session_started(
 
 
 def test_a_session_is_recorded_for_every_sign_in(app: object, user_id: str) -> None:
+    app.config["TRUSTED_PROXY_CIDRS"] = "127.0.0.1/32"
     with app.test_request_context(
         headers={
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
             "X-Forwarded-For": "203.0.113.9",
-        }
+        },
+        environ_base={"REMOTE_ADDR": "127.0.0.1"},
     ):
+        assert resolve_client_ip() == "203.0.113.9"
         _sign_in(app, user_id)
 
         sessions = list_user_sessions(user_id=user_id)
@@ -119,6 +123,20 @@ def test_a_session_is_recorded_for_every_sign_in(app: object, user_id: str) -> N
         assert sessions[0]["device_os"] == "macOS"
         assert sessions[0]["created_ip"] == "203.0.113.9"
         assert sessions[0]["session_bid"]
+
+
+def test_session_ignores_forwarding_header_from_untrusted_peer(
+    app: object, user_id: str
+) -> None:
+    app.config["TRUSTED_PROXY_CIDRS"] = ""
+    with app.test_request_context(
+        headers={"X-Forwarded-For": "203.0.113.9"},
+        environ_base={"REMOTE_ADDR": "198.51.100.20"},
+    ):
+        _sign_in(app, user_id)
+
+        sessions = list_user_sessions(user_id=user_id)
+        assert sessions[0]["created_ip"] == "198.51.100.20"
 
 
 def test_the_session_list_never_exposes_the_token(app: object, user_id: str) -> None:

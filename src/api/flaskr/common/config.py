@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 from flask import Config as FlaskConfig
 from flask import Flask
 
+from flaskr.common.client_ip import validate_trusted_proxy_cidrs
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -1025,6 +1027,17 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         default="ai-shifu:",
         description="Redis key prefix",
         group="redis",
+    ),
+    "TRUSTED_PROXY_CIDRS": EnvVar(
+        name="TRUSTED_PROXY_CIDRS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated nginx/CDN proxy networks allowed to supply "
+            "X-Forwarded-For; empty trusts no proxy"
+        ),
+        group="network",
+        validator=validate_trusted_proxy_cidrs,
     ),
     # Celery Configuration
     "CELERY_BROKER_URL": EnvVar(

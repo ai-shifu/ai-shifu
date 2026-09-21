@@ -17,6 +17,7 @@ import jwt
 from flask import Flask, has_app_context, has_request_context, request
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.client_ip import resolve_client_ip
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db, uow
 from flaskr.dao.uow import unit_of_work
@@ -203,12 +204,7 @@ def _current_session_metadata(
     """Describe the session being created from the request serving it."""
     client_ip = ""
     if has_request_context():
-        forwarded = request.headers.get("X-Forwarded-For")
-        client_ip = (
-            forwarded.split(",")[0].strip()
-            if forwarded
-            else str(request.remote_addr or "")
-        )
+        client_ip = resolve_client_ip()
         if not device_name and not device_os:
             device_name, device_os = describe_user_agent(
                 request.headers.get("User-Agent", "")
