@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import pytest
 from flaskr.dao import db
+from flaskr.service.common.models import AppError
 from flaskr.service.order import funs
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.models import Order, StripeOrder
@@ -124,3 +125,131 @@ def test_sync_updates_provider_snapshot_and_pays_order_only_for_success(
                 app, order.order_bid, expected_user=order.user_bid
             )
             assert sync_side_effects.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "session_id", ["{CHECKOUT_SESSION_ID}", " {session_id} ", "cs-stored", None]
+)
+def test_sync_resolves_callback_placeholders_against_stored_session(
+    session_id: str | None, app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = Mock(
+        sync_reference=Mock(return_value=SimpleNamespace(provider_payload={}))
+    )
+    monkeypatch.setattr(funs, "get_payment_provider", Mock(return_value=provider))
+    with app.app_context():
+        order, snapshot = _seed_stripe_order()
+        snapshot.payment_intent_id = "pi-preserved"
+        snapshot.latest_charge_id = "ch-preserved"
+        db.session.commit()
+        provider.sync_reference.return_value.order_bid = order.order_bid
+        provider.sync_reference.return_value.provider_payload = {
+            "checkout_session": {
+                "id": "cs-stored",
+                "metadata": {"order_bid": order.order_bid},
+            },
+            "payment_intent": {
+                "id": "pi-preserved",
+                "metadata": {"order_bid": order.order_bid},
+            },
+        }
+        funs.sync_stripe_checkout_session(
+            app, order.order_bid, session_id=session_id, expected_user=order.user_bid
+        )
+        expected = "cs-stored"
+        assert (
+            provider.sync_reference.call_args.kwargs["provider_reference"] == expected
+        )
+        db.session.expire_all()
+        assert snapshot.payment_intent_id == "pi-preserved"
+        assert snapshot.latest_charge_id == "ch-preserved"
+        assert order.status == ORDER_STATUS_TO_BE_PAID
+
+
+@pytest.mark.parametrize(
+    "unavailable",
+    ["order", "owner", "provider", "snapshot", "session", "billing-domain"],
+)
+def test_sync_rejects_missing_foreign_or_cross_domain_evidence(
+    unavailable: str, app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider_factory = Mock()
+    monkeypatch.setattr(funs, "get_payment_provider", provider_factory)
+    with app.app_context():
+        order, snapshot = _seed_stripe_order()
+        expected_user = order.user_bid
+        if unavailable == "order":
+            order.deleted = 1
+        elif unavailable == "owner":
+            expected_user = "unrelated-user"
+        elif unavailable == "provider":
+            order.payment_channel = "alipay"
+        elif unavailable == "snapshot":
+            snapshot.deleted = 1
+        elif unavailable == "session":
+            snapshot.checkout_session_id = ""
+        elif unavailable == "billing-domain":
+            snapshot.biz_domain = "billing"
+        db.session.commit()
+        with pytest.raises(AppError):
+            funs.sync_stripe_checkout_session(
+                app, order.order_bid, expected_user=expected_user
+            )
+    provider_factory.assert_not_called()
+
+
+def test_late_sync_failure_rolls_back_order_snapshot_and_notification(
+    app: Flask, sync_side_effects: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = Mock(
+        sync_reference=Mock(
+            return_value=SimpleNamespace(
+                provider_payload={
+                    "checkout_session": {"id": "cs-paid", "payment_status": "paid"}
+                }
+            )
+        )
+    )
+    monkeypatch.setattr(funs, "get_payment_provider", Mock(return_value=provider))
+    monkeypatch.setattr(
+        funs,
+        "get_payment_details",
+        Mock(side_effect=RuntimeError("response build failed")),
+    )
+    with app.app_context():
+        order, snapshot = _seed_stripe_order()
+        provider.sync_reference.return_value.order_bid = order.order_bid
+        provider.sync_reference.return_value.provider_payload["checkout_session"] = {
+            "id": "cs-stored",
+            "payment_status": "paid",
+            "metadata": {"order_bid": order.order_bid},
+        }
+        with pytest.raises(RuntimeError, match="response build failed"):
+            funs.sync_stripe_checkout_session(
+                app, order.order_bid, expected_user=order.user_bid
+            )
+        db.session.expire_all()
+        assert order.status == ORDER_STATUS_TO_BE_PAID
+        assert snapshot.status == 0
+        assert snapshot.checkout_session_id == "cs-stored"
+        assert snapshot.checkout_session_object == "{}"
+    sync_side_effects.assert_not_called()
+
+
+def test_sync_rejects_explicit_session_not_bound_to_order_before_provider_call(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = Mock()
+    monkeypatch.setattr(funs, "get_payment_provider", provider)
+    with app.app_context():
+        order, _snapshot = _seed_stripe_order()
+        with pytest.raises(AppError) as caught:
+            funs.sync_stripe_checkout_session(
+                app,
+                order.order_bid,
+                session_id="cs-another",
+                expected_user=order.user_bid,
+            )
+        assert caught.value.code == 3001
+        assert order.status == ORDER_STATUS_TO_BE_PAID
+    provider.assert_not_called()

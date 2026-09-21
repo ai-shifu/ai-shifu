@@ -1,0 +1,1 @@
+"""Test backend framework contracts."""
