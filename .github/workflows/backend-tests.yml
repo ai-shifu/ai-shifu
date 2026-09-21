@@ -306,7 +306,7 @@ jobs:
 
       - name: Run full backend coverage
         id: coverage
-        if: steps.backend-changes.outputs.run == 'true' && env.SKIP_BACKEND_TESTS != '1'
+        if: always() && !cancelled() && steps.backend-changes.outputs.run == 'true' && env.SKIP_BACKEND_TESTS != '1'
         working-directory: src/api
         run: |
           python -m coverage erase
