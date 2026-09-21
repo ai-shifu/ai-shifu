@@ -31,30 +31,25 @@ def resolve_demo_course_for_language(
 class ShifuDto(BaseModel):
     """Shifu dto."""
 
-    bid: str = Field(..., description="shifu id", required=False)
-    name: str = Field(..., description="shifu name", required=False)
-    description: str = Field(..., description="shifu description", required=False)
-    avatar: str = Field(..., description="shifu avatar", required=False)
-    state: int = Field(..., description="shifu state", required=False)
-    is_favorite: bool = Field(..., description="is favorite", required=False)
-    archived: bool = Field(..., description="is archived", required=False)
+    bid: str = Field(..., description="shifu id")
+    name: str = Field(..., description="shifu name")
+    description: str = Field(..., description="shifu description")
+    avatar: str = Field(..., description="shifu avatar")
+    state: int = Field(..., description="shifu state")
+    is_favorite: bool = Field(..., description="is favorite")
+    archived: bool = Field(..., description="is archived")
     can_manage_archive: bool = Field(
         default=False,
         description="whether current user can archive/unarchive",
-        required=False,
     )
     can_manage_permissions: bool = Field(
         default=False,
         description="whether current user can manage shared permissions",
-        required=False,
     )
-    created_user_bid: str = Field(
-        "", description="owner user business id", required=False
-    )
+    created_user_bid: str = Field("", description="owner user business id")
     is_guide_course: bool = Field(
         default=False,
         description="whether this course is the built-in guide course",
-        required=False,
     )
 
     def __init__(
@@ -107,62 +102,54 @@ class ShifuDto(BaseModel):
 class ShifuDetailDto(BaseModel):
     """Shifu detail dto."""
 
-    bid: str = Field(..., description="shifu id", required=False)
-    name: str = Field(..., description="shifu name", required=False)
-    description: str = Field(..., description="shifu description", required=False)
-    avatar: str = Field(..., description="shifu avatar", required=False)
-    keywords: list[str] = Field(..., description="shifu keywords", required=False)
-    model: str = Field(..., description="shifu model", required=False)
-    temperature: float = Field(..., description="shifu temperature", required=False)
-    price: float = Field(..., description="shifu price", required=False)
-    preview_url: str = Field(..., description="shifu preview url", required=False)
-    url: str = Field(..., description="shifu url", required=False)
-    system_prompt: str = Field(..., description="shifu system prompt", required=False)
-    readonly: bool = Field(..., description="is shifu readonly", required=False)
-    archived: bool = Field(..., description="is shifu archived", required=False)
+    bid: str = Field(..., description="shifu id")
+    name: str = Field(..., description="shifu name")
+    description: str = Field(..., description="shifu description")
+    avatar: str = Field(..., description="shifu avatar")
+    keywords: list[str] = Field(..., description="shifu keywords")
+    model: str = Field(..., description="shifu model")
+    temperature: float = Field(..., description="shifu temperature")
+    price: float = Field(..., description="shifu price")
+    preview_url: str = Field(..., description="shifu preview url")
+    url: str = Field(..., description="shifu url")
+    system_prompt: str = Field(..., description="shifu system prompt")
+    readonly: bool = Field(..., description="is shifu readonly")
+    archived: bool = Field(..., description="is shifu archived")
     can_manage_archive: bool = Field(
         default=False,
         description="whether current user can archive/unarchive",
-        required=False,
     )
     can_publish: bool = Field(
-        default=False, description="whether current user can publish", required=False
+        default=False, description="whether current user can publish"
     )
-    created_user_bid: str = Field(
-        "", description="owner user business id", required=False
-    )
+    created_user_bid: str = Field("", description="owner user business id")
     # TTS Configuration
-    tts_enabled: bool = Field(default=False, description="TTS enabled", required=False)
+    tts_enabled: bool = Field(default=False, description="TTS enabled")
     tts_provider: str = Field(
         "",
         description="TTS provider: minimax, volcengine, volcengine_http, baidu, aliyun",
-        required=False,
     )
-    tts_model: str = Field("", description="TTS model/resource ID", required=False)
-    tts_voice_id: str = Field("", description="TTS voice ID", required=False)
+    tts_model: str = Field("", description="TTS model/resource ID")
+    tts_voice_id: str = Field("", description="TTS voice ID")
     tts_speed: float = Field(
-        1.0, description="TTS speech speed (provider-specific range)", required=False
+        1.0, description="TTS speech speed (provider-specific range)"
     )
     tts_pitch: int = Field(
         0,
         description="TTS pitch adjustment (provider-specific range)",
-        required=False,
     )
-    tts_emotion: str = Field("", description="TTS emotion setting", required=False)
+    tts_emotion: str = Field("", description="TTS emotion setting")
     default_listen_mode_enabled: bool = Field(
         default=False,
         description="Default learner mode to listen when TTS is enabled",
-        required=False,
     )
     use_learner_language: bool = Field(
         default=False,
         description="Use learner language for AI output",
-        required=False,
     )
     ask_enabled_status: int = Field(
         5101,
         description="Ask mode status: 5101=default, 5102=disabled, 5103=enabled",
-        required=False,
     )
     model_display_name: str = Field("", description="Configured main model label")
     ask_model_display_name: str = Field(
@@ -179,27 +166,22 @@ class ShifuDetailDto(BaseModel):
     ask_model: str = Field(
         "",
         description="Ask model (maps to ask_llm)",
-        required=False,
     )
     ask_temperature: float = Field(
         0.0,
         description="Ask model temperature",
-        required=False,
     )
     ask_system_prompt: str = Field(
         "",
         description="Ask model system prompt",
-        required=False,
     )
     ask_provider_config: dict[str, Any] = Field(
         default_factory=dict,
         description='Ask provider config, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
-        required=False,
     )
     follow_up_mode: Literal["text", "live_voice"] = Field(
         default="text",
         description="Resolved follow-up interaction mode",
-        required=False,
     )
 
     def __init__(
@@ -324,18 +306,12 @@ class ShifuDetailDto(BaseModel):
 class SimpleOutlineDto(BaseModel):
     """Simple outline dto."""
 
-    bid: str = Field(..., description="outline id", required=False)
-    position: str = Field(..., description="outline position", required=False)
-    name: str = Field(..., description="outline name", required=False)
-    children: list["SimpleOutlineDto"] = Field(
-        ..., description="outline children", required=False
-    )
-    type: str | None = Field(
-        None, description="outline type (trial,normal,guest)", required=False
-    )
-    is_hidden: bool | None = Field(
-        None, description="outline hidden flag", required=False
-    )
+    bid: str = Field(..., description="outline id")
+    position: str = Field(..., description="outline position")
+    name: str = Field(..., description="outline name")
+    children: list["SimpleOutlineDto"] = Field(..., description="outline children")
+    type: str | None = Field(None, description="outline type (trial,normal,guest)")
+    is_hidden: bool | None = Field(None, description="outline hidden flag")
 
     def __init__(
         self,
@@ -432,14 +408,14 @@ class ShifuOutlineTreeNode:
 class OutlineDto(BaseModel):
     """Outline dto."""
 
-    bid: str = Field(..., description="outline id", required=False)
-    position: str = Field(..., description="outline no", required=False)
-    name: str = Field(..., description="outline name", required=False)
-    description: str = Field(..., description="outline desc", required=False)
-    type: str = Field(..., description="outline type (trial,normal)", required=False)
-    index: int = Field(..., description="outline index", required=False)
-    system_prompt: str = Field(..., description="outline system prompt", required=False)
-    is_hidden: bool = Field(..., description="outline is hidden", required=False)
+    bid: str = Field(..., description="outline id")
+    position: str = Field(..., description="outline no")
+    name: str = Field(..., description="outline name")
+    description: str = Field(..., description="outline desc")
+    type: str = Field(..., description="outline type (trial,normal)")
+    index: int = Field(..., description="outline index")
+    system_prompt: str = Field(..., description="outline system prompt")
+    is_hidden: bool = Field(..., description="outline is hidden")
 
     def __init__(
         self,
@@ -509,8 +485,8 @@ class ReorderOutlineDto:
 class MdflowDTOParseResult(BaseModel):
     """Represent the MarkdownFlow DTO parse result API payload."""
 
-    variables: list[str] = Field(..., description="variables", required=True)
-    blocks_count: int = Field(..., description="blocks count", required=True)
+    variables: list[str] = Field(..., description="variables")
+    blocks_count: int = Field(..., description="blocks count")
 
     def __init__(self, variables: list[str], blocks_count: int) -> None:
         """Capture parsed MarkdownFlow variables and block count."""

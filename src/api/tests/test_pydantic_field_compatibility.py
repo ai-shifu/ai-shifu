@@ -21,20 +21,15 @@ from pydantic import ValidationError
 API_ROOT = Path(__file__).resolve().parents[1]
 SERVICE_ROOT = API_ROOT / "flaskr" / "service"
 
-# These are the second migration batch. Exact counts make the temporary
-# allowance a ratchet: existing debt is visible and new uses still fail.
-TEMPORARY_REQUIRED_ALLOWLIST = {
-    Path("shifu/dtos.py"): 58,
-    Path("learn/learn_dtos.py"): 52,
-    Path("user/dtos.py"): 6,
-}
-
-ADMIN_DTO_MODULES = (
+PYDANTIC_DTO_MODULES = (
     "flaskr.service.dashboard.dtos",
+    "flaskr.service.learn.learn_dtos",
     "flaskr.service.order.admin_dtos",
     "flaskr.service.promo.admin_dtos",
     "flaskr.service.shifu.admin_dtos_courses",
     "flaskr.service.shifu.admin_dtos_users",
+    "flaskr.service.shifu.dtos",
+    "flaskr.service.user.dtos",
 )
 
 
@@ -81,12 +76,12 @@ def _deprecated_required_counts() -> Counter[Path]:
     return counts
 
 
-def test_pydantic_field_required_debt_matches_second_batch_allowlist() -> None:
-    """Keep cleaned modules clean and prevent growth before batch two lands."""
-    assert _deprecated_required_counts() == Counter(TEMPORARY_REQUIRED_ALLOWLIST)
+def test_pydantic_field_required_has_no_remaining_debt() -> None:
+    """Reject deprecated required metadata throughout backend services."""
+    assert _deprecated_required_counts() == Counter()
 
 
-def test_admin_dto_imports_emit_no_field_required_deprecation() -> None:
+def test_all_migrated_dto_imports_emit_no_field_required_deprecation() -> None:
     """Import every cleaned module afresh without hiding the target warning."""
     import_code = f"""
 import importlib
@@ -98,7 +93,7 @@ warnings.filterwarnings(
     message=r"Using extra keyword arguments on `Field`.*required",
     category=PydanticDeprecatedSince20,
 )
-for module_name in {ADMIN_DTO_MODULES!r}:
+for module_name in {PYDANTIC_DTO_MODULES!r}:
     importlib.import_module(module_name)
 """
     subprocess.run(
