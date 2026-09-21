@@ -13,6 +13,9 @@ CONFIG = Path(__file__).resolve().parents[2] / ".coveragerc"
 
 
 def _coverage(directory: Path, *args: str) -> subprocess.CompletedProcess:
+    pytest.importorskip(
+        "coverage", reason="Install requirements-ci.txt to run coverage contract tests."
+    )
     return subprocess.run(
         [sys.executable, "-m", "coverage", *args],
         cwd=directory,
