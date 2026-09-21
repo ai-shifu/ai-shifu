@@ -416,6 +416,8 @@ def get_video_info(app: object, user_id: str, url: str) -> dict:
         except KeyError:
             app.logger.exception("Missing expected field in API response")
             raise_error("server.file.videoParseError")
+        except AppError:
+            raise
         except Exception:
             app.logger.exception("Unexpected error getting video info")
             raise_error("server.file.videoGetInfoError")
