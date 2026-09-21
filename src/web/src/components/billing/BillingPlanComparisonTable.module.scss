@@ -51,6 +51,37 @@ $color-on-accent: #fff;
 // Layout
 // ============================================================================
 
+.showcaseTabsList {
+  height: var(--height-h-9, 36px);
+  border-radius: var(--border-radius-rounded-lg, 10px);
+  background: var(--base-muted, #f5f5f5);
+  padding: 3px;
+}
+
+.showcaseTabsTrigger {
+  height: 100%;
+  border-radius: var(--border-radius-rounded-md, 8px);
+  border: 1px solid transparent;
+  padding: var(--spacing-1, 4px) 24px;
+  text-align: center;
+  color: $color-fg;
+  @include font-body;
+  font-weight: var(--font-weight-medium, 500);
+
+  &[data-state='active'] {
+    border-color: var(--custom-dark-input, rgba(255, 255, 255, 0));
+    background: var(--custom-background-dark-input-30, #fff);
+    box-shadow:
+      var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px)
+        var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0)
+        var(--shadow-sm-1-color, rgba(0, 0, 0, 0.1)),
+      var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px)
+        var(--shadow-sm-2-blur-radius, 2px)
+        var(--shadow-sm-2-spread-radius, -1px)
+        var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1));
+  }
+}
+
 .tableWrapper {
   width: 100%;
   overflow-x: auto;
@@ -78,6 +109,55 @@ $color-on-accent: #fff;
     padding: 12px 16px;
     text-align: center;
     vertical-align: middle;
+  }
+}
+
+.comparisonGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-rows: repeat(6, auto) 1fr;
+  min-width: 720px;
+  color: $color-fg;
+  @include font-body;
+}
+
+.comparisonColumn {
+  display: grid;
+  grid-row: 1 / span 7;
+  grid-template-rows: subgrid;
+  min-width: 0;
+
+  > .columnHead {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: transparent;
+  }
+
+  > .columnTitleHead {
+    height: auto;
+    min-height: 56px;
+  }
+
+  > .columnPriceHead {
+    height: auto;
+    min-height: 64px;
+  }
+
+  > .columnCreditsHead {
+    padding: 4px 16px 8px !important;
+  }
+
+  > .columnActionHead {
+    height: auto;
+    min-height: 64px;
+    border-bottom: 0;
+  }
+
+  .columnAction {
+    height: auto;
+    min-height: var(--height-h-9, 36px);
+    white-space: normal;
   }
 }
 
@@ -246,22 +326,11 @@ $color-on-accent: #fff;
 }
 
 // ============================================================================
-// Body rows (scenario, data, features)
+// Body rows (data, features)
 // ============================================================================
 
-.scenarioRow td {
-  padding: 14px 16px !important;
-  border-top: 1px solid var(--base-border, #e5e5e5);
-  text-align: left;
-  vertical-align: top;
-}
-
-.scenarioText {
-  color: $color-fg;
-  @include font-body;
-}
-
-.dataRow td {
+.dataRow td,
+.comparisonDataCell {
   padding: 14px 16px !important;
   border-top: 1px solid var(--base-border, #e5e5e5);
   color: $color-fg;
@@ -282,7 +351,8 @@ $color-on-accent: #fff;
 
 // --- Feature column list ---------------------------------------------------
 
-.featureColumnRow td {
+.featureColumnRow td,
+.comparisonFeatureCell {
   padding: 12px 16px !important;
   border-top: 1px solid var(--base-border, #e5e5e5);
   text-align: left;

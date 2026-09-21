@@ -5,7 +5,6 @@ import {
   formatBillingCredits,
   formatBillingNumber,
   formatBillingPlanInterval,
-  formatBillingPercent,
   formatBillingPrice,
   getBillingProductCampaignBonusCredits,
   hasBillingProductBonusCampaign,
@@ -260,14 +259,6 @@ describe('formatBillingCreditDetail', () => {
     expect(formatBillingCreditDetail(Number.POSITIVE_INFINITY, 'en-US')).toBe(
       '0.00',
     );
-  });
-});
-
-describe('formatBillingPercent', () => {
-  test('formats one decimal with locale-specific separators', () => {
-    expect(formatBillingPercent(20, 'en-US')).toBe('20.0');
-    expect(formatBillingPercent(20, 'fr-FR')).toBe('20,0');
-    expect(formatBillingPercent(20.55, 'fr-FR')).toBe('20,6');
   });
 });
 
