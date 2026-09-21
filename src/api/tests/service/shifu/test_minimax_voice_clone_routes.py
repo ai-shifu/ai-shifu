@@ -6,7 +6,9 @@ from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
+from unittest.mock import Mock
 
+import pytest
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     BILLING_METRIC_TTS_REQUEST_COUNT,
@@ -25,6 +27,7 @@ from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.user.consts import USER_STATE_REGISTERED
+from werkzeug.datastructures import FileStorage
 
 
 def _creator_user(user_bid: str = "creator-route") -> UserInfo:
@@ -285,6 +288,97 @@ def test_minimax_voice_clone_submit_rejects_insufficient_credits(
             ).count()
             == 0
         )
+
+
+def test_minimax_voice_clone_rejects_oversized_source_before_submission(
+    test_client: object,
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.tts import api as tts_api
+
+    _auth(monkeypatch)
+    submit = Mock()
+    monkeypatch.setattr(tts_api, "MINIMAX_CLONE_SOURCE_MAX_BYTES", 4)
+    monkeypatch.setattr(tts_api, "submit_minimax_voice_clone", submit)
+
+    response = test_client.post(
+        "/api/shifu/tts/minimax/voices/clone",
+        data={
+            "source_audio": (BytesIO(b"12345"), "recording.webm"),
+        },
+        headers={"Token": "test-token"},
+        content_type="multipart/form-data",
+    )
+
+    assert (
+        response.get_json(force=True)["code"] == ERROR_CODE["server.common.paramsError"]
+    )
+    submit.assert_not_called()
+
+
+def test_minimax_voice_clone_rejects_oversized_prompt_before_submission(
+    test_client: object,
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.tts import api as tts_api
+
+    _auth(monkeypatch)
+    submit = Mock()
+    monkeypatch.setattr(tts_api, "MINIMAX_CLONE_SOURCE_MAX_BYTES", 4)
+    monkeypatch.setattr(tts_api, "MINIMAX_CLONE_PROMPT_MAX_BYTES", 3)
+    monkeypatch.setattr(tts_api, "submit_minimax_voice_clone", submit)
+
+    response = test_client.post(
+        "/api/shifu/tts/minimax/voices/clone",
+        data={
+            "source_audio": (BytesIO(b"1234"), "recording.webm"),
+            "prompt_audio": (BytesIO(b"1234"), "prompt.webm"),
+        },
+        headers={"Token": "test-token"},
+        content_type="multipart/form-data",
+    )
+
+    assert (
+        response.get_json(force=True)["code"] == ERROR_CODE["server.common.paramsError"]
+    )
+    submit.assert_not_called()
+
+
+def test_minimax_voice_clone_rejects_oversized_total_request(
+    test_client: object,
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.tts import api as tts_api
+
+    _auth(monkeypatch)
+    submit = Mock()
+    monkeypatch.setattr(tts_api, "MINIMAX_CLONE_REQUEST_MAX_BYTES", 64)
+    monkeypatch.setattr(tts_api, "submit_minimax_voice_clone", submit)
+
+    response = test_client.post(
+        "/api/shifu/tts/minimax/voices/clone",
+        data={
+            "source_audio": (BytesIO(b"1"), "recording.webm"),
+        },
+        headers={"Token": "test-token"},
+        content_type="multipart/form-data",
+    )
+
+    assert response.get_json(force=True)["code"] == 413
+    submit.assert_not_called()
+
+
+def test_bounded_audio_read_stops_after_one_overflow_byte() -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.shifu.route import _read_bounded_upload
+
+    stream = BytesIO(b"x" * 100)
+    upload = FileStorage(stream=stream, filename="recording.webm")
+
+    with pytest.raises(AppError):
+        _read_bounded_upload(upload, max_bytes=4)
+
+    assert stream.tell() == 5
 
 
 def test_minimax_voice_routes_only_expose_current_owner_voices(

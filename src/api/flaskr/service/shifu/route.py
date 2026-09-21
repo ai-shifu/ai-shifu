@@ -139,6 +139,8 @@ from flaskr.service.user.repository import (
 from flaskr.service.user.utils import (
     get_user_language,
 )
+from werkzeug.datastructures import FileStorage
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from .funcs import (
     get_video_info,
@@ -160,6 +162,14 @@ class ShifuPermission(Enum):
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+
+
+def _read_bounded_upload(file: FileStorage, *, max_bytes: int) -> bytes:
+    """Read at most one overflow byte so oversized uploads stay memory-bounded."""
+    content = file.stream.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise_param_error("audio file is too large")
+    return content
 
 
 class ShifuTokenValidation:
@@ -2429,10 +2439,18 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
     def clone_minimax_tts_voice_api() -> Response:
         from flaskr.service.tts.api import (
+            MINIMAX_CLONE_PROMPT_MAX_BYTES,
+            MINIMAX_CLONE_REQUEST_MAX_BYTES,
+            MINIMAX_CLONE_SOURCE_MAX_BYTES,
             serialize_minimax_cloned_voice,
             submit_minimax_voice_clone,
         )
 
+        if (
+            request.content_length is not None
+            and request.content_length > MINIMAX_CLONE_REQUEST_MAX_BYTES
+        ):
+            raise RequestEntityTooLarge
         source_file = request.files.get("source_audio")
         if source_file is None:
             raise_param_error("source_audio is required")
@@ -2443,13 +2461,23 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             shifu_bid=(request.form.get("shifu_bid") or "").strip(),
             display_name=(request.form.get("display_name") or "").strip(),
             voice_id=(request.form.get("voice_id") or "").strip(),
-            source_audio_bytes=source_file.read(),
+            source_audio_bytes=_read_bounded_upload(
+                source_file,
+                max_bytes=MINIMAX_CLONE_SOURCE_MAX_BYTES,
+            ),
             source_filename=source_file.filename or "recording.webm",
             source_content_type=source_file.content_type or "",
             source_capture_method=(
                 request.form.get("source_capture_method") or "upload"
             ).strip(),
-            prompt_audio_bytes=prompt_file.read() if prompt_file is not None else None,
+            prompt_audio_bytes=(
+                _read_bounded_upload(
+                    prompt_file,
+                    max_bytes=MINIMAX_CLONE_PROMPT_MAX_BYTES,
+                )
+                if prompt_file is not None
+                else None
+            ),
             prompt_filename=prompt_file.filename if prompt_file is not None else "",
             prompt_content_type=(
                 prompt_file.content_type if prompt_file is not None else ""
