@@ -8,6 +8,23 @@ import {
 } from '@testing-library/react';
 
 import CourseCreationChoiceDialog from './CourseCreationChoiceDialog';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+
+let mockValidationGate: Promise<void> | undefined;
+
+jest.mock('@hookform/resolvers/zod', () => {
+  const actual = jest.requireActual('@hookform/resolvers/zod');
+  return {
+    ...actual,
+    zodResolver: (...args: Parameters<typeof actual.zodResolver>) => {
+      const resolver = actual.zodResolver(...args);
+      return async (...values: Parameters<typeof resolver>) => {
+        if (mockValidationGate) await mockValidationGate;
+        return resolver(...values);
+      };
+    },
+  };
+});
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -25,10 +42,14 @@ jest.mock('@/lib/onboardingTargets', () => ({
 }));
 
 describe('CourseCreationChoiceDialog', () => {
-  test('presents prompt copying as the primary AI path and keeps the guide optional', async () => {
+  afterEach(() => {
+    mockValidationGate = undefined;
+  });
+
+  test('presents both paths in one dialog and submits the inline manual form', async () => {
     const onAiCourseCreatorClick = jest.fn();
     const onAiCoursePromptCopy = jest.fn().mockResolvedValue(true);
-    const onManualCreateClick = jest.fn();
+    const onManualCreate = jest.fn();
 
     render(
       <CourseCreationChoiceDialog
@@ -37,7 +58,8 @@ describe('CourseCreationChoiceDialog', () => {
         courseCreatorUrl='https://creator.example.test/guide'
         onAiCourseCreatorClick={onAiCourseCreatorClick}
         onAiCoursePromptCopy={onAiCoursePromptCopy}
-        onManualCreateClick={onManualCreateClick}
+        onManualCreate={onManualCreate}
+        onManualCreateCancel={jest.fn()}
       />,
     );
 
@@ -77,12 +99,23 @@ describe('CourseCreationChoiceDialog', () => {
       }),
     ).toBeEnabled();
 
+    fireEvent.change(
+      screen.getByLabelText('component.createShifuDialog.nameLabel'),
+      { target: { value: 'Course title' } },
+    );
     fireEvent.click(
       screen.getByRole('button', {
         name: 'component.courseCreationChoiceDialog.manualAction',
       }),
     );
-    expect(onManualCreateClick).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(onManualCreate).toHaveBeenCalledWith({
+        name: 'Course title',
+        description: '',
+        avatar: '',
+      }),
+    );
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
   });
 
   test('keeps prompt and manual creation available when the guide is unavailable', () => {
@@ -93,7 +126,8 @@ describe('CourseCreationChoiceDialog', () => {
         courseCreatorUrl={null}
         onAiCourseCreatorClick={jest.fn()}
         onAiCoursePromptCopy={jest.fn().mockResolvedValue(true)}
-        onManualCreateClick={jest.fn()}
+        onManualCreate={jest.fn()}
+        onManualCreateCancel={jest.fn()}
       />,
     );
 
@@ -132,7 +166,8 @@ describe('CourseCreationChoiceDialog', () => {
         courseCreatorUrl={null}
         onAiCourseCreatorClick={jest.fn()}
         onAiCoursePromptCopy={copy}
-        onManualCreateClick={jest.fn()}
+        onManualCreate={jest.fn()}
+        onManualCreateCancel={jest.fn()}
       />,
     );
     const button = screen.getByRole('button', { name: /\.copyAction/ });
@@ -170,7 +205,8 @@ describe('CourseCreationChoiceDialog', () => {
       courseCreatorUrl: null,
       onAiCourseCreatorClick: jest.fn(),
       onAiCoursePromptCopy: copy,
-      onManualCreateClick: jest.fn(),
+      onManualCreate: jest.fn(),
+      onManualCreateCancel: jest.fn(),
     };
     const { rerender } = render(
       <CourseCreationChoiceDialog
@@ -214,4 +250,227 @@ describe('CourseCreationChoiceDialog', () => {
       'component.courseCreationChoiceDialog.copyHint',
     );
   });
+
+  test('validates the name before submission and clears fields and errors on reopen', async () => {
+    const props = {
+      onOpenChange: jest.fn(),
+      courseCreatorUrl: null,
+      onAiCourseCreatorClick: jest.fn(),
+      onAiCoursePromptCopy: jest.fn().mockResolvedValue(true),
+      onManualCreate: jest.fn(),
+      onManualCreateCancel: jest.fn(),
+    };
+    const { rerender } = render(
+      <CourseCreationChoiceDialog
+        {...props}
+        open
+      />,
+    );
+    expect(
+      screen.getByLabelText('component.createShifuDialog.nameLabel'),
+    ).toHaveAttribute('maxlength', String(TITLE_MAX_LENGTH));
+    expect(
+      screen.getByLabelText('component.createShifuDialog.descriptionLabel'),
+    ).toHaveAttribute('maxlength', '500');
+    fireEvent.change(
+      screen.getByLabelText('component.createShifuDialog.descriptionLabel'),
+      {
+        target: { value: 'Draft introduction' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: /\.manualAction/ }));
+    expect(
+      await screen.findByText('component.createShifuDialog.nameRequired'),
+    ).toBeInTheDocument();
+    expect(props.onManualCreate).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText('component.createShifuDialog.nameLabel'),
+      ).toHaveFocus(),
+    );
+
+    rerender(
+      <CourseCreationChoiceDialog
+        {...props}
+        open={false}
+      />,
+    );
+    rerender(
+      <CourseCreationChoiceDialog
+        {...props}
+        open
+      />,
+    );
+    expect(
+      screen.getByLabelText('component.createShifuDialog.descriptionLabel'),
+    ).toHaveValue('');
+    expect(
+      screen.queryByText('component.createShifuDialog.nameRequired'),
+    ).not.toBeInTheDocument();
+    expect(props.onManualCreateCancel).not.toHaveBeenCalled();
+  });
+
+  test('accepts a 500-character introduction and rejects longer descriptions', async () => {
+    const onManualCreate = jest.fn().mockResolvedValue(undefined);
+    render(
+      <CourseCreationChoiceDialog
+        open
+        onOpenChange={jest.fn()}
+        courseCreatorUrl={null}
+        onAiCourseCreatorClick={jest.fn()}
+        onAiCoursePromptCopy={jest.fn().mockResolvedValue(true)}
+        onManualCreate={onManualCreate}
+        onManualCreateCancel={jest.fn()}
+      />,
+    );
+    const name = screen.getByLabelText('component.createShifuDialog.nameLabel');
+    const description = screen.getByLabelText(
+      'component.createShifuDialog.descriptionLabel',
+    );
+    const submit = () =>
+      fireEvent.click(screen.getByRole('button', { name: /\.manualAction/ }));
+    fireEvent.change(name, { target: { value: 'Course title' } });
+    // Bypass the native limit to verify the same boundary in form validation.
+    fireEvent.change(description, { target: { value: 'a'.repeat(501) } });
+    submit();
+    expect(
+      await screen.findByText(
+        'component.createShifuDialog.descriptionMaxLength',
+      ),
+    ).toBeInTheDocument();
+    expect(onManualCreate).not.toHaveBeenCalled();
+
+    fireEvent.change(description, { target: { value: 'a'.repeat(500) } });
+    submit();
+    await waitFor(() =>
+      expect(onManualCreate).toHaveBeenCalledWith({
+        name: 'Course title',
+        description: 'a'.repeat(500),
+        avatar: '',
+      }),
+    );
+    expect(onManualCreate).toHaveBeenCalledTimes(1);
+  });
+
+  test('blocks duplicate submissions and dismissal until the pending creation settles', async () => {
+    let settle!: () => void;
+    const props = {
+      onOpenChange: jest.fn(),
+      courseCreatorUrl: null,
+      onAiCourseCreatorClick: jest.fn(),
+      onAiCoursePromptCopy: jest.fn().mockResolvedValue(true),
+      onManualCreate: jest.fn().mockImplementation(
+        () =>
+          new Promise<void>(resolve => {
+            settle = resolve;
+          }),
+      ),
+      onManualCreateCancel: jest.fn(),
+    };
+    render(
+      <CourseCreationChoiceDialog
+        {...props}
+        open
+      />,
+    );
+    const name = screen.getByLabelText('component.createShifuDialog.nameLabel');
+    fireEvent.change(name, { target: { value: 'Course title' } });
+    // Submit the form directly too, exercising the guard beyond the disabled button.
+    const form = name.closest('form')!;
+    fireEvent.submit(form);
+    await waitFor(() => expect(props.onManualCreate).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: /\.creating/ })).toBeDisabled();
+    expect(name).toHaveAttribute('readonly');
+    expect(
+      screen.queryByRole('button', { name: 'component.header.close' }),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(props.onManualCreate).toHaveBeenCalledTimes(1);
+    expect(props.onOpenChange).not.toHaveBeenCalled();
+    expect(props.onManualCreateCancel).not.toHaveBeenCalled();
+    await act(async () => settle());
+    expect(
+      screen.getByRole('button', { name: /\.manualAction/ }),
+    ).toBeEnabled();
+    expect(name).toHaveValue('Course title');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.close' }),
+    );
+    expect(props.onOpenChange).toHaveBeenCalledWith(false);
+    expect(props.onManualCreateCancel).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(['valid', 'invalid'])(
+    'locks dismissal before asynchronous %s validation and releases after settlement',
+    async validity => {
+      let finishValidation!: () => void;
+      let finishCreation!: () => void;
+      mockValidationGate = new Promise<void>(resolve => {
+        finishValidation = resolve;
+      });
+      const props = {
+        onOpenChange: jest.fn(),
+        courseCreatorUrl: null,
+        onAiCourseCreatorClick: jest.fn(),
+        onAiCoursePromptCopy: jest.fn().mockResolvedValue(true),
+        onManualCreate: jest.fn().mockImplementation(
+          () =>
+            new Promise<void>(resolve => {
+              finishCreation = resolve;
+            }),
+        ),
+        onManualCreateCancel: jest.fn(),
+      };
+      render(
+        <CourseCreationChoiceDialog
+          {...props}
+          open
+        />,
+      );
+      const name = screen.getByLabelText(
+        'component.createShifuDialog.nameLabel',
+      );
+      if (validity === 'valid') {
+        fireEvent.change(name, { target: { value: 'Course title' } });
+      }
+      const form = name.closest('form')!;
+      fireEvent.submit(form);
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+      fireEvent.submit(form);
+      expect(props.onManualCreate).not.toHaveBeenCalled();
+      expect(props.onOpenChange).not.toHaveBeenCalled();
+      expect(props.onManualCreateCancel).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole('button', { name: 'component.header.close' }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /\.creating/ })).toBeDisabled();
+
+      await act(async () => finishValidation());
+      if (validity === 'valid') {
+        expect(props.onManualCreate).toHaveBeenCalledTimes(1);
+        fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+        expect(props.onOpenChange).not.toHaveBeenCalled();
+        await act(async () => finishCreation());
+      } else {
+        expect(props.onManualCreate).not.toHaveBeenCalled();
+        expect(
+          await screen.findByText('component.createShifuDialog.nameRequired'),
+        ).toBeInTheDocument();
+        await waitFor(() => expect(name).toHaveFocus());
+      }
+
+      expect(name).not.toHaveAttribute('readonly');
+      expect(
+        screen.getByRole('button', { name: /\.manualAction/ }),
+      ).toBeEnabled();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'component.header.close' }),
+      );
+      expect(props.onOpenChange).toHaveBeenCalledWith(false);
+      expect(props.onManualCreateCancel).toHaveBeenCalledTimes(1);
+    },
+  );
 });
