@@ -142,19 +142,33 @@ def test_pr_control_plane_only_changes_still_skip_backend_tests(tmp_path: Path) 
     assert selection["TEST_TARGETS"] == ""
 
 
-def test_full_coverage_runs_after_test_failures_but_respects_cancellation() -> None:
+def test_full_coverage_is_manual_only_and_respects_cancellation() -> None:
     workflow = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
     coverage = next(
         step
         for step in workflow["jobs"]["backend-tests"]["steps"]
         if step.get("id") == "coverage"
     )
-    # A status function overrides Actions' implicit success() guard. Keep the
-    # backend/explicit-skip filters and do not prolong cancelled stack builds.
+    # Manual coverage still runs after a contract failure, but ordinary PR/main
+    # checks must not pay for a second full-suite run.
     assert coverage["if"] == (
-        "always() && !cancelled() && steps.backend-changes.outputs.run == 'true' "
-        "&& env.SKIP_BACKEND_TESTS != '1'"
+        "always() && !cancelled() && github.event_name == 'workflow_dispatch' "
+        "&& steps.backend-changes.outputs.run == 'true'"
     )
+
+
+def test_main_still_runs_all_tests_without_coverage() -> None:
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
+    main_tests = next(
+        step
+        for step in workflow["jobs"]["backend-tests"]["steps"]
+        if step["name"] == "Run tests (main)"
+    )
+    assert main_tests["if"] == (
+        "github.event_name == 'push' && steps.backend-changes.outputs.run == 'true'"
+    )
+    assert main_tests["working-directory"] == "src/api"
+    assert main_tests["run"] == "python -m pytest --testmon-noselect tests"
 
 
 def test_coverage_artifact_keeps_raw_data_and_reports_even_after_gate_failure() -> None:

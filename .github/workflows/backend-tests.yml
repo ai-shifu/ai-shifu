@@ -304,9 +304,14 @@ jobs:
             python -m pytest --testmon "${test_targets[@]}"
           fi
 
+      - name: Run tests (main)
+        if: github.event_name == 'push' && steps.backend-changes.outputs.run == 'true'
+        working-directory: src/api
+        run: python -m pytest --testmon-noselect tests
+
       - name: Run full backend coverage
         id: coverage
-        if: always() && !cancelled() && steps.backend-changes.outputs.run == 'true' && env.SKIP_BACKEND_TESTS != '1'
+        if: always() && !cancelled() && github.event_name == 'workflow_dispatch' && steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
         run: |
           python -m coverage erase

@@ -11,6 +11,11 @@ behavioral assertions.
 
 ## Progress
 
+- [x] 2026-09-21: Per user feedback, limit full coverage to manual
+  `workflow_dispatch` runs. Keep PR target selection and full tests on `main`,
+  avoiding a second suite execution in ordinary CI. Preserve the 95.01 percent
+  threshold and downloadable evidence for manual coverage checks.
+
 - [x] 2026-09-20 01:29 UTC: Inspected repository/backend instructions, current
   test fixtures, CI workflow, and engineering expectations. Fetched origin;
   created `sunner/backend-test-coverage-95` from current `origin/main`

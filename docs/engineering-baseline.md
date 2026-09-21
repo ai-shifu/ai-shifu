@@ -352,8 +352,11 @@ src/api/tests/
   `PYTHON_DOTENV_DISABLED=1 python -m coverage run -m pytest -p no:testmon tests`,
   then `python -m coverage report` and optionally `python -m coverage html`.
   Install `requirements-ci.txt` first. Full coverage runs must not use cached
-  test selection. Backend CI retains JSON, XML and text coverage evidence and
-  checks the same threshold on relevant pull requests, main, and manual runs.
+  test selection. Run the `Backend Tests` workflow manually from GitHub Actions
+  (`workflow_dispatch`) to check the threshold and retain raw, JSON, XML and
+  text coverage evidence. Ordinary pull requests use the existing test target
+  selection; pushes to `main` run the full tests without coverage. Neither
+  automatic path repeats the suite for coverage.
 - Install `redis-server` for the isolated Redis admission tests; the tests start
   and stop their own Unix-socket server. Set `GEMINI_LIVE_TEST_REDIS_SERVER` to
   a custom executable path when needed. CI sets `GEMINI_LIVE_REQUIRE_REAL_REDIS=1`
