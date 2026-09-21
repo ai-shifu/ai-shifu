@@ -136,6 +136,8 @@ localized status for both skeleton screens. Focused regressions verify that
 the announcement is present only while the catalog is pending.
 The final copy review restores Global-specific annual savings from regular
 catalog prices, Studio's monthly-only label, and discounted renewal prices.
+Annual savings retain the Global red, small-text style and show only the saved
+amount; the percentage display and its calculation were removed at the user's request.
 The generic automatic-renewal/cancellation note was subsequently removed at the
 user's request. Both surfaces use superscript asterisk footnote references and
 share the domestic comparison typography, tabs, compact rows, campaign labels

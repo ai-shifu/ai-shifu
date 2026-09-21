@@ -791,7 +791,7 @@
       "cycleSwitchDisabled": "Changement de période indisponible",
       "viewMonthly": "Voir le forfait mensuel"
     },
-    "annualSavings": "Économisez {amount} par an ({percent} %) par rapport à la facturation mensuelle",
+    "annualSavings": "Économisez {amount} par an par rapport à la facturation mensuelle",
     "monthlyOnly": "Mensuel uniquement",
     "plans": {
       "business": {

@@ -791,7 +791,7 @@
       "cycleSwitchDisabled": "ยังไม่รองรับการเปลี่ยนรอบ",
       "viewMonthly": "ดูแพ็กเกจรายเดือน"
     },
-    "annualSavings": "ประหยัดต่อปี {amount} ({percent}%) เมื่อเทียบกับการชำระรายเดือน",
+    "annualSavings": "ประหยัดต่อปี {amount} เมื่อเทียบกับการชำระรายเดือน",
     "monthlyOnly": "รองรับเฉพาะรายเดือน",
     "plans": {
       "business": {

@@ -22,7 +22,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   buildBillingSwrKey,
   formatBillingCredits,
-  formatBillingPercent,
   formatBillingPlanInterval,
   formatBillingPrice,
   getBillingProductCampaignBonusCredits,
@@ -801,10 +800,6 @@ function PlanColumn({
     cycle === 'annual' && annualProduct && annualSavings > 0
       ? t('module.billing.globalPricing.annualSavings', {
           amount: formatBillingPrice(annualSavings, product.currency, locale),
-          percent: formatBillingPercent(
-            (annualSavings / monthlyCostPerYear) * 100,
-            locale,
-          ),
         })
       : null;
   const featureKeys = PLAN_TIERS.slice(0, targetTierRank + 1).flatMap(
@@ -884,7 +879,7 @@ function PlanColumn({
         ) : null}
         {annualSavingsLabel ? (
           <p
-            className={styles.columnPeriod}
+            className='mt-2 text-xs font-medium leading-5 text-red-700'
             data-testid={`global-plan-${tierSpec.tier}-savings-slot`}
           >
             {annualSavingsLabel}

@@ -34,6 +34,8 @@ footnote and its marker while retaining the short validity value on each card.
 Prices show the actual catalog
 amount for the displayed monthly or annual period; annual plans show the actual
 yearly charge alongside the annual saving compared with monthly billing.
+The savings note uses the existing Global red, small-text style and shows only
+the saved amount, without a percentage.
 Savings use regular catalog prices, normalized by their interval counts, so a
 one-payment campaign discount is not presented as a recurring annual saving.
 Studio is marked as monthly-only in the annual comparison. The existing Global

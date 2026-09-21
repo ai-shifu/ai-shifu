@@ -791,7 +791,7 @@
       "cycleSwitchDisabled": "لا يدعم تبديل الدورة حاليًا",
       "viewMonthly": "عرض الباقات الشهرية"
     },
-    "annualSavings": "وفّر {amount} سنويًا ({percent}%) مقارنة بالدفع الشهري",
+    "annualSavings": "وفّر {amount} سنويًا مقارنة بالدفع الشهري",
     "monthlyOnly": "الدفع الشهري فقط",
     "plans": {
       "business": {

@@ -791,7 +791,7 @@
       "cycleSwitchDisabled": "Billing cycle change unavailable",
       "viewMonthly": "View monthly plan"
     },
-    "annualSavings": "Save {amount} per year ({percent}%) compared with monthly billing",
+    "annualSavings": "Save {amount} per year compared with monthly billing",
     "monthlyOnly": "Monthly only",
     "plans": {
       "business": {

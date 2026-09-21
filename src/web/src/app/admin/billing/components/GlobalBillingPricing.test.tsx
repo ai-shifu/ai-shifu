@@ -178,7 +178,7 @@ jest.mock('react-i18next', () => ({
           'Exclusive course-building training session',
       };
       if (key === 'module.billing.globalPricing.annualSavings') {
-        return `Save ${options?.amount} per year (${options?.percent}%) compared with monthly billing`;
+        return `Save ${options?.amount} per year compared with monthly billing`;
       }
       if (key === 'module.billing.globalPricing.renewalPrice') {
         return `Then renews at ${options?.price} / ${options?.period}.`;
@@ -375,7 +375,7 @@ describe('GlobalBillingPricing', () => {
     expect(within(growth).getByText('$2,199')).toBeInTheDocument();
     expect(
       within(growth).getByText(
-        'Save $549 per year (20.0%) compared with monthly billing',
+        'Save $549 per year compared with monthly billing',
       ),
     ).toBeInTheDocument();
     expect(within(growth).getByText('50,000 credits')).toBeInTheDocument();
@@ -383,7 +383,7 @@ describe('GlobalBillingPricing', () => {
     expect(within(business).getByText('$3,999')).toBeInTheDocument();
     expect(
       within(business).getByText(
-        'Save $1,029 per year (20.5%) compared with monthly billing',
+        'Save $1,029 per year compared with monthly billing',
       ),
     ).toBeInTheDocument();
     expect(within(business).getByText('Hot')).toBeInTheDocument();
@@ -393,7 +393,7 @@ describe('GlobalBillingPricing', () => {
     expect(within(scale).getByText('$7,999')).toBeInTheDocument();
     expect(
       within(scale).getByText(
-        'Save $2,069 per year (20.6%) compared with monthly billing',
+        'Save $2,069 per year compared with monthly billing',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Then renews at/)).not.toBeInTheDocument();
@@ -613,7 +613,7 @@ describe('GlobalBillingPricing', () => {
     ).toBeInTheDocument();
     expect(
       within(growth).getByText(
-        'Save $549 per year (20.0%) compared with monthly billing',
+        'Save $549 per year compared with monthly billing',
       ),
     ).toBeInTheDocument();
     expect(

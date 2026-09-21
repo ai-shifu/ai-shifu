@@ -363,13 +363,6 @@ export function formatBillingCredits(value: number, locale: string): string {
   return formatBillingNumber(value, locale);
 }
 
-export function formatBillingPercent(value: number, locale: string): string {
-  return formatBillingNumber(value, locale, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
-}
-
 export function formatBillingCreditBalance(
   value: number,
   locale = 'en-US',
