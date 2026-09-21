@@ -104,14 +104,12 @@ def test_template_pagination_normalizes_untrusted_values_and_provider_bounds(
 
 
 @pytest.mark.parametrize("operation", ["get", "list"])
-def test_template_provider_failure_returns_no_result_and_logs_provider_diagnostics(
-    sms_provider: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, operation: str
+def test_template_provider_failure_returns_no_result_and_logs_only_error_type(
+    sms_provider: SimpleNamespace, caplog: pytest.LogCaptureFixture, operation: str
 ) -> None:
     scope = sms_provider
     error = RuntimeError("template service unavailable")
     error.data = {"Recommend": "retry request"}
-    log = Mock()
-    monkeypatch.setattr(scope.app.logger, "error", log)
     if operation == "get":
         scope.client.get_sms_template_with_options.side_effect = error
         result = aliyun.get_sms_template_ali(scope.app, template_code="template")
@@ -119,10 +117,11 @@ def test_template_provider_failure_returns_no_result_and_logs_provider_diagnosti
         scope.client.query_sms_template_list_with_options.side_effect = error
         result = aliyun.query_sms_template_list_ali(scope.app)
     assert result is None
-    assert [call.args[0] for call in log.call_args_list] == [
-        "template service unavailable",
-        "retry request",
+    assert caplog.messages == [
+        "sms_event=aliyun_provider_exception error_type=RuntimeError",
     ]
+    assert str(error) not in caplog.text
+    assert error.data["Recommend"] not in caplog.text
 
 
 def test_send_sms_serializes_template_values_and_honors_explicit_sign(
