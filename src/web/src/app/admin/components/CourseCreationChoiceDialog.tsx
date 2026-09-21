@@ -66,12 +66,12 @@ export default function CourseCreationChoiceDialog({
     onOpenChange(nextOpen);
   };
 
-  const handleManualCreate = async (values: CreateShifuValues) => {
+  const handleManualSubmit = async (validateAndCreate: () => Promise<void>) => {
     if (manualSubmitRef.current) return;
     manualSubmitRef.current = true;
     setSubmitting(true);
     try {
-      await onManualCreate(values);
+      await validateAndCreate();
     } finally {
       manualSubmitRef.current = false;
       setSubmitting(false);
@@ -212,7 +212,8 @@ export default function CourseCreationChoiceDialog({
             <CreateShifuForm
               open={open}
               submitting={submitting}
-              onSubmit={handleManualCreate}
+              onSubmit={onManualCreate}
+              onSubmitAttempt={handleManualSubmit}
               onInteraction={() => {
                 manualEngagedRef.current = true;
               }}

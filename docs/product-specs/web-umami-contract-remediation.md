@@ -422,7 +422,9 @@ analytics.
   manual cancellation only on explicit dismissal after a manual field edit or
   invalid manual submit attempt during that opening. Untouched and AI-only
   dismissals, programmatic closes, and successful creation do not emit cancel.
-  Dismissal is blocked while a manual create request is pending.
+  Dismissal and duplicate submission are blocked synchronously when manual
+  submission begins, throughout validation and any accepted create request.
+  Invalid input releases the guard without an API attempt or result.
 - Count unit and deduplication: one accepted manual submit and one terminal
   result per API operation; the form prevents duplicate pending submissions.
   Cancellation is emitted at most once per dialog opening using dialog-local

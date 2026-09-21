@@ -31,6 +31,7 @@ interface CreateShifuFormProps {
   open: boolean;
   submitting: boolean;
   onSubmit: (values: CreateShifuValues) => Promise<void>;
+  onSubmitAttempt: (validateAndCreate: () => Promise<void>) => Promise<void>;
   onInteraction: () => void;
 }
 
@@ -38,6 +39,7 @@ export default function CreateShifuForm({
   open,
   submitting,
   onSubmit,
+  onSubmitAttempt,
   onInteraction,
 }: CreateShifuFormProps) {
   const { t } = useTranslation();
@@ -73,16 +75,16 @@ export default function CreateShifuForm({
       <form
         onChange={onInteraction}
         onSubmit={event => {
+          event.preventDefault();
           onInteraction();
-          void form.handleSubmit(onSubmit)(event);
+          void onSubmitAttempt(() =>
+            form.handleSubmit(values => onSubmit(values))(),
+          );
         }}
         className='mt-6 flex flex-1 flex-col gap-6'
         aria-busy={busy}
       >
-        <fieldset
-          disabled={submitting}
-          className='min-w-0 flex-1 space-y-5'
-        >
+        <fieldset className='min-w-0 flex-1 space-y-5'>
           <FormField
             control={form.control}
             name='name'
@@ -94,6 +96,7 @@ export default function CreateShifuForm({
                 <FormControl>
                   <Input
                     autoComplete='off'
+                    readOnly={submitting}
                     aria-required='true'
                     placeholder={t(
                       'component.createShifuDialog.namePlaceholder',
@@ -118,6 +121,7 @@ export default function CreateShifuForm({
                 <FormControl>
                   <Textarea
                     autoComplete='off'
+                    readOnly={submitting}
                     placeholder={t(
                       'component.createShifuDialog.descriptionPlaceholder',
                     )}

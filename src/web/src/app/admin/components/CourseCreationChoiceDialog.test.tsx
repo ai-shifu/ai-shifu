@@ -10,6 +10,22 @@ import {
 import CourseCreationChoiceDialog from './CourseCreationChoiceDialog';
 import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 
+let mockValidationGate: Promise<void> | undefined;
+
+jest.mock('@hookform/resolvers/zod', () => {
+  const actual = jest.requireActual('@hookform/resolvers/zod');
+  return {
+    ...actual,
+    zodResolver: (...args: Parameters<typeof actual.zodResolver>) => {
+      const resolver = actual.zodResolver(...args);
+      return async (...values: Parameters<typeof resolver>) => {
+        if (mockValidationGate) await mockValidationGate;
+        return resolver(...values);
+      };
+    },
+  };
+});
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) =>
@@ -26,6 +42,10 @@ jest.mock('@/lib/onboardingTargets', () => ({
 }));
 
 describe('CourseCreationChoiceDialog', () => {
+  afterEach(() => {
+    mockValidationGate = undefined;
+  });
+
   test('presents both paths in one dialog and submits the inline manual form', async () => {
     const onAiCourseCreatorClick = jest.fn();
     const onAiCoursePromptCopy = jest.fn().mockResolvedValue(true);
@@ -318,7 +338,7 @@ describe('CourseCreationChoiceDialog', () => {
     fireEvent.submit(form);
     await waitFor(() => expect(props.onManualCreate).toHaveBeenCalledTimes(1));
     expect(screen.getByRole('button', { name: /\.creating/ })).toBeDisabled();
-    expect(name).toBeDisabled();
+    expect(name).toHaveAttribute('readonly');
     expect(
       screen.queryByRole('button', { name: 'component.header.close' }),
     ).not.toBeInTheDocument();
@@ -340,4 +360,75 @@ describe('CourseCreationChoiceDialog', () => {
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
     expect(props.onManualCreateCancel).toHaveBeenCalledTimes(1);
   });
+
+  test.each(['valid', 'invalid'])(
+    'locks dismissal before asynchronous %s validation and releases after settlement',
+    async validity => {
+      let finishValidation!: () => void;
+      let finishCreation!: () => void;
+      mockValidationGate = new Promise<void>(resolve => {
+        finishValidation = resolve;
+      });
+      const props = {
+        onOpenChange: jest.fn(),
+        courseCreatorUrl: null,
+        onAiCourseCreatorClick: jest.fn(),
+        onAiCoursePromptCopy: jest.fn().mockResolvedValue(true),
+        onManualCreate: jest.fn().mockImplementation(
+          () =>
+            new Promise<void>(resolve => {
+              finishCreation = resolve;
+            }),
+        ),
+        onManualCreateCancel: jest.fn(),
+      };
+      render(
+        <CourseCreationChoiceDialog
+          {...props}
+          open
+        />,
+      );
+      const name = screen.getByLabelText(
+        'component.createShifuDialog.nameLabel',
+      );
+      if (validity === 'valid') {
+        fireEvent.change(name, { target: { value: 'Course title' } });
+      }
+      const form = name.closest('form')!;
+      fireEvent.submit(form);
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+      fireEvent.submit(form);
+      expect(props.onManualCreate).not.toHaveBeenCalled();
+      expect(props.onOpenChange).not.toHaveBeenCalled();
+      expect(props.onManualCreateCancel).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole('button', { name: 'component.header.close' }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /\.creating/ })).toBeDisabled();
+
+      await act(async () => finishValidation());
+      if (validity === 'valid') {
+        expect(props.onManualCreate).toHaveBeenCalledTimes(1);
+        fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+        expect(props.onOpenChange).not.toHaveBeenCalled();
+        await act(async () => finishCreation());
+      } else {
+        expect(props.onManualCreate).not.toHaveBeenCalled();
+        expect(
+          await screen.findByText('component.createShifuDialog.nameRequired'),
+        ).toBeInTheDocument();
+        await waitFor(() => expect(name).toHaveFocus());
+      }
+
+      expect(name).not.toHaveAttribute('readonly');
+      expect(
+        screen.getByRole('button', { name: /\.manualAction/ }),
+      ).toBeEnabled();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'component.header.close' }),
+      );
+      expect(props.onOpenChange).toHaveBeenCalledWith(false);
+      expect(props.onManualCreateCancel).toHaveBeenCalledTimes(1);
+    },
+  );
 });
