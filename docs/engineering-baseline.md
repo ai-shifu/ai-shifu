@@ -342,8 +342,11 @@ src/api/tests/
 
 - Backend application statement coverage must exceed 95 percent. The threshold
   is 95.01 percent in `src/api/.coveragerc`, over every `flaskr` module and the
-  `app.py` entrypoint, including modules that tests never import. Tests and
-  maintenance/migration scripts do not inflate the application score.
+  deployed `app.py`, `celery_app.py`, and `gunicorn.conf.py` entrypoints.
+  Unimported application modules count in the denominator. The Gunicorn
+  startup tests load the actual configuration with `runpy`, since coverage's
+  directory discovery skips its dotted filename. Tests and maintenance/migration
+  scripts do not inflate the application score.
 - Critical paths should target 100 percent coverage
 - Full coverage command (from `src/api`):
   `PYTHON_DOTENV_DISABLED=1 python -m coverage run -m pytest -p no:testmon tests`,

@@ -66,25 +66,38 @@ def test_application_denominator_includes_unimported_modules_and_excludes_tests(
     namespace.mkdir()
     (namespace / "unimported.py").write_text("value = 99\n", encoding="utf-8")
     (tmp_path / "app.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / "celery_app.py").write_text("value = 2\n", encoding="utf-8")
+    (tmp_path / "gunicorn.conf.py").write_text(
+        "preload_app = True\ndef post_fork():\n    value = 3\n", encoding="utf-8"
+    )
     tests = tmp_path / "tests"
     tests.mkdir()
     (tests / "__init__.py").write_text("", encoding="utf-8")
     (tests / "helper.py").write_text("value = 1\n" * 100, encoding="utf-8")
     (tmp_path / "runner.py").write_text(
-        "import app\nimport tests.helper\n", encoding="utf-8"
+        # Coverage's directory discovery skips dotted filenames. The mandatory
+        # Gunicorn tests load the actual config with runpy, as deployment does.
+        "import app\nimport tests.helper\nimport runpy\n"
+        "runpy.run_path('gunicorn.conf.py')\n",
+        encoding="utf-8",
     )
     assert _coverage(tmp_path, "run", "runner.py").returncode == 0
     assert _coverage(tmp_path, "json", "--fail-under=0").returncode == 0
     report = json.loads((tmp_path / "coverage.json").read_text(encoding="utf-8"))
     assert set(report["files"]) == {
         "app.py",
+        "celery_app.py",
+        "gunicorn.conf.py",
         "flaskr/__init__.py",
         "flaskr/unused.py",
         "flaskr/service/unimported.py",
     }
     assert report["files"]["flaskr/unused.py"]["summary"]["covered_lines"] == 0
+    assert report["files"]["celery_app.py"]["summary"]["covered_lines"] == 0
+    assert report["files"]["gunicorn.conf.py"]["summary"]["covered_lines"] == 2
+    assert report["files"]["gunicorn.conf.py"]["missing_lines"] == [3]
     assert (
         report["files"]["flaskr/service/unimported.py"]["summary"]["covered_lines"] == 0
     )
-    assert report["totals"]["covered_lines"] == 1
-    assert report["totals"]["num_statements"] == 3
+    assert report["totals"]["covered_lines"] == 3
+    assert report["totals"]["num_statements"] == 7

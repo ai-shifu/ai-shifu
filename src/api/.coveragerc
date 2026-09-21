@@ -4,11 +4,13 @@
 source = .
 
 [report]
-# Keep the denominator application-only, including the Flask entrypoint and
-# every runtime module. Tests, scripts and migrations cannot inflate this score.
+# Include the deployed Flask, Celery and Gunicorn entrypoints and every runtime
+# module. Tests, scripts and migrations cannot inflate this score.
 include_namespace_packages = True
 include =
     app.py
+    celery_app.py
+    gunicorn.conf.py
     flaskr/*
 precision = 2
 show_missing = True

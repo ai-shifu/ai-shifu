@@ -72,6 +72,14 @@ behavioral assertions.
   isolation and upload failure contracts.
 - [x] 2026-09-20: Completed full-suite verification, the 95.01 percent coverage
   gate, repository checks and PR separation; prepared the final test-only PR.
+- [x] 2026-09-21: Realigned the remaining PRs after #2882 through #2885 merged.
+  Preserved each PR's patch and retained #2901 as an independent refund fix
+  based on #2888. The active main-chain stack now starts at #2886 on `main`.
+- [x] 2026-09-21: Included the deployed Celery and Gunicorn entrypoints in the
+  coverage denominator. Actual-source startup regressions verify factory
+  wiring, worker-specific patching, preload flags, and post-fork resource
+  resets. The scope contract failed before the configuration change; 19
+  focused coverage/entrypoint cases pass afterward.
 
 ## Surprises & Discoveries
 
@@ -97,6 +105,12 @@ behavioral assertions.
   were retired after verifying active replacements in `agent/test_bridge.py`
   and `agent/test_bridge_gevent.py`. The old database-sampling SSE test has been
   replaced by eight deterministic persisted narration/visual replay cases.
+- Follow-up review identified `celery_app.py` and `gunicorn.conf.py` as deployed
+  runtime entrypoints outside the original report allowlist. Gunicorn's dotted
+  filename is not found by coverage's directory discovery, so its startup
+  regressions must load the actual file rather than execute extracted source
+  strings. The worker-patching test also records the original preload flag
+  with `monkeypatch.setenv` so startup cannot leak master state to later tests.
 
 ## Decision Log
 
@@ -121,15 +135,25 @@ behavioral assertions.
   the coverage gate in a separate PR. Preserve a reproducible combined state
   and make any PR dependencies explicit. Do not put unrelated runtime fixes
   into the comprehensive test PR.
+- 2026-09-21: Expand the report scope to `celery_app.py` and `gunicorn.conf.py`
+  alongside `app.py` and all `flaskr` modules. Keep the 95.01 percent threshold
+  and existing source exclusions unchanged. This follow-up changes only tests,
+  coverage configuration, and documentation; startup runtime behavior is
+  unchanged.
 
 ## Outcomes & Retrospective
 
-Implementation and local acceptance are complete. The final frozen suite
+The original implementation and local acceptance are complete. Its frozen suite
 passes 9,085 tests and 50 subtests, with 12 optional integration skips.
 Application statement coverage is 62,692 / 65,947 (95.0642182359 percent),
 above the enforced 95.01 percent gate. All 451 application Python files
 are included, including unimported namespace modules. No low-coverage source
 modules or new exclusion pragmas were removed from the denominator.
+
+Those totals describe the original 451-file scope. The 2026-09-21 follow-up
+adds the two deployed worker/server entrypoints, bringing the inventory to 453
+files. Current full-run totals and CI evidence for the refreshed head are
+recorded in [PR #2898](https://github.com/ai-shifu/ai-shifu/pull/2898).
 
 Fourteen ready business-fix PRs (#2882 through #2895) each contain one kind of
 runtime correction and its required regressions. The final comprehensive
@@ -152,7 +176,9 @@ attached to the PRs.
 
 ## Context and Orientation
 
-`src/api/app.py` creates the Flask app; `src/api/flaskr` contains the application,
+`src/api/app.py` creates the Flask app; `src/api/celery_app.py` exports the worker
+and beat application, and `src/api/gunicorn.conf.py` owns server startup hooks.
+`src/api/flaskr` contains the application,
 providers, persistence, routes, services, and utilities. Existing pytest tests
 live under `src/api/tests`. The shared `tests/conftest.py` configures temporary
 SQLite, fake Redis and LLM responses, and skips local dotenv loading.
@@ -176,8 +202,8 @@ testing handbook and generated documentation indexes.
 1. Use Python 3.11 with backend dependencies and the pinned CI coverage package.
    Use the task-local `.venv/bin/python`, created from the pinned CI dependency
    file. The shared source-checkout environment is stale; do not use it.
-2. From `src/api`, collect tests, then run coverage over `flaskr,app` and all
-   `tests`, disabling testmon selection if loaded. Retain JSON and text reports
+2. From `src/api`, collect tests, then run the complete configured application
+   coverage over all `tests`, disabling testmon selection if loaded. Retain JSON and text reports
    as local artifacts and record their authoritative totals here.
 3. Add focused tests based on missing behavior and run affected pytest modules
    plus repository-configured Ruff checks.
@@ -191,8 +217,9 @@ testing handbook and generated documentation indexes.
 
 - Complete backend suite passes with no unexplained collection errors or newly
   skipped cases. Existing optional integration skips are reported honestly.
-- Every application Python source file under `flaskr` plus `app.py` belongs to
-  the measurement; tests and vendored external dependencies do not inflate it.
+- Every application Python source file under `flaskr` plus `app.py`,
+  `celery_app.py`, and `gunicorn.conf.py` belongs to the measurement; tests and
+  vendored external dependencies do not inflate it.
 - Full-run covered statements divided by total statements is strictly greater
   than 0.95, without cached test selection or narrowed source exclusions.
 - New tests exercise real code and assert business outputs, persisted state,
