@@ -118,6 +118,12 @@ def test_refund_requires_owned_paid_supported_order_before_provider_call(
             if gate == "refunded"
             else BILLING_ORDER_STATUS_PAID,
         )
+        if gate == "refunded":
+            with unit_of_work():
+                order.metadata_json = {
+                    "refund_reference_id": "re-completed",
+                    "refund_status": "succeeded",
+                }
         if gate in {"owner", "missing", "unpaid"}:
             with pytest.raises(AppError):
                 checkout.refund_billing_order(
@@ -134,6 +140,7 @@ def test_refund_requires_owned_paid_supported_order_before_provider_call(
                 "refunded" if gate == "refunded" else "unsupported"
             )
         provider.refund_payment.assert_not_called()
+        provider.reconcile_refund.assert_not_called()
 
 
 @pytest.mark.parametrize("failure", ["failed", "canceled", "transport"])
@@ -141,17 +148,24 @@ def test_refund_failure_leaves_subscription_and_credits_unchanged(
     failure: str, app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     provider = Mock(
-        refund_payment=Mock(return_value=PaymentRefundResult("re-test", {}, failure))
+        refund_payment=Mock(return_value=PaymentRefundResult("re-test", {}, failure)),
+        reconcile_refund=Mock(return_value=None),
     )
     if failure == "transport":
         provider.refund_payment.side_effect = RuntimeError("provider unavailable")
     monkeypatch.setattr(checkout, "get_payment_provider", Mock(return_value=provider))
     with app.app_context():
         order, _, plan = _seed(status=BILLING_ORDER_STATUS_PAID, subscription=True)
+        with unit_of_work():
+            order.metadata_json = {
+                "provider_extra": {"payment_intent_id": "pi-refund-failure"}
+            }
         with pytest.raises(RuntimeError if failure == "transport" else AppError):
             checkout.refund_billing_order(
                 app, order.creator_bid, order.bill_order_bid, {"amount": "400"}
             )
+        provider.reconcile_refund.assert_called_once()
+        provider.refund_payment.assert_called_once()
         db.session.expire_all()
         assert order.status == BILLING_ORDER_STATUS_PAID
         assert order.refunded_at is None
