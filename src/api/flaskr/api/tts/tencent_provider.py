@@ -1275,10 +1275,9 @@ class TencentTTSProvider(BaseTTSProvider):
             stream=True,
             timeout=(10, 90),
         )
-        response.raise_for_status()
-
         received_audio = False
         try:
+            response.raise_for_status()
             for raw_line in response.iter_lines(decode_unicode=True):
                 line = _decode_tencent_sse_line(raw_line)
                 if not line:
@@ -1315,7 +1314,14 @@ class TencentTTSProvider(BaseTTSProvider):
         finally:
             close = getattr(response, "close", None)
             if callable(close):
-                close()
+                try:
+                    close()
+                except Exception:
+                    # Cleanup must preserve completed audio and the original error.
+                    logger.warning(
+                        "Failed to close Tencent TTS streaming response",
+                        exc_info=True,
+                    )
 
     def synthesize(
         self,

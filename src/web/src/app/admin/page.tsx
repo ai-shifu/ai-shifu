@@ -15,7 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
-import { CreateShifuDialog } from '@/components/create-shifu-dialog';
 import { useToast } from '@/hooks/useToast';
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
@@ -39,6 +38,7 @@ import { buildGuideCourseTargetId } from '@/lib/onboardingTargets';
 import AdminTitle from './components/AdminTitle';
 import ShifuCard from './components/ShifuCard';
 import CourseCreationChoiceDialog from './components/CourseCreationChoiceDialog';
+import type { CreateShifuValues } from './components/CreateShifuForm';
 import {
   buildAiCourseEntryAnalytics,
   buildAiSkillInstallCopyResultAnalytics,
@@ -81,7 +81,6 @@ const ScriptManagementPage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [courseCreationChoiceOpen, setCourseCreationChoiceOpen] =
     useState(false);
-  const [showCreateShifuModal, setShowCreateShifuModal] = useState(false);
   const [error, setError] = useState<{ message: string; code?: number } | null>(
     null,
   );
@@ -274,7 +273,7 @@ const ScriptManagementPage = () => {
     sendAnalytics,
   ]);
 
-  const onCreateShifu = async (values: any) => {
+  const onCreateShifu = async (values: CreateShifuValues) => {
     sendAnalytics(
       COURSE_CREATION_EVENTS.ATTEMPT,
       buildCourseCreationAttemptAnalytics('manual'),
@@ -286,7 +285,7 @@ const ScriptManagementPage = () => {
         description: t('common.core.createSuccessDescription'),
         duration: CREATE_SUCCESS_TOAST_DURATION_MS,
       });
-      setShowCreateShifuModal(false);
+      setCourseCreationChoiceOpen(false);
       const resultPayload = buildCourseCreationResultAnalytics({
         creationPath: 'manual',
         outcome: 'success',
@@ -325,19 +324,11 @@ const ScriptManagementPage = () => {
     setCourseCreationChoiceOpen(true);
   };
 
-  const handleManualCreateClick = () => {
-    setCourseCreationChoiceOpen(false);
-    setShowCreateShifuModal(true);
-  };
-
-  const handleCreateShifuOpenChange = (open: boolean) => {
-    if (!open && showCreateShifuModal) {
-      sendAnalytics(
-        COURSE_CREATION_EVENTS.CANCEL,
-        buildCourseCreationCancelAnalytics('manual'),
-      );
-    }
-    setShowCreateShifuModal(open);
+  const handleManualCreateCancel = () => {
+    sendAnalytics(
+      COURSE_CREATION_EVENTS.CANCEL,
+      buildCourseCreationCancelAnalytics('manual'),
+    );
   };
 
   const handleAiCourseCreatorClick = () => {
@@ -708,12 +699,8 @@ const ScriptManagementPage = () => {
             }
             onAiCourseCreatorClick={handleAiCourseCreatorClick}
             onAiCoursePromptCopy={handleAiCoursePromptCopy}
-            onManualCreateClick={handleManualCreateClick}
-          />
-          <CreateShifuDialog
-            open={showCreateShifuModal}
-            onOpenChange={handleCreateShifuOpenChange}
-            onSubmit={onCreateShifu}
+            onManualCreate={onCreateShifu}
+            onManualCreateCancel={handleManualCreateCancel}
           />
           <div className='flex-1 overflow-auto'>
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
