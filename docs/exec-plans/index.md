@@ -40,6 +40,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [Password Login Account Rate Limit](./active/password-login-rate-limit.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
+- [Remove deprecated Pydantic `Field(required=...)` metadata](./active/pydantic-required-compatibility.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
