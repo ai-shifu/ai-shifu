@@ -16,6 +16,7 @@ import pytz
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.common.cache_provider import redis_cache
 from flaskr.common.public_urls import build_stripe_learner_result_url
 from flaskr.common.shifu_context import set_shifu_context
 from flaskr.common.swagger import register_schema_to_swagger
@@ -652,7 +653,7 @@ def payment_lifecycle_lock(order_bid: str) -> Iterator[_PaymentLifecycleLease]:
         blocking_timeout=60,
         thread_local=False,
     )
-    if not lock.acquire(blocking=True):
+    if not lock or not lock.acquire(blocking=True):
         raise_error("server.order.orderStatusError")
     lease = _PaymentLifecycleLease(lock)
     ownership_token = _payment_lock_ownership_events.set(
@@ -2816,15 +2817,19 @@ def success_buy_record_from_pingxx(
         )
         if not pingxx_order:
             return None
-        lock = cache_provider.lock(
-            "success_buy_record_from_pingxx" + charge_id,
-            timeout=10,
-            blocking_timeout=10,
-        )
+        try:
+            # Payment callbacks must never fall back to a process-local lock.
+            lock = redis_cache.lock(
+                "success_buy_record_from_pingxx" + charge_id,
+                timeout=10,
+                blocking_timeout=10,
+            )
+            acquired = bool(lock and lock.acquire(blocking=True))
+        except Exception:
+            app.logger.exception('lock acquisition failed for charge:"%s"', charge_id)
+            raise_error("server.order.orderStatusError")
 
-        if not lock:
-            app.logger.error('lock failed for charge:"%s"', charge_id)
-        if lock.acquire(blocking=True):
+        if acquired:
             try:
                 app.logger.info('success buy record from pingxx charge:"%s"', charge_id)
                 with unit_of_work():
@@ -2884,6 +2889,9 @@ def success_buy_record_from_pingxx(
                 )
             finally:
                 lock.release()
+        else:
+            app.logger.error('lock failed for charge:"%s"', charge_id)
+            raise_error("server.order.orderStatusError")
     return None
 
 
