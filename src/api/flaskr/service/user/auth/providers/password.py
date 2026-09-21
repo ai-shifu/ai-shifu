@@ -71,6 +71,7 @@ class PasswordAuthProvider(AuthProvider):
         for resolution_attempt in range(2):
             with PasswordLoginAttempt(app, limit_identity) as attempt:
                 if attempt.blocked:
+                    verify_password(password, _DUMMY_PASSWORD_HASH)
                     self._raise_account_blocked(app, response_identity)
 
                 # Re-read after acquiring the guard so a newly linked alias cannot

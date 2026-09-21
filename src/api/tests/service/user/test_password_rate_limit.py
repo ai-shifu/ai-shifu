@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import socket
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -63,6 +65,28 @@ def test_tenth_failure_starts_cooldown_and_blocks_correct_password(
     assert _post_password(test_client, phone, password)["code"] == 0
 
 
+def test_first_failure_after_cooldown_starts_a_fresh_budget(
+    app: Flask,
+    test_client: object,
+    mock_redis_client: object,
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setitem(app.config, "PASSWORD_LOGIN_MAX_FAILURES", 3)
+    phone = "15500007107"
+    password = "Correct123"
+    _create_phone_password_account(app, test_client, phone=phone, password=password)
+
+    assert _post_password(test_client, phone, "Wrong123")["code"] == 1016
+    assert _post_password(test_client, phone, "Wrong123")["code"] == 1016
+    assert _post_password(test_client, phone, "Wrong123")["code"] == 1039
+    for key in list(mock_redis_client._store):
+        if key.endswith(":cooldown"):
+            mock_redis_client._expires[key] = time.time() - 1
+
+    assert _post_password(test_client, phone, "Wrong123")["code"] == 1016
+    assert _post_password(test_client, phone, password)["code"] == 0
+
+
 def test_success_clears_only_the_account_failure_budget(
     app: Flask, test_client: object
 ) -> None:
@@ -107,6 +131,29 @@ def test_phone_and_email_aliases_share_one_failure_budget(
     assert _post_password(test_client, email, "Wrong123")["code"] == 1016
     assert _post_password(test_client, phone, "Wrong123")["code"] == 1016
     assert _post_password(test_client, email, password)["code"] == 1016
+
+
+def test_blocked_account_performs_dummy_bcrypt_before_rejection(
+    app: Flask, test_client: object, monkeypatch: object
+) -> None:
+    from flaskr.service.user.auth.providers import password as password_provider
+
+    monkeypatch.setitem(app.config, "PASSWORD_LOGIN_MAX_FAILURES", 1)
+    phone = "15500007108"
+    password = "Correct123"
+    _create_phone_password_account(app, test_client, phone=phone, password=password)
+    assert _post_password(test_client, phone, "Wrong123")["code"] == 1039
+
+    verified_hashes: list[str] = []
+    original_verify = password_provider.verify_password
+
+    def record_verify(plain_text: str, password_hash: str) -> bool:
+        verified_hashes.append(password_hash)
+        return original_verify(plain_text, password_hash)
+
+    monkeypatch.setattr(password_provider, "verify_password", record_verify)
+    assert _post_password(test_client, phone, password)["code"] == 1039
+    assert verified_hashes == [password_provider._DUMMY_PASSWORD_HASH]
 
 
 def test_unknown_and_passwordless_accounts_execute_dummy_bcrypt(
@@ -231,6 +278,75 @@ def test_lost_account_guard_rejects_an_otherwise_valid_login(
     monkeypatch.setattr(mock_redis_client, "lock", losing_lock)
 
     assert _post_password(test_client, phone, password)["code"] == 1039
+
+
+def test_stale_guard_cannot_clear_successor_cooldown(
+    app: Flask, mock_redis_client: object
+) -> None:
+    from flaskr.service.user.password_rate_limit import PasswordLoginAttempt
+
+    attempt = PasswordLoginAttempt(app, "user:stale-owner")
+    attempt.__enter__()
+    assert attempt._lock_token is not None
+    mock_redis_client.set(attempt._failure_key, "9", ex=60)
+    mock_redis_client.set(attempt._cooldown_key, "1", ex=60)
+    mock_redis_client._locks[attempt._lock_key] = "successor-token"
+
+    assert attempt.clear() is False
+    assert mock_redis_client.exists(attempt._failure_key)
+    assert mock_redis_client.exists(attempt._cooldown_key)
+    attempt.__exit__(None, None, None)
+
+
+def test_limiter_clones_redis_with_bounded_network_timeouts(
+    app: Flask, monkeypatch: object
+) -> None:
+    from flaskr.service.user import password_rate_limit
+    from redis import Redis
+
+    source = Redis(host="127.0.0.1", port=6379, socket_timeout=None)
+    monkeypatch.setattr(password_rate_limit, "get_redis_client", lambda: source)
+    app.config["PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS"] = 2
+
+    client, pool = password_rate_limit._bounded_redis_client(app)
+    assert client is not None
+    assert pool is not None
+    assert pool.connection_kwargs["socket_connect_timeout"] == 2
+    assert pool.connection_kwargs["socket_timeout"] == 2
+    assert pool.connection_kwargs["retry_on_error"] == []
+    pool.disconnect()
+
+
+def test_silent_redis_fails_open_within_the_limiter_budget(
+    app: Flask, monkeypatch: object
+) -> None:
+    from flaskr.service.user import password_rate_limit
+    from redis import Redis
+
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = int(listener.getsockname()[1])
+
+    def hold_connection_open() -> None:
+        connection, _address = listener.accept()
+        with connection:
+            time.sleep(2)
+
+    server = threading.Thread(target=hold_connection_open, daemon=True)
+    server.start()
+    source = Redis(host="127.0.0.1", port=port, socket_timeout=None)
+    monkeypatch.setattr(password_rate_limit, "get_redis_client", lambda: source)
+    monkeypatch.setitem(app.config, "PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS", 1)
+
+    started_at = time.monotonic()
+    with password_rate_limit.PasswordLoginAttempt(app, "silent-redis") as attempt:
+        assert attempt._enabled is False
+        assert attempt.blocked is False
+    elapsed = time.monotonic() - started_at
+    listener.close()
+
+    assert elapsed < 1.8
 
 
 def test_password_limit_keys_do_not_contain_plaintext_identifier(

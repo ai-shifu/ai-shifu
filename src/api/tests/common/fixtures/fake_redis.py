@@ -7,30 +7,35 @@ from typing import Any
 class FakeRedisLock:
     """Simulate Redis lock behavior for tests."""
 
-    def __init__(self, locks: dict[str, bool], key: str) -> None:
+    def __init__(self, locks: dict[str, object], key: str) -> None:
         """Bind a shared lock registry and key with an unheld state."""
         self._locks = locks
         self._key = key
         self._held = False
+        self._token: object | None = None
 
     def acquire(
-        self, blocking: bool = True, blocking_timeout: int | None = None
+        self,
+        blocking: bool = True,
+        blocking_timeout: int | None = None,
+        token: str | None = None,
     ) -> object:
         _ = (blocking, blocking_timeout)
         if self._locks.get(self._key, False):
             return False
-        self._locks[self._key] = True
+        self._token = token or True
+        self._locks[self._key] = self._token
         self._held = True
         return True
 
     def release(self) -> None:
-        if self._held:
+        if self._held and self._locks.get(self._key) == self._token:
             self._locks.pop(self._key, None)
             self._held = False
 
     def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
         _ = (additional_time, replace_ttl)
-        return self._held
+        return self._held and self._locks.get(self._key) == self._token
 
 
 class FakeRedis:
@@ -40,7 +45,7 @@ class FakeRedis:
         """Initialize value, expiration, and lock registries for Redis tests."""
         self._store: dict[str, Any] = {}
         self._expires: dict[str, float] = {}
-        self._locks: dict[str, bool] = {}
+        self._locks: dict[str, object] = {}
 
     def _now(self) -> float:
         return time.time()
@@ -134,15 +139,20 @@ class FakeRedis:
 
     def eval(self, script: str, numkeys: int, *keys_and_args: object) -> object:
         """Execute the password failure counter script used by authentication."""
-        if numkeys != 2 or "password_login" not in str(keys_and_args[0]):
+        if numkeys != 3 or "password_login" not in str(keys_and_args[0]):
             message = "FakeRedis only supports the password login counter script"
             raise NotImplementedError(message)
         _ = script
         failure_key = str(keys_and_args[0])
         cooldown_key = str(keys_and_args[1])
-        window_seconds = int(keys_and_args[2])
-        max_failures = int(keys_and_args[3])
-        cooldown_seconds = int(keys_and_args[4])
+        lock_key = str(keys_and_args[2])
+        if self._locks.get(lock_key) != keys_and_args[-1]:
+            return 0 if len(keys_and_args) == 4 else -1
+        if len(keys_and_args) == 4:
+            return self.delete(failure_key, cooldown_key) >= 0
+        window_seconds = int(keys_and_args[3])
+        max_failures = int(keys_and_args[4])
+        cooldown_seconds = int(keys_and_args[5])
         failures = int(self.incr(failure_key))
         if failures == 1:
             self._expires[failure_key] = self._now() + window_seconds

@@ -74,5 +74,8 @@ The change requires no database migration. Redis records expire automatically. A
 - Existing bcrypt helpers and user aggregate repository.
 - Existing common API error envelope and backend i18n JSON files.
 - [x] 2026-09-20 22:45 CST: Closed follow-up review gaps: alias-safe public cooldown responses, failure-budget reset when cooldown starts, and CodeQL/test-fixture compatibility for keyed verification-state digests.
+- [x] 2026-09-21 08:50 CST: Made counter mutation and success cleanup conditional on the live Redis lock token, bounded limiter-only Redis I/O, and equalized blocked-account bcrypt work.
 - A shared account cooldown cannot be returned verbatim for every alias: doing so reveals that two identifiers resolve to the same account. A separate identifier-scoped response budget now controls only the public error while the account-scoped limiter remains authoritative.
 - The failure counter must be deleted atomically only when the request creates the cooldown; otherwise its older TTL can cause an immediate second cooldown after the first one expires.
+- A renewal thread's local event can lag behind an expired Redis lease. Every state mutation must therefore compare the Redis lock token inside the same Lua operation that changes failure or cooldown keys.
+- Redis lock contention timeouts do not bound a silent socket read. Password protection uses an isolated connection pool with finite connect/read timeouts and no retries so the reviewed fail-open policy remains timely.

@@ -5,11 +5,15 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import hmac
+import secrets
 import threading
 import time
 from typing import TYPE_CHECKING, Protocol, Self
 
 from flaskr.dao import get_redis_client
+from redis import ConnectionPool, Redis
+from redis.backoff import NoBackoff
+from redis.retry import Retry
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -19,7 +23,10 @@ if TYPE_CHECKING:
 
 class _RedisLock(Protocol):
     def acquire(
-        self, blocking: bool = True, blocking_timeout: float | None = None
+        self,
+        blocking: bool = True,
+        blocking_timeout: float | None = None,
+        token: str | None = None,
     ) -> bool: ...
 
     def release(self) -> None: ...
@@ -44,6 +51,9 @@ class _RedisClient(Protocol):
 
 
 _RECORD_FAILURE_SCRIPT = """
+if redis.call('GET', KEYS[3]) ~= ARGV[4] then
+    return -1
+end
 local failures = redis.call('INCR', KEYS[1])
 if failures == 1 then
     redis.call('EXPIRE', KEYS[1], ARGV[1])
@@ -55,6 +65,14 @@ if failures >= tonumber(ARGV[2]) then
     end
 end
 return failures
+"""
+
+_CLEAR_FAILURES_SCRIPT = """
+if redis.call('GET', KEYS[3]) ~= ARGV[1] then
+    return 0
+end
+redis.call('DEL', KEYS[1], KEYS[2])
+return 1
 """
 
 _warning_lock = threading.Lock()
@@ -94,7 +112,9 @@ class PasswordLoginAttempt:
         self._cooldown_key = f"{base_key}:cooldown"
         self._lock_key = f"{base_key}:lock"
         self._redis: _RedisClient | None = None
+        self._redis_pool: ConnectionPool | None = None
         self._lock: _RedisLock | None = None
+        self._lock_token: str | None = None
         self._renew_stop = threading.Event()
         self._lock_lost = threading.Event()
         self._renew_thread: threading.Thread | None = None
@@ -104,12 +124,13 @@ class PasswordLoginAttempt:
 
     def __enter__(self) -> Self:
         """Acquire the account guard and load its cooldown state."""
-        redis_client = get_redis_client()
+        redis_client, redis_pool = _bounded_redis_client(self._app)
         if redis_client is None:
             _warn_unavailable(self._app, "not_configured")
             return self
 
         self._redis = redis_client
+        self._redis_pool = redis_pool
         lock_lease = float(
             self._app.config.get("PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS", 30)
         )
@@ -121,7 +142,12 @@ class PasswordLoginAttempt:
                 blocking_timeout=lock_wait,
                 thread_local=False,
             )
-            if not self._lock.acquire(blocking=True, blocking_timeout=lock_wait):
+            self._lock_token = secrets.token_hex(16)
+            if not self._lock.acquire(
+                blocking=True,
+                blocking_timeout=lock_wait,
+                token=self._lock_token,
+            ):
                 self.blocked = True
                 self._app.logger.info(
                     "security_event=password_login_rate_limited account=%s reason=concurrent",
@@ -196,13 +222,18 @@ class PasswordLoginAttempt:
         if lock is not None:
             with contextlib.suppress(Exception):
                 lock.release()
+        self._lock_token = None
+        pool, self._redis_pool = self._redis_pool, None
+        if pool is not None:
+            with contextlib.suppress(Exception):
+                pool.disconnect()
 
     def record_failure(self) -> int | None:
         """Atomically count a failure and begin cooldown at the threshold."""
-        if self._lock_lost.is_set():
-            self.blocked = True
-            return None
         if not self._enabled or self._redis is None:
+            return None
+        if self._lock_lost.is_set() or self._lock_token is None:
+            self.blocked = True
             return None
         window_seconds = int(
             self._app.config.get("PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS", 900)
@@ -214,17 +245,22 @@ class PasswordLoginAttempt:
         try:
             result = self._redis.eval(
                 _RECORD_FAILURE_SCRIPT,
-                2,
+                3,
                 self._failure_key,
                 self._cooldown_key,
+                self._lock_key,
                 window_seconds,
                 max_failures,
                 cooldown_seconds,
+                self._lock_token,
             )
             failures = int(result)
         except Exception as exc:
             self._enabled = False
             _warn_unavailable(self._app, type(exc).__name__)
+            return None
+        if failures < 0:
+            self._mark_lock_lost()
             return None
         if failures >= max_failures:
             self.blocked = True
@@ -237,14 +273,49 @@ class PasswordLoginAttempt:
 
     def clear(self) -> bool:
         """Clear only this account's password failure state after success."""
-        if self._lock_lost.is_set():
-            self.blocked = True
-            return False
         if not self._enabled or self._redis is None:
             return True
+        if self._lock_lost.is_set() or self._lock_token is None:
+            self.blocked = True
+            return False
         try:
-            self._redis.delete(self._failure_key, self._cooldown_key)
+            cleared = int(
+                self._redis.eval(
+                    _CLEAR_FAILURES_SCRIPT,
+                    3,
+                    self._failure_key,
+                    self._cooldown_key,
+                    self._lock_key,
+                    self._lock_token,
+                )
+            )
         except Exception as exc:
             self._enabled = False
             _warn_unavailable(self._app, type(exc).__name__)
+            return True
+        if not cleared:
+            self._mark_lock_lost()
+            return False
         return True
+
+
+def _bounded_redis_client(
+    app: Flask,
+) -> tuple[_RedisClient | None, ConnectionPool | None]:
+    """Clone the shared Redis connection with a bounded limiter-only budget."""
+    source = get_redis_client()
+    source_pool = getattr(source, "connection_pool", None)
+    if source is None or source_pool is None:
+        return source, None
+    timeout = float(app.config.get("PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS", 1))
+    pool = ConnectionPool(
+        connection_class=source_pool.connection_class,
+        **{
+            **source_pool.connection_kwargs,
+            "socket_connect_timeout": timeout,
+            "socket_timeout": timeout,
+            "retry": Retry(NoBackoff(), 0),
+            "retry_on_error": [],
+        },
+    )
+    return Redis(connection_pool=pool), pool

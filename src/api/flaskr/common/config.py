@@ -1155,6 +1155,14 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="auth",
         validator=lambda value: int(value) > 0,
     ),
+    "PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS",
+        default=1,
+        type=int,
+        description="Redis connect and read timeout for password sign-in protection",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
     "DEVICE_AUTH_EXPIRE_TIME": EnvVar(
         name="DEVICE_AUTH_EXPIRE_TIME",
         default=600,
