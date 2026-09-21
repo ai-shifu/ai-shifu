@@ -175,7 +175,7 @@ def generate_temp_user(
 
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
     """Update user open ID."""
-    app.logger.info("update_user_open_id user_id: %s wx_code: %s", user_id, wx_code)
+    app.logger.info("auth_event=wechat_openid_exchange_started")
     with app_context_scope(app), unit_of_work():
         aggregate = load_user_aggregate(user_id)
         if not aggregate:
@@ -204,11 +204,7 @@ def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
                 union_identifier=wx_union_identifier,
                 verified=True,
             )
-            app.logger.info(
-                "update_user_open_id user_id: %s wx_openid: %s",
-                user_id,
-                wx_openid,
-            )
+            app.logger.info("auth_event=wechat_openid_binding_updated")
         return wx_openid
 
 

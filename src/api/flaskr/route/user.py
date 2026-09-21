@@ -8,6 +8,7 @@ from typing import ParamSpec, TypeVar
 
 from flask import Flask, Response, current_app, make_response, request
 
+from flaskr.common.http import sensitive_body
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao.uow import unit_of_work
@@ -82,6 +83,8 @@ from .profile import register_profile_routes
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+_AUTH_SENSITIVE_BODY_MAX_BYTES = 32 * 1024
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = (
     "zh-CN",
@@ -344,6 +347,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     )
 
     @app.route(path_prefix + "/info", methods=["GET"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def info() -> str:
         """Get user information.
 
@@ -427,6 +431,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def update_info() -> str:
         """Update user information.
 
@@ -483,6 +488,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation
     @with_shifu_context()
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def require_tmp() -> Response:
         """Temp login user.
 
@@ -530,14 +536,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         source = str(payload.get("source") or "web").strip() or "web"
         wx_code = payload.get("wxcode", None)
         language = payload.get("language") or "en-US"
-        masked_wx_code = None
-        if isinstance(wx_code, str) and wx_code:
-            masked_wx_code = f"***{wx_code[-4:]}" if len(wx_code) > 4 else "***"
         app.logger.info(
-            "require_tmp tmp_id: %s, source: %s, wx_code: %s",
-            tmp_id,
+            "auth_event=temp_user_requested has_temp_id=%s source=%s has_wechat_code=%s",
+            bool(tmp_id),
             source,
-            masked_wx_code,
+            bool(wx_code),
         )
         if not tmp_id:
             raise_param_error("temp_id")
@@ -558,6 +561,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/captcha/verify", methods=["POST"])
     @bypass_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def captcha_verify_api() -> str:
         """Verify image captcha and return one-time ticket.
 
@@ -583,6 +587,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
     @recovery_optional_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def send_sms_code_api() -> str:
         """Send SMS Captcha.
 
@@ -653,6 +658,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/console_send_sms_code", methods=["POST"])
     @bypass_token_validation
     @recovery_optional_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def console_send_sms_code_api() -> str:
         """Send SMS verification code for console clients without image captcha.
 
@@ -681,6 +687,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/send_email_code", methods=["POST"])
     @bypass_token_validation
     @recovery_optional_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def send_email_code_api() -> str:
         """Send email verification code.
 
@@ -766,6 +773,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_sms", methods=["POST"])
     @bypass_token_validation
     @recovery_optional_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def login_sms_api() -> Response:
         """Login through SMS verification code for web clients.
 
@@ -778,6 +786,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_email", methods=["POST"])
     @bypass_token_validation
     @recovery_optional_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def login_email_api() -> Response:
         """Login through email verification code for web clients.
 
@@ -789,6 +798,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/device/authorize", methods=["POST"])
     @bypass_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def device_authorize_api() -> str:
         """Start a device authorization request for a command-line client.
 
@@ -811,6 +821,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/device/token", methods=["POST"])
     @bypass_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def device_token_api() -> str:
         """Poll a pending device authorization until it is resolved.
 
@@ -829,6 +840,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/device/pending", methods=["GET"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def device_pending_api() -> str:
         """Describe the pending authorization behind a pairing code.
 
@@ -845,6 +857,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/device/approve", methods=["POST"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def device_approve_api() -> str:
         """Approve a pending device authorization for the signed-in user.
 
@@ -865,6 +878,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/device/deny", methods=["POST"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def device_deny_api() -> str:
         """Reject a pending device authorization.
 
@@ -894,6 +908,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return str(_extract_request_token() or "")
 
     @app.route(path_prefix + "/sessions", methods=["GET"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def list_sessions_api() -> str:
         """List the sign-in sessions belonging to the current user.
 
@@ -909,6 +924,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/sessions/revoke", methods=["POST"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def revoke_session_api() -> str:
         """End one of the current user's sign-in sessions.
 
@@ -928,6 +944,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/sessions/revoke-others", methods=["POST"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def revoke_other_sessions_api() -> str:
         """End every session except the one making this request.
 
@@ -946,6 +963,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def get_profile() -> str:
         """Get user profile.
 
@@ -983,6 +1001,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/update_profile", methods=["POST"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def update_profile() -> str:
         """Update user profile.
 
@@ -1082,6 +1101,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/update_openid", methods=["POST"])
     @with_shifu_context()
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def update_wechat_openid() -> str:
         """Update Wechat OpenID.
 
@@ -1117,7 +1137,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: openid
         """
         code = request.get_json().get("wxcode", None)
-        app.logger.info("update_wechat_openid code: %s", code)
+        app.logger.info("auth_event=wechat_openid_update_requested")
         if not code:
             raise_param_error("wxcode")
         return make_common_response(
@@ -1177,6 +1197,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/oauth/google", methods=["GET"])
     @bypass_token_validation
     @optional_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def google_oauth_start() -> str:
         provider = get_provider("google")
         metadata = {}
@@ -1208,6 +1229,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/oauth/google/callback-origin", methods=["GET"])
     @bypass_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def google_oauth_callback_origin() -> str:
         """Resolve which domain a pending Google login should return to.
 
@@ -1225,6 +1247,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/oauth/google/callback", methods=["GET"])
     @bypass_token_validation
     @optional_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def google_oauth_callback() -> str:
         provider = get_provider("google")
         current_user = getattr(request, "user", None)
@@ -1260,6 +1283,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/login_password", methods=["POST"])
     @bypass_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def login_password() -> str:
         """Login with password.
 
@@ -1326,6 +1350,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(auth_result.token)
 
     @app.route(path_prefix + "/set_password", methods=["POST"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def set_password() -> str:
         """Set password for logged-in user (first time only).
 
@@ -1352,6 +1377,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response({"success": True})
 
     @app.route(path_prefix + "/change_password", methods=["POST"])
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def change_password() -> str:
         """Change password for logged-in user (requires old password).
 
@@ -1378,6 +1404,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/reset_password", methods=["POST"])
     @bypass_token_validation
+    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def reset_password() -> str:
         """Reset password via verification code.
 
