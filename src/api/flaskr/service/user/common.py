@@ -88,7 +88,14 @@ def update_user_info(
         if not user:
             raise_error("server.user.userNotFound")
 
-        app.logger.info("update_user_info %s %s %s %s", name, email, mobile, language)
+        app.logger.info(
+            "auth_event=user_info_update_requested has_name=%s has_email=%s "
+            "has_mobile=%s has_language=%s",
+            name is not None,
+            email is not None,
+            mobile is not None,
+            language is not None,
+        )
         aggregate = load_user_aggregate(user.user_id)
         if not aggregate:
             raise_error("server.user.userNotFound")
