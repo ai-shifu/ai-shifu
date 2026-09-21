@@ -292,7 +292,6 @@
 }
 
 .hideMobileFooter {
-  // Hidden footer must not keep reserving overlay space, including listen mode.
   --chat-footer-height: 0px;
 
   .footer {
