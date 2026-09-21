@@ -54,7 +54,7 @@ def test_use_coupon_code_applies_discount(app: object, monkeypatch: object) -> N
     sent = {}
 
     def fake_send_feishu_coupon_code(
-        _app: object, user_id: object, code: object, _name: object, _value: object
+        _app: object, user_id: object, code: object
     ) -> None:
         sent["user_id"] = user_id
         sent["code"] = code

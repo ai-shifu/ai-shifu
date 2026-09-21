@@ -37,7 +37,6 @@ from flaskr.service.promo.consts import (
 )
 from flaskr.service.promo.models import Coupon
 from flaskr.service.promo.models import CouponUsage as CouponUsageModel
-from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
@@ -126,35 +125,44 @@ def _should_bind_usage_course(coupon: Coupon, coupon_usage: CouponUsageModel) ->
     return _get_course_id_from_filter(coupon) is not None
 
 
+def _mask_coupon_notification_mobile(value: object) -> str:
+    """Keep enough digits for support correlation without exposing a phone."""
+    mobile = str(value or "").strip()
+    if not mobile:
+        return "****"
+    if len(mobile) <= 4:
+        return "*" * len(mobile)
+    if len(mobile) < 7:
+        return f"{mobile[:1]}****{mobile[-1:]}"
+    return f"{mobile[:3]}****{mobile[-4:]}"
+
+
+def _mask_coupon_notification_code(value: object) -> str:
+    """Expose only a coupon suffix so the redeemable code cannot be reused."""
+    code = str(value or "").strip()
+    if not code:
+        return "****"
+    if len(code) <= 4:
+        return "*" * len(code)
+    return f"****{code[-4:]}"
+
+
 def send_feishu_coupon_code(
     app: Flask,
     user_id: object,
     discount_code: object,
-    discount_name: object,
-    discount_value: object,
 ) -> None:
-    """Send feishu coupon code."""
+    """Send a privacy-minimized coupon redemption notification."""
     with app.app_context():
         user_info = load_user_aggregate(user_id)
         title = "优惠码通知"
-        msgs = []
         if not user_info:
-            app.logger.warning(
-                "feishu coupon notify skipped: user aggregate missing for %s", user_id
-            )
+            app.logger.warning("feishu coupon notify skipped: user aggregate missing")
             return
-        msgs.append(f"手机号：{user_info.mobile}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
-        msgs.append(f"昵称：{user_info.name}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
-        msgs.append(f"优惠码：{discount_code}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
-        msgs.append(f"优惠名称：{discount_name}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
-        msgs.append(f"优惠额度：{discount_value}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
-        user_convertion = UserConversion.query.filter(
-            UserConversion.user_id == user_id
-        ).first()
-        channel = ""
-        if user_convertion:
-            channel = user_convertion.conversion_source
-        msgs.append(f"渠道：{channel}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs = [
+            f"手机号：{_mask_coupon_notification_mobile(user_info.mobile)}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+            f"优惠码：{_mask_coupon_notification_code(discount_code)}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        ]
         send_notify(app, title, msgs)
 
 
@@ -420,13 +428,7 @@ def _use_coupon_code_locked(
             # commit together, and the order notification fires after that.
             return success_buy_record(app, buy_record.order_bid)
         buy_record.status = ORDER_STATUS_INIT
-        coupon_name = coupon.code
-        coupon_value = coupon.value
-        uow.on_commit(
-            lambda: send_feishu_coupon_code(
-                app, user_id, coupon_code, coupon_name, coupon_value
-            )
-        )
+        uow.on_commit(lambda: send_feishu_coupon_code(app, user_id, coupon_code))
         return query_buy_record(
             app, buy_record.order_bid, expected_user=str(user_id or "")
         )

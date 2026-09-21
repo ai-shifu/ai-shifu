@@ -117,9 +117,7 @@ def test_use_coupon_code_notifies_after_commit(
     coupon_code = "UOWB1OK"
     seen: list[Decimal | None] = []
 
-    def fake_notify(
-        _app: object, _user: object, _code: object, _name: object, _value: object
-    ) -> None:
+    def fake_notify(_app: object, _user: object, _code: object) -> None:
         with dao.db.engine.connect() as connection:
             row = connection.execute(
                 Order.__table__.select().where(Order.order_bid == order_bid)
