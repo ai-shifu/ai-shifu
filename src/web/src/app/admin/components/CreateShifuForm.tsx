@@ -126,7 +126,7 @@ export default function CreateShifuForm({
                       'component.createShifuDialog.descriptionPlaceholder',
                     )}
                     {...field}
-                    maxLength={300}
+                    maxLength={500}
                     rows={4}
                     className='min-h-28 resize-none rounded-lg leading-6 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                   />

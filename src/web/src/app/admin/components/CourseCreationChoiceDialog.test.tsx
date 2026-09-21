@@ -271,7 +271,7 @@ describe('CourseCreationChoiceDialog', () => {
     ).toHaveAttribute('maxlength', String(TITLE_MAX_LENGTH));
     expect(
       screen.getByLabelText('component.createShifuDialog.descriptionLabel'),
-    ).toHaveAttribute('maxlength', '300');
+    ).toHaveAttribute('maxlength', '500');
     fireEvent.change(
       screen.getByLabelText('component.createShifuDialog.descriptionLabel'),
       {
@@ -308,6 +308,48 @@ describe('CourseCreationChoiceDialog', () => {
       screen.queryByText('component.createShifuDialog.nameRequired'),
     ).not.toBeInTheDocument();
     expect(props.onManualCreateCancel).not.toHaveBeenCalled();
+  });
+
+  test('accepts a 500-character introduction and rejects longer descriptions', async () => {
+    const onManualCreate = jest.fn().mockResolvedValue(undefined);
+    render(
+      <CourseCreationChoiceDialog
+        open
+        onOpenChange={jest.fn()}
+        courseCreatorUrl={null}
+        onAiCourseCreatorClick={jest.fn()}
+        onAiCoursePromptCopy={jest.fn().mockResolvedValue(true)}
+        onManualCreate={onManualCreate}
+        onManualCreateCancel={jest.fn()}
+      />,
+    );
+    const name = screen.getByLabelText('component.createShifuDialog.nameLabel');
+    const description = screen.getByLabelText(
+      'component.createShifuDialog.descriptionLabel',
+    );
+    const submit = () =>
+      fireEvent.click(screen.getByRole('button', { name: /\.manualAction/ }));
+    fireEvent.change(name, { target: { value: 'Course title' } });
+    // Bypass the native limit to verify the same boundary in form validation.
+    fireEvent.change(description, { target: { value: 'a'.repeat(501) } });
+    submit();
+    expect(
+      await screen.findByText(
+        'component.createShifuDialog.descriptionMaxLength',
+      ),
+    ).toBeInTheDocument();
+    expect(onManualCreate).not.toHaveBeenCalled();
+
+    fireEvent.change(description, { target: { value: 'a'.repeat(500) } });
+    submit();
+    await waitFor(() =>
+      expect(onManualCreate).toHaveBeenCalledWith({
+        name: 'Course title',
+        description: 'a'.repeat(500),
+        avatar: '',
+      }),
+    );
+    expect(onManualCreate).toHaveBeenCalledTimes(1);
   });
 
   test('blocks duplicate submissions and dismissal until the pending creation settles', async () => {
