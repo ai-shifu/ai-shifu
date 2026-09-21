@@ -30,7 +30,6 @@ from flaskr.service.billing.api import (
     resolve_payment_integration_for_new_order,
     resolve_provider_credential_context,
 )
-from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.native_payment_status import (
     extract_native_trade_payload,
@@ -94,9 +93,15 @@ from flaskr.service.promo.models import (
     CouponUsage as CouponUsageModel,
 )
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.user.consts import (
+    USER_STATE_PAID,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+)
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
+    STATE_TO_PUBLIC_STATE,
     load_user_aggregate,
     set_user_state,
 )
@@ -246,12 +251,21 @@ def send_order_feishu(app: Flask, record_id: str) -> None:
         msgs.append(f"{item.name}-{item.price_name}-{item.price}")
         if item.is_discount:
             msgs.append(f"优惠码：{item.discount_code}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    # Historical rows can retain the public state codes until separately normalized.
+    paid_states = (USER_STATE_PAID, STATE_TO_PUBLIC_STATE[USER_STATE_PAID])
+    verified_states = (USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID)
     user_count = UserEntity.query.filter(
-        UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
+        UserEntity.state.in_(paid_states), UserEntity.deleted == 0
     ).count()
     msgs.append(f"总付费用户数：{user_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_reg_count = UserEntity.query.filter(
-        UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
+        UserEntity.state.in_(
+            (
+                *verified_states,
+                *(STATE_TO_PUBLIC_STATE[state] for state in verified_states),
+            )
+        ),
+        UserEntity.deleted == 0,
     ).count()
     msgs.append(f"总注册用户数：{user_reg_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
