@@ -267,7 +267,9 @@ def update_operator_referral_campaign(
         campaign.invitee_benefit_policy = data["invitee_benefit_policy"]
         campaign.rules_copy_i18n_key = data["rules_copy_i18n_key"]
         metadata = (
-            campaign.metadata_json if isinstance(campaign.metadata_json, dict) else {}
+            dict(campaign.metadata_json)
+            if isinstance(campaign.metadata_json, dict)
+            else {}
         )
         metadata["operator_user_bid"] = _normalize_text(operator_user_bid)
         campaign.metadata_json = metadata
@@ -329,7 +331,9 @@ def update_operator_referral_campaign_status(
             else REFERRAL_RULE_STATUS_PAUSED
         )
         metadata = (
-            campaign.metadata_json if isinstance(campaign.metadata_json, dict) else {}
+            dict(campaign.metadata_json)
+            if isinstance(campaign.metadata_json, dict)
+            else {}
         )
         metadata["operator_user_bid"] = _normalize_text(operator_user_bid)
         campaign.metadata_json = metadata

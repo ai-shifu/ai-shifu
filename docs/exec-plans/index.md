@@ -51,6 +51,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Add arbitrary rate entries to Rate Management](./completed/admin-rate-management-create.md)
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
 - [Arabic and Thai Product i18n](./completed/arabic-thai-i18n.md)
+- [Billing learning-time estimates](./completed/billing-learning-hours.md)
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Consolidate shared admin primitives](./completed/consolidate-admin-primitives.md)
