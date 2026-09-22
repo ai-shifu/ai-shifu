@@ -40,6 +40,7 @@ from flaskr.service.learn.agent.engine.events import (
     MemoryUpdated,
     TurnDone,
 )
+from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
     translate,
@@ -516,8 +517,46 @@ def _question(
     yield from controls
 
 
+def _narrated_question(
+    span: str,
+    *,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send a question the model wrote into its narration as the question it meant to be.
+
+    It goes out exactly as the model wrote it. A 1.0 script carries its interactions in this same
+    notation and the browser renders it the same way, so nothing is rebuilt; what changes is that
+    it arrives as the turn's question rather than as a line of its prose.
+
+    The engine did not ask, so no answer is pending for it and the learner's reply reaches the
+    model as a remark to react to. That is a lesser wrong than a lesson that sprints past a
+    question it has just put on the screen.
+
+    Ordered as `_question` orders it: the text before it is already out, so its audio is finished
+    and its block closed, and the question is written after both.
+    """
+    if voice is not None:
+        yield from voice.finish()
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        type=GeneratedType.BREAK,
+        content="",
+    )
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        type=GeneratedType.INTERACTION,
+        content=span,
+    )
+
+
 def _without_markers(
-    events: Iterable[object], markers: PreserveMarkerFilter
+    events: Iterable[object],
+    markers: PreserveMarkerFilter,
+    syntax: InteractionSyntaxFilter,
 ) -> Generator[object, None, None]:
     """Pass the turn's events through, with the script's verbatim markers taken out of its text.
 
@@ -528,7 +567,7 @@ def _without_markers(
         if not isinstance(event, ContentDelta):
             yield event
             continue
-        text = markers.feed(event.text)
+        text = syntax.feed(markers.feed(event.text))
         if text:
             yield event if text == event.text else ContentDelta(text=text)
 
@@ -659,9 +698,15 @@ def _stream_turn(
     persisted = False
     # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
     markers = PreserveMarkerFilter()
+    # A question the model typed into its narration instead of asking for one. Held aside while
+    # the turn runs: what becomes of it depends on whether the model also called the tool.
+    syntax = InteractionSyntaxFilter()
+    asked = False
 
     for event in _without_markers(
-        run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval), markers
+        run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval),
+        markers,
+        syntax,
     ):
         if isinstance(event, ContentDelta):
             taught.append(event.text)
@@ -692,7 +737,7 @@ def _stream_turn(
             # question's controls, so the last thing in the learner's history was text rather
             # than the question -- and the browser, seeing no question to answer, asked the
             # lesson to continue with nothing.
-            tail = markers.flush()
+            tail = syntax.feed(markers.flush()) + syntax.flush()
             if tail:
                 taught.append(tail)
                 yield from _say(
@@ -716,6 +761,7 @@ def _stream_turn(
             # question's controls. History is ordered by the moment of writing, and a history
             # whose last row was not the question read to the browser as a lesson to continue --
             # which it did, with nothing, on every reload.
+            asked = True
             yield from _question(
                 event,
                 pager=pager,
@@ -768,6 +814,25 @@ def _stream_turn(
                         preview_mode=preview_mode,
                     )
 
+        finished = bool(getattr(session_holder.get("session"), "finished", False))
+        if isinstance(event, TurnDone) and not asked and not finished and syntax.spans:
+            # The model typed a question rather than asking for one. Sent before the event that
+            # ends the turn, so it is the last thing written: a turn ending on text is the host's
+            # signal to carry on, and carrying on would run the lesson past the question the
+            # learner is still reading.
+            #
+            # Not on a lesson the model has just finished. The engine refuses a turn on a
+            # finished session, so the question could never be answered, and the lesson is over
+            # in any case -- a question typed on the way out is not one to put to the learner.
+            # Only the last span is asked: a turn holds one question, and it is the one the
+            # narration ends on.
+            yield from _narrated_question(
+                syntax.spans[-1],
+                voice=voice,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+            )
+
         try:
             yield from _on_this_page(
                 translate(
@@ -807,7 +872,10 @@ def _stream_turn(
     # the failures it cannot continue past. What the turn produced still has to be written, or the
     # learner replays an exchange that already happened.
     if not persisted:
-        tail = markers.flush()
+        # A turn that died has no `TurnDone`, so nothing above will have asked what the model
+        # typed. Putting it back as text loses nothing: it is what the model wrote, and the
+        # learner is being shown a failure rather than a question either way.
+        tail = syntax.feed(markers.flush()) + syntax.flush() + "".join(syntax.spans)
         if tail:
             taught.append(tail)
             yield from _say(
