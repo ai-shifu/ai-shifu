@@ -1163,3 +1163,63 @@ async def test_a_newline_before_finish_does_not_withhold_the_closing_line() -> N
     events = await collect(engine.run_turn(session))
     said = "".join(e.text for e in events if isinstance(e, ContentDelta))
     assert "That is the end of the lesson." in said
+
+
+async def test_a_confirm_the_model_left_unlabelled_says_so_after_the_round_trip() -> (
+    None
+):
+    """The flag has to survive the JSON the engine hands the host, or it tells the host nothing.
+
+    A unit test that builds the spec directly cannot see this: the engine passes it through
+    `model_dump` and the host validates it back, and a field excluded from the dump arrives as
+    its default. This goes through the real deferred-tool path.
+    """
+
+    async def confirm_then_stop(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        if _last_tool_return(messages) is None:
+            yield "Read this first.\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps({"type": "confirm", "prompt": "Ready?"}),
+                    tool_call_id="c1",
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=confirm_then_stop))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert len(asked) == 1
+    assert asked[0].spec.labelled_by_engine is True
+    # And it survives being stored and loaded again with the session.
+    reloaded = Session.loads(session.dumps())
+    assert reloaded.pending[0].spec.labelled_by_engine is True
+
+
+async def test_a_confirm_the_model_labelled_itself_says_so_too() -> None:
+    async def labelled(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        if _last_tool_return(messages) is None:
+            yield "Read this first.\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "confirm",
+                            "prompt": "",
+                            "options": [{"display": "开始"}],
+                        }
+                    ),
+                    tool_call_id="c1",
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=labelled))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert asked[0].spec.labelled_by_engine is False
+    assert asked[0].spec.options[0].display == "开始"

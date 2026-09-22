@@ -1617,3 +1617,43 @@ def test_a_turn_a_reset_discarded_does_not_advance_the_outline(
     events = _run(_finished_engine(), app=_LoggingApp())
     assert asked == []
     assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_prompt_that_is_the_start_of_a_longer_word_is_not_a_repetition() -> None:
+    """`rate` at the start of `rated` is not the word `rate`; the character after decides too."""
+    engine = _Engine(
+        [
+            ContentDelta(text="Here is how the examples were rated."),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine))[-1] == "rate"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_line_break_inside_the_question_does_not_hide_the_repetition() -> None:
+    """The narration wraps the question across two lines; the prompt has it on one."""
+    engine = _Engine(
+        [
+            ContentDelta(text="One last thing. Can you\ncode?"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="Can you code?",
+                    options=[Option(display="yes", value="yes")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine)) == ["One last thing. Can you\ncode?"]

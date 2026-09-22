@@ -51,6 +51,14 @@ class InteractionSpec(BaseModel):
     placeholder: str | None = Field(
         default=None, description="Placeholder for the text box."
     )
+    # Set by the engine, never by the model: the model does not see this field. It records that
+    # the confirm's button label is the engine's own default rather than anything the model
+    # wrote, so a host can replace exactly that and nothing else -- including a model that
+    # happened to write the same word itself.
+    # Carried in every dump on purpose: the engine hands the spec to the host as JSON and reads
+    # pending ones back from the session the same way, and a flag that did not survive that
+    # round trip would tell the host nothing.
+    labelled_by_engine: bool = False
 
     @model_validator(mode="after")
     def _check(self) -> InteractionSpec:
@@ -66,6 +74,7 @@ class InteractionSpec(BaseModel):
         if self.type == "confirm":
             if not self.options:
                 self.options = [Option(display=DEFAULT_CONFIRM_LABEL, value="continue")]
+                self.labelled_by_engine = True
             # Every confirm answer means the same thing, so a second button would offer the
             # learner a choice that cannot reach the model. Keep the first one only.
             self.options = self.options[:1]
