@@ -1018,7 +1018,8 @@ async def test_a_continue_that_repeats_the_last_turn_ends_the_lesson() -> None:
     environment read a lesson twice and then watched it stop with the lesson still described as
     in progress. A repeat is the model's way of saying there is nothing left.
     """
-    model, _ = _repeating_model("All there is.\n", "All there is.\n")
+    whole = "That is everything the script had to say, delivered once and in full.\n"
+    model, _ = _repeating_model(whole, whole)
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session("script")
     first = await collect(engine.run_turn(session))
@@ -1060,3 +1061,19 @@ async def test_carrying_on_tells_the_model_to_finish_if_nothing_remains() -> Non
     carried_on = prompts[-1]
     assert carried_on.startswith("continue")
     assert "`finish`" in carried_on
+
+
+async def test_a_short_line_said_twice_is_not_the_end() -> None:
+    """A script may say the same short thing twice in a row -- a drill, a heading.
+
+    A model delivering that faithfully repeats it, and ending the lesson there would drop
+    everything the script still had after it. Only a repeat long enough to be a turn's worth of
+    lesson counts; in 5,884 published lessons no adjacent identical blocks exceed 3 characters.
+    """
+    model, _ = _repeating_model("Repeat: hello.\n", "Repeat: hello.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert second[-1].reason == "end"
+    assert session.finished is False

@@ -155,15 +155,23 @@ def _text_of(messages: Iterable[object]) -> str:
     )
 
 
+# A repeat shorter than this is not taken as the end. A script can legitimately say the same
+# short thing twice in a row -- a drill line, a heading -- and a model delivering it faithfully
+# would repeat it. Across 5,884 published lessons, adjacent blocks with identical text number 15,
+# every one of them 1 to 3 characters; the lesson that repeated itself and stopped was 330. The
+# floor sits well clear of the first and well under the second.
+_REPEAT_FLOOR_CHARS = 40
+
+
 def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
     """Whether the text written after `history_len` is the previous turn's text, again.
 
     A turn begins with the user's prompt, so the previous turn is everything from the last user
     prompt before `history_len` up to `history_len`. Empty on either side is not a repeat: a turn
-    that wrote nothing has not repeated anything.
+    that wrote nothing has not repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
     """
     now = _text_of(messages[history_len:])
-    if not now:
+    if len(now) < _REPEAT_FLOOR_CHARS:
         return False
     start = 0
     for index in range(history_len - 1, -1, -1):
