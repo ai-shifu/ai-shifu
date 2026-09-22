@@ -15,35 +15,26 @@ from pydantic import BaseModel, ConfigDict, Field
 class AdminOperationCourseSummaryDTO(BaseModel):
     """Course summary shown in the operator course list."""
 
-    shifu_bid: str = Field(
-        ..., description="Course business identifier", required=False
-    )
-    course_name: str = Field(..., description="Course name", required=False)
-    course_status: str = Field(..., description="Course status", required=False)
-    price: str = Field(..., description="Course price", required=False)
-    llm_model: str = Field(
-        ..., description="Effective configured course model index", required=False
-    )
-    tts_model: str = Field(..., description="Course TTS model", required=False)
+    shifu_bid: str = Field(..., description="Course business identifier")
+    course_name: str = Field(..., description="Course name")
+    course_status: str = Field(..., description="Course status")
+    price: str = Field(..., description="Course price")
+    llm_model: str = Field(..., description="Effective configured course model index")
+    tts_model: str = Field(..., description="Course TTS model")
     has_course_prompt: bool = Field(
         ...,
         description="Whether the course has a course-level system prompt",
-        required=False,
     )
-    creator_user_bid: str = Field(
-        ..., description="Creator user business identifier", required=False
-    )
-    creator_mobile: str = Field(..., description="Creator mobile", required=False)
-    creator_email: str = Field(..., description="Creator email", required=False)
-    creator_nickname: str = Field(..., description="Creator nickname", required=False)
-    updater_user_bid: str = Field(
-        ..., description="Updater user business identifier", required=False
-    )
-    updater_mobile: str = Field(..., description="Updater mobile", required=False)
-    updater_email: str = Field(..., description="Updater email", required=False)
-    updater_nickname: str = Field(..., description="Updater nickname", required=False)
-    created_at: datetime | None = Field(..., description="Created at", required=False)
-    updated_at: datetime | None = Field(..., description="Updated at", required=False)
+    creator_user_bid: str = Field(..., description="Creator user business identifier")
+    creator_mobile: str = Field(..., description="Creator mobile")
+    creator_email: str = Field(..., description="Creator email")
+    creator_nickname: str = Field(..., description="Creator nickname")
+    updater_user_bid: str = Field(..., description="Updater user business identifier")
+    updater_mobile: str = Field(..., description="Updater mobile")
+    updater_email: str = Field(..., description="Updater email")
+    updater_nickname: str = Field(..., description="Updater nickname")
+    created_at: datetime | None = Field(..., description="Created at")
+    updated_at: datetime | None = Field(..., description="Updated at")
 
     def __init__(
         self,
@@ -116,32 +107,26 @@ class AdminOperationCourseOverviewDTO(BaseModel):
     total_course_count: int = Field(
         default=0,
         description="Total visible course count",
-        required=False,
     )
     draft_course_count: int = Field(
         default=0,
         description="Visible draft-only course count",
-        required=False,
     )
     published_course_count: int = Field(
         default=0,
         description="Visible published course count",
-        required=False,
     )
     created_last_7d_course_count: int = Field(
         default=0,
         description="Visible courses created in the last 7 days",
-        required=False,
     )
     learning_active_30d_course_count: int = Field(
         default=0,
         description="Visible courses with learning records in the last 30 days",
-        required=False,
     )
     paid_order_30d_course_count: int = Field(
         default=0,
         description="Visible courses with successful orders in the last 30 days",
-        required=False,
     )
 
     def __json__(self) -> dict[str, object]:
@@ -156,12 +141,11 @@ class AdminOperationCourseListDTO(BaseModel):
     items: list[AdminOperationCourseSummaryDTO] = Field(
         default_factory=list,
         description="Paginated course rows",
-        required=False,
     )
-    page: int = Field(..., description="Page index", required=False)
-    page_size: int = Field(..., description="Page size", required=False)
-    total: int = Field(..., description="Total row count", required=False)
-    page_count: int = Field(..., description="Page count", required=False)
+    page: int = Field(..., description="Page index")
+    page_size: int = Field(..., description="Page size")
+    total: int = Field(..., description="Total row count")
+    page_count: int = Field(..., description="Page count")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course list as JSON-compatible data."""
@@ -178,19 +162,15 @@ class AdminOperationCourseListDTO(BaseModel):
 class AdminOperationCourseDetailBasicInfoDTO(BaseModel):
     """Operator-facing course basic information."""
 
-    shifu_bid: str = Field(
-        ..., description="Course business identifier", required=False
-    )
-    course_name: str = Field(..., description="Course name", required=False)
-    course_status: str = Field(..., description="Course status", required=False)
-    creator_user_bid: str = Field(
-        ..., description="Creator user business identifier", required=False
-    )
-    creator_mobile: str = Field(..., description="Creator mobile", required=False)
-    creator_email: str = Field(..., description="Creator email", required=False)
-    creator_nickname: str = Field(..., description="Creator nickname", required=False)
-    created_at: datetime | None = Field(..., description="Created at", required=False)
-    updated_at: datetime | None = Field(..., description="Updated at", required=False)
+    shifu_bid: str = Field(..., description="Course business identifier")
+    course_name: str = Field(..., description="Course name")
+    course_status: str = Field(..., description="Course status")
+    creator_user_bid: str = Field(..., description="Creator user business identifier")
+    creator_mobile: str = Field(..., description="Creator mobile")
+    creator_email: str = Field(..., description="Creator email")
+    creator_nickname: str = Field(..., description="Creator nickname")
+    created_at: datetime | None = Field(..., description="Created at")
+    updated_at: datetime | None = Field(..., description="Updated at")
 
     def __json__(self) -> dict[str, object]:
         """Return operator course basic information as JSON-compatible data."""
@@ -201,41 +181,31 @@ class AdminOperationCourseDetailBasicInfoDTO(BaseModel):
 class AdminOperationCourseDetailMetricsDTO(BaseModel):
     """Operator-facing course metrics summary."""
 
-    learner_count: int = Field(
-        ..., description="Distinct learner count", required=False
-    )
-    order_count: int = Field(..., description="Successful order count", required=False)
+    learner_count: int = Field(..., description="Distinct learner count")
+    order_count: int = Field(..., description="Successful order count")
     order_amount: str = Field(
         ...,
         description="Collected amount for successful orders using paid price when paid_price > 0, otherwise payable price when payable_price > 0",
-        required=False,
     )
-    follow_up_count: int = Field(
-        ..., description="Follow-up question count", required=False
-    )
-    rating_score: str = Field(
-        ..., description="Average lesson rating score", required=False
-    )
+    follow_up_count: int = Field(..., description="Follow-up question count")
+    rating_score: str = Field(..., description="Average lesson rating score")
     credit_consumed_total: int | float = Field(
-        default=0, description="Total consumed credits for this course", required=False
+        default=0, description="Total consumed credits for this course"
     )
     credit_usage_count: int = Field(
         default=0,
         description="Distinct billed usage count for this course",
-        required=False,
     )
     credit_user_count: int = Field(
-        default=0, description="Distinct users with billed credit usage", required=False
+        default=0, description="Distinct users with billed credit usage"
     )
     completed_credit_user_count: int = Field(
         default=0,
         description="Completed users with billed credit usage coverage",
-        required=False,
     )
     completed_user_avg_credits: int | float | None = Field(
         default=None,
         description="Average consumed credits among completed users with credit usage",
-        required=False,
     )
 
     def __json__(self) -> dict[str, object]:
@@ -251,13 +221,9 @@ class AdminOperationEstimatedCreditComponentDTO(BaseModel):
 
     min: int | float = Field(..., description="Estimated minimum credits")
     max: int | float = Field(..., description="Estimated maximum credits")
-    model: str = Field(default="", description="Raw model identifier", required=False)
-    model_label: str = Field(
-        default="", description="Display name from model options", required=False
-    )
-    multiplier: str | None = Field(
-        default=None, description="Credit multiplier label", required=False
-    )
+    model: str = Field(default="", description="Raw model identifier")
+    model_label: str = Field(default="", description="Display name from model options")
+    multiplier: str | None = Field(default=None, description="Credit multiplier label")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator estimated credit component as JSON-compatible data."""
@@ -271,10 +237,10 @@ class AdminOperationEstimatedCreditModeDTO(BaseModel):
     min: int | float = Field(..., description="Estimated minimum credits")
     max: int | float = Field(..., description="Estimated maximum credits")
     llm: AdminOperationEstimatedCreditComponentDTO = Field(
-        ..., description="LLM credit estimate", required=False
+        ..., description="LLM credit estimate"
     )
     tts: AdminOperationEstimatedCreditComponentDTO | None = Field(
-        default=None, description="TTS credit estimate", required=False
+        default=None, description="TTS credit estimate"
     )
     enabled: bool | None = Field(
         default=None, description="Whether the course currently enables this mode"
@@ -293,16 +259,16 @@ class AdminOperationEstimatedCreditAssumptionsDTO(BaseModel):
     """Inputs used to calculate estimated full-course credit cost."""
 
     visible_lesson_count: int = Field(
-        default=0, description="Visible leaf lesson count", required=False
+        default=0, description="Visible leaf lesson count"
     )
     prompt_char_count: int = Field(
-        default=0, description="Prompt characters counted per lesson", required=False
+        default=0, description="Prompt characters counted per lesson"
     )
     content_char_count: int = Field(
-        default=0, description="MarkdownFlow content characters", required=False
+        default=0, description="MarkdownFlow content characters"
     )
     calculated_at: datetime | None = Field(
-        default=None, description="Calculation timestamp", required=False
+        default=None, description="Calculation timestamp"
     )
 
     def __json__(self) -> dict[str, object]:
@@ -315,16 +281,16 @@ class AdminOperationEstimatedCreditCostDTO(BaseModel):
     """Estimated full-course credit cost by learning mode."""
 
     read: AdminOperationEstimatedCreditModeDTO = Field(
-        ..., description="Read mode estimate", required=False
+        ..., description="Read mode estimate"
     )
     listen: AdminOperationEstimatedCreditModeDTO = Field(
-        ..., description="Listen mode estimate", required=False
+        ..., description="Listen mode estimate"
     )
     classroom: AdminOperationEstimatedCreditModeDTO = Field(
-        ..., description="Classroom mode estimate", required=False
+        ..., description="Classroom mode estimate"
     )
     assumptions: AdminOperationEstimatedCreditAssumptionsDTO = Field(
-        ..., description="Estimation assumptions", required=False
+        ..., description="Estimation assumptions"
     )
 
     def __json__(self) -> dict[str, object]:
@@ -341,46 +307,33 @@ class AdminOperationEstimatedCreditCostDTO(BaseModel):
 class AdminOperationCourseDetailChapterDTO(BaseModel):
     """Operator-facing course chapter tree node."""
 
-    outline_item_bid: str = Field(
-        ..., description="Outline item business identifier", required=False
-    )
-    title: str = Field(..., description="Outline item title", required=False)
-    parent_bid: str = Field(..., description="Parent outline item bid", required=False)
-    position: str = Field(..., description="Outline position", required=False)
-    node_type: str = Field(..., description="chapter or lesson", required=False)
-    learning_permission: str = Field(
-        ..., description="guest, free, or paid", required=False
-    )
-    is_visible: bool = Field(..., description="Visibility flag", required=False)
-    content_status: str = Field(..., description="has or empty", required=False)
-    follow_up_count: int = Field(
-        ..., description="Follow-up question count", required=False
-    )
+    outline_item_bid: str = Field(..., description="Outline item business identifier")
+    title: str = Field(..., description="Outline item title")
+    parent_bid: str = Field(..., description="Parent outline item bid")
+    position: str = Field(..., description="Outline position")
+    node_type: str = Field(..., description="chapter or lesson")
+    learning_permission: str = Field(..., description="guest, free, or paid")
+    is_visible: bool = Field(..., description="Visibility flag")
+    content_status: str = Field(..., description="has or empty")
+    follow_up_count: int = Field(..., description="Follow-up question count")
     rating_score: str = Field(
         ...,
         description="Lesson-level average rating score; empty for chapter nodes",
-        required=False,
     )
     rating_count: int = Field(
         ...,
         description="Lesson-level rating record count; 0 for chapter nodes",
-        required=False,
     )
     modifier_user_bid: str = Field(
-        ..., description="Last modifier user business identifier", required=False
+        ..., description="Last modifier user business identifier"
     )
-    modifier_mobile: str = Field(
-        ..., description="Last modifier mobile", required=False
-    )
-    modifier_email: str = Field(..., description="Last modifier email", required=False)
-    modifier_nickname: str = Field(
-        ..., description="Last modifier nickname", required=False
-    )
-    updated_at: datetime | None = Field(..., description="Updated at", required=False)
+    modifier_mobile: str = Field(..., description="Last modifier mobile")
+    modifier_email: str = Field(..., description="Last modifier email")
+    modifier_nickname: str = Field(..., description="Last modifier nickname")
+    updated_at: datetime | None = Field(..., description="Updated at")
     children: list[AdminOperationCourseDetailChapterDTO] = Field(
         default_factory=list,
         description="Nested children",
-        required=False,
     )
 
     def __json__(self) -> dict[str, object]:
@@ -394,36 +347,30 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
 class AdminOperationCourseUserDTO(BaseModel):
     """Operator-facing course user row."""
 
-    user_bid: str = Field(..., description="User business identifier", required=False)
-    mobile: str = Field(..., description="User mobile", required=False)
-    email: str = Field(..., description="User email", required=False)
-    nickname: str = Field(..., description="User nickname", required=False)
-    user_role: str = Field(..., description="Resolved user role", required=False)
+    user_bid: str = Field(..., description="User business identifier")
+    mobile: str = Field(..., description="User mobile")
+    email: str = Field(..., description="User email")
+    nickname: str = Field(..., description="User nickname")
+    user_role: str = Field(..., description="Resolved user role")
     learned_lesson_count: int = Field(
         default=0,
         description="Distinct learned visible lesson count",
-        required=False,
     )
     total_lesson_count: int = Field(
         default=0,
         description="Total visible lesson count",
-        required=False,
     )
-    learning_status: str = Field(
-        ..., description="not_started, learning, or completed", required=False
-    )
-    is_paid: bool = Field(..., description="Whether the user has paid", required=False)
-    total_paid_amount: str = Field(
-        default="0", description="Course-scoped paid amount", required=False
-    )
+    learning_status: str = Field(..., description="not_started, learning, or completed")
+    is_paid: bool = Field(..., description="Whether the user has paid")
+    total_paid_amount: str = Field(default="0", description="Course-scoped paid amount")
     last_learning_at: datetime | None = Field(
-        default=None, description="Latest learning timestamp", required=False
+        default=None, description="Latest learning timestamp"
     )
     joined_at: datetime | None = Field(
-        default=None, description="Course join timestamp", required=False
+        default=None, description="Course join timestamp"
     )
     last_login_at: datetime | None = Field(
-        default=None, description="Latest login timestamp", required=False
+        default=None, description="Latest login timestamp"
     )
 
     def __json__(self) -> dict[str, object]:
@@ -435,9 +382,7 @@ class AdminOperationCourseUserDTO(BaseModel):
 class AdminOperationCoursePromptDTO(BaseModel):
     """Operator-facing course prompt payload."""
 
-    course_prompt: str = Field(
-        ..., description="Course-level system prompt", required=False
-    )
+    course_prompt: str = Field(..., description="Course-level system prompt")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course prompt as JSON-compatible data."""
@@ -448,16 +393,12 @@ class AdminOperationCoursePromptDTO(BaseModel):
 class AdminOperationCourseChapterDetailDTO(BaseModel):
     """Operator-facing chapter content detail payload."""
 
-    outline_item_bid: str = Field(
-        ..., description="Outline item business identifier", required=False
-    )
-    title: str = Field(..., description="Outline item title", required=False)
-    content: str = Field(..., description="MarkdownFlow content", required=False)
-    llm_system_prompt: str = Field(
-        ..., description="Outline system prompt", required=False
-    )
+    outline_item_bid: str = Field(..., description="Outline item business identifier")
+    title: str = Field(..., description="Outline item title")
+    content: str = Field(..., description="MarkdownFlow content")
+    llm_system_prompt: str = Field(..., description="Outline system prompt")
     llm_system_prompt_source: str = Field(
-        ..., description="Resolved outline system prompt source", required=False
+        ..., description="Resolved outline system prompt source"
     )
 
     def __json__(self) -> dict[str, object]:
@@ -470,18 +411,17 @@ class AdminOperationCourseDetailDTO(BaseModel):
     """Operator-facing course detail payload."""
 
     basic_info: AdminOperationCourseDetailBasicInfoDTO = Field(
-        ..., description="Basic course information", required=False
+        ..., description="Basic course information"
     )
     metrics: AdminOperationCourseDetailMetricsDTO = Field(
-        ..., description="Course metrics", required=False
+        ..., description="Course metrics"
     )
     estimated_credit_cost: AdminOperationEstimatedCreditCostDTO = Field(
-        ..., description="Estimated full-course credit cost", required=False
+        ..., description="Estimated full-course credit cost"
     )
     chapters: list[AdminOperationCourseDetailChapterDTO] = Field(
         default_factory=list,
         description="Course chapter tree",
-        required=False,
     )
 
     def __json__(self) -> dict[str, object]:
@@ -499,16 +439,14 @@ class AdminOperationCourseFollowUpSummaryDTO(BaseModel):
     """Operator-facing course follow-up summary."""
 
     follow_up_count: int = Field(
-        default=0, description="Filtered follow-up record count", required=False
+        default=0, description="Filtered follow-up record count"
     )
-    user_count: int = Field(
-        default=0, description="Distinct follow-up user count", required=False
-    )
+    user_count: int = Field(default=0, description="Distinct follow-up user count")
     lesson_count: int = Field(
-        default=0, description="Distinct lesson count with follow-ups", required=False
+        default=0, description="Distinct lesson count with follow-ups"
     )
     latest_follow_up_at: datetime | None = Field(
-        default=None, description="Latest follow-up timestamp", required=False
+        default=None, description="Latest follow-up timestamp"
     )
 
     def __json__(self) -> dict[str, object]:
@@ -521,41 +459,32 @@ class AdminOperationCourseFollowUpItemDTO(BaseModel):
     """Operator-facing course follow-up row."""
 
     generated_block_bid: str = Field(
-        ..., description="Follow-up generated block business identifier", required=False
+        ..., description="Follow-up generated block business identifier"
     )
     progress_record_bid: str = Field(
-        ..., description="Progress record business identifier", required=False
+        ..., description="Progress record business identifier"
     )
-    user_bid: str = Field(..., description="User business identifier", required=False)
-    mobile: str = Field(..., description="User mobile", required=False)
-    email: str = Field(..., description="User email", required=False)
-    nickname: str = Field(..., description="User nickname", required=False)
+    user_bid: str = Field(..., description="User business identifier")
+    mobile: str = Field(..., description="User mobile")
+    email: str = Field(..., description="User email")
+    nickname: str = Field(..., description="User nickname")
     chapter_outline_item_bid: str = Field(
         default="",
         description="Chapter outline item business identifier",
-        required=False,
     )
-    chapter_title: str = Field(default="", description="Chapter title", required=False)
+    chapter_title: str = Field(default="", description="Chapter title")
     lesson_outline_item_bid: str = Field(
         default="",
         description="Lesson outline item business identifier",
-        required=False,
     )
-    lesson_title: str = Field(default="", description="Lesson title", required=False)
-    follow_up_content: str = Field(
-        default="", description="Student follow-up content", required=False
-    )
+    lesson_title: str = Field(default="", description="Lesson title")
+    follow_up_content: str = Field(default="", description="Student follow-up content")
     has_source_output: bool = Field(
         default=False,
         description="Whether the original output source could be resolved",
-        required=False,
     )
-    turn_index: int = Field(
-        default=0, description="1-based follow-up turn index", required=False
-    )
-    created_at: datetime | None = Field(
-        default=None, description="Created at", required=False
-    )
+    turn_index: int = Field(default=0, description="1-based follow-up turn index")
+    created_at: datetime | None = Field(default=None, description="Created at")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course follow-up item as JSON-compatible data."""
@@ -567,17 +496,16 @@ class AdminOperationCourseFollowUpListDTO(BaseModel):
     """Operator-facing course follow-up list payload."""
 
     summary: AdminOperationCourseFollowUpSummaryDTO = Field(
-        ..., description="Follow-up summary", required=False
+        ..., description="Follow-up summary"
     )
     items: list[AdminOperationCourseFollowUpItemDTO] = Field(
         default_factory=list,
         description="Paginated follow-up rows",
-        required=False,
     )
-    page: int = Field(..., description="Page index", required=False)
-    page_size: int = Field(..., description="Page size", required=False)
-    total: int = Field(..., description="Total row count", required=False)
-    page_count: int = Field(..., description="Page count", required=False)
+    page: int = Field(..., description="Page index")
+    page_size: int = Field(..., description="Page size")
+    total: int = Field(..., description="Total row count")
+    page_count: int = Field(..., description="Page count")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course follow-up list as JSON-compatible data."""
@@ -595,17 +523,11 @@ class AdminOperationCourseFollowUpListDTO(BaseModel):
 class AdminOperationCourseRatingSummaryDTO(BaseModel):
     """Operator-facing course rating summary."""
 
-    average_score: str = Field(
-        default="", description="Filtered average rating score", required=False
-    )
-    rating_count: int = Field(
-        default=0, description="Filtered rating record count", required=False
-    )
-    user_count: int = Field(
-        default=0, description="Distinct rating user count", required=False
-    )
+    average_score: str = Field(default="", description="Filtered average rating score")
+    rating_count: int = Field(default=0, description="Filtered rating record count")
+    user_count: int = Field(default=0, description="Distinct rating user count")
     latest_rated_at: datetime | None = Field(
-        default=None, description="Latest rating timestamp", required=False
+        default=None, description="Latest rating timestamp"
     )
 
     def __json__(self) -> dict[str, object]:
@@ -618,35 +540,29 @@ class AdminOperationCourseRatingItemDTO(BaseModel):
     """Operator-facing course rating row."""
 
     lesson_feedback_bid: str = Field(
-        ..., description="Lesson feedback business identifier", required=False
+        ..., description="Lesson feedback business identifier"
     )
     progress_record_bid: str = Field(
-        ..., description="Progress record business identifier", required=False
+        ..., description="Progress record business identifier"
     )
-    user_bid: str = Field(..., description="User business identifier", required=False)
-    mobile: str = Field(..., description="User mobile", required=False)
-    email: str = Field(..., description="User email", required=False)
-    nickname: str = Field(..., description="User nickname", required=False)
+    user_bid: str = Field(..., description="User business identifier")
+    mobile: str = Field(..., description="User mobile")
+    email: str = Field(..., description="User email")
+    nickname: str = Field(..., description="User nickname")
     chapter_outline_item_bid: str = Field(
         default="",
         description="Chapter outline item business identifier",
-        required=False,
     )
-    chapter_title: str = Field(default="", description="Chapter title", required=False)
+    chapter_title: str = Field(default="", description="Chapter title")
     lesson_outline_item_bid: str = Field(
         default="",
         description="Lesson outline item business identifier",
-        required=False,
     )
-    lesson_title: str = Field(default="", description="Lesson title", required=False)
-    score: int = Field(default=0, description="Lesson rating score", required=False)
-    comment: str = Field(
-        default="", description="Lesson rating comment", required=False
-    )
-    mode: str = Field(default="", description="Rating mode", required=False)
-    rated_at: datetime | None = Field(
-        default=None, description="Rated at", required=False
-    )
+    lesson_title: str = Field(default="", description="Lesson title")
+    score: int = Field(default=0, description="Lesson rating score")
+    comment: str = Field(default="", description="Lesson rating comment")
+    mode: str = Field(default="", description="Rating mode")
+    rated_at: datetime | None = Field(default=None, description="Rated at")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course rating item as JSON-compatible data."""
@@ -658,17 +574,16 @@ class AdminOperationCourseRatingListDTO(BaseModel):
     """Operator-facing course rating list payload."""
 
     summary: AdminOperationCourseRatingSummaryDTO = Field(
-        ..., description="Rating summary", required=False
+        ..., description="Rating summary"
     )
     items: list[AdminOperationCourseRatingItemDTO] = Field(
         default_factory=list,
         description="Paginated rating rows",
-        required=False,
     )
-    page: int = Field(..., description="Page index", required=False)
-    page_size: int = Field(..., description="Page size", required=False)
-    total: int = Field(..., description="Total row count", required=False)
-    page_count: int = Field(..., description="Page count", required=False)
+    page: int = Field(..., description="Page index")
+    page_size: int = Field(..., description="Page size")
+    total: int = Field(..., description="Total row count")
+    page_count: int = Field(..., description="Page count")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course rating list as JSON-compatible data."""
@@ -691,68 +606,54 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
     group_key: str = Field(
         default="",
         description="Grouped row business key or raw usage key",
-        required=False,
     )
-    usage_bid: str = Field(..., description="Usage business identifier", required=False)
+    usage_bid: str = Field(..., description="Usage business identifier")
     progress_record_bid: str = Field(
         default="",
         description="Progress record business identifier",
-        required=False,
     )
     generated_block_bid: str = Field(
         default="",
         description="Generated block business identifier",
-        required=False,
     )
-    user_bid: str = Field(..., description="User business identifier", required=False)
-    mobile: str = Field(..., description="User mobile", required=False)
-    email: str = Field(..., description="User email", required=False)
-    nickname: str = Field(..., description="User nickname", required=False)
+    user_bid: str = Field(..., description="User business identifier")
+    mobile: str = Field(..., description="User mobile")
+    email: str = Field(..., description="User email")
+    nickname: str = Field(..., description="User nickname")
     chapter_outline_item_bid: str = Field(
         default="",
         description="Chapter outline item business identifier",
-        required=False,
     )
-    chapter_title: str = Field(default="", description="Chapter title", required=False)
+    chapter_title: str = Field(default="", description="Chapter title")
     lesson_outline_item_bid: str = Field(
         default="",
         description="Lesson outline item business identifier",
-        required=False,
     )
-    lesson_title: str = Field(default="", description="Lesson title", required=False)
+    lesson_title: str = Field(default="", description="Lesson title")
     usage_scene: str = Field(
         default="",
         description="Credit usage scene: learning/preview/debug",
-        required=False,
     )
     usage_mode: str = Field(
         default="",
         description="Credit usage mode: learn/listen/ask",
-        required=False,
     )
-    provider: str = Field(default="", description="Provider name", required=False)
-    model: str = Field(default="", description="Provider model", required=False)
-    model_label: str = Field(
-        default="", description="Model display name", required=False
-    )
+    provider: str = Field(default="", description="Provider name")
+    model: str = Field(default="", description="Provider model")
+    model_label: str = Field(default="", description="Model display name")
     usage_count: int = Field(
         default=1,
         description="Grouped usage row count",
-        required=False,
     )
     model_variant_count: int = Field(
         default=0,
         description="Distinct provider/model count inside the row",
-        required=False,
     )
     consumed_credits: int | float = Field(
         default=0,
         description="Consumed credits",
-        required=False,
     )
-    created_at: datetime | None = Field(
-        default=None, description="Created at", required=False
-    )
+    created_at: datetime | None = Field(default=None, description="Created at")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course credit usage item as JSON-compatible data."""
@@ -765,36 +666,23 @@ class AdminOperationCourseCreditUsageDetailItemDTO(BaseModel):
 
     model_config = ConfigDict(protected_namespaces=())
 
-    usage_bid: str = Field(..., description="Usage business identifier", required=False)
+    usage_bid: str = Field(..., description="Usage business identifier")
     consumed_credits: int | float = Field(
         default=0,
         description="Consumed credits",
-        required=False,
     )
-    input_tokens: int = Field(
-        default=0, description="Input token count", required=False
-    )
-    output_tokens: int = Field(
-        default=0, description="Output token count", required=False
-    )
-    provider: str = Field(default="", description="Provider name", required=False)
-    model: str = Field(default="", description="Provider model", required=False)
-    model_label: str = Field(
-        default="", description="Model display name", required=False
-    )
-    word_count: int = Field(default=0, description="TTS word count", required=False)
+    input_tokens: int = Field(default=0, description="Input token count")
+    output_tokens: int = Field(default=0, description="Output token count")
+    provider: str = Field(default="", description="Provider name")
+    model: str = Field(default="", description="Provider model")
+    model_label: str = Field(default="", description="Model display name")
+    word_count: int = Field(default=0, description="TTS word count")
     duration_ms: int = Field(
-        default=0, description="TTS audio duration in milliseconds", required=False
+        default=0, description="TTS audio duration in milliseconds"
     )
-    segment_count: int = Field(
-        default=0, description="TTS synthesized segment count", required=False
-    )
-    output_summary: str = Field(
-        default="", description="Generated output summary", required=False
-    )
-    created_at: datetime | None = Field(
-        default=None, description="Created at", required=False
-    )
+    segment_count: int = Field(default=0, description="TTS synthesized segment count")
+    output_summary: str = Field(default="", description="Generated output summary")
+    created_at: datetime | None = Field(default=None, description="Created at")
 
     def __json__(self) -> dict[str, object]:
         """Return credit-usage detail as JSON-compatible data."""
@@ -808,17 +696,15 @@ class AdminOperationCourseCreditUsageListDTO(BaseModel):
     view: str = Field(
         default="grouped",
         description="Response view mode: grouped/raw",
-        required=False,
     )
     items: list[AdminOperationCourseCreditUsageItemDTO] = Field(
         default_factory=list,
         description="Paginated credit usage rows",
-        required=False,
     )
-    page: int = Field(..., description="Page index", required=False)
-    page_size: int = Field(..., description="Page size", required=False)
-    total: int = Field(..., description="Total row count", required=False)
-    page_count: int = Field(..., description="Page count", required=False)
+    page: int = Field(..., description="Page index")
+    page_size: int = Field(..., description="Page size")
+    total: int = Field(..., description="Total row count")
+    page_count: int = Field(..., description="Page count")
 
     def __json__(self) -> dict[str, object]:
         """Return the operator course credit usage list as JSON-compatible data."""
@@ -839,12 +725,11 @@ class AdminOperationCourseCreditUsageDetailListDTO(BaseModel):
     items: list[AdminOperationCourseCreditUsageDetailItemDTO] = Field(
         default_factory=list,
         description="Paginated credit usage detail rows",
-        required=False,
     )
-    page: int = Field(..., description="Page index", required=False)
-    page_size: int = Field(..., description="Page size", required=False)
-    total: int = Field(..., description="Total row count", required=False)
-    page_count: int = Field(..., description="Page count", required=False)
+    page: int = Field(..., description="Page index")
+    page_size: int = Field(..., description="Page size")
+    total: int = Field(..., description="Total row count")
+    page_count: int = Field(..., description="Page count")
 
     def __json__(self) -> dict[str, object]:
         """Return credit-usage details as JSON-compatible data."""
@@ -862,27 +747,21 @@ class AdminOperationCourseFollowUpDetailBasicInfoDTO(BaseModel):
     """Operator-facing course follow-up detail basic information."""
 
     generated_block_bid: str = Field(
-        ..., description="Follow-up generated block business identifier", required=False
+        ..., description="Follow-up generated block business identifier"
     )
     progress_record_bid: str = Field(
-        ..., description="Progress record business identifier", required=False
+        ..., description="Progress record business identifier"
     )
-    user_bid: str = Field(..., description="User business identifier", required=False)
-    mobile: str = Field(..., description="User mobile", required=False)
-    email: str = Field(..., description="User email", required=False)
-    nickname: str = Field(..., description="User nickname", required=False)
-    course_name: str = Field(..., description="Course name", required=False)
-    shifu_bid: str = Field(
-        ..., description="Course business identifier", required=False
-    )
-    chapter_title: str = Field(default="", description="Chapter title", required=False)
-    lesson_title: str = Field(default="", description="Lesson title", required=False)
-    created_at: datetime | None = Field(
-        default=None, description="Created at", required=False
-    )
-    turn_index: int = Field(
-        default=0, description="1-based follow-up turn index", required=False
-    )
+    user_bid: str = Field(..., description="User business identifier")
+    mobile: str = Field(..., description="User mobile")
+    email: str = Field(..., description="User email")
+    nickname: str = Field(..., description="User nickname")
+    course_name: str = Field(..., description="Course name")
+    shifu_bid: str = Field(..., description="Course business identifier")
+    chapter_title: str = Field(default="", description="Chapter title")
+    lesson_title: str = Field(default="", description="Lesson title")
+    created_at: datetime | None = Field(default=None, description="Created at")
+    turn_index: int = Field(default=0, description="1-based follow-up turn index")
 
     def __json__(self) -> dict[str, object]:
         """Return basic follow-up information as JSON-compatible data."""
@@ -893,36 +772,27 @@ class AdminOperationCourseFollowUpDetailBasicInfoDTO(BaseModel):
 class AdminOperationCourseFollowUpCurrentRecordDTO(BaseModel):
     """Operator-facing current follow-up record payload."""
 
-    follow_up_content: str = Field(
-        default="", description="Student follow-up content", required=False
-    )
-    answer_content: str = Field(
-        default="", description="System answer content", required=False
-    )
+    follow_up_content: str = Field(default="", description="Student follow-up content")
+    answer_content: str = Field(default="", description="System answer content")
     source_output_content: str = Field(
         default="",
         description="Original output content being followed up",
-        required=False,
     )
     source_output_type: str = Field(
         default="",
         description="Original output source type",
-        required=False,
     )
     source_position: int = Field(
         default=0,
         description="Original output block position",
-        required=False,
     )
     source_element_bid: str = Field(
         default="",
         description="Original output anchor element business identifier",
-        required=False,
     )
     source_element_type: str = Field(
         default="",
         description="Original output anchor element type",
-        required=False,
     )
 
     def __json__(self) -> dict[str, object]:
@@ -934,15 +804,12 @@ class AdminOperationCourseFollowUpCurrentRecordDTO(BaseModel):
 class AdminOperationCourseFollowUpTimelineItemDTO(BaseModel):
     """Operator-facing follow-up timeline item."""
 
-    role: str = Field(..., description="student or teacher", required=False)
-    content: str = Field(default="", description="Timeline content", required=False)
-    created_at: datetime | None = Field(
-        default=None, description="Created at", required=False
-    )
+    role: str = Field(..., description="student or teacher")
+    content: str = Field(default="", description="Timeline content")
+    created_at: datetime | None = Field(default=None, description="Created at")
     is_current: bool = Field(
         default=False,
         description="Whether the item belongs to the selected turn",
-        required=False,
     )
 
     def __json__(self) -> dict[str, object]:
@@ -955,15 +822,14 @@ class AdminOperationCourseFollowUpDetailDTO(BaseModel):
     """Operator-facing course follow-up detail payload."""
 
     basic_info: AdminOperationCourseFollowUpDetailBasicInfoDTO = Field(
-        ..., description="Follow-up basic info", required=False
+        ..., description="Follow-up basic info"
     )
     current_record: AdminOperationCourseFollowUpCurrentRecordDTO = Field(
-        ..., description="Current follow-up record", required=False
+        ..., description="Current follow-up record"
     )
     timeline: list[AdminOperationCourseFollowUpTimelineItemDTO] = Field(
         default_factory=list,
         description="Follow-up timeline",
-        required=False,
     )
 
     def __json__(self) -> dict[str, object]:
