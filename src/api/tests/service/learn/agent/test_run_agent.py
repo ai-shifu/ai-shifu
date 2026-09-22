@@ -1361,3 +1361,49 @@ def test_the_same_words_earlier_in_the_turn_do_not_suppress_the_question() -> No
     )
     events = _run(engine)
     assert _contents(events)[-1] == "你会编程吗？"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_short_prompt_inside_a_longer_word_is_not_a_repetition() -> None:
+    """Matching characters is not matching what was said.
+
+    `rate` sits inside `separate`. Counted as a repetition, the lesson would drop the only place
+    it asks and leave the learner a set of controls with no question above them.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="We will separate the examples."),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["We will separate the examples.", "rate"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_narration_ended_on_is_a_repetition_in_english_too() -> None:
+    """A space between words must not hide the repetition it separates."""
+    engine = _Engine(
+        [
+            ContentDelta(text="So, can you code?"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="can you code?",
+                    options=[Option(display="yes", value="yes")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["So, can you code?"]

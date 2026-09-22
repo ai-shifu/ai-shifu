@@ -388,8 +388,33 @@ _ECHO_WINDOW_CHARS = 80
 
 
 def _condensed(text: str) -> str:
-    """Text with its whitespace removed, so a line break cannot hide a repetition."""
-    return re.sub(r"\s+", "", text)
+    """Text with each run of whitespace reduced to one space.
+
+    Reduced rather than removed: a space is what separates one word from the next in a written
+    language that uses them, and dropping it runs words together, so a match could straddle two
+    of them or land inside a third.
+    """
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _is_word_char(char: str) -> bool:
+    """Whether a character belongs to a word, an ideograph counting as one."""
+    return bool(char) and re.match(r"\w", char) is not None
+
+
+def _stands_alone(asked: str, window: str) -> bool:
+    """Whether `asked` occurs in `window` as itself, not buried inside a longer word.
+
+    Matching characters is not the same as matching what was said: a prompt reading `rate` is
+    contained in `separate`, and a lesson that had only mentioned separating examples would lose
+    the question it meant to ask, leaving the controls with nothing above them.
+    """
+    for match in re.finditer(re.escape(asked), window):
+        before = window[match.start() - 1] if match.start() else ""
+        after = window[match.end()] if match.end() < len(window) else ""
+        if not _is_word_char(before) and not _is_word_char(after):
+            return True
+    return False
 
 
 def _already_asked(taught: str, prompt: str) -> bool:
@@ -399,15 +424,16 @@ def _already_asked(taught: str, prompt: str) -> bool:
     and both reach the learner: a lesson that had just asked "the first question: can you code?"
     asked "can you code?" again, on its own line above the buttons.
 
-    Only the end of the narration counts. A question is suppressed because it was just asked, not
-    because those words appear somewhere in the turn -- dropping it on an earlier mention would
-    leave a set of choices with nothing to answer.
+    Two things narrow it, and both exist to protect the question rather than to catch the
+    repetition. Only the end of the narration counts, so words used earlier in the turn are not
+    mistaken for the question now in front of the learner. And the words must stand on their own,
+    so a short prompt is not swallowed by a longer word that happens to contain it.
     """
     asked = _condensed(prompt)
     if not asked:
         return False
     said = _condensed(taught)
-    return asked in said[-(len(asked) + _ECHO_WINDOW_CHARS) :]
+    return _stands_alone(asked, said[-(len(asked) + _ECHO_WINDOW_CHARS) :])
 
 
 def _question(
