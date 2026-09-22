@@ -46,6 +46,7 @@ from flaskr.service.learn.agent.legacy_protocol import (
 )
 from flaskr.service.learn.agent.lesson_record import (
     active_progress_record,
+    apply_outline_progression,
     claim_for_writing,
     mark_lesson_finished,
     record_turn_content,
@@ -61,6 +62,7 @@ from flaskr.service.learn.agent.session_store import (
     save_agent_session,
 )
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+from flaskr.service.learn.learn_funcs import resolve_outline_progression
 from flaskr.service.learn.memory import (
     MemoryUpdate,
     VariableMemoryUpdate,
@@ -388,8 +390,51 @@ _ECHO_WINDOW_CHARS = 80
 
 
 def _condensed(text: str) -> str:
-    """Text with its whitespace removed, so a line break cannot hide a repetition."""
-    return re.sub(r"\s+", "", text)
+    """Text with each run of whitespace reduced to one space.
+
+    Reduced rather than removed: a space is what separates one word from the next in a written
+    language that uses them, and dropping it runs words together, so a match could straddle two
+    of them or land inside a third.
+    """
+    return re.sub(r"\s+", " ", text).strip()
+
+
+# Scripts that do not put spaces between words: Chinese, Japanese and Korean. A question in one
+# of them routinely follows the phrase introducing it with nothing in between, so there is no
+# boundary to find, and demanding one would refuse every repetition this was written to catch --
+# on exactly the content the duplicate was reported on.
+_UNSPACED_SCRIPT = re.compile(
+    r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]"
+)
+
+
+def _joins_a_word(char: str) -> bool:
+    """Whether this character would be part of a word written in a space-delimited script."""
+    if not char or _UNSPACED_SCRIPT.match(char):
+        return False
+    return re.match(r"\w", char) is not None
+
+
+def _stands_alone(asked: str, said: str, start: int) -> bool:
+    """Whether `asked` occurs at or after `start` as itself, not buried inside a longer word.
+
+    Matching characters is not the same as matching what was said: a prompt reading `rate` is
+    contained in `separate`, and a lesson that had only mentioned separating examples would lose
+    the question it meant to ask, leaving the controls with nothing above them.
+
+    The whole of `said` is passed rather than the part being searched, because the character
+    before a match is what decides whether it stands alone, and where the search begins mid-word
+    that character is still there to be read. Given only the slice, a window opening inside
+    `separate` would see nothing to its left and call `rate` a word of its own.
+    """
+    for match in re.finditer(re.escape(asked), said[start:]):
+        at = start + match.start()
+        end = at + len(asked)
+        before = said[at - 1] if at else ""
+        after = said[end] if end < len(said) else ""
+        if not _joins_a_word(before) and not _joins_a_word(after):
+            return True
+    return False
 
 
 def _already_asked(taught: str, prompt: str) -> bool:
@@ -399,15 +444,17 @@ def _already_asked(taught: str, prompt: str) -> bool:
     and both reach the learner: a lesson that had just asked "the first question: can you code?"
     asked "can you code?" again, on its own line above the buttons.
 
-    Only the end of the narration counts. A question is suppressed because it was just asked, not
-    because those words appear somewhere in the turn -- dropping it on an earlier mention would
-    leave a set of choices with nothing to answer.
+    Two things narrow it, and both exist to protect the question rather than to catch the
+    repetition. Only the end of the narration counts, so words used earlier in the turn are not
+    mistaken for the question now in front of the learner. And the words must stand on their own,
+    so a short prompt is not swallowed by a longer word that happens to contain it.
     """
     asked = _condensed(prompt)
     if not asked:
         return False
     said = _condensed(taught)
-    return asked in said[-(len(asked) + _ECHO_WINDOW_CHARS) :]
+    start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
+    return _stands_alone(asked, said, start)
 
 
 def _question(
@@ -533,6 +580,51 @@ def _pieces(
             )
 
 
+def _outline_progression(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Report what the finished lesson changed in the outline, and write it down.
+
+    A preview changes nothing: the author is looking at a lesson, not taking one, and a preview
+    that ticked lessons off would rewrite the author's own progress through their course.
+
+    A failure here is not allowed to take the lesson down with it. The learner has finished it and
+    the turn is already saved; losing the outline update costs them a tick in the sidebar, while
+    raising would cost them the end of the lesson.
+    """
+    if preview_mode:
+        return
+    try:
+        updates = resolve_outline_progression(
+            app, shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+        )
+        if not updates:
+            return
+        apply_outline_progression(
+            app, user_bid=user_bid, shifu_bid=shifu_bid, updates=updates
+        )
+    except Exception:
+        app.logger.warning(
+            "could not advance the outline: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+            exc_info=True,
+        )
+        return
+    for update in updates:
+        yield RunMarkdownFlowDTO(
+            outline_bid=update.outline_bid,
+            generated_block_bid="",
+            type=GeneratedType.OUTLINE_ITEM_UPDATE,
+            content=update,
+        )
+
+
 def _stream_turn(
     app: Flask,
     *,
@@ -636,7 +728,7 @@ def _stream_turn(
             session = session_holder.get("session")
             if session is not None:
                 persisted = True
-                _persist(
+                kept = _persist(
                     app,
                     session,
                     memory=pending_memory,
@@ -649,6 +741,19 @@ def _stream_turn(
                     taught="".join(taught),
                 )
                 pending_memory = []
+                if session.finished and kept:  # not for a turn a reset discarded
+                    # Before the terminal event, because the browser stops reading the stream on
+                    # it. These are the only thing that ticks the lesson off in the outline, ends
+                    # the chapter it belonged to, and hands the learner on to what is next -- and
+                    # the only thing that tells the page the lesson is over, without which it
+                    # goes on asking for a continuation that does not exist.
+                    yield from _outline_progression(
+                        app,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=preview_mode,
+                    )
 
         try:
             yield from _on_this_page(
@@ -742,12 +847,17 @@ def _persist(
     progress_record_bid: str,
     generated_block_bid: str,
     taught: str,
-) -> None:
+) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
     `stage_memory` stages without committing and `save_agent_session` owns the transaction, so the
     two land together. Ordering them the other way would commit the session and leave the memory
     staged for whoever commits next.
+
+    Returns whether the turn was kept. A lesson reset while the turn ran discards it, and the
+    caller has to know: the outline changes that follow a finished lesson would otherwise be
+    applied on behalf of a turn that wrote nothing, putting back the completion the learner had
+    just cleared and carrying them past the lesson they had asked to take again.
     """
 
     def stage_everything() -> None:
@@ -811,3 +921,5 @@ def _persist(
             user_bid,
             outline_bid,
         )
+        return False
+    return True
