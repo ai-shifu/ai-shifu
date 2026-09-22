@@ -144,6 +144,11 @@ class Prompts:
         )
 
 
+def _visible_length(text: str) -> int:
+    """Count the characters of `text` a learner would actually see."""
+    return sum(1 for ch in text if not ch.isspace())
+
+
 def _text_of(messages: Iterable[object]) -> str:
     """Return the model's text in these messages, whitespace removed, in order."""
     return "".join(
@@ -406,6 +411,10 @@ class Engine:
         session.turn += 1
         # Text sent to the learner so far this turn, and whether text may still go out once the
         # model has called `finish` (settled the first time that call is seen).
+        #
+        # Whitespace does not count, the same rule `text_in_turn` applies to a `confirm`: a turn
+        # whose only output so far is a newline has presented the learner with nothing, and must
+        # not be the reason its closing line is withheld.
         delivered = 0
         speak_after_finish: bool | None = None
 
@@ -427,7 +436,7 @@ class Engine:
                     silent = deps.finished is not None and not speak_after_finish
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
                         if ev.part.content and not silent:
-                            delivered += len(ev.part.content)
+                            delivered += _visible_length(ev.part.content)
                             yield ContentDelta(text=ev.part.content)
                             if segmenter:
                                 for e in self._segment(
@@ -439,7 +448,7 @@ class Engine:
                         and isinstance(ev.delta, TextPartDelta)
                         and not silent
                     ):
-                        delivered += len(ev.delta.content_delta)
+                        delivered += _visible_length(ev.delta.content_delta)
                         yield ContentDelta(text=ev.delta.content_delta)
                         if segmenter:
                             for e in self._segment(
