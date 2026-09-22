@@ -95,3 +95,59 @@ def test_the_lesson_that_ended_is_always_the_first_thing_reported(bid: str) -> N
     """Its own completion is what the browser reads to stop asking for more."""
     plan = _plan(bid)
     assert plan[0] == (bid, LearnStatus.COMPLETED, False)
+
+
+def test_a_chapter_with_nothing_visible_in_it_is_stepped_over() -> None:
+    """A chapter holding no reachable lesson is not somewhere a learner can be handed to.
+
+    Stepping from one sibling to the next stopped at such a chapter and named it as the thing to
+    go to, so the lessons after it never came up and the learner was handed nowhere.
+    """
+    course = _chapter(
+        "course",
+        [
+            _chapter("ch1", [_lesson("l1")]),
+            _chapter("empty", [_lesson("h1"), _lesson("h2")]),
+            _chapter("ch3", [_lesson("l5")]),
+        ],
+    )
+    hidden = {
+        **dict.fromkeys(("ch1", "empty", "ch3", "l1", "l5"), False),
+        "h1": True,
+        "h2": True,
+    }
+    plan = plan_lesson_completion(course, "l1", hidden, {})
+    assert [(u.outline_bid, u.status) for u in plan] == [
+        ("l1", LearnStatus.COMPLETED),
+        ("ch1", LearnStatus.COMPLETED),
+        ("ch3", LearnStatus.IN_PROGRESS),
+        ("l5", LearnStatus.IN_PROGRESS),
+    ]
+
+
+def test_chapters_close_from_the_inside_out_and_open_from_the_outside_in() -> None:
+    """A lesson ends its own chapter before the part holding that chapter, and the reverse after.
+
+    The browser applies these in the order they arrive, so a chapter opened before the part it
+    sits in would be shown inside something still described as untouched.
+    """
+    course = _chapter(
+        "course",
+        [
+            _chapter("partA", [_chapter("ch1", [_lesson("l1")])]),
+            _chapter("partB", [_chapter("ch2", [_lesson("l2")])]),
+        ],
+    )
+    hidden = dict.fromkeys(
+        ("partA", "partB", "ch1", "ch2", "l1", "l2"),
+        False,
+    )
+    plan = plan_lesson_completion(course, "l1", hidden, {})
+    assert [(u.outline_bid, u.status) for u in plan] == [
+        ("l1", LearnStatus.COMPLETED),
+        ("ch1", LearnStatus.COMPLETED),
+        ("partA", LearnStatus.COMPLETED),
+        ("partB", LearnStatus.IN_PROGRESS),
+        ("ch2", LearnStatus.IN_PROGRESS),
+        ("l2", LearnStatus.IN_PROGRESS),
+    ]

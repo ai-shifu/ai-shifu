@@ -2172,26 +2172,29 @@ def resolve_outline_progression(
     if row is None:
         return []
     struct = HistoryItem.from_json(row.struct)
-    bids: list[str] = []
+    # By row, not by bid. One bid can have several rows kept at once -- a draft clone carries the
+    # bid over, and publishing writes a fresh row per node -- and the structure names the exact
+    # row it was built from, so asking by bid can answer from a revision never served.
+    bid_of_row: dict[int, str] = {}
     pending = [struct]
     while pending:
         item = pending.pop()
         if item.type == "outline":
-            bids.append(item.bid)
+            bid_of_row[item.id] = item.bid
         pending.extend(item.children)
     rows = (
         outline_model.query.with_entities(
-            outline_model.outline_item_bid, outline_model.hidden, outline_model.title
+            outline_model.id, outline_model.hidden, outline_model.title
         )
-        .filter(outline_model.outline_item_bid.in_(bids), outline_model.deleted == 0)
+        .filter(outline_model.id.in_(bid_of_row), outline_model.deleted == 0)
         .all()
     )
-    hidden = {bid: bool(is_hidden) for bid, is_hidden, _title in rows}
-    titles = {bid: title or "" for bid, _hidden, title in rows}
+    hidden = {bid_of_row[row]: bool(is_hidden) for row, is_hidden, _title in rows}
+    titles = {bid_of_row[row]: title or "" for row, _hidden, title in rows}
     app.logger.debug(
         "outline progression: shifu_bid=%s outline_bid=%s items=%d",
         shifu_bid,
         outline_bid,
-        len(bids),
+        len(bid_of_row),
     )
     return plan_lesson_completion(struct, outline_bid, hidden, titles)

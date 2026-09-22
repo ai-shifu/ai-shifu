@@ -67,19 +67,27 @@ def _visible_children(item: OutlineNode, hidden: dict[str, bool]) -> list[Outlin
     ]
 
 
-def _first_leaf(item: OutlineNode, hidden: dict[str, bool]) -> OutlineNode | None:
-    """Return the first lesson inside this item, descending through chapters."""
-    while not _leaf_or_none(item, hidden):
-        children = _visible_children(item, hidden)
-        if not children:
-            return None
-        item = children[0]
-    return item if not hidden.get(item.bid, True) else None
+def _visible_leaves(
+    struct: OutlineNode, hidden: dict[str, bool]
+) -> list[list[OutlineNode]]:
+    """List every lesson a learner can reach, in order, each with the path that leads to it.
 
-
-def _leaf_or_none(item: OutlineNode, hidden: dict[str, bool]) -> bool:
-    """Whether descending stops here, either because it is a lesson or because it is empty."""
-    return _is_leaf(item) or not _visible_children(item, hidden)
+    Built once and read twice, rather than stepping from one sibling to the next: a chapter whose
+    lessons are all hidden is nothing a learner can be handed to, and stepping would stop at it
+    and hand them nowhere. Here it simply contributes no lessons and the search carries on.
+    """
+    leaves: list[list[OutlineNode]] = []
+    stack = [(struct, [])]
+    while stack:
+        node, above = stack.pop()
+        path = [*above, node]
+        children = _visible_children(node, hidden)
+        if _is_leaf(node):
+            if not hidden.get(node.bid, True):
+                leaves.append(path)
+            continue
+        stack.extend((child, path) for child in reversed(children))
+    return leaves
 
 
 def plan_lesson_completion(
@@ -90,56 +98,44 @@ def plan_lesson_completion(
 ) -> list[OutlineItemUpdateDTO]:
     """Describe the outline changes a finished lesson causes, in the order they happen.
 
-    The lesson is marked complete. Each chapter it was the last visible lesson of is marked
-    complete with it, up the tree. Then the next visible lesson, wherever it sits, becomes the
-    one in progress, along with the chapters that had to be entered to reach it.
+    The lesson is marked complete. Every chapter the learner has now left is marked complete with
+    it, and every chapter they have to enter to reach the next lesson is marked as in progress,
+    followed by that lesson.
 
-    An unknown lesson, or a lesson that was the last one in the course, yields what it can: the
-    completions still stand, there is simply nothing to move on to.
+    Which chapters those are falls out of comparing two paths: a chapter the finished lesson sat
+    in and the next one does not is a chapter that has ended, and the other way round is one being
+    entered. Nothing has to be counted, and a chapter with nothing visible in it cannot be landed
+    on because it holds no lesson to land on.
+
+    An unknown lesson changes nothing. A lesson that was the last one in the course still
+    completes, along with everything it closed; there is simply nowhere to go.
     """
     path = _path_to(struct, outline_bid)
     if not path:
         return []
+    leaves = _visible_leaves(struct, hidden)
+    order = [leaf[-1].bid for leaf in leaves]
+    position = order.index(outline_bid) if outline_bid in order else -1
+    onward = (
+        leaves[position + 1] if position >= 0 and position + 1 < len(leaves) else []
+    )
+    left_behind = {node.bid for node in path[1:-1]}
+    ahead = {node.bid for node in onward[1:-1]}
     updates = [_completed(path[-1], titles)]
-    # Walk out through the ancestors: a chapter is over when the lesson that just ended was the
-    # last thing in it a learner could see. The first ancestor that still has something after it
-    # stops the walk, and is where the next lesson is looked for.
-    index = len(path) - 1
-    while index > 0:
-        parent = path[index - 1]
-        siblings = _visible_children(parent, hidden)
-        if path[index].bid not in [s.bid for s in siblings]:
-            break
-        position = [s.bid for s in siblings].index(path[index].bid)
-        if position < len(siblings) - 1:
-            updates.extend(
-                _entering(siblings[position + 1], hidden, titles, path[: index - 1])
-            )
-            return updates
-        if parent is struct:
-            break
-        updates.append(_completed(parent, titles))
-        index -= 1
-    return updates
-
-
-def _entering(
-    item: OutlineNode,
-    hidden: dict[str, bool],
-    titles: dict[str, str],
-    _ancestors: list[OutlineNode],
-) -> list[OutlineItemUpdateDTO]:
-    """Return the item the learner moves on to, and the chapters entered to reach it."""
-    updates: list[OutlineItemUpdateDTO] = []
-    while not _leaf_or_none(item, hidden):
-        updates.append(_in_progress(item, titles, has_children=True))
-        children = _visible_children(item, hidden)
-        if not children:
-            return updates
-        item = children[0]
-    if hidden.get(item.bid, True):
-        return updates
-    updates.append(_in_progress(item, titles, has_children=False))
+    # Innermost first: the chapter the lesson sat in ends before the one holding that chapter.
+    updates.extend(
+        _completed(node, titles)
+        for node in reversed(path[1:-1])
+        if node.bid not in ahead
+    )
+    # Outermost first: a chapter is entered before the chapter inside it.
+    updates.extend(
+        _in_progress(node, titles, has_children=True)
+        for node in onward[1:-1]
+        if node.bid not in left_behind
+    )
+    if onward:
+        updates.append(_in_progress(onward[-1], titles, has_children=False))
     return updates
 
 

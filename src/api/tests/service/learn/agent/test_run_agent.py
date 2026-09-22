@@ -1388,6 +1388,9 @@ class _LoggingApp:
         """Record a warning the way the app's logger would emit one."""
         self.warnings.append(message % args if args else message)
 
+    def info(self, message: str, *args: object, **_kwargs: object) -> None:
+        """Swallow an informational line, which no test asserts on."""
+
 
 def _finished_engine() -> _Engine:
     session = _Session()
@@ -1492,4 +1495,26 @@ def test_an_outline_that_cannot_be_read_does_not_cost_the_learner_the_lesson(
 
     monkeypatch.setattr(run_agent, "resolve_outline_progression", _boom)
     events = _run(_finished_engine(), app=_LoggingApp())
+    assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_turn_a_reset_discarded_does_not_advance_the_outline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The learner asked to take the lesson again; the turn in flight must not undo that.
+
+    A reset clears the progress the turn started from, and the turn is dropped. Advancing the
+    outline anyway would write the completion straight back and carry the learner past the lesson
+    they had just asked to retake.
+    """
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
+    asked: list[object] = []
+    monkeypatch.setattr(
+        run_agent,
+        "resolve_outline_progression",
+        lambda *_a, **_k: asked.append(1) or [],
+    )
+    events = _run(_finished_engine(), app=_LoggingApp())
+    assert asked == []
     assert [e.type for e in events] == [GeneratedType.DONE]

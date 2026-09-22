@@ -683,7 +683,7 @@ def _stream_turn(
             session = session_holder.get("session")
             if session is not None:
                 persisted = True
-                _persist(
+                kept = _persist(
                     app,
                     session,
                     memory=pending_memory,
@@ -696,7 +696,7 @@ def _stream_turn(
                     taught="".join(taught),
                 )
                 pending_memory = []
-                if session.finished:
+                if session.finished and kept:  # not for a turn a reset discarded
                     # Before the terminal event, because the browser stops reading the stream on
                     # it. These are the only thing that ticks the lesson off in the outline, ends
                     # the chapter it belonged to, and hands the learner on to what is next -- and
@@ -802,12 +802,17 @@ def _persist(
     progress_record_bid: str,
     generated_block_bid: str,
     taught: str,
-) -> None:
+) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
     `stage_memory` stages without committing and `save_agent_session` owns the transaction, so the
     two land together. Ordering them the other way would commit the session and leave the memory
     staged for whoever commits next.
+
+    Returns whether the turn was kept. A lesson reset while the turn ran discards it, and the
+    caller has to know: the outline changes that follow a finished lesson would otherwise be
+    applied on behalf of a turn that wrote nothing, putting back the completion the learner had
+    just cleared and carrying them past the lesson they had asked to take again.
     """
 
     def stage_everything() -> None:
@@ -871,3 +876,5 @@ def _persist(
             user_bid,
             outline_bid,
         )
+        return False
+    return True
