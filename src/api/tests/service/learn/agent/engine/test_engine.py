@@ -1077,3 +1077,89 @@ async def test_a_short_line_said_twice_is_not_the_end() -> None:
     second = await collect(engine.run_turn(session))
     assert second[-1].reason == "end"
     assert session.finished is False
+
+
+async def test_a_closing_line_written_after_finish_still_reaches_the_learner() -> None:
+    """Calling `finish` first and writing the closing line after it is still writing it.
+
+    Dropping everything after `finish` assumed the closing line always comes before the call.
+    Across 25 finished lessons on the simulation environment it did, but a model that orders
+    them the other way would leave the learner a turn with nothing in it at all.
+    """
+
+    async def finish_first(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield {
+            0: DeltaToolCall(
+                name="finish",
+                json_args=json.dumps({"summary": "done"}),
+                tool_call_id="f1",
+            )
+        }
+
+    async def then_write(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield "That is the end of the lesson.\n"
+
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        gen = (
+            finish_first(messages, _info)
+            if calls["n"] == 1
+            else then_write(messages, _info)
+        )
+        async for x in gen:
+            yield x
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert "That is the end of the lesson." in said
+    assert isinstance(events[-1], TurnDone)
+    assert events[-1].reason == "finished"
+
+
+async def test_a_newline_before_finish_does_not_withhold_the_closing_line() -> None:
+    """A turn whose only output so far is whitespace has shown the learner nothing.
+
+    Counting raw characters made a stray newline look like delivered content, so the closing
+    line written after `finish` was suppressed and the turn ended with a blank line for it.
+    """
+
+    async def blank_then_finish(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield "\n"
+        yield {
+            0: DeltaToolCall(
+                name="finish",
+                json_args=json.dumps({"summary": "done"}),
+                tool_call_id="f1",
+            )
+        }
+
+    async def closing(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield "That is the end of the lesson.\n"
+
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        gen = (
+            blank_then_finish(messages, _info)
+            if calls["n"] == 1
+            else closing(messages, _info)
+        )
+        async for x in gen:
+            yield x
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert "That is the end of the lesson." in said
