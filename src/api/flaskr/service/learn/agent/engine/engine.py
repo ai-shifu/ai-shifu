@@ -20,10 +20,13 @@ from pydantic_ai import (
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
+    ModelRequest,
+    ModelResponse,
     PartDeltaEvent,
     PartStartEvent,
     TextPart,
     TextPartDelta,
+    UserPromptPart,
 )
 
 if TYPE_CHECKING:
@@ -74,6 +77,18 @@ class StartTurn(BaseModel):
     """Begin the lesson."""
 
     type: Literal["start"] = "start"
+
+
+# What the host sends when a turn ended without a question and the lesson is being carried on.
+# The first line is the word the system prompt tells the model to expect. The rest is there
+# because a model that has delivered the whole script and is told only "continue" has nothing
+# left to deliver, and rather than say so it writes the last part over again -- a learner on the
+# simulation environment read a lesson's entire text twice and then watched it stop.
+CONTINUE_PROMPT = (
+    "continue\n\n"
+    "Deliver the next part of the script. If nothing in the script remains to be delivered, "
+    "do not write anything: call `finish`."
+)
 
 
 class ContinueTurn(BaseModel):
@@ -127,6 +142,51 @@ class Prompts:
             html_display=(PROMPTS_DIR / "html_display.md").read_text(),
             html_display_generic=(PROMPTS_DIR / "html_display_generic.md").read_text(),
         )
+
+
+def _visible_length(text: str) -> int:
+    """Count the characters of `text` a learner would actually see."""
+    return sum(1 for ch in text if not ch.isspace())
+
+
+def _text_of(messages: Iterable[object]) -> str:
+    """Return the model's text in these messages, whitespace removed, in order."""
+    return "".join(
+        "".join(part.content.split())
+        for message in messages
+        if isinstance(message, ModelResponse)
+        for part in message.parts
+        if isinstance(part, TextPart)
+    )
+
+
+# A repeat shorter than this is not taken as the end. A script can legitimately say the same
+# short thing twice in a row -- a drill line, a heading -- and a model delivering it faithfully
+# would repeat it. Across 5,884 published lessons, adjacent blocks with identical text number 15,
+# every one of them 1 to 3 characters; the lesson that repeated itself and stopped was 330. The
+# floor sits well clear of the first and well under the second.
+_REPEAT_FLOOR_CHARS = 40
+
+
+def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
+    """Whether the text written after `history_len` is the previous turn's text, again.
+
+    A turn begins with the user's prompt, so the previous turn is everything from the last user
+    prompt before `history_len` up to `history_len`. Empty on either side is not a repeat: a turn
+    that wrote nothing has not repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
+    """
+    now = _text_of(messages[history_len:])
+    if len(now) < _REPEAT_FLOOR_CHARS:
+        return False
+    start = 0
+    for index in range(history_len - 1, -1, -1):
+        message = messages[index]
+        if isinstance(message, ModelRequest) and any(
+            isinstance(part, UserPromptPart) for part in message.parts
+        ):
+            start = index
+            break
+    return now == _text_of(messages[start:history_len])
 
 
 class Engine:
@@ -327,7 +387,7 @@ class Engine:
             if isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(message="no interaction is pending")
                 return
-            prompt = turn.text if isinstance(turn, MessageTurn) else "continue"
+            prompt = turn.text if isinstance(turn, MessageTurn) else CONTINUE_PROMPT
         if prompt is not None and self.turn_limit and session.turn >= self.turn_limit:
             # Out of turns: end the lesson rather than teach another one. Marked finished so a
             # reload does not start it over, and reported as finished rather than as an error --
@@ -349,17 +409,34 @@ class Engine:
         segmenter = Segmenter() if session.listen_mode else None
         seg_state: dict[str, Any] = {"n": 0, "id": None, "narration": []}
         session.turn += 1
+        # Text sent to the learner so far this turn, and whether text may still go out once the
+        # model has called `finish` (settled the first time that call is seen).
+        #
+        # Whitespace does not count, the same rule `text_in_turn` applies to a `confirm`: a turn
+        # whose only output so far is a newline has presented the learner with nothing, and must
+        # not be the reason its closing line is withheld.
+        delivered = 0
+        speak_after_finish: bool | None = None
 
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
                 async for ev in events:
                     # Once the model has said the lesson is over, nothing more of its writing is
                     # the lesson. The tool result goes back to it like any other, so it takes
-                    # another turn and writes again -- and what it writes is usually the closing
-                    # line a second time, word for word, which is what the learner then read.
-                    said_goodbye = deps.finished is not None
+                    # another turn and writes again -- the closing line a second time, or a
+                    # farewell the script never asked for -- and that is not sent.
+                    #
+                    # Unless the turn has delivered nothing yet. A model that calls `finish`
+                    # first and writes the closing line after it has still written the closing
+                    # line, and a learner who is sent nothing for the turn has been robbed of
+                    # it. Decided once, when the call is first seen: deciding it per chunk would
+                    # let the first chunk through and cut the rest off mid-sentence.
+                    if deps.finished is not None and speak_after_finish is None:
+                        speak_after_finish = delivered == 0
+                    silent = deps.finished is not None and not speak_after_finish
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
-                        if ev.part.content and not said_goodbye:
+                        if ev.part.content and not silent:
+                            delivered += _visible_length(ev.part.content)
                             yield ContentDelta(text=ev.part.content)
                             if segmenter:
                                 for e in self._segment(
@@ -369,8 +446,9 @@ class Engine:
                     elif (
                         isinstance(ev, PartDeltaEvent)
                         and isinstance(ev.delta, TextPartDelta)
-                        and not said_goodbye
+                        and not silent
                     ):
+                        delivered += _visible_length(ev.delta.content_delta)
                         yield ContentDelta(text=ev.delta.content_delta)
                         if segmenter:
                             for e in self._segment(
@@ -442,6 +520,16 @@ class Engine:
                                 usage=session.usage,
                                 summary=deps.finished,
                             )
+                        elif isinstance(turn, ContinueTurn) and _repeats_previous_turn(
+                            session.messages, deps.history_len
+                        ):
+                            # Told to carry on, the model wrote the previous turn over again.
+                            # There is nothing left in the script for it to deliver, whether or
+                            # not it says so; carrying on again would only produce a third copy.
+                            # Only a host-initiated continue counts. A learner who asked for
+                            # something to be repeated has been given exactly what they asked for.
+                            session.finished = True
+                            yield TurnDone(reason="finished", usage=session.usage)
                         else:
                             yield TurnDone(reason="end", usage=session.usage)
         # Surface any failure to the host and keep the session usable.

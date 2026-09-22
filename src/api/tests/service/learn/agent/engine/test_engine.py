@@ -1,7 +1,7 @@
 """Engine tests driven by pydantic-ai's FunctionModel: no network, deterministic."""
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 
 import pytest
 from flaskr.service.learn.agent.engine import (
@@ -23,7 +23,12 @@ from flaskr.service.learn.agent.engine import (
     ToolCall,
     TurnDone,
 )
-from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ToolReturnPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 pytestmark = pytest.mark.anyio
@@ -976,3 +981,245 @@ async def test_a_closing_line_is_not_said_twice() -> None:
     events = await collect(engine.run_turn(session))
     said = "".join(e.text for e in events if isinstance(e, ContentDelta))
     assert said.count(closing) == 1, said
+
+
+# --- a lesson the model never says is over -------------------------------------------------
+
+
+def _repeating_model(
+    first: str, then: str
+) -> tuple[Callable[..., StreamChunks], list[str]]:
+    """Build a model that writes `first` on its first turn and `then` on every later one.
+
+    Also collects the text of each user prompt it was sent, so a test can read what the host
+    said when it carried the lesson on.
+    """
+    prompts: list[str] = []
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        prompts.extend(
+            p.content
+            for m in messages
+            if isinstance(m, ModelRequest)
+            for p in m.parts
+            if isinstance(p, UserPromptPart) and isinstance(p.content, str)
+        )
+        yield first if calls["n"] == 1 else then
+
+    return model, prompts
+
+
+async def test_a_continue_that_repeats_the_last_turn_ends_the_lesson() -> None:
+    """The script ran out and the model did not say so.
+
+    Told to continue, it wrote the whole previous turn again, and a learner on the simulation
+    environment read a lesson twice and then watched it stop with the lesson still described as
+    in progress. A repeat is the model's way of saying there is nothing left.
+    """
+    whole = "That is everything the script had to say, delivered once and in full.\n"
+    model, _ = _repeating_model(whole, whole)
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    first = await collect(engine.run_turn(session))
+    assert first[-1].reason == "end"
+    assert session.finished is False
+    second = await collect(engine.run_turn(session))
+    assert second[-1].reason == "finished"
+    assert session.finished is True
+
+
+async def test_a_continue_that_says_something_new_carries_on() -> None:
+    model, _ = _repeating_model("Part one.\n", "Part two.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+async def test_a_repeat_the_learner_asked_for_is_not_the_end() -> None:
+    """A learner who says "again?" and gets the explanation again got what they asked for."""
+    model, _ = _repeating_model("Once more.\n", "Once more.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session, MessageTurn(text="again?")))
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+async def test_carrying_on_tells_the_model_to_finish_if_nothing_remains() -> None:
+    """The word alone gave a model with nothing left nothing to do but write it again."""
+    model, prompts = _repeating_model("Part one.\n", "Part two.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session))
+    carried_on = prompts[-1]
+    assert carried_on.startswith("continue")
+    assert "`finish`" in carried_on
+
+
+async def test_a_short_line_said_twice_is_not_the_end() -> None:
+    """A script may say the same short thing twice in a row -- a drill, a heading.
+
+    A model delivering that faithfully repeats it, and ending the lesson there would drop
+    everything the script still had after it. Only a repeat long enough to be a turn's worth of
+    lesson counts; in 5,884 published lessons no adjacent identical blocks exceed 3 characters.
+    """
+    model, _ = _repeating_model("Repeat: hello.\n", "Repeat: hello.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+async def test_a_closing_line_written_after_finish_still_reaches_the_learner() -> None:
+    """Calling `finish` first and writing the closing line after it is still writing it.
+
+    Dropping everything after `finish` assumed the closing line always comes before the call.
+    Across 25 finished lessons on the simulation environment it did, but a model that orders
+    them the other way would leave the learner a turn with nothing in it at all.
+    """
+
+    async def finish_first(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield {
+            0: DeltaToolCall(
+                name="finish",
+                json_args=json.dumps({"summary": "done"}),
+                tool_call_id="f1",
+            )
+        }
+
+    async def then_write(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield "That is the end of the lesson.\n"
+
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        gen = (
+            finish_first(messages, _info)
+            if calls["n"] == 1
+            else then_write(messages, _info)
+        )
+        async for x in gen:
+            yield x
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert "That is the end of the lesson." in said
+    assert isinstance(events[-1], TurnDone)
+    assert events[-1].reason == "finished"
+
+
+async def test_a_newline_before_finish_does_not_withhold_the_closing_line() -> None:
+    """A turn whose only output so far is whitespace has shown the learner nothing.
+
+    Counting raw characters made a stray newline look like delivered content, so the closing
+    line written after `finish` was suppressed and the turn ended with a blank line for it.
+    """
+
+    async def blank_then_finish(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield "\n"
+        yield {
+            0: DeltaToolCall(
+                name="finish",
+                json_args=json.dumps({"summary": "done"}),
+                tool_call_id="f1",
+            )
+        }
+
+    async def closing(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield "That is the end of the lesson.\n"
+
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        gen = (
+            blank_then_finish(messages, _info)
+            if calls["n"] == 1
+            else closing(messages, _info)
+        )
+        async for x in gen:
+            yield x
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert "That is the end of the lesson." in said
+
+
+async def test_a_confirm_the_model_left_unlabelled_says_so_after_the_round_trip() -> (
+    None
+):
+    """The flag has to survive the JSON the engine hands the host, or it tells the host nothing.
+
+    A unit test that builds the spec directly cannot see this: the engine passes it through
+    `model_dump` and the host validates it back, and a field excluded from the dump arrives as
+    its default. This goes through the real deferred-tool path.
+    """
+
+    async def confirm_then_stop(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        if _last_tool_return(messages) is None:
+            yield "Read this first.\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps({"type": "confirm", "prompt": "Ready?"}),
+                    tool_call_id="c1",
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=confirm_then_stop))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert len(asked) == 1
+    assert asked[0].spec.labelled_by_engine is True
+    # And it survives being stored and loaded again with the session.
+    reloaded = Session.loads(session.dumps())
+    assert reloaded.pending[0].spec.labelled_by_engine is True
+
+
+async def test_a_confirm_the_model_labelled_itself_says_so_too() -> None:
+    async def labelled(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        if _last_tool_return(messages) is None:
+            yield "Read this first.\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "confirm",
+                            "prompt": "",
+                            "options": [{"display": "开始"}],
+                        }
+                    ),
+                    tool_call_id="c1",
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=labelled))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert asked[0].spec.labelled_by_engine is False
+    assert asked[0].spec.options[0].display == "开始"

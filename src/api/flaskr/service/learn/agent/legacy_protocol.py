@@ -33,7 +33,6 @@ from flaskr.service.learn.agent.engine.events import (
     TurnDone,
 )
 from flaskr.service.learn.agent.engine.interaction import (
-    DEFAULT_CONFIRM_LABEL,
     InteractionSpec,
     Option,
 )
@@ -165,9 +164,9 @@ def _in_the_learner_s_language(spec: InteractionSpec) -> InteractionSpec:
     Afterwards, a model that had written `Continue` itself would be indistinguishable from one
     that wrote nothing, and would have its own word swapped for the host's.
     """
-    if spec.type != "confirm" or not spec.options:
-        return spec
-    if spec.options[0].display != DEFAULT_CONFIRM_LABEL:
+    if spec.type != "confirm" or not spec.labelled_by_engine:
+        # Either the model named the button itself -- even if the word it chose is the same one
+        # the engine would have used -- or there is no button to name.
         return spec
     return InteractionSpec(
         type="confirm",
