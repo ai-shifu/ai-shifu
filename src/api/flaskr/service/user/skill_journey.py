@@ -102,7 +102,14 @@ def record_skill_journey_event(*, user_id: str, payload: object) -> dict[str, ob
                 )
                 db.session.flush()
         except IntegrityError:
-            existing = SkillJourneyEvent.query.filter_by(event_bid=event_bid).first()
+            # A plain read can remain on the pre-conflict REPEATABLE READ
+            # snapshot and miss the concurrent winner. Use a locking current
+            # read so duplicate delivery converges on the committed event.
+            existing = (
+                SkillJourneyEvent.query.filter_by(event_bid=event_bid)
+                .with_for_update()
+                .first()
+            )
             if existing is None:
                 raise
             same_event = (

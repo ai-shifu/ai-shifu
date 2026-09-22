@@ -420,6 +420,12 @@ def _record_decision(
             not payload.get("new_user_id") or payload.get("attribution_persisted")
         ):
             raise_error("server.user.deviceAuthAlreadyHandled")
+        if (
+            status == STATUS_APPROVED
+            and payload.get("new_user_id")
+            and payload.get("new_user_id") != str(user_id)
+        ):
+            raise_error("server.user.deviceAuthAccountMismatch")
 
         # Keep the remaining lifetime rather than extending it: deciding must
         # not widen the window in which the pairing code stays usable.

@@ -8,6 +8,7 @@
     "accountCancellationPreviewStale": "The account changed. Review the latest cancellation summary and try again.",
     "checkCodeError": "Image captcha is incorrect",
     "checkCodeExpired": "Image captcha expired",
+    "deviceAuthAccountMismatch": "Use the same account that completed registration to authorize this request.",
     "deviceAuthAlreadyHandled": "This authorization request has already been handled.",
     "deviceAuthTooManyRequests": "Too many authorization requests. Please try again later.",
     "deviceCodeInvalid": "The pairing code is invalid or has expired. Return to the app you were using and request access again.",

@@ -227,6 +227,54 @@ def test_repeated_approval_recovers_attribution_persistence_failure(
         assert collected["token"]
 
 
+def test_registration_attribution_rejects_approval_by_another_user(
+    app: object,
+) -> None:
+    registered_user_id = "test-user-bid-registration-owner"
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution={
+                "host_platform": "direct",
+                "skill_id": "ai-shifu-course-creator",
+                "skill_version": "1.0.0",
+                "handoff_id": "123e4567-e89b-12d3-a456-426614174007",
+            },
+        )
+        record_new_user_skill_attribution(
+            app,
+            user_code=started["user_code"],
+            user_id=registered_user_id,
+        )
+
+        with pytest.raises(AppError) as mismatch:
+            approve_device_authorization(
+                app,
+                user_code=started["user_code"],
+                user_id="test-user-bid-different-approver",
+            )
+        assert (
+            mismatch.value.code == ERROR_CODE["server.user.deviceAuthAccountMismatch"]
+        )
+        waiting = poll_device_authorization(
+            app,
+            device_code=started["device_code"],
+        )
+        assert waiting["status"] == STATUS_PENDING
+
+        approve_device_authorization(
+            app,
+            user_code=started["user_code"],
+            user_id=registered_user_id,
+        )
+        collected = poll_device_authorization(
+            app,
+            device_code=started["device_code"],
+        )
+        assert collected["status"] == STATUS_APPROVED
+        assert collected["token"]
+
+
 def test_token_can_only_be_collected_once(app: object) -> None:
     with app.test_request_context():
         started = _start(app)

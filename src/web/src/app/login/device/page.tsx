@@ -189,7 +189,7 @@ const DeviceAuthorizationContent = () => {
         );
         if (!ok) {
           setErrorMessage(message);
-          setPhase('error');
+          setPhase(pending ? 'confirm' : 'error');
           return;
         }
         setPhase(approve ? 'approved' : 'denied');
@@ -208,7 +208,7 @@ const DeviceAuthorizationContent = () => {
         );
       } catch (error) {
         setErrorMessage((error as Error)?.message || '');
-        setPhase('error');
+        setPhase(pending ? 'confirm' : 'error');
       } finally {
         setSubmitting(false);
       }
@@ -319,6 +319,10 @@ const DeviceAuthorizationContent = () => {
           <p className='text-sm text-muted-foreground'>
             {t('module.auth.deviceAuthWarning')}
           </p>
+
+          {errorMessage ? (
+            <p className='text-sm text-destructive'>{errorMessage}</p>
+          ) : null}
 
           <div className='flex gap-3'>
             <Button

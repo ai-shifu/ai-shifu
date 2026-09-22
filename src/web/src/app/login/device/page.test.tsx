@@ -71,6 +71,10 @@ describe('DeviceAuthorizationPage', () => {
     storeState = { isInitialized: true, isLoggedIn: true };
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('shows what is being authorized before asking for a decision', async () => {
     (api.deviceAuthPending as jest.Mock).mockResolvedValue(
       envelope(pendingDevice),
@@ -187,6 +191,29 @@ describe('DeviceAuthorizationPage', () => {
     expect(
       screen.queryByText('module.auth.deviceAuthApprovedTitle'),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.auth.deviceAuthApprove'),
+    ).toBeInTheDocument();
+  });
+
+  it('lets the same user retry after attribution persistence recovers', async () => {
+    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
+      envelope(pendingDevice),
+    );
+    (api.deviceAuthApprove as jest.Mock)
+      .mockResolvedValueOnce(envelope(null, 3000, 'database unavailable'))
+      .mockResolvedValueOnce(envelope({ status: 'approved' }));
+
+    render(<DeviceAuthorizationPage />);
+    fireEvent.click(await screen.findByText('module.auth.deviceAuthApprove'));
+
+    expect(await screen.findByText('database unavailable')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('module.auth.deviceAuthApprove'));
+
+    await waitFor(() => expect(api.deviceAuthApprove).toHaveBeenCalledTimes(2));
+    expect(
+      await screen.findByText('module.auth.deviceAuthApprovedTitle'),
+    ).toBeInTheDocument();
   });
 
   it('reports the prompt exposure once, without leaking the pairing code', async () => {

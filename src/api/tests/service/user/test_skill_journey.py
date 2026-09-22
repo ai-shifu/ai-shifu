@@ -11,6 +11,7 @@ from flaskr.service.user.skill_journey import (
     get_skill_attribution_report,
     record_skill_journey_event,
 )
+from sqlalchemy.dialects import mysql
 
 USER_ID = "skill-journey-user"
 EVENT_ID = "123e4567-e89b-12d3-a456-426614174010"
@@ -45,6 +46,18 @@ def test_event_is_idempotent_for_the_same_authenticated_user(app: object) -> Non
         assert first == {"accepted": True, "duplicate": False}
         assert second == {"accepted": True, "duplicate": True}
         assert SkillJourneyEvent.query.filter_by(event_bid=EVENT_ID).count() == 1
+
+
+def test_mysql_duplicate_recovery_supports_a_locking_current_read(app: object) -> None:
+    with app.app_context():
+        statement = (
+            SkillJourneyEvent.query.filter_by(event_bid=EVENT_ID)
+            .with_for_update()
+            .statement
+        )
+
+    compiled = str(statement.compile(dialect=mysql.dialect()))
+    assert "FOR UPDATE" in compiled
 
 
 def test_event_id_cannot_be_reused_for_different_evidence(app: object) -> None:

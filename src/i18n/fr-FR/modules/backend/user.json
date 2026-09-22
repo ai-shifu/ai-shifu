@@ -8,6 +8,7 @@
     "accountCancellationPreviewStale": "Le compte a changé. Vérifiez le nouveau récapitulatif et réessayez.",
     "checkCodeError": "Le captcha d'image est incorrect",
     "checkCodeExpired": "Le captcha d'image a expiré",
+    "deviceAuthAccountMismatch": "Utilisez le même compte que celui ayant terminé l’inscription pour autoriser cette demande.",
     "deviceAuthAlreadyHandled": "Cette demande d'autorisation a déjà été traitée.",
     "deviceAuthTooManyRequests": "Trop de demandes d'autorisation. Veuillez réessayer plus tard.",
     "deviceCodeInvalid": "Le code d’appairage est invalide ou a expiré. Retournez dans l’application que vous utilisiez et relancez la demande d’accès.",
