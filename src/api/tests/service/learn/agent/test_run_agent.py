@@ -1300,6 +1300,17 @@ def _contents(events: list) -> list[str]:
     return [str(e.content) for e in events if e.type == GeneratedType.CONTENT]
 
 
+def _narration(events: list) -> str:
+    """Return the turn's lesson text as one string.
+
+    The stream is cut wherever the network cut it, and the filter that watches for a question
+    typed into the narration may hold a character back across one of those cuts, so which piece
+    a passage arrives in is not something to assert on. Consecutive pieces are written as one
+    element, so the learner sees it whole either way.
+    """
+    return "".join(_contents(events))
+
+
 @pytest.mark.usefixtures("calls")
 def test_a_question_the_lesson_just_asked_is_not_asked_again() -> None:
     """The model writes the question into the lesson and passes it to `interact` as well.
@@ -1416,7 +1427,7 @@ def test_a_question_the_narration_ended_on_is_a_repetition_in_english_too() -> N
         ]
     )
     events = _run(engine)
-    assert _contents(events) == ["So, can you code?"]
+    assert _narration(events) == "So, can you code?"
 
 
 @pytest.mark.usefixtures("calls")
@@ -1656,4 +1667,83 @@ def test_a_line_break_inside_the_question_does_not_hide_the_repetition() -> None
             TurnDone(reason="interaction"),
         ]
     )
-    assert _contents(_run(engine)) == ["One last thing. Can you\ncode?"]
+    assert _narration(_run(engine)) == "One last thing. Can you\ncode?"
+
+
+# --- a question the model typed instead of asking for one ----------------------------------
+
+
+def _interactions(events: list) -> list[str]:
+    return [str(e.content) for e in events if e.type == GeneratedType.INTERACTION]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_typed_into_the_narration_is_asked_as_a_question() -> None:
+    """The model writes the notation instead of calling the tool: 11 of 12 turns that carried it.
+
+    The browser renders any `?[...]` it finds in content, so the learner saw controls and could
+    press them -- but the turn ended on text, which is the host's signal to carry on, and the
+    lesson ran past its own question while the learner was still reading it.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="想清楚再选。?[A. 可复现 | B. 防电脑坏 | C. 形式主义]"),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine)
+    assert _narration(events) == "想清楚再选。"
+    assert _interactions(events) == ["?[A. 可复现 | B. 防电脑坏 | C. 形式主义]"]
+    # The last thing the browser is shown, so nothing reads the turn as one to carry on from.
+    # The boundary event after it is suppressed on the way out; it is what closes the block.
+    shown = [
+        e.type
+        for e in events
+        if e.type not in (GeneratedType.BREAK, GeneratedType.DONE)
+    ]
+    assert shown[-1] == GeneratedType.INTERACTION
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_typed_alongside_a_real_one_is_dropped() -> None:
+    """Writing it *and* calling the tool put two sets of controls up, the question between them.
+
+    The tool call is the question the engine is waiting on an answer to; the typed copy answers
+    to nothing.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="先来一道。?[%{{对照组}}甲 | 乙]请选择一项："),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="",
+                    options=[
+                        Option(display="甲", value="甲"),
+                        Option(display="乙", value="乙"),
+                    ],
+                    variable="对照组",
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _narration(events) == "先来一道。请选择一项："
+    assert len(_interactions(events)) == 1
+    assert "对照组" in _interactions(events)[0]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_lesson_about_the_notation_may_show_the_notation() -> None:
+    """An escaped opener is text by the grammar's own rule, and a lesson may teach it."""
+    engine = _Engine(
+        [
+            ContentDelta(text="交互这样写：\\?[甲 | 乙]"),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine)
+    assert _narration(events) == "交互这样写：\\?[甲 | 乙]"
+    assert _interactions(events) == []
