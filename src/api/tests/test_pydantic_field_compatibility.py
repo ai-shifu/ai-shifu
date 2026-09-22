@@ -19,7 +19,7 @@ from flaskr.service.shifu.admin_dtos_users import (
 from pydantic import ValidationError
 
 API_ROOT = Path(__file__).resolve().parents[1]
-SERVICE_ROOT = API_ROOT / "flaskr" / "service"
+FLASKR_ROOT = API_ROOT / "flaskr"
 
 PYDANTIC_DTO_MODULES = (
     "flaskr.service.dashboard.dtos",
@@ -63,7 +63,7 @@ def _is_pydantic_field_call(
 
 def _deprecated_required_counts() -> Counter[Path]:
     counts: Counter[Path] = Counter()
-    for source_path in SERVICE_ROOT.rglob("*.py"):
+    for source_path in FLASKR_ROOT.rglob("*.py"):
         tree = ast.parse(source_path.read_text(encoding="utf-8"), source_path)
         direct_names, module_names = _pydantic_field_names(tree)
         for node in ast.walk(tree):
@@ -72,12 +72,12 @@ def _deprecated_required_counts() -> Counter[Path]:
             ):
                 continue
             if any(keyword.arg == "required" for keyword in node.keywords):
-                counts[source_path.relative_to(SERVICE_ROOT)] += 1
+                counts[source_path.relative_to(FLASKR_ROOT)] += 1
     return counts
 
 
 def test_pydantic_field_required_has_no_remaining_debt() -> None:
-    """Reject deprecated required metadata throughout backend services."""
+    """Reject deprecated Pydantic required metadata throughout flaskr."""
     assert _deprecated_required_counts() == Counter()
 
 
