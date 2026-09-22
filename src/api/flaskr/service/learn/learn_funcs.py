@@ -2143,3 +2143,58 @@ def stream_preview_tts_audio(
             unknown_error_log="Preview TTS streaming failed",
             body=_generate_preview_audio,
         )
+
+
+def resolve_outline_progression(
+    app: Flask, *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> list:
+    """Read the course outline and work out what a finished 2.0 lesson changed in it.
+
+    Here rather than beside the rest of the 2.0 lesson code because reading a course's outline is
+    this service's business with the course service, already done a few lines up for the learner's
+    own outline. Deciding what the change means is a walk over a tree and lives on its own in
+    `agent/outline_progression.py`, which knows nothing about either service.
+
+    The outline comes from the same table the learner's own outline does, so they are advanced
+    through the outline they were served rather than a different version of it.
+    """
+    from flaskr.service.learn.agent.outline_progression import plan_lesson_completion
+
+    struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
+    outline_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
+    row = (
+        struct_model.query.filter(
+            struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
+        )
+        .order_by(struct_model.id.desc())
+        .first()
+    )
+    if row is None:
+        return []
+    struct = HistoryItem.from_json(row.struct)
+    # By row, not by bid. One bid can have several rows kept at once -- a draft clone carries the
+    # bid over, and publishing writes a fresh row per node -- and the structure names the exact
+    # row it was built from, so asking by bid can answer from a revision never served.
+    bid_of_row: dict[int, str] = {}
+    pending = [struct]
+    while pending:
+        item = pending.pop()
+        if item.type == "outline":
+            bid_of_row[item.id] = item.bid
+        pending.extend(item.children)
+    rows = (
+        outline_model.query.with_entities(
+            outline_model.id, outline_model.hidden, outline_model.title
+        )
+        .filter(outline_model.id.in_(bid_of_row), outline_model.deleted == 0)
+        .all()
+    )
+    hidden = {bid_of_row[row]: bool(is_hidden) for row, is_hidden, _title in rows}
+    titles = {bid_of_row[row]: title or "" for row, _hidden, title in rows}
+    app.logger.debug(
+        "outline progression: shifu_bid=%s outline_bid=%s items=%d",
+        shifu_bid,
+        outline_bid,
+        len(bid_of_row),
+    )
+    return plan_lesson_completion(struct, outline_bid, hidden, titles)
