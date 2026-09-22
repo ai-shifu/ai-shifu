@@ -39,7 +39,8 @@ def learner(app: object) -> str:
         db.session.commit()
 
 
-def _record(user_bid: str, outline_bid: str, status: int) -> None:
+def _record(user_bid: str, outline_bid: str, status: int) -> str:
+    """Seed one progress record and return its identifier."""
     record = LearnProgressRecord()
     record.progress_record_bid = uuid.uuid4().hex
     record.user_bid = user_bid
@@ -48,6 +49,7 @@ def _record(user_bid: str, outline_bid: str, status: int) -> None:
     record.status = status
     record.block_position = 0
     db.session.add(record)
+    return record.progress_record_bid
 
 
 def _live_status(user_bid: str, outline_bid: str) -> int | None:
@@ -88,22 +90,29 @@ def _in_progress(bid: str, *, has_children: bool = False) -> OutlineItemUpdateDT
     )
 
 
-def _apply(app: object, user_bid: str, updates: list[OutlineItemUpdateDTO]) -> bool:
+def _apply(
+    app: object,
+    user_bid: str,
+    updates: list[OutlineItemUpdateDTO],
+    progress_record_bid: str = "",
+) -> bool:
+    """Apply the updates on behalf of the turn that was taught against `progress_record_bid`."""
     return apply_outline_progression(
         app,
         user_bid=user_bid,
         shifu_bid=SHIFU,
         outline_bid=LESSON,
+        progress_record_bid=progress_record_bid,
         updates=updates,
     )
 
 
 def test_the_finished_lesson_is_recorded_complete(app: object, learner: str) -> None:
     with app.app_context():
-        _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
+        taught = _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
         db.session.commit()
 
-        assert _apply(app, learner, [_completed(LESSON)]) is True
+        assert _apply(app, learner, [_completed(LESSON)], taught) is True
 
         assert _live_status(learner, LESSON) == LEARN_STATUS_COMPLETED
 
@@ -111,10 +120,10 @@ def test_the_finished_lesson_is_recorded_complete(app: object, learner: str) -> 
 def test_the_lesson_handed_to_is_recorded_as_started(app: object, learner: str) -> None:
     """The next lesson has no record yet; one is created so the outline knows it began."""
     with app.app_context():
-        _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
+        taught = _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
         db.session.commit()
 
-        _apply(app, learner, [_completed(LESSON), _in_progress(NEXT)])
+        _apply(app, learner, [_completed(LESSON), _in_progress(NEXT)], taught)
 
         assert _live_status(learner, LESSON) == LEARN_STATUS_COMPLETED
         assert _live_status(learner, NEXT) == LEARN_STATUS_IN_PROGRESS
@@ -125,11 +134,11 @@ def test_a_lesson_already_finished_is_not_reopened_by_being_handed_to(
 ) -> None:
     """The learner may be revisiting an earlier lesson; its completion must survive that."""
     with app.app_context():
-        _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
+        taught = _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
         _record(learner, NEXT, LEARN_STATUS_COMPLETED)
         db.session.commit()
 
-        _apply(app, learner, [_completed(LESSON), _in_progress(NEXT)])
+        _apply(app, learner, [_completed(LESSON), _in_progress(NEXT)], taught)
 
         assert _live_status(learner, NEXT) == LEARN_STATUS_COMPLETED
 
@@ -137,7 +146,7 @@ def test_a_lesson_already_finished_is_not_reopened_by_being_handed_to(
 def test_chapters_get_records_of_their_own(app: object, learner: str) -> None:
     """The outline reads a chapter's state from the chapter's record; nothing else writes it."""
     with app.app_context():
-        _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
+        taught = _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
         db.session.commit()
 
         _apply(
@@ -149,6 +158,7 @@ def test_chapters_get_records_of_their_own(app: object, learner: str) -> None:
                 _in_progress(NEXT_CHAPTER, has_children=True),
                 _in_progress(NEXT),
             ],
+            taught,
         )
 
         assert _live_status(learner, CHAPTER) == LEARN_STATUS_COMPLETED
@@ -165,10 +175,13 @@ def test_a_lesson_reset_after_its_turn_committed_is_not_completed_again(
     handed on to the next lesson as well. Now nothing is written and the caller is told so.
     """
     with app.app_context():
-        _record(learner, LESSON, LEARN_STATUS_RESET)
+        taught = _record(learner, LESSON, LEARN_STATUS_RESET)
         db.session.commit()
 
-        assert _apply(app, learner, [_completed(LESSON), _in_progress(NEXT)]) is False
+        assert (
+            _apply(app, learner, [_completed(LESSON), _in_progress(NEXT)], taught)
+            is False
+        )
 
         assert _live_status(learner, LESSON) is None
         assert len(_rows(learner, LESSON)) == 1
@@ -180,6 +193,28 @@ def test_a_lesson_with_no_record_at_all_is_not_invented(
 ) -> None:
     """Same gap, older data: a lesson the reset deleted outright rather than marked."""
     with app.app_context():
-        assert _apply(app, learner, [_completed(LESSON)]) is False
+        assert _apply(app, learner, [_completed(LESSON)], uuid.uuid4().hex) is False
 
         assert _rows(learner, LESSON) == []
+
+
+def test_a_restart_is_not_completed_by_the_turn_before_it(
+    app: object, learner: str
+) -> None:
+    """A learner who resets and starts again must not have the new attempt finished for them.
+
+    The old turn commits, the learner resets and begins again, and only then does the old turn
+    reach this. Asking for whichever record is live would find the new attempt and complete it,
+    carrying the learner past a lesson they had just started over.
+    """
+    with app.app_context():
+        taught = _record(learner, LESSON, LEARN_STATUS_RESET)
+        _record(learner, LESSON, LEARN_STATUS_IN_PROGRESS)
+        db.session.commit()
+
+        assert (
+            _apply(app, learner, [_completed(LESSON), _in_progress(NEXT)], taught)
+            is False
+        )
+        assert _live_status(learner, LESSON) == LEARN_STATUS_IN_PROGRESS
+        assert _live_status(learner, NEXT) is None

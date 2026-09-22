@@ -32,19 +32,32 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
-def _live_progress_record(
-    *, user_bid: str, shifu_bid: str, outline_bid: str
+def _this_turn_s_record(
+    *, user_bid: str, shifu_bid: str, outline_bid: str, progress_record_bid: str
 ) -> LearnProgressRecord | None:
-    """Return the learner's live progress record for this lesson, or None if there is none."""
+    """Return the record this turn was taught against, still live, locked until this commits.
+
+    Named, not merely live. A learner who resets and starts again leaves a second record behind
+    the first, and a turn from before the reset that asked only for "the live one" would find
+    the new attempt and complete it -- finishing a lesson the learner had just started over and
+    carrying them past it.
+
+    Locked for the same reason `claim_for_writing` locks: a reset can otherwise commit between
+    the read and the write, so the read sees a live lesson and the write lands after the reset,
+    putting back the completion the learner had just cleared.
+    """
+    if not progress_record_bid:
+        return None
     return (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid == outline_bid,
+            LearnProgressRecord.progress_record_bid == progress_record_bid,
             LearnProgressRecord.deleted == 0,
             LearnProgressRecord.status != LEARN_STATUS_RESET,
         )
-        .order_by(LearnProgressRecord.id.desc())
+        .with_for_update()
         .first()
     )
 
@@ -57,8 +70,16 @@ def active_progress_record(
     Staged, not committed: the caller owns the transaction, so the record lands with the session
     and the turn's elements or not at all.
     """
-    record = _live_progress_record(
-        user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+    record = (
+        LearnProgressRecord.query.filter(
+            LearnProgressRecord.user_bid == user_bid,
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.outline_item_bid == outline_bid,
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        )
+        .order_by(LearnProgressRecord.id.desc())
+        .first()
     )
     if record is not None:
         return record
@@ -201,6 +222,7 @@ def apply_outline_progression(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
+    progress_record_bid: str,
     updates: list[OutlineItemUpdateDTO],
 ) -> bool:
     """Record the outline changes a finished lesson caused, so a reload agrees with the page.
@@ -224,8 +246,11 @@ def apply_outline_progression(
     them on this path, and a reset does not touch them.
     """
     with app_context_scope(app), unit_of_work():
-        lesson = _live_progress_record(
-            user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        lesson = _this_turn_s_record(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
         )
         if lesson is None:
             app.logger.warning(

@@ -586,6 +586,7 @@ def _outline_progression(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
+    progress_record_bid: str,
     preview_mode: bool,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Report what the finished lesson changed in the outline, and write it down.
@@ -614,6 +615,7 @@ def _outline_progression(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
             updates=updates,
         )
     except Exception:
@@ -762,6 +764,7 @@ def _stream_turn(
                         user_bid=user_bid,
                         shifu_bid=shifu_bid,
                         outline_bid=outline_bid,
+                        progress_record_bid=progress_record_bid,
                         preview_mode=preview_mode,
                     )
 
