@@ -717,6 +717,16 @@ _LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, objec
     ("glm", "glm-5.1"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-5-code"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-5.2"): _ZAI_DISABLED_THINKING_PATCH,
+    ("qwen", "glm-5.3"): {
+        "reasoning_effort": "low",
+        "allowed_openai_params": ["reasoning_effort"],
+        "additional_drop_params": ["enable_thinking"],
+    },
+    ("qwen", "glm-5.3-flash"): {
+        "reasoning_effort": "low",
+        "allowed_openai_params": ["reasoning_effort"],
+        "additional_drop_params": ["enable_thinking"],
+    },
     ("qwen", "zhipu/glm-5.3"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],

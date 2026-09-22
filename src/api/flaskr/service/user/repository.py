@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 STATE_MAPPING = {
+    3: USER_STATE_PAID,
     USER_STATE_UNREGISTERED: USER_STATE_UNREGISTERED,
     USER_STATE_REGISTERED: USER_STATE_REGISTERED,
     USER_STATE_TRAIL: USER_STATE_TRAIL,
@@ -679,7 +680,7 @@ def _normalize_user_state(raw_state: object) -> int:
     if raw_state is None:
         return USER_STATE_UNREGISTERED
 
-    # direct mapping (covers 0-3 and string variations we added)
+    # Direct mapping covers canonical states and the legacy public paid value.
     if raw_state in STATE_MAPPING:
         return STATE_MAPPING[raw_state]
 

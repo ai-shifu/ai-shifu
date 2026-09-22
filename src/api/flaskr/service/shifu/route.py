@@ -58,11 +58,16 @@ from flaskr.api.llm.model_selection import (
     selection_model,
 )
 from flaskr.common.config import get_config
+from flaskr.common.http import sensitive_body
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import _, get_current_language, set_language
-from flaskr.route.common import bypass_token_validation, fmt, make_common_response
+from flaskr.route.common import (
+    bypass_token_validation,
+    fmt,
+    make_common_response,
+)
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import (
     admit_creator_preview_usage,
@@ -139,6 +144,7 @@ from flaskr.service.user.repository import (
 from flaskr.service.user.utils import (
     get_user_language,
 )
+from werkzeug.datastructures import FileStorage
 
 from .funcs import (
     get_video_info,
@@ -160,6 +166,14 @@ class ShifuPermission(Enum):
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+
+
+def _read_bounded_upload(file: FileStorage, *, max_bytes: int) -> bytes:
+    """Read at most one overflow byte so oversized uploads stay memory-bounded."""
+    content = file.stream.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise_param_error("audio file is too large")
+    return content
 
 
 class ShifuTokenValidation:
@@ -912,7 +926,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/favorite", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
     @with_shifu_context()
-    def mark_favorite_shifu_api() -> str:
+    def mark_favorite_shifu_api(shifu_bid: str) -> str:
         """Mark favorite shifu.
 
         ---
@@ -949,7 +963,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     description: is favorite
         """
         user_id = request.user.user_id
-        shifu_bid = request.view_args.get("shifu_bid")
         is_favorite = request.get_json().get("is_favorite")
         if isinstance(is_favorite, str):
             is_favorite = is_favorite.lower() == "true"
@@ -2426,10 +2439,15 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             }
         )
 
+    from flaskr.service.tts.api import MINIMAX_CLONE_REQUEST_MAX_BYTES
+
     @app.route(path_prefix + "/tts/minimax/voices/clone", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
+    @sensitive_body(max_bytes=MINIMAX_CLONE_REQUEST_MAX_BYTES)
     def clone_minimax_tts_voice_api() -> Response:
         from flaskr.service.tts.api import (
+            MINIMAX_CLONE_PROMPT_MAX_BYTES,
+            MINIMAX_CLONE_SOURCE_MAX_BYTES,
             serialize_minimax_cloned_voice,
             submit_minimax_voice_clone,
         )
@@ -2444,13 +2462,23 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             shifu_bid=(request.form.get("shifu_bid") or "").strip(),
             display_name=(request.form.get("display_name") or "").strip(),
             voice_id=(request.form.get("voice_id") or "").strip(),
-            source_audio_bytes=source_file.read(),
+            source_audio_bytes=_read_bounded_upload(
+                source_file,
+                max_bytes=MINIMAX_CLONE_SOURCE_MAX_BYTES,
+            ),
             source_filename=source_file.filename or "recording.webm",
             source_content_type=source_file.content_type or "",
             source_capture_method=(
                 request.form.get("source_capture_method") or "upload"
             ).strip(),
-            prompt_audio_bytes=prompt_file.read() if prompt_file is not None else None,
+            prompt_audio_bytes=(
+                _read_bounded_upload(
+                    prompt_file,
+                    max_bytes=MINIMAX_CLONE_PROMPT_MAX_BYTES,
+                )
+                if prompt_file is not None
+                else None
+            ),
             prompt_filename=prompt_file.filename if prompt_file is not None else "",
             prompt_content_type=(
                 prompt_file.content_type if prompt_file is not None else ""

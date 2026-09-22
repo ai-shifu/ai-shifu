@@ -54,6 +54,12 @@ class TokenStoreProvider:
         prefix = app.config.get("REDIS_KEY_PREFIX_USER", "ai-shifu:user:")
         return f"{prefix}{token}"
 
+    def discard_uncommitted(self, app: Flask, token: str) -> None:
+        """Remove cache state when the transaction that owns a token fails."""
+        with contextlib.suppress(Exception):
+            self._cache.delete(self._cache_key(app, token))
+            self._cache.delete(self._refresh_marker_key(app, token))
+
     def save(
         self,
         app: Flask,

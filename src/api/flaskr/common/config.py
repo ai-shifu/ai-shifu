@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 from flask import Config as FlaskConfig
 from flask import Flask
 
+from flaskr.common.client_ip import validate_trusted_proxy_cidrs
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -1026,6 +1028,17 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Redis key prefix",
         group="redis",
     ),
+    "TRUSTED_PROXY_CIDRS": EnvVar(
+        name="TRUSTED_PROXY_CIDRS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated nginx/CDN proxy networks allowed to supply "
+            "X-Forwarded-For; empty trusts no proxy"
+        ),
+        group="network",
+        validator=validate_trusted_proxy_cidrs,
+    ),
     # Celery Configuration
     "CELERY_BROKER_URL": EnvVar(
         name="CELERY_BROKER_URL",
@@ -1114,6 +1127,54 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         type=int,
         description="Token expiration time in seconds",
         group="auth",
+    ),
+    "PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
+        default=900,
+        type=int,
+        description="Fixed window for counting failed password sign-in attempts",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_MAX_FAILURES": EnvVar(
+        name="PASSWORD_LOGIN_MAX_FAILURES",
+        default=10,
+        type=int,
+        description="Failed password attempts before an account enters cooldown",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_COOLDOWN_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_COOLDOWN_SECONDS",
+        default=600,
+        type=int,
+        description="Password sign-in cooldown after too many failed attempts",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS",
+        default=30,
+        type=int,
+        description="Renewable Redis lock lease for one account sign-in",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_LOCK_WAIT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_LOCK_WAIT_SECONDS",
+        default=5,
+        type=int,
+        description="Maximum wait to serialize one account sign-in",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS",
+        default=1,
+        type=int,
+        description="Redis connect and read timeout for password sign-in protection",
+        group="auth",
+        validator=lambda value: int(value) > 0,
     ),
     "DEVICE_AUTH_EXPIRE_TIME": EnvVar(
         name="DEVICE_AUTH_EXPIRE_TIME",

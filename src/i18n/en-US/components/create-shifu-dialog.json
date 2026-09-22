@@ -1,6 +1,5 @@
 {
   "__namespace__": "component.createShifuDialog",
-  "create": "Create",
   "creating": "Creating...",
   "descriptionLabel": "Course Description",
   "descriptionMaxLength": "Course description cannot exceed 500 characters",
@@ -8,6 +7,5 @@
   "nameLabel": "Course Name",
   "nameMaxLength": "Course name cannot exceed {maxLength} characters",
   "namePlaceholder": "Please input course name",
-  "nameRequired": "Course name cannot be empty",
-  "title": "Create New Course"
+  "nameRequired": "Course name cannot be empty"
 }

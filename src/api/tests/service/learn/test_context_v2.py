@@ -1,7 +1,6 @@
 # ruff: noqa: E402
 """Verify learning-context outline navigation and failure handling."""
 
-import asyncio
 import sys
 import threading
 import time
@@ -163,10 +162,6 @@ class _FakeLangfuseTrace:
         self.updated = kwargs
 
 
-_HAS_COLLECT_ASYNC = hasattr(RunScriptContextV2, "_collect_async_generator")
-_HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
-
-
 class OutlinePathGuardTests(unittest.TestCase):
     """Verify outline path guard behavior."""
 
@@ -219,64 +214,6 @@ class OutlinePathGuardTests(unittest.TestCase):
             _find_outline_path_or_raise(root, "missing-outline")
 
         raise_error_mock.assert_called_once_with("server.shifu.lessonNotFoundInCourse")
-
-
-@unittest.skipIf(
-    not _HAS_COLLECT_ASYNC,
-    "_collect_async_generator helper removed in current architecture.",
-)
-class CollectAsyncGeneratorTests(unittest.TestCase):
-    """Verify collect async generator behavior."""
-
-    def test_without_running_loop(self) -> None:
-        ctx = _make_context()
-
-        async def sample() -> object:
-            yield "one"
-            yield "two"
-
-        result = ctx._collect_async_generator(sample)
-
-        assert result == ["one", "two"]
-
-    def test_inside_running_loop(self) -> None:
-        ctx = _make_context()
-
-        async def sample() -> object:
-            yield "alpha"
-
-        async def runner() -> None:
-            result = ctx._collect_async_generator(sample)
-            assert result == ["alpha"]
-
-        asyncio.run(runner())
-
-
-@unittest.skipIf(
-    not _HAS_RUN_ASYNC,
-    "_run_async_in_safe_context helper removed in current architecture.",
-)
-class RunAsyncInSafeContextTests(unittest.TestCase):
-    """Verify run async in safe context behavior."""
-
-    def test_without_running_loop(self) -> None:
-        ctx = _make_context()
-
-        async def sample() -> object:
-            return "result"
-
-        assert ctx._run_async_in_safe_context(sample) == "result"
-
-    def test_inside_running_loop(self) -> None:
-        ctx = _make_context()
-
-        async def sample() -> object:
-            return "loop"
-
-        async def runner() -> None:
-            assert ctx._run_async_in_safe_context(sample) == "loop"
-
-        asyncio.run(runner())
 
 
 class NextChapterInteractionTests(unittest.TestCase):

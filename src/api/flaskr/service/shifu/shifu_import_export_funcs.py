@@ -201,7 +201,11 @@ def import_shifu(
             raise_error("server.shifu.importFileInvalid")
 
         # Validate import data
-        if "shifu" not in import_data or "outline_items" not in import_data:
+        if (
+            not isinstance(import_data, dict)
+            or "shifu" not in import_data
+            or "outline_items" not in import_data
+        ):
             raise_error("server.shifu.importFileInvalid")
 
         shifu_data = import_data["shifu"]

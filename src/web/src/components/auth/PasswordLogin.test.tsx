@@ -173,6 +173,35 @@ describe('PasswordLogin', () => {
     expect(delivered).not.toContain('private provider response');
   });
 
+  it('records password cooldowns as a bounded rate-limited outcome', async () => {
+    mockLoginPassword.mockResolvedValue({
+      code: 1039,
+      message: 'private cooldown response',
+    });
+
+    render(<PasswordLogin onLoginSuccess={jest.fn()} />);
+    fireEvent.change(screen.getByLabelText('module.auth.identifier'), {
+      target: { value: 'private-user' },
+    });
+    fireEvent.change(screen.getByLabelText('module.auth.password'), {
+      target: { value: 'private-password' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith('learner_login_result', {
+        login_method: 'password',
+        outcome: 'failed',
+        failure_category: 'rate_limited',
+      });
+    });
+    const delivered = JSON.stringify(mockTrackEvent.mock.calls);
+    expect(delivered).not.toContain('private-user');
+    expect(delivered).not.toContain('private-password');
+    expect(delivered).not.toContain('private cooldown response');
+  });
+
   it('keeps committed login success terminal when the post-login callback throws', async () => {
     mockLoginPassword.mockResolvedValue({
       code: 0,

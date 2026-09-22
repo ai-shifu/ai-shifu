@@ -11,6 +11,9 @@ from flaskr.service.tts.cloned_voice_registry import (
     supports_cloned_voices,
 )
 from flaskr.service.tts.minimax_voice_clone import (
+    MINIMAX_CLONE_PROMPT_MAX_BYTES,
+    MINIMAX_CLONE_REQUEST_MAX_BYTES,
+    MINIMAX_CLONE_SOURCE_MAX_BYTES,
     build_minimax_clone_cost,
     delete_minimax_cloned_voice,
     get_minimax_cloned_voice,
@@ -57,6 +60,9 @@ def create_streaming_tts_processor(**kwargs: object) -> StreamingTTSProcessor:
 
 
 __all__ = [
+    "MINIMAX_CLONE_PROMPT_MAX_BYTES",
+    "MINIMAX_CLONE_REQUEST_MAX_BYTES",
+    "MINIMAX_CLONE_SOURCE_MAX_BYTES",
     "TTSRpmQueueTimeoutError",
     "append_subtitle_cue",
     "build_av_segmentation_contract",

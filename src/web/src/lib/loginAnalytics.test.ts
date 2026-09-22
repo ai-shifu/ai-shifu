@@ -25,5 +25,12 @@ describe('login analytics payloads', () => {
       outcome: 'failed',
       failure_category: 'credentials_rejected',
     });
+    expect(
+      buildLoginResultAnalytics('password', 'failed', 'rate_limited'),
+    ).toEqual({
+      login_method: 'password',
+      outcome: 'failed',
+      failure_category: 'rate_limited',
+    });
   });
 });

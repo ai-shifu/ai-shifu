@@ -28,6 +28,7 @@ services:
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
       GEMINI_LIVE_ENABLED: "${GEMINI_LIVE_ENABLED:-false}"
+      TRUSTED_PROXY_CIDRS: "${TRUSTED_PROXY_CIDRS:-172.29.2.2/32}"
     ports:
       - "127.0.0.1:${AI_SHIFU_API_PORT:-5800}:5800"
     volumes:
@@ -38,6 +39,9 @@ services:
       - ai-shifu-mysql
       - ai-shifu-otel-collector
       - ai-shifu-redis
+    networks:
+      - default
+      - ai-shifu-proxy-dev
 
   ai-shifu-celery-worker-dev:
     <<: *ai-shifu-api-dev-image
@@ -111,6 +115,8 @@ services:
       - ../src/web/public:/app/public
       - ../src/web/src:/app/src
       - ../src/i18n:/app/src/i18n
+    networks:
+      - ai-shifu-proxy-dev
 
   ai-shifu-nginx-dev-dev:
     image: nginx:latest
@@ -122,6 +128,9 @@ services:
     restart: always
     volumes:
       - ./nginx.dev.conf:/etc/nginx/nginx.conf
+    networks:
+      ai-shifu-proxy-dev:
+        ipv4_address: "${AI_SHIFU_NGINX_IP:-172.29.2.2}"
 
   ai-shifu-loki:
     image: grafana/loki:3.1.1
@@ -205,3 +214,9 @@ services:
       - "127.0.0.1:${AI_SHIFU_REDIS_PORT:-6379}:6379"
     volumes:
       - ./redis_data:/data
+
+networks:
+  ai-shifu-proxy-dev:
+    ipam:
+      config:
+        - subnet: "${AI_SHIFU_PROXY_SUBNET:-172.29.2.0/24}"

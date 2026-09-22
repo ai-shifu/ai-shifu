@@ -10,9 +10,12 @@ from flaskr import dao
 from flaskr.service.billing import campaigns, trials, wallets
 from flaskr.service.billing.models import (
     BillingCampaign,
+    BillingCampaignProduct,
     CreditLedgerEntry,
     CreditWalletBucket,
 )
+
+from tests.common.fixtures.bill_products import build_billing_product
 
 
 def _committed_rows(app: object, table: object, *conditions: object) -> list[object]:
@@ -115,22 +118,19 @@ def test_campaign_create_late_failure_persists_no_campaign(
     app: object, monkeypatch: object
 ) -> None:
     name = f"UoW campaign {uuid.uuid4().hex[:6]}"
-    monkeypatch.setattr(
-        campaigns, "_load_campaign_target_product_configs", lambda _products: []
-    )
-    monkeypatch.setattr(
-        campaigns,
-        "_resolve_campaign_rule_snapshot",
-        lambda _configs: {
-            "discount_type_code": 1,
-            "discount_amount": Decimal(1),
-            "discount_percent": None,
-            "bonus_credit_amount": None,
-        },
-    )
-    monkeypatch.setattr(campaigns, "_validate_campaign_overlap", lambda **_k: None)
+    product_bid = uuid.uuid4().hex
+    written_campaigns: list[str] = []
+    replace_products = campaigns._replace_campaign_products
 
-    def failing_products(*_args: object, **_kwargs: object) -> None:
+    def failing_products(campaign_bid: str, products: object) -> None:
+        replace_products(campaign_bid, products)
+        dao.db.session.flush()
+        assert BillingCampaign.query.filter_by(campaign_bid=campaign_bid).count() == 1
+        assert (
+            BillingCampaignProduct.query.filter_by(campaign_bid=campaign_bid).count()
+            == 1
+        )
+        written_campaigns.append(campaign_bid)
         message = "products boom"
         raise RuntimeError(message)
 
@@ -139,21 +139,40 @@ def test_campaign_create_late_failure_persists_no_campaign(
         "name": name,
         "note": "",
         "benefit_type": "discount",
-        "products": [],
+        "products": [
+            {
+                "product_bid": product_bid,
+                "discount_type": "fixed",
+                "campaign_price_amount": 500,
+            }
+        ],
         "start_at": "2026-01-01 00:00:00",
         "end_at": "2026-12-31 23:59:59",
         "enabled": False,
     }
     with app.app_context():
-        try:
+        dao.db.session.add(
+            build_billing_product(
+                "bill-product-plan-monthly",
+                overrides={"product_bid": product_bid, "product_code": product_bid},
+            )
+        )
+        dao.db.session.commit()
+        with pytest.raises(RuntimeError, match="products boom"):
             campaigns.create_admin_billing_campaign(
                 app, operator_user_bid="op", payload=payload
             )
-        except Exception as exc:
-            if "products boom" not in str(exc):
-                pytest.skip(f"payload rejected before the write path: {exc}")
 
+    assert len(written_campaigns) == 1
     assert (
         _committed_rows(app, BillingCampaign.__table__, BillingCampaign.name == name)
+        == []
+    )
+    assert (
+        _committed_rows(
+            app,
+            BillingCampaignProduct.__table__,
+            BillingCampaignProduct.campaign_bid == written_campaigns[0],
+        )
         == []
     )
