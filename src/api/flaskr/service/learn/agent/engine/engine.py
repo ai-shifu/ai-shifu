@@ -353,16 +353,23 @@ class Engine:
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
                 async for ev in events:
+                    # Once the model has said the lesson is over, nothing more of its writing is
+                    # the lesson. The tool result goes back to it like any other, so it takes
+                    # another turn and writes again -- and what it writes is usually the closing
+                    # line a second time, word for word, which is what the learner then read.
+                    said_goodbye = deps.finished is not None
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
-                        if ev.part.content:
+                        if ev.part.content and not said_goodbye:
                             yield ContentDelta(text=ev.part.content)
                             if segmenter:
                                 for e in self._segment(
                                     segmenter.feed(ev.part.content), seg_state, session
                                 ):
                                     yield e
-                    elif isinstance(ev, PartDeltaEvent) and isinstance(
-                        ev.delta, TextPartDelta
+                    elif (
+                        isinstance(ev, PartDeltaEvent)
+                        and isinstance(ev.delta, TextPartDelta)
+                        and not said_goodbye
                     ):
                         yield ContentDelta(text=ev.delta.content_delta)
                         if segmenter:
