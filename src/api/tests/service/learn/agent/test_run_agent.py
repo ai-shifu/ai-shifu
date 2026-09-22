@@ -1832,3 +1832,47 @@ def test_an_example_inside_a_code_block_is_not_a_question() -> None:
     syntax = InteractionSyntaxFilter()
     assert syntax.feed(lesson) + syntax.flush() == lesson
     assert syntax.spans == []
+
+
+def _filtered(text: str) -> tuple[str, list[str]]:
+    """Push `text` through the filter whole and at every cut, requiring one answer.
+
+    Where the stream breaks is the network's business, so a filter that answers differently
+    depending on it is wrong however good each answer looks. Every split is checked, not a
+    sample: the cuts that matter fall inside the notation being recognised.
+    """
+    from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+
+    answers = set()
+    for cut in range(len(text) + 1):
+        one = InteractionSyntaxFilter()
+        out = one.feed(text[:cut]) + one.feed(text[cut:]) + one.flush()
+        answers.add((out, tuple(one.spans)))
+    assert len(answers) == 1, f"{len(answers)} different answers for {text!r}"
+    out, spans = answers.pop()
+    return out, list(spans)
+
+
+def test_code_is_read_as_code_however_it_is_written() -> None:
+    """The browser renders a fenced or indented block as code, so a question there is not one."""
+    fenced = "写法：\n```\n?[甲 | 乙]\n```\n完。"
+    assert _filtered(fenced) == (fenced, [])
+
+    indented_fence = "  ```\n?[x]\n  ```\n后"
+    assert _filtered(indented_fence) == (indented_fence, [])
+
+    # Four spaces is a code block in its own right, with no fence around it.
+    assert _filtered("示例：\n    ?[y]\n后面?[甲|乙]") == (
+        "示例：\n    ?[y]\n后面",
+        ["?[甲|乙]"],
+    )
+
+
+def test_a_line_that_only_looks_like_a_fence_does_not_open_or_close_one() -> None:
+    """A block closes on a line of its own fence and nothing else; the rest is its contents."""
+    # Trailing text means this is code, not a closer, so what follows stays inside the block.
+    text = "```\n?[甲 | 乙]\n```not-a-close\n?[丙 | 丁]\n"
+    assert _filtered(text) == (text, [])
+
+    # Backticks partway along a line start nothing, so the question after them is a question.
+    assert _filtered("前缀```\n?[q]\n```") == ("前缀```\n\n```", ["?[q]"])

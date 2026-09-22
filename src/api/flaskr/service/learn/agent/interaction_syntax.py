@@ -22,6 +22,13 @@ A span is not turned back into a pending question inside the engine: the engine 
 an answer arrives as a remark for it to react to. That is a lesser wrong than a lesson that
 sprints past a question it just put on the screen.
 
+What counts as code is approximated, not parsed: fenced blocks and four-space indents, which
+is what a lesson showing the notation uses. Markdown has other ways to make something code --
+a list item holding an indented block, an HTML block -- and inside those a question would still
+be taken as one. The approximation is worth naming rather than hiding: getting it exactly right
+means running the browser's Markdown parser here, and the failure it leaves is the one that
+existed before any of this.
+
 `\?[` is left exactly as it is. The grammar treats it as text rather than an interaction, which
 is how a lesson about the syntax shows the syntax.
 """
@@ -31,7 +38,10 @@ from __future__ import annotations
 import re
 
 _OPEN = "?["
-_FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})", re.MULTILINE)
+_FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})", re.MULTILINE)
+# A block closes only on a line of its own fence character, at least as long, with nothing after
+# it but whitespace. `` ```not-a-close `` opens nothing and closes nothing; it is code.
+_FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
 # A line still arriving that may yet become one.
 _MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]", re.MULTILINE)
 _CLOSE = "]"
@@ -51,6 +61,9 @@ class InteractionSyntaxFilter:
         # The last character already sent out. An opener is escaped by the character before it,
         # and that character may have left in an earlier chunk, so it has to be remembered.
         self._previous = ""
+        # What has already gone out on the line being built, so an indent that left in an
+        # earlier chunk still counts as the start of its line.
+        self._line_so_far = ""
         self.spans: list[str] = []
 
     def feed(self, text: str) -> str:
@@ -78,23 +91,44 @@ class InteractionSyntaxFilter:
                 self._inside = False
                 continue
             fence = self._next_fence_line(self._held)
-            if fence is not None and fence[1] is None:
-                # A line that could still turn out to open or close a code block waits for its
-                # end. Released as ordinary text, the block would never be recognised and the
-                # example inside it would be taken for a question.
-                self._emit(out, self._held[: fence[0]])
-                self._held = self._held[fence[0] :]
-                return "".join(out)
             start = (
                 -1
                 if self._fence is not None
                 else self._find_open(self._held, self._previous)
             )
-            if fence is not None and (start < 0 or fence[0] < start):
+            if (
+                fence is not None
+                and fence[1] is None
+                and (start < 0 or fence[0] < start)
+            ):
+                # A line that could still turn out to open or close a code block waits for its
+                # end. Released as ordinary text, the block would never be recognised and the
+                # example inside it would be taken for a question.
+                #
+                # Only when nothing before it is already a question. Waiting first meant an
+                # unfinished fence line further on could keep a question that preceded it from
+                # ever being recognised, which is decided by where the stream happened to break.
+                self._emit(out, self._held[: fence[0]])
+                self._held = self._held[fence[0] :]
+                return "".join(out)
+            if (
+                fence is not None
+                and fence[1] is not None
+                and (start < 0 or fence[0] < start)
+            ):
                 line_end = fence[1]
                 self._toggle_fence(self._held[fence[0] : line_end])
                 self._emit(out, self._held[:line_end])
                 self._held = self._held[line_end:]
+                continue
+            if start >= 0 and self._in_indented_code(self._held, start):
+                # Four spaces of indent is a code block of its own in Markdown, and the browser
+                # renders its contents as code rather than as controls. Left as text.
+                line_end = self._held.find("\n", start)
+                if line_end < 0:
+                    return "".join(out)
+                self._emit(out, self._held[: line_end + 1])
+                self._held = self._held[line_end + 1 :]
                 continue
             if start < 0 and self._fence is not None:
                 # Inside a code block with no fence in sight: all text, but a line that may yet
@@ -140,6 +174,8 @@ class InteractionSyntaxFilter:
             return
         out.append(text)
         self._previous = text[-1]
+        cut = text.rfind("\n")
+        self._line_so_far = text[cut + 1 :] if cut >= 0 else self._line_so_far + text
 
     def flush(self) -> str:
         """Release what is still held, because no more text is coming.
@@ -163,26 +199,70 @@ class InteractionSyntaxFilter:
         wait for it rather than let it out as ordinary text. Fences are line-based, so this
         looks at every line start in what is held, not only at the first.
         """
-        match = _FENCE.search(text)
-        if match is None:
-            partial = _MAY_BE_FENCE.search(text)
-            if partial is None or "\n" in text[partial.start() :]:
-                return None
-            return (partial.start(), None)
-        line_end = text.find("\n", match.start())
-        if line_end < 0:
-            return (match.start(), None)
-        return (match.start(), line_end + 1)
+        for match in _FENCE_OPEN.finditer(text):
+            if not self._at_line_start(text, match.start()):
+                continue
+            line_end = text.find("\n", match.start())
+            if line_end < 0:
+                return (match.start(), None)
+            if self._fence is not None and not self._closes_here(
+                text[match.start() : line_end]
+            ):
+                # Inside a block, a line that is not a valid closer is part of the code.
+                continue
+            return (match.start(), line_end + 1)
+        for partial in _MAY_BE_FENCE.finditer(text):
+            if (
+                self._at_line_start(text, partial.start())
+                and "\n" not in text[partial.start() :]
+            ):
+                return (partial.start(), None)
+        return None
+
+    def _in_indented_code(self, text: str, at: int) -> bool:
+        """Whether the line `at` sits on is indented far enough to be a code block."""
+        before = text[:at]
+        cut = before.rfind("\n")
+        line = before[cut + 1 :] if cut >= 0 else self._line_so_far + before
+        indent = len(line) - len(line.lstrip(" "))
+        return line[:indent] == line and indent >= 4
+
+    def _at_line_start(self, text: str, at: int) -> bool:
+        """Whether `at` really begins a line, counting what has already been sent out.
+
+        Position zero of what is held is only a line start when nothing was emitted on that line
+        before it. Treating it as one made the same input behave differently depending on where
+        the stream was cut: `prefix` and three backticks on one line opened a block when the cut
+        fell between them, and did not when it did not.
+        """
+        if at > 0:
+            before = text[:at]
+            line = before[before.rfind("\n") + 1 :]
+        else:
+            line = self._line_so_far
+        # A fence may be indented by up to three spaces, so what stands before it on its line
+        # counts as nothing only when it is that indent. The indent may have left in an earlier
+        # chunk, which is why this is tracked rather than read off the character before.
+        return line == "" or (len(line) <= 3 and line.isspace() and "\n" not in line)
+
+    @staticmethod
+    def _closes_here(line: str) -> bool:
+        """Whether this line is a valid closing fence, rather than code that starts like one."""
+        return _FENCE_CLOSE.match(line) is not None
 
     def _toggle_fence(self, line: str) -> None:
         """Open a code block on this fence line, or close the one it ends."""
-        match = _FENCE.match(line)
+        match = _FENCE_OPEN.match(line)
         if match is None:
             return
         run = match.group(1)
         if self._fence is None:
             self._fence = (run[0], len(run))
-        elif run[0] == self._fence[0] and len(run) >= self._fence[1]:
+        elif (
+            _FENCE_CLOSE.match(line) is not None
+            and run[0] == self._fence[0]
+            and len(run) >= self._fence[1]
+        ):
             self._fence = None
 
     @staticmethod
