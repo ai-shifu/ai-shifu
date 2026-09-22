@@ -397,22 +397,40 @@ def _condensed(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _is_word_char(char: str) -> bool:
-    """Whether a character belongs to a word, an ideograph counting as one."""
-    return bool(char) and re.match(r"\w", char) is not None
+# Scripts that do not put spaces between words: Chinese, Japanese and Korean. A question in one
+# of them routinely follows the phrase introducing it with nothing in between, so there is no
+# boundary to find, and demanding one would refuse every repetition this was written to catch --
+# on exactly the content the duplicate was reported on.
+_UNSPACED_SCRIPT = re.compile(
+    r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]"
+)
 
 
-def _stands_alone(asked: str, window: str) -> bool:
-    """Whether `asked` occurs in `window` as itself, not buried inside a longer word.
+def _joins_a_word(char: str) -> bool:
+    """Whether this character would be part of a word written in a space-delimited script."""
+    if not char or _UNSPACED_SCRIPT.match(char):
+        return False
+    return re.match(r"\w", char) is not None
+
+
+def _stands_alone(asked: str, said: str, start: int) -> bool:
+    """Whether `asked` occurs at or after `start` as itself, not buried inside a longer word.
 
     Matching characters is not the same as matching what was said: a prompt reading `rate` is
     contained in `separate`, and a lesson that had only mentioned separating examples would lose
     the question it meant to ask, leaving the controls with nothing above them.
+
+    The whole of `said` is passed rather than the part being searched, because the character
+    before a match is what decides whether it stands alone, and where the search begins mid-word
+    that character is still there to be read. Given only the slice, a window opening inside
+    `separate` would see nothing to its left and call `rate` a word of its own.
     """
-    for match in re.finditer(re.escape(asked), window):
-        before = window[match.start() - 1] if match.start() else ""
-        after = window[match.end()] if match.end() < len(window) else ""
-        if not _is_word_char(before) and not _is_word_char(after):
+    for match in re.finditer(re.escape(asked), said[start:]):
+        at = start + match.start()
+        end = at + len(asked)
+        before = said[at - 1] if at else ""
+        after = said[end] if end < len(said) else ""
+        if not _joins_a_word(before) and not _joins_a_word(after):
             return True
     return False
 
@@ -433,7 +451,8 @@ def _already_asked(taught: str, prompt: str) -> bool:
     if not asked:
         return False
     said = _condensed(taught)
-    return _stands_alone(asked, said[-(len(asked) + _ECHO_WINDOW_CHARS) :])
+    start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
+    return _stands_alone(asked, said, start)
 
 
 def _question(
