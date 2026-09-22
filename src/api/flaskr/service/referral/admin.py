@@ -440,7 +440,7 @@ def update_operator_referral_status(
             reward.reward_status = REWARD_STATUS_BY_LABEL[reward_status]
         if note:
             metadata = (
-                relation.metadata_json
+                dict(relation.metadata_json)
                 if isinstance(relation.metadata_json, dict)
                 else {}
             )

@@ -255,7 +255,7 @@ The only contact enum is `surface=admin|invite|other`.
 | Event                   | Fields and allowed values                                                                                                                                                                 |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `learner_login_attempt` | `login_method` is `email`, `password`, `sms`, or `google`                                                                                                                                 |
-| `learner_login_result`  | `login_method`; `outcome` is `success` or `failed`; failed only: `failure_category` is `credentials_rejected`, `request_failed`, `start_failed`, `callback_invalid`, or `callback_failed` |
+| `learner_login_result`  | `login_method`; `outcome` is `success` or `failed`; failed only: `failure_category` is `credentials_rejected`, `rate_limited`, `request_failed`, `start_failed`, `callback_invalid`, or `callback_failed` |
 
 Credentials, mobile/email identifiers, OAuth code/state, token, user ID, and raw
 backend messages are excluded.
@@ -408,28 +408,59 @@ analytics.
 
 ## Course creation
 
-- Business question: which creation path is selected and does the accepted
-  manual operation or AI handoff complete?
-- Metric definition: manual API success/failure counts per accepted attempt;
-  AI `success` means only that the external handoff link was accepted, not that
-  a course was later created. These two path results must not be combined into
-  one course-created metric.
-- Trigger: manual attempt immediately before the create API and result after its
-  terminal response; cancel on explicit modal close; AI attempt/result together
-  when the external handoff click is accepted.
-- Population: authenticated teachers on the admin course list.
-- Deduplication: none beyond the existing UI behavior. Every accepted submit is
-  counted independently, and analytics never suppresses a create request.
-- Consumer: course-creation path adoption and manual reliability analysis.
-- Replacement: delete the `creator_shifu_create_click` and
-  `creator_shifu_create_success` producers and consumers. Course-creation
-  queries use attempt/result/cancel.
+- Business question: do accepted manual course-creation operations complete,
+  and do teachers explicitly abandon an engaged manual form?
+- Metric definition: raw manual API success/failure counts per accepted attempt
+  within a named reporting window. Cancellation counts are separate abandoned
+  form sessions, not terminal results for API attempts. No attempt identifier
+  exists, so result-to-attempt ratios are aggregate reliability indicators.
+- Actor and surface: authenticated teachers with resolved admin access on the
+  admin course list. Guests, unresolved or denied access, and learner surfaces
+  are excluded.
+- Trigger: attempt immediately before the create API after local validation;
+  one result after its terminal response. The unified creation dialog emits a
+  manual cancellation only on explicit dismissal after a manual field edit or
+  invalid manual submit attempt during that opening. Untouched and AI-only
+  dismissals, programmatic closes, and successful creation do not emit cancel.
+  Dismissal and duplicate submission are blocked synchronously when manual
+  submission begins, throughout validation and any accepted create request.
+  Invalid input releases the guard without an API attempt or result.
+- Count unit and deduplication: one accepted manual submit and one terminal
+  result per API operation; the form prevents duplicate pending submissions.
+  Cancellation is emitted at most once per dialog opening using dialog-local
+  engagement and close guards. Opening again resets engagement. Every accepted
+  retry is a separate attempt; analytics never suppresses a create request.
+- Correlation: shared identified-user/session context; successful results may
+  join the stable `shifu_bid` to the created course. No course text is collected.
+- Consumers: course-creation adoption and manual reliability reports. Repository
+  consumers are the adjacent analytics helper, admin page producer, and focused
+  tests; no checked-in dashboard or query consumes these events.
+- Compatibility: keep the existing manual event names and payloads. Before the
+  unified-dialog release, cancel meant dismissal of the separately selected
+  manual modal, including an untouched form. After this release, engagement is
+  established by a field edit or invalid submit attempt instead. Reports must
+  separate these cancellation populations by deployment/release cohort and
+  must not compare raw cancellation counts or rates across the boundary. During
+  a mixed-version rollout, aggregate cancel data cannot identify a clean cohort.
+  Existing attempt/result reliability remains comparable. Retired
+  `creator_shifu_create_click` and `creator_shifu_create_success` stay retired.
+- AI compatibility: the AI guide and installation-instruction-copy path uses its
+  own event family and never emits a manual create attempt, result, or cancel.
+  Its current contract is documented in the
+  [AI course-entry plan](../exec-plans/active/lobster-course-entry-analytics.md);
+  historical
+  `creation_path=ai_assistant` results describe only the former handoff and must
+  not be combined with confirmed manual course creation.
+- Verification: direct inline submission, validation and pending-submit guards,
+  terminal success/failure and retry, cancellation eligibility and per-open
+  deduplication, exact allowlisted payloads, exclusion of free-form fields and
+  raw errors, and continued creation when tracking throws or is unavailable.
 
-| Event                           | Fields                                                                                                                                   |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `creator_course_create_attempt` | `creation_path` is `manual` or `ai_assistant`                                                                                            |
-| `creator_course_create_result`  | `creation_path`; `outcome` is `success` or `failed`; successful manual only: `shifu_bid`; failed only: `failure_category=request_failed` |
-| `creator_course_create_cancel`  | `creation_path=manual`                                                                                                                   |
+| Event                           | Fields                                                                                                                                          |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `creator_course_create_attempt` | `creation_path=manual`; historical `ai_assistant` is retained for old data only                                                                      |
+| `creator_course_create_result`  | `creation_path=manual`; `outcome` is `success` or `failed`; success only: `shifu_bid`; failed only: `failure_category=request_failed`                  |
+| `creator_course_create_cancel`  | `creation_path=manual`                                                                                                                            |
 
 ## Learner profile assistant
 

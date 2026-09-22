@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from flask import Flask, Response, request
 
+from flaskr.common.http import sensitive_body
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.profile_onboarding import get_profile_onboarding_config
@@ -118,6 +119,7 @@ def register_profile_routes(
     _resolve_profile_onboarding_runtime_language = resolve_onboarding_language
 
     @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
+    @sensitive_body()
     def profile_onboarding_status_api() -> str:
         """Get platform-level profile onboarding state for current user.
 
@@ -133,6 +135,7 @@ def register_profile_routes(
         )
 
     @app.route(path_prefix + "/profile-onboarding/session", methods=["POST"])
+    @sensitive_body()
     def create_profile_onboarding_session_api() -> str:
         """Create a transient guided-profile session from the live config."""
         payload = _request_json_object("profile_onboarding_session")
@@ -202,6 +205,7 @@ def register_profile_routes(
         path_prefix + "/profile-onboarding/session/<session_id>/run",
         methods=["POST"],
     )
+    @sensitive_body()
     def run_profile_onboarding_session_api(session_id: str) -> Response:
         normalized_session_id = normalize_profile_research_session_id(session_id)
         payload = _request_json_object("profile_onboarding_session")
@@ -233,6 +237,7 @@ def register_profile_routes(
         path_prefix + "/profile-onboarding/session/<session_id>/assistant-answers",
         methods=["POST"],
     )
+    @sensitive_body()
     def import_profile_onboarding_answers_api(session_id: str) -> Response:
         """Collect external answers without persisting the learner's profile."""
         normalized_session_id = normalize_profile_research_session_id(session_id)
@@ -259,6 +264,7 @@ def register_profile_routes(
         )
 
     @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
+    @sensitive_body()
     def complete_profile_onboarding_api() -> str:
         """Complete or skip platform-level profile onboarding.
 
@@ -300,6 +306,7 @@ def register_profile_routes(
         return make_common_response(result)
 
     @app.route(path_prefix + "/profile-onboarding/skip", methods=["POST"])
+    @sensitive_body()
     def skip_profile_onboarding_api() -> str:
         payload = _request_json_object("profile_onboarding")
         _reject_unknown_fields(
@@ -315,11 +322,13 @@ def register_profile_routes(
         return make_common_response(result)
 
     @app.route(path_prefix + "/learner-profile", methods=["GET"])
+    @sensitive_body()
     def learner_profile_api() -> str:
         """Return the current user's canonical learning profile."""
         return make_common_response(get_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile", methods=["PUT"])
+    @sensitive_body()
     def update_learner_profile_api() -> str:
         """Replace the current user's canonical learning profile."""
         payload = _request_json_object("learner_profile")
@@ -344,11 +353,13 @@ def register_profile_routes(
         )
 
     @app.route(path_prefix + "/learner-profile", methods=["DELETE"])
+    @sensitive_body()
     def clear_learner_profile_api() -> str:
         """Clear the profile while keeping onboarding handled."""
         return make_common_response(clear_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile/optimize", methods=["POST"])
+    @sensitive_body()
     def optimize_learner_profile_api() -> str:
         """Return an LLM-optimized draft without saving profile state."""
         payload = _request_json_object("learner_profile")

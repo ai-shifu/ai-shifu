@@ -21,6 +21,10 @@ jobs:
     timeout-minutes: 30
     env:
       BACKEND_PYTHON_VERSION: "3.11.16"
+      PYTHON_DOTENV_DISABLED: "1"
+      SKIP_LOAD_DOTENV: "1"
+      SKIP_APP_AUTOCREATE: "1"
+      GEMINI_LIVE_REQUIRE_REAL_REDIS: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -100,6 +104,13 @@ jobs:
         if: steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
         run: python -m pip install -r requirements-ci.txt
+
+      - name: Install isolated Redis test dependency
+        if: steps.backend-changes.outputs.run == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends redis-server
+          redis-server --version
 
       - name: Run contract tests
         if: steps.backend-changes.outputs.run == 'true'
@@ -186,6 +197,9 @@ jobs:
               global full_run
               candidate = normalize(path)
               if not (api_root / candidate).exists():
+                  # Deleted tests or shared fixtures can lower whole-source
+                  # coverage, so their absence must never become a skipped run.
+                  full_run = True
                   return
               if (api_root / candidate).is_file() and not is_test_module(candidate):
                   # Helpers, fixtures and conftest files hold no tests of their
@@ -290,10 +304,40 @@ jobs:
             python -m pytest --testmon "${test_targets[@]}"
           fi
 
-      - name: Run tests with coverage (main/full)
-        if: github.event_name != 'pull_request'
+      - name: Run tests (main)
+        if: github.event_name == 'push' && steps.backend-changes.outputs.run == 'true'
+        working-directory: src/api
+        run: python -m pytest --testmon-noselect tests
+
+      - name: Run full backend coverage
+        id: coverage
+        if: always() && !cancelled() && github.event_name == 'workflow_dispatch' && steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
         run: |
-          python -m coverage run -m pytest --testmon-noselect
-          python -m coverage report -m
-          python -m coverage report -m >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage erase
+          test_status=0
+          # Coverage must execute every test, independently of testmon's cache.
+          python -m coverage run -m pytest -p no:testmon tests || test_status=$?
+          python -m coverage json --fail-under=0
+          python -m coverage xml --fail-under=0
+          coverage_status=0
+          python -m coverage report -m > coverage-summary.txt || coverage_status=$?
+          cat coverage-summary.txt
+          cat coverage-summary.txt >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$test_status" != "0" ]]; then
+            exit "$test_status"
+          fi
+          exit "$coverage_status"
+
+      - name: Upload backend coverage evidence
+        if: always() && steps.coverage.outcome != 'skipped' && steps.coverage.outcome != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          include-hidden-files: true
+          path: |
+            src/api/.coverage
+            src/api/coverage.json
+            src/api/coverage.xml
+            src/api/coverage-summary.txt
+          retention-days: 14

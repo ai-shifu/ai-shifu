@@ -1,5 +1,6 @@
 """Verify user identify behavior."""
 
+import logging
 import threading
 import uuid
 
@@ -618,7 +619,9 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
     )
 
     fake_app = SimpleNamespace(
+        logger=logging.getLogger("test.verification.challenge"),
         config={
+            "SECRET_KEY": "test-verification-attempt-key",
             "REDIS_KEY_PREFIX_IP_BAN": "test:ip-ban:",
             "REDIS_KEY_PREFIX_IP_LIMIT": "test:ip-limit:",
             "REDIS_KEY_PREFIX_PHONE_LIMIT": "test:phone-limit:",
@@ -636,7 +639,7 @@ def test_prepare_verification_challenge_shares_limits_and_persistence(
             "MAIL_CODE_EXPIRE_TIME": 300,
             "REDIS_HOST": "redis",
             "REDIS_PORT": 6379,
-        }
+        },
     )
     policy = getattr(user_utils, policy_name)
 
@@ -740,14 +743,16 @@ def test_prepare_verification_challenge_fails_when_attempt_reset_is_not_durable(
 
     identifier = "learner@example.com"
     fake_app = SimpleNamespace(
+        logger=logging.getLogger("test.verification.challenge"),
         config={
+            "SECRET_KEY": "test-verification-attempt-key",
             "REDIS_KEY_PREFIX_MAIL_LIMIT": "test:mail-limit:",
             "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail-code:",
             "MAIL_CODE_INTERVAL": 60,
             "MAIL_CODE_EXPIRE_TIME": 300,
             "REDIS_HOST": "redis",
             "REDIS_PORT": 6379,
-        }
+        },
     )
     attempt_key = verification_codes._verification_attempt_key(
         fake_app,
@@ -802,7 +807,7 @@ def test_prepare_verification_challenge_fails_when_attempt_reset_is_not_durable(
 
 
 def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
-    app: object, monkeypatch: object
+    app: object, monkeypatch: object, caplog: pytest.LogCaptureFixture
 ) -> None:
     import flaskr.service.user.utils as user_utils
     from flaskr.dao import db
@@ -825,8 +830,9 @@ def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
             return None
 
         def sendmail(self, *_args: object) -> None:
-            message = "simulated send failure"
-            raise RuntimeError(message)
+            raise user_utils.smtplib.SMTPRecipientsRefused(
+                {"ssl@example.com": (550, b"recipient rejected")}
+            )
 
         def quit(self) -> None:
             type(self).quit_called = True
@@ -858,7 +864,8 @@ def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
         monkeypatch.setenv(key, value)
         app.config.enhanced._cache.pop(key, None)
 
-    with app.app_context():
+    app.logger.addHandler(caplog.handler)
+    with app.app_context(), caplog.at_level(logging.WARNING):
         try:
             with pytest.raises(AppError):
                 user_utils.send_email_code(app, email)
@@ -866,7 +873,11 @@ def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
             assert _FailingSMTPSSL.initialized_with == ("smtp.example.com", 465)
             assert _FailingSMTPSSL.timeout == 10.0
             assert _FailingSMTPSSL.quit_called is True
+            assert "auth_event=email_verification_code_failed" in caplog.text
+            assert "error_type=SMTPRecipientsRefused" in caplog.text
+            assert email not in caplog.text
         finally:
+            app.logger.removeHandler(caplog.handler)
             UserVerifyCode.query.filter_by(mail=email).delete(synchronize_session=False)
             db.session.commit()
             for key in smtp_config:

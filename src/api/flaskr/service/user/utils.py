@@ -17,6 +17,7 @@ import jwt
 from flask import Flask, has_app_context, has_request_context, request
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.client_ip import resolve_client_ip
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db, uow
 from flaskr.dao.uow import unit_of_work
@@ -203,12 +204,7 @@ def _current_session_metadata(
     """Describe the session being created from the request serving it."""
     client_ip = ""
     if has_request_context():
-        forwarded = request.headers.get("X-Forwarded-For")
-        client_ip = (
-            forwarded.split(",")[0].strip()
-            if forwarded
-            else str(request.remote_addr or "")
-        )
+        client_ip = resolve_client_ip()
         if not device_name and not device_os:
             device_name, device_os = describe_user_agent(
                 request.headers.get("User-Agent", "")
@@ -235,19 +231,16 @@ def generate_token(
     The session description is collected here rather than at each call site, so
     every sign-in path records it, including ones added later.
     """
+    token = create_token_value(app, user_id)
 
     def _generate() -> str:
-        token = jwt.encode(
-            {"user_id": user_id, "time_stamp": time.time()},
-            app.config["SECRET_KEY"],
-            algorithm="HS256",
-        )
-        token_store.save(
+        persist_token(
             app,
             user_id=user_id,
             token=token,
-            ttl_seconds=app.config["TOKEN_EXPIRE_TIME"],
-            metadata=_current_session_metadata(source, device_name, device_os),
+            source=source,
+            device_name=device_name,
+            device_os=device_os,
         )
         return token
 
@@ -255,8 +248,42 @@ def generate_token(
         return _generate()
     with app.app_context():
         return _generate()
+
+
+def create_token_value(app: Flask, user_id: str) -> str:
+    """Create a signed token value without persisting or exposing it."""
+    return jwt.encode(
+        {"user_id": user_id, "time_stamp": time.time()},
+        app.config["SECRET_KEY"],
+        algorithm="HS256",
+    )
+
+
+def persist_token(
+    app: Flask,
+    *,
+    user_id: str,
+    token: str,
+    source: str = "web",
+    device_name: str = "",
+    device_os: str = "",
+) -> None:
+    """Persist a signed token inside the caller's transaction."""
+
+    def _persist() -> None:
+        token_store.save(
+            app,
+            user_id=user_id,
+            token=token,
+            ttl_seconds=app.config["TOKEN_EXPIRE_TIME"],
+            metadata=_current_session_metadata(source, device_name, device_os),
+        )
+
+    if has_app_context():
+        _persist()
+        return
     with app.app_context():
-        return _generate()
+        _persist()
 
 
 def _format_email_verification_message(
@@ -595,9 +622,12 @@ def send_email_code(
                     server.starttls()
                 server.login(smtp_username, smtp_password)
                 server.sendmail(smtp_sender, email, msg.as_string())
-                app.logger.info("Verification code sent to %s", email)
-            except Exception:
-                app.logger.exception("Failed to send verification code to %s", email)
+                app.logger.info("auth_event=email_verification_code_sent")
+            except Exception as error:
+                app.logger.warning(
+                    "auth_event=email_verification_code_failed error_type=%s",
+                    type(error).__name__,
+                )
                 raise_error("server.user.emailSendFailed")
             else:
                 return True

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import useSWR from 'swr';
-import { Check, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useTracking } from '@/hooks/useTracking';
@@ -11,21 +11,18 @@ import {
   type BillingStripeRedirectPhase,
 } from '@/components/billing/BillingStripeRedirectOverlay';
 import { TopupCard } from '@/components/billing/BillingOverviewCards';
+import { BillingOverviewFootnote } from '@/components/billing/BillingOverviewFootnote';
+import styles from '@/components/billing/BillingPlanComparisonTable.module.scss';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/hooks/useToast';
 import { useBillingOverview } from '@/hooks/useBillingData';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   buildBillingSwrKey,
   formatBillingCredits,
-  formatBillingPercent,
+  formatBillingPlanInterval,
   formatBillingPrice,
   getBillingProductCampaignBonusCredits,
   hasBillingProductBonusCampaign,
@@ -43,6 +40,7 @@ import {
   type CreatorBillingFailureCategory,
 } from '@/lib/billingAnalytics';
 import { rememberStripeBillingOrderForAnalytics } from '@/lib/stripe-storage';
+import { formatBillingLearningTime } from '@/lib/billingLearningTime';
 import { cn } from '@/lib/utils';
 import type {
   BillingCheckoutResult,
@@ -65,7 +63,6 @@ type PlanTier = 'studio' | 'growth' | 'business' | 'scale';
 type ExpectedProductSpec = {
   productType: 'plan' | 'topup';
   priceAmount: number;
-  creditAmount: number;
   billingInterval?: 'month' | 'year';
 };
 
@@ -86,53 +83,44 @@ const EXPECTED_GLOBAL_PRODUCTS: Record<string, ExpectedProductSpec> = {
     productType: 'plan',
     billingInterval: 'month',
     priceAmount: 5900,
-    creditAmount: 1000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.growthMonthly]: {
     productType: 'plan',
     billingInterval: 'month',
     priceAmount: 22900,
-    creditAmount: 4000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.growthAnnual]: {
     productType: 'plan',
     billingInterval: 'year',
     priceAmount: 219900,
-    creditAmount: 50000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.businessMonthly]: {
     productType: 'plan',
     billingInterval: 'month',
     priceAmount: 41900,
-    creditAmount: 8000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.businessAnnual]: {
     productType: 'plan',
     billingInterval: 'year',
     priceAmount: 399900,
-    creditAmount: 100000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.scaleMonthly]: {
     productType: 'plan',
     billingInterval: 'month',
     priceAmount: 83900,
-    creditAmount: 18000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.scaleAnnual]: {
     productType: 'plan',
     billingInterval: 'year',
     priceAmount: 799900,
-    creditAmount: 220000,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.credits250]: {
     productType: 'topup',
     priceAmount: 2900,
-    creditAmount: 250,
   },
   [GLOBAL_BILLING_PRODUCT_CODES.credits3000]: {
     productType: 'topup',
     priceAmount: 27900,
-    creditAmount: 3000,
   },
 };
 
@@ -140,7 +128,6 @@ const PLAN_TIERS: Array<{
   tier: PlanTier;
   monthlyCode: string;
   annualCode?: string;
-  annualMonthlyEquivalent?: number;
 }> = [
   {
     tier: 'studio',
@@ -150,33 +137,31 @@ const PLAN_TIERS: Array<{
     tier: 'growth',
     monthlyCode: GLOBAL_BILLING_PRODUCT_CODES.growthMonthly,
     annualCode: GLOBAL_BILLING_PRODUCT_CODES.growthAnnual,
-    annualMonthlyEquivalent: 18300,
   },
   {
     tier: 'business',
     monthlyCode: GLOBAL_BILLING_PRODUCT_CODES.businessMonthly,
     annualCode: GLOBAL_BILLING_PRODUCT_CODES.businessAnnual,
-    annualMonthlyEquivalent: 33300,
   },
   {
     tier: 'scale',
     monthlyCode: GLOBAL_BILLING_PRODUCT_CODES.scaleMonthly,
     annualCode: GLOBAL_BILLING_PRODUCT_CODES.scaleAnnual,
-    annualMonthlyEquivalent: 66700,
   },
 ];
 
 const PLAN_FEATURE_KEYS: Record<PlanTier, string[]> = {
-  studio: ['coreTeaching'],
-  growth: ['higherConcurrency'],
-  business: ['customBranding', 'customDomain', 'prioritySupport'],
-  scale: ['dedicatedSupport', 'exclusiveTraining'],
-};
-
-const PLAN_FEATURE_INCLUDE_KEYS: Partial<Record<PlanTier, string>> = {
-  growth: 'module.billing.globalPricing.featuresIncludes.growth',
-  business: 'module.billing.globalPricing.featuresIncludes.business',
-  scale: 'module.billing.globalPricing.featuresIncludes.scale',
+  studio: ['module.billing.package.features.common.allTeachingAndLearning'],
+  growth: ['module.billing.package.features.common.higherConcurrency'],
+  business: [
+    'module.billing.package.features.pro.branding',
+    'module.billing.package.features.pro.customDomain',
+    'module.billing.package.features.pro.techPriority',
+  ],
+  scale: [
+    'module.billing.package.features.premium.dedicatedSupport',
+    'module.billing.package.features.premium.onboarding',
+  ],
 };
 
 const CREDIT_PACK_CODES = [
@@ -186,25 +171,12 @@ const CREDIT_PACK_CODES = [
 
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 const STRIPE_PAYMENT_PROVIDER = 'stripe' as const;
-const LEARNER_ESTIMATE_MARKER = '①';
-const CREDIT_VALIDITY_MARKER = '②';
+const LEARNING_TIME_ESTIMATE_MARKER = '*';
 const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
   'canceled',
   'expired',
   'draft',
 ]);
-const LEARNER_SESSIONS_PER_1000_CREDITS = {
-  minimum: 5,
-  maximum: 15,
-} as const;
-
-function getLearnerSessionEstimate(creditAmount: number) {
-  return {
-    minimum: (creditAmount * LEARNER_SESSIONS_PER_1000_CREDITS.minimum) / 1000,
-    maximum: (creditAmount * LEARNER_SESSIONS_PER_1000_CREDITS.maximum) / 1000,
-  };
-}
-
 function resolveGlobalCampaignLabel(
   product: GlobalBillingProduct,
   t: ReturnType<typeof useTranslation>['t'],
@@ -222,16 +194,6 @@ function resolveGlobalCampaignLabel(
     });
   }
   return undefined;
-}
-
-function resolveAnnualMonthlyDisplayAmount(
-  annualProduct: BillingPlan | undefined,
-  fallbackMonthlyEquivalent: number,
-): number {
-  if (!annualProduct || !hasBillingProductDiscountCampaign(annualProduct)) {
-    return fallbackMonthlyEquivalent;
-  }
-  return Math.round(resolveBillingProductPayableAmount(annualProduct) / 12);
 }
 
 function useGlobalBillingTranslation() {
@@ -283,7 +245,8 @@ function resolveGlobalProducts(
       product.product_type !== expected.productType ||
       normalizeCurrency(product.currency) !== 'USD' ||
       Number(product.price_amount) !== expected.priceAmount ||
-      Number(product.credit_amount) !== expected.creditAmount
+      !Number.isFinite(Number(product.credit_amount)) ||
+      Number(product.credit_amount) <= 0
     ) {
       return null;
     }
@@ -494,7 +457,7 @@ export function GlobalBillingPricing() {
 
   return (
     <section
-      className='mx-auto w-full max-w-[1440px] space-y-8'
+      className='w-full space-y-8'
       data-testid='global-billing-pricing'
     >
       <BillingStripeRedirectOverlay
@@ -513,19 +476,19 @@ export function GlobalBillingPricing() {
         onValueChange={value => setPricingTab(value as PricingTab)}
         className='space-y-8'
       >
-        <div className='flex flex-col items-center gap-4 px-4'>
-          <TabsList className='h-11 rounded-[10px] p-[3px]'>
+        <div className='flex flex-col items-center gap-4'>
+          <TabsList className={styles.showcaseTabsList}>
             <TabsTrigger
               value='plans'
-              className='h-full rounded-lg px-5'
+              className={styles.showcaseTabsTrigger}
             >
-              {t('module.billing.globalPricing.tabs.plans')}
+              {t('module.billing.package.intervalTabs.plans')}
             </TabsTrigger>
             <TabsTrigger
               value='credit_packs'
-              className='h-full rounded-lg px-5'
+              className={styles.showcaseTabsTrigger}
             >
-              {t('module.billing.globalPricing.tabs.creditPacks')}
+              {t('module.billing.package.intervalTabs.topup')}
             </TabsTrigger>
           </TabsList>
           {pricingTab === 'plans' ? (
@@ -533,28 +496,22 @@ export function GlobalBillingPricing() {
               value={billingCycle}
               onValueChange={value => setBillingCycle(value as BillingCycle)}
             >
-              <TabsList className='h-10 rounded-[10px] p-[3px]'>
+              <TabsList className={styles.showcaseTabsList}>
                 <TabsTrigger
                   value='monthly'
-                  className='h-full rounded-lg px-4 text-sm font-medium'
+                  className={styles.showcaseTabsTrigger}
                 >
-                  {t('module.billing.globalPricing.cycles.monthly')}
+                  {t('module.billing.package.intervalTabs.monthly')}
                 </TabsTrigger>
                 <TabsTrigger
                   value='annual'
-                  className='h-full gap-2 rounded-lg px-4 text-sm font-medium'
+                  className={styles.showcaseTabsTrigger}
                 >
-                  {t('module.billing.globalPricing.cycles.annual')}
-                  <Badge className='border-0 bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-red-600'>
-                    {t('module.billing.globalPricing.saveBadge')}
-                  </Badge>
+                  {t('module.billing.package.intervalTabs.yearly')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
           ) : null}
-          <p className='text-center text-xs leading-5 text-muted-foreground'>
-            {t('module.billing.globalPricing.checkoutNotice')}
-          </p>
         </div>
 
         <TabsContent
@@ -566,66 +523,43 @@ export function GlobalBillingPricing() {
             unavailable={Boolean(error) || (!isLoading && !globalProducts)}
           >
             {globalProducts ? (
-              <div
-                className='grid grid-cols-1 gap-4 px-1 sm:grid-cols-2 xl:grid-cols-4 2xl:gap-5'
-                data-testid='global-plan-grid'
-              >
-                {PLAN_TIERS.map(tierSpec => (
-                  <PlanCard
-                    key={tierSpec.tier}
-                    tierSpec={tierSpec}
-                    cycle={billingCycle}
-                    products={globalProducts}
-                    activeSubscription={activeSubscription}
-                    hasResolvedOverview={hasResolvedOverview}
-                    locale={locale}
-                    onViewMonthly={() => setBillingCycle('monthly')}
-                    checkoutLoadingKey={checkoutLoadingKey}
-                    onPaymentClick={handlePaymentClick}
-                  />
-                ))}
+              <div className={styles.tableWrapper}>
+                <div
+                  className={styles.comparisonGrid}
+                  data-testid='global-plan-grid'
+                >
+                  {PLAN_TIERS.map(tierSpec => (
+                    <PlanColumn
+                      key={tierSpec.tier}
+                      tierSpec={tierSpec}
+                      cycle={billingCycle}
+                      products={globalProducts}
+                      activeSubscription={activeSubscription}
+                      hasResolvedOverview={hasResolvedOverview}
+                      locale={locale}
+                      onViewMonthly={() => setBillingCycle('monthly')}
+                      checkoutLoadingKey={checkoutLoadingKey}
+                      onPaymentClick={handlePaymentClick}
+                    />
+                  ))}
+                </div>
               </div>
             ) : null}
           </CatalogState>
 
           {globalProducts ? (
-            <div className='w-full rounded-xl border border-border bg-muted/40 px-6 py-5 text-sm leading-5 text-muted-foreground'>
-              <ul className='space-y-3'>
-                <li className='flex gap-2'>
-                  <span className='shrink-0 font-medium text-foreground'>
-                    {LEARNER_ESTIMATE_MARKER}
-                  </span>
-                  <div className='flex-1'>
-                    {t('module.billing.globalPricing.footnote.intro')}
-                    <ul className='mt-1 list-disc space-y-1 pl-5'>
-                      <li>
-                        {t(
-                          'module.billing.package.footnote.learnerEstimateScale',
-                        )}
-                      </li>
-                      <li>
-                        {t(
-                          'module.billing.package.footnote.learnerEstimateMode',
-                        )}
-                      </li>
-                      <li>
-                        {t(
-                          'module.billing.package.footnote.learnerEstimateModel',
-                        )}
-                      </li>
-                    </ul>
-                  </div>
-                </li>
-                <li className='flex gap-2'>
-                  <span className='shrink-0 font-medium text-foreground'>
-                    {CREDIT_VALIDITY_MARKER}
-                  </span>
-                  <div className='flex-1'>
-                    {t('module.billing.globalPricing.footnote.validity')}
-                  </div>
-                </li>
-              </ul>
-            </div>
+            <BillingOverviewFootnote
+              showValidity={false}
+              hasDiscountCampaign={PLAN_TIERS.some(tier => {
+                const code =
+                  billingCycle === 'annual' && tier.annualCode
+                    ? tier.annualCode
+                    : tier.monthlyCode;
+                return hasBillingProductDiscountCampaign(
+                  globalProducts.get(code) as BillingPlan,
+                );
+              })}
+            />
           ) : null}
         </TabsContent>
 
@@ -640,19 +574,15 @@ export function GlobalBillingPricing() {
             {globalProducts ? (
               <div className='space-y-6'>
                 <div
-                  className='grid gap-4 px-1'
+                  className='grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]'
                   data-testid='global-credit-pack-grid'
-                  style={{
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-                  }}
                 >
                   {CREDIT_PACK_CODES.map(code => {
                     const product = globalProducts.get(
                       code,
                     ) as BillingTopupProduct;
                     const packName = t(
-                      'module.billing.globalPricing.creditPacks.packName',
+                      'module.billing.package.topup.creditLabel',
                       {
                         credits: formatBillingCredits(
                           product.credit_amount,
@@ -663,7 +593,6 @@ export function GlobalBillingPricing() {
                     return (
                       <TopupCard
                         key={code}
-                        actionClassName='min-h-11 min-w-32'
                         actionLabel={t(
                           'module.billing.globalPricing.actions.buyCredits',
                         )}
@@ -678,7 +607,6 @@ export function GlobalBillingPricing() {
                           t,
                           locale,
                         )}
-                        campaignLabelVariant='ribbon'
                         onAction={() =>
                           handlePaymentClick({
                             product,
@@ -704,18 +632,10 @@ export function GlobalBillingPricing() {
                     );
                   })}
                 </div>
-                <div className='w-full text-sm leading-6 text-muted-foreground'>
+                <div className='text-[length:var(--text-sm-font-size,14px)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
                   <ul className='list-disc space-y-2 pl-5'>
-                    <li>
-                      {t(
-                        'module.billing.globalPricing.creditPacks.instantAndPermanent',
-                      )}
-                    </li>
-                    <li>
-                      {t(
-                        'module.billing.globalPricing.creditPacks.activeSubscriptionRequired',
-                      )}
-                    </li>
+                    <li>{t('module.billing.package.topup.noteInstant')}</li>
+                    <li>{t('module.billing.package.topup.noteFrozen')}</li>
                   </ul>
                 </div>
               </div>
@@ -747,8 +667,13 @@ function CatalogState({
       <div
         className='rounded-xl border border-border bg-card px-6 py-16 text-center text-muted-foreground'
         data-testid='global-billing-loading'
+        role='status'
       >
-        {t('module.billing.globalPricing.states.loading')}
+        <span className='sr-only'>{t('module.billing.package.loading')}</span>
+        <Skeleton
+          className='mx-auto h-6 w-40'
+          aria-hidden='true'
+        />
       </div>
     );
   }
@@ -759,11 +684,8 @@ function CatalogState({
         className='rounded-xl border border-border bg-card px-6 py-16 text-center'
         data-testid='global-billing-unavailable'
       >
-        <h3 className='text-lg font-semibold text-foreground'>
-          {t('module.billing.globalPricing.states.unavailableTitle')}
-        </h3>
-        <p className='mt-2 text-sm text-muted-foreground'>
-          {t('module.billing.globalPricing.states.unavailableDescription')}
+        <p className='text-sm text-muted-foreground'>
+          {t('module.billing.overview.loadError')}
         </p>
       </div>
     );
@@ -772,7 +694,7 @@ function CatalogState({
   return <>{children}</>;
 }
 
-function PlanCard({
+function PlanColumn({
   tierSpec,
   cycle,
   products,
@@ -860,225 +782,130 @@ function PlanCard({
     `module.billing.globalPricing.plans.${tierSpec.tier}.name`,
   );
   const hasDiscountCampaign = hasBillingProductDiscountCampaign(product);
-  const priceAmount =
-    cycle === 'annual' && tierSpec.annualMonthlyEquivalent
-      ? resolveAnnualMonthlyDisplayAmount(
-          annualProduct || undefined,
-          tierSpec.annualMonthlyEquivalent,
-        )
-      : resolveBillingProductPayableAmount(product);
-  const originalPriceAmount =
-    cycle === 'annual' && tierSpec.annualMonthlyEquivalent
-      ? tierSpec.annualMonthlyEquivalent
-      : product.price_amount;
-  const learnerSessionEstimate = getLearnerSessionEstimate(
-    Number(product.credit_amount),
-  );
-  const annualSavings = annualProduct
-    ? monthlyProduct.price_amount * 12 - annualProduct.price_amount
-    : 0;
-  const annualSavingsPercent = annualProduct
-    ? formatBillingPercent(
-        (annualSavings / (monthlyProduct.price_amount * 12)) * 100,
-        locale,
-      )
-    : formatBillingPercent(0, locale);
+  const priceAmount = resolveBillingProductPayableAmount(product);
   const campaignLabel = resolveGlobalCampaignLabel(product, t, locale);
-  const shouldShowAnnualSavingsBadge =
-    cycle === 'annual' && Boolean(annualProduct) && !campaignLabel;
-  const annualSavingsLabel = t('module.billing.globalPricing.annualSavings', {
-    amount: formatBillingPrice(
-      annualSavings,
-      annualProduct?.currency || product.currency,
-      locale,
-    ),
-    percent: annualSavingsPercent,
-  });
-  const featureIncludeKey = PLAN_FEATURE_INCLUDE_KEYS[tierSpec.tier];
-  const pricingDetailsClassName =
-    cycle === 'annual' ? 'min-h-[150px]' : 'min-h-[96px]';
-  const creditsBoxClassName = 'min-h-[150px]';
+  const periodLabel = formatBillingPlanInterval(t, product)
+    .replace(/^每\s*/, '')
+    .replace(/^per\s*/i, '')
+    .trim();
+  const monthlyCostPerYear =
+    (monthlyProduct.price_amount * 12) /
+    Math.max(monthlyProduct.billing_interval_count || 0, 1);
+  const annualSavings = annualProduct
+    ? monthlyCostPerYear -
+      annualProduct.price_amount /
+        Math.max(annualProduct.billing_interval_count || 0, 1)
+    : 0;
+  const annualSavingsLabel =
+    cycle === 'annual' && annualProduct && annualSavings > 0
+      ? t('module.billing.globalPricing.annualSavings', {
+          amount: formatBillingPrice(annualSavings, product.currency, locale),
+        })
+      : null;
+  const featureKeys = PLAN_TIERS.slice(0, targetTierRank + 1).flatMap(
+    tier => PLAN_FEATURE_KEYS[tier.tier],
+  );
+  const validityKey =
+    product.billing_interval === 'year'
+      ? 'module.billing.package.validityShort.yearly'
+      : 'module.billing.package.validityShort.monthly';
 
   return (
-    <Card
+    <div
       className={cn(
-        'relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border-border shadow-sm',
-        isCurrentPlan && 'bg-primary/[0.05]',
+        styles.comparisonColumn,
+        isCurrentPlan && styles.featuredColumn,
       )}
       data-testid={`global-plan-${tierSpec.tier}`}
+      data-featured={isCurrentPlan ? 'true' : 'false'}
     >
-      <CardHeader className='space-y-4 p-5 pb-4 2xl:p-6 2xl:pb-4'>
-        <div
-          className={cn(
-            'flex min-h-8 items-center justify-between gap-2',
-            monthlyOnly ? 'pr-24' : '',
-          )}
-          data-testid={`global-plan-${tierSpec.tier}-title`}
-        >
-          <div className='flex min-w-0 flex-nowrap items-center gap-2'>
-            <h3
-              className={cn(
-                'shrink-0 text-xl font-semibold text-foreground',
-                isCurrentPlan && 'text-primary',
-              )}
-            >
-              {planName}
-            </h3>
-            {tierSpec.tier === 'business' ? (
-              <Badge className='gap-1 border-0 bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-red-600'>
-                <Star className='h-3 w-3 fill-current' />
-                {t('module.billing.globalPricing.mostPopular')}
-              </Badge>
-            ) : null}
-          </div>
-        </div>
-        {campaignLabel ? (
-          <div className='pointer-events-none absolute -right-11 top-5 z-10 w-40 rotate-45 bg-red-600 py-1 text-center text-[11px] font-semibold text-white shadow-md 2xl:text-xs'>
-            {campaignLabel}
-          </div>
-        ) : null}
-        {monthlyOnly ? (
-          <div
-            className={cn(
-              'absolute right-5 z-10',
-              campaignLabel ? 'top-14' : 'top-5',
-            )}
-          >
-            <Badge
-              variant='secondary'
-              className='whitespace-nowrap'
-            >
+      <div
+        className={cn(styles.columnHead, styles.columnTitleHead)}
+        data-testid={`global-plan-${tierSpec.tier}-title`}
+      >
+        <div className={styles.columnTitleRow}>
+          <h3 className={styles.columnTitle}>{planName}</h3>
+          {tierSpec.tier === 'business' ? (
+            <span className={styles.columnBadge}>
+              <Star className={styles.columnBadgeIcon} />
+              {t('module.billing.catalog.badges.recommended')}
+            </span>
+          ) : null}
+          {monthlyOnly ? (
+            <Badge variant='secondary'>
               {t('module.billing.globalPricing.monthlyOnly')}
             </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      <div
+        className={cn(styles.columnHead, styles.columnPriceHead)}
+        data-testid={`global-plan-${tierSpec.tier}-price`}
+      >
+        <div data-testid={`global-plan-${tierSpec.tier}-original-price-slot`}>
+          {hasDiscountCampaign ? (
+            <span className={styles.columnOriginalPrice}>
+              {formatBillingPrice(
+                product.price_amount,
+                product.currency,
+                locale,
+              )}
+            </span>
+          ) : null}
+        </div>
+        <div className={styles.columnPrice}>
+          <span>
+            {formatBillingPrice(priceAmount, product.currency, locale)}
+          </span>
+          <span>{` / ${periodLabel}`}</span>
+        </div>
+        {campaignLabel ? (
+          <div>
+            <span className={styles.columnCampaignLabel}>{campaignLabel}</span>
           </div>
         ) : null}
-        <div
-          className={pricingDetailsClassName}
-          data-testid={`global-plan-${tierSpec.tier}-price`}
-        >
-          <div
-            className='mb-1 min-h-5 text-sm text-muted-foreground'
-            data-testid={`global-plan-${tierSpec.tier}-original-price-slot`}
+        {hasDiscountCampaign ? (
+          <p className={styles.columnPeriod}>
+            {t('module.billing.globalPricing.renewalPrice', {
+              price: formatBillingPrice(
+                product.price_amount,
+                product.currency,
+                locale,
+              ),
+              period: periodLabel,
+            })}
+          </p>
+        ) : null}
+        {annualSavingsLabel ? (
+          <p
+            className='mt-2 text-xs font-medium leading-5 text-red-700'
+            data-testid={`global-plan-${tierSpec.tier}-savings-slot`}
           >
-            {hasDiscountCampaign ? (
-              <span className='line-through'>
-                {formatBillingPrice(
-                  originalPriceAmount,
-                  product.currency,
-                  locale,
-                )}
-              </span>
-            ) : null}
-          </div>
-          <div className='flex items-end gap-1 text-foreground'>
-            {cycle === 'annual' && annualProduct ? (
-              <span className='pb-1 text-xs text-muted-foreground 2xl:text-sm'>
-                {t('module.billing.globalPricing.approximatePricePrefix')}
-              </span>
-            ) : null}
-            <span className='text-3xl font-semibold tracking-tight 2xl:text-4xl'>
-              {formatBillingPrice(priceAmount, product.currency, locale)}
-            </span>
-            <span className='pb-1 text-xs text-muted-foreground 2xl:text-sm'>
-              {t('module.billing.globalPricing.perMonth')}
-            </span>
-          </div>
-          {cycle === 'annual' && annualProduct ? (
-            <div className='mt-2 space-y-2'>
-              <p className='min-h-10 text-sm text-muted-foreground'>
-                {hasDiscountCampaign
-                  ? t('module.billing.globalPricing.campaignAnnualBilling', {
-                      price: formatBillingPrice(
-                        resolveBillingProductPayableAmount(annualProduct),
-                        annualProduct.currency,
-                        locale,
-                      ),
-                      renewalPrice: formatBillingPrice(
-                        annualProduct.price_amount,
-                        annualProduct.currency,
-                        locale,
-                      ),
-                    })
-                  : t('module.billing.globalPricing.billedAnnually', {
-                      price: formatBillingPrice(
-                        annualProduct.price_amount,
-                        annualProduct.currency,
-                        locale,
-                      ),
-                    })}
-              </p>
-              <div
-                className='min-h-7'
-                data-testid={`global-plan-${tierSpec.tier}-savings-slot`}
-              >
-                {shouldShowAnnualSavingsBadge ? (
-                  <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
-                    {annualSavingsLabel}
-                  </Badge>
-                ) : campaignLabel ? (
-                  <p className='text-xs font-medium text-muted-foreground'>
-                    {annualSavingsLabel}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className='mt-2 space-y-2'>
-              <p className='min-h-10 text-sm text-muted-foreground'>
-                {hasDiscountCampaign
-                  ? t('module.billing.globalPricing.campaignMonthlyBilling', {
-                      renewalPrice: formatBillingPrice(
-                        product.price_amount,
-                        product.currency,
-                        locale,
-                      ),
-                    })
-                  : t('module.billing.globalPricing.cancelAnytime')}
-              </p>
-              <div
-                className='min-h-7'
-                data-testid={`global-plan-${tierSpec.tier}-savings-slot`}
-              />
-            </div>
-          )}
-        </div>
-
-        <div
-          className={cn(
-            'flex flex-col justify-center rounded-lg border border-primary/10 bg-primary/5 p-3 text-foreground',
-            creditsBoxClassName,
-          )}
-          data-testid={`global-plan-${tierSpec.tier}-credits`}
-        >
-          <p className='text-xs font-medium text-muted-foreground'>
-            {t('module.billing.globalPricing.creditsLabel')}
+            {annualSavingsLabel}
           </p>
-          <p className='mt-1 text-lg font-semibold'>
-            {cycle === 'annual' && annualProduct
-              ? t('module.billing.globalPricing.creditsPerYear', {
-                  credits: formatBillingCredits(
-                    annualProduct.credit_amount,
-                    locale,
-                  ),
-                })
-              : t('module.billing.globalPricing.creditsPerMonth', {
-                  credits: formatBillingCredits(
-                    monthlyProduct.credit_amount,
-                    locale,
-                  ),
-                })}
-          </p>
-        </div>
-      </CardHeader>
+        ) : null}
+      </div>
 
-      <CardFooter
-        className='px-5 pb-5 pt-0 2xl:px-6'
+      <div
+        className={cn(styles.columnHead, styles.columnCreditsHead)}
+        data-testid={`global-plan-${tierSpec.tier}-credits`}
+      >
+        <p className={styles.columnCreditAmount}>
+          {t('module.billing.package.topup.creditLabel', {
+            credits: formatBillingCredits(product.credit_amount, locale),
+          })}
+        </p>
+      </div>
+
+      <div
+        className={cn(styles.columnHead, styles.columnActionHead)}
         data-testid={`global-plan-${tierSpec.tier}-action`}
       >
         {isCurrentPlan ? (
           <Button
-            variant='secondary'
-            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            variant='default'
+            className={cn(styles.columnAction, 'disabled:opacity-100')}
             disabled
           >
             {t('module.billing.package.actions.currentSubscription')}
@@ -1086,7 +913,7 @@ function PlanCard({
         ) : annualSubscriptionSwitchToMonthlyUnsupported ? (
           <Button
             variant='secondary'
-            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            className={styles.columnAction}
             disabled
           >
             {targetTierRank < currentTierRank
@@ -1096,7 +923,7 @@ function PlanCard({
         ) : sameTierCycleSwitchUnsupported ? (
           <Button
             variant='secondary'
-            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            className={styles.columnAction}
             disabled
           >
             {t('module.billing.globalPricing.actions.cycleSwitchDisabled')}
@@ -1104,7 +931,7 @@ function PlanCard({
         ) : downgradeUnsupported ? (
           <Button
             variant='secondary'
-            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            className={styles.columnAction}
             disabled
           >
             {t('module.billing.package.actions.downgradeDisabled')}
@@ -1112,7 +939,7 @@ function PlanCard({
         ) : unsupportedActivePlanTransition ? (
           <Button
             variant='secondary'
-            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            className={styles.columnAction}
             disabled
           >
             {t('module.billing.package.actions.downgradeDisabled')}
@@ -1120,7 +947,7 @@ function PlanCard({
         ) : monthlyOnly ? (
           <Button
             variant='outline'
-            className='min-h-11 w-full'
+            className={styles.columnAction}
             disabled={isCheckingOut}
             onClick={onViewMonthly}
           >
@@ -1128,7 +955,7 @@ function PlanCard({
           </Button>
         ) : (
           <Button
-            className='min-h-11 w-full'
+            className={styles.columnAction}
             disabled={!hasResolvedOverview || isCheckingOut}
             onClick={() =>
               onPaymentClick({
@@ -1145,69 +972,55 @@ function PlanCard({
                 : t('module.billing.globalPricing.actions.choosePlan')}
           </Button>
         )}
-      </CardFooter>
+      </div>
 
-      <CardContent className='flex-1 divide-y divide-border border-t border-border px-0 pb-0'>
-        <div
-          className='min-h-[116px] px-5 py-4 2xl:px-6'
-          data-testid={`global-plan-${tierSpec.tier}-audience`}
-        >
-          <p className='text-xs font-medium text-muted-foreground'>
-            {t('module.billing.globalPricing.audienceLabel')}
-          </p>
-          <p className='mt-1 text-sm leading-5 text-foreground'>
-            {t(
-              `module.billing.globalPricing.plans.${tierSpec.tier}.description`,
-            )}
-          </p>
-        </div>
+      <div
+        className={styles.comparisonDataCell}
+        data-testid={`global-plan-${tierSpec.tier}-estimate`}
+      >
+        <p className={styles.cellLabel}>
+          {t('module.billing.package.learningTime.label')}
+          <sup className='ml-1'>{LEARNING_TIME_ESTIMATE_MARKER}</sup>
+        </p>
+        <p className={styles.cellValue}>
+          {formatBillingLearningTime(t, Number(product.credit_amount), locale)}
+        </p>
+      </div>
 
-        <div
-          className='min-h-[128px] px-5 py-4 2xl:px-6'
-          data-testid={`global-plan-${tierSpec.tier}-estimate`}
-        >
-          <p className='text-xs font-medium text-muted-foreground'>
-            {t('module.billing.globalPricing.learnerEstimateLabel')}
-            <span className='ml-1'>{LEARNER_ESTIMATE_MARKER}</span>
-          </p>
-          <p className='mt-1 text-sm text-foreground'>
-            {t('module.billing.globalPricing.learnerEstimateValue', {
-              minimum: formatBillingCredits(
-                learnerSessionEstimate.minimum,
-                locale,
-              ),
-              maximum: formatBillingCredits(
-                learnerSessionEstimate.maximum,
-                locale,
-              ),
-            })}
-          </p>
-        </div>
+      <div
+        className={styles.comparisonDataCell}
+        data-testid={`global-plan-${tierSpec.tier}-validity`}
+      >
+        <p className={styles.cellLabel}>
+          {t('module.billing.package.table.validityRowLabel')}
+        </p>
+        <p className={styles.cellValue}>
+          {t(validityKey, {
+            count: Math.max(product.billing_interval_count || 0, 1),
+          })}
+        </p>
+      </div>
 
-        <div
-          className='px-5 py-4 2xl:px-6'
-          data-testid={`global-plan-${tierSpec.tier}-benefits`}
-        >
-          <p className='text-xs font-medium text-muted-foreground'>
-            {featureIncludeKey
-              ? t(featureIncludeKey)
-              : t('module.billing.globalPricing.featuresLabel')}
-          </p>
-          <ul className='mt-3 space-y-3'>
-            {PLAN_FEATURE_KEYS[tierSpec.tier].map(featureKey => (
-              <li
-                key={featureKey}
-                className='flex gap-2 text-sm leading-5 text-muted-foreground'
-              >
-                <Check className='mt-0.5 h-4 w-4 shrink-0 text-primary' />
-                <span>
-                  {t(`module.billing.globalPricing.features.${featureKey}`)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
+      <div
+        className={styles.comparisonFeatureCell}
+        data-testid={`global-plan-${tierSpec.tier}-benefits`}
+      >
+        <p className={styles.cellLabel}>
+          {t('module.billing.package.table.featuresRowLabel')}
+        </p>
+        <ul className={styles.featureColumnList}>
+          {featureKeys.map(featureKey => (
+            <li
+              key={featureKey}
+              className={styles.featureColumnItem}
+            >
+              <span className={styles.featureColumnItemText}>
+                {t(featureKey)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }

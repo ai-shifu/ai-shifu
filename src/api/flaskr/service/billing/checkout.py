@@ -1434,7 +1434,7 @@ def refund_billing_order(
                 subscription.cancel_at_period_end = 1
                 subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
                 subscription.updated_at = now
-                subscription.metadata_json = _merge_provider_metadata(
+                merged_subscription_metadata = _merge_provider_metadata(
                     existing=subscription.metadata_json,
                     provider=order.payment_provider,
                     source="api_refund",
@@ -1442,6 +1442,9 @@ def refund_billing_order(
                     payload=refund_result.raw_response,
                     event_time=None,
                 )
+                subscription.metadata_json = _normalize_json_object(
+                    merged_subscription_metadata
+                ).to_metadata_json()
                 _sync_subscription_lifecycle_events(app, subscription)
                 db.session.add(subscription)
 

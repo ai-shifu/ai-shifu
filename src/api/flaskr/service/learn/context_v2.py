@@ -2484,6 +2484,7 @@ class RunScriptContextV2:
                 LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
                 LearnGeneratedBlock.position == run_script_info.block_position,
                 LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.deleted == 0,
             )
             .order_by(LearnGeneratedBlock.id.desc())
             .first()

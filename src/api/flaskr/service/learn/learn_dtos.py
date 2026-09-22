@@ -132,8 +132,8 @@ class BlockType(Enum):
 class VariableUpdateDTO(BaseModel):
     """Represent the variable update API payload."""
 
-    variable_name: str = Field(..., description="variable name", required=False)
-    variable_value: str = Field(..., description="variable value", required=False)
+    variable_name: str = Field(..., description="variable name")
+    variable_value: str = Field(..., description="variable value")
 
     def __init__(
         self,
@@ -155,12 +155,10 @@ class VariableUpdateDTO(BaseModel):
 class OutlineItemUpdateDTO(BaseModel):
     """Represent the outline item update API payload."""
 
-    outline_bid: str = Field(..., description="outline item id", required=False)
-    title: str = Field(..., description="outline item name", required=False)
-    status: LearnStatus = Field(..., description="outline item status", required=False)
-    has_children: bool = Field(
-        ..., description="outline item has children", required=False
-    )
+    outline_bid: str = Field(..., description="outline item id")
+    title: str = Field(..., description="outline item name")
+    status: LearnStatus = Field(..., description="outline item status")
+    has_children: bool = Field(..., description="outline item has children")
 
     def __init__(
         self,
@@ -191,21 +189,18 @@ class OutlineItemUpdateDTO(BaseModel):
 class LearnShifuInfoDTO(BaseModel):
     """Represent the learn shifu info API payload."""
 
-    bid: str = Field(..., description="shifu id", required=False)
-    title: str = Field(..., description="shifu title", required=False)
-    description: str = Field(..., description="shifu description", required=False)
-    keywords: list[str] = Field(..., description="shifu keywords", required=False)
-    avatar: str = Field(..., description="shifu avatar", required=False)
-    price: str = Field(..., description="shifu price", required=False)
-    tts_enabled: bool = Field(default=False, description="tts enabled", required=False)
+    bid: str = Field(..., description="shifu id")
+    title: str = Field(..., description="shifu title")
+    description: str = Field(..., description="shifu description")
+    keywords: list[str] = Field(..., description="shifu keywords")
+    avatar: str = Field(..., description="shifu avatar")
+    price: str = Field(..., description="shifu price")
+    tts_enabled: bool = Field(default=False, description="tts enabled")
     default_listen_mode_enabled: bool = Field(
         default=False,
         description="Default learner mode to listen when TTS is enabled",
-        required=False,
     )
-    is_owner: bool = Field(
-        default=False, description="viewer owns shifu", required=False
-    )
+    is_owner: bool = Field(default=False, description="viewer owns shifu")
 
     def __init__(
         self,
@@ -250,17 +245,11 @@ class LearnShifuInfoDTO(BaseModel):
 class LearnBannerInfoDTO(BaseModel):
     """Represent the learn banner info API payload."""
 
-    title: str = Field(..., description="banner title", required=False)
-    pop_up_title: str = Field(..., description="banner pop up title", required=False)
-    pop_up_content: str = Field(
-        ..., description="banner pop up content", required=False
-    )
-    pop_up_confirm_text: str = Field(
-        ..., description="banner pop up confirm text", required=False
-    )
-    pop_up_cancel_text: str = Field(
-        ..., description="banner pop up cancel text", required=False
-    )
+    title: str = Field(..., description="banner title")
+    pop_up_title: str = Field(..., description="banner pop up title")
+    pop_up_content: str = Field(..., description="banner pop up content")
+    pop_up_confirm_text: str = Field(..., description="banner pop up confirm text")
+    pop_up_cancel_text: str = Field(..., description="banner pop up cancel text")
 
     def __init__(
         self,
@@ -294,25 +283,21 @@ class LearnBannerInfoDTO(BaseModel):
 class LearnOutlineItemInfoDTO(BaseModel):
     """Represent the learn outline item info API payload."""
 
-    bid: str = Field(..., description="outline id", required=False)
-    position: str = Field(..., description="outline position", required=False)
-    title: str = Field(..., description="outline title", required=False)
-    status: LearnStatus = Field(..., description="outline status", required=False)
-    type: OutlineType = Field(..., description="outline type", required=False)
-    is_paid: bool = Field(..., description="outline is paid", required=False)
+    bid: str = Field(..., description="outline id")
+    position: str = Field(..., description="outline position")
+    title: str = Field(..., description="outline title")
+    status: LearnStatus = Field(..., description="outline status")
+    type: OutlineType = Field(..., description="outline type")
+    is_paid: bool = Field(..., description="outline is paid")
     has_content_update_for_current_user: bool = Field(
         default=False,
         description="Whether the published lesson content is newer than this user's latest learning progress",
-        required=False,
     )
     follow_up_mode: Literal["text", "live_voice", "disabled"] = Field(
         default="text",
         description="Backend-resolved learner follow-up presentation mode",
-        required=False,
     )
-    children: list[LearnOutlineItemInfoDTO] = Field(
-        ..., description="outline children", required=False
-    )
+    children: list[LearnOutlineItemInfoDTO] = Field(..., description="outline children")
 
     def __init__(
         self,
@@ -358,11 +343,9 @@ class LearnOutlineItemInfoDTO(BaseModel):
 class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
     """Represent the learn outline items with banner info API payload."""
 
-    banner_info: LearnBannerInfoDTO | None = Field(
-        ..., description="banner info", required=False
-    )
+    banner_info: LearnBannerInfoDTO | None = Field(..., description="banner info")
     outline_items: list[LearnOutlineItemInfoDTO] = Field(
-        ..., description="outline items", required=True
+        ..., description="outline items"
     )
 
     def __init__(
@@ -532,8 +515,8 @@ class AudioCompleteDTO(BaseModel):
 class ElementVisualDTO(BaseModel):
     """Represent the element visual API payload."""
 
-    visual_type: str = Field(..., description="Visual payload type", required=False)
-    content: str = Field(..., description="Visual payload content", required=False)
+    visual_type: str = Field(..., description="Visual payload type")
+    content: str = Field(..., description="Visual payload content")
 
     def __init__(self, visual_type: str, content: str) -> None:
         """Build the element visual payload."""
@@ -548,15 +531,11 @@ class ElementVisualDTO(BaseModel):
 class SubtitleCueDTO(BaseModel):
     """Represent the subtitle cue API payload."""
 
-    text: str = Field(..., description="Cue text", required=False)
-    start_ms: int = Field(..., description="Cue start in ms", required=False)
-    end_ms: int = Field(..., description="Cue end in ms", required=False)
-    segment_index: int = Field(
-        ..., description="TTS segment index for this cue", required=False
-    )
-    position: int = Field(
-        default=0, description="Audio position within the block", required=False
-    )
+    text: str = Field(..., description="Cue text")
+    start_ms: int = Field(..., description="Cue start in ms")
+    end_ms: int = Field(..., description="Cue end in ms")
+    segment_index: int = Field(..., description="TTS segment index for this cue")
+    position: int = Field(default=0, description="Audio position within the block")
 
     def __init__(
         self,
@@ -590,16 +569,13 @@ class SubtitleCueDTO(BaseModel):
 class ElementAudioDTO(BaseModel):
     """Represent the element audio API payload."""
 
-    position: int = Field(
-        default=0, description="Audio position within the element", required=False
-    )
-    audio_url: str = Field(..., description="Audio URL", required=False)
-    audio_bid: str = Field(..., description="Audio business identifier", required=False)
-    duration_ms: int = Field(..., description="Audio duration in ms", required=False)
+    position: int = Field(default=0, description="Audio position within the element")
+    audio_url: str = Field(..., description="Audio URL")
+    audio_bid: str = Field(..., description="Audio business identifier")
+    duration_ms: int = Field(..., description="Audio duration in ms")
     subtitle_cues: list[SubtitleCueDTO] = Field(
         default_factory=list,
         description="Subtitle cue list aligned with the final audio",
-        required=False,
     )
 
     def __init__(
@@ -942,18 +918,16 @@ class RunMarkdownFlowDTO(BaseModel):
 
     _mdflow_stream_parts: list[tuple[str, str, int]] = PrivateAttr(default_factory=list)
 
-    outline_bid: str = Field(..., description="outline id", required=False)
-    generated_block_bid: str = Field(
-        ..., description="generated block id", required=False
-    )
-    type: GeneratedType = Field(..., description="generated type", required=False)
+    outline_bid: str = Field(..., description="outline id")
+    generated_block_bid: str = Field(..., description="generated block id")
+    type: GeneratedType = Field(..., description="generated type")
     content: (
         str
         | VariableUpdateDTO
         | OutlineItemUpdateDTO
         | AudioSegmentDTO
         | AudioCompleteDTO
-    ) = Field(..., description="generated content", required=True)
+    ) = Field(..., description="generated content")
     anchor_element_bid: str = Field(
         default="",
         description="Anchor element bid for ASK events",
@@ -1106,8 +1080,8 @@ class LearnElementRecordDTO(BaseModel):
 class RunStatusDTO(BaseModel):
     """Represent the run status API payload."""
 
-    is_running: bool = Field(..., description="is running", required=False)
-    running_time: int = Field(..., description="running time", required=False)
+    is_running: bool = Field(..., description="is running")
+    running_time: int = Field(..., description="running time")
 
     def __init__(
         self,
@@ -1129,10 +1103,10 @@ class RunStatusDTO(BaseModel):
 class GeneratedInfoDTO(BaseModel):
     """Represent the generated info API payload."""
 
-    position: int = Field(..., description="generated block position", required=False)
-    outline_name: str = Field(..., description="outline item name", required=False)
+    position: int = Field(..., description="generated block position")
+    outline_name: str = Field(..., description="outline item name")
     is_trial_lesson: bool = Field(
-        ..., description="whether the outline item is a trial lesson", required=False
+        ..., description="whether the outline item is a trial lesson"
     )
 
     def __init__(

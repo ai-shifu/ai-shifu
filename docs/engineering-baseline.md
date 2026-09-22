@@ -340,9 +340,30 @@ src/api/tests/
 
 ### Coverage Requirements
 
-- Aim for greater than 80 percent code coverage
+- Backend application statement coverage must exceed 95 percent. The threshold
+  is 95.01 percent in `src/api/.coveragerc`, over every `flaskr` module and the
+  deployed `app.py`, `celery_app.py`, and `gunicorn.conf.py` entrypoints.
+  Unimported application modules count in the denominator. The Gunicorn
+  startup tests load the actual configuration with `runpy`, since coverage's
+  directory discovery skips its dotted filename. Tests and maintenance/migration
+  scripts do not inflate the application score.
 - Critical paths should target 100 percent coverage
-- Coverage command: `pytest --cov=flaskr --cov-report=html`
+- Full coverage command (from `src/api`):
+  `PYTHON_DOTENV_DISABLED=1 python -m coverage run -m pytest -p no:testmon tests`,
+  then `python -m coverage report` and optionally `python -m coverage html`.
+  Install `requirements-ci.txt` first. Full coverage runs must not use cached
+  test selection. Run the `Backend Tests` workflow manually from GitHub Actions
+  (`workflow_dispatch`) to check the threshold and retain raw, JSON, XML and
+  text coverage evidence. Ordinary pull requests use the existing test target
+  selection; pushes to `main` run the full tests without coverage. Neither
+  automatic path repeats the suite for coverage.
+- Install `redis-server` for the isolated Redis admission tests; the tests start
+  and stop their own Unix-socket server. Set `GEMINI_LIVE_TEST_REDIS_SERVER` to
+  a custom executable path when needed. CI sets `GEMINI_LIVE_REQUIRE_REAL_REDIS=1`
+  so a missing Redis executable fails instead of silently skipping these tests.
+- For additional branch diagnostics, use `coverage run --branch` and inspect
+  the JSON `covered_lines / num_statements` separately from the combined
+  statement/branch percentage. A targeted run cannot prove whole-backend coverage.
 
 ### Ruff Findings And Rule Adoption
 

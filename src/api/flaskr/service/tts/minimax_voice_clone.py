@@ -80,8 +80,13 @@ _ALLOWED_INPUT_EXTENSIONS = {"mp3", "m4a", "wav", "webm", "ogg", "mp4"}
 _SOURCE_MIN_DURATION_MS = 10_000
 _SOURCE_MAX_DURATION_MS = 300_000
 _PROMPT_MAX_DURATION_MS = 8_000
-_MAX_SOURCE_BYTES = 50 * 1024 * 1024
-_MAX_PROMPT_BYTES = 10 * 1024 * 1024
+MINIMAX_CLONE_SOURCE_MAX_BYTES = 50 * 1024 * 1024
+MINIMAX_CLONE_PROMPT_MAX_BYTES = 10 * 1024 * 1024
+# Leave bounded room for multipart framing and the clone form fields while
+# keeping the route-level total request limit aligned with both file limits.
+MINIMAX_CLONE_REQUEST_MAX_BYTES = (
+    MINIMAX_CLONE_SOURCE_MAX_BYTES + MINIMAX_CLONE_PROMPT_MAX_BYTES + 1024 * 1024
+)
 _VOICE_ID_RE = re.compile(r"^[A-Za-z](?=.{7,63}$)[A-Za-z0-9_-]*[A-Za-z0-9]$")
 _PENDING_AUDIO_BLOBS: dict[str, bytes] = {}
 
@@ -397,13 +402,13 @@ def submit_minimax_voice_clone(
     _validate_audio_upload(
         source_audio_bytes,
         filename=source_filename,
-        max_bytes=_MAX_SOURCE_BYTES,
+        max_bytes=MINIMAX_CLONE_SOURCE_MAX_BYTES,
     )
     if prompt_audio_bytes is not None:
         _validate_audio_upload(
             prompt_audio_bytes,
             filename=prompt_filename,
-            max_bytes=_MAX_PROMPT_BYTES,
+            max_bytes=MINIMAX_CLONE_PROMPT_MAX_BYTES,
         )
 
     with app_context_scope(app):

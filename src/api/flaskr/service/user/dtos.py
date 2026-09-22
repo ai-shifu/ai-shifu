@@ -10,11 +10,11 @@ from pydantic import BaseModel, Field
 class UserProfileLabelItemDTO(BaseModel):
     """Represent the user profile label item API payload."""
 
-    key: str = Field(..., description="key", required=False)
-    label: str = Field(..., description="label", required=False)
-    type: str = Field(..., description="type", required=False)
-    value: str | datetime.date | None = Field(..., description="value", required=False)
-    items: list | None = Field(..., description="items", required=False)
+    key: str = Field(..., description="key")
+    label: str = Field(..., description="label")
+    type: str = Field(..., description="type")
+    value: str | datetime.date | None = Field(..., description="value")
+    items: list | None = Field(..., description="items")
 
     def __json__(self) -> dict:
         """Return the user profile label item as JSON-compatible data."""
@@ -31,9 +31,7 @@ class UserProfileLabelItemDTO(BaseModel):
 class UserProfileLabelDTO(BaseModel):
     """Represent the user profile label API payload."""
 
-    profiles: list[UserProfileLabelItemDTO] = Field(
-        ..., description="items", required=False
-    )
+    profiles: list[UserProfileLabelItemDTO] = Field(..., description="items")
     language: str = Field(..., description="language")
 
     def __json__(self) -> dict:

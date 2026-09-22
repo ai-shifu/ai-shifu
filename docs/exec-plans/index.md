@@ -38,11 +38,14 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
+- [Password Login Account Rate Limit](./active/password-login-rate-limit.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
+- [Remove deprecated Pydantic `Field(required=...)` metadata](./active/pydantic-required-compatibility.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 - [Secure learner Stripe payment synchronization](./active/stripe-payment-sync-security.md)
+- [Trusted Client IP Resolution](./active/trusted-client-ip.md)
 
 ## Completed
 
@@ -50,6 +53,8 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Add arbitrary rate entries to Rate Management](./completed/admin-rate-management-create.md)
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
 - [Arabic and Thai Product i18n](./completed/arabic-thai-i18n.md)
+- [Backend Test Coverage Above 95 Percent](./completed/backend-test-coverage-95.md)
+- [Billing learning-time estimates](./completed/billing-learning-hours.md)
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Consolidate shared admin primitives](./completed/consolidate-admin-primitives.md)
