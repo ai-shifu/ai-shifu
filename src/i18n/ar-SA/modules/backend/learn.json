@@ -8,6 +8,7 @@
     "askProviderRateLimited": "تخضع طلبات قاعدة المعرفة أو حصتها لقيود، يرجى المحاولة لاحقًا",
     "askProviderTimeout": "انتهت مهلة استجابة قاعدة المعرفة الخارجية، يرجى المحاولة لاحقًا",
     "askProviderUnavailable": "قاعدة المعرفة الخارجية غير متاحة مؤقتًا",
+    "continueButton": "متابعة",
     "generatedBlockNotFound": "لم يتم العثور على الكتلة المُنشأة",
     "invalidAction": "عملية غير صالحة",
     "lessonFeedbackCommentPlaceholder": "اختياري: أخبرنا باقتراحك",

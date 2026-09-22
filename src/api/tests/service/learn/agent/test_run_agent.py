@@ -118,6 +118,16 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
     monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: PROGRESS)
     monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
     monkeypatch.setattr(run_agent, "mark_lesson_finished", lambda _r: None)
+
+    def _resolve(_app: object, **kwargs: object) -> list:
+        recorded.append(("resolve_outline", kwargs))
+        return []
+
+    def _apply(_app: object, **kwargs: object) -> None:
+        recorded.append(("apply_outline", kwargs))
+
+    monkeypatch.setattr(run_agent, "resolve_outline_progression", _resolve)
+    monkeypatch.setattr(run_agent, "apply_outline_progression", _apply)
     return recorded
 
 
@@ -1361,3 +1371,249 @@ def test_the_same_words_earlier_in_the_turn_do_not_suppress_the_question() -> No
     )
     events = _run(engine)
     assert _contents(events)[-1] == "你会编程吗？"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_short_prompt_inside_a_longer_word_is_not_a_repetition() -> None:
+    """Matching characters is not matching what was said.
+
+    `rate` sits inside `separate`. Counted as a repetition, the lesson would drop the only place
+    it asks and leave the learner a set of controls with no question above them.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="We will separate the examples."),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["We will separate the examples.", "rate"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_narration_ended_on_is_a_repetition_in_english_too() -> None:
+    """A space between words must not hide the repetition it separates."""
+    engine = _Engine(
+        [
+            ContentDelta(text="So, can you code?"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="can you code?",
+                    options=[Option(display="yes", value="yes")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["So, can you code?"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_chinese_question_needs_no_space_before_it_to_count_as_repeated() -> None:
+    """Chinese does not separate words with spaces, so there is no boundary to require.
+
+    Demanding one refused the repetition on exactly the content it was reported on: a question
+    introduced by a phrase running straight into it, with no colon and no space between.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="第一个问题是你会编程吗？"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine)) == ["第一个问题是你会编程吗？"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_window_opening_inside_a_word_does_not_invent_a_boundary() -> None:
+    """The character before a match decides it, and a slice would have thrown that character away.
+
+    The narration is sized so the window opens exactly at `rate`, inside `separate`. Handed only
+    the slice, the check sees nothing to the left of the match and calls it a word of its own, so
+    the only question in the turn is dropped and the learner is left with bare controls.
+    """
+    lead = "Intro separate "
+    # Place the window's first character on the `r` of `separate`.
+    padding = len("rate") + run_agent._ECHO_WINDOW_CHARS + lead.index("rate")
+    narration = lead + "x" * (padding - len(lead))
+    engine = _Engine(
+        [
+            ContentDelta(text=narration),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine))[-1] == "rate"
+
+
+# --- telling the outline the lesson is over -----------------------------------------------
+
+
+class _LoggingApp:
+    """Just enough Flask for a path that only logs: the warning must not replace the failure."""
+
+    def __init__(self) -> None:
+        """Collect what was logged instead of writing it anywhere."""
+        self.warnings: list[str] = []
+        self.logger = self
+
+    def warning(self, message: str, *args: object, **_kwargs: object) -> None:
+        """Record a warning the way the app's logger would emit one."""
+        self.warnings.append(message % args if args else message)
+
+    def info(self, message: str, *args: object, **_kwargs: object) -> None:
+        """Swallow an informational line, which no test asserts on."""
+
+
+def _finished_engine() -> _Engine:
+    session = _Session()
+    session.finished = True
+    return _Engine([TurnDone(reason="finished")], session=session)
+
+
+def _outline_update(bid: str, status: object, *, has_children: bool = False) -> object:
+    from flaskr.service.learn.learn_dtos import OutlineItemUpdateDTO
+
+    return OutlineItemUpdateDTO(
+        outline_bid=bid, title=bid, status=status, has_children=has_children
+    )
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_finished_lesson_tells_the_outline_before_the_stream_ends(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The browser stops reading on the terminal event, so anything after it is never seen.
+
+    Sent at all, these are what ticks the lesson off, ends its chapter and hands the learner on;
+    without them a finished lesson still called itself unfinished and the page kept asking for
+    more of it.
+    """
+    from flaskr.service.learn.learn_dtos import LearnStatus
+
+    updates = [
+        _outline_update("outline-bid", LearnStatus.COMPLETED),
+        _outline_update("next-lesson", LearnStatus.IN_PROGRESS),
+    ]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    events = _run(_finished_engine())
+    types = [e.type for e in events]
+    assert types == [GeneratedType.OUTLINE_ITEM_UPDATE] * 2 + [GeneratedType.DONE]
+    assert [e.outline_bid for e in events[:2]] == ["outline-bid", "next-lesson"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_finished_lesson_records_what_it_changed_in_the_outline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A learner who comes back tomorrow is told by the database, not by the stream."""
+    from flaskr.service.learn.learn_dtos import LearnStatus
+
+    updates = [_outline_update("outline-bid", LearnStatus.COMPLETED)]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    applied: list[object] = []
+    monkeypatch.setattr(
+        run_agent,
+        "apply_outline_progression",
+        lambda _app, **kwargs: applied.append(kwargs["updates"]),
+    )
+    _run(_finished_engine())
+    assert applied == [updates]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_preview_does_not_move_the_author_through_their_own_course(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The author is looking at a lesson, not taking one."""
+    asked: list[object] = []
+    monkeypatch.setattr(
+        run_agent,
+        "resolve_outline_progression",
+        lambda *_a, **_k: asked.append(1) or [],
+    )
+    events = list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=_finished_engine(),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+    assert asked == []
+    assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+_UNAVAILABLE = "outline unavailable"
+
+
+@pytest.mark.usefixtures("calls")
+def test_an_outline_that_cannot_be_read_does_not_cost_the_learner_the_lesson(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """They finished it and the turn is saved; a missing tick is the cheaper loss."""
+
+    def _boom(*_a: object, **_k: object) -> list:
+        raise RuntimeError(_UNAVAILABLE)
+
+    monkeypatch.setattr(run_agent, "resolve_outline_progression", _boom)
+    events = _run(_finished_engine(), app=_LoggingApp())
+    assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_turn_a_reset_discarded_does_not_advance_the_outline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The learner asked to take the lesson again; the turn in flight must not undo that.
+
+    A reset clears the progress the turn started from, and the turn is dropped. Advancing the
+    outline anyway would write the completion straight back and carry the learner past the lesson
+    they had just asked to retake.
+    """
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
+    asked: list[object] = []
+    monkeypatch.setattr(
+        run_agent,
+        "resolve_outline_progression",
+        lambda *_a, **_k: asked.append(1) or [],
+    )
+    events = _run(_finished_engine(), app=_LoggingApp())
+    assert asked == []
+    assert [e.type for e in events] == [GeneratedType.DONE]

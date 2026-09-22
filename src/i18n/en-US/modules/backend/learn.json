@@ -8,6 +8,7 @@
     "askProviderRateLimited": "The knowledge base request rate or quota limit was reached. Please try again later.",
     "askProviderTimeout": "The external knowledge service timed out. Please try again later.",
     "askProviderUnavailable": "The external knowledge service is temporarily unavailable.",
+    "continueButton": "Continue",
     "generatedBlockNotFound": "Generated block not found",
     "invalidAction": "Invalid action",
     "lessonFeedbackCommentPlaceholder": "Optional: leave your feedback",

@@ -28,6 +28,12 @@ class Option(BaseModel):
         return self.value if self.value is not None else self.display
 
 
+# What a confirm's button says when the model names nothing for it. The host replaces this with
+# a label in the learner's own language; it is a constant so that replacement can recognise the
+# default rather than guess at any English word it finds on a button.
+DEFAULT_CONFIRM_LABEL = "Continue"
+
+
 class InteractionSpec(BaseModel):
     """What the model is asking the learner for, and how to show it."""
 
@@ -59,7 +65,7 @@ class InteractionSpec(BaseModel):
             raise ValueError(msg)
         if self.type == "confirm":
             if not self.options:
-                self.options = [Option(display="Continue", value="continue")]
+                self.options = [Option(display=DEFAULT_CONFIRM_LABEL, value="continue")]
             # Every confirm answer means the same thing, so a second button would offer the
             # learner a choice that cannot reach the model. Keep the first one only.
             self.options = self.options[:1]

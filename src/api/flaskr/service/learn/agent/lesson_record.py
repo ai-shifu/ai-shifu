@@ -17,6 +17,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.learn.learn_dtos import LearnStatus, OutlineItemUpdateDTO
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
@@ -182,3 +184,36 @@ def stage_turn_block(
     block.position = position
     db.session.add(block)
     return block
+
+
+def apply_outline_progression(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    updates: list[OutlineItemUpdateDTO],
+) -> None:
+    """Record the outline changes a finished lesson caused, so a reload agrees with the page.
+
+    The browser is told about them as they happen, but a learner who comes back tomorrow is told
+    by the database instead. Without this the chapter a learner watched tick over would be back
+    to unfinished on their next visit, and the lesson they were handed on to would not know it
+    had started.
+
+    Chapters are included: a chapter's own record is what the outline reads its state from, and
+    nothing else writes it on this path.
+    """
+    with app_context_scope(app), unit_of_work():
+        for update in updates:
+            record = active_progress_record(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=update.outline_bid,
+            )
+            if update.status == LearnStatus.COMPLETED:
+                record.status = LEARN_STATUS_COMPLETED
+            elif record.status != LEARN_STATUS_COMPLETED:
+                # A lesson already finished is not reopened by being handed to again: the learner
+                # may be revisiting it, and reporting it unfinished would lose a completion.
+                record.status = LEARN_STATUS_IN_PROGRESS

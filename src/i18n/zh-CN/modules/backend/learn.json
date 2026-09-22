@@ -8,6 +8,7 @@
     "askProviderRateLimited": "知识库请求频率或配额受限，请稍后再试",
     "askProviderTimeout": "外部知识库响应超时，请稍后再试",
     "askProviderUnavailable": "外部知识库暂时不可用",
+    "continueButton": "继续",
     "generatedBlockNotFound": "生成的块未找到",
     "invalidAction": "无效的操作",
     "lessonFeedbackCommentPlaceholder": "选填：告诉我们你的建议",
