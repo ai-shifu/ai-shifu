@@ -144,6 +144,11 @@ class Prompts:
         )
 
 
+def _visible_length(text: str) -> int:
+    """Count the characters of `text` a learner would actually see."""
+    return sum(1 for ch in text if not ch.isspace())
+
+
 def _text_of(messages: Iterable[object]) -> str:
     """Return the model's text in these messages, whitespace removed, in order."""
     return "".join(
@@ -404,17 +409,34 @@ class Engine:
         segmenter = Segmenter() if session.listen_mode else None
         seg_state: dict[str, Any] = {"n": 0, "id": None, "narration": []}
         session.turn += 1
+        # Text sent to the learner so far this turn, and whether text may still go out once the
+        # model has called `finish` (settled the first time that call is seen).
+        #
+        # Whitespace does not count, the same rule `text_in_turn` applies to a `confirm`: a turn
+        # whose only output so far is a newline has presented the learner with nothing, and must
+        # not be the reason its closing line is withheld.
+        delivered = 0
+        speak_after_finish: bool | None = None
 
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
                 async for ev in events:
                     # Once the model has said the lesson is over, nothing more of its writing is
                     # the lesson. The tool result goes back to it like any other, so it takes
-                    # another turn and writes again -- and what it writes is usually the closing
-                    # line a second time, word for word, which is what the learner then read.
-                    said_goodbye = deps.finished is not None
+                    # another turn and writes again -- the closing line a second time, or a
+                    # farewell the script never asked for -- and that is not sent.
+                    #
+                    # Unless the turn has delivered nothing yet. A model that calls `finish`
+                    # first and writes the closing line after it has still written the closing
+                    # line, and a learner who is sent nothing for the turn has been robbed of
+                    # it. Decided once, when the call is first seen: deciding it per chunk would
+                    # let the first chunk through and cut the rest off mid-sentence.
+                    if deps.finished is not None and speak_after_finish is None:
+                        speak_after_finish = delivered == 0
+                    silent = deps.finished is not None and not speak_after_finish
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
-                        if ev.part.content and not said_goodbye:
+                        if ev.part.content and not silent:
+                            delivered += _visible_length(ev.part.content)
                             yield ContentDelta(text=ev.part.content)
                             if segmenter:
                                 for e in self._segment(
@@ -424,8 +446,9 @@ class Engine:
                     elif (
                         isinstance(ev, PartDeltaEvent)
                         and isinstance(ev.delta, TextPartDelta)
-                        and not said_goodbye
+                        and not silent
                     ):
+                        delivered += _visible_length(ev.delta.content_delta)
                         yield ContentDelta(text=ev.delta.content_delta)
                         if segmenter:
                             for e in self._segment(
