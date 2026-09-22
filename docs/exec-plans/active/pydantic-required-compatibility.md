@@ -20,8 +20,8 @@ runtime learning and public DTOs are touched.
   other field declaration.
 - [x] 2026-09-21 18:45 CST: Compared the complete post-migration contracts and ran representative
   DTO, route, JSON, and OpenAPI tests for the admin modules.
-- [ ] In a second pull request, remove the remaining 116 declarations, remove
-  the temporary allowlist, and enable the repository-wide zero-residual gate.
+- [x] 2026-09-21 21:00 CST: In a second pull request, removed the remaining 116 declarations, removed
+  the temporary allowlist, and enabled the `flaskr`-wide zero-residual gate.
 
 ## Surprises & Discoveries
 
@@ -51,7 +51,15 @@ defaults, factories, aliases, both Pydantic Schema modes, and registered
 Swagger standard required arrays. The only Schema change was removal of the
 deprecated boolean property metadata. Focused admin route and DTO regression
 tests passed; one database test failed only while multiple database suites ran
-concurrently and passed on isolated rerun. The second batch remains pending.
+concurrently and passed on isolated rerun.
+
+The second batch removed the remaining 116 keyword arguments from 27 learning,
+course, and user DTO models. The same full contract comparison passed, and the
+AST guard now enforces zero `Field(required=...)` declarations across all
+`flaskr` source modules. Focused DTO and SSE tests, all 643 shifu tests, and all
+632 user tests passed. The full learn suite also passed in the CI locked
+dependency environment; the earlier local report of 37 failures was caused by a
+non-locked Flask installation and is not a migration regression.
 
 ## Context and Orientation
 
