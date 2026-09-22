@@ -625,6 +625,7 @@ def _outline_progression(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
+    progress_record_bid: str,
     preview_mode: bool,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Report what the finished lesson changed in the outline, and write it down.
@@ -635,6 +636,10 @@ def _outline_progression(
     A failure here is not allowed to take the lesson down with it. The learner has finished it and
     the turn is already saved; losing the outline update costs them a tick in the sidebar, while
     raising would cost them the end of the lesson.
+
+    Nothing is reported that was not written. A reset that lands between the turn's commit and
+    this one leaves no live record to complete, and the changes are dropped rather than recorded;
+    telling the browser about them anyway would show a completion the database does not hold.
     """
     if preview_mode:
         return
@@ -644,8 +649,13 @@ def _outline_progression(
         )
         if not updates:
             return
-        apply_outline_progression(
-            app, user_bid=user_bid, shifu_bid=shifu_bid, updates=updates
+        applied = apply_outline_progression(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            updates=updates,
         )
     except Exception:
         app.logger.warning(
@@ -654,6 +664,8 @@ def _outline_progression(
             outline_bid,
             exc_info=True,
         )
+        return
+    if not applied:
         return
     for update in updates:
         yield RunMarkdownFlowDTO(
@@ -798,6 +810,7 @@ def _stream_turn(
                         user_bid=user_bid,
                         shifu_bid=shifu_bid,
                         outline_bid=outline_bid,
+                        progress_record_bid=progress_record_bid,
                         preview_mode=preview_mode,
                     )
 
