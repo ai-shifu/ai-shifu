@@ -1,7 +1,7 @@
 """Engine tests driven by pydantic-ai's FunctionModel: no network, deterministic."""
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 
 import pytest
 from flaskr.service.learn.agent.engine import (
@@ -23,7 +23,12 @@ from flaskr.service.learn.agent.engine import (
     ToolCall,
     TurnDone,
 )
-from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ToolReturnPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 pytestmark = pytest.mark.anyio
@@ -976,3 +981,99 @@ async def test_a_closing_line_is_not_said_twice() -> None:
     events = await collect(engine.run_turn(session))
     said = "".join(e.text for e in events if isinstance(e, ContentDelta))
     assert said.count(closing) == 1, said
+
+
+# --- a lesson the model never says is over -------------------------------------------------
+
+
+def _repeating_model(
+    first: str, then: str
+) -> tuple[Callable[..., StreamChunks], list[str]]:
+    """Build a model that writes `first` on its first turn and `then` on every later one.
+
+    Also collects the text of each user prompt it was sent, so a test can read what the host
+    said when it carried the lesson on.
+    """
+    prompts: list[str] = []
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        prompts.extend(
+            p.content
+            for m in messages
+            if isinstance(m, ModelRequest)
+            for p in m.parts
+            if isinstance(p, UserPromptPart) and isinstance(p.content, str)
+        )
+        yield first if calls["n"] == 1 else then
+
+    return model, prompts
+
+
+async def test_a_continue_that_repeats_the_last_turn_ends_the_lesson() -> None:
+    """The script ran out and the model did not say so.
+
+    Told to continue, it wrote the whole previous turn again, and a learner on the simulation
+    environment read a lesson twice and then watched it stop with the lesson still described as
+    in progress. A repeat is the model's way of saying there is nothing left.
+    """
+    whole = "That is everything the script had to say, delivered once and in full.\n"
+    model, _ = _repeating_model(whole, whole)
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    first = await collect(engine.run_turn(session))
+    assert first[-1].reason == "end"
+    assert session.finished is False
+    second = await collect(engine.run_turn(session))
+    assert second[-1].reason == "finished"
+    assert session.finished is True
+
+
+async def test_a_continue_that_says_something_new_carries_on() -> None:
+    model, _ = _repeating_model("Part one.\n", "Part two.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+async def test_a_repeat_the_learner_asked_for_is_not_the_end() -> None:
+    """A learner who says "again?" and gets the explanation again got what they asked for."""
+    model, _ = _repeating_model("Once more.\n", "Once more.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session, MessageTurn(text="again?")))
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+async def test_carrying_on_tells_the_model_to_finish_if_nothing_remains() -> None:
+    """The word alone gave a model with nothing left nothing to do but write it again."""
+    model, prompts = _repeating_model("Part one.\n", "Part two.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session))
+    carried_on = prompts[-1]
+    assert carried_on.startswith("continue")
+    assert "`finish`" in carried_on
+
+
+async def test_a_short_line_said_twice_is_not_the_end() -> None:
+    """A script may say the same short thing twice in a row -- a drill, a heading.
+
+    A model delivering that faithfully repeats it, and ending the lesson there would drop
+    everything the script still had after it. Only a repeat long enough to be a turn's worth of
+    lesson counts; in 5,884 published lessons no adjacent identical blocks exceed 3 characters.
+    """
+    model, _ = _repeating_model("Repeat: hello.\n", "Repeat: hello.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert second[-1].reason == "end"
+    assert session.finished is False
