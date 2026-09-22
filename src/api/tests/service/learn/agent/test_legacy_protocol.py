@@ -612,3 +612,53 @@ def test_a_model_that_writes_continue_itself_keeps_its_own_word() -> None:
         )
     )
     assert translated[-1].content == f"?[{DEFAULT_CONFIRM_LABEL}//continue]"
+
+
+def test_a_button_the_model_labelled_continue_itself_is_left_alone() -> None:
+    """Only the engine's own default is replaced, not a label the model chose.
+
+    The model may write the very word the engine would have defaulted to. Telling the two apart
+    by the word made that model's label indistinguishable from no label at all, and its stored
+    value was rewritten along with it.
+    """
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="confirm",
+                prompt="Read the diagram, then carry on when you are ready.",
+                options=[Option(display=DEFAULT_CONFIRM_LABEL, value="go")],
+            ),
+        )
+    )
+    assert translated[-1].content == f"?[{DEFAULT_CONFIRM_LABEL}//go]"
+
+
+@pytest.mark.parametrize("language", ["zh-CN", "en-US", "fr-FR", "ar-SA", "th-TH"])
+@pytest.mark.usefixtures("app")
+def test_the_continue_label_exists_in_every_language(language: str) -> None:
+    """A missing or misspelt key would put `server.learn.continueButton` on the button.
+
+    Asserting through `_()` on both sides cannot see that: with no translations loaded it
+    returns the key, and the two sides agree. This loads them and asks for the word.
+    """
+    from flaskr.i18n import translate_for_language
+
+    key = "server.learn.continueButton"
+    assert translate_for_language(key, language) != key
+
+
+@pytest.mark.usefixtures("app")
+def test_a_chinese_learner_is_asked_to_continue_in_chinese() -> None:
+    from flaskr.i18n import clear_language, set_language
+
+    set_language("zh-CN")
+    try:
+        translated = _translate(
+            InteractionRequest(
+                id="i1", spec=InteractionSpec(type="confirm", prompt="", options=[])
+            )
+        )
+    finally:
+        clear_language()
+    assert translated[-1].content == "?[继续//continue]"
