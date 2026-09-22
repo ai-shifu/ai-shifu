@@ -8,6 +8,7 @@
     "askProviderRateLimited": "La limite de fréquence ou de quota des requêtes de la base de connaissances a été atteinte. Veuillez réessayer plus tard.",
     "askProviderTimeout": "Le service de connaissances externe a expiré. Veuillez réessayer plus tard.",
     "askProviderUnavailable": "Le service de connaissances externe est temporairement indisponible.",
+    "continueButton": "Continuer",
     "generatedBlockNotFound": "Bloc généré introuvable",
     "invalidAction": "Action non valide",
     "lessonFeedbackCommentPlaceholder": "Facultatif : laissez votre commentaire",

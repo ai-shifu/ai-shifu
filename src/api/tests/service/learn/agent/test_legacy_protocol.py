@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from flaskr.i18n import _
 from flaskr.service.learn.agent import legacy_protocol
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
@@ -17,7 +18,11 @@ from flaskr.service.learn.agent.engine.events import (
     TurnDone,
     Visual,
 )
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
+from flaskr.service.learn.agent.engine.interaction import (
+    DEFAULT_CONFIRM_LABEL,
+    InteractionSpec,
+    Option,
+)
 from flaskr.service.learn.learn_dtos import GeneratedType
 
 OUTLINE = "outline-bid"
@@ -546,7 +551,7 @@ def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
 
 
 def test_a_long_confirm_prompt_stays_as_text() -> None:
-    """An instruction to the learner is content; the button keeps its default label."""
+    """An instruction to the learner is content; the button is labelled by the host."""
     translated = _translate(
         InteractionRequest(
             id="i1",
@@ -559,4 +564,33 @@ def test_a_long_confirm_prompt_stays_as_text() -> None:
         GeneratedType.CONTENT,
         GeneratedType.INTERACTION,
     ]
-    assert translated[1].content == "?[Continue//continue]"
+    # The engine's English default never reaches a learner: the host names the button in their
+    # own language, so a lesson taught in Chinese does not end on a `Continue`.
+    assert translated[1].content == f"?[{_('server.learn.continueButton')}//continue]"
+    assert DEFAULT_CONFIRM_LABEL not in translated[1].content
+
+
+def test_a_label_the_model_wrote_is_left_alone() -> None:
+    """Only the engine's own default is replaced.
+
+    A short confirm prompt becomes the button's text, and it is already in the lesson's language.
+    Replacing it too would overwrite the author's wording with a generic one.
+    """
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(type="confirm", prompt="我准备好了", options=[]),
+        )
+    )
+    assert translated[-1].content == "?[我准备好了//continue]"
+
+
+def test_an_unlabelled_confirm_is_named_by_the_host() -> None:
+    """The engine leaves an English word on the button; the learner must not see it."""
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(type="confirm", prompt="", options=[]),
+        )
+    )
+    assert translated[-1].content == f"?[{_('server.learn.continueButton')}//continue]"

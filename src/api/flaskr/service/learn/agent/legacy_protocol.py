@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from flaskr.i18n import _
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
     ErrorEvent,
@@ -31,7 +32,11 @@ from flaskr.service.learn.agent.engine.events import (
     MemoryUpdated,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
+from flaskr.service.learn.agent.engine.interaction import (
+    DEFAULT_CONFIRM_LABEL,
+    InteractionSpec,
+    Option,
+)
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunMarkdownFlowDTO,
@@ -149,6 +154,24 @@ def render_interaction(spec: InteractionSpec) -> str:
     return rendered
 
 
+def _in_the_learner_s_language(spec: InteractionSpec) -> InteractionSpec:
+    """Give a confirm the host's word for carrying on, where the model named none.
+
+    The engine fills an unlabelled confirm with an English default, and it reached learners as a
+    `Continue` button under a lesson taught in Chinese. Only that default is replaced: a label the
+    model did write is the lesson's own wording and is left exactly as it wrote it.
+    """
+    if spec.type != "confirm" or not spec.options:
+        return spec
+    if spec.options[0].display != DEFAULT_CONFIRM_LABEL:
+        return spec
+    return InteractionSpec(
+        type="confirm",
+        prompt=spec.prompt,
+        options=[Option(display=_("server.learn.continueButton"), value="continue")],
+    )
+
+
 def translate(
     event: Event,
     *,
@@ -194,6 +217,7 @@ def translate(
                 options=[Option(display=prompt.strip(), value="continue")],
             )
             prompt = ""
+        spec = _in_the_learner_s_language(spec)
         if prompt.strip():
             events.append(
                 RunMarkdownFlowDTO(
