@@ -32,15 +32,11 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
-def active_progress_record(
-    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
-) -> LearnProgressRecord:
-    """Return the learner's live progress record for this lesson, creating it if it is missing.
-
-    Staged, not committed: the caller owns the transaction, so the record lands with the session
-    and the turn's elements or not at all.
-    """
-    record = (
+def _live_progress_record(
+    *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> LearnProgressRecord | None:
+    """Return the learner's live progress record for this lesson, or None if there is none."""
+    return (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
@@ -50,6 +46,19 @@ def active_progress_record(
         )
         .order_by(LearnProgressRecord.id.desc())
         .first()
+    )
+
+
+def active_progress_record(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> LearnProgressRecord:
+    """Return the learner's live progress record for this lesson, creating it if it is missing.
+
+    Staged, not committed: the caller owns the transaction, so the record lands with the session
+    and the turn's elements or not at all.
+    """
+    record = _live_progress_record(
+        user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
     )
     if record is not None:
         return record
@@ -191,8 +200,9 @@ def apply_outline_progression(
     *,
     user_bid: str,
     shifu_bid: str,
+    outline_bid: str,
     updates: list[OutlineItemUpdateDTO],
-) -> None:
+) -> bool:
     """Record the outline changes a finished lesson caused, so a reload agrees with the page.
 
     The browser is told about them as they happen, but a learner who comes back tomorrow is told
@@ -202,18 +212,43 @@ def apply_outline_progression(
 
     Chapters are included: a chapter's own record is what the outline reads its state from, and
     nothing else writes it on this path.
+
+    The finished lesson's own record is found, never created. This runs in a transaction of its
+    own, after the turn that finished the lesson has committed, and a reset can commit in the gap
+    between the two. The reset marks every record of the lesson as reset; creating a fresh one
+    here and marking it complete would hand the learner back the very completion they had just
+    cleared, and carry them past the lesson they asked to retake. When no live record is left,
+    nothing is written at all -- not the hand-over either, since the learner is not moving on --
+    and False is returned so the caller does not report changes that were never made. Records
+    for the lesson being handed to and for chapters may still be created: nothing else writes
+    them on this path, and a reset does not touch them.
     """
     with app_context_scope(app), unit_of_work():
-        for update in updates:
-            record = active_progress_record(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=update.outline_bid,
+        lesson = _live_progress_record(
+            user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        )
+        if lesson is None:
+            app.logger.warning(
+                "outline progression skipped, lesson was reset while it finished:"
+                " user_bid=%s outline_bid=%s",
+                user_bid,
+                outline_bid,
             )
+            return False
+        for update in updates:
+            if update.outline_bid == outline_bid:
+                record = lesson
+            else:
+                record = active_progress_record(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=update.outline_bid,
+                )
             if update.status == LearnStatus.COMPLETED:
                 record.status = LEARN_STATUS_COMPLETED
             elif record.status != LEARN_STATUS_COMPLETED:
                 # A lesson already finished is not reopened by being handed to again: the learner
                 # may be revisiting it, and reporting it unfinished would lose a completion.
                 record.status = LEARN_STATUS_IN_PROGRESS
+    return True

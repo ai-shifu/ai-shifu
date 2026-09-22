@@ -123,8 +123,9 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
         recorded.append(("resolve_outline", kwargs))
         return []
 
-    def _apply(_app: object, **kwargs: object) -> None:
+    def _apply(_app: object, **kwargs: object) -> bool:
         recorded.append(("apply_outline", kwargs))
+        return True
 
     monkeypatch.setattr(run_agent, "resolve_outline_progression", _resolve)
     monkeypatch.setattr(run_agent, "apply_outline_progression", _apply)
@@ -1542,13 +1543,41 @@ def test_a_finished_lesson_records_what_it_changed_in_the_outline(
         run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
     )
     applied: list[object] = []
-    monkeypatch.setattr(
-        run_agent,
-        "apply_outline_progression",
-        lambda _app, **kwargs: applied.append(kwargs["updates"]),
-    )
+
+    def _apply(_app: object, **kwargs: object) -> bool:
+        applied.append((kwargs["outline_bid"], kwargs["updates"]))
+        return True
+
+    monkeypatch.setattr(run_agent, "apply_outline_progression", _apply)
     _run(_finished_engine())
-    assert applied == [updates]
+    # The lesson that ended is named alongside the changes: its own record is only ever found,
+    # never created, so a reset landing in between cannot be undone by this write.
+    assert applied == [(OUTLINE, updates)]
+
+
+@pytest.mark.usefixtures("calls")
+def test_changes_the_database_refused_are_not_reported_to_the_browser(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reset that landed after the turn committed leaves nothing to complete.
+
+    The browser stops reading on the terminal event and trusts what came before it; shown a
+    completion the database dropped, it would tick off the lesson the learner just asked to retake.
+    """
+    from flaskr.service.learn.learn_dtos import LearnStatus
+
+    updates = [
+        _outline_update("outline-bid", LearnStatus.COMPLETED),
+        _outline_update("next-lesson", LearnStatus.IN_PROGRESS),
+    ]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    monkeypatch.setattr(
+        run_agent, "apply_outline_progression", lambda _app, **_k: False
+    )
+    events = _run(_finished_engine())
+    assert [e.type for e in events] == [GeneratedType.DONE]
 
 
 @pytest.mark.usefixtures("calls")
