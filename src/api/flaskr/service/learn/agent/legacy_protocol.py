@@ -160,6 +160,10 @@ def _in_the_learner_s_language(spec: InteractionSpec) -> InteractionSpec:
     The engine fills an unlabelled confirm with an English default, and it reached learners as a
     `Continue` button under a lesson taught in Chinese. Only that default is replaced: a label the
     model did write is the lesson's own wording and is left exactly as it wrote it.
+
+    Which is why this runs before a short prompt is turned into the button's text, and not after.
+    Afterwards, a model that had written `Continue` itself would be indistinguishable from one
+    that wrote nothing, and would have its own word swapped for the host's.
     """
     if spec.type != "confirm" or not spec.options:
         return spec
@@ -203,6 +207,10 @@ def translate(
         # the model wrote it, because the frontend renders it as Markdown and leading indentation
         # or a trailing hard break changes what the learner sees.
         prompt = spec.prompt
+        # Before the rewrite below, not after: that rewrite puts the model's own words on the
+        # button, and a model that wrote `Continue` would otherwise have them taken for the
+        # engine's default and replaced.
+        spec = _in_the_learner_s_language(spec)
         if (
             spec.type == "confirm"
             and 0 < len(prompt.strip()) <= _CONFIRM_LABEL_MAX_CHARS
@@ -217,7 +225,6 @@ def translate(
                 options=[Option(display=prompt.strip(), value="continue")],
             )
             prompt = ""
-        spec = _in_the_learner_s_language(spec)
         if prompt.strip():
             events.append(
                 RunMarkdownFlowDTO(

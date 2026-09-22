@@ -594,3 +594,21 @@ def test_an_unlabelled_confirm_is_named_by_the_host() -> None:
         )
     )
     assert translated[-1].content == f"?[{_('server.learn.continueButton')}//continue]"
+
+
+def test_a_model_that_writes_continue_itself_keeps_its_own_word() -> None:
+    """The host's replacement must not reach a label the model chose, even the same word.
+
+    A short confirm prompt becomes the button's text, so by the time that rewrite has run the
+    model's `Continue` looks exactly like the engine's default. Localising after it would take
+    the model's own word off the button, which is the line this fix must not cross.
+    """
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="confirm", prompt=DEFAULT_CONFIRM_LABEL, options=[]
+            ),
+        )
+    )
+    assert translated[-1].content == f"?[{DEFAULT_CONFIRM_LABEL}//continue]"
