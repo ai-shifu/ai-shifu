@@ -122,8 +122,10 @@ public analytics endpoint.
 3. Extend the device authorization cache payload with validated attribution;
    bind it after `is_new_user` is known and before approval consumes the
    handoff.
-4. Extend new-course creation with optional immutable attribution and emit the
-   `course_creation_completed` journey record only after the course is staged.
+4. Extend new-course creation with optional immutable attribution and derive
+   the authoritative `course_creation_completed` aggregate from that record;
+   client delivery remains a best-effort supplement rather than the source of
+   truth.
 5. Add the authenticated fixed-event route for Skill start/import/publish
    milestones and aggregate query support for operators.
 6. Add HTTP, transaction rollback, duplicate retry, invalid-contract, and

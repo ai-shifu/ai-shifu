@@ -78,11 +78,12 @@ const DeviceAuthorizationContent = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const redirectToLogin = useCallback(() => {
-    const target = codeFromUrl
-      ? `/login/device?code=${encodeURIComponent(codeFromUrl)}`
+    const preservedCode = enteredCode.trim() || codeFromUrl;
+    const target = preservedCode
+      ? `/login/device?code=${encodeURIComponent(preservedCode)}`
       : '/login/device';
     router.replace(`/login?redirect=${encodeURIComponent(target)}`);
-  }, [codeFromUrl, router]);
+  }, [codeFromUrl, enteredCode, router]);
 
   const trackEventRef = useRef(trackEvent);
   useEffect(() => {

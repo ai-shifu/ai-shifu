@@ -12,10 +12,20 @@ from flaskr.service.common.skill_attribution import (
     ALLOWED_SKILL_EVENT_NAMES,
     parse_skill_identity,
 )
-from flaskr.service.shifu.models import DraftShifu
+from flaskr.service.shifu.models import DraftShifu, ShifuSkillAttribution
 from flaskr.service.user.models import SkillJourneyEvent, UserSkillAttribution
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+
+_EVENTS_REQUIRING_COURSE = frozenset(
+    {
+        "course_creation_completed",
+        "course_import_completed",
+        "course_publish_started",
+        "course_publish_completed",
+    }
+)
+_EVENTS_WITHOUT_COURSE = ALLOWED_SKILL_EVENT_NAMES - _EVENTS_REQUIRING_COURSE
 
 
 def _canonical_uuid(value: object, *, field_name: str) -> str:
@@ -50,6 +60,10 @@ def record_skill_journey_event(*, user_id: str, payload: object) -> dict[str, ob
         raise_param_error("event_name")
     identity = parse_skill_identity(payload, field_name="event")
     shifu_bid = str(payload.get("shifu_bid") or "").strip()
+    if event_name in _EVENTS_REQUIRING_COURSE and not shifu_bid:
+        raise_param_error("shifu_bid")
+    if event_name in _EVENTS_WITHOUT_COURSE and shifu_bid:
+        raise_param_error("shifu_bid")
     if shifu_bid:
         owned = DraftShifu.query.filter_by(
             shifu_bid=shifu_bid,
@@ -152,12 +166,32 @@ def get_skill_attribution_report(*, start: object, end: object) -> dict[str, obj
         .filter(
             SkillJourneyEvent.created_at >= start_at,
             SkillJourneyEvent.created_at < end_at,
+            SkillJourneyEvent.event_name != "course_creation_completed",
         )
         .group_by(
             SkillJourneyEvent.host_platform,
             SkillJourneyEvent.skill_id,
             SkillJourneyEvent.skill_version,
             SkillJourneyEvent.event_name,
+        )
+        .all()
+    )
+    creation_rows = (
+        db.session.query(
+            ShifuSkillAttribution.host_platform,
+            ShifuSkillAttribution.skill_id,
+            ShifuSkillAttribution.skill_version,
+            func.count(ShifuSkillAttribution.id),
+            func.count(func.distinct(ShifuSkillAttribution.user_bid)),
+        )
+        .filter(
+            ShifuSkillAttribution.created_at >= start_at,
+            ShifuSkillAttribution.created_at < end_at,
+        )
+        .group_by(
+            ShifuSkillAttribution.host_platform,
+            ShifuSkillAttribution.skill_id,
+            ShifuSkillAttribution.skill_version,
         )
         .all()
     )
@@ -183,5 +217,16 @@ def get_skill_attribution_report(*, start: object, end: object) -> dict[str, obj
                 "users": row[5],
             }
             for row in event_rows
+        ]
+        + [
+            {
+                "host_platform": row[0],
+                "skill_id": row[1],
+                "skill_version": row[2],
+                "event_name": "course_creation_completed",
+                "events": row[3],
+                "users": row[4],
+            }
+            for row in creation_rows
         ],
     }

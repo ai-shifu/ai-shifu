@@ -56,6 +56,7 @@ from flaskr.service.learn.ask_provider_adapters.consts import (  # noqa: F401
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
+from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     ASK_MODE_DEFAULT,
@@ -327,34 +328,6 @@ def create_shifu_draft(
 
     """
     with app_context_scope(app), unit_of_work():
-        if skill_attribution is not None:
-            previous = ShifuSkillAttribution.query.filter_by(
-                handoff_id=skill_attribution.handoff_id
-            ).first()
-            if previous is not None:
-                if (
-                    previous.user_bid != user_id
-                    or previous.host_platform != skill_attribution.host_platform
-                    or previous.skill_id != skill_attribution.skill_id
-                    or previous.skill_version != skill_attribution.skill_version
-                ):
-                    raise_param_error("creation_attribution.handoff_id")
-                draft = get_latest_shifu_draft(previous.shifu_bid)
-                if draft is None:
-                    raise_error("server.shifu.shifuNotFound")
-                return ShifuDto(
-                    shifu_id=draft.shifu_bid,
-                    shifu_name=draft.title,
-                    shifu_description=draft.description,
-                    shifu_avatar=draft.avatar_res_bid,
-                    shifu_state=STATUS_DRAFT,
-                    is_favorite=False,
-                    archived=False,
-                    can_manage_archive=True,
-                    can_manage_permissions=True,
-                    created_user_bid=user_id,
-                )
-
         total_started_at = perf_counter()
         stage_started_at = total_started_at
         now_time = now_utc()
@@ -405,19 +378,57 @@ def create_shifu_draft(
 
         # save to database
         stage_started_at = perf_counter()
+        if skill_attribution is not None:
+            try:
+                with db.session.begin_nested():
+                    db.session.add(
+                        ShifuSkillAttribution(
+                            shifu_bid=shifu_id,
+                            user_bid=user_id,
+                            host_platform=skill_attribution.host_platform,
+                            skill_id=skill_attribution.skill_id,
+                            skill_version=skill_attribution.skill_version,
+                            handoff_id=skill_attribution.handoff_id,
+                        )
+                    )
+                    db.session.flush()
+            except IntegrityError:
+                previous = (
+                    ShifuSkillAttribution.query.filter_by(
+                        handoff_id=skill_attribution.handoff_id
+                    )
+                    .with_for_update()
+                    .first()
+                )
+                if previous is None:
+                    raise
+                if (
+                    previous.user_bid != user_id
+                    or previous.host_platform != skill_attribution.host_platform
+                    or previous.skill_id != skill_attribution.skill_id
+                    or previous.skill_version != skill_attribution.skill_version
+                ):
+                    raise_param_error("creation_attribution.handoff_id")
+                draft = get_latest_shifu_draft(previous.shifu_bid)
+                if draft is None:
+                    raise_error("server.shifu.shifuNotFound")
+                if draft.created_user_bid != user_id or draft.deleted:
+                    raise_param_error("creation_attribution.handoff_id")
+                return ShifuDto(
+                    shifu_id=draft.shifu_bid,
+                    shifu_name=draft.title,
+                    shifu_description=draft.description,
+                    shifu_avatar=draft.avatar_res_bid,
+                    shifu_state=STATUS_DRAFT,
+                    is_favorite=False,
+                    archived=False,
+                    can_manage_archive=True,
+                    can_manage_permissions=True,
+                    created_user_bid=draft.created_user_bid,
+                )
+
         db.session.add(shifu_draft)
         db.session.flush()
-        if skill_attribution is not None:
-            db.session.add(
-                ShifuSkillAttribution(
-                    shifu_bid=shifu_id,
-                    user_bid=user_id,
-                    host_platform=skill_attribution.host_platform,
-                    skill_id=skill_attribution.skill_id,
-                    skill_version=skill_attribution.skill_version,
-                    handoff_id=skill_attribution.handoff_id,
-                )
-            )
 
         save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
 

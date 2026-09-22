@@ -82,6 +82,9 @@ def test_new_user_attribution_is_resolved_from_pending_device_request(
             record_new_user_skill_attribution(
                 app, user_code=started["user_code"], user_id=USER_ID
             )
+        approve_device_authorization(
+            app, user_code=started["user_code"], user_id=USER_ID
+        )
 
         saved = UserSkillAttribution.query.filter_by(user_bid=USER_ID).one()
         assert saved.host_platform == "doubao"
@@ -118,9 +121,35 @@ def test_existing_first_touch_attribution_is_not_replaced(app: object) -> None:
             record_new_user_skill_attribution(
                 app, user_code=second["user_code"], user_id=user_id
             )
+        approve_device_authorization(app, user_code=first["user_code"], user_id=user_id)
+        approve_device_authorization(
+            app, user_code=second["user_code"], user_id=user_id
+        )
 
         saved = UserSkillAttribution.query.filter_by(user_bid=user_id).one()
         assert saved.host_platform == "direct"
+
+
+def test_denied_handoff_does_not_persist_new_user_attribution(app: object) -> None:
+    denied_user_id = "test-user-bid-denied"
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution={
+                "host_platform": "direct",
+                "skill_id": "ai-shifu-course-creator",
+                "skill_version": "1.0.0",
+                "handoff_id": "123e4567-e89b-12d3-a456-426614174004",
+            },
+        )
+        record_new_user_skill_attribution(
+            app, user_code=started["user_code"], user_id=denied_user_id
+        )
+        deny_device_authorization(app, user_code=started["user_code"])
+
+        assert (
+            UserSkillAttribution.query.filter_by(user_bid=denied_user_id).count() == 0
+        )
 
 
 def test_token_can_only_be_collected_once(app: object) -> None:

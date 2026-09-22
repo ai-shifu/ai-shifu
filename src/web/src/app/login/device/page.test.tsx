@@ -341,4 +341,24 @@ describe('DeviceAuthorizationPage', () => {
     expect(JSON.stringify(approvedPayload)).not.toContain('AC4-7HK');
     expect(JSON.stringify(approvedPayload)).not.toContain('macOS 15');
   });
+
+  it('preserves a manually entered code when authentication is required', async () => {
+    searchParams = new URLSearchParams('');
+    const authError = Object.assign(new Error('User Not Found'), {
+      code: 1001,
+    });
+    (api.deviceAuthPending as jest.Mock).mockRejectedValue(authError);
+
+    render(<DeviceAuthorizationPage />);
+    fireEvent.change(screen.getByLabelText('module.auth.deviceAuthCodeLabel'), {
+      target: { value: 'ac4-7hk' },
+    });
+    fireEvent.click(screen.getByText('module.auth.deviceAuthContinue'));
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(
+        `/login?redirect=${encodeURIComponent('/login/device?code=ac4-7hk')}`,
+      ),
+    );
+  });
 });

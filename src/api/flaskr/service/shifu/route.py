@@ -687,16 +687,18 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         skill_attribution = parse_skill_attribution(
             payload.get("creation_attribution"), field_name="creation_attribution"
         )
+        arguments = (
+            app,
+            user_id,
+            shifu_name,
+            shifu_description,
+            shifu_avatar,
+            [],
+        )
+        if skill_attribution is None:
+            return make_common_response(create_shifu_draft(*arguments))
         return make_common_response(
-            create_shifu_draft(
-                app,
-                user_id,
-                shifu_name,
-                shifu_description,
-                shifu_avatar,
-                [],
-                skill_attribution=skill_attribution,
-            )
+            create_shifu_draft(*arguments, skill_attribution=skill_attribution)
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])

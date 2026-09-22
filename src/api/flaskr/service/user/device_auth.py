@@ -38,6 +38,7 @@ from flaskr.service.common.skill_attribution import (
 )
 from flaskr.service.user.models import UserSkillAttribution
 from flaskr.service.user.utils import generate_token
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -270,11 +271,11 @@ def create_device_authorization(
 def record_new_user_skill_attribution(
     app: Flask, *, user_code: object, user_id: str
 ) -> None:
-    """Persist device handoff attribution only for an explicitly new account.
+    """Stage device attribution until the new user approves the handoff.
 
     The login route owns the ``is_new_user`` decision. This helper only resolves
-    the pending device request and writes the immutable first-touch record in
-    the caller's unit of work.
+    the pending device request and binds it to the new account. The immutable
+    first-touch row is written only when that same account explicitly approves.
     """
     normalized = normalize_user_code(user_code)
     if not normalized or not user_id:
@@ -296,7 +297,11 @@ def record_new_user_skill_attribution(
         )
         if attribution is None:
             return
-        _add_first_user_attribution(user_id=user_id, attribution=attribution)
+        remaining_ttl = redis.ttl(_session_key(app, device_code))
+        if remaining_ttl is None or remaining_ttl <= 0:
+            return
+        payload["new_user_id"] = str(user_id)
+        _store_session(app, device_code, payload, remaining_ttl)
     finally:
         lock.release()
 
@@ -304,23 +309,34 @@ def record_new_user_skill_attribution(
 def _add_first_user_attribution(
     *, user_id: str, attribution: SkillAttributionInput
 ) -> None:
-    existing = UserSkillAttribution.query.filter_by(user_bid=user_id).first()
-    if existing is not None:
-        return
-    handoff_owner = UserSkillAttribution.query.filter_by(
-        handoff_id=attribution.handoff_id
-    ).first()
-    if handoff_owner is not None:
-        raise_error("server.user.deviceCodeInvalid")
-    db.session.add(
-        UserSkillAttribution(
-            user_bid=user_id,
-            host_platform=attribution.host_platform,
-            skill_id=attribution.skill_id,
-            skill_version=attribution.skill_version,
-            handoff_id=attribution.handoff_id,
+    try:
+        with db.session.begin_nested():
+            db.session.add(
+                UserSkillAttribution(
+                    user_bid=user_id,
+                    host_platform=attribution.host_platform,
+                    skill_id=attribution.skill_id,
+                    skill_version=attribution.skill_version,
+                    handoff_id=attribution.handoff_id,
+                )
+            )
+            db.session.flush()
+    except IntegrityError:
+        existing = (
+            UserSkillAttribution.query.filter_by(user_bid=user_id)
+            .with_for_update()
+            .first()
         )
-    )
+        if existing is not None:
+            return
+        handoff_owner = (
+            UserSkillAttribution.query.filter_by(handoff_id=attribution.handoff_id)
+            .with_for_update()
+            .first()
+        )
+        if handoff_owner is not None:
+            raise_error("server.user.deviceCodeInvalid")
+        raise
 
 
 def _require_pending(
@@ -392,6 +408,17 @@ def _record_decision(
         remaining_ttl = redis.ttl(_session_key(app, device_code))
         if remaining_ttl is None or remaining_ttl <= 0:
             raise_error("server.user.deviceCodeInvalid")
+
+        if status == STATUS_APPROVED and payload.get("new_user_id") == str(user_id):
+            attribution = parse_skill_attribution(
+                payload.get("registration_attribution"),
+                field_name="registration_attribution",
+            )
+            if attribution is not None:
+                with unit_of_work():
+                    _add_first_user_attribution(
+                        user_id=str(user_id), attribution=attribution
+                    )
 
         payload["status"] = status
         if user_id:
