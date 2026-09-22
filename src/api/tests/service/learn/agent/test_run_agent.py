@@ -1281,3 +1281,83 @@ def test_a_preview_s_audio_is_not_billed_as_a_lesson_taken(
     )
 
     assert asked["usage_scene"] == expected
+
+
+# --- a question asked twice ---------------------------------------------------------------
+
+
+def _contents(events: list) -> list[str]:
+    return [str(e.content) for e in events if e.type == GeneratedType.CONTENT]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_lesson_just_asked_is_not_asked_again() -> None:
+    """The model writes the question into the lesson and passes it to `interact` as well.
+
+    Both reached the learner, one after the other: the narration ended on the question and the
+    same sentence appeared again on its own line above the buttons.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="第一个问题：你会编程吗？"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["第一个问题：你会编程吗？"]
+    assert any(e.type == GeneratedType.INTERACTION for e in events)
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_lesson_did_not_ask_still_reaches_the_learner() -> None:
+    """Often the prompt is the only place the model asks; suppressing it leaves nothing to answer."""
+    engine = _Engine(
+        [
+            ContentDelta(text="一人公司的第一课讲完了。"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["一人公司的第一课讲完了。", "你会编程吗？"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_the_same_words_earlier_in_the_turn_do_not_suppress_the_question() -> None:
+    """A repetition is what is dropped, not a phrase the lesson happened to use before.
+
+    The check looks only at the end of the narration: matching anywhere would silence a question
+    whose words the lesson used a paragraph ago, and the learner would face bare buttons.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="你会编程吗？这个问题我们稍后再谈。"),
+            ContentDelta(text="先说说我自己的经历，我做过很多年的研发工作，" * 6),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events)[-1] == "你会编程吗？"
