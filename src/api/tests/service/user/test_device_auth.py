@@ -5,6 +5,7 @@ import json
 import pytest
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.user import device_auth
 from flaskr.service.user.device_auth import (
     STATUS_APPROVED,
     STATUS_DENIED,
@@ -150,6 +151,80 @@ def test_denied_handoff_does_not_persist_new_user_attribution(app: object) -> No
         assert (
             UserSkillAttribution.query.filter_by(user_bid=denied_user_id).count() == 0
         )
+
+
+def test_approval_finalizes_cache_before_attribution_can_wait(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution={
+                "host_platform": "direct",
+                "skill_id": "ai-shifu-course-creator",
+                "skill_version": "1.0.0",
+                "handoff_id": "123e4567-e89b-12d3-a456-426614174006",
+            },
+        )
+        record_new_user_skill_attribution(
+            app, user_code=started["user_code"], user_id=USER_ID
+        )
+
+        def delayed_persistence(**_kwargs: object) -> None:
+            with pytest.raises(AppError):
+                deny_device_authorization(app, user_code=started["user_code"])
+
+        monkeypatch.setattr(
+            device_auth, "_add_first_user_attribution", delayed_persistence
+        )
+        approve_device_authorization(
+            app, user_code=started["user_code"], user_id=USER_ID
+        )
+
+        result = poll_device_authorization(app, device_code=started["device_code"])
+        assert result["status"] == STATUS_APPROVED
+
+
+def test_repeated_approval_recovers_attribution_persistence_failure(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_id = "test-user-bid-retry-approval"
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution={
+                "host_platform": "direct",
+                "skill_id": "ai-shifu-course-creator",
+                "skill_version": "1.0.0",
+                "handoff_id": "123e4567-e89b-12d3-a456-426614174005",
+            },
+        )
+        record_new_user_skill_attribution(
+            app, user_code=started["user_code"], user_id=user_id
+        )
+        original = device_auth._add_first_user_attribution
+
+        def fail_once(**_kwargs: object) -> None:
+            error_message = "database unavailable"
+            raise RuntimeError(error_message)
+
+        monkeypatch.setattr(device_auth, "_add_first_user_attribution", fail_once)
+        with pytest.raises(RuntimeError, match="database unavailable"):
+            approve_device_authorization(
+                app, user_code=started["user_code"], user_id=user_id
+            )
+        waiting = poll_device_authorization(app, device_code=started["device_code"])
+        assert waiting["status"] == STATUS_PENDING
+        assert waiting["token"] == ""
+
+        monkeypatch.setattr(device_auth, "_add_first_user_attribution", original)
+        approve_device_authorization(
+            app, user_code=started["user_code"], user_id=user_id
+        )
+        assert UserSkillAttribution.query.filter_by(user_bid=user_id).count() == 1
+        collected = poll_device_authorization(app, device_code=started["device_code"])
+        assert collected["status"] == STATUS_APPROVED
+        assert collected["token"]
 
 
 def test_token_can_only_be_collected_once(app: object) -> None:

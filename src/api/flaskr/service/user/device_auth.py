@@ -388,8 +388,16 @@ def _record_decision(
     user_id: str = "",
     client_ip: str | None = None,
 ) -> dict[str, Any]:
-    """Write a decision onto a pending request, one decision at a time."""
-    device_code, _ = _require_pending(app, user_code, client_ip)
+    """Atomically finalize the cached decision, then persist approved attribution."""
+    normalized = normalize_user_code(user_code)
+    if not normalized:
+        raise_error("server.user.deviceCodeInvalid")
+    _guard_lookup_rate(app, client_ip)
+    device_code = _resolve_device_code(app, normalized)
+    if not device_code:
+        raise_error("server.user.deviceCodeInvalid")
+    approved_attribution: SkillAttributionInput | None = None
+    persist_user_id = ""
 
     lock = _session_lock(app, device_code)
     if not lock.acquire(blocking=True, blocking_timeout=3):
@@ -400,7 +408,17 @@ def _record_decision(
         payload = _load_session(app, device_code)
         if payload is None:
             raise_error("server.user.deviceCodeInvalid")
-        if payload.get("status") != STATUS_PENDING:
+        current_status = payload.get("status")
+        is_same_approval = (
+            status == STATUS_APPROVED
+            and current_status == STATUS_APPROVED
+            and payload.get("user_id") == str(user_id)
+        )
+        if current_status != STATUS_PENDING and not is_same_approval:
+            raise_error("server.user.deviceAuthAlreadyHandled")
+        if is_same_approval and (
+            not payload.get("new_user_id") or payload.get("attribution_persisted")
+        ):
             raise_error("server.user.deviceAuthAlreadyHandled")
 
         # Keep the remaining lifetime rather than extending it: deciding must
@@ -410,23 +428,52 @@ def _record_decision(
             raise_error("server.user.deviceCodeInvalid")
 
         if status == STATUS_APPROVED and payload.get("new_user_id") == str(user_id):
-            attribution = parse_skill_attribution(
+            approved_attribution = parse_skill_attribution(
                 payload.get("registration_attribution"),
                 field_name="registration_attribution",
             )
-            if attribution is not None:
-                with unit_of_work():
-                    _add_first_user_attribution(
-                        user_id=str(user_id), attribution=attribution
-                    )
+            persist_user_id = str(user_id)
 
-        payload["status"] = status
-        if user_id:
-            payload["user_id"] = str(user_id)
-            payload["approved_at"] = int(time.time())
-        _store_session(app, device_code, payload, remaining_ttl)
+        if not is_same_approval:
+            payload["status"] = status
+            if user_id:
+                payload["user_id"] = str(user_id)
+                payload["approved_at"] = int(time.time())
+            if approved_attribution is not None:
+                # Do not let the polling client consume the one-shot session
+                # until its durable attribution has committed successfully.
+                payload["attribution_persisted"] = False
+            _store_session(app, device_code, payload, remaining_ttl)
     finally:
         lock.release()
+
+    # The pending-to-final cache transition above is complete before this can
+    # wait on a database row. A concurrent denial can no longer acquire the
+    # lock and then be overwritten by this request's stale pending payload.
+    # Repeating the same approval safely converges a prior database failure.
+    if approved_attribution is not None:
+        with unit_of_work():
+            _add_first_user_attribution(
+                user_id=persist_user_id, attribution=approved_attribution
+            )
+        marker_lock = _session_lock(app, device_code)
+        if not marker_lock.acquire(blocking=True, blocking_timeout=3):
+            raise_error("server.user.deviceCodeInvalid")
+        try:
+            current = _load_session(app, device_code)
+            if (
+                current is None
+                or current.get("status") != STATUS_APPROVED
+                or current.get("user_id") != persist_user_id
+            ):
+                raise_error("server.user.deviceAuthAlreadyHandled")
+            marker_ttl = redis.ttl(_session_key(app, device_code))
+            if marker_ttl is None or marker_ttl <= 0:
+                raise_error("server.user.deviceCodeInvalid")
+            current["attribution_persisted"] = True
+            _store_session(app, device_code, current, marker_ttl)
+        finally:
+            marker_lock.release()
 
     return {"status": status}
 
@@ -488,6 +535,16 @@ def poll_device_authorization(app: Flask, *, device_code: str) -> dict[str, Any]
             return {"status": STATUS_DENIED, "token": ""}
 
         if status == STATUS_APPROVED:
+            if (
+                payload.get("registration_attribution")
+                and payload.get("new_user_id")
+                and payload.get("attribution_persisted") is not True
+            ):
+                return {
+                    "status": STATUS_PENDING,
+                    "token": "",
+                    "interval": _poll_interval(app),
+                }
             user_id = str(payload.get("user_id") or "")
             if not user_id:
                 _drop_session(app, normalized, user_code)
