@@ -40,6 +40,7 @@ from flaskr.service.learn.agent.engine.events import (
     MemoryUpdated,
     TurnDone,
 )
+from flaskr.service.learn.agent.engine.script import ScriptBundle
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
@@ -164,6 +165,7 @@ def _load_or_start(
     shifu_bid: str,
     outline_bid: str,
     script: str,
+    teaching_brief: str = "",
     preview_mode: bool,
 ) -> Callable[[], Any]:
     """Build the coroutine factory the bridge runs on its producer thread.
@@ -194,7 +196,14 @@ def _load_or_start(
         # `listen_mode=False` always. Listening is delivered by the host's spoken track, not by
         # the engine's own listen mode -- which we do not use, and which a session would keep
         # switched on for every later read-mode turn once it had been stored with it.
-        session = await engine.new_session(script, user_id=user_bid, listen_mode=False)
+        # The brief travels with the script, not in the system prompt. The system prompt is
+        # the engine's contract -- call the tool, never narrate, finish when done -- and author
+        # text placed beside it carries the same authority: "don't ask questions, just teach"
+        # would switch the tool protocol off. It is also the stable prefix every turn of every
+        # lesson shares, so per-lesson text there costs the prefix cache. The engine already
+        # has a slot for author-supplied rules that arrive as user content.
+        bundle = ScriptBundle(script=script, constraints=teaching_brief or None)
+        session = await engine.new_session(bundle, user_id=user_bid, listen_mode=False)
         session.user_memory = dict(user_memory)
         return session
 
@@ -206,6 +215,7 @@ def run_agent_lesson(
     *,
     engine: Engine,
     script: str,
+    teaching_brief: str = "",
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
@@ -231,6 +241,7 @@ def run_agent_lesson(
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         script=script,
+        teaching_brief=teaching_brief,
         preview_mode=preview_mode,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a

@@ -1876,3 +1876,65 @@ def test_a_line_that_only_looks_like_a_fence_does_not_open_or_close_one() -> Non
 
     # Backticks partway along a line start nothing, so the question after them is a question.
     assert _filtered("前缀```\n?[q]\n```") == ("前缀```\n\n```", ["?[q]"])
+
+
+@pytest.mark.usefixtures("calls")
+def test_the_author_s_brief_travels_with_the_script() -> None:
+    """Beside the script as author material, never in the engine's own rules.
+
+    The system prompt is the contract that makes the engine work -- call the tool, never
+    narrate, finish when done. Author text placed there carries the same authority, so a brief
+    saying "don't ask, just teach" would switch the tool protocol off. It is also the stable
+    prefix every turn of every lesson shares, and per-lesson text there costs the prefix cache.
+    """
+    seen: dict[str, object] = {}
+
+    class _Recorder(_Engine):
+        async def new_session(self, script: object, **kwargs: object) -> object:
+            seen["script"] = script
+            return await super().new_session(script, **kwargs)
+
+    engine = _Recorder([TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            teaching_brief="speak to a final-year student",
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            iter_turn=_drive,
+        )
+    )
+    bundle = seen["script"]
+    assert bundle.script == SCRIPT
+    assert bundle.constraints == "speak to a final-year student"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_lesson_with_no_brief_sends_none() -> None:
+    """An empty field is no instruction, not an empty one for the model to puzzle over."""
+    seen: dict[str, object] = {}
+
+    class _Recorder(_Engine):
+        async def new_session(self, script: object, **kwargs: object) -> object:
+            seen["script"] = script
+            return await super().new_session(script, **kwargs)
+
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=_Recorder([TurnDone(reason="end")]),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            iter_turn=_drive,
+        )
+    )
+    assert seen["script"].constraints is None
