@@ -976,3 +976,48 @@ async def test_a_closing_line_is_not_said_twice() -> None:
     events = await collect(engine.run_turn(session))
     said = "".join(e.text for e in events if isinstance(e, ContentDelta))
     assert said.count(closing) == 1, said
+
+
+async def test_a_closing_line_written_after_finish_still_reaches_the_learner() -> None:
+    """Calling `finish` first and writing the closing line after it is still writing it.
+
+    Dropping everything after `finish` assumed the closing line always comes before the call.
+    Across 25 finished lessons on the simulation environment it did, but a model that orders
+    them the other way would leave the learner a turn with nothing in it at all.
+    """
+
+    async def finish_first(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield {
+            0: DeltaToolCall(
+                name="finish",
+                json_args=json.dumps({"summary": "done"}),
+                tool_call_id="f1",
+            )
+        }
+
+    async def then_write(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield "That is the end of the lesson.\n"
+
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        gen = (
+            finish_first(messages, _info)
+            if calls["n"] == 1
+            else then_write(messages, _info)
+        )
+        async for x in gen:
+            yield x
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert "That is the end of the lesson." in said
+    assert isinstance(events[-1], TurnDone)
+    assert events[-1].reason == "finished"
