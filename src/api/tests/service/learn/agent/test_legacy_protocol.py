@@ -564,10 +564,10 @@ def test_a_long_confirm_prompt_stays_as_text() -> None:
         GeneratedType.CONTENT,
         GeneratedType.INTERACTION,
     ]
-    # The engine's English default never reaches a learner: the host names the button in their
-    # own language, so a lesson taught in Chinese does not end on a `Continue`.
+    # The host names the button, rather than the engine's default reaching the learner. Asserted
+    # through the same lookup, because in English the two words are the same one; that the label
+    # really is translated is asserted in a Chinese lesson below.
     assert translated[1].content == f"?[{_('server.learn.continueButton')}//continue]"
-    assert DEFAULT_CONFIRM_LABEL not in translated[1].content
 
 
 def test_a_label_the_model_wrote_is_left_alone() -> None:
