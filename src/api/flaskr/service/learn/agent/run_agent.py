@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -192,6 +193,14 @@ def _load_or_start(
     async def make_session() -> Session:
         if stored is not None:
             stored.user_memory = dict(user_memory)
+            # The brief is re-read too, for the same reason the memory is: a stored session
+            # carries the snapshot taken when it was last saved. A lesson already in progress
+            # when an author writes or edits one would otherwise never see it, and a lesson
+            # begun before this existed would never see one at all.
+            #
+            # Only the brief, not the script. Replacing the script under a conversation that has
+            # already been taught from it would leave the two disagreeing about what was said.
+            stored.script = replace(stored.script, constraints=teaching_brief or None)
             return stored
         # `listen_mode=False` always. Listening is delivered by the host's spoken track, not by
         # the engine's own listen mode -- which we do not use, and which a session would keep

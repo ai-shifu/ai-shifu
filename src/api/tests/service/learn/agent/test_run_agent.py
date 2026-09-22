@@ -35,11 +35,15 @@ class _Session:
     """Stands in for an engine session: only the fields the host reads."""
 
     def __init__(self, *, started: bool = False, pending: list | None = None) -> None:
+        """Build a session, carrying the script bundle a real one holds."""
+        from flaskr.service.learn.agent.engine.script import ScriptBundle
+
         self.started = started
         self.pending = pending or []
         self.user_memory: dict = {}
         self.turn = 0
         self.finished = False
+        self.script = ScriptBundle(script=SCRIPT)
 
 
 class _Record:
@@ -1938,3 +1942,61 @@ def test_a_lesson_with_no_brief_sends_none() -> None:
         )
     )
     assert seen["script"].constraints is None
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_resumed_lesson_sees_a_brief_written_since_it_was_saved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stored session carries the snapshot taken when it was last saved.
+
+    A lesson already in progress when an author writes or edits a brief would otherwise never
+    see it, and one begun before briefs reached this engine would never see a brief at all.
+    """
+    stored = _Session(started=True)
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    engine = _Engine([TurnDone(reason="end")], session=stored)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            teaching_brief="speak to a final-year student",
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            iter_turn=_drive,
+        )
+    )
+    assert stored.script.constraints == "speak to a final-year student"
+    # The script itself is left alone: swapping it under a conversation already taught from it
+    # would leave the two disagreeing about what was said.
+    assert stored.script.script == SCRIPT
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_brief_an_author_deleted_stops_reaching_a_resumed_lesson(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Re-reading has to carry a removal too, or a cleared field would live on in the session."""
+    from flaskr.service.learn.agent.engine.script import ScriptBundle
+
+    stored = _Session(started=True)
+    stored.script = ScriptBundle(script=SCRIPT, constraints="an old brief")
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=_Engine([TurnDone(reason="end")], session=stored),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            iter_turn=_drive,
+        )
+    )
+    assert stored.script.constraints is None
