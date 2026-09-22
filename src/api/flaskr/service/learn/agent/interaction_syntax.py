@@ -28,7 +28,12 @@ is how a lesson about the syntax shows the syntax.
 
 from __future__ import annotations
 
+import re
+
 _OPEN = "?["
+_FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})", re.MULTILINE)
+# A line still arriving that may yet become one.
+_MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]", re.MULTILINE)
 _CLOSE = "]"
 
 
@@ -39,6 +44,10 @@ class InteractionSyntaxFilter:
         """Start with nothing held and nothing seen."""
         self._held = ""
         self._inside = False
+        # The code fence we are inside, as its character and length, or None. A lesson about the
+        # notation shows the notation in a code block, and the grammar does not read one as an
+        # interaction either.
+        self._fence: tuple[str, int] | None = None
         # The last character already sent out. An opener is escaped by the character before it,
         # and that character may have left in an earlier chunk, so it has to be remembered.
         self._previous = ""
@@ -55,11 +64,45 @@ class InteractionSyntaxFilter:
                 end = self._held.find(_CLOSE)
                 if end < 0:
                     return "".join(out)
+                if len(self._held) == end + 1:
+                    # The character after the bracket decides whether this is a question or a
+                    # link, and it has not arrived yet.
+                    return "".join(out)
+                if self._held[end + 1] == "(":
+                    self._emit(out, self._held[: end + 1])
+                    self._held = self._held[end + 1 :]
+                    self._inside = False
+                    continue
                 self.spans.append(self._held[: end + 1])
                 self._held = self._held[end + 1 :]
                 self._inside = False
                 continue
-            start = self._find_open(self._held, self._previous)
+            fence = self._next_fence_line(self._held)
+            if fence is not None and fence[1] is None:
+                # A line that could still turn out to open or close a code block waits for its
+                # end. Released as ordinary text, the block would never be recognised and the
+                # example inside it would be taken for a question.
+                self._emit(out, self._held[: fence[0]])
+                self._held = self._held[fence[0] :]
+                return "".join(out)
+            start = (
+                -1
+                if self._fence is not None
+                else self._find_open(self._held, self._previous)
+            )
+            if fence is not None and (start < 0 or fence[0] < start):
+                line_end = fence[1]
+                self._toggle_fence(self._held[fence[0] : line_end])
+                self._emit(out, self._held[:line_end])
+                self._held = self._held[line_end:]
+                continue
+            if start < 0 and self._fence is not None:
+                # Inside a code block with no fence in sight: all text, but a line that may yet
+                # close the block waits for its end.
+                cut = self._held.rfind("\n") + 1
+                self._emit(out, self._held[:cut])
+                self._held = self._held[cut:]
+                return "".join(out)
             if start < 0:
                 # A trailing `?` waits for the next chunk, which may turn it into an opener.
                 # Without this the same output is handled differently depending on where the
@@ -72,6 +115,19 @@ class InteractionSyntaxFilter:
                 else:
                     self._emit(out, self._held)
                     self._held = ""
+                return "".join(out)
+            close = self._held.find(_CLOSE, start)
+            if close >= 0 and self._held[close + 1 : close + 2] == "(":
+                # `?[text](link)` is a link, not a question: the grammar's own pattern ends in a
+                # negative lookahead for the bracket, and a lesson may well write one.
+                self._emit(out, self._held[: close + 1])
+                self._held = self._held[close + 1 :]
+                continue
+            if (
+                close < 0
+                and self._held.endswith(_CLOSE) is False
+                and len(self._held) - start < 2
+            ):
                 return "".join(out)
             self._emit(out, self._held[:start])
             self._held = self._held[start:]
@@ -88,11 +144,46 @@ class InteractionSyntaxFilter:
     def flush(self) -> str:
         """Release what is still held, because no more text is coming.
 
-        An opener that never closed was never a span: it is text, and it goes out as text.
+        A span waiting only to find out whether a bracket follows it is settled here: nothing
+        follows it, so it is a question and not a link. An opener that never closed was never a
+        span at all -- it is text, and it goes out as text.
         """
+        if self._inside and self._held.endswith(_CLOSE):
+            self.spans.append(self._held)
+            self._held = ""
         tail, self._held = self._held, ""
         self._inside = False
+        self._fence = None
         return tail
+
+    def _next_fence_line(self, text: str) -> tuple[int, int | None] | None:
+        """Where the next fence line starts in `text`, and where it ends.
+
+        The end is None when the line has not finished arriving, which is the caller's cue to
+        wait for it rather than let it out as ordinary text. Fences are line-based, so this
+        looks at every line start in what is held, not only at the first.
+        """
+        match = _FENCE.search(text)
+        if match is None:
+            partial = _MAY_BE_FENCE.search(text)
+            if partial is None or "\n" in text[partial.start() :]:
+                return None
+            return (partial.start(), None)
+        line_end = text.find("\n", match.start())
+        if line_end < 0:
+            return (match.start(), None)
+        return (match.start(), line_end + 1)
+
+    def _toggle_fence(self, line: str) -> None:
+        """Open a code block on this fence line, or close the one it ends."""
+        match = _FENCE.match(line)
+        if match is None:
+            return
+        run = match.group(1)
+        if self._fence is None:
+            self._fence = (run[0], len(run))
+        elif run[0] == self._fence[0] and len(run) >= self._fence[1]:
+            self._fence = None
 
     @staticmethod
     def _find_open(text: str, previous: str) -> int:

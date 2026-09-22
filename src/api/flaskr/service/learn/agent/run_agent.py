@@ -801,11 +801,18 @@ def _stream_turn(
                         preview_mode=preview_mode,
                     )
 
-        if isinstance(event, TurnDone) and not asked and syntax.spans:
+        finished = bool(getattr(session_holder.get("session"), "finished", False))
+        if isinstance(event, TurnDone) and not asked and not finished and syntax.spans:
             # The model typed a question rather than asking for one. Sent before the event that
             # ends the turn, so it is the last thing written: a turn ending on text is the host's
             # signal to carry on, and carrying on would run the lesson past the question the
             # learner is still reading.
+            #
+            # Not on a lesson the model has just finished. The engine refuses a turn on a
+            # finished session, so the question could never be answered, and the lesson is over
+            # in any case -- a question typed on the way out is not one to put to the learner.
+            # Only the last span is asked: a turn holds one question, and it is the one the
+            # narration ends on.
             yield from _narrated_question(
                 syntax.spans[-1],
                 voice=voice,
@@ -852,7 +859,10 @@ def _stream_turn(
     # the failures it cannot continue past. What the turn produced still has to be written, or the
     # learner replays an exchange that already happened.
     if not persisted:
-        tail = syntax.feed(markers.flush()) + syntax.flush()
+        # A turn that died has no `TurnDone`, so nothing above will have asked what the model
+        # typed. Putting it back as text loses nothing: it is what the model wrote, and the
+        # learner is being shown a failure rather than a question either way.
+        tail = syntax.feed(markers.flush()) + syntax.flush() + "".join(syntax.spans)
         if tail:
             taught.append(tail)
             yield from _say(

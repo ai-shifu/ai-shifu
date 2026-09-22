@@ -1747,3 +1747,59 @@ def test_a_lesson_about_the_notation_may_show_the_notation() -> None:
     events = _run(engine)
     assert _narration(events) == "交互这样写：\\?[甲 | 乙]"
     assert _interactions(events) == []
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_typed_on_the_way_out_is_not_put_to_the_learner() -> None:
+    """The engine refuses a turn on a finished session, so it could never be answered."""
+    session = _Session()
+    session.finished = True
+    engine = _Engine(
+        [
+            ContentDelta(text="就到这里。?[还想再看一遍吗 | 不用了]"),
+            TurnDone(reason="finished"),
+        ],
+        session=session,
+    )
+    events = _run(engine)
+    assert _interactions(events) == []
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_typed_before_a_failure_is_not_swallowed() -> None:
+    """A turn that dies has no boundary event, so nothing asks what the model typed.
+
+    Put back as text it is at least still there; removed and never sent, the learner would be
+    shown a failure with part of the lesson quietly missing from it.
+    """
+    engine = _Engine(
+        [ContentDelta(text="先想想。?[甲 | 乙]"), ErrorEvent(message="boom")]
+    )
+    assert "?[甲 | 乙]" in _narration(_run(engine))
+
+
+def test_a_link_is_not_a_question() -> None:
+    """`?[text](url)` is a link; the grammar's own pattern ends in a lookahead for the bracket."""
+    from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+
+    link = "想了解更多?[点这里](https://example.com)"
+    whole = InteractionSyntaxFilter()
+    assert whole.feed(link) + whole.flush() == link
+    assert whole.spans == []
+
+    # And when the stream is cut between the bracket and the parenthesis, which is the only way
+    # to reach the check that reads the character after a closed span.
+    piecewise = InteractionSyntaxFilter()
+    out = "".join(piecewise.feed(link[at : at + 3]) for at in range(0, len(link), 3))
+    assert out + piecewise.flush() == link
+    assert piecewise.spans == []
+
+
+def test_an_example_inside_a_code_block_is_not_a_question() -> None:
+    """A lesson about the notation shows it in a code block, and the grammar reads it as text."""
+    from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+
+    lesson = "写法如下：\n```\n?[甲 | 乙]\n```\n就这样。"
+    syntax = InteractionSyntaxFilter()
+    assert syntax.feed(lesson) + syntax.flush() == lesson
+    assert syntax.spans == []
