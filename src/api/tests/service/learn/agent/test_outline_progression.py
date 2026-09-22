@@ -151,3 +151,31 @@ def test_chapters_close_from_the_inside_out_and_open_from_the_outside_in() -> No
         ("ch2", LearnStatus.IN_PROGRESS),
         ("l2", LearnStatus.IN_PROGRESS),
     ]
+
+
+def test_a_lesson_hidden_while_being_studied_still_hands_over_to_the_next() -> None:
+    """The author hid the lesson the learner was in; the learner still finishes it.
+
+    Looking the ended lesson up among the visible ones found nothing, so nobody was handed
+    anywhere and the chapter was closed over a lesson the learner had not reached.
+    """
+    course = _chapter(
+        "course", [_chapter("ch1", [_lesson("l1"), _lesson("l2"), _lesson("l3")])]
+    )
+    hidden = {**dict.fromkeys(("ch1", "l1", "l3"), False), "l2": True}
+    plan = plan_lesson_completion(course, "l2", hidden, {})
+    assert [(u.outline_bid, u.status) for u in plan] == [
+        ("l2", LearnStatus.COMPLETED),
+        ("l3", LearnStatus.IN_PROGRESS),
+    ]
+
+
+def test_a_lesson_hidden_with_its_whole_chapter_moves_on_to_the_next_chapter() -> None:
+    """A hidden chapter is nowhere to stay; the next visible lesson is in the chapter after."""
+    hidden = {**VISIBLE, "ch1": True, "l2": True}
+    assert _plan("l2", hidden) == [
+        ("l2", LearnStatus.COMPLETED, False),
+        ("ch1", LearnStatus.COMPLETED, True),
+        ("ch2", LearnStatus.IN_PROGRESS, True),
+        ("l3", LearnStatus.IN_PROGRESS, False),
+    ]
