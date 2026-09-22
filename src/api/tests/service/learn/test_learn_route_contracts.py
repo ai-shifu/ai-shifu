@@ -376,7 +376,7 @@ def test_runtime_route_normalizes_listen_and_learning_mode_before_streaming(
     monkeypatch.setattr(routes, "run_script", run)
     monkeypatch.setattr(routes, "is_builtin_demo_shifu", lambda *_: True)
     response = test_client.put(
-        f"/api/learn/shifu/{feedback_course.bid}/run/lesson",
+        f"/api/learn/shifu/{feedback_course.bid}/run/{feedback_course.bid}",
         json={
             "listen": listen,
             "learning_mode": " classroom ",
@@ -388,6 +388,45 @@ def test_runtime_route_normalizes_listen_and_learning_mode_before_streaming(
     assert run.call_args.kwargs["listen"] is (listen is not None)
     assert run.call_args.kwargs["learning_mode"] == "classroom"
     assert run.call_args.kwargs["user_input"] == {"answer": ["yes"]}
+
+
+def test_runtime_route_rejects_a_lesson_from_another_course_before_admission(
+    app: object, monkeypatch: object, test_client: object, feedback_course: object
+) -> None:
+    foreign_course_bid = "foreign-course"
+    foreign_outline_bid = "foreign-outline"
+    with app.app_context(), unit_of_work():
+        for model in (DraftOutlineItem, PublishedOutlineItem):
+            db.session.add(
+                model(
+                    shifu_bid=foreign_course_bid,
+                    outline_item_bid=foreign_outline_bid,
+                    title="Foreign lesson",
+                    position=0,
+                    deleted=0,
+                )
+            )
+
+    admission = Mock()
+    run = Mock(return_value=iter(["data: completed\n\n"]))
+    monkeypatch.setattr(routes, "is_builtin_demo_shifu", lambda *_: False)
+    monkeypatch.setattr(routes, "admit_creator_usage", admission)
+    monkeypatch.setattr(routes, "run_script", run)
+
+    try:
+        response = test_client.put(
+            f"/api/learn/shifu/{feedback_course.bid}/run/{foreign_outline_bid}",
+            json={"input": "answer"},
+            headers={"Token": "test-token"},
+        ).get_json(force=True)
+    finally:
+        with app.app_context(), unit_of_work():
+            for model in (DraftOutlineItem, PublishedOutlineItem):
+                model.query.filter_by(outline_item_bid=foreign_outline_bid).delete()
+
+    assert response["code"] == ERROR_CODE["server.shifu.lessonNotFoundInCourse"]
+    admission.assert_not_called()
+    run.assert_not_called()
 
 
 @pytest.mark.parametrize("visual", [None, " true "])

@@ -7,10 +7,15 @@ import contextlib
 import json
 import logging
 import sys
+import uuid
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
+import pytest
 from flask import Flask
+from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 
 
 def _install_litellm_stub() -> None:
@@ -142,6 +147,27 @@ def _mock_user(
         raising=False,
     )
     return dummy_user
+
+
+@pytest.fixture
+def builtin_demo_outline(app: Flask) -> object:
+    course_bid = f"builtin-demo-{uuid.uuid4().hex}"
+    outline_bid = f"outline-{uuid.uuid4().hex}"
+    with app.app_context(), unit_of_work():
+        for model in (DraftOutlineItem, PublishedOutlineItem):
+            db.session.add(
+                model(
+                    shifu_bid=course_bid,
+                    outline_item_bid=outline_bid,
+                    title="Builtin demo lesson",
+                    position=0,
+                    deleted=0,
+                )
+            )
+    yield SimpleNamespace(course_bid=course_bid, outline_bid=outline_bid)
+    with app.app_context(), unit_of_work():
+        for model in (DraftOutlineItem, PublishedOutlineItem):
+            model.query.filter_by(outline_item_bid=outline_bid).delete()
 
 
 def test_stream_passthrough_releases_request_db_session(monkeypatch: object) -> None:
@@ -405,13 +431,13 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
 
 
 def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
-    monkeypatch: object, test_client: object
+    builtin_demo_outline: object, monkeypatch: object, test_client: object
 ) -> None:
     _mock_user(monkeypatch, "user-run")
 
     monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",
-        lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
+        lambda _app, shifu_bid: shifu_bid == builtin_demo_outline.course_bid,
     )
     monkeypatch.setattr(
         "flaskr.service.learn.routes.admit_creator_usage",
@@ -430,7 +456,8 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
     )
 
     resp = test_client.put(
-        "/api/learn/shifu/builtin-demo-1/run/outline-1",
+        f"/api/learn/shifu/{builtin_demo_outline.course_bid}/run/"
+        f"{builtin_demo_outline.outline_bid}",
         json={"input": "hello"},
         headers={"Token": "test-token"},
     )
@@ -442,14 +469,14 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
 
 
 def test_run_route_uses_payload_language_as_generation_snapshot(
-    monkeypatch: object, test_client: object
+    builtin_demo_outline: object, monkeypatch: object, test_client: object
 ) -> None:
     _mock_user(monkeypatch, "user-run-language")
     captured = {}
 
     monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",
-        lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
+        lambda _app, shifu_bid: shifu_bid == builtin_demo_outline.course_bid,
     )
 
     def _fake_run_script(*_args: object, **kwargs: object) -> object:
@@ -462,7 +489,8 @@ def test_run_route_uses_payload_language_as_generation_snapshot(
     )
 
     resp = test_client.put(
-        "/api/learn/shifu/builtin-demo-1/run/outline-1",
+        f"/api/learn/shifu/{builtin_demo_outline.course_bid}/run/"
+        f"{builtin_demo_outline.outline_bid}",
         json={"input": "hello", "language": "fr-FR"},
         headers={
             "Token": "test-token",
