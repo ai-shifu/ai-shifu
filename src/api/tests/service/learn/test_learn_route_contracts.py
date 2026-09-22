@@ -429,6 +429,39 @@ def test_runtime_route_rejects_a_lesson_from_another_course_before_admission(
     run.assert_not_called()
 
 
+@pytest.mark.parametrize("preview_mode", [False, True])
+def test_runtime_route_rejects_a_lesson_missing_from_the_requested_version(
+    app: object,
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    preview_mode: bool,
+) -> None:
+    with app.app_context(), unit_of_work():
+        unavailable_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
+        unavailable_model.query.filter_by(shifu_bid=feedback_course.bid).delete()
+
+    preview_admission = Mock()
+    production_admission = Mock()
+    run = Mock(return_value=iter(["data: completed\n\n"]))
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    monkeypatch.setattr(routes, "admit_creator_preview_usage", preview_admission)
+    monkeypatch.setattr(routes, "admit_creator_usage", production_admission)
+    monkeypatch.setattr(routes, "run_script", run)
+
+    response = test_client.put(
+        f"/api/learn/shifu/{feedback_course.bid}/run/{feedback_course.bid}",
+        query_string={"preview_mode": str(preview_mode).lower()},
+        json={"input": "answer"},
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+
+    assert response["code"] == ERROR_CODE["server.shifu.lessonNotFoundInCourse"]
+    preview_admission.assert_not_called()
+    production_admission.assert_not_called()
+    run.assert_not_called()
+
+
 @pytest.mark.parametrize("visual", [None, " true "])
 def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     monkeypatch: object, test_client: object, feedback_course: object, visual: object

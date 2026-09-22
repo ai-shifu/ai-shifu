@@ -151,8 +151,8 @@ def _mock_user(
 
 @pytest.fixture
 def builtin_demo_outline(app: Flask) -> object:
-    course_bid = f"builtin-demo-{uuid.uuid4().hex}"
-    outline_bid = f"outline-{uuid.uuid4().hex}"
+    course_bid = uuid.uuid4().hex
+    outline_bid = uuid.uuid4().hex
     with app.app_context(), unit_of_work():
         for model in (DraftOutlineItem, PublishedOutlineItem):
             db.session.add(
