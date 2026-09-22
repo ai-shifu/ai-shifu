@@ -264,6 +264,11 @@ async def test_finish_tool_marks_the_session_done() -> None:
     assert done.reason == "finished"
     assert done.summary == "learner completed the lesson"
     assert s.finished is True
+    # The tool result goes back to the model like any other, so it takes another turn and writes
+    # again. That writing is not the lesson: the lesson ended when it said so.
+    said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert "That's all for today." in said
+    assert "Goodbye." not in said
     assert Session.from_dict(s.to_dict()).finished is True
 
 
@@ -933,3 +938,41 @@ async def test_a_resume_that_never_reached_the_model_may_be_retried() -> None:
 
     assert not isinstance(events[0], TurnDone) or events[0].reason != "finished"
     assert session.finished is False
+
+
+async def test_a_closing_line_is_not_said_twice() -> None:
+    """The model writes the lesson's last line, calls `finish`, and writes it again.
+
+    Word for word, with nothing between them, which is what the learner read: `两种选择题都测完了。`
+    followed immediately by `两种选择题都测完了。`. Found by walking a real lesson on the
+    simulation environment; 2 of 200 recent turns carried it, both of them lessons that end on a
+    closing line with nothing after it.
+    """
+    closing = "That is everything for this lesson."
+
+    async def ending(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield closing
+        yield {
+            0: DeltaToolCall(
+                name="finish",
+                json_args=json.dumps({"summary": "done"}),
+                tool_call_id="f1",
+            )
+        }
+
+    async def again(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield closing
+
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        gen = ending(messages, _info) if calls["n"] == 1 else again(messages, _info)
+        async for x in gen:
+            yield x
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+    said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert said.count(closing) == 1, said
