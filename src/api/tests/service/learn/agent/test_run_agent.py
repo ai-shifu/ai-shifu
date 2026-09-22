@@ -1373,6 +1373,105 @@ def test_the_same_words_earlier_in_the_turn_do_not_suppress_the_question() -> No
     assert _contents(events)[-1] == "你会编程吗？"
 
 
+@pytest.mark.usefixtures("calls")
+def test_a_short_prompt_inside_a_longer_word_is_not_a_repetition() -> None:
+    """Matching characters is not matching what was said.
+
+    `rate` sits inside `separate`. Counted as a repetition, the lesson would drop the only place
+    it asks and leave the learner a set of controls with no question above them.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="We will separate the examples."),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["We will separate the examples.", "rate"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_narration_ended_on_is_a_repetition_in_english_too() -> None:
+    """A space between words must not hide the repetition it separates."""
+    engine = _Engine(
+        [
+            ContentDelta(text="So, can you code?"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="can you code?",
+                    options=[Option(display="yes", value="yes")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["So, can you code?"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_chinese_question_needs_no_space_before_it_to_count_as_repeated() -> None:
+    """Chinese does not separate words with spaces, so there is no boundary to require.
+
+    Demanding one refused the repetition on exactly the content it was reported on: a question
+    introduced by a phrase running straight into it, with no colon and no space between.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="第一个问题是你会编程吗？"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine)) == ["第一个问题是你会编程吗？"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_window_opening_inside_a_word_does_not_invent_a_boundary() -> None:
+    """The character before a match decides it, and a slice would have thrown that character away.
+
+    The narration is sized so the window opens exactly at `rate`, inside `separate`. Handed only
+    the slice, the check sees nothing to the left of the match and calls it a word of its own, so
+    the only question in the turn is dropped and the learner is left with bare controls.
+    """
+    lead = "Intro separate "
+    # Place the window's first character on the `r` of `separate`.
+    padding = len("rate") + run_agent._ECHO_WINDOW_CHARS + lead.index("rate")
+    narration = lead + "x" * (padding - len(lead))
+    engine = _Engine(
+        [
+            ContentDelta(text=narration),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine))[-1] == "rate"
+
+
 # --- telling the outline the lesson is over -----------------------------------------------
 
 
