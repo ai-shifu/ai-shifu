@@ -46,6 +46,7 @@ from flaskr.service.learn.agent.legacy_protocol import (
 )
 from flaskr.service.learn.agent.lesson_record import (
     active_progress_record,
+    apply_outline_progression,
     claim_for_writing,
     mark_lesson_finished,
     record_turn_content,
@@ -61,6 +62,7 @@ from flaskr.service.learn.agent.session_store import (
     save_agent_session,
 )
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+from flaskr.service.learn.learn_funcs import resolve_outline_progression
 from flaskr.service.learn.memory import (
     MemoryUpdate,
     VariableMemoryUpdate,
@@ -533,6 +535,51 @@ def _pieces(
             )
 
 
+def _outline_progression(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Report what the finished lesson changed in the outline, and write it down.
+
+    A preview changes nothing: the author is looking at a lesson, not taking one, and a preview
+    that ticked lessons off would rewrite the author's own progress through their course.
+
+    A failure here is not allowed to take the lesson down with it. The learner has finished it and
+    the turn is already saved; losing the outline update costs them a tick in the sidebar, while
+    raising would cost them the end of the lesson.
+    """
+    if preview_mode:
+        return
+    try:
+        updates = resolve_outline_progression(
+            app, shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+        )
+        if not updates:
+            return
+        apply_outline_progression(
+            app, user_bid=user_bid, shifu_bid=shifu_bid, updates=updates
+        )
+    except Exception:
+        app.logger.warning(
+            "could not advance the outline: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+            exc_info=True,
+        )
+        return
+    for update in updates:
+        yield RunMarkdownFlowDTO(
+            outline_bid=update.outline_bid,
+            generated_block_bid="",
+            type=GeneratedType.OUTLINE_ITEM_UPDATE,
+            content=update,
+        )
+
+
 def _stream_turn(
     app: Flask,
     *,
@@ -649,6 +696,19 @@ def _stream_turn(
                     taught="".join(taught),
                 )
                 pending_memory = []
+                if session.finished:
+                    # Before the terminal event, because the browser stops reading the stream on
+                    # it. These are the only thing that ticks the lesson off in the outline, ends
+                    # the chapter it belonged to, and hands the learner on to what is next -- and
+                    # the only thing that tells the page the lesson is over, without which it
+                    # goes on asking for a continuation that does not exist.
+                    yield from _outline_progression(
+                        app,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=preview_mode,
+                    )
 
         try:
             yield from _on_this_page(

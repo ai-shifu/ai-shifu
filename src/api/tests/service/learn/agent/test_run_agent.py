@@ -118,6 +118,16 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
     monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: PROGRESS)
     monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
     monkeypatch.setattr(run_agent, "mark_lesson_finished", lambda _r: None)
+
+    def _resolve(_app: object, **kwargs: object) -> list:
+        recorded.append(("resolve_outline", kwargs))
+        return []
+
+    def _apply(_app: object, **kwargs: object) -> None:
+        recorded.append(("apply_outline", kwargs))
+
+    monkeypatch.setattr(run_agent, "resolve_outline_progression", _resolve)
+    monkeypatch.setattr(run_agent, "apply_outline_progression", _apply)
     return recorded
 
 
@@ -1361,3 +1371,125 @@ def test_the_same_words_earlier_in_the_turn_do_not_suppress_the_question() -> No
     )
     events = _run(engine)
     assert _contents(events)[-1] == "你会编程吗？"
+
+
+# --- telling the outline the lesson is over -----------------------------------------------
+
+
+class _LoggingApp:
+    """Just enough Flask for a path that only logs: the warning must not replace the failure."""
+
+    def __init__(self) -> None:
+        """Collect what was logged instead of writing it anywhere."""
+        self.warnings: list[str] = []
+        self.logger = self
+
+    def warning(self, message: str, *args: object, **_kwargs: object) -> None:
+        """Record a warning the way the app's logger would emit one."""
+        self.warnings.append(message % args if args else message)
+
+
+def _finished_engine() -> _Engine:
+    session = _Session()
+    session.finished = True
+    return _Engine([TurnDone(reason="finished")], session=session)
+
+
+def _outline_update(bid: str, status: object, *, has_children: bool = False) -> object:
+    from flaskr.service.learn.learn_dtos import OutlineItemUpdateDTO
+
+    return OutlineItemUpdateDTO(
+        outline_bid=bid, title=bid, status=status, has_children=has_children
+    )
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_finished_lesson_tells_the_outline_before_the_stream_ends(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The browser stops reading on the terminal event, so anything after it is never seen.
+
+    Sent at all, these are what ticks the lesson off, ends its chapter and hands the learner on;
+    without them a finished lesson still called itself unfinished and the page kept asking for
+    more of it.
+    """
+    from flaskr.service.learn.learn_dtos import LearnStatus
+
+    updates = [
+        _outline_update("outline-bid", LearnStatus.COMPLETED),
+        _outline_update("next-lesson", LearnStatus.IN_PROGRESS),
+    ]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    events = _run(_finished_engine())
+    types = [e.type for e in events]
+    assert types == [GeneratedType.OUTLINE_ITEM_UPDATE] * 2 + [GeneratedType.DONE]
+    assert [e.outline_bid for e in events[:2]] == ["outline-bid", "next-lesson"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_finished_lesson_records_what_it_changed_in_the_outline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A learner who comes back tomorrow is told by the database, not by the stream."""
+    from flaskr.service.learn.learn_dtos import LearnStatus
+
+    updates = [_outline_update("outline-bid", LearnStatus.COMPLETED)]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    applied: list[object] = []
+    monkeypatch.setattr(
+        run_agent,
+        "apply_outline_progression",
+        lambda _app, **kwargs: applied.append(kwargs["updates"]),
+    )
+    _run(_finished_engine())
+    assert applied == [updates]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_preview_does_not_move_the_author_through_their_own_course(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The author is looking at a lesson, not taking one."""
+    asked: list[object] = []
+    monkeypatch.setattr(
+        run_agent,
+        "resolve_outline_progression",
+        lambda *_a, **_k: asked.append(1) or [],
+    )
+    events = list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=_finished_engine(),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+    assert asked == []
+    assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+_UNAVAILABLE = "outline unavailable"
+
+
+@pytest.mark.usefixtures("calls")
+def test_an_outline_that_cannot_be_read_does_not_cost_the_learner_the_lesson(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """They finished it and the turn is saved; a missing tick is the cheaper loss."""
+
+    def _boom(*_a: object, **_k: object) -> list:
+        raise RuntimeError(_UNAVAILABLE)
+
+    monkeypatch.setattr(run_agent, "resolve_outline_progression", _boom)
+    events = _run(_finished_engine(), app=_LoggingApp())
+    assert [e.type for e in events] == [GeneratedType.DONE]
