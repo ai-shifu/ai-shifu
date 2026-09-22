@@ -109,6 +109,29 @@ class AiCourseAuth(db.Model):
     )
 
 
+class ShifuSkillAttribution(db.Model):
+    """Persist immutable Skill attribution for a course created by a user."""
+
+    __tablename__ = "shifu_skill_attributions"
+    __table_args__ = (
+        UniqueConstraint("shifu_bid", name="uk_shifu_skill_attribution_shifu_bid"),
+        UniqueConstraint("handoff_id", name="uk_shifu_skill_attribution_handoff_id"),
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    shifu_bid = Column(String(32), nullable=False, comment="Course identifier")
+    user_bid = Column(
+        String(32), nullable=False, index=True, comment="Creator identifier"
+    )
+    host_platform = Column(String(32), nullable=False, comment="Skill host platform")
+    skill_id = Column(String(100), nullable=False, comment="Skill identifier")
+    skill_version = Column(String(32), nullable=False, comment="Skill version")
+    handoff_id = Column(String(36), nullable=False, comment="Course handoff UUID")
+    created_at = Column(
+        DateTime, nullable=False, default=now_utc, comment="Attribution timestamp"
+    )
+
+
 # per-user archive status for a shifu
 class ShifuUserArchive(db.Model):
     """Per-user archive state for a shifu."""

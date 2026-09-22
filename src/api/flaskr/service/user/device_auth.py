@@ -29,8 +29,14 @@ from typing import TYPE_CHECKING, Any
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.common.public_urls import build_public_url
+from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
+from flaskr.service.common.skill_attribution import (
+    SkillAttributionInput,
+    parse_skill_attribution,
+)
+from flaskr.service.user.models import UserSkillAttribution
 from flaskr.service.user.utils import generate_token
 
 if TYPE_CHECKING:
@@ -218,6 +224,7 @@ def create_device_authorization(
     device_os: str | None = None,
     client_version: str | None = None,
     client_ip: str | None = None,
+    registration_attribution: object = None,
 ) -> dict[str, Any]:
     """Start a pending authorization and hand the CLI its polling secret."""
     _guard_issue_rate(app, client_ip)
@@ -225,6 +232,9 @@ def create_device_authorization(
     device_code = secrets.token_urlsafe(32)
     user_code = _generate_user_code(app, ttl_seconds)
 
+    attribution = parse_skill_attribution(
+        registration_attribution, field_name="registration_attribution"
+    )
     payload = {
         "user_code": user_code,
         "status": STATUS_PENDING,
@@ -235,6 +245,13 @@ def create_device_authorization(
         "client_ip": _clean_text(client_ip),
         "created_at": int(time.time()),
     }
+    if attribution is not None:
+        payload["registration_attribution"] = {
+            "host_platform": attribution.host_platform,
+            "skill_id": attribution.skill_id,
+            "skill_version": attribution.skill_version,
+            "handoff_id": attribution.handoff_id,
+        }
     _store_session(app, device_code, payload, ttl_seconds)
     redis.set(_user_code_key(app, user_code), device_code, ex=ttl_seconds)
 
@@ -248,6 +265,62 @@ def create_device_authorization(
         "expires_in": ttl_seconds,
         "interval": _poll_interval(app),
     }
+
+
+def record_new_user_skill_attribution(
+    app: Flask, *, user_code: object, user_id: str
+) -> None:
+    """Persist device handoff attribution only for an explicitly new account.
+
+    The login route owns the ``is_new_user`` decision. This helper only resolves
+    the pending device request and writes the immutable first-touch record in
+    the caller's unit of work.
+    """
+    normalized = normalize_user_code(user_code)
+    if not normalized or not user_id:
+        return
+    device_code = _resolve_device_code(app, normalized)
+    if not device_code:
+        return
+
+    lock = _session_lock(app, device_code)
+    if not lock.acquire(blocking=True, blocking_timeout=3):
+        raise_error("server.user.deviceCodeInvalid")
+    try:
+        payload = _load_session(app, device_code)
+        if payload is None or payload.get("status") != STATUS_PENDING:
+            return
+        attribution = parse_skill_attribution(
+            payload.get("registration_attribution"),
+            field_name="registration_attribution",
+        )
+        if attribution is None:
+            return
+        _add_first_user_attribution(user_id=user_id, attribution=attribution)
+    finally:
+        lock.release()
+
+
+def _add_first_user_attribution(
+    *, user_id: str, attribution: SkillAttributionInput
+) -> None:
+    existing = UserSkillAttribution.query.filter_by(user_bid=user_id).first()
+    if existing is not None:
+        return
+    handoff_owner = UserSkillAttribution.query.filter_by(
+        handoff_id=attribution.handoff_id
+    ).first()
+    if handoff_owner is not None:
+        raise_error("server.user.deviceCodeInvalid")
+    db.session.add(
+        UserSkillAttribution(
+            user_bid=user_id,
+            host_platform=attribution.host_platform,
+            skill_id=attribution.skill_id,
+            skill_version=attribution.skill_version,
+            handoff_id=attribution.handoff_id,
+        )
+    )
 
 
 def _require_pending(

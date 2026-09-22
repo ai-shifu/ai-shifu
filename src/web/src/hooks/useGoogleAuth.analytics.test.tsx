@@ -113,6 +113,26 @@ describe('useGoogleAuth analytics contract', () => {
     );
   });
 
+  it('binds a device pairing code into the signed OAuth start request', async () => {
+    mockGoogleOauthStart.mockResolvedValue({
+      code: 0,
+      data: {
+        authorization_url: 'https://accounts.google.com/authorization',
+        state: 'signed-state',
+      },
+    });
+    const { result } = renderHook(() => useGoogleAuth());
+
+    await act(async () => {
+      await result.current.startGoogleLogin({ deviceUserCode: 'XYZ-347' });
+    });
+
+    expect(mockGoogleOauthStart).toHaveBeenCalledWith(
+      expect.objectContaining({ device_user_code: 'XYZ-347' }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('XYZ-347');
+  });
+
   it('records a successful callback without OAuth state, code, token, or identity', async () => {
     mockGoogleOauthCallback.mockResolvedValue(successfulGoogleCallbackResponse);
     const onSuccess = jest.fn();

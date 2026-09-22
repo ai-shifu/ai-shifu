@@ -200,6 +200,9 @@ class GoogleAuthProvider(AuthProvider):
             "redirect_uri": redirect_uri,
             "login_context": login_context,
         }
+        device_user_code = str(metadata.get("device_user_code") or "").strip()
+        if device_user_code:
+            state_payload["device_user_code"] = device_user_code
         # All domains share one Google callback, so remember where the browser
         # came from to hand it back afterwards. The origin is derived from
         # headers an attacker can set, so it is only honored together with the
@@ -407,6 +410,7 @@ class GoogleAuthProvider(AuthProvider):
             metadata={
                 "language": language,
                 "login_context": login_context,
+                "device_user_code": state_payload.get("device_user_code"),
                 "token_response": token,
                 "profile": profile,
                 "creator_granted_now": creator_granted_now,

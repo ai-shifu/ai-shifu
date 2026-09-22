@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.device_auth import (
     STATUS_APPROVED,
@@ -15,7 +16,9 @@ from flaskr.service.user.device_auth import (
     get_device_authorization,
     normalize_user_code,
     poll_device_authorization,
+    record_new_user_skill_attribution,
 )
+from flaskr.service.user.models import UserSkillAttribution
 
 USER_ID = "test-user-bid-0001"
 
@@ -59,6 +62,65 @@ def test_verification_url_never_carries_the_device_code(app: object) -> None:
         assert started["device_code"] not in started["verification_uri_complete"]
         assert started["device_code"] not in started["verification_uri"]
         assert started["user_code"] in started["verification_uri_complete"]
+
+
+def test_new_user_attribution_is_resolved_from_pending_device_request(
+    app: object,
+) -> None:
+    handoff_id = "123e4567-e89b-12d3-a456-426614174001"
+    with app.test_request_context():
+        started = create_device_authorization(
+            app,
+            registration_attribution={
+                "host_platform": "doubao",
+                "skill_id": "ai-shifu-course-creator",
+                "skill_version": "2.0.0",
+                "handoff_id": handoff_id,
+            },
+        )
+        with unit_of_work():
+            record_new_user_skill_attribution(
+                app, user_code=started["user_code"], user_id=USER_ID
+            )
+
+        saved = UserSkillAttribution.query.filter_by(user_bid=USER_ID).one()
+        assert saved.host_platform == "doubao"
+        assert saved.skill_id == "ai-shifu-course-creator"
+        assert saved.handoff_id == handoff_id
+
+
+def test_existing_first_touch_attribution_is_not_replaced(app: object) -> None:
+    user_id = "test-user-bid-0002"
+    with app.test_request_context():
+        first = create_device_authorization(
+            app,
+            registration_attribution={
+                "host_platform": "direct",
+                "skill_id": "ai-shifu-course-creator",
+                "skill_version": "1.0.0",
+                "handoff_id": "123e4567-e89b-12d3-a456-426614174002",
+            },
+        )
+        second = create_device_authorization(
+            app,
+            registration_attribution={
+                "host_platform": "codex",
+                "skill_id": "ai-shifu-course-creator",
+                "skill_version": "1.1.0",
+                "handoff_id": "123e4567-e89b-12d3-a456-426614174003",
+            },
+        )
+        with unit_of_work():
+            record_new_user_skill_attribution(
+                app, user_code=first["user_code"], user_id=user_id
+            )
+        with unit_of_work():
+            record_new_user_skill_attribution(
+                app, user_code=second["user_code"], user_id=user_id
+            )
+
+        saved = UserSkillAttribution.query.filter_by(user_bid=user_id).one()
+        assert saved.host_platform == "direct"
 
 
 def test_token_can_only_be_collected_once(app: object) -> None:

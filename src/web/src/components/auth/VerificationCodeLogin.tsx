@@ -31,6 +31,7 @@ type VerificationCodeLoginProps = {
   loginContext?: string;
   courseId?: string;
   referralMetadata?: ReferralLoginMetadata;
+  deviceUserCode?: string;
 };
 
 const normalizeVerificationCode = (rawValue: string): string => {
@@ -59,6 +60,7 @@ export function VerificationCodeLogin({
   loginContext,
   courseId,
   referralMetadata,
+  deviceUserCode,
 }: VerificationCodeLoginProps) {
   const isPhone = mode === 'phone';
   const { toast } = useToast();
@@ -78,6 +80,7 @@ export function VerificationCodeLogin({
       onSuccess: onLoginSuccess,
       loginContext,
       courseId,
+      deviceUserCode,
     });
   const {
     captchaImage,
