@@ -8,19 +8,33 @@ neither can be dropped without the suite noticing.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 _PROMPTS = (
     Path(__file__).resolve().parents[5] / "flaskr/service/learn/agent/engine/prompts"
 )
 _SYSTEM = (_PROMPTS / "system.md").read_text()
+_NUMBERED = re.compile(r"^\d+\. ")
 
 
 def _rule(number: int) -> str:
-    """Return the numbered rule from the system prompt, so a test reads only its own rule."""
-    lines = [line for line in _SYSTEM.splitlines() if line.startswith(f"{number}. ")]
-    assert len(lines) == 1, f"rule {number} is not a single line: {lines}"
-    return lines[0]
+    """Return one numbered rule from the system prompt, up to the next one.
+
+    Read as a rule rather than as a line: the prompt is prose, and someone wrapping a long rule
+    across two lines has not changed what it says. A parser that insisted on one physical line
+    would fail on the reformatting and pass on the deletion, which is exactly backwards.
+    """
+    lines = _SYSTEM.splitlines()
+    starts = [at for at, line in enumerate(lines) if _NUMBERED.match(line)]
+    for at in starts:
+        if not lines[at].startswith(f"{number}. "):
+            continue
+        after = [nxt for nxt in starts if nxt > at]
+        end = after[0] if after else len(lines)
+        return " ".join(line.strip() for line in lines[at:end] if line.strip())
+    message = f"rule {number} is not in the system prompt"
+    raise AssertionError(message)
 
 
 def test_the_subject_matter_stays_the_author_s() -> None:
