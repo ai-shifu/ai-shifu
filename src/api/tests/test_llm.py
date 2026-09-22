@@ -1452,7 +1452,10 @@ def test_ark_uses_litellm_thinking_and_provider_response_format_patch(
     assert "extra_body.thinking" not in prepared["additional_drop_params"]
 
 
-@pytest.mark.parametrize("model_id", ["ZHIPU/GLM-5.3", "zhipu/glm-5.3-FLASH"])
+@pytest.mark.parametrize(
+    "model_id",
+    ["glm-5.3", "GLM-5.3-Flash", "ZHIPU/GLM-5.3", "zhipu/glm-5.3-FLASH"],
+)
 def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
     monkeypatch: object, model_id: object
 ) -> None:
@@ -1994,6 +1997,13 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 )
             },
         }
+        for model in ("glm-5.3", "glm-5.3-flash"):
+            contracts[model] = adapter_contract(
+                "dashscope",
+                model,
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                prepared("qwen", "dashscope", model),
+            )
         print(json.dumps(contracts, sort_keys=True))
         """
     )
@@ -2044,6 +2054,12 @@ def test_litellm_198_native_adapter_contracts() -> None:
     assert contracts["dashscope"]["body"]["enable_thinking"] is False
     assert "enable_thinking" not in contracts["dashscope_glm_53"]["body"]
     assert contracts["dashscope_glm_53"]["body"]["reasoning_effort"] == "low"
+    for model_id in ("glm-5.3", "glm-5.3-flash"):
+        body = contracts[model_id]["body"]
+        assert body["model"] == model_id
+        assert "enable_thinking" not in body
+        assert body["reasoning_effort"] == "low"
+
     assert contracts["volcengine"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}
     assert contracts["zai"]["body"]["thinking"] == {"type": "disabled"}
