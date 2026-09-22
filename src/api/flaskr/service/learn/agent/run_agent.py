@@ -23,6 +23,7 @@ Nothing calls this yet: routing a lesson to it is the next change.
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import TYPE_CHECKING, Any
 
@@ -380,6 +381,35 @@ def _paged(
     )
 
 
+# How far back from the end of the narration a question may sit and still count as just asked.
+# Long enough for a closing fragment after it, short enough that the same words earlier in the
+# lesson are not mistaken for the question now standing in front of the learner.
+_ECHO_WINDOW_CHARS = 80
+
+
+def _condensed(text: str) -> str:
+    """Text with its whitespace removed, so a line break cannot hide a repetition."""
+    return re.sub(r"\s+", "", text)
+
+
+def _already_asked(taught: str, prompt: str) -> bool:
+    """Whether the lesson just asked this, in the words it is about to ask it again.
+
+    The model writes the question into the lesson text and then passes it to `interact` as well,
+    and both reach the learner: a lesson that had just asked "the first question: can you code?"
+    asked "can you code?" again, on its own line above the buttons.
+
+    Only the end of the narration counts. A question is suppressed because it was just asked, not
+    because those words appear somewhere in the turn -- dropping it on an earlier mention would
+    leave a set of choices with nothing to answer.
+    """
+    asked = _condensed(prompt)
+    if not asked:
+        return False
+    said = _condensed(taught)
+    return asked in said[-(len(asked) + _ECHO_WINDOW_CHARS) :]
+
+
 def _question(
     event: InteractionRequest,
     *,
@@ -389,6 +419,7 @@ def _question(
     generated_block_bid: str,
     app: Flask,
     user_bid: str,
+    taught: str,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Deliver a question as a 1.0 lesson does: its prompt with the text, then its controls."""
     try:
@@ -419,7 +450,12 @@ def _question(
             if prompt
             else []
         )
-    prompts = [d for d in translated if d.type == GeneratedType.CONTENT]
+    prompts = [
+        d
+        for d in translated
+        if d.type == GeneratedType.CONTENT
+        and not _already_asked(taught, str(d.content or ""))
+    ]
     controls = [d for d in translated if d.type != GeneratedType.CONTENT]
     yield from _on_this_page(prompts, pager=pager, voice=voice)
     if voice is not None:
@@ -583,6 +619,7 @@ def _stream_turn(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 app=app,
+                taught="".join(taught),
                 user_bid=user_bid,
             )
             continue
