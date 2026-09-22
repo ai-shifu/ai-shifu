@@ -60,7 +60,12 @@ under `scripts/`, including translation utilities and AI-doc tooling.
   frontend/backend boundary baseline and fixture coverage.
 
 - `python scripts/build_repo_knowledge_index.py` regenerates the knowledge
-  indexes and generated document inventory.
+  indexes, generated document inventory, and ignored harness health snapshot.
+- `python scripts/build_repo_knowledge_index.py --health-only` refreshes only
+  `docs/generated/harness-health.md`. This optional report is not a committed
+  artifact or a prerequisite for harness validation; regenerate it after
+  switching branches before relying on its contents. Committed indexes and
+  enforcement baselines remain subject to their existing checks.
 
 - `python scripts/check_translations.py && python scripts/check_translation_usage.py --fail-on-unused`
   is the shared translation validation pass after translation-tooling changes.

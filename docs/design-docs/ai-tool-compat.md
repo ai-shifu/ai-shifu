@@ -2,7 +2,7 @@
 title: AI Tool Compatibility Layer Design
 status: implemented
 owner_surface: repo
-last_reviewed: 2026-09-19
+last_reviewed: 2026-09-20
 canonical: true
 ---
 
@@ -88,9 +88,13 @@ The Copilot entry point must contain a Markdown link resolving to the local
 root `AGENTS.md`; a plain mention or external link does not establish that route.
 
 `scripts/build_repo_knowledge_index.py` remains responsible for the generated
-knowledge indexes, document inventory, and harness reports. CI regenerates
-those outputs and checks for drift; this generation describes repository
-facts rather than maintaining a second copy of the instructions.
+knowledge indexes, document inventory, and harness health snapshot. CI
+regenerates the committed indexes and inventory and checks them for drift.
+The optional, Git-ignored health snapshot is generated for local inspection and
+CI summaries/artifacts; its absence or staleness does not fail validation.
+See [harness health snapshots](../README.md#harness-health-snapshots) for refresh
+and access instructions. These outputs describe repository facts rather than
+maintaining a second copy of the instructions.
 
 Run `python scripts/check_repo_harness.py` after instruction edits. When
 documents or inventory inputs change, regenerate the knowledge outputs and

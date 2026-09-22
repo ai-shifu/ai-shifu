@@ -35,7 +35,7 @@ import { useToast } from '@/hooks/useToast';
 import { copyText } from '@/lib/textutils';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { normalizeModelOptions } from '@/store/modelOptions';
+import { normalizeModelOptions } from '@/lib/modelOptions';
 import {
   normalizeTtsModelOptions,
   type TtsModelOption,
